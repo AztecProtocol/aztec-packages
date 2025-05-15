@@ -8,11 +8,11 @@ import {
   type L2BlockSource,
   type L2BlockStream,
   type PublishedL2Block,
-  randomPublishedL2Block,
+  getAttestationsFromPublishedL2Block,
 } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockAttestation } from '@aztec/stdlib/p2p';
-import { makeBlockAttestation } from '@aztec/stdlib/testing';
+import { makeBlockAttestation, randomPublishedL2Block } from '@aztec/stdlib/testing';
 import type { ValidatorStats, ValidatorStatusHistory } from '@aztec/stdlib/validators';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -79,9 +79,7 @@ describe('sentinel', () => {
       signers = times(4, Secp256k1Signer.random);
       validators = signers.map(signer => signer.address);
       block = await randomPublishedL2Block(Number(slot));
-      attestations = await Promise.all(
-        signers.map(signer => makeBlockAttestation({ signer, archive: block.block.archive.root })),
-      );
+      attestations = signers.map(signer => makeBlockAttestation({ signer, archive: block.block.archive.root }));
       proposer = validators[0];
       committee = [...validators];
 
@@ -105,6 +103,20 @@ describe('sentinel', () => {
       p2p.getAttestationsForSlot.mockResolvedValue([]);
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[proposer.toString()]).toEqual('block-missed');
+    });
+
+    it('identifies attestors from p2p and archiver', async () => {
+      block = await randomPublishedL2Block(Number(slot), { signers: signers.slice(0, 2) });
+      const attestorsFromBlock = getAttestationsFromPublishedL2Block(block).map(att => att.getSender());
+      expect(attestorsFromBlock.map(a => a.toString())).toEqual(signers.slice(0, 2).map(a => a.address.toString()));
+
+      await sentinel.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+      p2p.getAttestationsForSlot.mockResolvedValue(attestations.slice(2, 3));
+
+      const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      expect(activity[committee[1].toString()]).toEqual('attestation-sent');
+      expect(activity[committee[2].toString()]).toEqual('attestation-sent');
+      expect(activity[committee[3].toString()]).toEqual('attestation-missed');
     });
 
     it('identifies missed attestors if block is mined', async () => {

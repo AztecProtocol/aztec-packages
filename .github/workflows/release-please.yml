@@ -54,7 +54,7 @@ jobs:
       - name: Build dependencies
         run: |
           for project in noir barretenberg l1-contracts yarn-project; do
-            $project/bootstrap.sh
+            CI=1 $project/bootstrap.sh
           done
 
       - name: Query new version
@@ -71,15 +71,16 @@ jobs:
       - name: Cut version
         working-directory: ./docs
         run: |
+          COMMIT_TAG=${{ steps.version.outputs.semver }}
           echo "[]" > versions.json
           yarn
-          yarn build
-          yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
+          COMMIT_TAG=$COMMIT_TAG yarn build
+          COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
 
-      - name: Filter
-        working-directory: ./docs
+      - name: Update versions.json with new version
+        working-directory: ./docs/scripts
         run: |
-          yarn filter-versions
+          ./update_versions.sh
 
       - name: Commit new documentation version
         run: |

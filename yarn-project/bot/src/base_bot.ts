@@ -52,14 +52,22 @@ export abstract class BaseBot {
       `Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`,
       logCtx,
     );
+
+    await this.onTxMined(receipt, logCtx);
+
     return receipt;
   }
 
   protected abstract createAndSendTx(logCtx: object): Promise<SentTx>;
 
+  protected onTxMined(_receipt: TxReceipt, _logCtx: object): Promise<void> {
+    // no-op
+    return Promise.resolve();
+  }
+
   protected getSendMethodOpts(...authWitnesses: AuthWitness[]): SendMethodOptions {
     const sender = this.wallet.getAddress();
-    const { l2GasLimit, daGasLimit, skipPublicSimulation } = this.config;
+    const { l2GasLimit, daGasLimit } = this.config;
     const paymentMethod = new FeeJuicePaymentMethod(sender);
 
     let gasSettings, estimateGas;
@@ -72,7 +80,6 @@ export abstract class BaseBot {
       this.log.verbose(`Estimating gas for transaction`);
     }
     const baseFeePadding = 2; // Send 3x the current base fee
-    this.log.verbose(skipPublicSimulation ? `Skipping public simulation` : `Simulating public transfers`);
-    return { fee: { estimateGas, paymentMethod, gasSettings, baseFeePadding }, skipPublicSimulation, authWitnesses };
+    return { fee: { estimateGas, paymentMethod, gasSettings, baseFeePadding }, authWitnesses };
   }
 }

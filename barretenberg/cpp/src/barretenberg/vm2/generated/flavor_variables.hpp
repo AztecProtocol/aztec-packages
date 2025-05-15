@@ -10,16 +10,17 @@
 #include "relations/bitwise.hpp"
 #include "relations/class_id_derivation.hpp"
 #include "relations/context.hpp"
-#include "relations/context_stack.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/keccakf1600.hpp"
+#include "relations/memory.hpp"
 #include "relations/merkle_check.hpp"
-#include "relations/nullifier_read.hpp"
+#include "relations/nullifier_check.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
-#include "relations/public_data_read.hpp"
+#include "relations/public_data_check.hpp"
 #include "relations/range_check.hpp"
 #include "relations/scalar_mul.hpp"
 #include "relations/sha256.hpp"
@@ -36,9 +37,9 @@
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_merkle_check.hpp"
-#include "relations/lookups_nullifier_read.hpp"
+#include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
-#include "relations/lookups_public_data_read.hpp"
+#include "relations/lookups_public_data_check.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
@@ -48,11 +49,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 45;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 998;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 135;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 1178;
+    static constexpr size_t NUM_ALL_ENTITIES = 2315;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -66,16 +67,17 @@ struct AvmFlavorVariables {
         avm2::bitwise<FF_>,
         avm2::class_id_derivation<FF_>,
         avm2::context<FF_>,
-        avm2::context_stack<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::ff_gt<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::keccakf1600<FF_>,
+        avm2::memory<FF_>,
         avm2::merkle_check<FF_>,
-        avm2::nullifier_read<FF_>,
+        avm2::nullifier_check<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
-        avm2::public_data_read<FF_>,
+        avm2::public_data_check<FF_>,
         avm2::range_check<FF_>,
         avm2::scalar_mul<FF_>,
         avm2::sha256<FF_>,
@@ -105,6 +107,8 @@ struct AvmFlavorVariables {
         lookup_bc_retrieval_address_derivation_relation<FF_>,
         lookup_bc_retrieval_bytecode_hash_is_correct_relation<FF_>,
         lookup_bc_retrieval_class_id_derivation_relation<FF_>,
+        lookup_bc_retrieval_deployment_nullifier_read_relation<FF_>,
+        lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_relation<FF_>,
         lookup_bc_retrieval_update_check_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
@@ -120,16 +124,24 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
-        lookup_nullifier_read_low_leaf_membership_relation<FF_>,
-        lookup_nullifier_read_low_leaf_next_nullifier_validation_relation<FF_>,
-        lookup_nullifier_read_low_leaf_nullifier_validation_relation<FF_>,
-        lookup_nullifier_read_low_leaf_poseidon2_relation<FF_>,
+        lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,
+        lookup_nullifier_check_low_leaf_next_nullifier_validation_relation<FF_>,
+        lookup_nullifier_check_low_leaf_nullifier_validation_relation<FF_>,
+        lookup_nullifier_check_low_leaf_poseidon2_relation<FF_>,
+        lookup_nullifier_check_new_leaf_merkle_check_relation<FF_>,
+        lookup_nullifier_check_new_leaf_poseidon2_relation<FF_>,
+        lookup_nullifier_check_updated_low_leaf_poseidon2_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
-        lookup_public_data_read_low_leaf_membership_relation<FF_>,
-        lookup_public_data_read_low_leaf_next_slot_validation_relation<FF_>,
-        lookup_public_data_read_low_leaf_poseidon2_0_relation<FF_>,
-        lookup_public_data_read_low_leaf_poseidon2_1_relation<FF_>,
-        lookup_public_data_read_low_leaf_slot_validation_relation<FF_>,
+        lookup_public_data_check_low_leaf_merkle_check_relation<FF_>,
+        lookup_public_data_check_low_leaf_next_slot_validation_relation<FF_>,
+        lookup_public_data_check_low_leaf_poseidon2_0_relation<FF_>,
+        lookup_public_data_check_low_leaf_poseidon2_1_relation<FF_>,
+        lookup_public_data_check_low_leaf_slot_validation_relation<FF_>,
+        lookup_public_data_check_new_leaf_merkle_check_relation<FF_>,
+        lookup_public_data_check_new_leaf_poseidon2_0_relation<FF_>,
+        lookup_public_data_check_new_leaf_poseidon2_1_relation<FF_>,
+        lookup_public_data_check_updated_low_leaf_poseidon2_0_relation<FF_>,
+        lookup_public_data_check_updated_low_leaf_poseidon2_1_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
         lookup_range_check_r0_is_u16_relation<FF_>,

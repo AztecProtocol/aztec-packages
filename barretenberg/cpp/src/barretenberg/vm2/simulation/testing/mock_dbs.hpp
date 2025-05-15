@@ -67,6 +67,9 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
 
     MOCK_METHOD(const TreeSnapshots&, get_tree_roots, (), (const, override));
     MOCK_METHOD(FF, storage_read, (const FF& key), (const, override));
+    MOCK_METHOD(void, storage_write, (const FF& key, const FF& value), (override));
+    MOCK_METHOD(bool, nullifier_exists, (const FF& nullifier), (const, override));
+    MOCK_METHOD(void, nullifier_write, (const FF& nullifier), (override));
 
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));

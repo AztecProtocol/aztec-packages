@@ -4,7 +4,7 @@ import { PolyfillOptions, nodePolyfills } from 'vite-plugin-node-polyfills';
 import bundlesize from 'vite-plugin-bundlesize';
 
 // Only required for alternative bb wasm file, left as reference
-// import { viteStaticCopy } from "vite-plugin-static-copy";
+//import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
 // Suspected to be because of the yarn workspace setup, but not sure
@@ -25,7 +25,8 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
-    logLevel: 'error',
+    base: './',
+    logLevel: process.env.CI ? 'error' : undefined,
     server: {
       // Headers needed for bb WASM to work in multithreaded mode
       headers: {
@@ -52,13 +53,15 @@ export default defineConfig(({ mode }) => {
       // viteStaticCopy({
       //   targets: [
       //     {
-      //       src: "../barretenberg/ts/dest/node/barretenberg_wasm/*.gz",
-      //       dest: "assets/",
+      //       src: '../barretenberg/cpp/build-wasm-threads/bin/*.wasm',
+      //       dest: 'assets/',
       //     },
       //   ],
       // }),
       bundlesize({
-        limits: [{ name: 'assets/index-*', limit: '1600kB' }],
+        // Bump log:
+        // - AD: bumped from 1600 => 1680 as we now have a 20kb msgpack lib in bb.js and other logic got us 50kb higher, adding some wiggle room.
+        limits: [{ name: 'assets/index-*', limit: '1700kB' }],
       }),
     ],
     define: {

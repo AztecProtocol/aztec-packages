@@ -1,9 +1,17 @@
-import type { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
-import { type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
+import {
+  AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { type ForeignCallInput, type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
+import type { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import type { RecursiveProof } from '@aztec/stdlib/proofs';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import createDebug from 'debug';
+import { strict as assert } from 'assert';
 
 import MockAppCreatorCircuit from '../artifacts/app_creator.json' assert { type: 'json' };
 import MockAppReaderCircuit from '../artifacts/app_reader.json' assert { type: 'json' };
@@ -69,7 +77,7 @@ export {
 
 /* eslint-disable camelcase */
 
-const logger = createDebug('aztec:ivc-test');
+const log = createLogger('aztec:ivc-test');
 
 export function getVkAsFields(vk: {
   keyAsBytes: string;
@@ -80,8 +88,17 @@ export function getVkAsFields(vk: {
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
 
-function foreignCallHandler(): Promise<ForeignCallOutput[]> {
-  throw new Error('Unexpected foreign call');
+function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
+  if (name === 'debugLog') {
+    assert(args.length === 3, 'expected 3 arguments for debugLog: msg, fields_length, fields');
+    const [msgRaw, _ignoredFieldsSize, fields] = args;
+    const msg: string = msgRaw.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
+    const fieldsFr: Fr[] = fields.map((field: string) => Fr.fromString(field));
+    log.verbose('debug_log ' + applyStringFormatting(msg, fieldsFr));
+  } else {
+    throw new Error('Unexpected foreign call');
+  }
+  return Promise.resolve([]);
 }
 
 export interface WitnessGenResult<PublicInputsType> {
@@ -199,27 +216,29 @@ export async function witnessGenMockRollupRootCircuit(
   };
 }
 
-export async function generate3FunctionTestingIVCStack(): Promise<[string[], Uint8Array[], KernelPublicInputs]> {
+export async function generate3FunctionTestingIVCStack(): Promise<
+  [string[], Uint8Array[], KernelPublicInputs, string[]]
+> {
   const tx = {
     number_of_calls: '0x1',
   };
 
   // Witness gen app and kernels
   const appWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-  logger('generated app mock circuit witness');
+  log.debug('generated app mock circuit witness');
 
   const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
     app_inputs: appWitnessGenResult.publicInputs,
     tx,
     app_vk: getVkAsFields(MockAppCreatorVk),
   });
-  logger('generated mock private kernel init witness');
+  log.debug('generated mock private kernel init witness');
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-    kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
+    kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
   });
-  logger('generated mock private kernel tail witness');
+  log.debug('generated mock private kernel tail witness');
 
   // Create client IVC proof
   const bytecodes = [
@@ -229,10 +248,18 @@ export async function generate3FunctionTestingIVCStack(): Promise<[string[], Uin
   ];
   const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
 
-  return [bytecodes, witnessStack, tailWitnessGenResult.publicInputs];
+  const precomputedVks = [
+    MockAppCreatorVk.keyAsBytes,
+    MockPrivateKernelInitVk.keyAsBytes,
+    MockPrivateKernelTailVk.keyAsBytes,
+  ];
+
+  return [bytecodes, witnessStack, tailWitnessGenResult.publicInputs, precomputedVks];
 }
 
-export async function generate6FunctionTestingIVCStack(): Promise<[string[], Uint8Array[], KernelPublicInputs]> {
+export async function generate6FunctionTestingIVCStack(): Promise<
+  [string[], Uint8Array[], KernelPublicInputs, string[]]
+> {
   const tx = {
     number_of_calls: '0x2',
   };
@@ -286,11 +313,27 @@ export async function generate6FunctionTestingIVCStack(): Promise<[string[], Uin
     tailWitnessGenResult.witness,
   ];
 
-  return [bytecodes, witnessStack, tailWitnessGenResult.publicInputs];
+  const precomputedVks = [
+    MockAppCreatorVk.keyAsBytes,
+    MockPrivateKernelInitVk.keyAsBytes,
+    MockAppReaderVk.keyAsBytes,
+    MockPrivateKernelInnerVk.keyAsBytes,
+    MockPrivateKernelResetVk.keyAsBytes,
+    MockPrivateKernelTailVk.keyAsBytes,
+  ];
+
+  return [bytecodes, witnessStack, tailWitnessGenResult.publicInputs, precomputedVks];
 }
 
 export function mapRecursiveProofToNoir<N extends number>(proof: RecursiveProof<N>): FixedLengthArray<string, N> {
   return proof.proof.map(field => field.toString()) as FixedLengthArray<string, N>;
+}
+
+export function mapAvmProofToNoir(proof: Fr[]): FixedLengthArray<string, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED> {
+  if (proof.length != AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
+    throw new Error('Invalid number of AVM proof fields');
+  }
+  return proof.map(field => field.toString()) as FixedLengthArray<string, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
 }
 
 export function mapVerificationKeyToNoir<N extends number>(
@@ -307,4 +350,26 @@ export function mapVerificationKeyToNoir<N extends number>(
     key: vk.key.map(field => field.toString()) as FixedLengthArray<string, N>,
     hash: vk.hash.toString(),
   };
+}
+
+export function mapAvmVerificationKeyToNoir(
+  vk: Fr[],
+): FixedLengthArray<string, typeof AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED> {
+  if (vk.length != AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED) {
+    throw new Error('Invalid number of AVM verification key fields');
+  }
+  return vk.map(field => field.toString()) as FixedLengthArray<
+    string,
+    typeof AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED
+  >;
+}
+
+export function mapAvmPublicInputsToNoir(
+  publicInputs: AvmCircuitPublicInputs,
+): FixedLengthArray<string, typeof AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> {
+  const serialized = publicInputs.toFields();
+  if (serialized.length != AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH) {
+    throw new Error('Invalid number of AVM public inputs');
+  }
+  return serialized.map(x => x.toString()) as FixedLengthArray<string, typeof AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH>;
 }

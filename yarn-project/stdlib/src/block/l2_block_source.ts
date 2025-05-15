@@ -118,6 +118,9 @@ export interface L2BlockSource {
    * Returns the rollup constants for the current chain.
    */
   getL1Constants(): Promise<L1RollupConstants>;
+
+  /** Force a sync. */
+  syncImmediate(): Promise<void>;
 }
 
 /**
@@ -139,6 +142,14 @@ export type L2Tips = Record<L2BlockTag, L2BlockId>;
 
 /** Identifies a block by number and hash. */
 export type L2BlockId = z.infer<typeof L2BlockIdSchema>;
+
+/** Creates an L2 block id */
+export function makeL2BlockId(number: number, hash?: string): L2BlockId {
+  if (number !== 0 && !hash) {
+    throw new Error(`Hash is required for non-genesis blocks (got block number ${number})`);
+  }
+  return { number, hash: hash! };
+}
 
 // TODO(palla/schemas): This package should know what is the block hash of the genesis block 0.
 const L2BlockIdSchema = z.union([

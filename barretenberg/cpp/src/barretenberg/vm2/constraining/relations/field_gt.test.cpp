@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"

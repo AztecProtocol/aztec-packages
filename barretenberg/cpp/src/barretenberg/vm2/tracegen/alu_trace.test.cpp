@@ -17,7 +17,6 @@ using testing::ElementsAre;
 using testing::Field;
 
 using R = TestTraceContainer::Row;
-using FF = R::FF;
 
 TEST(AluTraceGenTest, TraceGeneration)
 {
@@ -26,7 +25,10 @@ TEST(AluTraceGenTest, TraceGeneration)
 
     builder.process(
         {
-            { .operation = AluOperation::ADD, .a = 1, .b = 2, .c = 3, .tag = MemoryTag::U32 /* unused for now */ },
+            { .operation = AluOperation::ADD,
+              .a = MemoryValue::from<uint32_t>(1),
+              .b = MemoryValue::from<uint32_t>(2),
+              .c = MemoryValue::from<uint32_t>(3) },
         },
         trace);
 

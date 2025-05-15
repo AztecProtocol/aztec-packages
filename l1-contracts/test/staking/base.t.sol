@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {TestBase} from "@test/base/Base.sol";
 
 import {StakingCheater} from "./StakingCheater.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 contract StakingBase is TestBase {

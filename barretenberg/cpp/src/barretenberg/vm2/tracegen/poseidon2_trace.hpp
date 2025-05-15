@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
@@ -14,6 +16,8 @@ class Poseidon2TraceBuilder final {
     void process_permutation(
         const simulation::EventEmitterInterface<simulation::Poseidon2PermutationEvent>::Container& perm_events,
         TraceContainer& trace);
+
+    static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs();
 };
 
 } // namespace bb::avm2::tracegen

@@ -1,7 +1,12 @@
+// docs:start:balance_set
 use dep::aztec::{
     context::{PrivateContext, UtilityContext},
-    note::{note_emission::OuterNoteEmission, retrieved_note::RetrievedNote},
+    note::{
+        note_emission::OuterNoteEmission, note_getter_options::SortOrder,
+        note_interface::NoteProperties, retrieved_note::RetrievedNote,
+    },
     protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    state_vars::storage::Storage,
 };
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateSet};
 use dep::uint_note::uint_note::UintNote;
@@ -9,6 +14,13 @@ use std::ops::Add;
 
 pub struct BalanceSet<Context> {
     pub set: PrivateSet<UintNote, Context>,
+}
+
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
+impl<Context> Storage<1> for BalanceSet<Context> {
+    fn get_storage_slot(self) -> Field {
+        self.set.get_storage_slot()
+    }
 }
 
 impl<Context> BalanceSet<Context> {
@@ -81,6 +93,7 @@ impl BalanceSet<&mut PrivateContext> {
         // might result in is simply higher DA costs due to more nullifiers being emitted. Since we don't care
         // about proving optimal note usage, we can save these constraints and make the circuit smaller.
         let options = NoteGetterOptions::with_preprocessor(preprocess_notes_min_sum, target_amount)
+            .sort(UintNote::properties().value, SortOrder.DESC)
             .set_limit(max_notes);
         let notes = self.set.pop_notes(options);
 
@@ -119,4 +132,100 @@ pub fn preprocess_notes_min_sum(
         }
     }
     selected
+}
+// docs:end:balance_set
+
+mod test {
+    use crate::{test::utils, Token};
+    use super::BalanceSet;
+    use dep::aztec::{
+        protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToField},
+        test::helpers::cheatcodes,
+    };
+
+    #[test]
+    unconstrained fn subtract_balance_small_note_first() {
+        let (env, token_contract_address, owner, recipient) = utils::setup(false);
+
+        // The owner mints two notes for the recipient: first one for a small amount, and then one for a large amount.
+        env.impersonate(owner);
+
+        let small_mint_amount: u128 = 5;
+        Token::at(token_contract_address).mint_to_private(owner, recipient, small_mint_amount).call(
+            &mut env.private(),
+        );
+        env.advance_block_by(1);
+
+        let large_mint_amount: u128 = 50;
+        Token::at(token_contract_address).mint_to_private(owner, recipient, large_mint_amount).call(
+            &mut env.private(),
+        );
+        env.advance_block_by(1);
+
+        // We check the recipient balance is correct both as a sanity check and as a way to make sure we've discovered
+        // the notes.
+        utils::check_private_balance(
+            token_contract_address,
+            recipient,
+            small_mint_amount + large_mint_amount,
+        );
+
+        // We now instantiate a BalanceSet state variable for the recipient and subtract an amount equal to the small
+        // note. Because large notes are consumed first, we should see that a change note is created with amount equal
+        // to large - small, indicating that the large note was consumed.
+        cheatcodes::set_contract_address(token_contract_address);
+        let recipient_balance_storage_slot =
+            derive_storage_slot_in_map(Token::storage_layout().balances.slot, recipient.to_field());
+
+        let recipient_balance_set =
+            BalanceSet::new(&mut env.private(), recipient_balance_storage_slot);
+        let emission = recipient_balance_set.sub(recipient, small_mint_amount);
+        assert_eq(emission.emission.unwrap().note.value, large_mint_amount - small_mint_amount);
+
+        // The subtract_balance_large_note_first test does the same as this one, except creating the large note first.
+        // Put together, these two tests check that large notes are consumed first regardless of creation order.
+    }
+
+    #[test]
+    unconstrained fn subtract_balance_large_note_first() {
+        let (env, token_contract_address, owner, recipient) = utils::setup(false);
+
+        // The owner mints two notes for the recipient: first one for a large amount, and then one for a small amount.
+        env.impersonate(owner);
+
+        let large_mint_amount: u128 = 50;
+        Token::at(token_contract_address).mint_to_private(owner, recipient, large_mint_amount).call(
+            &mut env.private(),
+        );
+        env.advance_block_by(1);
+
+        let small_mint_amount: u128 = 5;
+        Token::at(token_contract_address).mint_to_private(owner, recipient, small_mint_amount).call(
+            &mut env.private(),
+        );
+        env.advance_block_by(1);
+
+        // We check the recipient balance is correct both as a sanity check and as a way to make sure we've discovered
+        // the notes.
+        utils::check_private_balance(
+            token_contract_address,
+            recipient,
+            small_mint_amount + large_mint_amount,
+        );
+
+        // We now instantiate a BalanceSet state variable for the recipient and subtract an amount equal to the small
+        // note. Because large notes are consumed first, we should see that a change note is created with amount equal
+        // to large - small, indicating that the large note was consumed.
+        cheatcodes::set_contract_address(token_contract_address);
+        let recipient_balance_storage_slot =
+            derive_storage_slot_in_map(Token::storage_layout().balances.slot, recipient.to_field());
+
+        let recipient_balance_set =
+            BalanceSet::new(&mut env.private(), recipient_balance_storage_slot);
+        let emission = recipient_balance_set.sub(recipient, small_mint_amount);
+        assert_eq(emission.emission.unwrap().note.value, large_mint_amount - small_mint_amount);
+
+        // The subtract_balance_small_note_first test does the same as this one, except creating the small note first.
+        // Put together, these two tests check that large notes are consumed first regardless of creation order.
+    }
 }

@@ -10,5 +10,5 @@ members = [
   "crates/mock-rollup-base-private",
   "crates/mock-rollup-base-public",
   "crates/mock-rollup-merge",
-  "crates/mock-rollup-root"
+  "crates/mock-rollup-root",
 ]

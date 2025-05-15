@@ -8,8 +8,8 @@ use aztec::macros::aztec;
 pub contract DocsExample {
     // how to import dependencies defined in your workspace
     use aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{private, public, utility}, storage::{storage, storage_no_init}},
+        messages::logs::note::encode_and_encrypt_note,
         note::note_interface::NoteProperties,
         prelude::{
             AztecAddress, Map, NoteViewerOptions, PrivateContext, PrivateImmutable, PrivateMutable,

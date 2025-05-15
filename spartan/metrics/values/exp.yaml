@@ -1,0 +1,134 @@
+opentelemetry-collector:
+  replicaCount: 1
+  resources:
+    requests:
+      memory: 20Gi
+      cpu: "4"
+  nodeSelector:
+    node-type: infra
+    #   pool: spot
+    # tolerations:
+    #   - key: "cloud.google.com/gke-spot"
+    #     operator: "Equal"
+    #     value: "true"
+    #     effect: "NoSchedule"
+  ports:
+    jaeger-compact:
+      enabled: false
+  service:
+    enabled: true
+    type: LoadBalancer
+  config:
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 20000
+        spike_limit_mib: 4000
+      filter/large_histograms:
+        metrics:
+          datapoint:
+            - metric.type == METRIC_DATA_TYPE_HISTOGRAM and Len(explicit_bounds) > 20
+
+      transform/promote_resource_attributes:
+        metric_statements:
+          - context: datapoint
+            statements:
+            # see recommendations https://prometheus.io/docs/guides/opentelemetry/#promoting-resource-attributes
+            - set(attributes["service.instance.id"], resource.attributes["service.instance.id"])
+            - set(attributes["service.name"], resource.attributes["service.name"])
+            - set(attributes["service.namespace"], resource.attributes["service.namespace"])
+            - set(attributes["k8s.namespace.name"], resource.attributes["k8s.namespace.name"])
+            - set(attributes["k8s.pod.name"], resource.attributes["k8s.pod.name"])
+
+      metricstransform:
+        transforms:
+          - include: 'system.cpu.utilization'
+            match_type: strict
+            action: combine
+            new_name: 'system.cpu.utilization_combined'
+            operations:
+              - action: aggregate_labels
+                label_set: [ system.cpu.state ]
+                aggregation_type: mean
+
+    exporters:
+      prometheus:
+        endpoint: ${env:MY_POD_IP}:8889
+        metric_expiration: 5m
+        resource_to_telemetry_conversion:
+          enabled: false
+    service:
+      pipelines:
+        metrics:
+          receivers:
+            - otlp
+          processors:
+            - memory_limiter
+            - filter/large_histograms
+            - metricstransform
+            - transform/promote_resource_attributes
+            - batch
+          exporters:
+            - prometheus
+            # - debug
+
+prometheus:
+  server:
+    resources:
+      requests:
+        memory: 80Gi
+        cpu: "7"
+    nodeSelector:
+      node-type: infra
+    #   pool: spot
+    # tolerations:
+    #   - key: "cloud.google.com/gke-spot"
+    #     operator: "Equal"
+    #     value: "true"
+    #     effect: "NoSchedule"
+
+    persistentVolume:
+      enabled: true
+      size: 100Gi
+    replicaCount: 1
+    statefulSet:
+      enabled: true
+  alertmanager:
+    nodeSelector:
+      node-type: infra
+  nodeExporter:
+    nodeSelector:
+      node-type: infra
+  pushgateway:
+    nodeSelector:
+      node-type: infra
+
+loki:
+  enabled: false
+
+tempo:
+  enabled: false
+
+# https://artifacthub.io/packages/helm/grafana/grafana
+grafana:
+  resources:
+    requests:
+      memory: 4Gi
+      cpu: "1.5"
+  nodeSelector:
+    node-type: infra
+  service:
+    type: LoadBalancer
+  persistence:
+    type: pvc
+    enabled: true
+    size: "128Gi"
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          uid: spartan-metrics-prometheus
+          isDefault: true
+          url: http://metrics-prometheus-server.metrics:80

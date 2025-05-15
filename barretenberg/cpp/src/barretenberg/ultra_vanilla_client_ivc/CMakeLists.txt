@@ -1,1 +1,0 @@
-barretenberg_module(ultra_vanilla_client_ivc stdlib_honk_verifier)

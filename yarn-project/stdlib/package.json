@@ -39,6 +39,7 @@
     "./stats": "./dest/stats/index.js",
     "./auth-witness": "./dest/auth_witness/index.js",
     "./block": "./dest/block/index.js",
+    "./block/test": "./dest/block/test/index.js",
     "./versioning": "./dest/versioning/index.js",
     "./interfaces/client": "./dest/interfaces/client.js",
     "./interfaces/server": "./dest/interfaces/server.js",
@@ -48,7 +49,8 @@
     "./database-version": "./dest/database-version/index.js",
     "./validators": "./dest/validators/index.js",
     "./file-store": "./dest/file-store/index.js",
-    "./snapshots": "./dest/snapshots/index.js"
+    "./snapshots": "./dest/snapshots/index.js",
+    "./update-checker": "./dest/update-checker/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -62,8 +64,6 @@
     "generate": "./scripts/copy-contracts.sh",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "dependencies": {
@@ -72,7 +72,10 @@
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@google-cloud/storage": "^7.15.0",
+    "axios": "^1.9.0",
+    "json-stringify-deterministic": "1.0.12",
     "lodash.chunk": "^4.2.0",
     "lodash.isequal": "^4.5.0",
     "lodash.omit": "^4.5.0",
@@ -84,6 +87,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@jest/expect": "^29.5.0",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/lodash.chunk": "^4.2.9",

@@ -68,13 +68,17 @@ export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
 
   /**
    * Forces an immediate sync to an optionally provided minimum block number
-   * @param minBlockNumber - The minimum block number that we must sync to (may sync further)
+   * @param targetBlockNumber - The target block number that we must sync to. Will download unproven blocks if needed to reach it.
+   * @param skipThrowIfTargetNotReached - Whether to skip throwing if the target block number is not reached.
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  syncImmediate(minBlockNumber?: number): Promise<number>;
+  syncImmediate(minBlockNumber?: number, skipThrowIfTargetNotReached?: boolean): Promise<number>;
 
   /** Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data. */
   getCommitted(): MerkleTreeReadOperations;
+
+  /** Deletes the db */
+  clear(): Promise<void>;
 }
 
 export const WorldStateSyncStatusSchema = z.object({

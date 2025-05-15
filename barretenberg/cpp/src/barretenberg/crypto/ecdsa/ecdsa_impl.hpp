@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "../hmac/hmac.hpp"
@@ -46,7 +52,7 @@ ecdsa_signature ecdsa_construct_signature(const std::string& message, const ecds
     constexpr uint8_t offset = 27;
 
     int value = offset + recovery_bit + static_cast<uint8_t>(2) * !is_r_finite;
-    ASSERT(value <= UINT8_MAX);
+    BB_ASSERT_LTE(value, UINT8_MAX);
     sig.v = static_cast<uint8_t>(value);
     return sig;
 }
@@ -87,9 +93,9 @@ typename G1::affine_element ecdsa_recover_public_key(const std::string& message,
     bool is_r_finite = true;
 
     if ((v_uint == 27) || (v_uint == 28)) {
-        ASSERT(uint256_t(r) == uint256_t(r_fq));
+        BB_ASSERT_EQ(uint256_t(r), uint256_t(r_fq));
     } else if ((v_uint == 29) || (v_uint == 30)) {
-        ASSERT(uint256_t(r) < uint256_t(r_fq));
+        BB_ASSERT_LT(uint256_t(r), uint256_t(r_fq));
         is_r_finite = false;
     } else {
         throw_or_abort("v value is not in {27, 28, 29, 30}");

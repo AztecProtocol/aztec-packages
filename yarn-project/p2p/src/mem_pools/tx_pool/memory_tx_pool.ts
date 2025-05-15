@@ -31,6 +31,10 @@ export class InMemoryTxPool implements TxPool {
     this.metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL);
   }
 
+  public isEmpty(): Promise<boolean> {
+    return Promise.resolve(this.txs.size === 0);
+  }
+
   public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
     const keys = txHashes.map(x => x.toBigInt());
     for (const key of keys) {
@@ -103,6 +107,13 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve(result === undefined ? undefined : Tx.clone(result));
   }
 
+  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    return Promise.all(txHashes.map(txHash => this.getTxByHash(txHash)));
+  }
+  hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
+    return Promise.resolve(txHashes.map(txHash => this.txs.has(txHash.toBigInt())));
+  }
+
   public getArchivedTxByHash(): Promise<Tx | undefined> {
     return Promise.resolve(undefined);
   }
@@ -170,5 +181,13 @@ export class InMemoryTxPool implements TxPool {
    */
   public getAllTxHashes(): Promise<TxHash[]> {
     return Promise.resolve(Array.from(this.txs.keys()).map(x => TxHash.fromBigInt(x)));
+  }
+
+  setMaxTxPoolSize(_maxSizeBytes: number | undefined): Promise<void> {
+    return Promise.resolve();
+  }
+
+  markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
+    return Promise.resolve();
   }
 }

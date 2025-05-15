@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "acir_format.hpp"
 #include "serde/index.hpp"
@@ -12,17 +18,13 @@ namespace acir_format {
  * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
  *       Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
  */
-WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf);
+WitnessVector witness_buf_to_witness_data(std::vector<uint8_t>&& buf);
 
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf);
 
-std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
+std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t>&& buf);
 
-WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf);
+WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t>&& buf);
 
-#ifndef __wasm__
-AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
-                                        std::string const& witness_path,
-                                        uint32_t honk_recursion);
-#endif
+AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path);
 } // namespace acir_format

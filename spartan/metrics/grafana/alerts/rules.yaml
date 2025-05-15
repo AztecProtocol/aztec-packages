@@ -546,7 +546,7 @@ groups:
                 conditions:
                     - evaluator:
                         params:
-                            - 25
+                            - 50
                         type: gt
                       operator:
                         type: and
@@ -650,7 +650,87 @@ groups:
           execErrState: Error
           for: 1m
           annotations:
-            summary: Critical errors in the WorldState of {{ ` {{ $labels.service_name }} ({{ $labels.k8s_namespace_name  }} ` }})
+            summary: Critical errors in the WorldState of {{ ` {{ $labels.service_name }} ({{ $labels.k8s_namespace_name }}) ` }}
+          labels: {}
+          isPaused: false
+        - uid: feferpbufao74d
+          title: L1 - ETH Balance Low
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: aztec_l1_publisher_balance_eth
+                instant: true
+                intervalMs: 1000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 10
+                        type: lt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          noDataState: NoData
+          execErrState: Error
+          for: 1m
+          annotations: {}
           labels: {}
           isPaused: false
     - orgId: 1
@@ -671,7 +751,7 @@ groups:
                 editorMode: code
                 expr: scrape_duration_seconds
                 instant: true
-                intervalMs: 60000
+                intervalMs: 1000
                 legendFormat: __auto
                 maxDataPoints: 43200
                 range: false

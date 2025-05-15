@@ -12,12 +12,12 @@ pub contract SchnorrAccount {
         auth_witness::get_auth_witness,
         entrypoint::{app::AppPayload, fee::FeePayload},
     };
-    use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use dep::aztec::hash::compute_siloed_nullifier;
     use dep::aztec::macros::{
         functions::{initializer, noinitcheck, private, utility, view},
         storage::storage,
     };
+    use dep::aztec::messages::logs::note::encode_and_encrypt_note;
     use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
     use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
 

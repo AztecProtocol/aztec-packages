@@ -64,3 +64,13 @@ export function fromEntries<const T extends ReadonlyArray<readonly [PropertyKey,
   // See https://stackoverflow.com/a/76176570
   return Object.fromEntries(entries) as { [K in T[number] as K[0]]: K[1] };
 }
+
+/** Asserts all values in object are not undefined. */
+export function assertRequired<T extends object>(obj: T): Required<T> {
+  for (const key in obj) {
+    if (obj[key] === undefined) {
+      throw new Error(`Missing property ${key}`);
+    }
+  }
+  return obj as Required<T>;
+}

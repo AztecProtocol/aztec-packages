@@ -35,9 +35,6 @@ proverAgent:
     requests:
       memory: "64Gi"
       cpu: "16"
-    limits:
-      memory: "96Gi"
-      cpu: "16"
 
 proverBroker:
   resources:
@@ -57,16 +54,19 @@ ethereum:
   execution:
     resources:
       requests:
-        memory: "5Gi"
-    storageSize: "80Gi"
+        memory: "12Gi"
+        cpu: "2.5"
+    storageSize: "90Gi"
   beacon:
     resources:
       requests:
-        memory: "5Gi"
-    storageSize: "80Gi"
+        memory: "12Gi"
+        cpu: "2.5"
+    storageSize: "90Gi"
   validator:
     resources:
       requests:
-        memory: "5Gi"
+        memory: "12Gi"
+        cpu: "2.5"
 
 

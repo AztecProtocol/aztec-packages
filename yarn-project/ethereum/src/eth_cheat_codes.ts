@@ -1,9 +1,10 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type Hex, createPublicClient, fallback, http } from 'viem';
+import { type Hex, createPublicClient, fallback, http, parseTransaction } from 'viem';
 
 import type { ViemPublicClient } from './types.js';
 
@@ -28,7 +29,7 @@ export class EthCheatCodes {
   }
 
   async rpcCall(method: string, params: any[]) {
-    const paramsString = JSON.stringify(params);
+    const paramsString = jsonStringify(params);
     this.logger.info(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
     return (await this.publicClient.transport.request({
       method,
@@ -310,5 +311,46 @@ export class EthCheatCodes {
   public async getRawTransaction(txHash: Hex): Promise<`0x${string}`> {
     const res = await this.rpcCall('debug_getRawTransaction', [txHash]);
     return res;
+  }
+
+  /**
+   * Triggers a reorg of the given depth, removing those blocks from the chain.
+   * @param depth - The depth of the reorg
+   */
+  public async reorg(depth: number): Promise<void> {
+    try {
+      await this.rpcCall('anvil_rollback', [depth]);
+    } catch (err) {
+      throw new Error(`Error rolling back: ${err}`);
+    }
+    this.logger.warn(`Rolled back L1 chain with depth ${depth}`);
+  }
+
+  /**
+   * Triggers a reorg of the given depth, optionally replacing it with new blocks.
+   * The resulting block height will be the same as the original chain.
+   * @param depth - The depth of the reorg
+   * @param newBlocks - The blocks to replace the old ones with, each represented as a list of txs.
+   */
+  public async reorgWithReplacement(
+    depth: number,
+    newBlocks: (Hex | { to: EthAddress | Hex; input?: Hex; from?: EthAddress | Hex; value?: number | bigint })[][] = [],
+  ): Promise<void> {
+    this.logger.verbose(`Preparing L1 reorg with depth ${depth}`);
+    for (const tx of newBlocks.flat()) {
+      const isBlobTx = typeof tx === 'string' ? parseTransaction(tx).type === 'eip4844' : 'blobVersionedHashes' in tx;
+      if (isBlobTx) {
+        throw new Error(`Anvil does not support blob transactions in anvil_reorg`);
+      }
+    }
+    try {
+      await this.rpcCall('anvil_reorg', [
+        depth,
+        newBlocks.flatMap((txs, index) => txs.map(tx => [typeof tx === 'string' ? tx : { value: 0, ...tx }, index])),
+      ]);
+    } catch (err) {
+      throw new Error(`Error reorging: ${err}`);
+    }
+    this.logger.warn(`Reorged L1 chain with depth ${depth} and ${newBlocks.length} new blocks`, { depth, newBlocks });
   }
 }

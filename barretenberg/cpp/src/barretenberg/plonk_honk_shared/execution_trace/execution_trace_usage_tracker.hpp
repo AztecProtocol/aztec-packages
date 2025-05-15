@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
@@ -31,6 +37,7 @@ struct ExecutionTraceUsageTracker {
     // Max sizes of the "tables" for databus and conventional lookups (distinct from the sizes of their gate blocks)
     size_t max_databus_size = 0;
     size_t max_tables_size = 0;
+    size_t max_gates_size = 0;
 
     // For printing only. Must match the order of the members in the arithmetization
 
@@ -71,6 +78,8 @@ struct ExecutionTraceUsageTracker {
         for (auto [block, max_size] : zip_view(circuit.blocks.get(), max_sizes.get())) {
             max_size = std::max(static_cast<uint32_t>(block.size()), max_size);
         }
+
+        max_gates_size = std::max(max_gates_size, circuit.num_gates);
 
         // update the max sixe of the databus and lookup tables
         max_databus_size = std::max({ max_databus_size,
@@ -118,6 +127,9 @@ struct ExecutionTraceUsageTracker {
 
     void print()
     {
+        // NOTE: This is used by downstream tools for parsing the required block sizes. Do not change this
+        // without updating (or consulting Grego).
+        info("Largest circuit: ", max_gates_size, " gates. Trace details:");
         info("Minimum required block sizes for structured trace: ");
         size_t idx = 0;
         for (auto max_size : max_sizes.get()) {

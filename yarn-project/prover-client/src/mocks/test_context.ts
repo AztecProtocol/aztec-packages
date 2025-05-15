@@ -6,14 +6,8 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import {
-  PublicContractsDB,
-  PublicProcessor,
-  PublicTreesDB,
-  PublicTxSimulationTester,
-  PublicTxSimulator,
-  SimpleContractDataSource,
-} from '@aztec/simulator/server';
+import { PublicTxSimulationTester, SimpleContractDataSource } from '@aztec/simulator/public/fixtures';
+import { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
@@ -40,7 +34,6 @@ export class TestContext {
   private feePayerBalance: Fr;
 
   constructor(
-    public publicTxSimulator: PublicTxSimulator,
     public worldState: MerkleTreeAdminDatabase,
     public publicProcessor: PublicProcessor,
     public globalVariables: GlobalVariables,
@@ -79,26 +72,17 @@ export class TestContext {
 
     // Separated dbs for public processor and prover - see public_processor for context
     const ws = await NativeWorldStateService.tmp(
-      undefined /* rollupAddress */,
-      true /* cleanupTmpDir */,
+      /*rollupAddress=*/ undefined,
+      /*cleanupTmpDir=*/ true,
       prefilledPublicData,
     );
     const merkleTrees = await ws.fork();
 
     const contractDataSource = new SimpleContractDataSource();
-    const treesDB = new PublicTreesDB(merkleTrees);
-    const contractsDB = new PublicContractsDB(contractDataSource);
-
     const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
 
-    const publicTxSimulator = new PublicTxSimulator(treesDB, contractsDB, globalVariables, true);
-    const processor = new PublicProcessor(
-      globalVariables,
-      treesDB,
-      contractsDB,
-      publicTxSimulator,
-      new TestDateProvider(),
-    );
+    const processorFactory = new PublicProcessorFactory(contractDataSource, new TestDateProvider());
+    const processor = processorFactory.create(merkleTrees, globalVariables, /*skipFeeEnforcement=*/ false);
 
     let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);
@@ -127,7 +111,6 @@ export class TestContext {
     facade.start();
 
     return new this(
-      publicTxSimulator,
       ws,
       processor,
       globalVariables,

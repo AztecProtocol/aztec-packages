@@ -1,7 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "bincode.hpp"
-#include "msgpack.hpp"
 #include "serde.hpp"
 
 namespace Acir {
@@ -3058,8 +3064,8 @@ struct BlackBoxFuncCall {
 
     struct AES128Encrypt {
         std::vector<Acir::FunctionInput> inputs;
-        std::array<Acir::FunctionInput, 16> iv;
-        std::array<Acir::FunctionInput, 16> key;
+        std::shared_ptr<std::array<Acir::FunctionInput, 16>> iv;
+        std::shared_ptr<std::array<Acir::FunctionInput, 16>> key;
         std::vector<Acir::Witness> outputs;
 
         friend bool operator==(const AES128Encrypt&, const AES128Encrypt&);
@@ -3163,7 +3169,7 @@ struct BlackBoxFuncCall {
 
     struct Blake2s {
         std::vector<Acir::FunctionInput> inputs;
-        std::array<Acir::Witness, 32> outputs;
+        std::shared_ptr<std::array<Acir::Witness, 32>> outputs;
 
         friend bool operator==(const Blake2s&, const Blake2s&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -3187,7 +3193,7 @@ struct BlackBoxFuncCall {
 
     struct Blake3 {
         std::vector<Acir::FunctionInput> inputs;
-        std::array<Acir::Witness, 32> outputs;
+        std::shared_ptr<std::array<Acir::Witness, 32>> outputs;
 
         friend bool operator==(const Blake3&, const Blake3&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -3210,10 +3216,10 @@ struct BlackBoxFuncCall {
     };
 
     struct EcdsaSecp256k1 {
-        std::array<Acir::FunctionInput, 32> public_key_x;
-        std::array<Acir::FunctionInput, 32> public_key_y;
-        std::array<Acir::FunctionInput, 64> signature;
-        std::array<Acir::FunctionInput, 32> hashed_message;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> public_key_x;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> public_key_y;
+        std::shared_ptr<std::array<Acir::FunctionInput, 64>> signature;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> hashed_message;
         Acir::Witness output;
 
         friend bool operator==(const EcdsaSecp256k1&, const EcdsaSecp256k1&);
@@ -3243,10 +3249,10 @@ struct BlackBoxFuncCall {
     };
 
     struct EcdsaSecp256r1 {
-        std::array<Acir::FunctionInput, 32> public_key_x;
-        std::array<Acir::FunctionInput, 32> public_key_y;
-        std::array<Acir::FunctionInput, 64> signature;
-        std::array<Acir::FunctionInput, 32> hashed_message;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> public_key_x;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> public_key_y;
+        std::shared_ptr<std::array<Acir::FunctionInput, 64>> signature;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> hashed_message;
         Acir::Witness output;
 
         friend bool operator==(const EcdsaSecp256r1&, const EcdsaSecp256r1&);
@@ -3278,7 +3284,7 @@ struct BlackBoxFuncCall {
     struct MultiScalarMul {
         std::vector<Acir::FunctionInput> points;
         std::vector<Acir::FunctionInput> scalars;
-        std::array<Acir::Witness, 3> outputs;
+        std::shared_ptr<std::array<Acir::Witness, 3>> outputs;
 
         friend bool operator==(const MultiScalarMul&, const MultiScalarMul&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -3303,9 +3309,9 @@ struct BlackBoxFuncCall {
     };
 
     struct EmbeddedCurveAdd {
-        std::array<Acir::FunctionInput, 3> input1;
-        std::array<Acir::FunctionInput, 3> input2;
-        std::array<Acir::Witness, 3> outputs;
+        std::shared_ptr<std::array<Acir::FunctionInput, 3>> input1;
+        std::shared_ptr<std::array<Acir::FunctionInput, 3>> input2;
+        std::shared_ptr<std::array<Acir::Witness, 3>> outputs;
 
         friend bool operator==(const EmbeddedCurveAdd&, const EmbeddedCurveAdd&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -3330,8 +3336,8 @@ struct BlackBoxFuncCall {
     };
 
     struct Keccakf1600 {
-        std::array<Acir::FunctionInput, 25> inputs;
-        std::array<Acir::Witness, 25> outputs;
+        std::shared_ptr<std::array<Acir::FunctionInput, 25>> inputs;
+        std::shared_ptr<std::array<Acir::Witness, 25>> outputs;
 
         friend bool operator==(const Keccakf1600&, const Keccakf1600&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -3573,9 +3579,9 @@ struct BlackBoxFuncCall {
     };
 
     struct Sha256Compression {
-        std::array<Acir::FunctionInput, 16> inputs;
-        std::array<Acir::FunctionInput, 8> hash_values;
-        std::array<Acir::Witness, 8> outputs;
+        std::shared_ptr<std::array<Acir::FunctionInput, 16>> inputs;
+        std::shared_ptr<std::array<Acir::FunctionInput, 8>> hash_values;
+        std::shared_ptr<std::array<Acir::Witness, 8>> outputs;
 
         friend bool operator==(const Sha256Compression&, const Sha256Compression&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -5273,9 +5279,10 @@ inline std::vector<uint8_t> AssertionPayload::bincodeSerialize() const
 
 inline AssertionPayload AssertionPayload::bincodeDeserialize(std::vector<uint8_t> input)
 {
+    const size_t input_size = input.size();
     auto deserializer = serde::BincodeDeserializer(input);
     auto value = serde::Deserializable<AssertionPayload>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
+    if (deserializer.get_buffer_offset() < input_size) {
         throw_or_abort("Some input bytes were not read");
     }
     return value;

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/common/ref_vector.hpp"
@@ -78,14 +84,12 @@ struct TraceSettings {
     // context of VK computation
     uint32_t overflow_capacity = 0;
 
-    size_t size() const { return structure->size() + static_cast<size_t>(overflow_capacity); }
+    // This size is used as a hint to the BN254 Commitment Key needed in the CIVC.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319): This can be removed once the prover knows all
+    // the circuit sizes in advance.
+    size_t size() const { return (structure ? structure->size() : 0) + static_cast<size_t>(overflow_capacity); }
 
-    size_t dyadic_size() const
-    {
-        const size_t total_size = size();
-        const size_t lower_dyadic = 1 << numeric::get_msb(total_size);
-        return total_size > lower_dyadic ? lower_dyadic << 1 : lower_dyadic;
-    }
+    size_t dyadic_size() const { return numeric::round_up_power_2(size()); }
 };
 
 class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 14> {
@@ -218,6 +222,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         info("poseidon int  :\t", this->poseidon2_internal.size(), "/", this->poseidon2_internal.get_fixed_size());
         info("overflow      :\t", this->overflow.size(), "/", this->overflow.get_fixed_size());
         info("");
+        info("Total structured size: ", get_structured_size());
     }
 
     // Get cumulative size of all blocks
@@ -230,12 +235,18 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         return total_size;
     }
 
-    size_t get_structured_dyadic_size() const
+    size_t get_structured_size() const
     {
         size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (const auto& block : this->get()) {
             total_size += block.get_fixed_size();
         }
+        return total_size;
+    }
+
+    size_t get_structured_dyadic_size() const
+    {
+        size_t total_size = get_structured_size();
 
         auto log2_n = static_cast<size_t>(numeric::get_msb(total_size));
         if ((1UL << log2_n) != (total_size)) {
@@ -256,7 +267,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
 static constexpr TraceStructure TINY_TEST_STRUCTURE{ .ecc_op = 18,
                                                      .busread = 3,
                                                      .lookup = 2,
-                                                     .pub_inputs = 1,
+                                                     .pub_inputs = 20,
                                                      .arithmetic = 1 << 14,
                                                      .delta_range = 5,
                                                      .elliptic = 2,
@@ -280,22 +291,6 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
                                                       .poseidon2_external = 1 << 14,
                                                       .poseidon2_internal = 1 << 15,
                                                       .overflow = 0 };
-
-/**
- * @brief A minimal structuring specifically tailored to the medium complexity transaction of the Client IVC
- * benchmark.
- */
-static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
-                                                            .busread = 1 << 7,
-                                                            .lookup = 72000,
-                                                            .pub_inputs = 1 << 7,
-                                                            .arithmetic = 198000,
-                                                            .delta_range = 90000,
-                                                            .elliptic = 9000,
-                                                            .aux = 136000,
-                                                            .poseidon2_external = 2500,
-                                                            .poseidon2_internal = 14500,
-                                                            .overflow = 0 };
 
 /**
  * @brief An example structuring of size 2^18.

@@ -7,6 +7,7 @@ metadata:
     app: {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.bot.replicas }}
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: {{- include "aztec-network.selectorLabels" . | nindent 6 }}
@@ -63,31 +64,6 @@ spec:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
 
-        - name: get-private-key
-          image: {{ .Values.images.foundry.image }}
-          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
-          command:
-            - "/bin/sh"
-            - "-c"
-            - |
-              . /scripts/get-private-key.sh
-          volumeMounts:
-            - name: scripts
-              mountPath: /scripts
-            - name: config
-              mountPath: /shared/config
-            - name: bot-data
-              mountPath: {{ .Values.bot.dataDir }}
-          env:
-            - name: KEY_INDEX_START
-              value: {{ .Values.aztec.botKeyIndexStart | quote }}
-            - name: MNEMONIC
-              value: {{ .Values.aztec.l1DeploymentMnemonic }}
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-
         - name: wait-for-aztec-node
           image: "{{ .Values.images.curl.image }}"
           command:
@@ -118,9 +94,11 @@ spec:
             - "/bin/bash"
             - "-c"
             - |
+              source /scripts/get-private-key.sh
+              source /shared/config/keys.env
+
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              source /shared/config/keys.env
               source /shared/config/otel-resource
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
@@ -159,6 +137,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.botKeyIndexStart | quote }}
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
             - name: AZTEC_PORT
               value: "{{ .Values.bot.service.nodePort }}"
             - name: LOG_JSON

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "polynomial.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
@@ -42,7 +48,7 @@ SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray
 template <typename Fr>
 void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
 {
-    ASSERT(start_index + size <= virtual_size);
+    BB_ASSERT_LTE(start_index + size, virtual_size);
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
         start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
         size + start_index, /* end index, actual memory used is (end - start) */
@@ -74,7 +80,7 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
         size_t offset = j * range_per_thread;
         size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
         ASSERT(offset < size || size == 0);
-        ASSERT((offset + range) <= size);
+        BB_ASSERT_LTE((offset + range), size);
         memset(static_cast<void*>(coefficients_.backing_memory_.get() + offset), 0, sizeof(Fr) * range);
     });
 }
@@ -101,7 +107,7 @@ Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other)
 // fully copying "expensive" constructor
 template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, const size_t target_size)
 {
-    ASSERT(other.size() <= target_size);
+    BB_ASSERT_LTE(other.size(), target_size);
     coefficients_ = _clone(other.coefficients_, target_size - other.size());
 }
 
@@ -112,7 +118,7 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
                            size_t virtual_size)
     : Polynomial(interpolation_points.size(), virtual_size)
 {
-    ASSERT(coefficients_.size() > 0);
+    BB_ASSERT_GT(coefficients_.size(), static_cast<size_t>(0));
 
     polynomial_arithmetic::compute_efficient_interpolation(
         evaluations.data(), coefficients_.data(), interpolation_points.data(), coefficients_.size());
@@ -167,8 +173,8 @@ template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) co
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan<const Fr> other)
 {
-    ASSERT(start_index() <= other.start_index);
-    ASSERT(end_index() >= other.end_index());
+    BB_ASSERT_LTE(start_index(), other.start_index);
+    BB_ASSERT_GTE(end_index(), other.end_index());
     size_t num_threads = calculate_num_threads(other.size());
     size_t range_per_thread = other.size() / num_threads;
     size_t leftovers = other.size() - (range_per_thread * num_threads);
@@ -204,7 +210,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
 
     // Assert that the size of the Polynomial being evaluated is a power of 2 greater than (1 << m)
     ASSERT(numeric::is_power_of_two(size()));
-    ASSERT(size() >= static_cast<size_t>(1 << m));
+    BB_ASSERT_GTE(size(), static_cast<size_t>(1 << m));
     size_t n = numeric::get_msb(size());
 
     // Partial evaluation is done in m rounds l = 0,...,m-1. At the end of round l, the Polynomial has been
@@ -256,8 +262,8 @@ Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationD
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
 {
-    ASSERT(start_index() <= other.start_index);
-    ASSERT(end_index() >= other.end_index());
+    BB_ASSERT_LTE(start_index(), other.start_index);
+    BB_ASSERT_GTE(end_index(), other.end_index());
     const size_t num_threads = calculate_num_threads(other.size());
     const size_t range_per_thread = other.size() / num_threads;
     const size_t leftovers = other.size() - (range_per_thread * num_threads);
@@ -299,9 +305,9 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_i
 template <typename Fr>
 Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t new_end_index) const
 {
-    ASSERT(new_end_index <= virtual_size());
-    ASSERT(new_start_index <= start_index());
-    ASSERT(new_end_index >= end_index());
+    BB_ASSERT_LTE(new_end_index, virtual_size());
+    BB_ASSERT_LTE(new_start_index, start_index());
+    BB_ASSERT_GTE(new_end_index, end_index());
     if (new_start_index == start_index() && new_end_index == end_index()) {
         return *this;
     }
@@ -313,7 +319,7 @@ Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t
 
 template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_end_index)
 {
-    ASSERT(new_end_index <= end_index());
+    BB_ASSERT_LTE(new_end_index, end_index());
     coefficients_.end_ = new_end_index;
 }
 
@@ -327,8 +333,8 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 
 template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &
 {
-    ASSERT(start_index() <= other.start_index);
-    ASSERT(end_index() >= other.end_index());
+    BB_ASSERT_LTE(start_index(), other.start_index);
+    BB_ASSERT_GTE(end_index(), other.end_index());
     const size_t num_threads = calculate_num_threads(other.size());
     const size_t range_per_thread = other.size() / num_threads;
     const size_t leftovers = other.size() - (range_per_thread * num_threads);
@@ -343,7 +349,7 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
-    ASSERT(coefficients_.start_ >= 1);
+    BB_ASSERT_GTE(coefficients_.start_, static_cast<size_t>(1));
     Polynomial result;
     result.coefficients_ = coefficients_;
     result.coefficients_.start_ -= 1;
@@ -354,7 +360,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::right_shifted(const size_t magnitude) const
 {
     // ensure that at least the last magnitude-many coefficients are virtual 0's
-    ASSERT((coefficients_.end_ + magnitude) <= virtual_size());
+    BB_ASSERT_LTE((coefficients_.end_ + magnitude), virtual_size());
     Polynomial result;
     result.coefficients_ = coefficients_;
     result.coefficients_.start_ += magnitude;

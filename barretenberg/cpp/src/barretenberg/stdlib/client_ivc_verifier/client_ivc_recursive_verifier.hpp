@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
@@ -32,7 +38,7 @@ class ClientIVCRecursiveVerifier {
         : builder(builder)
         , ivc_verification_key(ivc_verification_key){};
 
-    Output verify(const ClientIVC::Proof&);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify(const ClientIVC::Proof&);
 
   private:
     std::shared_ptr<Builder> builder;

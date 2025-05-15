@@ -1,5 +1,7 @@
 CompileFlags: # Tweak the parse settings
-  Remove: -fconstexpr-ops-limit=*
+  Remove:
+    - "-fconstexpr-ops-limit=*"
+    - "-Wfatal-errors"
 ---
 # Applies all barretenberg source files
 If:
@@ -51,6 +53,8 @@ Diagnostics:
       - readability-container-data-pointer
       # Many hits; potential for false positives.
       - cppcoreguidelines-pro-type-member-init
+      # We do use this, so no point banning it. The name is a warning enough.
+      - cppcoreguidelines-pro-type-reinterpret-cast
       # As cryptographers, we often think of bools as 0/1 values; would bloat code in some places.
       - modernize-use-bool-literals
       # Triggers on every TYPED_TEST
@@ -69,6 +73,16 @@ Diagnostics:
       - readability-avoid-const-params-in-decls
       # const size_t circuit_size = static_cast<size_t>(...) is not better as const auto; auto is for clarity or cheap local polymorphism
       - modernize-use-auto
+      # Not worth rewriting. Redundant types are often clearer.
+      - modernize-return-braced-init-list
+      # Not worth rewriting. Also some gotchas with mac not accepting emplaces of C++20 default constructors.
+      - modernize-use-emplace
+      # We only really use macros where a constexpr would NOT be able to replace its functionality.
+      - cppcoreguidelines-macro-usage
+      # Opinionated, we sometimes just want to use a default-derived constructor.
+      - modernize-use-designated-initializers
+      # Often makes virtually no difference as exactly one copy happens regardless, just adds decision paralysis.
+      - modernize-pass-by-value
 
 --- # this divider is necessary
 # Disable some checks for Google Test/Bench

@@ -46,14 +46,17 @@ spec:
             - |
               source /shared/config/service-addresses
 
-              until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
-                echo "Waiting for boot node..."
-                sleep 5
-              done
-              echo "Boot node is ready!"
+              if [ -z "${REGISTRY_CONTRACT_ADDRESS:-}" ]; then
+                until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
+                  echo "Waiting for boot node..."
+                  sleep 5
+                done
+                echo "Boot node is ready!"
 
-              output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info -u $BOOT_NODE_HOST --json)
-              export REGISTRY_CONTRACT_ADDRESS=$(echo $output | jq -r .l1ContractAddresses.registry)
+                output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info -u $BOOT_NODE_HOST --json)
+                export REGISTRY_CONTRACT_ADDRESS=$(echo $output | jq -r .l1ContractAddresses.registry)
+              fi
+
               env
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --blob-sink
           startupProbe:
@@ -96,6 +99,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: BLOB_SINK_PORT
               value: "{{ .Values.blobSink.service.nodePort }}"
+            - name: BLOB_SINK_ARCHIVE_API_URL
+              value: "{{ .Values.blobSink.archiveApiUrl }}"
             - name: LOG_LEVEL
               value: "{{ .Values.blobSink.logLevel }}"
             - name: LOG_JSON
@@ -108,6 +113,8 @@ spec:
               value: "{{ .Values.telemetry.useGcloudLogging }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
+            - name: "REGISTRY_CONTRACT_ADDRESS"
+              value: "{{ .Values.aztec.contracts.registryAddress }}"
           ports:
             - containerPort: {{ .Values.blobSink.service.nodePort }}
           resources:

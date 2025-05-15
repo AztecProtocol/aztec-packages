@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Some notes if you have to work on this script.
-# - First of all, I'm sorry. It's a beautiful script but it's no fun to debug. I got carried away.
+# - First of all, I'm sorry (edit: not sorry). It's a beautiful script but it's no fun to debug. I got carried away.
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
 # - This flag however, isn't carried into exported functions. You need to do "set -x" in those functions manually.
 # - You can call ./bootstrap.sh compile <contract names> to compile and process select contracts.
@@ -152,7 +152,7 @@ function compile {
     if [ "${VERBOSE:-0}" -eq 0 ]; then
       local args="--silence-warnings"
     fi
-    $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0
+    $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0 --pedantic-solving
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
@@ -214,6 +214,10 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function format {
+  $NARGO fmt
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -236,7 +240,7 @@ case "$cmd" in
     shift
     VERBOSE=${VERBOSE:-1} build "$@"
     ;;
-  test|test_cmds)
+  test|test_cmds|format)
     $cmd
     ;;
   *)

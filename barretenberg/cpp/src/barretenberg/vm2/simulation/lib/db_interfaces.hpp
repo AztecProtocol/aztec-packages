@@ -74,6 +74,9 @@ class HighLevelMerkleDBInterface {
 
     virtual const TreeSnapshots& get_tree_roots() const = 0;
     virtual FF storage_read(const FF& key) const = 0;
+    virtual void storage_write(const FF& leaf_slot, const FF& value) = 0;
+    virtual bool nullifier_exists(const FF& nullifier) const = 0;
+    virtual void nullifier_write(const FF& nullifier) = 0;
 
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;

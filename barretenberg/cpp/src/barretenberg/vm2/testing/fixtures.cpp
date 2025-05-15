@@ -48,37 +48,37 @@ Operand random_operand(OperandType operand_type)
     case OperandType::UINT8: {
         uint8_t operand_u8 = 0;
         serialize::read(pos_ptr, operand_u8);
-        return Operand::u8(operand_u8);
+        return Operand::from<uint8_t>(operand_u8);
     }
     case OperandType::TAG: {
         uint8_t operand_u8 = 0;
         serialize::read(pos_ptr, operand_u8);
-        return Operand::u8(operand_u8 % static_cast<uint8_t>(MemoryTag::MAX) +
-                           1); // Insecure bias but it is fine for testing purposes.
+        return Operand::from<uint8_t>(operand_u8 % static_cast<uint8_t>(MemoryTag::MAX) +
+                                      1); // Insecure bias but it is fine for testing purposes.
     }
     case OperandType::INDIRECT16: // Irrelevant bits might be toggled but they are ignored during address resolution.
     case OperandType::UINT16: {
         uint16_t operand_u16 = 0;
         serialize::read(pos_ptr, operand_u16);
-        return Operand::u16(operand_u16);
+        return Operand::from<uint16_t>(operand_u16);
     }
     case OperandType::UINT32: {
         uint32_t operand_u32 = 0;
         serialize::read(pos_ptr, operand_u32);
-        return Operand::u32(operand_u32);
+        return Operand::from<uint32_t>(operand_u32);
     }
     case OperandType::UINT64: {
         uint64_t operand_u64 = 0;
         serialize::read(pos_ptr, operand_u64);
-        return Operand::u64(operand_u64);
+        return Operand::from<uint64_t>(operand_u64);
     }
     case OperandType::UINT128: {
         uint128_t operand_u128 = 0;
         serialize::read(pos_ptr, operand_u128);
-        return Operand::u128(operand_u128);
+        return Operand::from<uint128_t>(operand_u128);
     }
     case OperandType::FF:
-        return Operand::ff(FF::random_element());
+        return Operand::from<FF>(FF::random_element());
     }
 
     // Need this for gcc compilation even though we fully handle the switch cases.
@@ -96,8 +96,10 @@ Instruction random_instruction(WireOpCode w_opcode)
     for (const auto& operand_type : format) {
         switch (operand_type) {
         case OperandType::INDIRECT8:
+            indirect = random_operand(operand_type).as<uint8_t>();
+            break;
         case OperandType::INDIRECT16:
-            indirect = static_cast<uint16_t>(random_operand(operand_type));
+            indirect = random_operand(operand_type).as<uint16_t>();
             break;
         default:
             operands.emplace_back(random_operand(operand_type));
@@ -137,11 +139,37 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 {
     AvmTraceGenHelper trace_gen_helper;
 
-    auto trace = trace_gen_helper.generate_trace({
-            .alu = { { .operation = simulation::AluOperation::ADD, .a = 1, .b = 2, .c = 3, .tag = MemoryTag::U16 }, },
-        });
+    PublicInputs public_inputs = {
+        .globalVariables = {
+            .blockNumber = 42,
+        },
+        .startTreeSnapshots = {
+            .l1ToL2MessageTree = {
+                .root = 111,
+                .nextAvailableLeafIndex = 222,
+            },
+            .noteHashTree = {
+                .root = 333,
+                .nextAvailableLeafIndex = 444,
+            },
+            .nullifierTree = {
+                .root = 555,
+                .nextAvailableLeafIndex = 666,
+            },
+            .publicDataTree = {
+                .root = 777,
+                .nextAvailableLeafIndex = 888,
+            },
+        },
+        .reverted = false,
+    };
 
-    return std::make_pair<tracegen::TraceContainer, PublicInputs>(std::move(trace), { .reverted = false });
+    auto trace = trace_gen_helper.generate_trace({
+            .alu = { { .operation = simulation::AluOperation::ADD, .a = MemoryValue::from<uint16_t>(1), .b = MemoryValue::from<uint16_t>(2), .c = MemoryValue::from<uint16_t>(3) }, },
+        },
+        public_inputs);
+
+    return { std::move(trace), std::move(public_inputs) };
 }
 
 bool skip_slow_tests()

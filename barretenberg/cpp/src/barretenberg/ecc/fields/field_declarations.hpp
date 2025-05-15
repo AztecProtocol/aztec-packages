@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
@@ -325,7 +331,8 @@ template <class Params_> struct alignas(32) field {
 
     BB_INLINE constexpr field pow(const uint256_t& exponent) const noexcept;
     BB_INLINE constexpr field pow(uint64_t exponent) const noexcept;
-    static_assert(Params::modulus_0 != 1);
+    // STARKNET: next line was commented as stark252 violates the assertion
+    // static_assert(Params::modulus_0 != 1);
     static constexpr uint256_t modulus_minus_two =
         uint256_t(Params::modulus_0 - 2ULL, Params::modulus_1, Params::modulus_2, Params::modulus_3);
     constexpr field invert() const noexcept;

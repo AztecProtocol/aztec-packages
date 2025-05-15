@@ -18,14 +18,14 @@ use dep::aztec::macros::aztec;
 pub contract TokenBlacklist {
     // Libs
     use dep::aztec::{
-        discovery::private_notes::attempt_note_discovery,
-        encrypted_logs::log_assembly_strategies::default_aes128::note::{
-            encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
-        },
         hash::compute_secret_hash,
         macros::{
             functions::{initializer, internal, private, public, utility, view},
             storage::storage,
+        },
+        messages::{
+            discovery::private_notes::attempt_note_discovery,
+            logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
         utils::comparison::Comparator,

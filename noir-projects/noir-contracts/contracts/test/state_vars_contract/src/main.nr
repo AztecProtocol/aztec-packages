@@ -4,8 +4,8 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract StateVars {
     use aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{private, public, utility, view}, storage::{storage, storage_no_init}},
+        messages::logs::note::encode_and_encrypt_note,
         prelude::{AztecAddress, PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable},
         protocol_types::traits::{Deserialize, Packable, Serialize},
     };

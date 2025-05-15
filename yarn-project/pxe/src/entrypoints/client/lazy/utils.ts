@@ -1,4 +1,4 @@
-import { BBWASMLazyPrivateKernelProver } from '@aztec/bb-prover/wasm/lazy';
+import { BBWASMLazyPrivateKernelProver } from '@aztec/bb-prover/client/wasm/lazy';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
@@ -26,6 +26,7 @@ export async function createPXEService(
   const l1Contracts = await aztecNode.getL1ContractAddresses();
   const configWithContracts = {
     ...config,
+    l2BlockBatchSize: 200,
     l1Contracts,
   } as PXEServiceConfig;
 

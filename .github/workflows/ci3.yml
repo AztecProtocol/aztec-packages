@@ -62,11 +62,14 @@ jobs:
         run: echo "CI is not run on drafts." && exit 1
 
       - name: CI Full Override
-        # TODO consolidate legacy labels to just ci-full.
         if: contains(github.event.pull_request.labels.*.name, 'ci-full')
         run: |
           echo "CI_FULL=1" >> $GITHUB_ENV
           echo "USE_TEST_CACHE=0" >> $GITHUB_ENV
+
+      - name: Cache Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
+        run: echo "NO_CACHE=1" >> $GITHUB_ENV
 
       - name: CI Nightly Check
         if: contains(github.ref, '-nightly.')
@@ -112,7 +115,6 @@ jobs:
 
       - name: Store barretenberg benchmark result
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_BB_BENCH != 'true'
-        continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: C++ Benchmark
@@ -120,15 +122,29 @@ jobs:
           output-file-path: ./bench-out/bb-bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
+          alert-threshold: "110%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@ludamad @ledwards2225"
+          max-items-in-chart: 50
+
+      - name: Store protocol circuit benchmark result
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: Protocol Circuit Gate Counts
+          benchmark-data-dir-path: "dev/protocol-circuits-bench"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/protocol-circuits-gates-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
           alert-threshold: "105%"
           comment-on-alert: true
           fail-on-alert: false
-          alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
 
       - name: Store Example App IVC benchmark results
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_YP_BENCH != 'true'
-        continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: C++ Benchmark
@@ -136,15 +152,14 @@ jobs:
           output-file-path: ./bench-out/ivc-bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
-          alert-threshold: "105%"
+          alert-threshold: "110%"
           comment-on-alert: true
           fail-on-alert: false
-          alert-comment-cc-users: "@ludamad @codygunton"
+          alert-comment-cc-users: "@ludamad @ledwards2225"
           max-items-in-chart: 50
 
       - name: Store yarn project benchmark result
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_YP_BENCH != 'true'
-        continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: "End-to-end Benchmark"
@@ -157,6 +172,40 @@ jobs:
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@philwindle @spalladino"
+          max-items-in-chart: 50
+
+      - name: Store public simulator benchmark result
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: "Public Simulation Benchmarks"
+          benchmark-data-dir-path: "dev/sim-bench"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/sim-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          # High alert threshold because public simulation times vary quite a bit from run to run.
+          # Although it would be ideal to separately alert at ~105% for regressions in #instructions executed....
+          alert-threshold: "200%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@dbanks12"
+          max-items-in-chart: 50
+
+      - name: Store l1 gas benchmark result
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: "L1 Gas Benchmark"
+          benchmark-data-dir-path: "dev/l1-gas-bench"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/l1-gas-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "110%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@LHerskind"
           max-items-in-chart: 50
 
       # - name: Store p2p benchmark result

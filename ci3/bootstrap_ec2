@@ -28,7 +28,7 @@ cores=${CPUS:-$cores}
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
   set +e
-  if [ -n "$iid" ]; then
+  if [ -n "${iid:-}" ]; then
     if [ "$NO_TERMINATE" -eq 0 ]; then
       aws_terminate_instance $iid $sir
     else
@@ -91,6 +91,10 @@ if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
   echo "AWS credentials are being set from ~/.aws/build_instance_credentials."
   export AWS_ACCESS_KEY_ID=$(grep aws_access_key_id ~/.aws/build_instance_credentials | awk '{print $3}')
   export AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key ~/.aws/build_instance_credentials | awk '{print $3}')
+  if [[ $(echo "$AWS_ACCESS_KEY_ID" | wc -l) > 1 ]] || [[ $(echo "$AWS_SECRET_ACCESS_KEY" | wc -l) > 1 ]] ; then
+    echo "Error: multiple AWS credentials found in ~/.aws/build_instance_credentials. Make sure you have only one profile defined."
+    exit 1
+  fi
 fi
 
 # If we're asking to not terminate the instance automatically, we also don't want to remove the container.
@@ -140,7 +144,7 @@ container_script=$(cat <<EOF
   while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
 
   function run {
-    echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION CI=\$CI CI_FULL=\$CI_FULL CI_NIGHTLY=\$CI_NIGHTLY DRY_RUN=\${DRY_RUN:-0}"
+    echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION CI=\$CI CI_FULL=\$CI_FULL USE_TEST_CACHE=\$USE_TEST_CACHE CI_NIGHTLY=\$CI_NIGHTLY DRY_RUN=\${DRY_RUN:-0}"
     if semver check "\$REF_NAME"; then
       echo "Performing a release because \$REF_NAME is a semver."
     fi
@@ -212,14 +216,45 @@ function run {
             filename=\"/tmp/netfile-\${timestamp//[:.]/}\"
 
             echo \"Begin netstat dump for container \$cid at \$timestamp\" > \$filename
-            if [[ \"\$cid\" = \"host\" ]]; then
+            if [[ \"\$cid\" = \"host\" ]] || [[ -z \"\$cid\" ]]; then
+                # If sysdig reports no container id or the host, run netstat.
                 sudo netstat -tulnp | grep LISTEN >> \$filename;
+
             else
+                # Otherwise, we get the container pid and use nsenter to inspect it with netstat
+                # We use nsenter to run netstat in the container namespace, without having to install it there
                 pid=\$(docker inspect -f '{{.State.Pid}}' \$cid)
+
                 if [[ -z \"\$pid\" ]]; then
-                    echo \"Container \$cid not found, skipping netstat dump.\" >> \$filename;
+                    # But we sometimes run docker-in-docker. So the host docker does not know anything about this
+                    # container id, and we need to ask a docker container for it. But the container returns the pid
+                    # from its own process namespace, so we need to manually tell nsenter the namespace to use.
+
+                    echo \"Container \$cid not found at \$(date). Trying nested container.\" >> \$filename;
+                    host_container_id=\$(docker ps | grep aztecprotocol/devbox:3.0 | awk '{print \$1}')
+                    if [[ -z \"\$host_container_id\" ]]; then
+                      echo \"Host container not found. Giving up.\" >> \$filename;
+                      docker ps --no-trunc >> \$filename;
+                      continue;
+                    fi
+
+                    # Get the host container pid and the inner container pid.
+                    host_container_pid=\$(docker inspect -f '{{.State.Pid}}' \$host_container_id)
+                    inner_container_pid=\$(docker exec \$host_container_id docker inspect -f {{.State.Pid}} \$cid)
+                    if [[ -z \"\$host_container_pid\" ]] || [[ -z \"\$inner_container_pid\" ]]; then
+                      echo \"Host or inner container pid not found. Giving up.\" >> \$filename;
+                      continue;
+                    fi
+
+                    # Now run netstat with nsenter using the nested process ids
+                    # This would be easier if I knew a way of mapping the nested pid to the host process namespace, but I didn't manage to do it.
+                    ns_path=/proc/\$host_container_pid/root/proc/\$inner_container_pid/ns;
+                    echo \"Netstat output for container \$cid in container \$host_container_id retrieved from \$ns_path\" >> \$filename;
+                    sudo nsenter --pid=\$ns_path/pid --net=\$ns_path/net netstat -tulnp >> \$filename;
+
                 else
-                  sudo nsenter -t \$(docker inspect -f '{{.State.Pid}}' \$cid) -n netstat -tulnp >> \$filename;
+                  # We found the container pid, just nsenter to it and run netstat.
+                  sudo nsenter -t \$pid -n netstat -tulnp >> \$filename;
                 fi
             fi
             echo \"End netstat dump for container \$cid at \$timestamp\" >> \$filename
@@ -245,7 +280,7 @@ function run {
       -v bootstrap_ci_local_docker:/var/lib/docker \
       -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
       -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
-      -v /mnt/bb-crs:/home/aztec-dev/.bb-crs:ro \
+      -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
       -v /tmp:/tmp \
       -v /dev/kmsg:/dev/kmsg \
       -e RUN_ID=${RUN_ID:-} \
@@ -266,8 +301,8 @@ function run {
       -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
       -e DRY_RUN=${DRY_RUN:-0} \
       -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
-      -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
-      -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
+      -e AWS_ACCESS_KEY_ID=\"${AWS_ACCESS_KEY_ID:-}\" \
+      -e AWS_SECRET_ACCESS_KEY=\"${AWS_SECRET_ACCESS_KEY:-}\" \
       -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
       -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
       -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \

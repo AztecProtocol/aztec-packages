@@ -2,7 +2,7 @@
 set -eu
 
 # We get the index in the config map from the pod name, which will have the service index within it
-KEY_INDEX=$(echo $POD_NAME | awk -F'-' '{print $NF}')
+KEY_INDEX=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF}')
 # Add the index to the start index to get the private key index
 PRIVATE_KEY_INDEX=$((KEY_INDEX_START + KEY_INDEX))
 

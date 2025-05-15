@@ -1,6 +1,6 @@
 import { type AztecNode, Fr, type Wallet } from '@aztec/aztec.js';
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';
 

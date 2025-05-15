@@ -17,6 +17,12 @@ network:
   # If true then configured bootnodes are considered non-gossiping peers
   p2pBootstrapNodesAsFullPeers: true
 
+  mempoolLimitBytes: "100000000" # approx 100MB
+
+blobs:
+  remoteBlobSinkUrl: ""
+  remoteBlobSinkEnabled: false
+
 storage:
   localSsd: false
   dataStoreMapSize: "134217728" # 128 GB
@@ -39,9 +45,6 @@ images:
     pullPolicy: IfNotPresent
   curl:
     image: curlimages/curl:7.81.0
-    pullPolicy: IfNotPresent
-  foundry:
-    image: ghcr.io/foundry-rs/foundry:nightly-7825a06862b0c97a510618f5c6901eca279e4802
     pullPolicy: IfNotPresent
   reth:
     image: ghcr.io/paradigmxyz/reth:v1.0.8
@@ -206,12 +209,13 @@ proverNode:
   pollInterval: 1000
   viemPollingInterval: 1000
   dataDir: "/data"
-  storageSize: "1Gi"
+  storageSize: "10Gi"
   txGathering:
     timeoutMs: 60000
     intervalMs: 1000
     maxParallelRequests: 100
   failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
+  failedEpochStore: ""
   l1GasPriceMax: 100
   l1FixedPriorityFeePerGas: ""
   l1GasLimitBufferPercentage: ""

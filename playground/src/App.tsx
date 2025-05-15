@@ -1,14 +1,22 @@
 import { Global } from '@emotion/react';
 import { ThemeProvider } from '@mui/material/styles';
-import { globalStyle, theme } from './common.styles';
-import Home from './components/home/home';
+import { NotificationsProvider } from '@toolpad/core/useNotifications';
+import { globalStyle, theme } from './global.styles';
+import Home from './components/home/Home';
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <Global styles={globalStyle}></Global>
-      <Home />
-    </ThemeProvider>
+    <NotificationsProvider slotProps={{
+      snackbar: {
+        anchorOrigin: { vertical: 'top', horizontal: 'right' },
+        autoHideDuration: 5000,
+      }
+    }}>
+      <ThemeProvider theme={theme}>
+        <Global styles={globalStyle}></Global>
+        <Home />
+      </ThemeProvider>
+    </NotificationsProvider>
   );
 }
 

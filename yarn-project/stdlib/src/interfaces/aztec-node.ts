@@ -7,7 +7,7 @@ import {
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { Fr } from '@aztec/foundation/fields';
-import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
@@ -56,7 +56,6 @@ import {
   type GetPublicLogsResponse,
   GetPublicLogsResponseSchema,
 } from './get_logs_response.js';
-import type { ProverCoordination } from './prover-coordination.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 /**
@@ -64,8 +63,7 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
 export interface AztecNode
-  extends ProverCoordination,
-    Pick<L2BlockSource, 'getBlocks' | 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'> {
+  extends Pick<L2BlockSource, 'getBlocks' | 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'> {
   /**
    * Returns the tips of the L2 chain.
    */
@@ -553,11 +551,13 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 export function createAztecNodeClient(
   url: string,
   versions: Partial<ComponentsVersions> = {},
-  fetch = defaultFetch,
+  fetch = makeFetch([1, 2, 3], false),
+  batchWindowMS = 25,
 ): AztecNode {
   return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
     namespaceMethods: 'node',
     fetch,
+    batchWindowMS,
     onResponse: getVersioningResponseHandler(versions),
   });
 }

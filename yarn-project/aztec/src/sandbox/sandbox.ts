@@ -5,7 +5,7 @@ import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec
 import { AnvilTestWatcher, EthCheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupSponsoredFPC } from '@aztec/cli/cli-utils';
-import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import {
   NULL_KEY,
   createEthereumChain,
@@ -53,7 +53,6 @@ export async function deployContractsToL1(
     assumeProvenThroughBlockNumber?: number;
     salt?: number;
     genesisArchiveRoot?: Fr;
-    genesisBlockHash?: Fr;
     feeJuicePortalInitialBalance?: bigint;
   } = {},
 ) {
@@ -75,7 +74,6 @@ export async function deployContractsToL1(
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-      genesisBlockHash: opts.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
       salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
     },
@@ -140,16 +138,13 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   const fundedAddresses = initialAccounts.length
     ? [...initialAccounts.map(a => a.address), bananaFPC, sponsoredFPC]
     : [];
-  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData, fundingNeeded } = await getGenesisValues(
-    fundedAddresses,
-  );
+  const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(fundedAddresses);
 
   let watcher: AnvilTestWatcher | undefined = undefined;
   if (!aztecNodeConfig.p2pEnabled) {
     const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
       assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
       genesisArchiveRoot,
-      genesisBlockHash,
       salt: config.l1Salt ? parseInt(config.l1Salt) : undefined,
       feeJuicePortalInitialBalance: fundingNeeded,
     });

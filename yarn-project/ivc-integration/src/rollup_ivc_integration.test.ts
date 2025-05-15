@@ -1,61 +1,113 @@
 import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
-import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, TUBE_PROOF_LENGTH } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
+import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
+import { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 
-import { promises as fs } from 'fs';
-import os from 'os';
+import { jest } from '@jest/globals';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { getWorkingDirectory } from './bb_working_directory.js';
 import {
   MockRollupBasePrivateCircuit,
+  MockRollupBasePublicCircuit,
   MockRollupMergeCircuit,
   generate3FunctionTestingIVCStack,
+  mapAvmProofToNoir,
+  mapAvmVerificationKeyToNoir,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
+  witnessGenMockPublicBaseCircuit,
   witnessGenMockRollupBasePrivateCircuit,
   witnessGenMockRollupMergeCircuit,
   witnessGenMockRollupRootCircuit,
 } from './index.js';
-import { proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
+import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
 import type { KernelPublicInputs } from './types/index.js';
 
 /* eslint-disable camelcase */
+
+jest.setTimeout(120_000);
 
 const logger = createLogger('ivc-integration:test:rollup-native');
 
 describe('Rollup IVC Integration', () => {
   let bbBinaryPath: string;
-  let clientIVCProofPath: string;
+
+  let tubeProof: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
+  let avmVK: Fr[];
+  let avmProof: Fr[];
+  let avmPublicInputs: AvmCircuitPublicInputs;
+
   let clientIVCPublicInputs: KernelPublicInputs;
   let workingDirectory: string;
 
   beforeAll(async () => {
-    clientIVCProofPath = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-client-ivc-'));
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
-    const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
+
+    // Create a client IVC proof
+    const clientIVCWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-client-ivc-');
+    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
-    const proof = await proveClientIVC(bbBinaryPath, clientIVCProofPath, witnessStack, bytecodes, logger);
-    await writeClientIVCProofToOutputDirectory(proof, clientIVCProofPath);
+    const proof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger);
+    await writeClientIVCProofToOutputDirectory(proof, clientIVCWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
-      clientIVCProofPath.concat('/proof'),
-      clientIVCProofPath.concat('/vk'),
+      clientIVCWorkingDirectory.concat('/proof'),
+      clientIVCWorkingDirectory.concat('/vk'),
       logger.info,
     );
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
+
+    tubeProof = await proveTube(bbBinaryPath, clientIVCWorkingDirectory, logger);
+
+    // Create an AVM proof
+    const avmWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-avm-');
+
+    const simTester = await PublicTxSimulationTester.create();
+    const avmTestContractInstance = await simTester.registerAndDeployContract(
+      /*constructorArgs=*/ [],
+      /*deployer=*/ AztecAddress.fromNumber(420),
+      AvmTestContractArtifact,
+    );
+    const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+    const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+    const args = [
+      argsField,
+      argsU8,
+      /*getInstanceForAddress=*/ avmTestContractInstance.address.toField(),
+      /*expectedDeployer=*/ avmTestContractInstance.deployer.toField(),
+      /*expectedClassId=*/ avmTestContractInstance.currentContractClassId.toField(),
+      /*expectedInitializationHash=*/ avmTestContractInstance.initializationHash.toField(),
+    ];
+
+    const avmSimulationResult = await simTester.simulateTx(
+      /*sender=*/ AztecAddress.fromNumber(42),
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'bulk_testing', args }],
+      /*teardownCall=*/ undefined,
+    );
+
+    const avmCircuitInputs = avmSimulationResult.avmProvingRequest.inputs;
+    ({
+      vk: avmVK,
+      proof: avmProof,
+      publicInputs: avmPublicInputs,
+    } = await proveAvm(avmCircuitInputs, avmWorkingDirectory, logger));
   });
 
   beforeEach(async () => {
-    workingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-'));
-    await fs.copyFile(path.join(clientIVCProofPath, 'vk'), path.join(workingDirectory, 'vk'));
-    await fs.copyFile(path.join(clientIVCProofPath, 'proof'), path.join(workingDirectory, 'proof'));
+    workingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-');
   });
 
   it('Should be able to generate a proof of a 3 transaction rollup', async () => {
-    const tubeProof = await proveTube(bbBinaryPath, workingDirectory, logger);
-
-    const baseRollupWitnessResult = await witnessGenMockRollupBasePrivateCircuit({
+    const privateBaseRollupWitnessResult = await witnessGenMockRollupBasePrivateCircuit({
       tube_data: {
         public_inputs: clientIVCPublicInputs,
         proof: mapRecursiveProofToNoir(tubeProof.proof),
@@ -66,25 +118,60 @@ describe('Rollup IVC Integration', () => {
       },
     });
 
-    const baseProof = await proveRollupHonk(
+    const privateBaseProof = await proveRollupHonk(
       'MockRollupBasePrivateCircuit',
       bbBinaryPath,
       workingDirectory,
       MockRollupBasePrivateCircuit,
-      baseRollupWitnessResult.witness,
+      privateBaseRollupWitnessResult.witness,
       logger,
     );
 
-    const baseRollupData = {
-      base_or_merge_public_inputs: baseRollupWitnessResult.publicInputs,
-      proof: mapRecursiveProofToNoir(baseProof.proof),
+    const privateBaseRollupData = {
+      base_or_merge_public_inputs: privateBaseRollupWitnessResult.publicInputs,
+      proof: mapRecursiveProofToNoir(privateBaseProof.proof),
       vk: mapVerificationKeyToNoir(
-        baseProof.verificationKey.keyAsFields,
+        privateBaseProof.verificationKey.keyAsFields,
         ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
       ),
     };
 
-    const mergeWitnessResult = await witnessGenMockRollupMergeCircuit({ a: baseRollupData, b: baseRollupData });
+    const publicBaseRollupWitnessResult = await witnessGenMockPublicBaseCircuit({
+      tube_data: {
+        public_inputs: clientIVCPublicInputs,
+        proof: mapRecursiveProofToNoir(tubeProof.proof),
+        vk_data: mapVerificationKeyToNoir(
+          tubeProof.verificationKey.keyAsFields,
+          ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+        ),
+      },
+      verification_key: mapAvmVerificationKeyToNoir(avmVK),
+      proof: mapAvmProofToNoir(avmProof),
+      public_inputs: mapAvmCircuitPublicInputsToNoir(avmPublicInputs),
+    });
+
+    const publicBaseProof = await proveRollupHonk(
+      'MockRollupBasePublicCircuit',
+      bbBinaryPath,
+      workingDirectory,
+      MockRollupBasePublicCircuit,
+      publicBaseRollupWitnessResult.witness,
+      logger,
+    );
+
+    const publicBaseRollupData = {
+      base_or_merge_public_inputs: publicBaseRollupWitnessResult.publicInputs,
+      proof: mapRecursiveProofToNoir(publicBaseProof.proof),
+      vk: mapVerificationKeyToNoir(
+        publicBaseProof.verificationKey.keyAsFields,
+        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+      ),
+    };
+
+    const mergeWitnessResult = await witnessGenMockRollupMergeCircuit({
+      a: privateBaseRollupData,
+      b: publicBaseRollupData,
+    });
 
     const mergeProof = await proveRollupHonk(
       'MockRollupMergeCircuit',
@@ -104,7 +191,7 @@ describe('Rollup IVC Integration', () => {
       ),
     };
 
-    const rootWitnessResult = await witnessGenMockRollupRootCircuit({ a: baseRollupData, b: mergeRollupData });
+    const rootWitnessResult = await witnessGenMockRollupRootCircuit({ a: privateBaseRollupData, b: mergeRollupData });
 
     // Three transactions are aggregated
     expect(rootWitnessResult.publicInputs.accumulated).toEqual('0x03');

@@ -1,6 +1,6 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { Tx } from '@aztec/stdlib/tx';
+import type { ProvingTimings, Tx } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import type { Contract } from './contract.js';
@@ -16,8 +16,9 @@ export class DeployProvenTx<TContract extends Contract = Contract> extends Prove
     tx: Tx,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private instanceGetter: () => Promise<ContractInstanceWithAddress>,
+    timings?: ProvingTimings,
   ) {
-    super(wallet, tx);
+    super(wallet, tx, timings);
   }
 
   /**
@@ -25,7 +26,7 @@ export class DeployProvenTx<TContract extends Contract = Contract> extends Prove
    */
   public override send(): DeploySentTx<TContract> {
     const promise = (() => {
-      return this.wallet.sendTx(this);
+      return this.wallet.sendTx(this.getPlainDataTx());
     })();
 
     return new DeploySentTx(this.wallet, promise, this.postDeployCtor, this.instanceGetter);

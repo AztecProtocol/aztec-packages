@@ -9,6 +9,7 @@
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -74,6 +75,14 @@ class LookupIntoDynamicTableGeneric : public BaseLookupTraceBuilder<LookupSettin
         if (it != row_idx.end()) {
             return it->second;
         }
+        vinfo(
+            "Failed computing counts for ",
+            std::string(LookupSettings::NAME),
+            " with src tuple: {",
+            [&tup]<size_t... Is>(std::index_sequence<Is...>) {
+                return ((field_to_string(tup[Is]) + ", ") + ...);
+            }(std::make_index_sequence<LookupSettings::LOOKUP_TUPLE_SIZE>()),
+            "}");
         throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
                                  ". Could not find tuple in destination.");
     }

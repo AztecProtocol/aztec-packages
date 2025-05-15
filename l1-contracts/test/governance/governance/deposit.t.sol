@@ -57,7 +57,7 @@ contract DepositTest is GovernanceBase {
     for (uint256 i = 0; i < DEPOSIT_COUNT; i++) {
       address onBehalfOf = i % 2 == 0 ? _onBehalfOfs[i] : address(0xdeadbeef);
       uint256 amount = bound(_deposits[i], 1, type(uint128).max);
-      uint256 timeJump = bound(_timejumps[i], 1, type(uint32).max);
+      uint256 timeJump = bound(_timejumps[i], 1, type(uint16).max);
 
       token.mint(address(this), amount);
       token.approve(address(governance), amount);

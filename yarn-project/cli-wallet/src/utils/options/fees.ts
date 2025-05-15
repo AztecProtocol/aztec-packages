@@ -138,7 +138,7 @@ function getFeeOptions(allowCustomFeePayer: boolean) {
       '--max-priority-fees-per-gas <da=0,l2=0>',
       'Maximum priority fees per gas unit for DA and L2 computation.',
     ),
-    new Option('--no-estimate-gas', 'Whether to automatically estimate gas limits for the tx.'),
+    new Option('--estimate-gas', 'Whether to automatically estimate gas limits for the tx.'),
     new Option('--estimate-gas-only', 'Only report gas estimation for the tx, do not send it.'),
   ];
 }

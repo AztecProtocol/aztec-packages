@@ -34,6 +34,9 @@
       "path": "../bot"
     },
     {
+      "path": "../cli"
+    },
+    {
       "path": "../constants"
     },
     {
@@ -62,6 +65,9 @@
     },
     {
       "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../noir-test-contracts.js"
     },
     {
       "path": "../p2p"

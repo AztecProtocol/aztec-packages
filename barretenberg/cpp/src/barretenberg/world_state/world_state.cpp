@@ -9,7 +9,7 @@
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"

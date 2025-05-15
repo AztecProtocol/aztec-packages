@@ -25,8 +25,6 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
@@ -111,6 +109,7 @@
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/noir-test-contracts.js": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^"
   },

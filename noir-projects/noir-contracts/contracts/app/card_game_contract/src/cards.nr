@@ -2,15 +2,15 @@ use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext, 
 
 use dep::aztec::{
     context::UtilityContext,
-    encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
     keys::getters::get_public_keys,
+    messages::logs::note::encode_and_encrypt_note,
     note::constants::MAX_NOTES_PER_PAGE,
     protocol_types::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         traits::{FromField, Hash, Serialize, ToField},
     },
-    state_vars::PrivateSet,
+    state_vars::{PrivateSet, storage::Storage},
 };
 use dep::value_note::value_note::ValueNote;
 use std::meta::derive;
@@ -68,6 +68,13 @@ impl CardNote {
 
 pub struct Deck<Context> {
     set: PrivateSet<ValueNote, Context>,
+}
+
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
+impl<Context> Storage<1> for Deck<Context> {
+    fn get_storage_slot(self) -> Field {
+        self.set.get_storage_slot()
+    }
 }
 
 pub fn filter_cards<let N: u32>(

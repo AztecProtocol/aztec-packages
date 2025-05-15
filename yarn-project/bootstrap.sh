@@ -66,6 +66,7 @@ function compile_all {
     l1-artifacts \
     native \
     noir-contracts.js \
+    noir-test-contracts.js \
     noir-protocol-circuits-types \
     protocol-contracts \
     pxe
@@ -94,44 +95,50 @@ export -f compile_project format lint get_projects compile_all hash
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  npm_install_deps ../noir/noir-repo/
+  npm_install_deps ../noir/noir-repo
   denoise "compile_all"
 }
 
 function test_cmds {
   local hash=$(hash)
-  # These need isolation due to network stack usage (p2p, anvil, etc).
-  for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
-    if [[ "$test" =~ testbench ]]; then
-      # Testbench runs require more memory and CPU.
-      echo "$hash ISOLATE=1 CPUS=10 MEM=10g yarn-project/scripts/run_test.sh $test"
-    elif [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts ]]; then
-      # Add debug logging for tests that require a bit more info
-      echo "$hash ISOLATE=1 LOG_LEVEL=debug yarn-project/scripts/run_test.sh $test"
-    else
-      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
-    fi
-  done
-
-  # Enable real proofs in prover-client integration tests only on CI full
-  for test in prover-client/src/test/*.test.ts; do
-    if [ "$CI_FULL" -eq 1 ]; then
-      echo "$hash ISOLATE=1 LOG_LEVEL=verbose CPUS=16 MEM=96g yarn-project/scripts/run_test.sh $test"
-    else
-      echo "$hash FAKE_PROOFS=1 yarn-project/scripts/run_test.sh $test"
-    fi
-  done
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   # noir-bb-bench: A slow pain. Figure out later.
-  # prover-client/src/test: Enable real proofs only on CI full.
-  # prover-node|p2p|ethereum|aztec: Isolated using docker above.
-  for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
-    [[ "$test" == prover-client/src/test/* ]] && continue
-    # Enable debug logging for a subset of unit tests that are causing trouble.
-    echo "$hash yarn-project/scripts/run_test.sh $test"
+  for test in !(end-to-end|kv-store|noir-bb-bench)/src/**/*.test.ts; do
+    local prefix=$hash
+    local cmd_env=""
+
+    # These need isolation due to network stack usage (p2p, anvil, etc).
+    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test)/ ]]; then
+      prefix+=":ISOLATE=1:NAME=$test"
+    fi
+
+    # Boost some tests resources.
+    if [[ "$test" =~ testbench ]]; then
+      prefix+=":CPUS=10:MEM=16g"
+    fi
+    if [[ "$test" =~ ^ivc-integration/ ]]; then
+      prefix+=":CPUS=8"
+    fi
+
+    # Add debug logging for tests that require a bit more info
+    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts ]]; then
+      cmd_env+=" LOG_LEVEL=debug"
+    fi
+
+    # Enable real proofs in prover-client integration tests only on CI full.
+    if [[ "$test" =~ ^prover-client/src/test/ ]]; then
+      if [ "$CI_FULL" -eq 1 ]; then
+        prefix+=":CPUS=16:MEM=96g"
+        cmd_env+=" LOG_LEVEL=verbose"
+      else
+        cmd_env+=" FAKE_PROOFS=1"
+      fi
+    fi
+
+    echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
   done
 
   # Uses mocha for browser tests, so we have to treat it differently.
@@ -141,8 +148,7 @@ function test_cmds {
 
 function test {
   echo_header "yarn-project test"
-  local num_cpus=$(get_num_cpus)
-  test_cmds | filter_test_cmds | parallelise $((num_cpus / 2))
+  test_cmds | filter_test_cmds | parallelise
 }
 
 function release_packages {
@@ -150,7 +156,7 @@ function release_packages {
   local packages=$(get_projects topological)
   local package_list=()
   for package in $packages; do
-    (cd $package && deploy_npm $1 $2)
+    (cd $package && retry "deploy_npm $1 $2")
     local package_name=$(jq -r .name "$package/package.json")
     package_list+=("$package_name@$2")
   done

@@ -23,7 +23,7 @@ jobs:
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -42,7 +42,7 @@ jobs:
 
       - name: Build dependencies
         run: |
-          for project in noir barretenberg l1-contracts yarn-project; do
+          for project in noir barretenberg l1-contracts noir-projects yarn-project; do
             $project/bootstrap.sh
           done
 

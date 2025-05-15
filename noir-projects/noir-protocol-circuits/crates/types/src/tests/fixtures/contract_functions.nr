@@ -8,16 +8,17 @@ pub struct ContractFunction {
     pub membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
 }
 
-pub global default_vk: [Field; 143] = [0; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS];
+pub global default_vk: [Field; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS] =
+    [0; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS];
 
-// sibling_path taken from __snapshots__/noir_test_gen.test.ts.snap
+// sibling_path copy-and-pasted from __snapshots__/noir_test_gen.test.ts.snap (defaultContract 1)
 pub global default_private_function: ContractFunction = ContractFunction {
     data: FunctionData { selector: FunctionSelector { inner: 1010101 }, is_private: true },
     vk_hash: crate::hash::verification_key_hash(default_vk),
     membership_witness: MembershipWitness {
         leaf_index: 0,
         sibling_path: [
-            0x1bf05aedcca6b9682341475d1edb718df1485e4071c6c2f3c4576eeb3f9988a6,
+            0x13c663ec0bb5d328246394c6b9f33988be9c05f3aa6cbf68f7ec6f795bf1645b,
             0x233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357,
             0x0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614,
             0x1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937,

@@ -1,8 +1,8 @@
 use dep::aztec::{
     context::{PrivateContext, PublicContext},
-    encrypted_logs::log_assembly_strategies::default_aes128,
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::custom_note,
+    messages::logs::note,
     note::note_interface::{NoteHash, NoteType},
     oracle::random::random,
     protocol_types::{
@@ -144,13 +144,12 @@ impl NFTNote {
             public_log_tag: commitment,
         };
 
-        let encrypted_log = default_aes128::note::compute_partial_note_log(
-            private_log_content,
-            storage_slot,
-            recipient,
-            sender,
-        );
-        context.emit_private_log(encrypted_log);
+        let encrypted_log =
+            note::compute_partial_note_log(private_log_content, storage_slot, recipient, sender);
+        // Regardless of the original content size, the log is padded with random bytes up to
+        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+        let length = encrypted_log.len();
+        context.emit_private_log(encrypted_log, length);
 
         PartialNFTNote { commitment }
     }

@@ -1,5 +1,4 @@
 use crate::{
-    discovery::private_notes::MAX_NOTE_PACKED_LEN,
     macros::{
         dispatch::generate_public_dispatch,
         functions::{stub_registry, utils::check_each_fn_macroified},
@@ -7,6 +6,7 @@ use crate::{
         storage::STORAGE_LAYOUT_NAME,
         utils::{get_trait_impl_method, module_has_storage},
     },
+    messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
@@ -103,7 +103,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 }
 
 /// Generates a contract library method called `_compute_note_hash_and_nullifier` which is used for note
-/// discovery (to create the `aztec::discovery::ComputeNoteHashAndNullifier` function) and to implement the
+/// discovery (to create the `aztec::messages::discovery::ComputeNoteHashAndNullifier` function) and to implement the
 /// `compute_note_hash_and_nullifier` unconstrained contract function.
 comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -> Quoted {
     let notes = NOTES.entries();
@@ -196,7 +196,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         let inner_nullifier = $compute_nullifier_unconstrained(note, note_hash_for_nullify);
 
                         Option::some(
-                            aztec::discovery::NoteHashAndNullifier {
+                            aztec::messages::discovery::NoteHashAndNullifier {
                                 note_hash, inner_nullifier
                             }
                         )
@@ -212,19 +212,19 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             /// (non-siloed) and inner nullifier (non-siloed) assuming the note has been inserted into the note hash
             /// tree with `nonce`.
             ///
-            /// The signature of this function notably matches the `aztec::discovery::ComputeNoteHashAndNullifier` type,
+            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHashAndNullifier` type,
             /// and so it can be used to call functions from that module such as `discover_new_messages`, 
             /// `do_process_log` and `attempt_note_discovery`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
             unconstrained fn _compute_note_hash_and_nullifier(
-                packed_note: BoundedVec<Field, aztec::discovery::private_notes::MAX_NOTE_PACKED_LEN>,
+                packed_note: BoundedVec<Field, aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN>,
                 storage_slot: Field,
                 note_type_id: Field,
                 contract_address: aztec::protocol_types::address::AztecAddress,
                 nonce: Field,
-            ) -> Option<aztec::discovery::NoteHashAndNullifier> {
+            ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 $if_note_type_id_match_statements
                 else {
                     Option::none()
@@ -241,12 +241,12 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
             unconstrained fn _compute_note_hash_and_nullifier(
-                _packed_note: BoundedVec<Field, aztec::discovery::private_notes::MAX_NOTE_PACKED_LEN>,
+                _packed_note: BoundedVec<Field, aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN>,
                 _storage_slot: Field,
                 _note_type_id: Field,
                 _contract_address: aztec::protocol_types::address::AztecAddress,
                 _nonce: Field,
-            ) -> Option<aztec::discovery::NoteHashAndNullifier> {
+            ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 panic(f"This contract does not use private notes")
             }
         }
@@ -265,20 +265,17 @@ comptime fn generate_note_exports() -> Quoted {
 }
 
 comptime fn generate_sync_notes() -> Quoted {
-    // TODO(https://github.com/noir-lang/noir/issues/7912): Doing the following unfortunately doesn't work. Once
-    // the issue is fixed uncomment the following and remove the workaround from TS (look for the issue link in the
-    // codebase).
-    // let utility: fn(FunctionDefinition) -> () = crate::macros::functions::utility;
-    // quote {
-    //     #[$utility]
-    //     unconstrained fn sync_notes() {
-    //     }
-    // }
+    // We obtain the `utility` function on the next line instead of directly doing
+    // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
+    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
+    // to determine whether a function is `private`, `public`, or `utility`.
+    let utility = crate::macros::functions::utility;
 
     // All we need to do here is trigger message discovery, but this is already done by the #[utility] macro - we don't
     // need to do anything extra.
     quote {
-        #[aztec::macros::functions::utility]
-        unconstrained fn sync_notes() { }
+        #[$utility]
+        unconstrained fn sync_notes() {
+        }
     }
 }

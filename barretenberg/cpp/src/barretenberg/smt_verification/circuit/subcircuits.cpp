@@ -5,7 +5,7 @@ namespace smt_subcircuits {
 CircuitProps get_standard_range_constraint_circuit(size_t n)
 {
     bb::StandardCircuitBuilder builder = bb::StandardCircuitBuilder();
-    uint32_t a_idx = builder.add_variable(bb::fr(0xabbba));
+    uint32_t a_idx = builder.add_variable(bb::fr(0));
     builder.set_variable_name(a_idx, "a");
 
     size_t start_gate = builder.get_estimated_num_finalized_gates();

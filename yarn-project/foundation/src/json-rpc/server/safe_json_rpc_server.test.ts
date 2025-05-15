@@ -19,6 +19,7 @@ describe('SafeJsonRpcServer', () => {
   });
 
   const send = (body: any) => request(server.getApp().callback()).post('/').send(body);
+  const sendBatch = (...body: any[]) => request(server.getApp().callback()).post('/').send(body);
 
   const expectError = (response: request.Response, httpCode: number, message: string) => {
     expect(JSON.parse(response.text)).toMatchObject({ error: { message } });
@@ -70,7 +71,7 @@ describe('SafeJsonRpcServer', () => {
 
     it('calls an RPC function that throws an error', async () => {
       const response = await send({ method: 'fail', params: [] });
-      expectError(response, 500, 'Test state failed');
+      expectError(response, 400, 'Test state failed');
     });
 
     it('fails if sends invalid JSON', async () => {
@@ -91,6 +92,59 @@ describe('SafeJsonRpcServer', () => {
     it('fails if calls base object method', async () => {
       const response = await send({ jsonrpc: '2.0', method: 'toString', params: [], id: 42 });
       expectError(response, 400, 'Method not found: toString');
+    });
+  });
+
+  describe('batch', () => {
+    beforeEach(() => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
+    });
+
+    it('handles multiple requests', async () => {
+      const resp = await sendBatch(
+        { jsonrpc: '2.0', method: 'getStatus', params: [], id: 42 },
+        { jsonrpc: '2.0', method: 'clear', params: [], id: 43 },
+      );
+
+      expect(resp.status).toEqual(200);
+      expect(resp.text).toEqual(
+        JSON.stringify([
+          { jsonrpc: '2.0', id: 42, result: { status: 'ok', count: '2' } },
+          { jsonrpc: '2.0', id: 43 },
+        ]),
+      );
+    });
+
+    it('rejects empty requests array', async () => {
+      const resp = await sendBatch();
+      expect(resp.status).toEqual(400);
+    });
+
+    it('handles partial errors', async () => {
+      const resp = await sendBatch(
+        { jsonrpc: '2.0', method: 'toString', params: [], id: 42 },
+        { jsonrpc: '2.0', method: 'clear', params: [], id: 43 },
+      );
+
+      expect(resp.status).toEqual(200);
+      expect(resp.text).toEqual(
+        JSON.stringify([
+          { jsonrpc: '2.0', id: 42, error: { code: -32601, message: 'Method not found: toString' } },
+          { jsonrpc: '2.0', id: 43 },
+        ]),
+      );
+    });
+
+    it('handles partial syntax errors', async () => {
+      const resp = await sendBatch({ jsonrpc: '2.0', method: 'clear', params: [], id: 43 }, 1);
+
+      expect(resp.status).toEqual(200);
+      expect(resp.text).toEqual(
+        JSON.stringify([
+          { jsonrpc: '2.0', id: 43 },
+          { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null },
+        ]),
+      );
     });
   });
 

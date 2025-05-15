@@ -16,7 +16,7 @@ import {
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
-import { type DeployL1ContractsArgs, RollupContract, createL1Clients, deployL1Contract } from '@aztec/ethereum';
+import { type DeployL1ContractsArgs, RollupContract, createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -234,8 +234,7 @@ export class ClientFlowsBenchmark {
           aztecNode: context.aztecNode,
           aztecNodeAdmin: context.aztecNode,
           pxeService: context.pxe,
-          publicClient: context.deployL1ContractsValues.publicClient,
-          walletClient: context.deployL1ContractsValues.walletClient,
+          l1Client: context.deployL1ContractsValues.l1Client,
           wallet: this.adminWallet,
           logger: this.logger,
         });
@@ -304,7 +303,7 @@ export class ClientFlowsBenchmark {
       'deploy_sponsored_fpc',
       async () => {
         const sponsoredFPC = await setupSponsoredFPC(this.pxe);
-        this.logger.info(`SponsoredFPC deployed at ${sponsoredFPC.address}`);
+        this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);
         return { sponsoredFPCAddress: sponsoredFPC.address };
       },
       async ({ sponsoredFPCAddress }) => {
@@ -314,20 +313,19 @@ export class ClientFlowsBenchmark {
   }
 
   public async createCrossChainTestHarness(owner: AccountWallet) {
-    const { publicClient, walletClient } = createL1Clients(this.context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+    const l1Client = createExtendedL1Client(this.context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
-    const underlyingERC20Address = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode, [
+    const underlyingERC20Address = await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, [
       'Underlying',
       'UND',
-      walletClient.account.address,
+      l1Client.account.address,
     ]).then(({ address }) => address);
 
     this.logger.verbose(`Setting up cross chain harness...`);
     const crossChainTestHarness = await CrossChainTestHarness.new(
       this.aztecNode,
       this.pxe,
-      publicClient,
-      walletClient,
+      l1Client,
       owner,
       this.logger,
       underlyingERC20Address,
