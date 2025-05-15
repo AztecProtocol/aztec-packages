@@ -12,11 +12,12 @@ export hash=$(cache_content_hash .rebuild_patterns)
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
   local binary=$1
-  if ! semver check "$REF_NAME"; then
-    echo_stderr "Error: REF_NAME ($version) is not a valid semver. Aborting."
-    exit 1
+  if semver check "$REF_NAME"; then
+    local version=${REF_NAME#v}
+  else
+    # Otherwise, use the commit hash as the version.
+    local version=$(git rev-parse HEAD)
   fi
-  local version=${REF_NAME#v}
   local placeholder='00000000.00000000.00000000'
   if [ ${#version} -gt ${#placeholder} ]; then
     echo_stderr "Error: version ($version) is longer than placeholder. Cannot update bb binaries."
