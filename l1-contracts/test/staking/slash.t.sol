@@ -40,12 +40,7 @@ contract SlashTest is StakingBase {
     stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _onCanonical: true
-    });
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
     _;
   }
 
