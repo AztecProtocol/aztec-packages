@@ -133,10 +133,6 @@ export class UpdateChecker extends EventEmitter<EventMap> {
  * Returns package version.
  */
 export function getPackageVersion(): string | undefined {
-  if (process.env.BUILD_METADATA) {
-    return process.env.BUILD_METADATA;
-  }
-
   try {
     const releasePleaseManifestPath = resolve(
       dirname(fileURLToPath(import.meta.url)),
