@@ -40,6 +40,14 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
+      - name: Install cast
+        run: |
+          if ! command -v cast &>/dev/null; then
+            echo "Installing cast..."
+            curl -L https://foundry.paradigm.xyz | bash
+            $HOME/.foundry/bin/foundryup
+          fi
+
       - name: Build dependencies
         run: |
           for project in noir barretenberg l1-contracts noir-projects yarn-project; do
