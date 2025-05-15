@@ -271,6 +271,12 @@ where
     }
 }
 
+impl<let N: u32> Deserialize<0> for () {
+    fn deserialize(_fields: [Field; 0]) -> Self {
+        ()
+    }
+}
+
 impl<T, let M: u32, let O: u32> Serialize<O * M + 1> for BoundedVec<T, M>
 where
     T: Serialize<O>,
