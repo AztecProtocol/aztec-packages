@@ -117,6 +117,21 @@ export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath:
   /* eslint-enable camelcase */
 }
 
+export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
+  /* eslint-disable camelcase */
+  const { api } = await initUltraHonk(bytecodePath, crsPath);
+  try {
+    const bytecode = getBytecode(bytecodePath);
+    const witness = getWitness(witnessPath);
+
+    const verified = await api.acirProveAndVerifyMegaHonk(bytecode, witness);
+    return verified;
+  } finally {
+    await api.destroy();
+  }
+  /* eslint-enable camelcase */
+}
+
 export async function gateCountUltra(bytecodePath: string, recursive: boolean, honkRecursion: boolean) {
   const api = await Barretenberg.new({ threads: 1 });
   try {
