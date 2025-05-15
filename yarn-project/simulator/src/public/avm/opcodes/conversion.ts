@@ -31,7 +31,7 @@ export class ToRadixBE extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -77,6 +77,5 @@ export class ToRadixBE extends Instruction {
     const outputType = outputBits != 0 ? Uint1 : Uint8;
     const res = limbArray.map(byte => new outputType(byte));
     memory.setSlice(dstOffset, res);
-    return Promise.resolve();
   }
 }

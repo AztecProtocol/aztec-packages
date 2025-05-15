@@ -340,7 +340,7 @@ export class PublicProcessor implements Traceable {
         padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
         NULLIFIER_SUBTREE_HEIGHT,
       );
-    } catch {
+    } catch (error) {
       if (txValidator) {
         // Ideally the validator has already caught this above, but just in case:
         throw new Error(`Transaction ${processedTx.hash} invalid after processing public functions`);

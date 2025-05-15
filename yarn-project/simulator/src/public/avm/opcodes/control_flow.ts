@@ -15,11 +15,10 @@ export class Jump extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
     context.machineState.pc = this.jumpOffset;
-    return Promise.resolve();
   }
 
   public override handlesPC(): boolean {
@@ -47,7 +46,7 @@ export class JumpI extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -62,7 +61,6 @@ export class JumpI extends Instruction {
     } else {
       context.machineState.pc = this.loc;
     }
-    return Promise.resolve();
   }
 
   public override handlesPC(): boolean {
@@ -80,7 +78,7 @@ export class InternalCall extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
     context.machineState.internalCallStack.push({
@@ -88,7 +86,6 @@ export class InternalCall extends Instruction {
       returnPc: context.machineState.nextPc,
     });
     context.machineState.pc = this.loc;
-    return Promise.resolve();
   }
 
   public override handlesPC(): boolean {
@@ -106,7 +103,7 @@ export class InternalReturn extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
     const stackEntry = context.machineState.internalCallStack.pop();
@@ -114,7 +111,6 @@ export class InternalReturn extends Instruction {
       throw new InstructionExecutionError('Internal call stack empty!');
     }
     context.machineState.pc = stackEntry.returnPc;
-    return Promise.resolve();
   }
 
   public override handlesPC(): boolean {

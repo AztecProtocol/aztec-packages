@@ -8,7 +8,7 @@ import { ToRadixBE } from './conversion.js';
 describe('Conversion Opcodes', () => {
   let context: AvmContext;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     context = initContext();
   });
 

@@ -31,7 +31,7 @@ describe('Environment getters', () => {
   });
 
   let context: AvmContext;
-  beforeEach(() => {
+  beforeEach(async () => {
     const env = initExecutionEnvironment({
       address,
       sender,

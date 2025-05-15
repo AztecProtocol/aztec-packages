@@ -61,7 +61,7 @@ export class Set extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     // Constructor ensured that this.inTag is a valid tag
     const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
 
@@ -73,7 +73,6 @@ export class Set extends Instruction {
     const operands = [this.dstOffset];
     const [dstOffset] = addressing.resolve(operands, memory);
     memory.set(dstOffset, res);
-    return Promise.resolve();
   }
 }
 
@@ -105,7 +104,7 @@ export class Cast extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -119,7 +118,6 @@ export class Cast extends Instruction {
     const casted = TaggedMemory.buildFromTagTruncating(a.toBigInt(), this.dstTag);
 
     memory.set(dstOffset, casted);
-    return Promise.resolve();
   }
 }
 
@@ -149,7 +147,7 @@ export class Mov extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -159,7 +157,6 @@ export class Mov extends Instruction {
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
     const a = memory.get(srcOffset);
     memory.set(dstOffset, a);
-    return Promise.resolve();
   }
 }
 
@@ -184,7 +181,7 @@ export class CalldataCopy extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -202,7 +199,6 @@ export class CalldataCopy extends Instruction {
     const transformedData = [...slice, ...Array(copySize - slice.length).fill(new Field(0))];
 
     memory.setSlice(dstOffset, transformedData);
-    return Promise.resolve();
   }
 }
 
@@ -219,7 +215,7 @@ export class ReturndataSize extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -228,7 +224,6 @@ export class ReturndataSize extends Instruction {
     context.machineState.consumeGas(this.gasCost());
 
     memory.set(dstOffset, new Uint32(context.machineState.nestedReturndata.length));
-    return Promise.resolve();
   }
 }
 
@@ -253,7 +248,7 @@ export class ReturndataCopy extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -271,6 +266,5 @@ export class ReturndataCopy extends Instruction {
     const transformedData = [...slice, ...Array(copySize - slice.length).fill(new Field(0))];
 
     memory.setSlice(dstOffset, transformedData);
-    return Promise.resolve();
   }
 }

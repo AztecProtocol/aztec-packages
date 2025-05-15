@@ -69,7 +69,7 @@ export class KeccakF1600 extends Instruction {
   }
 
   // pub fn keccakf1600(input: [u64; 25]) -> [u64; 25]
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const inputSize = 25;
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
@@ -85,7 +85,6 @@ export class KeccakF1600 extends Instruction {
 
     const res = updatedState.map(word => new Uint64(word));
     memory.setSlice(dstOffset, res);
-    return Promise.resolve();
   }
 }
 
@@ -111,7 +110,7 @@ export class Sha256Compression extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const STATE_SIZE = 8;
     const INPUTS_SIZE = 16;
 
@@ -134,6 +133,5 @@ export class Sha256Compression extends Instruction {
     // Conversion required from Uint32Array to Uint32[] (can't map directly, need `...`)
     const res = [...output].map(word => new Uint32(word));
     memory.setSlice(outputOffset, res);
-    return Promise.resolve();
   }
 }

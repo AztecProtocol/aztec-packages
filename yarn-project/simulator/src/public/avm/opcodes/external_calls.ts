@@ -141,7 +141,7 @@ export class SuccessCopy extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -153,7 +153,6 @@ export class SuccessCopy extends Instruction {
 
     // Write the success flag to the provided memory location
     memory.set(dstOffset, new Uint1(success ? 1 : 0));
-    return Promise.resolve();
   }
 }
 
@@ -176,7 +175,7 @@ export class Return extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -190,7 +189,6 @@ export class Return extends Instruction {
     const output = memory.getSlice(returnOffset, returnSize).map(word => word.toFr());
 
     context.machineState.return(output);
-    return Promise.resolve();
   }
 
   public override handlesPC(): boolean {
@@ -223,7 +221,7 @@ export class Revert extends Instruction {
     super();
   }
 
-  public execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -236,7 +234,6 @@ export class Revert extends Instruction {
     const output = memory.getSlice(returnOffset, retSize).map(word => word.toFr());
 
     context.machineState.revert(output);
-    return Promise.resolve();
   }
 
   // We don't want to increase the PC after reverting because it breaks messages.
