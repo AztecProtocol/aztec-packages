@@ -14,7 +14,7 @@ function build_image {
     export VERSION=${REF_NAME#v}
   else
     # Otherwise, use the commit hash as the version.
-    export VERSION=$(git rev-parse --short HEAD)
+    export VERSION=$(git rev-parse HEAD)
   fi
   docker build -f release-image/Dockerfile --build-arg VERSION=$VERSION -t aztecprotocol/aztec:$(git rev-parse HEAD) .
   docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
