@@ -160,7 +160,7 @@ describe('ValidatorClient', () => {
 
   describe('constructor', () => {
     it('should throw error if an invalid private key is provided', () => {
-      config.validatorPrivateKey = '0x1234567890123456789';
+      config.validatorPrivateKey = new SecretValue('0x1234567890123456789');
       expect(() => ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
         InvalidValidatorPrivateKeyError,
       );

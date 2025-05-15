@@ -144,7 +144,7 @@ export async function startNode(
       }
     }
     nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
-    nodeConfig.coinbase ??= EthAddress.fromString(getAddressFromPrivateKey(nodeConfig.publisherPrivateKey));
+    nodeConfig.coinbase ??= EthAddress.fromString(getAddressFromPrivateKey(nodeConfig.publisherPrivateKey.getValue()));
   }
 
   if (nodeConfig.p2pEnabled) {
