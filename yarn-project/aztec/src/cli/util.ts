@@ -260,7 +260,7 @@ export async function setupUpdateMonitor(
     registryContractAddress,
   });
 
-  // eslint-ignore-next-line @typescript-eslint/no-misused-promises
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   checker.on('newRollup', async ({ latestRollup, currentRollup }) => {
     if (autoUpdateMode === 'enabled') {
       logger.info(`New rollup detected. Please restart the node`, { latestRollup, currentRollup });
@@ -270,7 +270,7 @@ export async function setupUpdateMonitor(
     }
   });
 
-  // eslint-ignore-next-line @typescript-eslint/no-misused-promises
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   checker.on('newVersion', async ({ latestVersion, currentVersion }) => {
     if (autoUpdateMode === 'enabled') {
       logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
@@ -280,7 +280,7 @@ export async function setupUpdateMonitor(
     }
   });
 
-  // eslint-ignore-next-line @typescript-eslint/no-misused-promises
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   checker.on('updateConfig', async config => {
     if (autoUpdateMode === 'enabled' && updateNodeConfig) {
       logger.warn(`Config change detected. Updating node`, config);
