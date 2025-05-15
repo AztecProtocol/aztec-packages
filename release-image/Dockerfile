@@ -2,6 +2,10 @@
 FROM aztecprotocol/release-image-base
 # Copy in project files.
 COPY . /usr/src
+
+ARG BUILD_METADATA=""
+ENV BUILD_METADATA=$BUILD_METADATA
+
 # Provide paths to bb and acvm for use in yarn-project, also create default working directories for each
 ENV BB_WORKING_DIRECTORY=/usr/src/bb
 ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
