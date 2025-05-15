@@ -1,6 +1,6 @@
 use bigint::{BigNum, BLS12_381_Fr as F};
-use std::ops::Add;
 use std::meta::derive;
+use std::ops::Add;
 use types::{
     constants::{BLOB_PUBLIC_INPUTS, BLOBS_PER_BLOCK},
     traits::{Deserialize, Empty, Serialize},

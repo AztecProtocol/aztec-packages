@@ -85,7 +85,7 @@ impl Deserialize<U64_SERIALIZED_LEN> for u64 {
 impl Serialize<U128_SERIALIZED_LEN> for u128 {
     let N = U128_SERIALIZED_LEN;
 
-    fn serialize(self) -> [Field; Self::N]  {
+    fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
 }

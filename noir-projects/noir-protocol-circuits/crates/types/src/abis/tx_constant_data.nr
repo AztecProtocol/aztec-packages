@@ -1,7 +1,7 @@
 use crate::{
-    abis::{block_header::BlockHeader, tx_context::TxContext},
-    constants::TX_CONSTANT_DATA_LENGTH,
+    block_header::BlockHeader,
     traits::{Deserialize, Empty, Serialize},
+    transaction::tx_context::TxContext,
 };
 use std::meta::derive;
 

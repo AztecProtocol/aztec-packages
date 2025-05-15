@@ -12,6 +12,7 @@ pub mod constants;
 pub mod contract_class_id;
 pub mod merkle_tree;
 pub mod contract_instance;
+pub mod abis;
 
 pub mod messaging;
 pub mod hash;
@@ -25,6 +26,8 @@ pub mod partial_state_reference;
 pub mod state_reference;
 pub mod block_header;
 pub mod proposed_block_header;
+
+pub mod transaction;
 
 pub(crate) mod tests;
 
