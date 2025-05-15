@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747278385641,
+  "lastUpdate": 1747305715742,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "75146596+Sarkoxed@users.noreply.github.com",
-            "name": "Sarkoxed",
-            "username": "Sarkoxed"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "09fc599f3cf35e9821be67b58c94475e6b142b6b",
-          "message": "feat: RAM/ROM tables handler in SMT verification module (#14150)\n\nThis pr adds a mechanism to handle RAM/ROM tables in SMT Verification\nmodule\n\n# UltraCircuit\n\n- Fixed `bool_gate` handler\n- Added `fix_witness` gate handler\n- tables' sizes are now stored\n- Fixed an optimization issue: now all the entries of `XOR` and `AND`\nare properly bounded\n\n- `handle_aux_relation` - adds non native field arithmetic constraints\nto solver\n- `handle_rom_tables`, `handle_ram_tables` - adds memory constraints to\nsolver\n\n- Added tests to verify that all the new mechanisms work fine\n\n\n# Minor changes\n\n## CircuitBase\n\n- now all the ultra related stuff is not handled in the base class\n- public inputs are now  set for optimization and relaxation purposes\n\n## Circuit Schema && CircuitBuilder\n\n- Added RAM/ROM tables export\n\n## Solver\n\n- Fixed set representation",
-          "timestamp": "2025-05-12T12:49:58Z",
-          "tree_id": "d14a90125fcc5c6f5ca39d177941c818a582cd1f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/09fc599f3cf35e9821be67b58c94475e6b142b6b"
-        },
-        "date": 1747057936594,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17845.63974900004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14279.271658 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 4794679770,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 202710280,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 25546.753773999968,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19921.816584999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 70069.704902,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 70069705000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4340.523184000062,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3586.0007940000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11551.592191000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11551594000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2205.19",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -9786,6 +9714,78 @@ window.BENCHMARK_DATA = {
             "value": 1817,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1e4ae08b9c3d8eefda7695a01d67d29e93e0ad29",
+          "message": "fix: make `msgpackr` a full dependency of `bb.js` (#14322)\n\nThis PR fixes the issue in bb.js dependencies which is causing failures\nin https://github.com/noir-lang/noir/pull/8506\n\nThis was broken in\nhttps://github.com/AztecProtocol/aztec-packages/pull/13590 where the\nexisting msgpack dependency was removed.\n\nCo-authored-by: AztecBot <tech@aztecprotocol.com>",
+          "timestamp": "2025-05-15T10:00:37Z",
+          "tree_id": "e899dc0a245ae821389cdb9a855a5796e5fe3769",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1e4ae08b9c3d8eefda7695a01d67d29e93e0ad29"
+        },
+        "date": 1747305705393,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18268.187359999956,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14229.300197 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4526487537,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 195596316,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 23230.403957999897,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17800.550593 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 63868.051713,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 63868054000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4627.773918999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3936.1835039999996 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 12011.525260999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 12011525000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2253.19",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
