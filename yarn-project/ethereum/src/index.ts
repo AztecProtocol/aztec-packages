@@ -12,3 +12,4 @@ export * from './contracts/index.js';
 export * from './queries.js';
 export * from './client.js';
 export * from './account.js';
+export * from './l1_types.js';

@@ -46,5 +46,5 @@ export async function sendL1ToL2Message(
   const receivedMsgHash = topics.args.hash;
   const receivedGlobalLeafIndex = topics.args.index;
 
-  return [Fr.fromHexString(receivedMsgHash), new Fr(receivedGlobalLeafIndex)];
+  return { msgHash: Fr.fromHexString(receivedMsgHash), globalLeafIndex: new Fr(receivedGlobalLeafIndex), txReceipt };
 }
