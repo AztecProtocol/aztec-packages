@@ -1,8 +1,9 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type L2BlockSourceEvent, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
+import type { L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
 
 import { EventEmitter } from 'node:events';
 
+import type { Sentinel } from '../sentinel/sentinel.js';
 import type { WatcherEmitter } from './config.js';
 
 export class InactivityWatcher extends (EventEmitter as new () => WatcherEmitter) {
@@ -11,11 +12,15 @@ export class InactivityWatcher extends (EventEmitter as new () => WatcherEmitter
   private inactivityCreateTargetPercentage: number;
   private inactivityCreatePenalty: bigint;
   private inactivitySignalTargetPercentage: number;
+  private epochDuration: number;
+  private epochCriminals: Map<number, `0x${string}`[]>;
 
   constructor(
     private l2BlockSource: L2BlockSourceEventEmitter,
+    private sentinel: Sentinel,
 
     config: {
+      epochDuration: number;
       inactivityCreateTargetPercentage: number;
       inactivityCreatePenalty: bigint;
       inactivitySignalTargetPercentage: number;
@@ -25,17 +30,23 @@ export class InactivityWatcher extends (EventEmitter as new () => WatcherEmitter
     this.inactivityCreateTargetPercentage = config.inactivityCreateTargetPercentage;
     this.inactivityCreatePenalty = config.inactivityCreatePenalty;
     this.inactivitySignalTargetPercentage = config.inactivitySignalTargetPercentage;
+    this.epochDuration = config.epochDuration;
+    this.epochCriminals = new Map();
   }
 
-  public start() {
-    this.l2BlockSource.on(L2BlockSourceEvents.L2BlockProven, this.handleL2BlockProven.bind(this));
+  public handleProvenPerformance(epoch: bigint, performance: Record<`0x${string}`, { missed: number; total: number }>) {
+    const epochNumber = Number(epoch);
+    const criminals = Object.entries(performance)
+      .filter(([_, { missed, total }]) => {
+        return missed / total > this.inactivityCreateTargetPercentage;
+      })
+      .map(([address]) => address as `0x${string}`);
+
+    this.epochCriminals.set(epochNumber, criminals);
   }
 
-  public stop() {
-    this.l2BlockSource.removeListener(L2BlockSourceEvents.L2BlockProven, this.handleL2BlockProven.bind(this));
-  }
-
-  private handleL2BlockProven(args: L2BlockSourceEvent) {
-    this.log.info('L2 block proven', args);
+  public wantToSlash(_validators: `0x${string}`[], _amounts: bigint[]): boolean {
+    // need to walk back the epochs to see if there is one in which all the validators have exceeded the inactivity signal target
+    return false;
   }
 }

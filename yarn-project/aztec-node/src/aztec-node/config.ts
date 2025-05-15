@@ -10,12 +10,7 @@ import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { type ProverClientUserConfig, proverClientConfigMappings } from '@aztec/prover-client/config';
-import {
-  type SequencerClientConfig,
-  type SlasherConfig,
-  sequencerClientConfigMappings,
-  slasherConfigMappings,
-} from '@aztec/sequencer-client';
+import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
 
@@ -24,6 +19,7 @@ import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 import { type SentinelConfig, sentinelConfigMappings } from '../sentinel/config.js';
+import { type SlasherConfig, slasherConfigMappings } from '../slasher/config.js';
 
 export { sequencerClientConfigMappings, type SequencerClientConfig };
 

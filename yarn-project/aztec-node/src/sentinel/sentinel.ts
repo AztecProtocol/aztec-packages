@@ -12,7 +12,7 @@ import {
   type L2BlockStreamEventHandler,
   getAttestationsFromPublishedL2Block,
 } from '@aztec/stdlib/block';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   ValidatorStats,
   ValidatorStatusHistory,
@@ -21,6 +21,9 @@ import type {
   ValidatorsStats,
 } from '@aztec/stdlib/validators';
 
+import { isAddress } from 'viem';
+
+import type { InactivityWatcher } from '../slasher/inactivity_watcher.js';
 import { SentinelStore } from './store.js';
 
 export class Sentinel implements L2BlockStreamEventHandler {
@@ -38,6 +41,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     protected archiver: L2BlockSource,
     protected p2p: P2PClient,
     protected store: SentinelStore,
+    protected inactivityWatcher: InactivityWatcher | undefined,
     protected logger = createLogger('node:sentinel'),
   ) {
     this.l2TipsStore = new L2TipsMemoryStore();
@@ -84,7 +88,47 @@ export class Sentinel implements L2BlockStreamEventHandler {
           this.slotNumberToBlock.delete(key);
         }
       }
+    } else if (event.type === 'chain-proven') {
+      await this.handleChainProven(event);
     }
+  }
+
+  private async handleChainProven(event: L2BlockStreamEvent) {
+    if (!this.inactivityWatcher) {
+      return;
+    }
+    if (event.type !== 'chain-proven') {
+      return;
+    }
+    const block = await this.archiver.getBlock(event.block.number);
+    if (!block) {
+      this.logger.error(`Failed to get block ${event.block.number}`, { block: event.block });
+      return;
+    }
+
+    const epoch = getEpochAtSlot(block.header.getSlot(), await this.archiver.getL1Constants());
+    const headers = await this.archiver.getBlockHeadersForEpoch(epoch);
+    const provenSlots = headers.map(h => h.getSlot());
+    const fromSlot = provenSlots[0];
+    const toSlot = provenSlots[provenSlots.length - 1];
+    const stats = await this.computeStats({ fromSlot, toSlot });
+
+    const performance: Record<`0x${string}`, { missed: number; total: number }> = {};
+    for (const validator of Object.keys(stats.stats)) {
+      if (!isAddress(validator)) {
+        continue;
+      }
+      let missed = 0;
+      for (const history of stats.stats[validator].history) {
+        if (provenSlots.includes(history.slot) && history.status === 'attestation-missed') {
+          missed++;
+        }
+      }
+      performance[validator] = { missed, total: provenSlots.length };
+    }
+
+    // await this.store.updateProvenPerformance(epoch, performance);
+    this.inactivityWatcher.handleProvenPerformance(epoch, performance);
   }
 
   /**
@@ -232,14 +276,18 @@ export class Sentinel implements L2BlockStreamEventHandler {
   }
 
   /** Computes stats to be returned based on stored data. */
-  public async computeStats(): Promise<ValidatorsStats> {
+  public async computeStats({
+    fromSlot: _fromSlot,
+    toSlot: _toSlot,
+  }: { fromSlot?: bigint; toSlot?: bigint } = {}): Promise<ValidatorsStats> {
     const histories = await this.store.getHistories();
     const slotNow = this.epochCache.getEpochAndSlotNow().slot;
-    const fromSlot = (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
+    const fromSlot = _fromSlot ?? (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
+    const toSlot = _toSlot ?? this.lastProcessedSlot ?? slotNow;
     const result: Record<`0x${string}`, ValidatorStats> = {};
     for (const [address, history] of Object.entries(histories)) {
       const validatorAddress = address as `0x${string}`;
-      result[validatorAddress] = this.computeStatsForValidator(validatorAddress, history, fromSlot);
+      result[validatorAddress] = this.computeStatsForValidator(validatorAddress, history, fromSlot, toSlot);
     }
     return {
       stats: result,
@@ -253,8 +301,10 @@ export class Sentinel implements L2BlockStreamEventHandler {
     address: `0x${string}`,
     allHistory: ValidatorStatusHistory,
     fromSlot?: bigint,
+    toSlot?: bigint,
   ): ValidatorStats {
-    const history = fromSlot ? allHistory.filter(h => h.slot >= fromSlot) : allHistory;
+    let history = fromSlot ? allHistory.filter(h => h.slot >= fromSlot) : allHistory;
+    history = toSlot ? history.filter(h => h.slot <= toSlot) : history;
     return {
       address: EthAddress.fromString(address),
       lastProposal: this.computeFromSlot(

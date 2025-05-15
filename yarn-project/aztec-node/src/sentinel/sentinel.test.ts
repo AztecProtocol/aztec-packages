@@ -219,7 +219,7 @@ class TestSentinel extends Sentinel {
     store: SentinelStore,
     protected override blockStream: L2BlockStream,
   ) {
-    super(epochCache, archiver, p2p, store);
+    super(epochCache, archiver, p2p, store, undefined);
   }
 
   public override init() {

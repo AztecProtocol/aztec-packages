@@ -186,7 +186,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const publicClient = createPublicClient({
       chain: ethereumChain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map(url => http(url))),
+      transport: fallback(config.l1RpcUrls.map((url: any) => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 

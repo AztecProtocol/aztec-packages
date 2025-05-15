@@ -27,5 +27,5 @@ export async function createSentinel(
   );
   const storeHistoryLength = config.sentinelHistoryLengthInEpochs * epochCache.getL1Constants().epochDuration;
   const sentinelStore = new SentinelStore(kvStore, { historyLength: storeHistoryLength });
-  return new Sentinel(epochCache, archiver, p2p, sentinelStore, logger);
+  return new Sentinel(epochCache, archiver, p2p, sentinelStore, undefined, logger);
 }
