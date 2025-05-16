@@ -4,6 +4,7 @@ use dep::types::constants::BLOCK_ROOT_ROLLUP_INDEX;
 use dep::types::merkle_tree::MembershipWitness;
 use dep::types::tests::fixtures;
 use dep::types::traits::Empty;
+use bigint::{BigNum, BLS12_381_Fr as F};
 use types::merkle_tree::merkle_tree::MerkleTree;
 
 pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
@@ -72,8 +73,9 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.final_blob_challenges.z =
         4;
     // = poseidon2([6, 4]) = 0x25f106373d285972efcdfcbc99096a989156495514c4e1bc6cfac2b288ade5e7:
-    previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.final_blob_challenges.gamma.limbs =
-        [448024886556591125833969477526349287, 32274159084860741962424622034622609, 9713];
+    previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.final_blob_challenges.gamma = F::from_limbs(
+        [448024886556591125833969477526349287, 32274159084860741962424622034622609, 9713],
+    );
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.final_blob_challenges = previous_rollup_data[0]
         .block_root_or_block_merge_public_inputs
         .blob_public_inputs

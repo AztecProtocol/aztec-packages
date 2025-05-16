@@ -11,9 +11,6 @@ use crate::{
 use blob::blob_batching_public_inputs::{BatchingBlobCommitment, BlobAccumulationInputs};
 use types::{abis::constant_rollup_data::ConstantRollupData, traits::Empty};
 
-// TODO(MW): Look more into this - the blob code should just skip empty effects and this shouldn't have
-// been needed in the first place?
-
 pub global EMPTY_EFFECT_BLOBS_HASH: Field =
     0x001cedbd7ea5309ef9d1d159209835409bf41b6b1802597a52fa70cc82e934d9;
 pub global EMPTY_EFFECT_BLOB_COMMITMENT: BatchingBlobCommitment =
@@ -63,6 +60,7 @@ mod tests {
         },
         tests::rollup_fixture_builder::RollupFixtureBuilder,
     };
+    use bigint::BigNum;
     use types::{
         abis::sponge_blob::SpongeBlob, address::EthAddress, hash::poseidon2_hash,
         tests::utils::assert_array_eq,
@@ -132,7 +130,7 @@ mod tests {
             output.blob_public_inputs.end_blob_accumulator.c,
             EMPTY_EFFECT_BLOB_COMMITMENT.point,
         );
-        assert_eq(output.blob_public_inputs.end_blob_accumulator.y.limbs, [0, 0, 0]);
+        assert_eq(output.blob_public_inputs.end_blob_accumulator.y.get_limbs(), [0, 0, 0]);
     }
 
     #[test]
