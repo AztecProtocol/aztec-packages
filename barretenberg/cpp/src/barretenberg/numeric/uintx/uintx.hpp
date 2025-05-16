@@ -66,7 +66,12 @@ template <class base_uint> class uintx {
     explicit operator base_uint() const { return lo; }
 
     [[nodiscard]] bool get_bit(uint64_t bit_index) const;
-    [[nodiscard]] uint64_t get_msb() const;
+    [[nodiscard]] constexpr uint64_t get_msb() const
+    {
+        uint64_t hi_idx = hi.get_msb();
+        uint64_t lo_idx = lo.get_msb();
+        return (hi_idx || (hi > base_uint(0))) ? (hi_idx + base_uint::length()) : lo_idx;
+    }
     uintx slice(uint64_t start, uint64_t end) const;
 
     uintx operator+(const uintx& other) const;

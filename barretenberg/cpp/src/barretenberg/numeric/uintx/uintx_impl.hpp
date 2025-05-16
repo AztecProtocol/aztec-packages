@@ -135,13 +135,6 @@ template <class base_uint> bool uintx<base_uint>::get_bit(const uint64_t bit_ind
     return lo.get_bit(bit_index);
 }
 
-template <class base_uint> uint64_t uintx<base_uint>::get_msb() const
-{
-    uint64_t hi_idx = hi.get_msb();
-    uint64_t lo_idx = lo.get_msb();
-    return (hi_idx || (hi > base_uint(0))) ? (hi_idx + base_uint::length()) : lo_idx;
-}
-
 template <class base_uint> uintx<base_uint> uintx<base_uint>::operator+(const uintx& other) const
 {
     base_uint res_lo = lo + other.lo;
