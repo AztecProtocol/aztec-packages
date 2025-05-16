@@ -49,9 +49,17 @@ class table : public FixedBaseParams {
     // The base_point members describe the fixed-base points that correspond to the two independent scalar muls,
     // for our two supported points
     static affine_element lhs_base_point_lo() { return lhs_generator_point(); };
-    static affine_element lhs_base_point_hi() { return element(lhs_base_point_lo()) * MAX_LO_SCALAR; };
+    static affine_element lhs_base_point_hi()
+    {
+        static auto constant = element(lhs_base_point_lo()) * MAX_LO_SCALAR;
+        return constant;
+    };
     static affine_element rhs_base_point_lo() { return rhs_generator_point(); };
-    static affine_element rhs_base_point_hi() { return element(rhs_base_point_lo()) * MAX_LO_SCALAR; };
+    static affine_element rhs_base_point_hi()
+    {
+        static auto constant = element(rhs_base_point_lo()) * MAX_LO_SCALAR;
+        return constant;
+    };
 
     // fixed_base_tables = lookup tables of precomputed base points required for our lookup arguments.
     // N.B. these "tables" are not plookup tables, just regular ol' software lookup tables.
