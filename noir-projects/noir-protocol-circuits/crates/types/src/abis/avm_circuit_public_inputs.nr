@@ -63,10 +63,12 @@ use crate::{
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
-    traits::{Deserialize, Empty, FromField, Serialize, ToField},
-    utils::reader::Reader,
+    traits::{Deserialize, Empty, Serialize},
 };
 
+use std::meta::derive;
+
+#[derive(Deserialize, Eq, Serialize)]
 pub struct AvmCircuitPublicInputs {
     ///////////////////////////////////
     // Inputs.
@@ -113,115 +115,6 @@ impl Empty for AvmCircuitPublicInputs {
             transaction_fee: 0,
             reverted: false,
         }
-    }
-}
-
-impl Eq for AvmCircuitPublicInputs {
-    fn eq(self, other: Self) -> bool {
-        (self.global_variables == other.global_variables)
-            & (self.start_tree_snapshots == other.start_tree_snapshots)
-            & (self.start_gas_used == other.start_gas_used)
-            & (self.gas_settings == other.gas_settings)
-            & (self.fee_payer == other.fee_payer)
-            & (self.public_setup_call_requests == other.public_setup_call_requests)
-            & (self.public_app_logic_call_requests == other.public_app_logic_call_requests)
-            & (self.public_teardown_call_request == other.public_teardown_call_request)
-            & (
-                self.previous_non_revertible_accumulated_data_array_lengths
-                    == other.previous_non_revertible_accumulated_data_array_lengths
-            )
-            & (
-                self.previous_revertible_accumulated_data_array_lengths
-                    == other.previous_revertible_accumulated_data_array_lengths
-            )
-            & (
-                self.previous_non_revertible_accumulated_data
-                    == other.previous_non_revertible_accumulated_data
-            )
-            & (
-                self.previous_revertible_accumulated_data
-                    == other.previous_revertible_accumulated_data
-            )
-            & (self.end_tree_snapshots == other.end_tree_snapshots)
-            & (self.end_gas_used == other.end_gas_used)
-            & (self.accumulated_data == other.accumulated_data)
-            & (self.transaction_fee == other.transaction_fee)
-            & (self.reverted == other.reverted)
-    }
-}
-
-impl Serialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
-    fn serialize(self) -> [Field; AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
-
-        fields.extend_from_array(self.global_variables.serialize());
-        fields.extend_from_array(self.start_tree_snapshots.serialize());
-        fields.extend_from_array(self.start_gas_used.serialize());
-        fields.extend_from_array(self.gas_settings.serialize());
-        fields.push(self.fee_payer.to_field());
-        for i in 0..self.public_setup_call_requests.len() {
-            fields.extend_from_array(self.public_setup_call_requests[i].serialize());
-        }
-        for i in 0..self.public_app_logic_call_requests.len() {
-            fields.extend_from_array(self.public_app_logic_call_requests[i].serialize());
-        }
-        fields.extend_from_array(self.public_teardown_call_request.serialize());
-        fields.extend_from_array(self
-            .previous_non_revertible_accumulated_data_array_lengths
-            .serialize());
-        fields.extend_from_array(self.previous_revertible_accumulated_data_array_lengths.serialize());
-        fields.extend_from_array(self.previous_non_revertible_accumulated_data.serialize());
-        fields.extend_from_array(self.previous_revertible_accumulated_data.serialize());
-        fields.extend_from_array(self.end_tree_snapshots.serialize());
-        fields.extend_from_array(self.end_gas_used.serialize());
-        fields.extend_from_array(self.accumulated_data.serialize());
-        fields.push(self.transaction_fee);
-        fields.push(self.reverted as Field);
-
-        assert_eq(fields.len(), AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH);
-
-        fields.storage()
-    }
-}
-
-impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
-    fn deserialize(fields: [Field; AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH]) -> AvmCircuitPublicInputs {
-        let mut reader = Reader::new(fields);
-        let item = AvmCircuitPublicInputs {
-            global_variables: reader.read_struct(GlobalVariables::deserialize),
-            start_tree_snapshots: reader.read_struct(TreeSnapshots::deserialize),
-            start_gas_used: reader.read_struct(Gas::deserialize),
-            gas_settings: reader.read_struct(GasSettings::deserialize),
-            fee_payer: AztecAddress::from_field(reader.read()),
-            public_setup_call_requests: reader.read_struct_array(
-                PublicCallRequest::deserialize,
-                [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
-            ),
-            public_app_logic_call_requests: reader.read_struct_array(
-                PublicCallRequest::deserialize,
-                [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
-            ),
-            public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
-            previous_non_revertible_accumulated_data_array_lengths: reader.read_struct(
-                PrivateToAvmAccumulatedDataArrayLengths::deserialize,
-            ),
-            previous_revertible_accumulated_data_array_lengths: reader.read_struct(
-                PrivateToAvmAccumulatedDataArrayLengths::deserialize,
-            ),
-            previous_non_revertible_accumulated_data: reader.read_struct(
-                PrivateToAvmAccumulatedData::deserialize,
-            ),
-            previous_revertible_accumulated_data: reader.read_struct(
-                PrivateToAvmAccumulatedData::deserialize,
-            ),
-            end_tree_snapshots: reader.read_struct(TreeSnapshots::deserialize),
-            end_gas_used: reader.read_struct(Gas::deserialize),
-            accumulated_data: reader.read_struct(AvmAccumulatedData::deserialize),
-            transaction_fee: reader.read(),
-            reverted: reader.read() as bool,
-        };
-        reader.finish();
-        item
     }
 }
 
@@ -580,125 +473,131 @@ impl Verifiable for AvmProofData {
     }
 }
 
-#[test]
-fn serialization_of_empty_avm_circuit_public_inputs() {
-    let item = AvmCircuitPublicInputs::empty();
-    let serialized = item.serialize();
-    let deserialized = AvmCircuitPublicInputs::deserialize(serialized);
-    assert(item.eq(deserialized));
-}
+mod test {
+    use crate::{
+        abis::avm_circuit_public_inputs::AvmCircuitPublicInputs,
+        constants::AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+        traits::{Deserialize, Empty, Serialize},
+    };
 
-#[test]
-fn flat_columns_of_empty_avm_circuit_public_inputs() {
-    let item = AvmCircuitPublicInputs::empty();
-    let flat = item.to_columns_flat();
-    // some assertion just to make sure it isn't optimized away
-    assert(flat.len() == AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
-}
-
-#[test]
-fn flat_columns_of_avm_circuit_public_inputs() {
-    // Create a test instance with specific values
-    let mut item = AvmCircuitPublicInputs::empty();
-
-    // Set some values in different parts of the struct to test serialization
-    // Global variables - beginning of the struct
-    item.global_variables.chain_id = 123;
-    item.global_variables.block_number = 456;
-    item.global_variables.timestamp = 789;
-
-    // Fee payer - middle of the struct
-    item.fee_payer = AztecAddress::from_field(12345);
-
-    // revertible l2_to_l1_msgs from private
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.recipient =
-        EthAddress::from_field(1234);
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content = 5678;
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.counter = 9012;
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].contract_address =
-        AztecAddress::from_field(3456);
-
-    // Test some array elements
-    // Add a note hash to accumulated data
-    item.accumulated_data.note_hashes[2] = 54321;
-
-    // Add a public log
-    item.accumulated_data.public_logs[0].contract_address = AztecAddress::from_field(11223);
-    // set some number of items in the log (less than max)
-    item.accumulated_data.public_logs[0].log.length = PUBLIC_LOG_SIZE_IN_FIELDS - 2;
-    for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
-        item.accumulated_data.public_logs[0].log.fields[j] = 10000 + j as Field;
+    #[test]
+    fn flat_columns_of_empty_avm_circuit_public_inputs() {
+        let item = AvmCircuitPublicInputs::empty();
+        let flat = item.to_columns_flat();
+        // some assertion just to make sure it isn't optimized away
+        assert(flat.len() == AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
     }
 
-    // Add a public data write
-    item.accumulated_data.public_data_writes[1].leaf_slot = 5555;
-    item.accumulated_data.public_data_writes[1].value = 6666;
+    #[test]
+    fn flat_columns_of_avm_circuit_public_inputs() {
+        // Create a test instance with specific values
+        let mut item = AvmCircuitPublicInputs::empty();
 
-    // End gas used - toward the end of the struct
-    item.end_gas_used.da_gas = 5000;
-    item.end_gas_used.l2_gas = 7000;
+        // Set some values in different parts of the struct to test serialization
+        // Global variables - beginning of the struct
+        item.global_variables.chain_id = 123;
+        item.global_variables.block_number = 456;
+        item.global_variables.timestamp = 789;
 
-    // Transaction fee - at the end of the struct
-    item.transaction_fee = 9876;
-    item.reverted = true;
+        // Fee payer - middle of the struct
+        item.fee_payer = AztecAddress::from_field(12345);
 
-    // Serialize to columns
-    let flat = item.to_columns_flat();
+        // revertible l2_to_l1_msgs from private
+        item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.recipient =
+            EthAddress::from_field(1234);
+        item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content = 5678;
+        item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.counter = 9012;
+        item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].contract_address =
+            AztecAddress::from_field(3456);
 
-    // Verify length
-    // Define column offsets
-    let col0_offset = 0;
-    let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
-    let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
-    let col3_offset = col2_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+        // Test some array elements
+        // Add a note hash to accumulated data
+        item.accumulated_data.note_hashes[2] = 54321;
 
-    // Verify serialized values are at the expected positions
+        // Add a public log
+        item.accumulated_data.public_logs[0].contract_address = AztecAddress::from_field(11223);
+        // set some number of items in the log (less than max)
+        item.accumulated_data.public_logs[0].log.length = PUBLIC_LOG_SIZE_IN_FIELDS - 2;
+        for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
+            item.accumulated_data.public_logs[0].log.fields[j] = 10000 + j as Field;
+        }
 
-    // Global variables
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX], 123);
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX], 456);
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX], 789);
+        // Add a public data write
+        item.accumulated_data.public_data_writes[1].leaf_slot = 5555;
+        item.accumulated_data.public_data_writes[1].value = 6666;
 
-    // Fee payer
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX], 12345);
+        // End gas used - toward the end of the struct
+        item.end_gas_used.da_gas = 5000;
+        item.end_gas_used.l2_gas = 7000;
 
-    // test l2_to_l1_msgs which use up 4 columns
-    let l2_to_l1_msg_row =
-        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
-    assert_eq(flat[col0_offset + l2_to_l1_msg_row], 1234);
-    assert_eq(flat[col1_offset + l2_to_l1_msg_row], 5678);
-    assert_eq(flat[col2_offset + l2_to_l1_msg_row], 9012);
-    assert_eq(flat[col3_offset + l2_to_l1_msg_row], 3456);
+        // Transaction fee - at the end of the struct
+        item.transaction_fee = 9876;
+        item.reverted = true;
 
-    // Array elements
-    // Note hash array
-    assert_eq(
-        flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 2],
-        54321,
-    );
+        // Serialize to columns
+        let flat = item.to_columns_flat();
 
-    // Public logs
-    let public_log_row = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
-    assert_eq(flat[col1_offset + public_log_row], (PUBLIC_LOG_SIZE_IN_FIELDS - 2) as Field);
-    for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
-        assert_eq(flat[col2_offset + public_log_row + j], 10000 + j as Field);
+        // Verify length
+        // Define column offsets
+        let col0_offset = 0;
+        let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+        let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+        let col3_offset = col2_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+
+        // Verify serialized values are at the expected positions
+
+        // Global variables
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX], 123);
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX], 456);
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX], 789);
+
+        // Fee payer
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX], 12345);
+
+        // test l2_to_l1_msgs which use up 4 columns
+        let l2_to_l1_msg_row =
+            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
+        assert_eq(flat[col0_offset + l2_to_l1_msg_row], 1234);
+        assert_eq(flat[col1_offset + l2_to_l1_msg_row], 5678);
+        assert_eq(flat[col2_offset + l2_to_l1_msg_row], 9012);
+        assert_eq(flat[col3_offset + l2_to_l1_msg_row], 3456);
+
+        // Array elements
+        // Note hash array
+        assert_eq(
+            flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 2],
+            54321,
+        );
+
+        // Public logs
+        let public_log_row = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
+        assert_eq(flat[col1_offset + public_log_row], (PUBLIC_LOG_SIZE_IN_FIELDS - 2) as Field);
+        for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
+            assert_eq(flat[col2_offset + public_log_row + j], 10000 + j as Field);
+        }
+
+        // Public data writes
+        let public_data_write_row =
+            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + 1;
+        assert_eq(flat[col0_offset + public_data_write_row], 5555);
+        assert_eq(flat[col1_offset + public_data_write_row], 6666);
+
+        // Pick a an unset/empty element and confirm that it is zero
+        assert_eq(
+            flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX],
+            0,
+        );
+        assert_eq(
+            flat[col1_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX],
+            0,
+        );
+
+        // End gas used
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], 5000);
+        assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], 7000);
+
+        // Transaction fee and reverted status
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX], 9876);
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX], 1);
     }
-
-    // Public data writes
-    let public_data_write_row =
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + 1;
-    assert_eq(flat[col0_offset + public_data_write_row], 5555);
-    assert_eq(flat[col1_offset + public_data_write_row], 6666);
-
-    // Pick a an unset/empty element and confirm that it is zero
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
-    assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
-
-    // End gas used
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], 5000);
-    assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], 7000);
-
-    // Transaction fee and reverted status
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX], 9876);
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX], 1);
 }

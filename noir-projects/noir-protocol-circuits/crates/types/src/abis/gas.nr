@@ -1,10 +1,11 @@
 use crate::{
     abis::gas_fees::GasFees,
-    constants::{FIXED_DA_GAS, FIXED_L2_GAS, GAS_LENGTH},
+    constants::{FIXED_DA_GAS, FIXED_L2_GAS},
     traits::{Deserialize, Empty, Serialize},
 };
-use std::ops::{Add, Sub};
+use std::{meta::derive, ops::{Add, Sub}};
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct Gas {
     pub da_gas: u32,
     pub l2_gas: u32,
@@ -44,34 +45,22 @@ impl Sub for Gas {
     }
 }
 
-impl Serialize<GAS_LENGTH> for Gas {
-    fn serialize(self) -> [Field; GAS_LENGTH] {
-        [self.da_gas as Field, self.l2_gas as Field]
-    }
-}
-
-impl Deserialize<GAS_LENGTH> for Gas {
-    fn deserialize(serialized: [Field; GAS_LENGTH]) -> Gas {
-        Gas::new(serialized[0] as u32, serialized[1] as u32)
-    }
-}
-
-impl Eq for Gas {
-    fn eq(self, other: Gas) -> bool {
-        (self.da_gas == other.da_gas) & (self.l2_gas == other.l2_gas)
-    }
-}
-
 impl Empty for Gas {
     fn empty() -> Self {
         Gas::new(0, 0)
     }
 }
 
-#[test]
-fn serialization_of_empty() {
-    let item = Gas::empty();
-    let serialized = item.serialize();
-    let deserialized = Gas::deserialize(serialized);
-    assert(item.eq(deserialized));
+mod test {
+    use crate::{abis::gas::Gas, constants::GAS_LENGTH, traits::{Deserialize, Empty, Serialize}};
+
+    #[test]
+    fn serialization_of_empty() {
+        let item = Gas::empty();
+        // We use the GAS_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; GAS_LENGTH] = item.serialize();
+        let deserialized = Gas::deserialize(serialized);
+        assert(item.eq(deserialized));
+    }
 }

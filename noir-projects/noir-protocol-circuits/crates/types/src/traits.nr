@@ -201,13 +201,17 @@ impl FromField for u128 {
 /// }
 /// ```
 #[derive_via(derive_serialize)]
-pub trait Serialize<let N: u32> {
+pub trait Serialize {
+    let N: u32;
+
     fn serialize(self) -> [Field; N];
 }
 // docs:end:serialize
 
-impl<let N: u32> Serialize<N> for str<N> {
-    fn serialize(self) -> [Field; N] {
+impl<let M: u32> Serialize for str<M> {
+    let N = M;
+
+    fn serialize(self) -> [Field; Self::N] {
         let bytes = self.as_bytes();
         let mut fields = [0; N];
         for i in 0..bytes.len() {
@@ -246,12 +250,14 @@ where
     }
 }
 
-impl<T, let M: u32, let O: u32> Serialize<O * M + 1> for BoundedVec<T, M>
+impl<T, let M: u32, let O: u32> Serialize for BoundedVec<T, M>
 where
-    T: Serialize<O>,
+    T: Serialize,
 {
-    fn serialize(self) -> [Field; O * M + 1] {
-        let mut fields = [0; O * M + 1];
+    let N = O * M + 1; // +1 for the length of the BoundedVec
+
+    fn serialize(self) -> [Field; Self::N] {
+        let mut fields = [0; Self::N];
 
         let len = self.len();
         fields[0] = len as Field;
@@ -292,14 +298,18 @@ where
 /// }
 /// ```
 #[derive_via(derive_deserialize)]
-pub trait Deserialize<let N: u32> {
+pub trait Deserialize {
+    let N: u32;
+
     fn deserialize(fields: [Field; N]) -> Self;
 }
 // docs:end:deserialize
 
-impl<let N: u32> Deserialize<N> for str<N> {
-    fn deserialize(fields: [Field; N]) -> Self {
-        str::<N>::from(fields.map(|value| value as u8))
+impl<let M: u32> Deserialize for str<M> {
+    let N = M;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
+        str::<Self::N>::from(fields.map(|value| value as u8))
     }
 }
 

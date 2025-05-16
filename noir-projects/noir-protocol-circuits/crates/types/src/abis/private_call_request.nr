@@ -1,10 +1,9 @@
 use crate::{
     abis::{call_context::CallContext, side_effect::{Ordered, RangeOrdered}},
-    constants::PRIVATE_CALL_REQUEST_LENGTH,
     traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
 };
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PrivateCallRequest {
     pub call_context: CallContext,
     pub args_hash: Field,
@@ -28,16 +27,6 @@ impl RangeOrdered for PrivateCallRequest {
     }
 }
 
-impl Eq for PrivateCallRequest {
-    fn eq(self, other: PrivateCallRequest) -> bool {
-        (self.call_context == other.call_context)
-            & (self.args_hash == other.args_hash)
-            & (self.returns_hash == other.returns_hash)
-            & (self.start_side_effect_counter == other.start_side_effect_counter)
-            & (self.end_side_effect_counter == other.end_side_effect_counter)
-    }
-}
-
 impl Empty for PrivateCallRequest {
     fn empty() -> Self {
         PrivateCallRequest {
@@ -50,41 +39,20 @@ impl Empty for PrivateCallRequest {
     }
 }
 
-impl Serialize<PRIVATE_CALL_REQUEST_LENGTH> for PrivateCallRequest {
-    fn serialize(self) -> [Field; PRIVATE_CALL_REQUEST_LENGTH] {
-        let mut fields: BoundedVec<Field, PRIVATE_CALL_REQUEST_LENGTH> = BoundedVec::new();
+mod test {
+    use crate::{
+        abis::private_call_request::PrivateCallRequest,
+        constants::PRIVATE_CALL_REQUEST_LENGTH,
+        traits::{Deserialize, Empty, Serialize},
+    };
 
-        fields.extend_from_array(self.call_context.serialize());
-        fields.push(self.args_hash);
-        fields.push(self.returns_hash);
-        fields.push(self.start_side_effect_counter as Field);
-        fields.push(self.end_side_effect_counter as Field);
-
-        assert_eq(fields.len(), PRIVATE_CALL_REQUEST_LENGTH);
-
-        fields.storage()
+    #[test]
+    fn serialization_of_empty() {
+        let item = PrivateCallRequest::empty();
+        // We use the PRIVATE_CALL_REQUEST_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; PRIVATE_CALL_REQUEST_LENGTH] = item.serialize();
+        let deserialized = PrivateCallRequest::deserialize(serialized);
+        assert(item.eq(deserialized));
     }
-}
-
-impl Deserialize<PRIVATE_CALL_REQUEST_LENGTH> for PrivateCallRequest {
-    fn deserialize(fields: [Field; PRIVATE_CALL_REQUEST_LENGTH]) -> PrivateCallRequest {
-        let mut reader = Reader::new(fields);
-        let item = PrivateCallRequest {
-            call_context: reader.read_struct(CallContext::deserialize),
-            args_hash: reader.read(),
-            returns_hash: reader.read(),
-            start_side_effect_counter: reader.read_u32(),
-            end_side_effect_counter: reader.read_u32(),
-        };
-        reader.finish();
-        item
-    }
-}
-
-#[test]
-fn serialization_of_empty() {
-    let item = PrivateCallRequest::empty();
-    let serialized = item.serialize();
-    let deserialized = PrivateCallRequest::deserialize(serialized);
-    assert(item.eq(deserialized));
 }
