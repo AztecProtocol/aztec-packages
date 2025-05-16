@@ -207,9 +207,6 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Block proving state for ${blockNumber} not found`);
     }
 
-    console.log('addtxs');
-    console.log(provingState);
-
     if (provingState.totalNumTxs) {
       throw new Error(`Block ${blockNumber} has been initialized with transactions.`);
     }
@@ -273,7 +270,6 @@ export class ProvingOrchestrator implements EpochProver {
     [Attributes.BLOCK_NUMBER]: blockNumber,
   }))
   public async setBlockCompleted(blockNumber: number, expectedHeader?: BlockHeader): Promise<L2Block> {
-    console.log('**************BLOCK SET COMPLETED**********************', blockNumber);
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
@@ -681,10 +677,6 @@ export class ProvingOrchestrator implements EpochProver {
       `Enqueuing ${rollupType} for block ${provingState.blockNumber} with ${provingState.newL1ToL2Messages.length} l1 to l2 msgs.`,
     );
 
-    console.log('BR', provingState.blockNumber, 'start:');
-    console.log(inputs.data.startBlobAccumulator);
-    console.log(inputs.data.finalBlobChallenges);
-
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -816,11 +808,6 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     const inputs = provingState.getBlockMergeRollupInputs(location);
-    console.log('BLOCK MERGE');
-    console.log('-----------------------------------------------------------');
-    console.log(inputs.previousRollupData[0].blockRootOrBlockMergePublicInputs.blobPublicInputs);
-    console.log(inputs.previousRollupData[1].blockRootOrBlockMergePublicInputs.blobPublicInputs);
-    console.log('-----------------------------------------------------------');
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -847,10 +834,6 @@ export class ProvingOrchestrator implements EpochProver {
     logger.debug('Padding epoch proof with an empty block root proof.');
 
     const inputs = await provingState.getPaddingBlockRootInputs(this.proverId);
-
-    console.log('empty block');
-    console.log(inputs.data.startBlobAccumulator);
-    console.log(inputs.data.finalBlobChallenges);
 
     this.deferredProving(
       provingState,
@@ -880,13 +863,6 @@ export class ProvingOrchestrator implements EpochProver {
     logger.debug(`Preparing root rollup`);
 
     const inputs = provingState.getRootRollupInputs(this.proverId);
-    console.log('root');
-    console.log(inputs.previousRollupData[0].blockRootOrBlockMergePublicInputs.blobPublicInputs);
-    console.log(inputs.previousRollupData[1].blockRootOrBlockMergePublicInputs.blobPublicInputs);
-    console.log(provingState.finalBlobBatchingChallenges);
-    console.log(provingState.blocks[0]?.startBlobAccumulator);
-    console.log(provingState.blocks[provingState.totalNumBlocks - 1]?.startBlobAccumulator);
-    console.log(provingState.blocks[provingState.totalNumBlocks - 1]?.endBlobAccumulator);
 
     this.deferredProving(
       provingState,
@@ -964,8 +940,6 @@ export class ProvingOrchestrator implements EpochProver {
         previousAccumulator = state.endBlobAccumulator;
       }
       if (!previousAccumulator) {
-        console.log(this.provingState?.getBlockProvingStateByBlockNumber(blockNumber - 1)?.startBlobAccumulator);
-        console.log(this.provingState?.getBlockProvingStateByBlockNumber(blockNumber - 1)?.endBlobAccumulator);
         throw new Error(`No blob accumulator found for block ${blockNumber - 1}`);
       }
       provingState.startBlobAccumulator = previousAccumulator;
