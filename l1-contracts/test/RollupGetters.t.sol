@@ -50,7 +50,7 @@ import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelecti
  */
 contract RollupShouldBeGetters is ValidatorSelectionTestBase {
   function test_getEpochCommittee(uint16 _epochToGet, bool _setup) external setup(4) {
-    uint256 expectedSize = _epochToGet == 0 ? 0 : 4;
+    uint256 expectedSize = _epochToGet < 2 ? 0 : 4;
     Epoch e = Epoch.wrap(_epochToGet);
     Timestamp t = timeCheater.epochToTimestamp(e);
 
@@ -74,7 +74,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
   }
 
   function test_getEpochCommitteeBig(uint16 _epochToGet, bool _setup) external setup(49) {
-    uint256 expectedSize = _epochToGet == 0 ? 0 : 48;
+    uint256 expectedSize = _epochToGet < 2 ? 0 : 48;
     Epoch e = Epoch.wrap(_epochToGet);
     Timestamp t = timeCheater.epochToTimestamp(e);
 

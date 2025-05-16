@@ -44,7 +44,7 @@ export class EpochProvingJob implements Traceable {
     private l2BlockSource: L2BlockSource | undefined,
     private metrics: ProverNodeJobMetrics,
     private deadline: Date | undefined,
-    private config: { parallelBlockLimit: number } = { parallelBlockLimit: 32 },
+    private config: { parallelBlockLimit?: number; skipEpochCheck?: boolean },
   ) {
     validateEpochProvingJobData(data);
     this.uuid = crypto.randomUUID();
@@ -91,7 +91,9 @@ export class EpochProvingJob implements Traceable {
   })
   public async run() {
     this.scheduleDeadlineStop();
-    await this.scheduleEpochCheck();
+    if (!this.config.skipEpochCheck) {
+      await this.scheduleEpochCheck();
+    }
 
     const epochNumber = Number(this.epochNumber);
     const epochSizeBlocks = this.blocks.length;
@@ -114,7 +116,7 @@ export class EpochProvingJob implements Traceable {
       this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
       await this.prover.startTubeCircuits(this.txs);
 
-      await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
+      await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
         this.checkState();
 
         const globalVariables = block.header.globalVariables;

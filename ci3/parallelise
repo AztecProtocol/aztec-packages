@@ -20,7 +20,7 @@ if [ "${NO_FAIL_FAST:-0}" -eq 0 ]; then
   parallel_args+=" --halt now,fail=1"
 fi
 
-echo "Starting test run with max $jobs jobs..."
+echo "Starting parallel run with max $jobs jobs..."
 
 # If we're in a terminal default to a progress bar, and use cache_log to save output to redis.
 # Otherwise use denoise to display dots and save output to redis.

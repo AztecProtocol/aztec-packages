@@ -28,7 +28,7 @@ import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 import type { TelemetryClientConfig } from './config.js';
-import { EventLoopMonitor } from './event_loop_monitor.js';
+import { NodejsMetricsMonitor } from './nodejs_metrics_monitor.js';
 import { OtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
@@ -38,7 +38,7 @@ export type OpenTelemetryClientFactory = (resource: IResource, log: Logger) => O
 
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
-  eventLoopMonitor: EventLoopMonitor | undefined;
+  nodejsMetricsMonitor: NodejsMetricsMonitor | undefined;
   private meters: Map<string, Meter> = new Map<string, Meter>();
   private tracers: Map<string, Tracer> = new Map<string, Tracer>();
 
@@ -91,12 +91,12 @@ export class OpenTelemetryClient implements TelemetryClient {
       meterProvider: this.meterProvider,
     });
 
-    this.eventLoopMonitor = new EventLoopMonitor(
+    this.nodejsMetricsMonitor = new NodejsMetricsMonitor(
       this.meterProvider.getMeter(this.resource.attributes[ATTR_SERVICE_NAME] as string),
     );
 
     this.hostMetrics.start();
-    this.eventLoopMonitor.start();
+    this.nodejsMetricsMonitor.start();
   }
 
   public isEnabled() {
@@ -112,7 +112,7 @@ export class OpenTelemetryClient implements TelemetryClient {
   }
 
   public async stop() {
-    this.eventLoopMonitor?.stop();
+    this.nodejsMetricsMonitor?.stop();
 
     const flushAndShutdown = async (provider?: { forceFlush: () => Promise<void>; shutdown: () => Promise<void> }) => {
       if (!provider) {

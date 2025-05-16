@@ -190,28 +190,15 @@ function test_cmds {
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_bb_verify $run_test assert_statement"
 }
 
-function ultra_honk_wasm_memory {
-  VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk_deprecated FLOW=prove_then_verify \
-    ./scripts/run_test.sh verify_honk_proof &> ./bench-out/ultra_honk_rec_wasm_memory.txt
-}
-
-function run_benchmark {
-  local start_core=$(( ($1 - 1) * HARDWARE_CONCURRENCY ))
-  local end_core=$(( start_core + (HARDWARE_CONCURRENCY - 1) ))
-  echo taskset -c $start_core-$end_core bash -c "$2"
-  taskset -c $start_core-$end_core bash -c "$2"
+function bench_cmds {
+  echo "$tests_hash:CPUS=16 barretenberg/acir_tests/scripts/run_bench.sh ultra_honk_rec_wasm_memory" \
+    "'BIN=../ts/dest/node/main.js SYS=ultra_honk_deprecated FLOW=prove_then_verify ./scripts/run_test.sh verify_honk_proof'"
 }
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
 function bench {
-  export HARDWARE_CONCURRENCY=16
-
   rm -rf bench-out && mkdir -p bench-out
-  export -f ultra_honk_wasm_memory run_benchmark
-  local num_cpus=$(get_num_cpus)
-  local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
-  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} {} ::: \
-    ultra_honk_wasm_memory
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
 }
 
 case "$cmd" in
@@ -228,7 +215,7 @@ case "$cmd" in
   "hash")
     echo $tests_hash
     ;;
-  test|test_cmds|bench)
+  test|test_cmds|bench|bench_cmds)
     $cmd
     ;;
   *)

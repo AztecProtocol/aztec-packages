@@ -39,6 +39,7 @@ describe('e2e_p2p_reex', () => {
         enforceTimeTable: true,
         txTimeoutMs: 30_000,
         listenAddress: '127.0.0.1',
+        aztecProofSubmissionWindow: 640,
       },
     });
 

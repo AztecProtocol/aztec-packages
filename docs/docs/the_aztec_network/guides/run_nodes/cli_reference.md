@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 5
 title: Cli Reference
 description: A reference of the --help output when running aztec start.
 keywords:

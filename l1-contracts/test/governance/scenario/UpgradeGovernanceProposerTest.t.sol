@@ -47,6 +47,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
   address internal constant EMPEROR = address(uint160(bytes20("EMPEROR")));
 
   function setUp() external {
+    vm.warp(1000);
     RollupBuilder builder = new RollupBuilder(address(this));
     builder.deploy();
 

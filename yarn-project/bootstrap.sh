@@ -151,6 +151,11 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function bench_cmds {
+  local hash=$(hash)
+  echo "$hash BENCH_OUTPUT=bench-out/sim.bench.json yarn-project/scripts/run_test.sh simulator/src/public/public_tx_simulator/apps_tests/bench.test.ts"
+}
+
 function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
@@ -208,7 +213,7 @@ case "$cmd" in
   lint|format)
     $cmd "$@"
     ;;
-  test|test_cmds|hash|release|format)
+  test|test_cmds|bench_cmds|hash|release|format)
     $cmd
     ;;
   *)

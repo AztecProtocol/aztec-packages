@@ -7,7 +7,7 @@ SetupEpochTest
 ├── when the rollup is not in genesis state
 │   └── Given the seed has been sampled
 │       ├── it should not change the sample seed
-│       ├── it should be calcaulte the same committee when looking into the past
+│       ├── it should be calculate the same committee when looking into the past
 │       ├── it should not change the commitee even when validators are added or removed
 │       └── it should not change the next seed
 └── when it has been a long time since the last sample seed was set

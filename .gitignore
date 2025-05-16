@@ -10,6 +10,7 @@ cmake-build-debug
 terraform.tfstate*
 .bootstrapped
 .tsbuildinfo
+bench-out
 
 # Local Netlify folder
 .netlify

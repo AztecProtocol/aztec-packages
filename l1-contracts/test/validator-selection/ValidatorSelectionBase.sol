@@ -103,9 +103,11 @@ contract ValidatorSelectionTestBase is DecoderBase {
     _;
   }
 
-  modifier progressEpoch() {
+  modifier progressEpochs(uint256 _epochCount) {
     // Progress into the next epoch for changes to take effect
-    timeCheater.cheat__progressEpoch();
+    for (uint256 i = 0; i < _epochCount; i++) {
+      timeCheater.cheat__progressEpoch();
+    }
     _;
   }
 

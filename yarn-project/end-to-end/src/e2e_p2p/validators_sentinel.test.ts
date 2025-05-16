@@ -9,7 +9,7 @@ import os from 'os';
 import path from 'path';
 
 import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 const NUM_NODES = 4;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
@@ -30,10 +30,9 @@ describe('e2e_p2p_validators_sentinel', () => {
       numberOfNodes: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       initialConfig: {
-        ...SHORTENED_BLOCK_TIME_CONFIG,
+        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
-        aztecEpochDuration: 48,
         validatorReexecute: false,
         sentinelEnabled: true,
       },
@@ -71,7 +70,7 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       const currentBlock = t.monitor.l2BlockNumber;
       const blockCount = BLOCK_COUNT;
-      const timeout = SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * blockCount * 8;
+      const timeout = SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * blockCount * 8;
       t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
       await retryUntil(() => t.monitor.l2BlockNumber >= currentBlock + blockCount, 'blocks mined', timeout);
 
@@ -92,7 +91,7 @@ describe('e2e_p2p_validators_sentinel', () => {
           );
         },
         'sentinel processed blocks',
-        SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * 8,
+        SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * 8,
         1,
       );
 
@@ -152,7 +151,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
 
       t.logger.info(`Waiting for a few more blocks to be mined`);
-      const timeout = SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * 4 * 12;
+      const timeout = SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * 4 * 12;
       await retryUntil(() => t.monitor.l2BlockNumber > l2BlockNumber + 3, 'more blocks mined', timeout);
       await sleep(1000);
 
@@ -160,7 +159,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       await retryUntil(
         () => newNode.getValidatorsStats().then(s => Object.keys(s.stats).length > 1),
         'sentinel stats',
-        SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * 2,
+        SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * 2,
         1,
       );
 
