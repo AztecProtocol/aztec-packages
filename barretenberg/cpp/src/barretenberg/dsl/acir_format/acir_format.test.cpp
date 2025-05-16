@@ -22,9 +22,9 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
 {
 
     poly_triple constraint{
-        .a = 1,
-        .b = 2,
-        .c = 3,
+        .a = 0,
+        .b = 1,
+        .c = 2,
         .q_m = 0,
         .q_l = 1,
         .q_r = 1,
@@ -63,7 +63,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
-    WitnessVector witness{ 0, 0, 1 };
+    WitnessVector witness{ 5, 7, 12 };
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
