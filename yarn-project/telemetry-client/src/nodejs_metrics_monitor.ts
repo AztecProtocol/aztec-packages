@@ -13,7 +13,7 @@ import {
 /**
  * Detector for custom Aztec attributes
  */
-export class EventLoopMonitor {
+export class NodejsMetricsMonitor {
   private eventLoopDelayGauges: {
     min: ObservableGauge;
     max: ObservableGauge;
@@ -23,6 +23,10 @@ export class EventLoopMonitor {
     p90: ObservableGauge;
     p99: ObservableGauge;
   };
+
+  // skip `rss` because that's already tracked by @opentelemetry/host-metrics
+  // description of each field here https://nodejs.org/api/process.html#processmemoryusage
+  private memoryGauges: Record<Exclude<keyof NodeJS.MemoryUsage, 'rss'>, ObservableGauge>;
 
   private eventLoopUilization: ObservableGauge;
   private eventLoopTime: UpDownCounter;
@@ -62,6 +66,25 @@ export class EventLoopMonitor {
     });
 
     this.eventLoopDelay = monitorEventLoopDelay();
+
+    this.memoryGauges = {
+      heapUsed: meter.createObservableGauge(Metrics.NODEJS_MEMORY_HEAP_USAGE, {
+        unit: 'By',
+        description: 'Memory used by the V8 heap',
+      }),
+      heapTotal: meter.createObservableGauge(Metrics.NODEJS_MEMORY_HEAP_TOTAL, {
+        unit: 'By',
+        description: 'The max size the V8 heap can grow to',
+      }),
+      arrayBuffers: meter.createObservableGauge(Metrics.NODEJS_MEMORY_BUFFER_USAGE, {
+        unit: 'By',
+        description: 'Memory allocated for buffers (includes native memory used)',
+      }),
+      external: meter.createObservableGauge(Metrics.NODEJS_MEMORY_NATIVE_USAGE, {
+        unit: 'By',
+        description: 'Memory allocated for native C++ objects',
+      }),
+    };
   }
 
   start(): void {
@@ -74,6 +97,7 @@ export class EventLoopMonitor {
     this.meter.addBatchObservableCallback(this.measure, [
       this.eventLoopUilization,
       ...Object.values(this.eventLoopDelayGauges),
+      ...Object.values(this.memoryGauges),
     ]);
   }
 
@@ -84,6 +108,7 @@ export class EventLoopMonitor {
     this.meter.removeBatchObservableCallback(this.measure, [
       this.eventLoopUilization,
       ...Object.values(this.eventLoopDelayGauges),
+      ...Object.values(this.memoryGauges),
     ]);
     this.eventLoopDelay.disable();
     this.eventLoopDelay.reset();
@@ -91,6 +116,20 @@ export class EventLoopMonitor {
   }
 
   private measure = (obs: BatchObservableResult): void => {
+    this.measureMemoryUsage(obs);
+    this.measureEventLoopDelay(obs);
+  };
+
+  private measureMemoryUsage = (observer: BatchObservableResult) => {
+    const mem = process.memoryUsage();
+
+    observer.observe(this.memoryGauges.heapUsed, mem.heapUsed);
+    observer.observe(this.memoryGauges.heapTotal, mem.heapTotal);
+    observer.observe(this.memoryGauges.arrayBuffers, mem.arrayBuffers);
+    observer.observe(this.memoryGauges.external, mem.external);
+  };
+
+  private measureEventLoopDelay = (obs: BatchObservableResult): void => {
     const newELU = performance.eventLoopUtilization();
     const delta = performance.eventLoopUtilization(newELU, this.lastELU);
     this.lastELU = newELU;
