@@ -469,15 +469,48 @@ pub(crate) comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
 
 pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, _) = generate_serialize_to_fields(quote { self }, typ, false);
-    let serialized_len = fields.len();
-    let (deserialized, _) =
-        generate_deserialize_from_fields(quote { self }, typ, quote { serialized }, 0, false);
+    let nested_struct = typ.as_data_type().unwrap();
+    let params = nested_struct.0.fields(nested_struct.1);
+    // The following will give us [<type_of_struct_member_1 as Deserialize>::N, <type_of_struct_member_2 as Deserialize>::N, ...]
+    let components_of_definition_of_n = params.map(|(_, param_type): (Quoted, Type)| {
+        quote {
+            <$param_type as Deserialize>::N
+        }
+    });
+
+    // The following will give us <type_of_struct_member_1 as Deserialize>::N + <type_of_struct_member_2 as Deserialize>::N + ...
+    let serialized_len = components_of_definition_of_n.join(quote {+});
+
+    let array_of_quotes_deserializing_each_struct_member = params
+        .map(|(param_name, param_type): (Quoted, Type)| {
+            quote {
+            let member_len = <$param_type as Deserialize>::N;
+            let mut member_fields = [0; member_len];
+            for i in 0..member_len {
+                member_fields[i] = serialized[i + offset];
+            }
+            let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
+            offset += member_len;
+        }
+        });
+
+    let deserialization_of_struct_members =
+        array_of_quotes_deserializing_each_struct_member.join(quote {});
+
+    // We join the struct member names with a comma to be used in the `Self { ... }` syntax
+    // This will give us e.g. `a, b, c` for a struct with three fields named `a`, `b`, and `c`.
+    let struct_members =
+        params.map(|(param_name, _): (Quoted, Type)| quote { $param_name }).join(quote {,});
+
     quote {
-        impl Deserialize<$serialized_len> for $typ {
+        impl Deserialize for $typ {
+            let N = $serialized_len;
+
             #[inline_always]
-            fn deserialize(serialized: [Field; $serialized_len]) -> Self {
-                $deserialized
+            fn deserialize(serialized: [Field; Self::N]) -> Self {
+                let mut offset = 0;
+                $deserialization_of_struct_members
+                Self { $struct_members }
             }
         }
     }
