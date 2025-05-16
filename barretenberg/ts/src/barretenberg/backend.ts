@@ -48,11 +48,16 @@ export type UltraHonkBackendOptions = {
    * Use this when you want to verify the created proof on an EVM chain.
    */
   keccakZK?: boolean;
-  /**S electing this option will use the poseidon/stark252 hash function instead of poseidon
+  /** Selecting this option will use the poseidon/stark252 hash function instead of poseidon
    * when generating challenges in the proof.
    * Use this when you want to verify the created proof on an Starknet chain with Garaga.
    */
   starknet?: boolean;
+  /** Selecting this option will use the poseidon/stark252 hash function instead of poseidon
+   * when generating challenges in the proof.
+   * Use this when you want to verify the created proof on an Starknet chain with Garaga.
+   */
+  starknetZK?: boolean;
 };
 
 export class UltraHonkBackend {
@@ -93,6 +98,8 @@ export class UltraHonkBackend {
       ? this.api.acirProveUltraKeccakZKHonk.bind(this.api)
       : options?.starknet
       ? this.api.acirProveUltraStarknetHonk.bind(this.api)
+      : options?.starknetZK
+      ? this.api.acirProveUltraStarknetZKHonk.bind(this.api)
       : this.api.acirProveUltraHonk.bind(this.api);
 
     const proofWithPublicInputs = await proveUltraHonk(this.acirUncompressedBytecode, gunzip(compressedWitness));
@@ -104,6 +111,8 @@ export class UltraHonkBackend {
       ? this.api.acirWriteVkUltraKeccakZKHonk.bind(this.api)
       : options?.starknet
       ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
+      : options?.starknetZK
+      ? this.api.acirWriteVkUltraStarknetHonkZK.bind(this.api)
       : this.api.acirWriteVkUltraHonk.bind(this.api);
 
     const vk = await writeVKUltraHonk(this.acirUncompressedBytecode);
@@ -130,6 +139,8 @@ export class UltraHonkBackend {
       ? this.api.acirWriteVkUltraKeccakZKHonk.bind(this.api)
       : options?.starknet
       ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
+      : options?.starknetZK
+      ? this.api.acirWriteVkUltraStarknetZKHonk.bind(this.api)
       : this.api.acirWriteVkUltraHonk.bind(this.api);
     const verifyUltraHonk = options?.keccak
       ? this.api.acirVerifyUltraKeccakHonk.bind(this.api)
@@ -137,6 +148,8 @@ export class UltraHonkBackend {
       ? this.api.acirVerifyUltraKeccakZKHonk.bind(this.api)
       : options?.starknet
       ? this.api.acirVerifyUltraStarknetHonk.bind(this.api)
+      : options?.starknetZK
+      ? this.api.acirVerifyUltraStarknetZKHonk.bind(this.api)
       : this.api.acirVerifyUltraHonk.bind(this.api);
 
     const vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode);
@@ -151,6 +164,8 @@ export class UltraHonkBackend {
       ? await this.api.acirWriteVkUltraKeccakZKHonk(this.acirUncompressedBytecode)
       : options?.starknet
       ? await this.api.acirWriteVkUltraStarknetHonk(this.acirUncompressedBytecode)
+      : options?.starknetZK
+      ? await this.api.acirWriteVkUltraStarknetZKHonk(this.acirUncompressedBytecode)
       : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
   }
 
