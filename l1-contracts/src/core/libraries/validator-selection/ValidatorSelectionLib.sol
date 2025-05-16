@@ -40,14 +40,15 @@ library ValidatorSelectionLib {
     ValidatorSelectionStorage storage store = getStorage();
     store.targetCommitteeSize = _targetCommitteeSize;
 
-    // Set the sample seed for the first epoch to max
+    // Set the sample seed for the first 2 epochs to max
     store.seeds.push(0, type(uint224).max);
+    store.seeds.push(1, type(uint224).max);
   }
 
   /**
    * @notice  Performs a setup of an epoch if needed. The setup will
    *          - Sample the validator set for the epoch
-   *          - Set the seed for the next epoch
+   *          - Set the seed for the epoch after the next
    */
   function setupEpoch(StakingStorage storage _stakingStore, Epoch _epochNumber) internal {
     ValidatorSelectionStorage storage store = getStorage();
@@ -101,6 +102,11 @@ library ValidatorSelectionLib {
     if (committeeSize == 0) {
       return;
     }
+
+    require(
+      _attestations.length == committeeSize,
+      Errors.ValidatorSelection__InvalidAttestationsLength(committeeSize, _attestations.length)
+    );
 
     uint256 proposerIndex =
       computeProposerIndex(_epochNumber, _slot, getSampleSeed(_epochNumber), committeeSize);
@@ -192,11 +198,7 @@ library ValidatorSelectionLib {
     returns (address[] memory)
   {
     ValidatorSelectionStorage storage store = getStorage();
-    // We do -1, as the snapshots practically happen at the end of the block, e.g.,
-    // a tx manipulating the set in at $t$ would be visible already at lookup $t$ if after that
-    // transactions. But reading at $t-1$ would be the state at the end of $t-1$ which is the state
-    //  as we "start" time $t$.
-    uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - 1;
+    uint32 ts = epochToSampleTime(_epoch);
     uint256 validatorSetSize = _stakingStore.attesters.lengthAtTimestamp(ts);
     uint256 targetCommitteeSize = store.targetCommitteeSize;
 
@@ -260,7 +262,7 @@ library ValidatorSelectionLib {
     }
 
     // We do not want to recalculate this each time
-    uint32 ts = Timestamp.unwrap(_epochNumber.toTimestamp()).toUint32() - 1;
+    uint32 ts = epochToSampleTime(_epochNumber);
     committeeSize = _stakingStore.attesters.lengthAtTimestamp(ts);
     if (committeeSize > store.targetCommitteeSize) {
       committeeSize = store.targetCommitteeSize;
@@ -270,12 +272,12 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice  Sets the sample seed for the next epoch
+   * @notice  Sets the sample seed for the epoch after the next
    *
    * @param _epoch - The epoch to set the sample seed for
    */
   function setSampleSeedForNextEpoch(Epoch _epoch) internal {
-    setSampleSeedForEpoch(_epoch + Epoch.wrap(1));
+    setSampleSeedForEpoch(_epoch + Epoch.wrap(2));
   }
 
   /**
@@ -304,6 +306,17 @@ library ValidatorSelectionLib {
     }
   }
 
+  function epochToSampleTime(Epoch _epoch) internal view returns (uint32) {
+    // We do -1, as the snapshots practically happen at the end of the block, e.g.,
+    // a tx manipulating the set in at $t$ would be visible already at lookup $t$ if after that
+    // transactions. But reading at $t-1$ would be the state at the end of $t-1$ which is the state
+    // as we "start" time $t$. We then shift that back by an entire L2 epoch to guarantee
+    // we are not hit by last-minute changes or L1 reorgs when syncing validators from our clients.
+
+    return Timestamp.unwrap(_epoch.toTimestamp()).toUint32()
+      - uint32(TimeLib.getEpochDurationInSeconds()) - 1;
+  }
+
   /**
    * @notice  Get the sample seed for an epoch
    *
@@ -313,8 +326,8 @@ library ValidatorSelectionLib {
    *
    * @dev     The `_epoch` will never be 0 nor in the future
    *
-   * @dev     The return value will be equal to keccak256(n, block.prevrandao) for n being the last epoch
-   *          setup.
+   * @dev     The return value will be equal to keccak256(n, block.prevrandao) for n being the
+   *          penultimate epoch setup.
    *
    * @return The sample seed for the epoch
    */

@@ -231,8 +231,8 @@ describe('L1Publisher integration', () => {
     const ts = (await l1Client.getBlock()).timestamp;
     baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
 
-    // We jump to the next epoch such that the committee can be setup.
-    const timeToJump = await rollup.getEpochDuration();
+    // We jump two epochs such that the committee can be setup.
+    const timeToJump = (await rollup.getEpochDuration()) * 2n;
     await progressTimeBySlot(timeToJump);
   });
 

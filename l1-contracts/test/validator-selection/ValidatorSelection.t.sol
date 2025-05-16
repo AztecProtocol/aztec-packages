@@ -56,10 +56,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     invalidCommitteeCommitment: false
   });
 
-  function testInitialCommitteeMatch() public setup(4) progressEpoch {
+  function testInitialCommitteeMatch() public setup(4) progressEpochs(2) {
     address[] memory attesters = rollup.getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
-    assertEq(rollup.getCurrentEpoch(), 1);
+    assertEq(rollup.getCurrentEpoch(), 2);
     assertEq(attesters.length, 4, "Invalid validator set size");
     assertEq(committee.length, 4, "invalid committee set size");
 
@@ -79,7 +79,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertTrue(_seenCommittee[proposerToAttester[proposer]]);
   }
 
-  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpoch {
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpochs(2) {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -101,7 +101,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
-  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpoch {
+  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpochs(2) {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -124,7 +124,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(preCommittee, postCommittee, "Committee elements have changed");
   }
 
-  function testStableCommittee(uint8 _timeToJump) public setup(4) progressEpoch {
+  function testStableCommittee(uint8 _timeToJump) public setup(4) progressEpochs(2) {
     Epoch epoch = rollup.getCurrentEpoch();
 
     uint256 preSize = rollup.getActiveAttesterCount();
@@ -159,10 +159,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   // This also changes the committee which is calculated within each call.
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14275): clear out transient storage used by the sample lib - we cannot afford to have a malicious proposer
   // change the committee committment to something unpredictable.
+
+  /// forge-config: default.isolate = true
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs)
     public
     setup(100)
-    progressEpoch
+    progressEpochs(2)
   {
     assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
     uint256 committeeSize = rollup.getTargetCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
@@ -186,12 +188,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testHappyPath() public setup(4) progressEpoch {
+  function testHappyPath() public setup(4) progressEpochs(2) {
     _testBlock("mixed_block_1", false, 3, NO_FLAGS);
     _testBlock("mixed_block_2", false, 3, NO_FLAGS);
   }
 
-  function testNukeFromOrbit() public setup(4) progressEpoch {
+  function testNukeFromOrbit() public setup(4) progressEpochs(2) {
     // We propose some blocks, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
     // got finalised.
@@ -225,7 +227,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function testInvalidProposer() public setup(4) progressEpoch {
+  function testInvalidProposer() public setup(4) progressEpochs(2) {
     _testBlock(
       "mixed_block_1",
       true,
@@ -239,7 +241,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testProposerNotProvided() public setup(4) progressEpoch {
+  function testProposerNotProvided() public setup(4) progressEpochs(2) {
     _testBlock(
       "mixed_block_1",
       true,
@@ -253,7 +255,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testInvalidCommitteeCommitment() public setup(4) progressEpoch {
+  function testInvalidCommitteeCommitment() public setup(4) progressEpochs(2) {
     _testBlock(
       "mixed_block_1",
       true,

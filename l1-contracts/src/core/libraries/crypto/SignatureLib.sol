@@ -12,7 +12,7 @@ struct Signature {
 }
 
 // A committee attestation can be made up of a signature and an address.
-// Committee members that have attested will produce a siganture, and if they have not attested, the signature will be empty and
+// Committee members that have attested will produce a signature, and if they have not attested, the signature will be empty and
 // an address provided.
 struct CommitteeAttestation {
   address addr;

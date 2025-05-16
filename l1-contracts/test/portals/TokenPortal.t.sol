@@ -24,6 +24,7 @@ import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
 contract TokenPortalTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -61,21 +62,15 @@ contract TokenPortalTest is Test {
   uint256 internal l2BlockNumber = 69;
 
   function setUp() public {
-    testERC20 = new TestERC20("test", "TEST", address(this));
-    registry = new Registry(address(this), testERC20);
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-    rollup = new Rollup(
-      testERC20,
-      rewardDistributor,
-      testERC20,
-      address(this),
-      TestConstants.getGenesisState(),
-      TestConstants.getRollupConfigInput()
-    );
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
+
+    rollup = builder.getConfig().rollup;
+    registry = builder.getConfig().registry;
+    testERC20 = builder.getConfig().testERC20;
+
     inbox = Inbox(address(rollup.getInbox()));
     outbox = rollup.getOutbox();
-
-    registry.addRollup(IRollup(address(rollup)));
 
     tokenPortal = new TokenPortal();
     tokenPortal.initialize(address(registry), address(testERC20), l2TokenAddress);

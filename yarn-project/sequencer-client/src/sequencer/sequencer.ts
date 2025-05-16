@@ -23,6 +23,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -677,12 +678,14 @@ export class Sequencer {
     this.setState(SequencerState.COLLECTING_ATTESTATIONS, slotNumber);
 
     this.log.debug('Creating block proposal for validators');
+    const blockProposalOptions: BlockProposalOptions = { publishFullTxs: !!this.config.publishTxsWithProposals };
     const proposal = await this.validatorClient.createBlockProposal(
       block.header.globalVariables.blockNumber,
       block.header.toPropose(),
       block.archive.root,
       block.header.state,
       txs,
+      blockProposalOptions,
     );
     if (!proposal) {
       const msg = `Failed to create block proposal`;

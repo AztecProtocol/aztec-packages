@@ -65,6 +65,7 @@ import {
 } from "@aztec/core/libraries/TimeLib.sol";
 import {Forwarder} from "@aztec/periphery/Forwarder.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -140,33 +141,16 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
 
-    asset = new TestERC20("test", "TEST", address(this));
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
+      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30);
+    builder.deploy();
 
-    fakeCanonical = new FakeCanonical(IERC20(address(asset)));
-
-    rollup = new Rollup(
-      asset,
-      IRewardDistributor(address(fakeCanonical)),
-      asset,
-      address(this),
-      TestConstants.getGenesisState(),
-      RollupConfigInput({
-        aztecSlotDuration: SLOT_DURATION,
-        aztecEpochDuration: EPOCH_DURATION,
-        targetCommitteeSize: 48,
-        aztecProofSubmissionWindow: EPOCH_DURATION * 2 - 1,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE,
-        manaTarget: MANA_TARGET,
-        provingCostPerMana: provingCost
-      })
-    );
-    fakeCanonical.setCanonicalRollup(address(rollup));
+    asset = builder.getConfig().testERC20;
+    rollup = builder.getConfig().rollup;
 
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
-    vm.label(address(fakeCanonical), "FAKE CANONICAL");
     vm.label(address(asset), "ASSET");
     vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
 
@@ -193,9 +177,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
     asset.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
     multiAdder.addValidators(initialValidators);
-    asset.mint(address(rollup.getFeeAssetPortal()), 1e30);
-
-    asset.transferOwnership(address(fakeCanonical));
 
     _;
   }
@@ -213,10 +194,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     benchmark();
   }
 
+  /// forge-config: default.isolate = true
   function test_48_validators() public prepare(48) {
     benchmark();
   }
 
+  /// forge-config: default.isolate = true
   function test_100_validators() public prepare(100) {
     benchmark();
   }
@@ -322,8 +305,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   function benchmark() public {
     // Do nothing for the first epoch
-    Slot nextSlot = Slot.wrap(EPOCH_DURATION + 1);
-    Epoch nextEpoch = Epoch.wrap(2);
+    Slot nextSlot = Slot.wrap(EPOCH_DURATION * 2 + 1);
+    Epoch nextEpoch = Epoch.wrap(3);
 
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {

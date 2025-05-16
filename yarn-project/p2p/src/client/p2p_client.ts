@@ -4,6 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import type {
   L2Block,
+  L2BlockId,
   L2BlockSource,
   L2BlockStream,
   L2BlockStreamEvent,
@@ -164,6 +165,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         break;
       case 'chain-finalized': {
         // TODO (alexg): I think we can prune the block hashes map here
+        await this.setBlockHash(event.block);
         const from = (await this.getSyncedFinalizedBlockNum()) + 1;
         const limit = event.block.number - from + 1;
         if (limit > 0) {
@@ -172,16 +174,24 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         break;
       }
       case 'chain-proven': {
+        await this.setBlockHash(event.block);
         await this.synchedProvenBlockNumber.set(event.block.number);
         break;
       }
       case 'chain-pruned':
+        await this.setBlockHash(event.block);
         await this.handlePruneL2Blocks(event.block.number);
         break;
       default: {
         const _: never = event;
         break;
       }
+    }
+  }
+
+  private async setBlockHash(block: L2BlockId): Promise<void> {
+    if (block.hash !== undefined) {
+      await this.synchedBlockHashes.set(block.number, block.hash.toString());
     }
   }
 
@@ -236,7 +246,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       this.syncPromise = new Promise(resolve => {
         this.syncResolve = resolve;
       });
-      this.log.verbose(`Initiating p2p sync from ${syncedLatestBlock}`, {
+      this.log.info(`Initiating p2p sync from ${syncedLatestBlock}`, {
         syncedLatestBlock,
         syncedProvenBlock,
         syncedFinalizedBlock,
@@ -640,9 +650,16 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     void this.requestMissingTxsFromUnprovenBlocks(blocks.map(b => b.block));
 
     const lastBlock = blocks.at(-1)!.block;
+
     await Promise.all(
-      blocks.map(async block => this.synchedBlockHashes.set(block.block.number, (await block.block.hash()).toString())),
+      blocks.map(async block =>
+        this.setBlockHash({
+          number: block.block.number,
+          hash: await block.block.hash().then(h => h.toString()),
+        }),
+      ),
     );
+
     await this.synchedLatestBlockNumber.set(lastBlock.number);
     await this.synchedLatestSlot.set(lastBlock.header.getSlot());
     this.log.verbose(`Synched to latest block ${lastBlock.number}`);
@@ -678,7 +695,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns Empty promise.
    */
   private async handleFinalizedL2Blocks(blocks: L2Block[]): Promise<void> {
-    this.log.warn(`handling finalized ${blocks.length} ${blocks.at(-1)?.number}`);
+    this.log.trace(`Handling finalized blocks ${blocks.length} up to ${blocks.at(-1)?.number}`);
     if (!blocks.length) {
       return Promise.resolve();
     }
@@ -787,5 +804,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public validate(txs: Tx[]): Promise<void> {
     return this.p2pService.validate(txs);
+  }
+
+  /**
+   * Marks transactions as non-evictable in the pool.
+   * @param txHashes - Hashes of the transactions to mark as non-evictable.
+   */
+  public markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void> {
+    return this.txPool.markTxsAsNonEvictable(txHashes);
   }
 }

@@ -9,7 +9,7 @@ export function makeInboxMessage(
   previousRollingHash = Buffer16.ZERO,
   overrides: Partial<InboxMessage> = {},
 ): InboxMessage {
-  const { l2BlockNumber = randomBigInt(100n) } = overrides;
+  const { l2BlockNumber = randomBigInt(100n) + 1n } = overrides;
   const { l1BlockNumber = l2BlockNumber } = overrides;
   const { l1BlockHash = Buffer32.random() } = overrides;
   const { leaf = Fr.random() } = overrides;
