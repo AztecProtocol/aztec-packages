@@ -81,7 +81,7 @@
       "./docs/**/{*.md,*.md?}",
       "./versioned_docs/**/{*.md,*.md?}",
       "./internal_notes/**/{*.md,*.md?}",
-      "**/src/components/Snippets/*.js"
+      "./src/components/Snippets/*.js"
     ],
     "ignorePaths": [
         "node_modules",
