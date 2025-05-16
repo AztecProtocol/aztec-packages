@@ -145,10 +145,32 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t num_public_inputs
     std::vector<FF> proof;
 
     // Populate mock public inputs
-    FF SMALL_DUMMY_VALUE = 2; // arbitrary small non-zero value to avoid errors
-    for (size_t i = 0; i < num_public_inputs; ++i) {
-        proof.emplace_back(SMALL_DUMMY_VALUE);
+    // Get some values for a valid aggregation object and use them here to avoid divide by 0 or other issues.
+    std::array<fr, stdlib::recursion::PairingPoints<MegaCircuitBuilder>::PUBLIC_INPUTS_SIZE>
+        dummy_pairing_points_values =
+            stdlib::recursion::PairingPoints<MegaCircuitBuilder>::construct_dummy_pairing_points();
+    size_t public_input_count = 0;
+    for (size_t i = 0; i < stdlib::recursion::PairingPoints<MegaCircuitBuilder>::PUBLIC_INPUTS_SIZE; i++) {
+        proof.emplace_back(dummy_pairing_points_values[i]);
+        public_input_count++;
     }
+
+    if (public_input_count < num_public_inputs) {
+        // Databus commitments if necessary
+        for (size_t i = 0; i < NUM_DATABUS_COMMITMENTS; ++i) {
+            // We represent commitments in the public inputs as biggroup elements.
+            using BigGroup = stdlib::element_default::element<Builder,
+                                                              stdlib::bigfield<Builder, bb::Bn254FqParams>,
+                                                              stdlib::field_t<Builder>,
+                                                              curve::BN254::Group>;
+            auto pub_input_comm_vals = BigGroup::construct_dummy();
+            for (const fr& comm_fr : pub_input_comm_vals) {
+                proof.emplace_back(comm_fr);
+                public_input_count++;
+            }
+        }
+    }
+    BB_ASSERT_EQ(public_input_count, num_public_inputs, "Mock oink proof has the wrong number of public inputs.");
 
     // Populate mock witness polynomial commitments
     auto mock_commitment = curve::BN254::AffineElement::one();

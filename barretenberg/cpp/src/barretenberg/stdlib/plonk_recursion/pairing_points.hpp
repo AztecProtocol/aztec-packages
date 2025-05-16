@@ -154,28 +154,20 @@ template <typename Builder_> struct PairingPoints {
 
     static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy_pairing_points()
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted
-        // from a valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-        fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
-        fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
-        fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
-        fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
-
         // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the most
         // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to convert
         // them back to biggroup elements anyway to add them to the public inputs...
         using BigGroup = element_default::
             element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
-        BigGroup P0(x0, y0);
-        BigGroup P1(x1, y1);
         std::array<fr, PUBLIC_INPUTS_SIZE> dummy_pairing_points_values;
         size_t idx = 0;
-        std::array<bigfield<Builder, bb::Bn254FqParams>, 4> elements = { P0.x, P0.y, P1.x, P1.y };
-        for (auto& element : elements) {
-            for (auto& limb : element.binary_basis_limbs) {
-                dummy_pairing_points_values[idx++] = limb.element.get_value();
+        for (size_t i = 0; i < 2; i++) {
+            std::array<fr, BigGroup::PUBLIC_INPUTS_SIZE> element_vals = BigGroup::construct_dummy();
+            for (auto& val : element_vals) {
+                dummy_pairing_points_values[idx++] = val;
             }
         }
+
         return dummy_pairing_points_values;
     }
 
