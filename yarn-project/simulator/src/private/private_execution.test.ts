@@ -152,6 +152,7 @@ describe('Private Execution test suite', () => {
       argsOfCalls: [hashedArguments],
       authWitnesses: [],
       capsules: [],
+      salt: Fr.random(),
     });
 
     return acirSimulator.run(txRequest, contractAddress, selector, msgSender);
