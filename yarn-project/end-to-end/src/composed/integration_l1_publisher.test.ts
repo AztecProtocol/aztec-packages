@@ -360,7 +360,7 @@ describe('L1Publisher integration', () => {
 
       let currentL1ToL2Messages: Fr[] = [];
       let nextL1ToL2Messages: Fr[] = [];
-      const epochBlobs: Blob[] = [];
+      const allBlobs: Blob[] = [];
       // The below batched blob is used for testing different epochs with 1..numberOfConsecutiveBlocks blocks on L1.
       // For real usage, always collect ALL epoch blobs first then call .batch().
       let currentBatch: BatchedBlob | undefined;
@@ -413,16 +413,12 @@ describe('L1Publisher integration', () => {
         );
 
         let prevBlobAccumulatorHash = hexStringToBuffer(await rollup.getCurrentBlobCommitmentsHash());
-        // If we are at the first blob, solidity will return bytes32(0) for the empty slot, so we reset here:
-        prevBlobAccumulatorHash = prevBlobAccumulatorHash.equals(Buffer.alloc(32))
-          ? Buffer.alloc(0)
-          : prevBlobAccumulatorHash;
 
         blocks.push(block);
-        epochBlobs.push(...blockBlobs);
+        allBlobs.push(...blockBlobs);
 
         // Batch the blobs so far, so they can be used in the L1 unit tests:
-        currentBatch = await BatchedBlob.batch(epochBlobs);
+        currentBatch = await BatchedBlob.batch(allBlobs);
 
         await writeJson(
           `${jsonFileNamePrefix}_${block.number}`,
@@ -447,6 +443,12 @@ describe('L1Publisher integration', () => {
         });
         expect(logs).toHaveLength(i + 1);
         expect(logs[i].args.blockNumber).toEqual(BigInt(i + 1));
+        const thisBlockNumber = block.header.globalVariables.blockNumber.toBigInt();
+        const isFirstBlockOfEpoch =
+          thisBlockNumber == 1n ||
+          (await rollup.getEpochNumber(thisBlockNumber)) > (await rollup.getEpochNumber(thisBlockNumber - 1n));
+        // If we are at the first blob of the epoch, we must initialise the hash:
+        prevBlobAccumulatorHash = isFirstBlockOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
         const currentBlobAccumulatorHash = hexStringToBuffer(await rollup.getCurrentBlobCommitmentsHash());
         let expectedBlobAccumulatorHash = prevBlobAccumulatorHash;
         blockBlobs
@@ -503,9 +505,6 @@ describe('L1Publisher integration', () => {
         // Make sure that time have progressed to the next slot!
         await progressTimeBySlot();
       }
-      // Blobs are handled per epoch, so we need to have all blocks published before testing the below:
-      const epochBlobCommitmentsHash = hexStringToBuffer(await rollup.getCurrentBlobCommitmentsHash());
-      expect(epochBlobCommitmentsHash).toEqual(currentBatch!.blobCommitmentsHash.toBuffer());
     };
 
     it.each([
