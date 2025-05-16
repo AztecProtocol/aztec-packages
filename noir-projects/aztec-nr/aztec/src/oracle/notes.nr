@@ -104,7 +104,7 @@ unconstrained fn get_notes_oracle<let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NO
     _limit: u32,
     _offset: u32,
     _status: u8,
-    // This is always set to MAX_NOTES. We need to pass it to TS in order to be correctly construct the BoundedVec
+    // This is always set to MAX_NOTES. We need to pass it to TS in order to correctly construct the BoundedVec
     _max_notes: u32,
     // This is always set to NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD. We need to pass it to TS in order to be able to
     // correctly construct the BoundedVec there.
