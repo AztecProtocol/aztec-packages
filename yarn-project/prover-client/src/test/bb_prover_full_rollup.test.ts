@@ -1,4 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
@@ -48,11 +49,9 @@ describe('prover/bb_prover/full-rollup', () => {
       log.info(`Proving epoch with ${blockCount}/${totalBlocks} blocks with ${nonEmptyTxs}/${totalTxs} non-empty txs`);
 
       const initialHeader = context.getBlockHeader(0);
-      context.orchestrator.startNewEpoch(1, 1, totalBlocks);
-
+      const processedTxs = [];
+      const blobs = [];
       for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
-        const globals = makeGlobals(blockNum);
-        const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
         const txs = await timesParallel(nonEmptyTxs, async (i: number) => {
           const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
           const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
@@ -61,13 +60,25 @@ describe('prover/bb_prover/full-rollup', () => {
           return tx;
         });
 
-        log.info(`Starting new block #${blockNum}`);
-
-        await context.orchestrator.startNewBlock(globals, l1ToL2Messages, previousBlockHeader);
         log.info(`Processing public functions`);
         const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs);
         expect(processed.length).toBe(nonEmptyTxs);
         expect(failed.length).toBe(0);
+        processedTxs[blockNum] = processed;
+        blobs.push(await Blob.getBlobs(processed.flatMap(tx => tx.txEffect.toBlobFields())));
+      }
+
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs.flat());
+      context.orchestrator.startNewEpoch(1, 1, totalBlocks, finalBlobChallenges);
+
+      for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
+        const globals = makeGlobals(blockNum);
+        const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
+        const processed = processedTxs[blockNum];
+
+        log.info(`Starting new block #${blockNum}`);
+
+        await context.orchestrator.startNewBlock(globals, l1ToL2Messages, previousBlockHeader);
         await context.orchestrator.addTxs(processed);
 
         log.info(`Setting block as completed`);
@@ -118,14 +129,17 @@ describe('prover/bb_prover/full-rollup', () => {
       Fr.random,
     );
 
-    context.orchestrator.startNewEpoch(1, 1, 1);
-
-    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
-
     const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
 
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);
+
+    const blobs = await Blob.getBlobs(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+    const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+
+    context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
+
+    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
 
     await context.orchestrator.addTxs(processed);
 

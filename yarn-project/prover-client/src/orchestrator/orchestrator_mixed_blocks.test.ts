@@ -1,3 +1,4 @@
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
@@ -17,7 +18,10 @@ describe('prover/orchestrator/mixed-blocks', () => {
 
     const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-    context.orchestrator.startNewEpoch(1, 1, 1);
+    const blobs = await Blob.getBlobs(txs.map(tx => tx.txEffect.toBlobFields()).flat());
+    const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+
+    context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
     await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
 
     await context.orchestrator.addTxs(txs);

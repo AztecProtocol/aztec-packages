@@ -302,6 +302,18 @@ export class Blob {
     return `0x${buf.toString('hex')}`;
   }
 
+  static getPrefixedEthBlobCommitments(blobs: Blob[]): `0x${string}` {
+    let buf = Buffer.alloc(0);
+    blobs.forEach(blob => {
+      buf = Buffer.concat([buf, blob.commitment]);
+    });
+    // For multiple blobs, we prefix the number of blobs:
+    const lenBuf = Buffer.alloc(1);
+    lenBuf.writeUint8(blobs.length);
+    buf = Buffer.concat([lenBuf, buf]);
+    return `0x${buf.toString('hex')}`;
+  }
+
   static getViemKzgInstance() {
     return {
       blobToKzgCommitment: cKzg.blobToKzgCommitment,

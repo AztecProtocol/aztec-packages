@@ -1,3 +1,4 @@
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
@@ -21,7 +22,7 @@ describe('prover/orchestrator/blocks', () => {
 
   describe('blocks', () => {
     it('builds an empty L2 block', async () => {
-      context.orchestrator.startNewEpoch(1, 1, 1);
+      context.orchestrator.startNewEpoch(1, 1, 1, await BatchedBlob.precomputeEmptyBatchedBlobChallenges());
       await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
       const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
@@ -33,8 +34,12 @@ describe('prover/orchestrator/blocks', () => {
       const txs = [await context.makeProcessedTx(1)];
       await context.setTreeRoots(txs);
 
+      const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
+      const blobs = await Blob.getBlobs(blobFields);
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+
       // This will need to be a 2 tx block
-      context.orchestrator.startNewEpoch(1, 1, 1);
+      context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
       await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
       await context.orchestrator.addTxs(txs);
@@ -49,7 +54,11 @@ describe('prover/orchestrator/blocks', () => {
       await context.setTreeRoots(txs);
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      context.orchestrator.startNewEpoch(1, 1, 1);
+      const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
+      const blobs = await Blob.getBlobs(blobFields);
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+
+      context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
       await context.orchestrator.startNewBlock(
         context.globalVariables,
         l1ToL2Messages,

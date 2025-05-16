@@ -1,4 +1,4 @@
-import { makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
+import { makeBatchedBlobAccumulator, makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
   AVM_PROOF_LENGTH_IN_FIELDS,
@@ -46,7 +46,7 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
 import { SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { BLS12Point, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
@@ -721,7 +721,7 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     fr(seed + 0x800),
     fr(seed + 0x801),
     fr(seed + 0x900),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x100),
+    makeBlockBlobPublicInputs(seed),
   );
 }
 
@@ -787,14 +787,16 @@ function makeBlockRootRollupData(seed = 0) {
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
     makeHeader(seed + 0x2400),
-    fr(seed + 0x2500),
+    makeBatchedBlobAccumulator(seed + 0x2500).toBlobAccumulatorPublicInputs(),
+    makeBatchedBlobAccumulator(seed + 0x2600).finalBlobChallenges,
+    fr(seed + 0x2700),
   );
 }
 
 function makeBlockRootRollupBlobData(seed = 0) {
   return new BlockRootRollupBlobData(
     makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2500),
-    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2600)),
+    makeTuple(BLOBS_PER_BLOCK, () => BLS12Point.random()),
     fr(seed + 0x2700),
   );
 }
@@ -892,7 +894,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x702),
     fr(seed + 0x703),
     fr(seed + 0x704),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x800),
+    makeBatchedBlobAccumulator(seed).toFinalBlobAccumulatorPublicInputs(),
   );
 }
 
