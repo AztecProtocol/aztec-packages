@@ -55,7 +55,6 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     if (x_match && y_match) {
         result = input1_point.dbl();
     } else {
-
         if (input.input2_infinite.is_constant && input.input1_infinite.is_constant) {
             if (get_value(input.input1_infinite, builder) == 1) {
                 // input1 is infinity, so we can just return input2
@@ -65,8 +64,10 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
                 // input2 is infinity, so we can just return input1
                 result = input1_point;
             } else {
-                // Runtime checks that the inputs have not the same x coordinate, as assumed by the function.
-                ASSERT(input1_point.x.get_value() != input2_point.x.get_value());
+                if (has_valid_witness_assignments) {
+                    // Runtime checks that the inputs have not the same x coordinate, as assumed by the function.
+                    ASSERT(input1_point.x.get_value() != input2_point.x.get_value());
+                }
                 // both points are not infinity, so we can use unconditional_add
                 result = input1_point.unconditional_add(input2_point);
             }
