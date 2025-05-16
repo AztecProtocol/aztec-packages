@@ -1236,6 +1236,7 @@ export class ArchiverStoreHelper
       | 'addFunctions'
       | 'backupTo'
       | 'close'
+      | 'transactionAsync'
     >
 {
   #log = createLogger('archiver:block-helper');
@@ -1376,33 +1377,33 @@ export class ArchiverStoreHelper
     return true;
   }
 
-  async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
-    // TODO(palla/reorg): Run all these ops in a single write transaction
-
+  public addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
     // Add the blocks to the store. Store will throw if the blocks are not in order, there are gaps,
     // or if the previous block is not in the store.
-    await this.store.addBlocks(blocks);
+    return this.store.transactionAsync(async () => {
+      await this.store.addBlocks(blocks);
 
-    const opResults = await Promise.all([
-      this.store.addLogs(blocks.map(block => block.block)),
-      // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
-      ...blocks.map(async block => {
-        const contractClassLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
-        // ContractInstanceDeployed event logs are broadcast in privateLogs.
-        const privateLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
-        const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
-        return (
-          await Promise.all([
-            this.#updateRegisteredContractClasses(contractClassLogs, block.block.number, Operation.Store),
-            this.#updateDeployedContractInstances(privateLogs, block.block.number, Operation.Store),
-            this.#updateUpdatedContractInstances(publicLogs, block.block.number, Operation.Store),
-            this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.block.number),
-          ])
-        ).every(Boolean);
-      }),
-    ]);
+      const opResults = await Promise.all([
+        this.store.addLogs(blocks.map(block => block.block)),
+        // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
+        ...blocks.map(async block => {
+          const contractClassLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
+          // ContractInstanceDeployed event logs are broadcast in privateLogs.
+          const privateLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+          const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
+          return (
+            await Promise.all([
+              this.#updateRegisteredContractClasses(contractClassLogs, block.block.number, Operation.Store),
+              this.#updateDeployedContractInstances(privateLogs, block.block.number, Operation.Store),
+              this.#updateUpdatedContractInstances(publicLogs, block.block.number, Operation.Store),
+              this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.block.number),
+            ])
+          ).every(Boolean);
+        }),
+      ]);
 
-    return opResults.every(Boolean);
+      return opResults.every(Boolean);
+    });
   }
 
   public async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
