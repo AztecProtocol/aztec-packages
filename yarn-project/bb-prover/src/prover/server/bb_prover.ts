@@ -747,21 +747,19 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     const rawProofBuffer = await fs.readFile(proofFilename);
     const reader = BufferReader.asReader(rawProofBuffer);
-
-    const proofFields: Fr[] = [];
-    while (!reader.isEmpty()) {
-      proofFields.push(Fr.fromBuffer(reader));
-    }
+    const proofFields = reader.readArray(rawProofBuffer.length / Fr.SIZE_IN_BYTES, Fr);
 
     // We extend to a fixed-size padded proof as during development any new AVM circuit column changes the
     // proof length and we do not have a mechanism to feedback a cpp constant to noir/TS.
     // TODO(#13390): Revive a non-padded AVM proof
-    while (proofFields.length < AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
-      proofFields.push(new Fr(0));
+    if (proofFields.length > AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
+      throw new Error(
+        `Proof has ${proofFields.length} fields, expected no more than ${AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED}.`,
+      );
     }
+    proofFields.concat(Array(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - proofFields.length).fill(new Fr(0)));
 
     const proof = new Proof(rawProofBuffer, vkData.numPublicInputs);
-
     return new RecursiveProof(proofFields, proof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   }
 
