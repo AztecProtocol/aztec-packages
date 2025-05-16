@@ -1,3 +1,4 @@
+import { type BatchedBlob, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
@@ -17,9 +18,6 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
-// TODO(MW): prover-node does not use blob-lib, probably for a good reason, so not importing it for now
-import type { BatchedBlob } from '../../blob-lib/src/blob_batching.js';
-import { FinalBlobAccumulatorPublicInputs } from '../../blob-lib/src/blob_batching_public_inputs.js';
 import { ProverNodePublisherMetrics } from './metrics.js';
 
 /**
@@ -247,6 +245,8 @@ export class ProverNodePublisher {
     publicInputs: RootRollupPublicInputs;
     batchedBlobInputs: BatchedBlob;
   }) {
+    console.log('GETTING PUB INPUTS');
+    console.log(args.batchedBlobInputs.getEthBlobEvaluationInputs());
     // Returns arguments for EpochProofLib.sol -> getEpochProofPublicInputs()
     return [
       BigInt(args.fromBlock) /*_start*/,

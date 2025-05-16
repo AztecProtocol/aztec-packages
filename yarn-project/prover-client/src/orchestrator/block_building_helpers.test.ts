@@ -1,4 +1,3 @@
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -77,9 +76,6 @@ describe('buildBlobHints', () => {
     expect(blobs.length).toBe(1);
     expect(blobs[0].evaluationY.toString('hex')).toMatchInlineSnapshot(
       `"25fb571bd6a15d4e3a8f6fe199b714c51e1e03ef40366e2e77e5c5733ab9e57d"`,
-    );
-    console.log(
-      toBufferBE(17179655213294173540446545222866729565951946174336496855332549059993428157821n, 32).toString('hex'),
     );
     const zStr = blobs[0].challengeZ.toString();
     expect(zStr).toMatchInlineSnapshot(`"0x1f92b871671f27a378d23f1cef10fbd8f0d90dd7172da9e3c3fc1aa745a072c3"`);

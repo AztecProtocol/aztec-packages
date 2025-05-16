@@ -283,7 +283,8 @@ export class BatchedBlobAccumulator {
    * @returns An updated blob accumulator.
    */
   async accumulateBlobs(blobs: Blob[]) {
-    let acc: BatchedBlobAccumulator = this; // this.clone()
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    let acc: BatchedBlobAccumulator = this; // TODO(MW): this.clone()
     for (let i = 0; i < blobs.length; i++) {
       acc = await acc.accumulate(blobs[i]);
     }
@@ -351,37 +352,6 @@ export class BatchedBlobAccumulator {
       this.gammaPow.isZero()
     );
   }
-
-  // static empty(): BatchedBlobAccumulator {
-  //   return new BatchedBlobAccumulator(Fr.ZERO, Fr.ZERO, BLS12Fr.ZERO, BLS12Point.ZERO, BLS12Point.ZERO, Fr.ZERO, BLS12Fr.ZERO, new FinalBlobBatchingChallenges(Fr.ZERO, BLS12Fr.ZERO))
-  // }
-
-  // static fromBuffer(buffer: Buffer | BufferReader): BatchedBlobAccumulator {
-  //   const reader = BufferReader.asReader(buffer);
-  //   return new BatchedBlobAccumulator(
-  //     Fr.fromBuffer(reader),
-  //     Fr.fromBuffer(reader),
-  //     reader.readObject(BLS12Fr),
-  //     reader.readObject(BLS12Point),
-  //     reader.readObject(BLS12Point),
-  //     Fr.fromBuffer(reader),
-  //     reader.readObject(BLS12Fr),
-  //     reader.readObject(FinalBlobBatchingChallenges),
-  //   );
-  // }
-
-  // toBuffer() {
-  //   return serializeToBuffer(
-  //     this.vAcc,
-  //     this.zAcc,
-  //     this.yAcc,
-  //     this.cAcc,
-  //     this.qAcc,
-  //     this.gammaAcc,
-  //     this.gammaPow,
-  //     this.finalChallenges
-  //   );
-  // }
 }
 
 // To mimic the hash accumulation in the rollup circuits, here we hash

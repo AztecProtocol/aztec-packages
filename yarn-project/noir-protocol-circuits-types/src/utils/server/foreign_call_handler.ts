@@ -97,10 +97,6 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
       }
     });
     const endBlobAccumulator = await startBlobAccumulator.accumulateBlobs(blobs, finalBlobChallenges);
-    console.log('start oracle');
-    console.log(startBlobAccumulator);
-    console.log('end oracle');
-    console.log(endBlobAccumulator);
     return Promise.resolve([endBlobAccumulator.toFields().map(field => field.toString())]);
   } else if (name === 'noOp') {
     // Workaround for compiler issues where data is deleted because it's "unused"
