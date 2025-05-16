@@ -53,7 +53,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         auto merge_proof = goblin_final.prove_final_merge();
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin_last.prove(merge_proof), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
+        return { goblin_final.prove(merge_proof), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
     }
 };
 
