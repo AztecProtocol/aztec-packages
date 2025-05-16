@@ -25,6 +25,7 @@ import {
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INVALID_BLOCK_NUMBER,
 } from '@aztec/stdlib/tx';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { readFileSync } from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -138,7 +139,7 @@ describe('aztec node', () => {
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
-      getNodeVersion(),
+      getPackageVersion() ?? '',
       new TestCircuitVerifier(),
     );
   });
@@ -232,7 +233,11 @@ describe('aztec node', () => {
   describe('getters', () => {
     describe('node info', () => {
       it('returns the correct node version', async () => {
-        const releasePleaseVersion = getNodeVersion();
+        const releasePleaseVersionFile = readFileSync(
+          resolve(dirname(fileURLToPath(import.meta.url)), '../../../../.release-please-manifest.json'),
+        ).toString();
+        const releasePleaseVersion = JSON.parse(releasePleaseVersionFile)['.'];
+
         const nodeInfo = await node.getNodeInfo();
         expect(nodeInfo.nodeVersion).toBe(releasePleaseVersion);
       });
@@ -278,10 +283,3 @@ describe('aztec node', () => {
     });
   });
 });
-
-function getNodeVersion() {
-  const releasePleaseVersionFile = readFileSync(
-    resolve(dirname(fileURLToPath(import.meta.url)), '../../../../.release-please-manifest.json'),
-  ).toString();
-  return JSON.parse(releasePleaseVersionFile)['.'];
-}
