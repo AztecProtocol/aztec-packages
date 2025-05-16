@@ -11,20 +11,10 @@ on:
         description: The namespace to deploy to, e.g. smoke
         required: true
         type: string
-      metrics_namespace:
-        description: The namespace of the metrics deployment, e.g. metrics
-        required: false
-        type: string
-        default: metrics
       values_file:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
         type: string
-      resources_file:
-        description: The resources file to use, e.g. gcloud.yaml
-        required: false
-        type: string
-        default: gcloud.yaml
       aztec_docker_image:
         description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
         required: true
@@ -76,19 +66,9 @@ on:
       namespace:
         description: The namespace to deploy to, e.g. smoke
         required: true
-      metrics_namespace:
-        description: The namespace of the metrics deployment, e.g. metrics
-        required: false
-        type: string
-        default: metrics
       values_file:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
-      resources_file:
-        description: The resources file to use, e.g. gcloud.yaml
-        required: false
-        type: string
-        default: gcloud.yaml
       aztec_docker_image:
         description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
         required: true
@@ -128,9 +108,9 @@ jobs:
     env:
       AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
-      METRICS_NAMESPACE: ${{ inputs.metrics_namespace }}
+      METRICS_NAMESPACE: "metrics"
       VALUES_FILE: ${{ inputs.values_file }}
-      RESOURCES_FILE: ${{ inputs.resources_file }}
+      RESOURCES_FILE: gcloud.yaml
       DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
       DEPLOYMENT_SALT: ${{ inputs.deployment_salt }}
       CHART_PATH: ./spartan/aztec-network

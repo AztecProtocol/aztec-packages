@@ -217,13 +217,11 @@ library ValidatorSelectionLib {
     ValidatorSelectionStorage storage store = getStorage();
     EpochData storage epoch = store.epochs[_epochNumber];
 
-    // If no committee has been stored, then we need to setup the epoch
-    uint256 committeeSize = epoch.committee.length;
-    if (committeeSize == 0) {
-      // This will set epoch.committee and the next sample seed in the store, meaning epoch.commitee on the line below will be set (storage reference)
-      setupEpoch(_stakingStore, _epochNumber);
+    // If the committe is already set, just return that, otherwise need to sample
+    if (epoch.committee.length > 0) {
+      return epoch.committee;
     }
-    return epoch.committee;
+    return sampleValidators(_stakingStore, _epochNumber, getSampleSeed(_epochNumber));
   }
 
   /**

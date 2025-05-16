@@ -306,7 +306,7 @@ describe('e2e_p2p_add_rollup', () => {
       const ethRecipient = EthAddress.fromString(l1Client.account.address);
 
       const message = { recipient: testContract.address, content: contentIntoRollup, secretHash };
-      const [message1Hash, actualMessage1Index] = await sendL1ToL2Message(message, {
+      const { msgHash: message1Hash, globalLeafIndex: actualMessage1Index } = await sendL1ToL2Message(message, {
         l1Client,
         l1ContractAddresses,
       });
