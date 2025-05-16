@@ -1,4 +1,3 @@
-import { BatchedBlob } from '@aztec/blob-lib';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -8,6 +7,9 @@ import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+// TODO(MW): prover-node does not use blob-lib, probably for a good reason, so not importing it for now
+// eslint-disable-next-line
+import { BatchedBlob } from '../../blob-lib/src/blob_batching.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';
 
 describe('prover-node-publisher', () => {
