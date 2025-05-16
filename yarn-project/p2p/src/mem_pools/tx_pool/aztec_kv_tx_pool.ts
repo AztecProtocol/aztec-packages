@@ -44,6 +44,9 @@ export class AztecKVTxPool implements TxPool {
   /** The cumulative tx size in bytes that the pending txs in the pool take up. */
   #pendingTxSize: AztecAsyncSingleton<number>;
 
+  /** Count of total pending txs. */
+  #pendingTxCount: AztecAsyncSingleton<number>;
+
   /** In-memory mapping of pending tx hashes to the hydrated pending tx in the pool. */
   #pendingTxs: Map<string, Tx>;
 
@@ -94,6 +97,7 @@ export class AztecKVTxPool implements TxPool {
     this.#pendingTxHashToSize = store.openMap('pendingTxHashToSize');
     this.#pendingTxHashToHeaderHash = store.openMap('pendingTxHashToHeaderHash');
     this.#pendingTxSize = store.openSingleton('pendingTxSize');
+    this.#pendingTxCount = store.openSingleton('pendingTxCount');
     this.#maxTxPoolSize = config.maxTxPoolSize;
     this.#pendingTxs = new Map<string, Tx>();
     this.#nonEvictableTxs = new Set<string>();
@@ -144,6 +148,7 @@ export class AztecKVTxPool implements TxPool {
       }
       this.#metrics.recordAddedObjects(txHashes.length, 'mined');
       await this.#pendingTxSize.set(pendingTxSize);
+      await this.increasePendingTxCount(-deletedPending);
 
       const numTxsEvicted = await this.evictInvalidTxsAfterMining(
         txHashes,
@@ -159,41 +164,38 @@ export class AztecKVTxPool implements TxPool {
     this.#nonEvictableTxs.clear();
   }
 
-  public markMinedAsPending(txHashes: TxHash[]): Promise<void> {
+  public async markMinedAsPending(txHashes: TxHash[]): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();
     }
 
     let markedAsPending = 0;
-    return this.#store
-      .transactionAsync(async () => {
-        let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
-        for (const hash of txHashes) {
-          const key = hash.toString();
-          await this.#minedTxHashToBlock.delete(key);
+    await this.#store.transactionAsync(async () => {
+      let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
+      for (const hash of txHashes) {
+        const key = hash.toString();
+        await this.#minedTxHashToBlock.delete(key);
 
-          // Rehydrate the tx in the in-memory pending txs mapping
-          const tx = await this.getPendingTxByHash(hash);
-          if (tx) {
-            await this.addPendingTxIndices(tx, key);
-            pendingTxSize += tx.getSize();
-            markedAsPending++;
-          }
+        // Rehydrate the tx in the in-memory pending txs mapping
+        const tx = await this.getPendingTxByHash(hash);
+        if (tx) {
+          await this.addPendingTxIndices(tx, key);
+          pendingTxSize += tx.getSize();
+          markedAsPending++;
         }
+      }
 
-        await this.#pendingTxSize.set(pendingTxSize);
-      })
-      .then(async () => {
-        const numInvalidTxsEvicted = await this.evictInvalidTxsAfterReorg(txHashes);
-        const { numLowPriorityTxsEvicted, numNewTxsEvicted } = await this.evictLowPriorityTxs(txHashes);
+      await this.#pendingTxSize.set(pendingTxSize);
+    });
 
-        this.#metrics.recordAddedObjects(markedAsPending - numNewTxsEvicted, 'pending');
-        this.#metrics.recordRemovedObjects(
-          numInvalidTxsEvicted + numLowPriorityTxsEvicted - numNewTxsEvicted,
-          'pending',
-        );
-        this.#metrics.recordRemovedObjects(markedAsPending, 'mined');
-      });
+    const numInvalidTxsEvicted = await this.evictInvalidTxsAfterReorg(txHashes);
+    const { numLowPriorityTxsEvicted, numNewTxsEvicted } = await this.evictLowPriorityTxs(txHashes);
+
+    await this.increasePendingTxCount(markedAsPending);
+
+    this.#metrics.recordAddedObjects(markedAsPending - numNewTxsEvicted, 'pending');
+    this.#metrics.recordRemovedObjects(numInvalidTxsEvicted + numLowPriorityTxsEvicted - numNewTxsEvicted, 'pending');
+    this.#metrics.recordRemovedObjects(markedAsPending, 'mined');
   }
 
   public async getPendingTxHashes(): Promise<TxHash[]> {
@@ -204,6 +206,10 @@ export class AztecKVTxPool implements TxPool {
   public async getMinedTxHashes(): Promise<[TxHash, number][]> {
     const vals = await toArray(this.#minedTxHashToBlock.entriesAsync());
     return vals.map(([txHash, blockNumber]) => [TxHash.fromString(txHash), blockNumber]);
+  }
+
+  public async getPendingTxCount(): Promise<number> {
+    return (await this.#pendingTxCount.getAsync()) ?? 0;
   }
 
   public async getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
@@ -275,7 +281,7 @@ export class AztecKVTxPool implements TxPool {
       txs.map(async tx => ({ txHash: await tx.getTxHash(), txStats: await tx.getStats() })),
     );
     await this.#store.transactionAsync(async () => {
-      let pendingCount = 0;
+      let addedCount = 0;
       let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
       await Promise.all(
         txs.map(async (tx, i) => {
@@ -294,7 +300,7 @@ export class AztecKVTxPool implements TxPool {
           await this.#txs.set(key, tx.toBuffer());
 
           if (!(await this.#minedTxHashToBlock.hasAsync(key))) {
-            pendingCount++;
+            addedCount++;
             pendingTxSize += tx.getSize();
             await this.addPendingTxIndices(tx, key);
             this.#metrics.recordSize(tx);
@@ -302,13 +308,13 @@ export class AztecKVTxPool implements TxPool {
         }),
       );
 
+      await this.increasePendingTxCount(addedCount);
       await this.#pendingTxSize.set(pendingTxSize);
-
       const { numLowPriorityTxsEvicted, numNewTxsEvicted } = await this.evictLowPriorityTxs(
         hashesAndStats.map(({ txHash }) => txHash),
       );
 
-      this.#metrics.recordAddedObjects(pendingCount - numNewTxsEvicted, 'pending');
+      this.#metrics.recordAddedObjects(addedCount - numNewTxsEvicted, 'pending');
       this.#metrics.recordRemovedObjects(numLowPriorityTxsEvicted - numNewTxsEvicted, 'pending');
     });
   }
@@ -349,6 +355,8 @@ export class AztecKVTxPool implements TxPool {
       }
 
       await this.#pendingTxSize.set(pendingTxSize);
+      await this.increasePendingTxCount(-pendingDeleted);
+
       this.#metrics.recordRemovedObjects(pendingDeleted, 'pending');
       this.#metrics.recordRemovedObjects(minedDeleted, 'mined');
     });
@@ -634,5 +642,13 @@ export class AztecKVTxPool implements TxPool {
     await this.#pendingTxHashToSize.delete(txHash);
     await this.#pendingTxHashToHeaderHash.delete(txHash);
     this.#pendingTxs.delete(txHash);
+  }
+
+  private async increasePendingTxCount(count: number): Promise<void> {
+    const pendingTxCount = (await this.#pendingTxCount.getAsync()) ?? 0;
+    this.#log.warn(
+      `Increasing pending tx count: current ${pendingTxCount} + count ${count} = ${pendingTxCount + count}`,
+    );
+    await this.#pendingTxCount.set(pendingTxCount + count);
   }
 }

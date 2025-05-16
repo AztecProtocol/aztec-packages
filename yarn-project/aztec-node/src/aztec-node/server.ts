@@ -542,9 +542,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.p2pClient!.getPendingTxs();
   }
 
-  public async getPendingTxCount() {
-    const pendingTxs = await this.getPendingTxs();
-    return pendingTxs.length;
+  public getPendingTxCount() {
+    return this.p2pClient!.getPendingTxCount();
   }
 
   /**
