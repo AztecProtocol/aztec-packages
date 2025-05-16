@@ -1,4 +1,4 @@
-import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
+import { type ContractArtifact, FunctionType, emptyContractArtifact, emptyFunctionArtifact } from '@aztec/stdlib/abi';
 import { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -22,31 +22,12 @@ export async function createAvmMinimalPublicTx(): Promise<PublicTxResult> {
     new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 2),
   ]);
 
-  const minimalContractArtifact: ContractArtifact = {
-    name: 'MinimalContract',
-    functions: [
-      {
-        name: 'public_dispatch',
-        isInitializer: false,
-        isStatic: false,
-        functionType: FunctionType.PUBLIC,
-        isInternal: false,
-        parameters: [],
-        returnTypes: [],
-        errorTypes: {},
-        bytecode: minimalBytecode,
-        debugSymbols: '',
-      },
-    ],
-    nonDispatchPublicFunctions: [],
-    outputs: {
-      structs: {},
-      globals: {},
-    },
-    fileMap: {},
-    storageLayout: {},
-    notes: {},
-  };
+  const minimalContractArtifact = emptyContractArtifact();
+  minimalContractArtifact.name = 'MinimalContract';
+  minimalContractArtifact.functions = [emptyFunctionArtifact()];
+  minimalContractArtifact.functions[0].name = 'public_dispatch';
+  minimalContractArtifact.functions[0].functionType = FunctionType.PUBLIC;
+  minimalContractArtifact.functions[0].bytecode = minimalBytecode;
 
   const minimalTestContract = await simTester.registerAndDeployContract(
     /*constructorArgs=*/ [],
