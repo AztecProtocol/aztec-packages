@@ -6,6 +6,7 @@ import {
 } from '@aztec/stdlib/kernel';
 
 import {
+  mapPaddedSideEffectsToNoir,
   mapPrivateKernelCircuitPublicInputsToNoir,
   mapPrivateKernelDataToNoir,
   mapPrivateKernelResetHintsToNoir,
@@ -38,6 +39,7 @@ export function updateResetCircuitSampleInputs(
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelResetCircuitPrivateInputs.previousKernel.publicInputs,
     ),
+    padded_side_effects: mapPaddedSideEffectsToNoir(privateKernelResetCircuitPrivateInputs.paddedSideEffects),
     hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
   };
 

@@ -12,6 +12,8 @@ import type {
 } from '@aztec/stdlib/kernel';
 
 import {
+  mapPaddedSideEffectAmountsToNoir,
+  mapPaddedSideEffectsToNoir,
   mapPrivateCallDataToNoir,
   mapPrivateCircuitPublicInputsToNoir,
   mapPrivateKernelCircuitPublicInputsFromNoir,
@@ -115,6 +117,7 @@ export function convertPrivateKernelResetInputsToWitnessMapWithAbi<
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelResetCircuitPrivateInputs.previousKernel.publicInputs,
     ),
+    padded_side_effects: mapPaddedSideEffectsToNoir(privateKernelResetCircuitPrivateInputs.paddedSideEffects),
     hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
   };
   const initialWitnessMap = abiEncode(resetAbi, mapped);
@@ -154,6 +157,9 @@ export function convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi(
     previous_kernel: mapPrivateKernelDataToNoir(privateKernelTailToPublicCircuitPrivateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelTailToPublicCircuitPrivateInputs.previousKernel.publicInputs,
+    ),
+    padded_side_effect_amounts: mapPaddedSideEffectAmountsToNoir(
+      privateKernelTailToPublicCircuitPrivateInputs.paddedSideEffectAmounts,
     ),
   };
   pushTestData('private-kernel-tail-to-public', mapped);

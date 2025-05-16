@@ -63,7 +63,7 @@ fn validate_sorted_siloed_nullifiers_mismatch_sorted_hash_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "unexpected non-empty item")]
+#[test(should_fail_with = "incorrect transformed value")]
 fn validate_sorted_siloed_nullifiers_extra_item_fails() {
     let mut builder = ResetOutputValidatorBuilder::new_with_nullifier_siloing();
 

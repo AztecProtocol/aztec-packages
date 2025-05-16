@@ -28,3 +28,4 @@ export * from './private_call_request.js';
 export * from './private_validation_requests.js';
 export * from './private_kernel_simulated_output.js';
 export * from './private_kernel_prover_output.js';
+export * from './padded_side_effects.js';
