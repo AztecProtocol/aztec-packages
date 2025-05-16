@@ -54,6 +54,14 @@ export class Addressing {
     return wire;
   }
 
+  public indirectOperandsCount(): number {
+    return this.modePerOperand.filter(mode => mode & AddressingMode.INDIRECT).length;
+  }
+
+  public relativeOperandsCount(): number {
+    return this.modePerOperand.filter(mode => mode & AddressingMode.RELATIVE).length;
+  }
+
   /**
    * Resolves the offsets using the addressing mode.
    * @param offsets The offsets to resolve.

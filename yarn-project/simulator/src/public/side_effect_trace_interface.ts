@@ -12,6 +12,7 @@ export interface PublicSideEffectTraceInterface {
     value: Fr,
     protocolWrite: boolean,
   ): Promise<void>;
+  isStorageCold(contractAddress: AztecAddress, slot: Fr): boolean;
   traceNewNoteHash(uniqueNoteHash: Fr): void;
   getNoteHashCount(): number;
   traceNewNullifier(siloedNullifier: Fr): void;
