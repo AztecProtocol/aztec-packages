@@ -298,14 +298,18 @@ where
 /// }
 /// ```
 #[derive_via(derive_deserialize)]
-pub trait Deserialize<let N: u32> {
+pub trait Deserialize {
+    let N: u32;
+
     fn deserialize(fields: [Field; N]) -> Self;
 }
 // docs:end:deserialize
 
-impl<let N: u32> Deserialize<N> for str<N> {
-    fn deserialize(fields: [Field; N]) -> Self {
-        str::<N>::from(fields.map(|value| value as u8))
+impl<let M: u32> Deserialize for str<M> {
+    let N = M;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
+        str::<Self::N>::from(fields.map(|value| value as u8))
     }
 }
 
