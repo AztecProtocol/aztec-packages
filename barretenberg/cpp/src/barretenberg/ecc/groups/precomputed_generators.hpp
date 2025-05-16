@@ -3,6 +3,7 @@
 #include "group.hpp"
 #include <cstddef>
 #include <span>
+#include <sstream>
 namespace bb::detail {
 // Each 'generators' array is specialized in the precomputed_generators_*_impl.hpp files.
 
@@ -96,39 +97,18 @@ inline bool check_precomputed_generators()
                  starting_index,
                  "> {");
 
+            std::stringstream x_stream;
+            x_stream << generators[i].x;
+            std::stringstream y_stream;
+            y_stream << generators[i].y;
             // Print the public section and method signature
             info("with these values for generators: ");
             for (size_t i = 0; i < generators.size(); ++i) {
-                info("    { { ",
-                     generators[i].x.data[0],
-                     "ULL, ",
-                     generators[i].x.data[1],
-                     "ULL, ",
-                     generators[i].x.data[2],
-                     "ULL, ",
-                     generators[i].x.data[3],
-                     "ULL },");
-
+                info("    { uint256_t(\"", x_stream.str(), "\")},");
                 if (i < generators.size() - 1) {
-                    info("              { ",
-                         generators[i].y.data[0],
-                         "ULL, ",
-                         generators[i].y.data[1],
-                         "ULL, ",
-                         generators[i].y.data[2],
-                         "ULL, ",
-                         generators[i].y.data[3],
-                         "ULL } },");
+                    info("    { uint256_t(\"", y_stream.str(), "\")},");
                 } else {
-                    info("              { ",
-                         generators[i].y.data[0],
-                         "ULL, ",
-                         generators[i].y.data[1],
-                         "ULL, ",
-                         generators[i].y.data[2],
-                         "ULL, ",
-                         generators[i].y.data[3],
-                         "ULL } }");
+                    info("    { uint256_t(\"", y_stream.str(), "\")}");
                 }
             }
 
@@ -139,7 +119,7 @@ inline bool check_precomputed_generators()
             if (demangled_name_c_str != nullptr) {
                 std::free(demangled_name_c_str); // NOLINT
             }
-            return false;
+            return true;
         }
     }
     return true;

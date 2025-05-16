@@ -750,7 +750,7 @@
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz", "bb_cli_bench", "ecc_tests"]
+      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
     },
     {
       "name": "xray",

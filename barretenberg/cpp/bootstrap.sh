@@ -89,7 +89,12 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    build_preset wasm-threads
+    if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
+      # We only want to sanity check that we haven't broken wasm ecc ops in merge queue.
+      build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
+    else
+      build_preset wasm-threads
+    fi
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
   fi
 }
@@ -182,7 +187,10 @@ function test_cmds {
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
-  echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+  if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
+    # We only want to sanity check that we haven't broken wasm ecc ops in merge queue.
+    echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+  fi
   echo "$hash barretenberg/cpp/scripts/test_civc_standalone_vks_havent_changed.sh"
 }
 
