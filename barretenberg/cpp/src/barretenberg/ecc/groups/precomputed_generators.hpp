@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/zip_view.hpp"
 #include "group.hpp"
 #include <cstddef>
 #include <span>
@@ -69,10 +70,8 @@ inline bool check_precomputed_generators()
         info("Precomputed generators size mismatch");
         return false;
     }
-    for (size_t i = 0; i < precomputed.size(); ++i) {
-        if (precomputed[i] != generators[i]) {
-            info("Precomputed generators mismatch at index ", i);
-
+    for (auto [p, g] : zip_view(precomputed, generators)) {
+        if (p != g) {
             info("WARNING: Generators do not match precomputed generators! THESE SHOULD GENERALLY NOT CHANGE, "
                  "SOMETHING MAY BE WRONG ON A MORE FUNDAMENTAL LEVEL!");
             info("WARNING: IF YOU REALLY ARE SURE THESE NEED TO BE CHANGE: Include the below code in "
@@ -97,21 +96,16 @@ inline bool check_precomputed_generators()
                  starting_index,
                  "> {");
 
-            std::stringstream x_stream;
-            x_stream << generators[i].x;
-            std::stringstream y_stream;
-            y_stream << generators[i].y;
             // Print the public section and method signature
             info("with these values for generators: ");
             for (size_t i = 0; i < generators.size(); ++i) {
-                info("    { uint256_t(\"", x_stream.str(), "\")},");
-                if (i < generators.size() - 1) {
-                    info("    { uint256_t(\"", y_stream.str(), "\")},");
-                } else {
-                    info("    { uint256_t(\"", y_stream.str(), "\")}");
-                }
+                std::stringstream x_stream;
+                x_stream << generators[i].x;
+                std::stringstream y_stream;
+                y_stream << generators[i].y;
+                const char* suffix = (i == generators.size() - 1) ? "" : ",";
+                info("    { uint256_t(\"", x_stream.str(), "\"), uint256_t(\"", y_stream.str(), "\") }", suffix);
             }
-
             info("    }");
             info("};");
 
@@ -119,7 +113,7 @@ inline bool check_precomputed_generators()
             if (demangled_name_c_str != nullptr) {
                 std::free(demangled_name_c_str); // NOLINT
             }
-            return true;
+            return false;
         }
     }
     return true;

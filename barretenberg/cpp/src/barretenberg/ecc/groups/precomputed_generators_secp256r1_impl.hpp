@@ -9,8 +9,8 @@ template <> class PrecomputedGenerators<"biggroup table offset generator", secp2
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     static constexpr secp256r1::g1::affine_element generators[1] = {
-        { { 4276204512574362068ULL, 15519856476823794700ULL, 1003492150554369224ULL, 6520230211306527808ULL },
-          { 15249479393120843651ULL, 17442822883200906305ULL, 18139010248036547465ULL, 13476915261577728122ULL } },
+        { uint256_t("0x12f1907bc0f7caa93716082e67e3466f525281c6a2cd95990b6d3582b5c1375f"),
+          uint256_t("0x3111b47a8c982605786143f3d7b4f4c754a1b83aeaa81a7af6b90176b7328d08") }
     };
     static constexpr std::span<const secp256r1::g1::affine_element> get_generators() { return generators; };
 };
@@ -18,8 +18,8 @@ template <> class PrecomputedGenerators<"biggroup offset generator", secp256r1::
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     static constexpr secp256r1::g1::affine_element generators[1] = {
-        { { 11378980334173647181ULL, 7273379636130967587ULL, 17237467963710413828ULL, 15760383832955581035ULL },
-          { 12250615173581878547ULL, 2537831554260848516ULL, 3366408450925420470ULL, 8544096919766069810ULL } },
+        { uint256_t("0xb61bd0f5671bc04ec041799e87e735af4ed40920c6ca71e63c8010ff162bd90a"),
+          uint256_t("0x338540b43f94cbfe32a1e62d192ea7d5827f4a4a66bb781a02321033110e492b") }
     };
     static constexpr std::span<const secp256r1::g1::affine_element> get_generators() { return generators; };
 };

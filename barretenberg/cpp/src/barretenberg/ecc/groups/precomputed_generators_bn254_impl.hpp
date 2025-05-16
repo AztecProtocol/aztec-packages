@@ -8,8 +8,8 @@ template <> class PrecomputedGenerators<"biggroup table offset generator", g1::a
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     static constexpr g1::affine_element generators[1] = {
-        { { 7762086984941950370ULL, 10684025356749256500ULL, 13748198196038680396ULL, 707780873284498417ULL },
-          { 1663243467983316955ULL, 16723259082508773207ULL, 9366176347284288152ULL, 650519917458561605ULL } }
+        { uint256_t("0x240d420bc60418af2206bdf32238eee77a8c46772f2679881a1858aab7b8927f"),
+          uint256_t("0x04ffcf276f8bc77315c2674207a3f55861b09acebd1ea9623883613f538e3822") }
     };
     static constexpr std::span<const g1::affine_element> get_generators() { return generators; }
 };
@@ -17,8 +17,8 @@ template <> class PrecomputedGenerators<"biggroup offset generator", g1::affine_
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     static constexpr g1::affine_element generators[1] = {
-        { { 3402697789448964667ULL, 12272641339941532534ULL, 3202222964502006468ULL, 3441049934705304460ULL },
-          { 16574262713924055291ULL, 14022735779041100584ULL, 1168844528721575365ULL, 1598138279242208550ULL } }
+        { uint256_t("0x169b33374f53b95f16edf369c34509da6485297ee10452a62af4bd2820d6fb33"),
+          uint256_t("0x019d6e473e9b638cfe2b8f232288a075050a381b745cffaa9f9264121567315b") }
     };
     static constexpr std::span<const g1::affine_element> get_generators() { return generators; }
 };
@@ -26,8 +26,8 @@ template <> class PrecomputedGenerators<"ECCVM_OFFSET_GENERATOR", g1::affine_ele
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     static constexpr g1::affine_element generators[1] = {
-        { { 7374687731202222564ULL, 8543745450152580123ULL, 2921030955956618589ULL, 2599641324373959496ULL },
-          { 6960415070023996614ULL, 14053522495179787214ULL, 14517046433555033617ULL, 2415631830684294405ULL } }
+        { uint256_t("0x2728608c9bfb52035a3f2f1d18e4c604d4da7611b3e265566265e9b7d36642b2"),
+          uint256_t("0x0451a4da5a6303859c4755dac222ae1d164db7ca52a19321f46a7b88a64f7742") }
     };
     static constexpr std::span<const g1::affine_element> get_generators() { return generators; }
 };
@@ -35,10 +35,10 @@ template <> class PrecomputedGenerators<"test generators", g1::affine_element, 2
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     static constexpr g1::affine_element generators[2] = {
-        { { 5298051746523815354ULL, 11125407385827321085ULL, 1378860999543571258ULL, 3214580318552177664ULL },
-          { 10989126080144231302ULL, 3931925773460296875ULL, 15711120850424438078ULL, 1554456504451117922ULL } },
-        { { 12331362496270503882ULL, 1777010271948225039ULL, 3688980372647118828ULL, 2183746658631232216ULL },
-          { 2066093441324826568ULL, 18321081055934204294ULL, 4310268877597366290ULL, 3214757532116262013ULL } }
+        { uint256_t("0x08777a8c0abf512ca2ddd6a1de3ff3c76788ceabefad95079784c425f260ea7d"),
+          uint256_t("0x1172b72b11c4eb0e2be55499c03bd7fd92b4416c6bb286790018ae51d7e1a755") },
+        { uint256_t("0x1a934324fa18c1d0ebc2f212a62813ae269ce204e44d1152f9b42190f23926d1"),
+          uint256_t("0x1949167f938661c05783512d44d88e81da1edb8dc1923572880d861de2a65d39") }
     };
     static constexpr std::span<const g1::affine_element> get_generators() { return generators; }
 };
