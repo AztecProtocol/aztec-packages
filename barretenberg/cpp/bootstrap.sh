@@ -191,83 +191,39 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
-function build_benchmarks {
+function build_bench {
   set -eu
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
     # bb_cli_bench is later used in yarn-project.
-    parallel --line-buffered --tag -v denoise ::: \
+    parallel --line-buffered denoise ::: \
       "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench" \
-      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench" \
-      "build_preset op-count-time --target ultra_honk_bench --target client_ivc_bench"
+      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench"
     cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads,build-op-count-time}/bin/{ultra_honk_bench,client_ivc_bench}
+      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench}
   fi
+}
+
+function bench_cmds {
+  prefix="$hash:CPUS=16"
+  # arch name bin filter
+  benches=(
+    "native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+    "native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/6$"
+    "native bb-micro-bench/native/client_ivc_17_in_20 build/bin/client_ivc_bench ClientIVCBench/Ambient_17_in_20/6$"
+    "wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+    "wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/6$"
+  )
+  for args in "${benches[@]}"; do
+    echo "$prefix barretenberg/cpp/scripts/run_bench.sh $args"
+  done
 }
 
 # Runs benchmarks sharded over machine cores.
 function bench {
   echo_header "bb bench"
-  build_benchmarks
-
-  export HARDWARE_CONCURRENCY=16
-
   rm -rf bench-out && mkdir -p bench-out
-
-  # Ultra honk.
-  function ultra_honk_release {
-    ./build/bin/ultra_honk_bench \
-      --benchmark_out=./bench-out/ultra_honk_release.json \
-      --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
-  }
-  function ultra_honk_wasm {
-    scripts/wasmtime.sh ./build-wasm-threads/bin/ultra_honk_bench \
-      --benchmark_out=./bench-out/ultra_honk_wasm.json \
-      --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
-  }
-
-  # Client IVC
-  function client_ivc_17_in_20_release {
-    ./build/bin/client_ivc_bench \
-      --benchmark_out=./bench-out/client_ivc_17_in_20_release.json \
-      --benchmark_filter="ClientIVCBench/Ambient_17_in_20/6$"
-  }
-  function client_ivc_release {
-    ./build/bin/client_ivc_bench \
-      --benchmark_out=./bench-out/client_ivc_release.json \
-      --benchmark_filter="ClientIVCBench/Full/6$"
-  }
-  function client_ivc_op_count_time {
-    ./build-op-count-time/bin/client_ivc_bench \
-      --benchmark_out=./bench-out/client_ivc_op_count_time.json \
-      --benchmark_filter="ClientIVCBench/Full/6$"
-  }
-  function client_ivc_wasm {
-    scripts/wasmtime.sh ./build-wasm-threads/bin/client_ivc_bench \
-      --benchmark_out=./bench-out/client_ivc_wasm.json \
-      --benchmark_filter="ClientIVCBench/Full/6$"
-  }
-
-  function run_benchmark {
-    set -eu
-    local start_core=$(( ($1 - 1) * HARDWARE_CONCURRENCY ))
-    local end_core=$(( start_core + (HARDWARE_CONCURRENCY - 1) ))
-    echo taskset -c $start_core-$end_core bash -c "$2"
-    taskset -c $start_core-$end_core bash -c "$2"
-  }
-
-  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count_time client_ivc_wasm run_benchmark
-
-  local num_cpus=$(get_num_cpus)
-  local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
-
-  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} {} ::: \
-    ultra_honk_release \
-    ultra_honk_wasm \
-    client_ivc_17_in_20_release \
-    client_ivc_release \
-    client_ivc_op_count_time \
-    client_ivc_wasm
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
 }
 
 # Upload assets to release.
@@ -321,7 +277,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|release|build_native|build_nodejs_module|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
+  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
     $cmd "$@"
     ;;
   *)

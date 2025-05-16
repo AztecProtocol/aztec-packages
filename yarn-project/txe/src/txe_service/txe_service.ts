@@ -19,6 +19,7 @@ import {
   type ForeignCallArray,
   type ForeignCallSingle,
   addressFromSingle,
+  arrayOfArraysToBoundedVecOfArrays,
   arrayToBoundedVec,
   bufferToU8Array,
   fromArray,
@@ -328,7 +329,8 @@ export class TXEService {
     limit: ForeignCallSingle,
     offset: ForeignCallSingle,
     status: ForeignCallSingle,
-    returnSize: ForeignCallSingle,
+    maxNotes: ForeignCallSingle,
+    packedRetrievedNoteLength: ForeignCallSingle,
   ) {
     if (!this.oraclesEnabled) {
       throw new Error(
@@ -352,32 +354,37 @@ export class TXEService {
       fromSingle(offset).toNumber(),
       fromSingle(status).toNumber(),
     );
-    const noteLength = noteDatas?.[0]?.note.items.length ?? 0;
-    if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
-      throw new Error('Notes should all be the same length.');
+
+    if (noteDatas.length > 0) {
+      const noteLength = noteDatas[0].note.items.length;
+      if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
+        throw new Error('Notes should all be the same length.');
+      }
     }
 
-    const contractAddress = noteDatas[0]?.contractAddress ?? Fr.ZERO;
+    // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
+    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note]
 
-    // Values indicates whether the note is settled or transient.
-    const noteTypes = {
-      isSettled: new Fr(0),
-      isTransient: new Fr(1),
-    };
-    const flattenData = noteDatas.flatMap(({ nonce, note, index }) => [
-      nonce,
-      index === undefined ? noteTypes.isTransient : noteTypes.isSettled,
-      ...note.items,
-    ]);
+    const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, nonce, index, note }) => {
+      // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
+      const noteIsTransient = index === undefined;
+      const nonzeroNoteHashCounter = noteIsTransient ? true : false;
+      return [contractAddress, nonce, nonzeroNoteHashCounter, ...note.items];
+    });
 
-    const returnFieldSize = fromSingle(returnSize).toNumber();
-    const returnData = [noteDatas.length, contractAddress.toField(), ...flattenData].map(v => new Fr(v));
-    if (returnData.length > returnFieldSize) {
-      throw new Error(`Return data size too big. Maximum ${returnFieldSize} fields. Got ${flattenData.length}.`);
-    }
+    // Now we convert each sub-array to an array of ForeignCallSingles
+    const returnDataAsArrayOfForeignCallSingleArrays = returnDataAsArrayOfArrays.map(subArray =>
+      subArray.map(toSingle),
+    );
 
-    const paddedZeros = Array(returnFieldSize - returnData.length).fill(new Fr(0));
-    return toForeignCallResult([toArray([...returnData, ...paddedZeros])]);
+    // At last we convert the array of arrays to a bounded vec of arrays
+    return toForeignCallResult(
+      arrayOfArraysToBoundedVecOfArrays(
+        returnDataAsArrayOfForeignCallSingleArrays,
+        fromSingle(maxNotes).toNumber(),
+        fromSingle(packedRetrievedNoteLength).toNumber(),
+      ),
+    );
   }
 
   notifyCreatedNote(

@@ -74,7 +74,7 @@ contract SlashingScenario is TestBase {
     multiAdder.addValidators(initialValidators);
 
     // Cast a bunch of votes
-    timeCheater.cheat__jumpForwardEpochs(1);
+    timeCheater.cheat__jumpForwardEpochs(2);
 
     assertEq(rollup.getActiveAttesterCount(), validatorCount, "Invalid attester count");
 
@@ -87,7 +87,7 @@ contract SlashingScenario is TestBase {
     uint256 round = slashingProposer.computeRound(rollup.getCurrentSlot());
 
     uint256 slashAmount = 10e18;
-    IPayload payload = slashFactory.createSlashPayload(Epoch.wrap(1), slashAmount);
+    IPayload payload = slashFactory.createSlashPayload(Epoch.wrap(2), slashAmount);
 
     for (uint256 i = 0; i < 10; i++) {
       address proposer = rollup.getCurrentProposer();
@@ -96,7 +96,7 @@ contract SlashingScenario is TestBase {
       timeCheater.cheat__progressSlot();
     }
 
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(1));
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
     assertEq(attesters.length, validatorCount, "Invalid attester count");
     uint256[] memory stakes = new uint256[](attesters.length);
 
