@@ -103,7 +103,7 @@ export class Barretenberg extends BarretenbergApi {
   }
 }
 
-let barrentenbergSyncSingletonPromise: Promise<BarretenbergSync>;
+let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
 
 export class BarretenbergSync extends BarretenbergApiSync {
@@ -119,11 +119,11 @@ export class BarretenbergSync extends BarretenbergApiSync {
   }
 
   static async initSingleton(wasmPath?: string, logger: (msg: string) => void = createDebug('bb.js:bb_wasm_sync')) {
-    if (!barrentenbergSyncSingletonPromise) {
-      barrentenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath, logger);
+    if (!barretenbergSyncSingletonPromise) {
+      barretenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath, logger);
     }
 
-    barretenbergSyncSingleton = await barrentenbergSyncSingletonPromise;
+    barretenbergSyncSingleton = await barretenbergSyncSingletonPromise;
     return barretenbergSyncSingleton;
   }
 
