@@ -1,4 +1,4 @@
-import { type ContractArtifact, FunctionType, emptyContractArtifact, emptyFunctionArtifact } from '@aztec/stdlib/abi';
+import { FunctionType, emptyContractArtifact, emptyFunctionArtifact } from '@aztec/stdlib/abi';
 import { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
