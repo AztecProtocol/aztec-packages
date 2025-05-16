@@ -14,9 +14,7 @@ on:
   merge_group: {}
 
 concurrency:
-  # On PR's the group id is the ref_name so only 1 can run at a time per PR.
-  group: |
-    ci3-${{ github.event_name == 'pull_request' && github.ref_name || github.run_id }}
+  group: ${{ github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
