@@ -1,4 +1,5 @@
 import { times } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ValidatorStatusInSlot } from '@aztec/stdlib/validators';
 
@@ -7,10 +8,11 @@ import { SentinelStore } from './store.js';
 describe('sentinel-store', () => {
   let kvStore: AztecLMDBStoreV2;
   let store: SentinelStore;
+  const historyLength = 4;
 
   beforeEach(async () => {
     kvStore = await openTmpStore('sentinel-store-test');
-    store = new SentinelStore(kvStore, { historyLength: 4 });
+    store = new SentinelStore(kvStore, { historyLength });
   });
 
   afterEach(async () => {
@@ -84,12 +86,19 @@ describe('sentinel-store', () => {
     }
 
     const histories = await store.getHistories();
-    expect(histories[validator]).toHaveLength(4);
+    expect(histories[validator]).toHaveLength(historyLength);
     expect(histories[validator]).toEqual([
       { slot: 7n, status: 'block-mined' },
       { slot: 8n, status: 'block-mined' },
       { slot: 9n, status: 'block-mined' },
       { slot: 10n, status: 'block-mined' },
     ]);
+  });
+
+  it('updates proven performance', async () => {
+    const validator = EthAddress.random().toString();
+    await store.updateProvenPerformance(1n, { [validator]: { missed: 2, total: 10 } });
+    const provenPerformance = await store.getProvenPerformance(validator);
+    expect(provenPerformance).toEqual([{ epoch: 1n, missed: 2, total: 10 }]);
   });
 });

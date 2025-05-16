@@ -10,7 +10,13 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import { type L1ContractAddresses, RegistryContract, createEthereumChain } from '@aztec/ethereum';
+import {
+  type L1ContractAddresses,
+  RegistryContract,
+  createEthereumChain,
+  createExtendedL1Client,
+} from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -30,10 +36,10 @@ import {
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
-  createSlasherClient,
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type {
@@ -180,7 +186,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const publicClient = createPublicClient({
       chain: ethereumChain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map(url => http(url))),
+      transport: fallback(config.l1RpcUrls.map((url: any) => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -192,6 +198,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     // Overwrite the passed in vars.
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
+
+    const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
+    const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
 
     const rollup = getContract({
       address: l1ContractsAddresses.rollupAddress.toString(),
@@ -245,7 +254,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
-    const slasherClient = createSlasherClient(config, archiver, telemetry);
+    const watchers: Watcher[] = [];
+
+    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+    await validatorsSentinel?.start();
+    if (validatorsSentinel) {
+      watchers.push(validatorsSentinel);
+    }
+
+    const slasherClient = SlasherClient.new(config, epochCache, archiver, l1TxUtils, watchers, telemetry);
     slasherClient.start();
 
     const validatorClient = createValidatorClient(config, {
@@ -256,16 +273,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockSource: archiver,
     });
 
-    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    await validatorsSentinel?.start();
-
     log.verbose(`All Aztec Node subsystems synced`);
 
     // now create the sequencer
     const sequencer = config.disableValidator
       ? undefined
       : await SequencerClient.new(config, {
+          // if deps were provided, they should override the defaults,
+          // or things that we created in this function
           ...deps,
+          epochCache,
+          l1TxUtils,
           validatorClient,
           p2pClient,
           worldStateSynchronizer,

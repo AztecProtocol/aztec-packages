@@ -76,6 +76,10 @@ export class RollupContract {
     return this.rollup;
   }
 
+  public getCurrentSlot() {
+    return this.rollup.read.getCurrentSlot();
+  }
+
   @memoize
   public async getSlashingProposer() {
     const slasherAddress = await this.rollup.read.getSlasher();

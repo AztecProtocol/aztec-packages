@@ -4,40 +4,42 @@ pragma solidity >=0.8.27;
 
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {ISlashFactory} from "./interfaces/ISlashFactory.sol";
 
 /**
- * @notice The simplest payload that you can find, slash all attesters for an epoch.
+ * @notice Payload to slash a specified list of validators for specified amounts and offenses.
  */
 contract SlashPayload is IPayload {
-  Epoch public immutable EPOCH;
   IValidatorSelection public immutable VALIDATOR_SELECTION;
-  uint256 public immutable AMOUNT;
 
-  address[] public attesters;
+  address[] public validators;
+  uint256[] public amounts;
+  uint256[] public offenses;
 
-  constructor(Epoch _epoch, IValidatorSelection _validatorSelection, uint256 _amount) {
-    EPOCH = _epoch;
-    VALIDATOR_SELECTION = _validatorSelection;
-    AMOUNT = _amount;
-
-    address[] memory attesters_ = IValidatorSelection(VALIDATOR_SELECTION).getEpochCommittee(EPOCH);
-    for (uint256 i = 0; i < attesters_.length; i++) {
-      attesters.push(attesters_[i]);
+  constructor(
+    address[] memory _validators,
+    IValidatorSelection _validatorSelection,
+    uint256[] memory _amounts
+  ) {
+    if (_validators.length != _amounts.length) {
+      revert ISlashFactory.SlashPayloadAmountsLengthMismatch(_validators.length, _amounts.length);
     }
+
+    validators = _validators;
+    VALIDATOR_SELECTION = _validatorSelection;
+    amounts = _amounts;
   }
 
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
-    IPayload.Action[] memory actions = new IPayload.Action[](attesters.length);
+    IPayload.Action[] memory actions = new IPayload.Action[](validators.length);
 
-    for (uint256 i = 0; i < attesters.length; i++) {
+    for (uint256 i = 0; i < validators.length; i++) {
       actions[i] = IPayload.Action({
         target: address(VALIDATOR_SELECTION),
-        data: abi.encodeWithSelector(IStakingCore.slash.selector, attesters[i], AMOUNT)
+        data: abi.encodeWithSelector(IStakingCore.slash.selector, validators[i], amounts[i])
       });
     }
-
     return actions;
   }
 }

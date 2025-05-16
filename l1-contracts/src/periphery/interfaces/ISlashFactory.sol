@@ -2,17 +2,25 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 interface ISlashFactory {
   event SlashPayloadCreated(
-    address indexed payloadAddress, Epoch indexed epoch, uint256 indexed amount
+    address payloadAddress, address[] validators, uint256[] amounts, uint256[] offences
   );
 
-  function createSlashPayload(Epoch _epoch, uint256 _amount) external returns (IPayload);
-  function getAddressAndIsDeployed(Epoch _epoch, uint256 _amount)
-    external
-    view
-    returns (address, bool);
+  error SlashPayloadAmountsLengthMismatch(uint256 expected, uint256 actual);
+  error SlashPayloadOffencesLengthMismatch(uint256 expected, uint256 actual);
+
+  function createSlashPayload(
+    address[] memory _validators,
+    uint256[] memory _amounts,
+    uint256[] memory _offences
+  ) external returns (IPayload);
+
+  function getAddressAndIsDeployed(
+    address[] memory _validators,
+    uint256[] memory _amounts,
+    uint256[] memory _offences
+  ) external view returns (address, bool);
 }
