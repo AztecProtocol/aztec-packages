@@ -458,3 +458,15 @@ TEST(secp256r1, CheckPrecomputedGenerators)
     ASSERT_TRUE((bb::check_precomputed_generators<secp256r1::g1, "biggroup offset generator", 1UL>()));
     ASSERT_TRUE((bb::check_precomputed_generators<secp256r1::g1, "biggroup table offset generator", 1UL>()));
 }
+
+// Hacky: wasm does not properly find main() from gmock_main.
+// We only want to run wasm tests specifically for ecc ops as our field handling is different.
+// We need to make sure the hardcoded generators make sense.
+// As this is our narrow focus, we hack this so ecc_tests can run.
+#ifdef __wasm__
+GTEST_API_ int main(int argc, char** argv)
+{
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+#endif
