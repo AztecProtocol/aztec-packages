@@ -16,6 +16,7 @@
     "preprocess:move": "sh scripts/move_processed.sh",
     "filter-versions": "node scripts/filterVersions.js",
     "spellcheck": "yarn cspell",
+    "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt",
     "typedoc": "docusaurus generate-typedoc"
   },
   "dependencies": {
@@ -70,11 +71,12 @@
     ],
     "dictionaryDefinitions": [
       {
-          "name": "project-words",
-          "path": "./project-words.txt",
+          "name": "docs-words",
+          "path": "./docs-words.txt",
           "addWords": true
       }
     ],
+    "dictionaries": ["docs-words"],
     "files": [
       "./docs/**/{*.md,*.md?}",
       "./versioned_docs/**/{*.md,*.md?}",
@@ -85,17 +87,7 @@
         "node_modules",
         "processed-docs",
         "processed-docs-cache",
-        "/project-words.txt"
-    ],
-    "words": [
-      "defiexit",
-      "liquity",
-      "lusd",
-      "lusdexit",
-      "mathbb",
-      "squisher",
-      "",
-      ""
+        "/docs-words.txt"
     ]
   },
   "browserslist": {

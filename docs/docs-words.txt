@@ -1,0 +1,6 @@
+# Docs-specific Words
+# Originally added all non-dictionary words
+# TODO:
+# - Add project words to outer cspell.js
+# - Fix typos, then remove the word from here
+# - Only docs-specific words should remain (eg those in doc images)
