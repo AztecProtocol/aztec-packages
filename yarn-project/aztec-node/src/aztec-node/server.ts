@@ -77,8 +77,8 @@ import {
   TxStatus,
   type TxValidationResult,
 } from '@aztec/stdlib/tx';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorsStats } from '@aztec/stdlib/validators';
-import { getPackageVersion } from '@aztec/stdlib/versioning';
 import {
   Attributes,
   type TelemetryClient,
@@ -165,7 +165,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     } = {},
   ): Promise<AztecNodeService> {
     const log = deps.logger ?? createLogger('node');
-    const packageVersion = getPackageVersion(log);
+    const packageVersion = getPackageVersion() ?? '';
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const blobSinkClient =

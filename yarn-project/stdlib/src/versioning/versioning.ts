@@ -1,12 +1,8 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { type Logger, createLogger } from '@aztec/foundation/log';
 
-import { readFileSync } from 'fs';
 import type Koa from 'koa';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 
 import type { ChainConfig } from '../config/config.js';
 
@@ -148,29 +144,4 @@ export function getVersioningResponseHandler(versions: Partial<ComponentsVersion
     }
     return Promise.resolve();
   };
-}
-
-/**
- * Returns package version.
- * If .release-please-manifest.json could not be read or parsed returns empty string
- */
-export function getPackageVersion(logger?: Logger): string {
-  try {
-    const releasePleaseManifestPath = resolve(
-      dirname(fileURLToPath(import.meta.url)),
-      '../../../../.release-please-manifest.json',
-    );
-
-    const version = JSON.parse(readFileSync(releasePleaseManifestPath).toString())['.'] ?? '';
-    if (!version) {
-      const log = logger ?? createLogger('aztec:stdlib');
-      log.warn(`Could not get package version, defaulting to empty. Could not parse JSON`);
-    }
-
-    return version;
-  } catch (e) {
-    const log = logger ?? createLogger('aztec:stdlib');
-    log.warn(`Could not get package version, defaulting to empty. ${e}`);
-    return '';
-  }
 }

@@ -5,7 +5,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { SyncDataProvider } from '@aztec/pxe/server';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { getPackageVersion } from '@aztec/stdlib/versioning';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { TXEArchiver } from './archiver.js';
 import { DummyP2P } from './dummy_p2p_client.js';
@@ -42,7 +42,7 @@ export class TXEStateMachine {
       1,
       1,
       new TXEGlobalVariablesBuilder(),
-      getPackageVersion(log),
+      getPackageVersion() ?? '',
       new TestCircuitVerifier(),
       undefined,
       log,
