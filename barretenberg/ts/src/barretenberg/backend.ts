@@ -112,7 +112,7 @@ export class UltraHonkBackend {
       : options?.starknet
       ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
       : options?.starknetZK
-      ? this.api.acirWriteVkUltraStarknetHonkZK.bind(this.api)
+      ? this.api.acirWriteVkUltraStarknetZKHonk.bind(this.api)
       : this.api.acirWriteVkUltraHonk.bind(this.api);
 
     const vk = await writeVKUltraHonk(this.acirUncompressedBytecode);
