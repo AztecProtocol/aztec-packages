@@ -77,6 +77,7 @@ import {
   TxStatus,
   type TxValidationResult,
 } from '@aztec/stdlib/tx';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorsStats } from '@aztec/stdlib/validators';
 import {
   Attributes,
@@ -93,14 +94,13 @@ import { createPublicClient, fallback, getContract, http } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
-import { type AztecNodeConfig, getPackageVersion } from './config.js';
+import type { AztecNodeConfig } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
 
 /**
  * The aztec node.
  */
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
-  private packageVersion: string;
   private metrics: NodeMetrics;
 
   // Prevent two snapshot operations to happen simultaneously
@@ -124,11 +124,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
+    private readonly packageVersion: string,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
   ) {
-    this.packageVersion = getPackageVersion();
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
     this.txQueue.start();
@@ -164,8 +164,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       prefilledPublicData?: PublicDataTreeLeaf[];
     } = {},
   ): Promise<AztecNodeService> {
-    const telemetry = deps.telemetry ?? getTelemetryClient();
     const log = deps.logger ?? createLogger('node');
+    const packageVersion = getPackageVersion() ?? '';
+    const telemetry = deps.telemetry ?? getTelemetryClient();
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const blobSinkClient =
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
@@ -236,6 +237,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       proofVerifier,
       worldStateSynchronizer,
       epochCache,
+      packageVersion,
       telemetry,
     );
 
@@ -291,6 +293,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       ethereumChain.chainInfo.id,
       config.rollupVersion,
       new GlobalVariableBuilder(config),
+      packageVersion,
       proofVerifier,
       telemetry,
       log,
