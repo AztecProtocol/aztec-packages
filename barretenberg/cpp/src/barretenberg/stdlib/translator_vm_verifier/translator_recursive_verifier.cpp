@@ -185,6 +185,15 @@ void TranslatorRecursiveVerifier_<Flavor>::verify_consistency_with_final_merge(
         // These are witness commitments sent as part of the proof, so their coordinates are already in reduced form.
         // This approach is preferred over implementing assert_equal for biggroup, as it avoids the need to handle
         // constants within biggroup logic.
+        bool consistency_check_failed = (merge_commitment.y.get_value() != translator_commitment.y.get_value()) ||
+                                        (merge_commitment.y.get_value() != translator_commitment.y.get_value()) ||
+                                        (merge_commitment.is_point_at_infinity().get_value() !=
+                                         translator_commitment.is_point_at_infinity().get_value());
+
+        if (consistency_check_failed) {
+            info("translator commitments are inconsistent the final merge commitments");
+        }
+
         merge_commitment.x.assert_equal(translator_commitment.x);
         merge_commitment.y.assert_equal(translator_commitment.y);
         merge_commitment.is_point_at_infinity().assert_equal(translator_commitment.is_point_at_infinity());

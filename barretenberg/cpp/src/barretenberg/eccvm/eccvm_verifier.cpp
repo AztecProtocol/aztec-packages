@@ -25,10 +25,14 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     using ClaimBatch = ClaimBatcher::Batch;
 
     RelationParameters<FF> relation_parameters;
-
-    transcript->load_proof(proof.pre_ipa_proof);
+    if (!transcript) {
+        transcript = std::make_shared<Transcript>();
+    }
 
     ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
+    transcript->enable_manifest();
+    ipa_transcript->enable_manifest();
+    transcript->load_proof(proof.pre_ipa_proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;

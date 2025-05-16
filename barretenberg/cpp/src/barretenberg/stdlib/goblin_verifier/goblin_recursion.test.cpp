@@ -66,10 +66,15 @@ TEST_F(GoblinRecursionTests, Vanilla)
                                                         { function_accum.proof, function_accum.verification_key },
                                                         { kernel_accum.proof, kernel_accum.verification_key });
         kernel_accum = construct_accumulator(kernel_circuit);
-        goblin.prove_merge();
+        if (circuit_idx != NUM_CIRCUITS - 1) {
+            goblin.prove_merge();
+        }
     }
 
-    GoblinProof proof = goblin.prove();
+    Goblin goblin_final;
+    goblin_final.op_queue = goblin.op_queue;
+    auto merge_proof = goblin_final.prove_final_merge();
+    GoblinProof proof = goblin_final.prove(merge_proof);
     // Verify the final ultra proof
     MegaVerifier ultra_verifier{ kernel_accum.verification_key };
     bool ultra_verified = ultra_verifier.verify_proof(kernel_accum.proof);
@@ -77,5 +82,3 @@ TEST_F(GoblinRecursionTests, Vanilla)
     bool verified = Goblin::verify(proof);
     EXPECT_TRUE(ultra_verified && verified);
 }
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/787) Expand these tests.

@@ -16,10 +16,12 @@ namespace bb::stdlib::recursion::honk {
 
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(
-    Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key)
+    Builder* builder,
+    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+    const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
     , builder(builder)
-    , transcript(std::make_shared<Transcript>())
+    , transcript(transcript)
 {}
 
 template <typename Flavor>

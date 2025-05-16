@@ -41,18 +41,22 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(Builder& circuit)
+UltraProver_<Flavor>::UltraProver_(Builder& circuit, const std::shared_ptr<Transcript>& transcript)
     : proving_key(std::make_shared<DeciderProvingKey>(circuit))
-    , transcript(std::make_shared<Transcript>())
+    , transcript(transcript)
     , commitment_key(proving_key->proving_key.commitment_key)
-{}
+{
+    info("ultra prover builder 1");
+}
 
 template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(Builder&& circuit)
     : proving_key(std::make_shared<DeciderProvingKey>(circuit))
     , transcript(std::make_shared<Transcript>())
     , commitment_key(proving_key->proving_key.commitment_key)
-{}
+{
+    info("ultra prover builder 2");
+}
 
 template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {

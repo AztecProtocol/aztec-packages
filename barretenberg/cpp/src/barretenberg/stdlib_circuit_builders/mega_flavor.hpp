@@ -780,7 +780,7 @@ class MegaFlavor {
      * @brief Derived class that defines proof structure for Mega proofs, as well as supporting functions.
      * Note: Made generic for use in MegaRecursive.
      */
-    class Transcript : public NativeTranscript {
+    class SerdeTranscript : public NativeTranscript {
       public:
         std::vector<FF> public_inputs;
         Commitment w_l_comm;
@@ -814,23 +814,23 @@ class MegaFlavor {
         Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
 
-        Transcript() = default;
+        SerdeTranscript() = default;
 
-        Transcript(const HonkProof& proof)
+        SerdeTranscript(const HonkProof& proof)
             : NativeTranscript(proof)
         {}
 
-        static std::shared_ptr<Transcript> prover_init_empty()
+        static std::shared_ptr<SerdeTranscript> prover_init_empty()
         {
-            auto transcript = std::make_shared<Transcript>();
+            auto transcript = std::make_shared<SerdeTranscript>();
             constexpr uint32_t init{ 42 }; // arbitrary
             transcript->send_to_verifier("Init", init);
             return transcript;
         };
 
-        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
+        static std::shared_ptr<SerdeTranscript> verifier_init_empty(const std::shared_ptr<SerdeTranscript>& transcript)
         {
-            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
+            auto verifier_transcript = std::make_shared<SerdeTranscript>(transcript->proof_data);
             [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
             return verifier_transcript;
         };
@@ -930,6 +930,8 @@ class MegaFlavor {
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
+
+    using Transcript = NativeTranscript;
 };
 
 } // namespace bb

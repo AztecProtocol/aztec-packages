@@ -26,8 +26,8 @@ class ECCVMVerifier {
     ECCVMVerifier() = default;
 
     // Constructor accepting existing transcript
-    explicit ECCVMVerifier(const std::shared_ptr<Transcript>& goblin_transcript = nullptr)
-        : transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>()){};
+    explicit ECCVMVerifier(const std::shared_ptr<Transcript>& transcript)
+        : transcript(transcript){};
 
     explicit ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key)
         : key(verifier_key){};

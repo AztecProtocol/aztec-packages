@@ -262,7 +262,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
      *
      */
     static void test_recursive_verification_fails()
-        requires(!std::is_same_v<InnerFlavor, MegaZKFlavor>)
+        requires(!IsAnyOf<InnerFlavor, MegaZKFlavor, MegaFlavor>)
     {
         for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {
             // Create an arbitrary inner circuit
@@ -308,7 +308,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
      *
      */
     static void test_recursive_verification_fails()
-        requires(std::is_same_v<InnerFlavor, MegaZKFlavor>)
+        requires(IsAnyOf<InnerFlavor, MegaZKFlavor, MegaFlavor>)
 
     {
         for (size_t idx = 0; idx < 2; idx++) {

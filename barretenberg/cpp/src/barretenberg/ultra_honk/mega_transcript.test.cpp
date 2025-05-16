@@ -297,7 +297,7 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
 
-    if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
+    if constexpr (IsAnyOf<Flavor, MegaZKFlavor, MegaFlavor>) {
         // For compatibility with Goblin, MegaZKFlavor is using NativeTranscript which does not support
         // serialize/deserialize full transcript methods.
         GTEST_SKIP() << "Skipping FooBarTest for MegaZKFlavor";
