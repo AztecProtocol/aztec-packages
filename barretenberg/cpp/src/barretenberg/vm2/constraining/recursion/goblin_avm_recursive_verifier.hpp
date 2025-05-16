@@ -127,9 +127,10 @@ class AvmGoblinRecursiveVerifier {
         hash_buffer.insert(hash_buffer.end(), outer_key_fields.begin(), outer_key_fields.end());
 
         // Recursively verify the Mega proof \pi_M in the Ultra circuit
+        // All verifier components share a single transcript
+        auto transcript = std::make_shared<MegaRecursiveFlavor::Transcript>();
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1305): Mega + Goblin VKs must be circuit constants.
         auto mega_vk = std::make_shared<MegaRecursiveVerificationKey>(&ultra_builder, inner_output.mega_vk);
-        auto transcript = std::make_shared<MegaRecursiveFlavor::Transcript>();
         MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk, transcript);
         StdlibProof<UltraBuilder> mega_proof =
             bb::convert_native_proof_to_stdlib(&ultra_builder, inner_output.mega_proof);
@@ -209,11 +210,11 @@ class AvmGoblinRecursiveVerifier {
         MegaPairingPoints points_accumulator = recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs);
         points_accumulator.set_public();
 
-        // Construct Mega proof \pi_M of the AVM recursive verifier circuit
+        // All prover components share a single transcript
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
+        // Construct Mega proof \pi_M of the AVM recursive verifier circuit
         MegaProver mega_prover(mega_builder, transcript);
-        mega_prover.construct_proof();
-        HonkProof mega_proof = transcript->export_proof();
+        HonkProof mega_proof = mega_prover.construct_proof();
         goblin.transcript = transcript;
 
         // Construct corresponding Goblin proof \pi_G (includes Merge, ECCVM, and Translator proofs)

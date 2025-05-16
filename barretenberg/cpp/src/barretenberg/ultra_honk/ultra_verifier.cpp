@@ -20,6 +20,7 @@ namespace bb {
 template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProof& ipa_proof)
 {
     using FF = typename Flavor::FF;
+
     transcript->load_proof(proof);
     transcript->enable_manifest(); // Enable manifest for the verifier.
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };

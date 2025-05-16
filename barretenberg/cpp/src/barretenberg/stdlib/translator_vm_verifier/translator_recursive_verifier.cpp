@@ -191,7 +191,7 @@ void TranslatorRecursiveVerifier_<Flavor>::verify_consistency_with_final_merge(
                                          translator_commitment.is_point_at_infinity().get_value());
 
         if (consistency_check_failed) {
-            info("translator commitments are inconsistent the final merge commitments");
+            vinfo("translator commitments are inconsistent the final merge commitments");
         }
 
         merge_commitment.x.assert_equal(translator_commitment.x);

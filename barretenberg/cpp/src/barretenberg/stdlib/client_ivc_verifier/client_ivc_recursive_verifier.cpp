@@ -26,6 +26,7 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Clie
     GoblinVerifier goblin_verifier{ builder.get(), goblin_verification_key, civc_rec_verifier_transcript };
     GoblinRecursiveVerifierOutput output = goblin_verifier.verify(proof.goblin_proof);
     output.points_accumulator.aggregate(mega_output.points_accumulator);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers
     return { output };
 }
 

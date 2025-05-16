@@ -301,51 +301,57 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 };
 
 /**
- * @brief Ensure that the CIVC VK is independent of the number of circuits accumulated
+ * @brief Produce 2 valid CIVC proofs. Ensure that replacing a proof component with a component from a different proof
+ * leads to a verification failure.
  *
  */
 TEST_F(ClientIVCTests, WrongProofComponentFailure)
 {
-    auto [civc_proof_2, civc_2_vk] = generate_ivc_proof(/*num_circuits=*/2);
+    // Produce two valid proofs
+    auto [civc_proof_1, civc_vk_1] = generate_ivc_proof(/*num_circuits=*/2);
     {
-        EXPECT_TRUE(ClientIVC::verify(civc_proof_2, civc_2_vk));
+        EXPECT_TRUE(ClientIVC::verify(civc_proof_1, civc_vk_1));
     }
 
-    auto [civc_proof_4, civc_4_vk] = generate_ivc_proof(/*num_circuits=*/2);
+    auto [civc_proof_2, civc_vk_2] = generate_ivc_proof(/*num_circuits=*/2);
     {
-        EXPECT_TRUE(ClientIVC::verify(civc_proof_4, civc_4_vk));
-    }
-
-    {
-        ClientIVC::Proof tampered_proof = civc_proof_2;
-
-        tampered_proof.goblin_proof.merge_proof = civc_proof_4.goblin_proof.merge_proof;
-
-        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_2_vk));
+        EXPECT_TRUE(ClientIVC::verify(civc_proof_2, civc_vk_2));
     }
 
     {
-        ClientIVC::Proof tampered_proof = civc_proof_2;
+        // Replace Merge proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
 
-        tampered_proof.mega_proof = civc_proof_4.mega_proof;
+        tampered_proof.goblin_proof.merge_proof = civc_proof_2.goblin_proof.merge_proof;
 
-        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_2_vk));
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
     }
 
     {
-        ClientIVC::Proof tampered_proof = civc_proof_2;
+        // Replace hiding circuit proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
 
-        tampered_proof.goblin_proof.eccvm_proof = civc_proof_4.goblin_proof.eccvm_proof;
+        tampered_proof.mega_proof = civc_proof_2.mega_proof;
 
-        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_2_vk));
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
     }
 
     {
-        ClientIVC::Proof tampered_proof = civc_proof_2;
+        // Replace ECCVM proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
 
-        tampered_proof.goblin_proof.translator_proof = civc_proof_4.goblin_proof.translator_proof;
+        tampered_proof.goblin_proof.eccvm_proof = civc_proof_2.goblin_proof.eccvm_proof;
 
-        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_2_vk));
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+
+    {
+        // Replace Translator proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.goblin_proof.translator_proof = civc_proof_2.goblin_proof.translator_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
     }
 };
 

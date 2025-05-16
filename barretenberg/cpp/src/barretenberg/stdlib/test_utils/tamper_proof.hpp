@@ -76,13 +76,14 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     }
     }
     inner_prover.transcript->serialize_full_transcript();
-    // Re-export proof after tampering
+    // Extract the tampered proof
 
-    inner_proof = inner_prover.export_proof();
+    inner_proof = (HasIPAAccumulator<InnerFlavor>) ? inner_prover.export_proof() : inner_prover.transcript->proof_data;
 }
 
 /**
- * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1
+ * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1 and by modifying the last
+ * commitment.
  *
  */
 template <typename InnerProver, typename InnerFlavor, typename ProofType>
@@ -99,7 +100,8 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
             }
         }
     } else {
-        static constexpr size_t num_frs_comm = InnerFlavor::num_frs_comm;
+        // Manually deserialize, modify, and serialize the last commitment contained in the proof.
+        static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
         size_t offset = inner_proof.size() - num_frs_comm;
 
         auto element_frs = std::span{ inner_proof }.subspan(offset, num_frs_comm);

@@ -14,8 +14,8 @@
 
 namespace bb {
 
-Goblin::Goblin(const std::shared_ptr<Transcript>& transcript,
-               const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key)
+Goblin::Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key,
+               const std::shared_ptr<Transcript>& transcript)
     : commitment_key(bn254_commitment_key)
     , transcript(transcript)
 {}
@@ -29,7 +29,7 @@ Goblin::MergeProof Goblin::prove_merge()
 }
 
 /**
- * @brief The final merge prover shares the transcript with the other Goblin
+ * @brief The final merge prover shares a transcript with the other Goblin components
  *
  * @return Goblin::MergeProof
  */

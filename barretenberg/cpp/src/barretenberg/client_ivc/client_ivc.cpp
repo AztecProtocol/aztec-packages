@@ -15,7 +15,7 @@ namespace bb {
 ClientIVC::ClientIVC(TraceSettings trace_settings)
     : trace_usage_tracker(trace_settings)
     , trace_settings(trace_settings)
-    , goblin({}, bn254_commitment_key)
+    , goblin(bn254_commitment_key)
 {
     // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
     // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
@@ -329,8 +329,6 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
 
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->proving_key);
-    // Construct the last merge proof for the present circuit
-    MergeProof merge_proof = goblin.prove_merge();
 
     return decider_pk;
 }
@@ -346,11 +344,11 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     goblin.transcript = std::make_shared<Goblin::Transcript>();
     goblin.transcript->enable_manifest();
     auto decider_pk = construct_hiding_circuit_key();
-    // FoldingRecursiveVerifier circuit is proven by a MegaZKProver
+    // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(decider_pk, goblin.transcript);
-    prover.construct_proof();
+    HonkProof proof = prover.construct_proof();
 
-    return { goblin.transcript->export_proof() };
+    return { proof };
 }
 
 /**
@@ -380,6 +378,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified = Goblin::verify(proof.goblin_proof, civc_verifier_transcript);
     vinfo("Goblin verified: ", goblin_verified);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
     return goblin_verified && mega_verified;
 }
 

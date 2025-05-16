@@ -114,9 +114,6 @@ class ECCVMFlavor {
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
     // SmallSubgroupIPA witness polynomials.
     static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_EVALUATIONS + 1;
-
-    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
-
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is

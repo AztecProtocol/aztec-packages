@@ -52,8 +52,8 @@ class Goblin {
             std::make_shared<TranslatorVerificationKey>();
     };
 
-    Goblin(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-           const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr);
+    Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr,
+           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
      * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
@@ -62,6 +62,10 @@ class Goblin {
      */
     MergeProof prove_merge();
 
+    /**
+     * @brief Construct the final merge proof, where the prover shares a transcript with ECCVM and Translator.
+     *
+     */
     MergeProof prove_final_merge();
 
     /**
