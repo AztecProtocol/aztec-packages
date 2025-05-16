@@ -138,7 +138,7 @@ export function getPackageVersion(): string | undefined {
       dirname(fileURLToPath(import.meta.url)),
       '../../../../.release-please-manifest.json',
     );
-    const version = JSON.parse(readFileSync(releasePleaseManifestPath).toString());
+    const version = JSON.parse(readFileSync(releasePleaseManifestPath).toString())['.'];
     return version;
   } catch (err) {
     return undefined;

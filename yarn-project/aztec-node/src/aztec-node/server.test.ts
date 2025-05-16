@@ -25,6 +25,7 @@ import {
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INVALID_BLOCK_NUMBER,
 } from '@aztec/stdlib/tx';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { readFileSync } from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -138,6 +139,7 @@ describe('aztec node', () => {
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
+      getPackageVersion() ?? '',
       new TestCircuitVerifier(),
     );
   });
