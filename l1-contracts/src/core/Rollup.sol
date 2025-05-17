@@ -77,13 +77,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   /**
    * @notice  Validate a header for submission
    *
-   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header
-   *          without having to deal with viem or anvil for simulating timestamps in the future.
+   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header.
    *
    * @param _header - The header to validate
    * @param _signatures - The signatures to validate
    * @param _digest - The digest to validate
-   * @param _currentTime - The current time
    * @param _blobsHash - The blobs hash for this block
    * @param _flags - The flags to validate
    */
@@ -91,7 +89,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes calldata _header,
     Signature[] memory _signatures,
     bytes32 _digest,
-    Timestamp _currentTime,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
   ) external override(IRollup) {
@@ -100,8 +97,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
         header: HeaderLib.decode(_header),
         attestations: _signatures,
         digest: _digest,
-        currentTime: _currentTime,
-        manaBaseFee: getManaBaseFeeAt(_currentTime, true),
+        manaBaseFee: getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true),
         blobsHashesCommitment: _blobsHash,
         flags: _flags
       })
@@ -630,6 +626,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   /**
    * @notice  Gets the mana base fee
+   *
+   * @param _timestamp - The timestamp to get the mana base fee for
    *
    * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
    *

@@ -263,7 +263,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
-      // Predict what the fee will be before we jump in time!
+      // Predict what the fee will be
       uint256 baseFeePrediction =
         rollup.getManaBaseFeeAt(Timestamp.wrap(l1Metadata[i].timestamp), true);
 
