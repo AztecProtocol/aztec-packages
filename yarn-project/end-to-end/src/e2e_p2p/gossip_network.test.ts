@@ -125,10 +125,10 @@ describe('e2e_p2p_network', () => {
     const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.signatures
-      .filter(s => !s.isEmpty)
-      .map(sig => new BlockAttestation(new Fr(blockNumber), payload, sig));
-    const signers = attestations.map(att => att.getSender().toString());
+    const attestations = block.attestations
+      .filter(a => !a.signature.isEmpty())
+      .map(a => new BlockAttestation(new Fr(blockNumber), payload, a.signature));
+    const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right

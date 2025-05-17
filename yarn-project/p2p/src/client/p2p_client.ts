@@ -1,4 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import type {

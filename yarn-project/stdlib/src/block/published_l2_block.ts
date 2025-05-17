@@ -1,11 +1,12 @@
 import { Signature } from '@aztec/foundation/eth-signature';
 import { schemas } from '@aztec/foundation/schemas';
-import { L2Block } from '@aztec/stdlib/block';
 
 import { z } from 'zod';
 
 import { BlockAttestation } from '../p2p/block_attestation.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
+import { L2Block } from './l2_block.js';
+import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
 export type L1PublishedData = {
   blockNumber: bigint;
@@ -16,7 +17,7 @@ export type L1PublishedData = {
 export type PublishedL2Block = {
   block: L2Block;
   l1: L1PublishedData;
-  signatures: Signature[];
+  attestations: CommitteeAttestation[];
 };
 
 export const PublishedL2BlockSchema = z.object({
@@ -26,12 +27,15 @@ export const PublishedL2BlockSchema = z.object({
     timestamp: schemas.BigInt,
     blockHash: z.string(),
   }),
-  signatures: z.array(Signature.schema),
+  attestations: z.array(CommitteeAttestation.schema),
 });
 
 export function getAttestationsFromPublishedL2Block(block: PublishedL2Block) {
   const payload = ConsensusPayload.fromBlock(block.block);
-  return block.signatures
-    .filter(sig => !sig.isEmpty)
-    .map(signature => new BlockAttestation(block.block.header.globalVariables.blockNumber, payload, signature));
+  return block.attestations
+    .filter(attestation => !attestation.signature.isEmpty())
+    .map(
+      attestation =>
+        new BlockAttestation(block.block.header.globalVariables.blockNumber, payload, attestation.signature),
+    );
 }

@@ -16,6 +16,11 @@ import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
 
+export type ViemCommitteeAttestation = {
+  addr: `0x${string}`;
+  signature: ViemSignature;
+};
+
 export type L1RollupContractAddresses = Pick<
   L1ContractAddresses,
   | 'rollupAddress'
@@ -315,7 +320,7 @@ export class RollupContract {
   public async validateHeader(
     args: readonly [
       `0x${string}`,
-      ViemSignature[],
+      ViemCommitteeAttestation[],
       `0x${string}`,
       bigint,
       `0x${string}`,
@@ -357,6 +362,7 @@ export class RollupContract {
       slotDuration = BigInt(slotDuration);
     }
     const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
+
     try {
       const {
         result: [slot, blockNumber],

@@ -4,12 +4,10 @@ import type { EpochProofPublicInputArgs, ViemClient, ViemPublicClient } from '@a
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, L2Block } from '@aztec/stdlib/block';
-import { Proof } from '@aztec/stdlib/proofs';
+import { Body, CommitteeAttestation, L2Block, type ViemCommitteeAttestation } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
 
@@ -36,7 +34,7 @@ export type RetrievedL2Block = {
   l1: L1PublishedData;
   chainId: Fr;
   version: Fr;
-  signatures: Signature[];
+  attestations: CommitteeAttestation[];
 };
 
 export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): PublishedL2Block {
@@ -49,7 +47,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
     l1,
     chainId,
     version,
-    signatures,
+    attestations,
   } = retrievedBlock;
 
   const archive = new AppendOnlyTreeSnapshot(
@@ -82,7 +80,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
   return {
     block,
     l1,
-    signatures,
+    attestations,
   };
 }
 
@@ -196,7 +194,7 @@ async function processL2BlockProposedLogs(
         l1BlockNumber: log.blockNumber,
         l2BlockNumber,
         archive: archive.toString(),
-        signatures: block.signatures.map(signature => signature.toString()),
+        attestations: block.attestations.map(attestation => attestation.toString()),
       });
     } else {
       logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
@@ -295,7 +293,7 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  const [decodedArgs, signatures, _blobInput] = rollupArgs! as readonly [
+  const [decodedArgs, attestations, _blobInput] = rollupArgs! as readonly [
     {
       header: Hex;
       archive: Hex;
@@ -306,7 +304,7 @@ async function getBlockFromRollupTx(
       };
       txHashes: Hex[];
     },
-    ViemSignature[],
+    ViemCommitteeAttestation[],
     Hex,
   ];
 
@@ -341,7 +339,7 @@ async function getBlockFromRollupTx(
     stateReference,
     header,
     body,
-    signatures: signatures.map(Signature.fromViemSignature),
+    attestations: attestations.map(CommitteeAttestation.fromViem),
   };
 }
 

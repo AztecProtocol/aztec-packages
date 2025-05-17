@@ -9,6 +9,7 @@ import omit from 'lodash.omit';
 import type { ContractArtifact } from '../abi/abi.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { CommitteeAttestation } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -99,7 +100,7 @@ describe('ArchiverApiSchema', () => {
     const response = await context.client.getPublishedBlocks(1, 1);
     expect(response).toHaveLength(1);
     expect(response[0].block.constructor.name).toEqual('L2Block');
-    expect(response[0].signatures[0]).toBeInstanceOf(Signature);
+    expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
   });
 
@@ -273,7 +274,7 @@ class MockArchiver implements ArchiverApi {
     return [
       {
         block: await L2Block.random(from),
-        signatures: [Signature.random()],
+        attestations: [CommitteeAttestation.random()],
         l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
       },
     ];
