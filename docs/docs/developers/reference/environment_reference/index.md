@@ -1,5 +1,5 @@
 ---
-title: Developer Environment
+title: Development Environment
 tags: [sandbox]
 sidebar_position: 0
 ---

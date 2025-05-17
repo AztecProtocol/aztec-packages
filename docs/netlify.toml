@@ -192,4 +192,21 @@
 
 [[redirects]]
     from = "/developers/tutorials/codealong/cli_wallet/faceid_wallet"
-    to = "/developers/tutorials/codealong/faceid_wallet"
+    to = "/developers/guides/local_env/faceid_wallet"
+
+[[redirects]]
+    from = "/developers/tutorials/codealong/faceid_wallet"
+    to = "/developers/guides/local_env/faceid_wallet"
+
+
+[[redirects]]
+    from = "/v0.86.0/developers/tutorials/codealong/faceid_wallet"
+    to = "/v0.86.0/developers/guides/local_env/faceid_wallet"
+
+[[redirects]]
+    from = "v0.86.0/developers/tutorials/codealong/first_fees"
+    to = "v0.86.0/developers/guides/first_fees"
+
+[[redirects]]
+    from = "/developers/tutorials/codealong/first_fees"
+    to = "/developers/guides/first_fees"

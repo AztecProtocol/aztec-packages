@@ -84,7 +84,7 @@ Noir is a zero-knowledge domain specific language used for writing smart contrac
       <h3>Developer Getting Started Guide</h3>
     </CardHeader>
     <CardBody>
-      Follow the getting started guide to start developing with the Aztec Sandbox
+      Follow the getting started guide to start developing with Aztec
     </CardBody>
   </Card>
 </div>

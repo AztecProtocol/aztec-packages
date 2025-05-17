@@ -14,7 +14,7 @@ title: Build
       <h3>Getting Started</h3>
     </CardHeader>
     <CardBody>
-     Get started on Aztec by installing the sandbox or interacting with the testnet
+     Get started developing on Aztec
     </CardBody>
   </Card>
 </div>

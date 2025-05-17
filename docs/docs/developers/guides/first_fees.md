@@ -13,7 +13,7 @@ With account and fee abstraction on Aztec, there are several options for users a
 
 By the end of this tutorial you will...
 
-- Connect to the Aztec sandbox and/or testnet
+- Connect to a local Aztec network and/or testnet
 - Use different payment methods to deploy accounts and make transactions via:
   - various `aztec-wallet` CLI commands
   - the `aztec.js` library
@@ -44,9 +44,9 @@ Use of the `aztec-wallet` cli wallet is shown alongside use via the `aztec.js` l
 
 With docker running, test the cli wallet with: `aztec-wallet --help`
 
-#### Sandbox (skip if using testnet)
+#### Local network (skip if using testnet)
 
-By default the sandbox runs everything including a PXE locally. For most paths in this tutorial, and more realistically when using testnet, we don't want this PXE.
+By default the local network is run in a sandbox which runs everything including a PXE locally. For most paths in this tutorial, and more realistically when using testnet, we don't want this PXE.
 
 Start the sandbox (L1, L2, but not the PXE) via: `NO_PXE=true aztec start --sandbox`
 

@@ -3,7 +3,7 @@ title: Migrating from Sandbox to Testnet
 tags: [sandbox, testnet]
 ---
 
-This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started on testnet guide](./developers/guides/getting_started_on_testnet.md).
+This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started guide](./developers/getting_started.md).
 
 ## Main differences
 
@@ -33,7 +33,7 @@ export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
 aztec-wallet create-account -a main --register-only --node-url $NODE_URL
 ```
 
-You can find a full flow in the [getting started on testnet](./developers/guides/getting_started_on_testnet.md) guide.
+You can find a full flow in the [getting started](./developers/getting_started.md) guide.
 
 Instead of running a PXE locally, you can also use one directly with AztecJS in your app. For this, you will need to connect to an Aztec node and initialize the PXE.
 
@@ -103,7 +103,7 @@ const receiptForBob = await bananaCoin
   .wait();
 ```
 
-To learn more about using the faucet or the sponsored fee payment method, read the full fees guide [here](./developers/tutorials/codealong/first_fees.md).
+To learn more about using the faucet or the sponsored fee payment method, read the full fees guide [here](./developers/guides/first_fees).
 
 ## Portals
 
