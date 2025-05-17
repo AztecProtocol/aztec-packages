@@ -44,6 +44,7 @@ function mockTxPool(): TxPool {
     getAllTxs: () => Promise.resolve([]),
     getAllTxHashes: () => Promise.resolve([]),
     getPendingTxHashes: () => Promise.resolve([]),
+    getPendingTxCount: () => Promise.resolve(0),
     getMinedTxHashes: () => Promise.resolve([]),
     getTxStatus: () => Promise.resolve(TxStatus.PENDING),
     getTxsByHash: () => Promise.resolve([]),

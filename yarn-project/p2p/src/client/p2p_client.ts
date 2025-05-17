@@ -383,12 +383,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   public getPendingTxs(): Promise<Tx[]> {
-    return Promise.resolve(this.getTxs('pending'));
+    return this.getTxs('pending');
   }
 
-  public async getPendingTxCount(): Promise<number> {
-    const pendingTxs = await this.txPool.getPendingTxHashes();
-    return pendingTxs.length;
+  public getPendingTxCount(): Promise<number> {
+    return this.txPool.getPendingTxCount();
   }
 
   public async *iteratePendingTxs(): AsyncIterableIterator<Tx> {
