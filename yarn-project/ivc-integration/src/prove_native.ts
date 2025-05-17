@@ -28,6 +28,7 @@ import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm
 import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import type { ClientIvcProof, Proof } from '@aztec/stdlib/proofs';
+import { enhanceProofWithPiValidationFlag } from '@aztec/stdlib/rollup';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import * as fs from 'fs/promises';
@@ -99,7 +100,7 @@ export async function proveTube(pathToBB: string, workingDirectory: string, logg
     throw new Error('Failed to prove tube');
   }
 
-  const tubeVK = await extractVkData(tubeResult.vkPath!);
+  const tubeVK = await extractVkData(tubeResult.vkDirectoryPath!);
   const tubeProof = await readProofAsFields(tubeResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH, logger);
 
   // Sanity check the tube proof
@@ -134,7 +135,7 @@ async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends
     throw new Error(`Failed to generate proof for ${name} with flavor ${flavor}`);
   }
 
-  const vk = await extractVkData(proofResult.vkPath!);
+  const vk = await extractVkData(proofResult.vkDirectoryPath!);
   const proof = await readProofAsFields(proofResult.proofPath!, vk, proofLength, logger);
 
   await verifyProofWithKey(pathToBB, workingDirectory, vk, proof.binaryProof, flavor, logger);
@@ -186,6 +187,7 @@ export async function proveAvm(
   avmCircuitInputs: AvmCircuitInputs,
   workingDirectory: string,
   logger: Logger,
+  skipPublicInputsValidation: boolean = false,
 ): Promise<{
   vk: Fr[];
   proof: Fr[];
@@ -203,9 +205,11 @@ export async function proveAvm(
   }
 
   const avmProofPath = proofRes.proofPath;
-  const avmVkPath = proofRes.vkPath;
+  const avmVkDirectoryPath = proofRes.vkDirectoryPath;
   expect(avmProofPath).toBeDefined();
-  expect(avmVkPath).toBeDefined();
+  expect(avmVkDirectoryPath).toBeDefined();
+
+  const avmVkPath = path.join(proofRes.vkDirectoryPath as string, VK_FILENAME);
 
   // Read the binary proof
   const avmProofBuffer = await fs.readFile(avmProofPath!);
@@ -242,15 +246,19 @@ export async function proveAvm(
     workingDirectory,
     proofRes.proofPath!,
     avmCircuitInputs.publicInputs,
-    proofRes.vkPath!,
+    path.join(proofRes.vkDirectoryPath!, VK_FILENAME),
     logger,
   );
 
   if (verificationResult.status === BB_RESULT.FAILURE) {
     throw new Error(`AVM V2 proof verification failed: ${verificationResult.reason}`);
   }
+
+  // TODO(#14234)[Unconditional PIs validation]: Remove next lines and return proof instead of proofWithPublicInputsValidationFlag
+  const proofWithPublicInputsValidationFlag = enhanceProofWithPiValidationFlag(proof, skipPublicInputsValidation);
+
   return {
-    proof,
+    proof: proofWithPublicInputsValidationFlag,
     vk,
     publicInputs: avmCircuitInputs.publicInputs,
   };

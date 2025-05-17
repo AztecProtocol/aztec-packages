@@ -51,13 +51,16 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         auto [trace, public_inputs] = avm2::testing::get_minimal_trace_with_pi();
 
         InnerProver prover;
-        const auto [proof, vk_data] = prover.prove(std::move(trace));
+        auto [proof, vk_data] = prover.prove(std::move(trace));
         const auto verification_key = InnerProver::create_verification_key(vk_data);
 
         const bool verified = prover.verify(proof, public_inputs, vk_data);
         EXPECT_TRUE(verified) << "native proof verification failed";
 
         const auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());
+
+        // TODO(#14234)[Unconditional PIs validation]: Remove next line
+        proof.insert(proof.begin(), 0);
         return { proof, verification_key, public_inputs_flat };
     }
 

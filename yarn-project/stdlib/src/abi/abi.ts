@@ -533,3 +533,40 @@ export function getInitializer(
     return initializerNameOrArtifact;
   }
 }
+
+export function emptyFunctionAbi(): FunctionAbi {
+  return {
+    name: '',
+    functionType: FunctionType.PRIVATE,
+    isInternal: false,
+    isStatic: false,
+    parameters: [],
+    returnTypes: [],
+    errorTypes: {},
+    isInitializer: false,
+  };
+}
+
+export function emptyFunctionArtifact(): FunctionArtifact {
+  const abi = emptyFunctionAbi();
+  return {
+    ...abi,
+    bytecode: Buffer.from([]),
+    debugSymbols: '',
+  };
+}
+
+export function emptyContractArtifact(): ContractArtifact {
+  return {
+    name: '',
+    functions: [emptyFunctionArtifact()],
+    nonDispatchPublicFunctions: [emptyFunctionAbi()],
+    outputs: {
+      structs: {},
+      globals: {},
+    },
+    storageLayout: {},
+    fileMap: {},
+    notes: {},
+  };
+}

@@ -18,6 +18,7 @@ import {
   type BBResult,
   type BBSuccess,
   BB_RESULT,
+  VK_FILENAME,
   generateAvmProof,
   generateAvmProofV2,
   verifyAvmProof,
@@ -70,11 +71,11 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     }
     // Then we test VK extraction and serialization.
     const succeededRes = proofRes as BBSuccess;
-    const vkData = await extractAvmVkData(succeededRes.vkPath!);
+    const vkData = await extractAvmVkData(succeededRes.vkDirectoryPath!);
     VerificationKeyData.fromBuffer(vkData.toBuffer());
 
     // Then we verify.
-    const rawVkPath = path.join(succeededRes.vkPath!, 'vk');
+    const rawVkPath = path.join(succeededRes.vkDirectoryPath!, 'vk');
     return await verifyAvmProof(BB_PATH, succeededRes.proofPath!, rawVkPath, this.logger);
   }
 
@@ -142,9 +143,17 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
       this.bbWorkingDirectory,
       proofRes.proofPath!,
       publicInputs,
-      proofRes.vkPath!,
+      path.join(proofRes.vkDirectoryPath!, VK_FILENAME),
       this.logger,
     );
+  }
+
+  public async proveVerifyV2(avmCircuitInputs: AvmCircuitInputs) {
+    const provingRes = await this.proveV2(avmCircuitInputs);
+    expect(provingRes.status).toEqual(BB_RESULT.SUCCESS);
+
+    const verificationRes = await this.verifyV2(provingRes as BBSuccess, avmCircuitInputs.publicInputs);
+    expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
   }
 
   public async simProveVerifyV2(
@@ -159,10 +168,6 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
 
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
-    const provingRes = await this.proveV2(avmCircuitInputs);
-    expect(provingRes.status).toEqual(BB_RESULT.SUCCESS);
-
-    const verificationRes = await this.verifyV2(provingRes as BBSuccess, avmCircuitInputs.publicInputs);
-    expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
+    await this.proveVerifyV2(avmCircuitInputs);
   }
 }

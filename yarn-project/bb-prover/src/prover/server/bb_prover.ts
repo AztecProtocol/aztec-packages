@@ -1,6 +1,6 @@
 /* eslint-disable require-await */
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   PAIRING_POINTS_SIZE,
@@ -38,7 +38,7 @@ import {
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { WitnessMap } from '@aztec/noir-types';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
-import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { ProvingError } from '@aztec/stdlib/errors';
 import {
   type ProofAndVerificationKey,
@@ -49,19 +49,20 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/stdlib/proofs';
-import type {
-  BaseOrMergeRollupPublicInputs,
-  BlockMergeRollupInputs,
-  BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupInputs,
-  EmptyBlockRootRollupInputs,
-  MergeRollupInputs,
-  PrivateBaseRollupInputs,
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
+  type MergeRollupInputs,
+  type PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
-  SingleTxBlockRootRollupInputs,
-  TubeInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
+  type TubeInputs,
+  enhanceProofWithPiValidationFlag,
 } from '@aztec/stdlib/rollup';
 import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
@@ -78,10 +79,10 @@ import {
   PROOF_FILENAME,
   PUBLIC_INPUTS_FILENAME,
   VK_FILENAME,
-  generateAvmProof,
+  generateAvmProofV2,
   generateProof,
   generateTubeProof,
-  verifyAvmProof,
+  verifyAvmProofV2,
   verifyProof,
 } from '../../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../../config.js';
@@ -183,9 +184,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }))
   public async getAvmProof(
     inputs: AvmCircuitInputs,
-  ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
+    skipPublicInputsValidation: boolean = false,
+  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     const proofAndVk = await this.createAvmProof(inputs);
-    await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey);
+    await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey, inputs.publicInputs);
+
+    // TODO(#14234)[Unconditional PIs validation]: remove next lines and directly return proofAndVk
+    proofAndVk.proof.proof = enhanceProofWithPiValidationFlag(proofAndVk.proof.proof, skipPublicInputsValidation);
     return proofAndVk;
   }
 
@@ -500,7 +505,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
     logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
-    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
+    const provingResult = await generateAvmProofV2(this.config.bbBinaryPath, workingDirectory, input, logger);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
@@ -534,13 +539,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   private async createAvmProof(
     input: AvmCircuitInputs,
-  ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
+  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     const operation = async (bbWorkingDirectory: string) => {
       const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6773): this VK data format is wrong.
       // In particular, the number of public inputs, etc will be wrong.
-      const verificationKey = await extractAvmVkData(provingResult.vkPath!);
+      const verificationKey = await extractAvmVkData(provingResult.vkDirectoryPath!);
       const avmProof = await this.readAvmProofAsFields(provingResult.proofPath!, verificationKey);
 
       const circuitType = 'avm-circuit' as const;
@@ -577,7 +582,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       // Read the proof as fields
       // TODO(AD): this is the only remaining use of extractVkData.
-      const tubeVK = await extractVkData(provingResult.vkPath!);
+      const tubeVK = await extractVkData(provingResult.vkDirectoryPath!);
       const tubeProof = await readProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH, logger);
 
       this.instrumentation.recordDuration('provingDuration', 'tubeCircuit', provingResult.durationMs);
@@ -671,9 +676,20 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return await this.verifyWithKey(getUltraHonkFlavorForCircuit(circuitType), verificationKey, proof);
   }
 
-  public async verifyAvmProof(proof: Proof, verificationKey: VerificationKeyData) {
+  public async verifyAvmProof(
+    proof: Proof,
+    verificationKey: VerificationKeyData,
+    publicInputs: AvmCircuitPublicInputs,
+  ) {
     return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyAvmProof(this.config.bbBinaryPath, proofPath, vkPath, logger),
+      verifyAvmProofV2(
+        this.config.bbBinaryPath,
+        this.config.bbWorkingDirectory,
+        proofPath,
+        publicInputs,
+        vkPath,
+        logger,
+      ),
     );
   }
 
@@ -726,16 +742,23 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async readAvmProofAsFields(
     proofFilename: string,
     vkData: VerificationKeyData,
-  ): Promise<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
-    const rawProof = await fs.readFile(proofFilename);
+  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+    const rawProofBuffer = await fs.readFile(proofFilename);
+    const reader = BufferReader.asReader(rawProofBuffer);
+    const proofFields = reader.readArray(rawProofBuffer.length / Fr.SIZE_IN_BYTES, Fr);
 
-    const reader = BufferReader.asReader(rawProof);
-    const fields = reader.readArray(rawProof.length / Fr.SIZE_IN_BYTES, Fr);
-    const fieldsWithoutPublicCols = fields.slice(-1 * AVM_PROOF_LENGTH_IN_FIELDS);
+    // We extend to a fixed-size padded proof as during development any new AVM circuit column changes the
+    // proof length and we do not have a mechanism to feedback a cpp constant to noir/TS.
+    // TODO(#13390): Revive a non-padded AVM proof
+    if (proofFields.length > AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
+      throw new Error(
+        `Proof has ${proofFields.length} fields, expected no more than ${AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED}.`,
+      );
+    }
+    proofFields.concat(Array(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - proofFields.length).fill(new Fr(0)));
 
-    const proof = new Proof(rawProof, vkData.numPublicInputs);
-
-    return new RecursiveProof(fieldsWithoutPublicCols, proof, true, AVM_PROOF_LENGTH_IN_FIELDS);
+    const proof = new Proof(rawProofBuffer, vkData.numPublicInputs);
+    return new RecursiveProof(proofFields, proof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   }
 
   private runInDirectory<T>(fn: (dir: string) => Promise<T>) {
