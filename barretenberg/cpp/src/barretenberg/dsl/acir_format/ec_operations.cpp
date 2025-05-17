@@ -13,6 +13,12 @@
 
 namespace acir_format {
 
+// This functions assumes that:
+// 1. the points are on the curve
+// 2a. the points have not the same abssissa, OR
+// 2b. the points are identical (same witness index or same value)
+// If the points at infinity are known and constant, the function will work properly
+// If not, and if the points are not identical, it is an error.
 template <typename Builder>
 void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_valid_witness_assignments)
 {
@@ -25,7 +31,52 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
         input.input2_x, input.input2_y, input.input2_infinite, has_valid_witness_assignments, builder);
 
     // Addition
-    cycle_group_ct result = input1_point + input2_point;
+    // Check if operands are the same
+    bool x_match = false;
+    if (!input1_point.x.is_constant() && !input2_point.x.is_constant()) {
+        x_match = (input1_point.x.get_witness_index() == input2_point.x.get_witness_index());
+    } else {
+        if (input1_point.x.is_constant() && input2_point.x.is_constant()) {
+            x_match = (input1_point.x.get_value() == input2_point.x.get_value());
+        }
+    }
+    bool y_match = false;
+    if (!input1_point.y.is_constant() && !input2_point.y.is_constant()) {
+        y_match = (input1_point.y.get_witness_index() == input2_point.y.get_witness_index());
+    } else {
+        if (input1_point.y.is_constant() && input2_point.y.is_constant()) {
+            y_match = (input1_point.y.get_value() == input2_point.y.get_value());
+        }
+    }
+
+    cycle_group_ct result;
+    // If operands are the same, we double.
+    // Note that the doubling function handles the infinity case
+    if (x_match && y_match) {
+        result = input1_point.dbl();
+    } else {
+        if (input.input2_infinite.is_constant && input.input1_infinite.is_constant) {
+            if (get_value(input.input1_infinite, builder) == 1) {
+                // input1 is infinity, so we can just return input2
+                result = input2_point;
+
+            } else if (get_value(input.input2_infinite, builder) == 1) {
+                // input2 is infinity, so we can just return input1
+                result = input1_point;
+            } else {
+                if (has_valid_witness_assignments) {
+                    // Runtime checks that the inputs have not the same x coordinate, as assumed by the function.
+                    ASSERT(input1_point.x.get_value() != input2_point.x.get_value());
+                }
+                // both points are not infinity, so we can use unconditional_add
+                result = input1_point.unconditional_add(input2_point);
+            }
+        } else {
+            // Some points could be at infinity, which is not supported by the function
+            ASSERT(false, "Unsupported EC ADDITION UNSAFE; is_infinite status must be known at compile time");
+        }
+    }
+
     cycle_group_ct standard_result = result.get_standard_form();
     auto x_normalized = standard_result.x.normalize();
     auto y_normalized = standard_result.y.normalize();
@@ -41,6 +92,7 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     } else {
         builder.assert_equal(y_normalized.witness_index, input.result_y);
     }
+
     if (infinite.is_constant()) {
         builder.fix_witness(input.result_infinite, infinite.get_value());
     } else {
