@@ -148,6 +148,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
         {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1378): Stop automatically converting to witness
+            // in verifiers,  so we can remove unset_free_witness calls
             using namespace bb::stdlib::field_conversion;
 
             size_t num_frs_read = 0;
@@ -160,7 +162,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
                 FF::from_witness(&builder, numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value())));
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-
             this->pairing_inputs_public_input_key.start_idx =
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
