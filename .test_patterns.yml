@@ -55,10 +55,6 @@ tests:
     skip: true
     owners:
       - *tom
-  - regex: "tests::execution_success::test_ram_blowup_regression"
-    error_regex: "assertion `left == right` failed"
-    owners:
-      - *tom
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
