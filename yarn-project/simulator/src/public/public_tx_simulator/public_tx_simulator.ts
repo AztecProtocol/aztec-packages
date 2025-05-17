@@ -121,9 +121,6 @@ export class PublicTxSimulator {
 
       const revertCode = context.getFinalRevertCode();
 
-      if (!revertCode.isOK()) {
-        await tx.filterRevertedLogs();
-      }
       // Commit contracts from this TX to the block-level cache and clear tx cache
       // If the tx reverted, only commit non-revertible contracts
       // NOTE: You can't create contracts in public, so this is only relevant for private-created contracts
