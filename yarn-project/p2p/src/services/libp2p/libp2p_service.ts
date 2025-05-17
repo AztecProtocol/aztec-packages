@@ -218,14 +218,23 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       },
       transports: [
         tcp({
-          maxConnections: config.maxPeerCount,
+          // It's better to have this number a bit higher than our maxPeerCount because it's sets the limit on transport (TPC) layer
+          // The connection attempts to the node on TCP layer are not necessarily valid Aztec peers so we want to have a bit of leeway here
+          // If we hit the limit, the connection will be temporarily accepted and immediately dropped.
+          // Docs: https://nodejs.org/api/net.html#servermaxconnections
+          maxConnections: maxPeerCount * 1.5,
           // socket option: the maximum length of the queue of pending connections
           // https://nodejs.org/dist/latest-v18.x/docs/api/net.html#serverlisten
           // it's not safe if we increase this number
           backlog: 5,
           closeServerOnMaxConnections: {
-            closeAbove: maxPeerCount ?? Infinity,
-            listenBelow: maxPeerCount ?? Infinity,
+            // The property `maxConnections` will protect us against the most DDOS attack
+            // This property protects us in case of burst of new connections where server is not able to close them quickly enough
+            // In case closeAbove is reached, the server stops listening altogether
+            // It's important that there is enough difference between closeAbove and listenAbove,
+            // otherwise the server.listener will flap between being closed and open potentially degrading perf even more
+            closeAbove: maxPeerCount * 2 ?? Infinity,
+            listenBelow: maxPeerCount * 0.9 ?? Infinity,
           },
         }),
       ],
@@ -235,11 +244,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 0,
+        maxConnections: maxPeerCount,
+        maxIncomingPendingConnections: 5,
 
         maxParallelDials: 100,
         dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,
-        maxIncomingPendingConnections: 5,
       },
       services: {
         identify: identify({
