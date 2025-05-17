@@ -34,17 +34,26 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      */
     static ProverOutput create_goblin_prover_output(const size_t NUM_CIRCUITS = 3)
     {
-        Goblin goblin;
 
+        Goblin goblin;
         // Construct and accumulate multiple circuits
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < NUM_CIRCUITS - 1; ++idx) {
             MegaCircuitBuilder builder{ goblin.op_queue };
-            GoblinMockCircuits::construct_simple_circuit(builder, idx == NUM_CIRCUITS - 1);
+            GoblinMockCircuits::construct_simple_circuit(builder);
             goblin.prove_merge();
         }
 
+        auto goblin_transcript = std::make_shared<Goblin::Transcript>();
+
+        Goblin goblin_final;
+        goblin_final.op_queue = goblin.op_queue;
+        MegaCircuitBuilder builder{ goblin_final.op_queue };
+        builder.queue_ecc_no_op();
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        auto merge_proof = goblin_final.prove_final_merge();
+
         // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin.prove(), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
+        return { goblin_final.prove(merge_proof), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
     }
 };
 
@@ -225,9 +234,30 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
 
     {
         auto [proof, verifier_input] = create_goblin_prover_output();
+
+        // Check that the proof is valid.
+        EXPECT_TRUE(Goblin::verify(proof));
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
         // Better recursion testing - create more flexible proof tampering tests.
-        proof.translator_proof[0] += 1; // tamper with part of the limb of op commitment
+        // Modify the `op` commitment which a part of the Merge protocol.
+        auto tamper_with_op_commitment = [](HonkProof& translator_proof) {
+            static constexpr size_t num_frs_comm =
+                bb::field_conversion::calc_num_bn254_frs<TranslatorFlavor::Commitment>();
+            static constexpr size_t offset = bb::field_conversion::calc_num_bn254_frs<TranslatorFlavor::BF>();
+
+            using Commitment = TranslatorFlavor::Commitment;
+            using FF = TranslatorFlavor::FF;
+
+            auto element_frs = std::span{ translator_proof }.subspan(offset, num_frs_comm);
+            auto op_commitment = NativeTranscriptParams::template convert_from_bn254_frs<Commitment>(element_frs);
+            op_commitment = op_commitment * FF(2);
+            auto op_commitment_reserialized = bb::NativeTranscriptParams::convert_to_bn254_frs(op_commitment);
+            std::copy(op_commitment_reserialized.begin(),
+                      op_commitment_reserialized.end(),
+                      translator_proof.begin() + static_cast<std::ptrdiff_t>(offset));
+        };
+
+        tamper_with_op_commitment(proof.translator_proof);
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };

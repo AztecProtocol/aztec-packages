@@ -39,9 +39,7 @@ template <typename Flavor> class DeciderVerifier_ {
      *
      */
     explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& verification_key,
-                              const std::shared_ptr<Transcript>& transcript);
-
-    explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& verification_key);
+                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     Output verify_proof(const DeciderProof&); // used when a decider proof is known explicitly
     Output verify();                          // used with a transcript that has been initialized with a proof
