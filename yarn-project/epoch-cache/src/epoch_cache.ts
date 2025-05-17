@@ -32,7 +32,7 @@ export interface EpochCacheInterface {
   getEpochAndSlotNow(): EpochAndSlot;
   getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint;
-  getProposerInCurrentOrNextSlot(): Promise<{
+  getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
     currentProposer: EthAddress;
     nextProposer: EthAddress;
     currentSlot: bigint;
@@ -204,29 +204,30 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   /**
-   * Returns the current and next proposer
+   * Returns the current and next proposer's attester address
    *
-   * We return the next proposer as the node will check if it is the proposer at the next ethereum block, which
-   * can be the next slot. If this is the case, then it will send proposals early.
+   * We return the next proposer's attester address as the node will check if it is the proposer at the next ethereum block,
+   * which can be the next slot. If this is the case, then it will send proposals early.
    */
-  async getProposerInCurrentOrNextSlot(): Promise<{
+  async getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
     currentProposer: EthAddress;
     nextProposer: EthAddress;
     currentSlot: bigint;
     nextSlot: bigint;
   }> {
+    console.log('getProposerAttesterAddressInCurrentOrNextSlot');
     const current = this.getEpochAndSlotNow();
     const next = this.getEpochAndSlotInNextSlot();
 
     return {
-      currentProposer: await this.getProposerAt(current),
-      nextProposer: await this.getProposerAt(next),
+      currentProposer: await this.getProposerAttesterAddressAt(current),
+      nextProposer: await this.getProposerAttesterAddressAt(next),
       currentSlot: current.slot,
       nextSlot: next.slot,
     };
   }
 
-  private async getProposerAt(when: EpochAndSlot) {
+  private async getProposerAttesterAddressAt(when: EpochAndSlot) {
     const { epoch, slot } = when;
     const { seed, committee } = await this.getCommittee(slot);
     const proposerIndex = this.computeProposerIndex(slot, epoch, seed, BigInt(committee.length));
@@ -239,5 +240,11 @@ export class EpochCache implements EpochCacheInterface {
   async isInCommittee(validator: EthAddress): Promise<boolean> {
     const { committee } = await this.getCommittee();
     return committee.some(v => v.equals(validator));
+  }
+
+  async filterInCommittee(validators: EthAddress[]): Promise<EthAddress[]> {
+    const { committee } = await this.getCommittee();
+    const committeeSet = new Set(committee.map(v => v.toString()));
+    return validators.filter(v => committeeSet.has(v.toString()));
   }
 }

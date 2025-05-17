@@ -22,8 +22,8 @@ export function createValidatorClient(
   if (config.disableValidator) {
     return undefined;
   }
-  if (config.validatorPrivateKey === undefined || config.validatorPrivateKey === '') {
-    config.validatorPrivateKey = generatePrivateKey();
+  if (config.validatorPrivateKeys === undefined || !config.validatorPrivateKeys?.length) {
+    config.validatorPrivateKeys = [generatePrivateKey()];
   }
 
   return ValidatorClient.new(

@@ -226,8 +226,8 @@ export class SequencerClient {
     return this.sequencer.getForwarderAddress();
   }
 
-  get validatorAddress(): EthAddress | undefined {
-    return this.sequencer.getValidatorAddress();
+  get validatorAddresses(): EthAddress[] {
+    return this.sequencer.getValidatorAddresses();
   }
 
   get maxL2BlockGas(): number | undefined {

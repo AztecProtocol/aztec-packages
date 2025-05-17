@@ -360,6 +360,6 @@ faucet:
   service:
     nodePort: 8085
   apiServerPort: 8086
-  accountIndex: 0
+  addressIndex: 0
   l1Assets: ""
   logLevel: ""

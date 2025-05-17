@@ -44,7 +44,7 @@ export class Faucet {
       throw new Error('Missing faucet mnemonic');
     }
 
-    const account = mnemonicToAccount(config.l1Mnemonic, { addressIndex: config.mnemonicAccountIndex });
+    const account = mnemonicToAccount(config.l1Mnemonic, { addressIndex: config.mnemonicAddressIndex });
     const faucet = new Faucet(config, account);
 
     for (const asset of config.l1Assets) {
