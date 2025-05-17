@@ -1,4 +1,5 @@
 // @attribution: lodestar impl for inspiration
+import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -25,6 +26,7 @@ import {
   type ReqRespResponse,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
+  type ReqRespSubProtocolRateLimits,
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
   subProtocolMap,
@@ -35,6 +37,7 @@ import {
   RequestResponseRateLimiter,
   prettyPrintRateLimitStatus,
 } from './rate-limiter/rate_limiter.js';
+import { DEFAULT_RATE_LIMITS } from './rate-limiter/rate_limits.js';
 import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqRespStatus } from './status.js';
 
 /**
@@ -72,6 +75,7 @@ export class ReqResp {
     config: P2PReqRespConfig,
     private libp2p: Libp2p,
     private peerScoring: PeerScoring,
+    rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.logger = createLogger('p2p:reqresp');
@@ -79,7 +83,7 @@ export class ReqResp {
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
 
-    this.rateLimiter = new RequestResponseRateLimiter(peerScoring);
+    this.rateLimiter = new RequestResponseRateLimiter(peerScoring, rateLimits);
 
     // Connection sampler is used to sample our connected peers
     this.connectionSampler = new ConnectionSampler(libp2p);
@@ -261,6 +265,7 @@ export class ReqResp {
   async sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
     subProtocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
+    pinnedPeer: PeerId | undefined,
     timeoutMs = 10000,
     maxPeers = Math.max(10, Math.ceil(requests.length / 3)),
     maxRetryAttempts = 3,
@@ -274,10 +279,15 @@ export class ReqResp {
       const pendingRequestIndices = new Set(requestBuffers.map((_, i) => i));
 
       // Create batch sampler with the total number of requests and max peers
-      const batchSampler = new BatchConnectionSampler(this.connectionSampler, requests.length, maxPeers);
+      const batchSampler = new BatchConnectionSampler(
+        this.connectionSampler,
+        requests.length,
+        maxPeers,
+        compactArray([pinnedPeer]), // Exclude pinned peer from sampling, we will forcefully send all requests to it
+      );
 
-      if (batchSampler.activePeerCount === 0) {
-        this.logger.debug('No active peers to send requests to');
+      if (batchSampler.activePeerCount === 0 && !pinnedPeer) {
+        this.logger.warn('No active peers to send requests to');
         return [];
       }
 
@@ -308,6 +318,16 @@ export class ReqResp {
           requestBatches.get(peerAsString)!.indices.push(requestIndex);
         }
 
+        // If there is a pinned peer, we will always send every request to that peer
+        // We use the default limits for the subprotocol to avoid hitting the rate limiter
+        if (pinnedPeer) {
+          const limit = this.rateLimiter.getRateLimits(subProtocol).peerLimit.quotaCount;
+          requestBatches.set(pinnedPeer.toString(), {
+            peerId: pinnedPeer,
+            indices: Array.from(pendingRequestIndices.values()).slice(0, limit),
+          });
+        }
+
         // Make parallel requests for each peer's batch
         // A batch entry will look something like this:
         // PeerId0: [0, 1, 2, 3]
@@ -323,6 +343,7 @@ export class ReqResp {
               const peerResults: { index: number; response: InstanceType<SubProtocolMap[SubProtocol]['response']> }[] =
                 [];
               for (const index of indices) {
+                this.logger.trace(`Sending request ${index} to peer ${peerAsString}`);
                 const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffers[index]);
 
                 // Check the status of the response buffer
