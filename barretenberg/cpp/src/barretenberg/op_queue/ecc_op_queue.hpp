@@ -145,7 +145,11 @@ class ECCOpQueue {
      * @warning This is for testing purposes only. Currently no valid use case.
      *
      */
-    void empty_row_for_testing() { append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity }); }
+    void empty_row_for_testing()
+    {
+        append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity });
+        accumulator.self_set_infinity();
+    }
 
     Point get_accumulator() { return accumulator; }
 
@@ -202,6 +206,9 @@ class ECCOpQueue {
     UltraOp no_op_ultra_only()
     {
         EccOpCode op_code{};
+        accumulator.self_set_infinity();
+        // Store eccvm operation
+        append_eccvm_op(ECCVMOperation{ .op_code = op_code });
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(op_code, accumulator);
