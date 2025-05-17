@@ -41,7 +41,7 @@ using witness_ct = bn254::witness_ct;
  */
 void fix_bigfield_element(const fq_ct& element)
 {
-    for (int i = 0; i < 4; i++) {
+    for (size_t i = 0; i < 4; i++) {
         element.binary_basis_limbs[i].element.fix_witness();
     }
     element.prime_basis_limb.fix_witness();
