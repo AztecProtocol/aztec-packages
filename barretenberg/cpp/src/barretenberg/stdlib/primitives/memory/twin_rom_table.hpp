@@ -13,7 +13,7 @@ namespace bb::stdlib {
 
 // A runtime-defined read-only memory table. Table entries must be initialized in the constructor.
 // Each entry contains a pair of values
-// N.B. Only works with the UltraPlonkBuilder at the moment!
+// N.B. Only works with the UltraBuilder at the moment!
 template <typename Builder> class twin_rom_table {
   private:
     typedef field_t<Builder> field_pt;

@@ -9,8 +9,6 @@
 
 namespace acir_format {
 
-using namespace bb::plonk;
-
 template <typename Builder>
 void create_logic_gate(Builder& builder,
                        const WitnessOrConstant<bb::fr> a,

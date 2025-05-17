@@ -12,7 +12,6 @@
 
 using namespace bb;
 using namespace bb::crypto;
-using namespace bb::plonk;
 
 namespace acir_format {
 

@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"

@@ -32,7 +32,7 @@ template <class T> void ignore_unused(T&) {} // use to ignore unused variables i
 
 template <class Builder> class SafeUintTest : public ::testing::Test {};
 
-using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(SafeUintTest, CircuitTypes);
 
 STANDARD_TESTING_TAGS

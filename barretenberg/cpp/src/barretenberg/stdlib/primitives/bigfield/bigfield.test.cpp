@@ -1221,7 +1221,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
 };
 
 // Define types for which the above tests will be constructed.
-using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
+using CircuitTypes = testing::Types<bb::UltraCircuitBuilder>;
 // Define the suite of tests.
 TYPED_TEST_SUITE(stdlib_bigfield, CircuitTypes);
 

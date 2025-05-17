@@ -25,7 +25,7 @@ auto& engine = numeric::get_debug_randomness();
 
 template <class Builder> class BitArrayTest : public ::testing::Test {};
 
-using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(BitArrayTest, CircuitTypes);
 
 TYPED_TEST(BitArrayTest, test_uint32_input_output_consistency)

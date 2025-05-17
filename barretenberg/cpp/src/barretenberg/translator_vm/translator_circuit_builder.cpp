@@ -17,7 +17,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/plonk/proof_system/constants.hpp"
+
 #include <cstddef>
 namespace bb {
 

@@ -11,8 +11,6 @@
 using namespace bb;
 using namespace cdg;
 
-using byte_array = stdlib::byte_array<bb::StandardCircuitBuilder>;
-using public_witness_t = stdlib::public_witness_t<bb::StandardCircuitBuilder>;
 using byte_array_plookup = stdlib::byte_array<bb::UltraCircuitBuilder>;
 using public_witness_t_plookup = stdlib::public_witness_t<bb::UltraCircuitBuilder>;
 using UltraBuilder = UltraCircuitBuilder;

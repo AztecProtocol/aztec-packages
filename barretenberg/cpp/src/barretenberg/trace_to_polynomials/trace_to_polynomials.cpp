@@ -7,8 +7,7 @@
 #include "trace_to_polynomials.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
-#include "barretenberg/flavor/plonk_flavors.hpp"
-#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
@@ -31,7 +30,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
     if constexpr (IsUltraOrMegaHonk<Flavor>) {
         proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
     }
-    if constexpr (IsUltraPlonkOrHonk<Flavor>) {
+    if constexpr (IsUltraOrMegaHonk<Flavor>) {
 
         PROFILE_THIS_NAME("add_memory_records_to_proving_key");
 
@@ -58,7 +57,7 @@ template <class Flavor>
 void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(TraceData& trace_data,
                                                                    Builder& builder,
                                                                    typename Flavor::ProvingKey& proving_key)
-    requires IsUltraPlonkOrHonk<Flavor>
+    requires IsUltraOrMegaHonk<Flavor>
 {
     ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
 
@@ -173,7 +172,5 @@ template class TraceToPolynomials<UltraKeccakZKFlavor>;
 template class TraceToPolynomials<UltraRollupFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
-template class TraceToPolynomials<plonk::flavor::Standard>;
-template class TraceToPolynomials<plonk::flavor::Ultra>;
 
 } // namespace bb
