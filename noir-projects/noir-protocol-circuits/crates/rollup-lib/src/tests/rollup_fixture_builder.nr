@@ -18,8 +18,9 @@ use types::{
         L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT, MERGE_ROLLUP_INDEX,
         PUBLIC_BASE_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX,
     },
-    merkle_tree::{MembershipWitness, MerkleTree},
+    merkle_tree::MerkleTree,
     partial_state_reference::PartialStateReference,
+    proof::vk_data::VkData,
     tests::{fixtures, merkle_tree_utils::{compute_zero_hashes, NonEmptyMerkleTree}},
     traits::{Empty, Hash},
 };
@@ -96,15 +97,13 @@ impl RollupFixtureBuilder {
             MERGE_ROLLUP_INDEX
         };
         let vk = fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
-        self.previous_rollup_data[0].vk = vk;
-        self.previous_rollup_data[1].vk = vk;
-
-        let vk_witness = MembershipWitness {
-            leaf_index: vk_index as Field,
+        let vk_data = VkData {
+            vk,
+            leaf_index: vk_index,
             sibling_path: self.vk_tree.get_sibling_path(vk_index),
         };
-        self.previous_rollup_data[0].vk_witness = vk_witness;
-        self.previous_rollup_data[1].vk_witness = vk_witness;
+        self.previous_rollup_data[0].vk_data = vk_data;
+        self.previous_rollup_data[1].vk_data = vk_data;
 
         let mut note_hash_tree = self.previous_block_header.state.partial.note_hash_tree;
         rollup_0.start.note_hash_tree = note_hash_tree;

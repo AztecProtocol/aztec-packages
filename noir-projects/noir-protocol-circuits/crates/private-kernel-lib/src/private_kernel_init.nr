@@ -56,19 +56,16 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        if !std::runtime::is_unconstrained() {
-            self.private_call.verify(true);
-        }
-
         // Generate output.
         // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
         let output = unsafe { self.generate_output() };
 
         // Validate inputs.
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
+        private_call_data_validator.validate_proof(true /* is_first_app */);
         private_call_data_validator.validate_as_first_call();
         private_call_data_validator.validate_against_tx_request(self.tx_request);
-        private_call_data_validator.validate(
+        private_call_data_validator.validate_data(
             output.end.note_hashes,
             self.protocol_contract_tree_root,
         );

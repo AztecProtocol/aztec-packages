@@ -56,7 +56,7 @@ pub struct PrivateBaseRollupInputs {
 impl PrivateBaseRollupInputs {
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let tube_data_validator = PrivateTubeDataValidator::new(self.tube_data);
-        tube_data_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        tube_data_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
         tube_data_validator.validate_with_rollup_data(self.constants);
 
         validate_tx_constant_data(self.tube_data.public_inputs.constants, self.constants);

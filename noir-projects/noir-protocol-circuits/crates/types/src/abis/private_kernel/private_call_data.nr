@@ -22,13 +22,15 @@ pub struct PrivateCallData {
 
 impl PrivateCallData {
     pub fn verify(self, is_first_app: bool) {
+        self.vk.check_hash();
+
         let proof_type = if is_first_app {
             PROOF_TYPE_OINK
         } else {
             PROOF_TYPE_PG
         };
         // Client IVC public inputs are linked in the backend via the databus
-        std::verify_proof_with_type(self.vk.key, [], [], 0, proof_type);
+        std::verify_proof_with_type(self.vk.key, [], [], self.vk.hash, proof_type);
     }
 }
 

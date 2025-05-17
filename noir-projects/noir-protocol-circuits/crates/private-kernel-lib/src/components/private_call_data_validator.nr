@@ -93,7 +93,13 @@ impl PrivateCallDataValidator {
         PrivateCallDataValidator { data, array_lengths }
     }
 
-    pub fn validate<let N: u32>(
+    pub fn validate_proof(self, is_first_app: bool) {
+        if !std::runtime::is_unconstrained() {
+            self.data.verify(is_first_app);
+        }
+    }
+
+    pub fn validate_data<let N: u32>(
         self,
         accumulated_note_hashes: [ScopedNoteHash; N],
         protocol_contract_tree_root: Field,

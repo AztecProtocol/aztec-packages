@@ -7,12 +7,11 @@ import {
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type RECURSIVE_PROOF_LENGTH,
-  VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
-import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import type { L2Block } from '@aztec/stdlib/block';
@@ -33,6 +32,7 @@ import {
 import type { CircuitName } from '@aztec/stdlib/stats';
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/stdlib/tx';
+import { VkData } from '@aztec/stdlib/vks';
 
 import { buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
 import type { EpochProvingState } from './epoch-proving-state.js';
@@ -361,12 +361,8 @@ export class BlockProvingState {
     verificationKey,
   }: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>) {
     const leafIndex = getVKIndex(verificationKey.keyAsFields);
-    return new PreviousRollupData(
-      inputs,
-      proof,
-      verificationKey.keyAsFields,
-      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
-    );
+    const vkData = new VkData(verificationKey, leafIndex, getVKSiblingPath(leafIndex));
+    return new PreviousRollupData(inputs, proof, vkData);
   }
 
   #getRootParityData({ inputs, proof, verificationKey }: PublicInputsAndRecursiveProof<ParityPublicInputs>) {

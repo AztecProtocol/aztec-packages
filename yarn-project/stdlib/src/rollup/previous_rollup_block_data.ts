@@ -1,9 +1,8 @@
-import { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, VK_TREE_HEIGHT } from '@aztec/constants';
+import { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { MembershipWitness } from '@aztec/foundation/trees';
 
 import { RecursiveProof } from '../proofs/recursive_proof.js';
-import { VerificationKeyAsFields } from '../vks/verification_key.js';
+import { VkData } from '../vks/index.js';
 import { BlockRootOrBlockMergePublicInputs } from './block_root_or_block_merge_public_inputs.js';
 
 /**
@@ -20,13 +19,9 @@ export class PreviousRollupBlockData {
      */
     public proof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
     /**
-     * The verification key of the block merge or block root rollup circuit.
+     * The verification key and the witness of the vk in the vk tree.
      */
-    public vk: VerificationKeyAsFields,
-    /**
-     * Sibling path of the rollup circuit's vk in a big tree of rollup circuit vks.
-     */
-    public vkWitness: MembershipWitness<typeof VK_TREE_HEIGHT>,
+    public vkData: VkData,
   ) {}
 
   /**
@@ -34,7 +29,7 @@ export class PreviousRollupBlockData {
    * @returns The buffer of the serialized previous rollup data.
    */
   public toBuffer(): Buffer {
-    return serializeToBuffer(this.blockRootOrBlockMergePublicInputs, this.proof, this.vk, this.vkWitness);
+    return serializeToBuffer(this.blockRootOrBlockMergePublicInputs, this.proof, this.vkData);
   }
 
   /**
@@ -47,8 +42,7 @@ export class PreviousRollupBlockData {
     return new PreviousRollupBlockData(
       reader.readObject(BlockRootOrBlockMergePublicInputs),
       RecursiveProof.fromBuffer(reader, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-      reader.readObject(VerificationKeyAsFields),
-      MembershipWitness.fromBuffer(reader, VK_TREE_HEIGHT),
+      reader.readObject(VkData),
     );
   }
 }
