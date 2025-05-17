@@ -496,6 +496,18 @@ export class BarretenbergApi {
     return out[0];
   }
 
+  async acirProveUltraStarknetZKHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Promise<Uint8Array> {
+    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_prove_ultra_starknet_zk_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async acirVerifyUltraHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
@@ -544,6 +556,18 @@ export class BarretenbergApi {
     return out[0];
   }
 
+  async acirVerifyUltraStarknetZKHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
+    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_verify_ultra_starknet_zk_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async acirWriteVkUltraHonk(acirVec: Uint8Array): Promise<Uint8Array> {
     const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
@@ -585,6 +609,18 @@ export class BarretenbergApi {
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_write_vk_ultra_starknet_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async acirWriteVkUltraStarknetZKHonk(acirVec: Uint8Array): Promise<Uint8Array> {
+    const inArgs = [acirVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_write_vk_ultra_starknet_zk_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -1104,11 +1140,23 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveUltraKeccakZkHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
+  acirProveUltraStarknetHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
     const inArgs = [acirVec, witnessVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
-      'acir_prove_ultra_keccak_zk_honk',
+      'acir_prove_ultra_starknet_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  acirProveUltraStarknetZkHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
+    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_prove_ultra_starknet_zk_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -1128,11 +1176,47 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
+  acirVerifyUltraKeccakHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
+    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_verify_ultra_keccak_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   acirVerifyUltraKeccakZKHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_verify_ultra_keccak_zk_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  acirVerifyUltraStarknetHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
+    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_verify_ultra_starknet_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  acirVerifyUltraStarknetZKHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
+    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_verify_ultra_starknet_zk_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -1169,6 +1253,30 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_write_vk_ultra_keccak_zk_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  acirWriteVkUltraStarknetHonk(acirVec: Uint8Array): Uint8Array {
+    const inArgs = [acirVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_write_vk_ultra_starknet_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  acirWriteVkUltraStarknetZKHonk(acirVec: Uint8Array): Uint8Array {
+    const inArgs = [acirVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_write_vk_ultra_starknet_zk_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
