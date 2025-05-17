@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"

@@ -8,18 +8,19 @@
 
 #include "../generators/generator_data.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 namespace bb::crypto {
 /**
  * @brief Performs pedersen hashes!
  *
- * To hash to a size-n list of field elements `x`, we return the X-coordinate of:
+ * To hash a size-n list of field elements `v`, we return the X-coordinate of:
  *
- *      Hash(x) = n.[h] + Commit(x)
+ *      Hash(v) = n * [h] + Commit(v, g)
  *
  * Where `g` is a list of generator points defined by `generator_data`
  * And `h` is a unique generator whose domain separator is the string `pedersen_hash_length`.
  *
- * The addition of `n.[h]` into the hash is to prevent length-extension attacks.
+ * The addition of `n * [h]` into the hash is to prevent length-extension attacks.
  * It also ensures that the hash output is never the point at infinity.
  *
  * It is neccessary that all generator points are linearly independent of one another,
@@ -34,7 +35,8 @@ template <typename Curve> class pedersen_hash_base {
     using Fr = typename Curve::ScalarField;
     using Group = typename Curve::Group;
     using GeneratorContext = typename crypto::GeneratorContext<Curve>;
-    inline static constexpr AffineElement length_generator = Group::derive_generators("pedersen_hash_length", 1)[0];
+    inline static constexpr AffineElement length_generator =
+        get_precomputed_generators<Group, "pedersen_hash_length", 1>()[0];
     static Fq hash(const std::vector<Fq>& inputs, GeneratorContext context = {});
     static Fq hash_buffer(const std::vector<uint8_t>& input, GeneratorContext context = {});
 

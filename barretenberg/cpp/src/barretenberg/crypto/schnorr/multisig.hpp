@@ -39,8 +39,8 @@ template <typename G1, typename HashRegNon, typename HashSig = Blake2sHasher> cl
     static_assert(!std::is_same_v<HashRegNon, HashSig>);
 
   public:
-    using Fq = typename G1::coordinate_field;
-    using Fr = typename G1::subgroup_field;
+    using Fq = typename G1::Fq;
+    using Fr = typename G1::Fr;
     using affine_element = typename G1::affine_element;
     using element = typename G1::element;
     using key_pair = crypto::schnorr_key_pair<Fr, G1>;

@@ -40,7 +40,7 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     constexpr element(const element& other) noexcept;
     constexpr element(element&& other) noexcept;
     constexpr element(const affine_element<Fq, Fr, Params>& other) noexcept;
-    constexpr ~element() noexcept = default;
+    ~element() noexcept = default;
 
     static constexpr element one() noexcept { return { Params::one_x, Params::one_y, Fq::one() }; };
     static constexpr element zero() noexcept

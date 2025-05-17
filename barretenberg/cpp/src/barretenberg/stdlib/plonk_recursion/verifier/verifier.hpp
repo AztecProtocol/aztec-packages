@@ -8,6 +8,7 @@
 
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/proof_system/public_inputs/public_inputs.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
@@ -352,7 +353,7 @@ PairingPoints<typename Curve::Builder> verify_proof_(
                 l0.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l0");
                 l1.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l1");
                 l2.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l2");
-                l3.create_range_constraint(fq_ct::NUM_LAST_LIMB_BITS, "l3");
+                l3.create_range_constraint(static_cast<size_t>(fq_ct::NUM_LAST_LIMB_BITS), "l3");
                 return fq_ct::unsafe_construct_from_limbs(l0, l1, l2, l3, false);
             };
 

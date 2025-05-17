@@ -26,7 +26,7 @@ class ECCVMCircuitBuilder {
     using FF = grumpkin::fr;
     using Polynomial = bb::Polynomial<FF>;
 
-    using CycleScalar = typename CycleGroup::subgroup_field;
+    using CycleScalar = typename CycleGroup::Fr;
     using Element = typename CycleGroup::element;
     using AffineElement = typename CycleGroup::affine_element;
 

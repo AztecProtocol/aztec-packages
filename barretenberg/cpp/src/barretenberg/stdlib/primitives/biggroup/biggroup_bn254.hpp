@@ -13,6 +13,7 @@
  * We use a special case algorithm to split bn254 scalar multipliers into endomorphism scalars
  *
  **/
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"

@@ -257,14 +257,14 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr uint512_t MODULUS_U512 = uint512_t(Fq::modulus);
 
     // The binary modulus used in the CRT computation
-    static constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
+    inline static const uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
 
     // Negated modulus of the target emulated field in the binary modulus
-    static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
+    inline static const uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
 
     // Negated modulus of the target emulated field in the binary modulus split into 4 binary limbs + the final limb is
     // the negated modulus of the target emulated field in the scalar field
-    static constexpr std::array<Fr, 5> NEGATIVE_MODULUS_LIMBS = {
+    inline static const std::array<Fr, 5> NEGATIVE_MODULUS_LIMBS = {
         Fr(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
         Fr(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
         Fr(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),

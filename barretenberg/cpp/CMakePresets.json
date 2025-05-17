@@ -767,7 +767,7 @@
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz", "bb_cli_bench"]
+      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
     },
     {
       "name": "xray",
