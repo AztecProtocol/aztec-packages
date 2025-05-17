@@ -10,6 +10,7 @@ tests_tar=barretenberg-acir-tests-$(hash_str \
   $(cache_content_hash \
     ./.rebuild_patterns \
     ../cpp/.rebuild_patterns \
+    ../noir/ \
     )).tar.gz
 
 tests_hash=$(hash_str \
@@ -18,7 +19,8 @@ tests_hash=$(hash_str \
     ^barretenberg/acir_tests/ \
     ./.rebuild_patterns \
     ../cpp/.rebuild_patterns \
-    ../ts/.rebuild_patterns))
+    ../ts/.rebuild_patterns \
+    ../noir/))
 
 # Generate inputs for a given recursively verifying program.
 function run_proof_generation {
