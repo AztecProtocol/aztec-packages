@@ -23,12 +23,21 @@ export type DiagnosticsData = {
 
 export type DiagnosticsMiddleware = (ctx: DiagnosticsData, next: () => Promise<void>) => Promise<void>;
 
+export type SafeJsonRpcServerOptions = {
+  http200OnError: boolean;
+  healthCheck?: StatusCheckFn;
+  log?: Logger;
+  middlewares?: Application.Middleware[];
+  maxBatchSize?: number; // Maximum allowed batch size
+};
+
 export class SafeJsonRpcServer {
   /**
    * The HTTP server accepting remote requests.
    * This member field is initialized when the server is started.
    */
   private httpServer?: http.Server;
+  private maxBatchSize: number;
 
   constructor(
     /** The proxy object to delegate requests to. */
@@ -44,7 +53,10 @@ export class SafeJsonRpcServer {
     private extraMiddlewares: Application.Middleware[] = [],
     /** Logger */
     private log = createLogger('json-rpc:server'),
-  ) {}
+    maxBatchSize: number = 100, // Default batch size limit
+  ) {
+    this.maxBatchSize = maxBatchSize;
+  }
 
   public isHealthy(): boolean | Promise<boolean> {
     return this.healthCheck();
@@ -115,6 +127,18 @@ export class SafeJsonRpcServer {
     // "JSON RPC mode" where a single endpoint is used and the method is given in the request body
     router.post('/', async (ctx: Koa.Context) => {
       if (Array.isArray(ctx.request.body)) {
+        if (ctx.request.body.length > this.maxBatchSize) {
+          ctx.status = this.http200OnError ? 200 : 400;
+          ctx.body = {
+            jsonrpc: '2.0',
+            error: {
+              code: -32600,
+              message: `Batch request exceeds maximum allowed size of ${this.maxBatchSize}`,
+            },
+            id: null,
+          };
+          return;
+        }
         const resp = await this.processBatch(ctx.request.body);
         if (Array.isArray(resp)) {
           ctx.status = 200;
@@ -329,6 +353,8 @@ export type SafeJsonRpcServerOptions = {
   healthCheck?: StatusCheckFn;
   log?: Logger;
   middlewares?: Application.Middleware[];
+  /** Maximum allowed batch size before we reject with error */
+  maxBatchSize?: number;
 };
 
 /**
@@ -342,10 +368,10 @@ export function createNamespacedSafeJsonRpcServer(
     log: createLogger('json-rpc:server'),
   },
 ): SafeJsonRpcServer {
-  const { middlewares, http200OnError, log } = options;
+  const { middlewares, http200OnError, log, maxBatchSize } = options;
   const proxy = new NamespacedSafeJsonProxy(handlers);
   const healthCheck = makeAggregateHealthcheck(handlers, log);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, middlewares, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, middlewares, log, maxBatchSize ?? 100);
 }
 
 export function createSafeJsonRpcServer<T extends object = any>(
@@ -353,9 +379,9 @@ export function createSafeJsonRpcServer<T extends object = any>(
   schema: ApiSchemaFor<T>,
   options: Partial<SafeJsonRpcServerOptions> = {},
 ) {
-  const { http200OnError, log, healthCheck, middlewares: extraMiddlewares } = options;
+  const { http200OnError, log, healthCheck, middlewares: extraMiddlewares, maxBatchSize } = options;
   const proxy = new SafeJsonProxy(handler, schema);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, extraMiddlewares, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, extraMiddlewares, log, maxBatchSize ?? 100);
 }
 
 /**
