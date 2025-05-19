@@ -32,7 +32,7 @@ library QueueLib {
     self.first += 1;
   }
 
-  function length(Queue storage self) view internal returns (uint256 len) {
+  function length(Queue storage self) internal view returns (uint256 len) {
     len = self.last - self.first;
   }
 }

@@ -77,13 +77,18 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
 
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.AddedToQueue(_attester, _proposer);
+    vm.prank(_caller);
+    stakingAssetHandler.addValidator(_attester, _proposer);
+
     vm.expectRevert(
       abi.encodeWithSelector(
         IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, revertTimestamp
       )
     );
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, _proposer);
+    stakingAssetHandler.dripQueue();
   }
 
   function test_WhenSufficientTimePassed(address _caller, address _attester, address _proposer)
@@ -102,11 +107,16 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.AddedToQueue(_attester, _proposer);
+    vm.prank(_caller);
+    stakingAssetHandler.addValidator(_attester, _proposer);
+
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, _proposer, WITHDRAWER);
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, _proposer);
+    stakingAssetHandler.dripQueue();
 
     ValidatorInfo memory info = staking.getInfo(_attester);
     assertEq(info.proposer, _proposer);
@@ -130,11 +140,16 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.AddedToQueue(_attester, _proposer);
+    vm.prank(_caller);
+    stakingAssetHandler.addValidator(_attester, _proposer);
+
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, _proposer, WITHDRAWER);
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, _proposer);
+    stakingAssetHandler.dripQueue();
 
     ValidatorInfo memory info = staking.getInfo(_attester);
     assertEq(info.proposer, _proposer);

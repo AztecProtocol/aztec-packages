@@ -5,6 +5,7 @@ import {IStaking, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+
 import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
 
 /**
@@ -28,6 +29,7 @@ import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
  */
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
+  event AddedToQueue(address indexed _attester, address _proposer);
   event ValidatorAdded(
     address indexed _rollup, address indexed _attester, address _proposer, address _withdrawer
   );
@@ -47,6 +49,8 @@ interface IStakingAssetHandler {
   function setWithdrawer(address _withdrawer) external;
   function addUnhinged(address _address) external;
   function removeUnhinged(address _address) external;
+  function getQueueLength() external returns (uint256);
+  function dripQueue() external;
 
   function getRollup() external view returns (address);
 }
@@ -121,10 +125,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
       _triggerDeposit(rollup, depositAmount, _attester, _proposer);
     } else {
       entryQueue.enqueue(_attester, _proposer);
+      emit AddedToQueue(_attester, _proposer);
     }
   }
 
-  function dripQueue() external {
+  function dripQueue() external override(IStakingAssetHandler) {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
     uint256 depositAmount = rollup.getMinimumStake();
     uint256 balance = STAKING_ASSET.balanceOf(address(this));
@@ -141,7 +146,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
 
     // Now that we have balance on the staking asset, for as many deposits that we have, we will empty the queue
-    uint256 mintsAvailable = balance / depositAmount; // (integer division)
+    uint256 updatedBalance = STAKING_ASSET.balanceOf(address(this));
+    uint256 mintsAvailable = updatedBalance / depositAmount; // (integer division)
+
     uint256 queueLength = entryQueue.length();
 
     // if the queue is smaller then lets empty the queue, otherwise drip deposits per mint
@@ -187,12 +194,17 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     return address(REGISTRY.getCanonicalRollup());
   }
 
-  function getQueueLength() external view returns (uint256) {
+  function getQueueLength() external view override(IStakingAssetHandler) returns (uint256) {
     return entryQueue.length();
   }
 
-  function _triggerDeposit(IStaking rollup, uint256 depositAmount, address _attester, address _proposer) internal {
-    // If the attester is currently exiting, we finalize the exit for him.
+  function _triggerDeposit(
+    IStaking rollup,
+    uint256 depositAmount,
+    address _attester,
+    address _proposer
+  ) internal {
+    // If the attester is currently exiting, we finalize the exit for them.
     if (rollup.getInfo(_attester).status == Status.EXITING) {
       rollup.finaliseWithdraw(_attester);
     }
