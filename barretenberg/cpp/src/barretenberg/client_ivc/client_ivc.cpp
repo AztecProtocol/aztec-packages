@@ -6,6 +6,7 @@
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/op_count.hpp"
+#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 
@@ -187,6 +188,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 {
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
+    // ASSERT(UltraCircuitChecker::check(circuit));
+    // RelationChecker<MegaFlavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
 
     // Construct merge proof for the present circuit
     MergeProof merge_proof = goblin.prove_merge();
@@ -207,6 +210,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     {
         PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
         honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
+        if (precomputed_vk) {
+            BB_ASSERT_EQ(*precomputed_vk, MegaVerificationKey(proving_key->proving_key));
+        }
     }
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
@@ -321,6 +327,9 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
         recursive_verifier_accumulator->verification_key->pairing_inputs_public_input_key);
     points_accumulator.aggregate(nested_pairing_points);
 
+    // DeciderVerifier_<Flavor> decider_verifier(verifier_accumulator);
+    // ASSERT(decider_verifier.verify_proof(decider_proof).check());
+
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };
     PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
@@ -395,7 +404,6 @@ HonkProof ClientIVC::decider_prove() const
     vinfo("prove decider...");
     fold_output.accumulator->proving_key.commitment_key = bn254_commitment_key;
     MegaDeciderProver decider_prover(fold_output.accumulator);
-    vinfo("finished decider proving.");
     return decider_prover.construct_proof();
 }
 
