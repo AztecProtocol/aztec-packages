@@ -8,8 +8,8 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress,
         constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
-        hash::poseidon2_hash_with_separator,
-        traits::{Deserialize, Hash, Packable, Serialize},
+        hash::{poseidon2_hash_with_separator, sha256_to_field},
+        traits::{Deserialize, Hash, Packable, Serialize, ToField},
         utils::arrays::array_concat,
     },
 };
@@ -202,12 +202,17 @@ pub struct PartialNFTNote {
 }
 
 impl PartialNFTNote {
-    pub fn commitment(self) -> Field {
-        self.commitment
+    /// Computes a partial note validity commitment. This commitment is stored in public storage when creating the
+    /// partial note in private and then is used to check that sender and note are valid upon partial note completion
+    /// in public.
+    pub fn compute_validity_commitment(self, sender: AztecAddress) -> Field {
+        let commitment_bytes: [u8; 32] = self.commitment.to_be_bytes();
+        let sender_bytes: [u8; 32] = sender.to_field().to_be_bytes();
+        // TODO(#10537): Can we use poseidon2 here given that partial_note.commitment() was computed with it? Or at
+        // least pedersen?
+        sha256_to_field(array_concat(commitment_bytes, sender_bytes))
     }
-}
 
-impl PartialNFTNote {
     /// Completes the partial note, creating a new note that can be used like any other NFTNote.
     pub fn complete(self, token_id: Field, context: &mut PublicContext) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value

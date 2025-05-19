@@ -32,7 +32,7 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
     note_type_id: Field,
     packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
 ) -> BoundedVec<DiscoveredNoteInfo, MAX_NOTE_HASHES_PER_TX> {
-    let discovered_notes = &mut BoundedVec::new();
+    let discovered_notes: &mut BoundedVec<DiscoveredNoteInfo, 64> = &mut BoundedVec::new();
 
     debug_log_format(
         "Attempting nonce discovery on {0} potential notes on contract {1} for storage slot {2}",

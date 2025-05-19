@@ -197,16 +197,20 @@ pub contract NFT {
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
     ) -> PartialNFTNote {
+        let sender = context.msg_sender();
+
         // We create a partial note with unpopulated/zero token id for 'to'
         let partial_note = NFTNote::partial(
             to,
             storage.private_nfts.at(to).storage_slot,
             context,
             to,
-            context.msg_sender(),
+            sender,
         );
 
-        NFT::at(context.this_address())._store_nft_set_partial_note(partial_note).enqueue(context);
+        NFT::at(context.this_address())._store_nft_set_partial_note(sender, partial_note).enqueue(
+            context,
+        );
 
         partial_note
     }
@@ -215,12 +219,12 @@ pub contract NFT {
     // docs:start:store_payload_in_transient_storage_unsafe
     #[public]
     #[internal]
-    fn _store_nft_set_partial_note(partial_note: PartialNFTNote) {
+    fn _store_nft_set_partial_note(sender: AztecAddress, partial_note: PartialNFTNote) {
         // We store the partial note in a slot equal to its commitment. This is safe because the commitment is computed
         // using a generator different from the one used to compute storage slots, so there can be no collisions.
         // We could consider storing all pending partial notes in e.g. some array, but ultimately this is pointless: all
         // we need to verify is that the note is valid.
-        context.storage_write(partial_note.commitment(), true);
+        context.storage_write(partial_note.compute_validity_commitment(sender), true);
     }
     // docs:end:store_payload_in_transient_storage_unsafe
     /// Finalizes a transfer of NFT with `token_id` from public balance of `from` to a private balance of `to`.
@@ -260,11 +264,14 @@ pub contract NFT {
         // Set the public NFT owner to zero
         public_owners_storage.write(AztecAddress::zero());
 
-        // We verify that the partial note we're completing is valid (i.e. it uses the correct state variable's storage
-        // slot, and it is internally consistent). We *could* clear the storage since each partial note should only be
-        // used once, but since the AVM offers no gas refunds for doing so this would just make the transaction be more
-        // expensive.
-        assert(context.storage_read(partial_note.commitment()), "Invalid partial note");
+        // We verify that the partial note we're completing is valid (i.e. sender is correct, it uses the correct state
+        // variable's storage slot, and it is internally consistent). We *could* clear the storage since each partial
+        // note should only be used once, but since the AVM offers no gas refunds for doing so this would just make
+        // the transaction be more expensive.
+        assert(
+            context.storage_read(partial_note.compute_validity_commitment(from)),
+            "Invalid partial note",
+        );
         partial_note.complete(token_id, context);
     }
 
