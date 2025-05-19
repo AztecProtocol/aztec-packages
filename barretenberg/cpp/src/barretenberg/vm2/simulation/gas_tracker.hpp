@@ -10,8 +10,8 @@ class GasTrackerInterface {
   public:
     virtual ~GasTrackerInterface() = default;
     // @throws OutOfGasException.
-    virtual void consumeBaseGas() = 0;
-    virtual void consumeDynamicGas(Gas dynamic_gas_factor) = 0;
+    virtual void consume_base_gas() = 0;
+    virtual void consume_dynamic_gas(Gas dynamic_gas_factor) = 0;
 
     // Events
     virtual GasEvent finish() = 0;
@@ -20,22 +20,19 @@ class GasTrackerInterface {
 class GasTracker final : public GasTrackerInterface {
   public:
     GasTracker(const InstructionInfoDBInterface& instruction_info_db,
-               const AddressingInterface& addressing,
                ContextInterface& context,
                const Instruction& instruction)
         : instruction_info_db(instruction_info_db)
-        , addressing(addressing)
         , context(context)
         , instruction(instruction)
     {}
 
-    void consumeBaseGas() override;
-    void consumeDynamicGas(Gas dynamic_gas_factor) override;
+    void consume_base_gas() override;
+    void consume_dynamic_gas(Gas dynamic_gas_factor) override;
     GasEvent finish() override;
 
   private:
     const InstructionInfoDBInterface& instruction_info_db;
-    const AddressingInterface& addressing;
     ContextInterface& context;
     const Instruction& instruction;
     GasEvent gas_event;

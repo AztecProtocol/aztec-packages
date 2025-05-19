@@ -5,7 +5,7 @@
 
 namespace bb::avm2::simulation {
 
-void GasTracker::consumeBaseGas()
+void GasTracker::consume_base_gas()
 {
     ExecutionOpCode exec_opcode = instruction_info_db.get(instruction.opcode).exec_opcode;
     const ExecInstructionSpec& spec = instruction_info_db.get(exec_opcode);
@@ -40,7 +40,7 @@ void GasTracker::consumeBaseGas()
     context.set_gas_used(gas_used);
 }
 
-void GasTracker::consumeDynamicGas(Gas dynamic_gas_factor)
+void GasTracker::consume_dynamic_gas(Gas dynamic_gas_factor)
 {
     gas_event.dynamic_gas_factor = dynamic_gas_factor;
     ExecutionOpCode exec_opcode = instruction_info_db.get(instruction.opcode).exec_opcode;

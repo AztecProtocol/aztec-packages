@@ -147,12 +147,11 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
 
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
 
-            GasTracker gas_tracker(instruction_info_db, *addressing, context, instruction);
+            GasTracker gas_tracker(instruction_info_db, context, instruction);
 
-            gas_tracker.consumeBaseGas();
+            gas_tracker.consume_base_gas();
 
             // Resolve the operands.
-
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
             ex_event.resolved_operands = resolved_operands;
 
