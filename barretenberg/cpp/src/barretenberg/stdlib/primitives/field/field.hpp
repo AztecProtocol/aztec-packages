@@ -95,7 +95,7 @@ template <typename Builder> class field_t {
 
     static constexpr bool is_composite = false;
     static constexpr uint256_t modulus = bb::fr::modulus;
-
+    // Not tested?
     static field_t from_witness_index(Builder* parent_context, uint32_t witness_index);
 
     explicit operator bool_t<Builder>() const;
@@ -166,6 +166,7 @@ template <typename Builder> class field_t {
         return *this;
     }
 
+    // Do we really need it? In arrays?
     // Prefix increment (++x)
     field_t& operator++()
     {
@@ -184,11 +185,12 @@ template <typename Builder> class field_t {
 
     field_t invert() const { return (field_t(1) / field_t(*this)).normalize(); }
 
+    // Remove with plonk
     static field_t coset_generator(const size_t generator_idx)
     {
         return field_t(bb::fr::coset_generator(generator_idx));
     }
-
+    // Remove with plonk
     static field_t external_coset_generator() { return field_t(bb::fr::external_coset_generator()); }
 
     field_t operator-() const
@@ -207,21 +209,23 @@ template <typename Builder> class field_t {
     field_t conditional_negate(const bool_t<Builder>& predicate) const;
 
     void assert_equal(const field_t& rhs, std::string const& msg = "field_t::assert_equal") const;
-
+    // Tests
     void assert_not_equal(const field_t& rhs, std::string const& msg = "field_t::assert_not_equal") const;
 
     void assert_is_in_set(const std::vector<field_t>& set, std::string const& msg = "field_t::assert_not_in_set") const;
 
     static field_t conditional_assign(const bool_t<Builder>& predicate, const field_t& lhs, const field_t& rhs);
 
+    // Nuke?
     static std::array<field_t, 4> preprocess_two_bit_table(const field_t& T0,
                                                            const field_t& T1,
                                                            const field_t& T2,
                                                            const field_t& T3);
+    // Nuke?
     static field_t select_from_two_bit_table(const std::array<field_t, 4>& table,
                                              const bool_t<Builder>& t1,
                                              const bool_t<Builder>& t0);
-
+    // Nuke?
     static std::array<field_t, 8> preprocess_three_bit_table(const field_t& T0,
                                                              const field_t& T1,
                                                              const field_t& T2,
@@ -230,12 +234,14 @@ template <typename Builder> class field_t {
                                                              const field_t& T5,
                                                              const field_t& T6,
                                                              const field_t& T7);
+    // Nuke?
     static field_t select_from_three_bit_table(const std::array<field_t, 8>& table,
                                                const bool_t<Builder>& t2,
                                                const bool_t<Builder>& t1,
                                                const bool_t<Builder>& t0);
 
     static void evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
+    // do we need it?
     static void evaluate_polynomial_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
 
     static field_t accumulate(const std::vector<field_t>& to_add);
@@ -287,8 +293,10 @@ template <typename Builder> class field_t {
     void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
     void assert_is_zero(std::string const& msg = "field_t::assert_is_zero") const;
     bool is_constant() const { return witness_index == IS_CONSTANT; }
+    // Not tested explicitly
     uint32_t set_public() const { return context->set_public_input(normalize().witness_index); }
 
+    // Test this
     /**
      * Create a witness form a constant. This way the value of the witness is fixed and public (public, because the
      * value becomes hard-coded as an element of the q_c selector vector).
@@ -334,6 +342,7 @@ template <typename Builder> class field_t {
      */
     uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
 
+    // remove num bits
     std::vector<bool_t<Builder>> decompose_into_bits(
         size_t num_bits = 256,
         std::function<witness_t<Builder>(Builder* ctx, uint64_t, uint256_t)> get_bit =

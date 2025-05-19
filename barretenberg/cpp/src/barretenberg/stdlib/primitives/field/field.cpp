@@ -1138,7 +1138,7 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
 }
 
 /**
- * @brief Build a circuit allowing a user to prove that they have deomposed `this` into bits.
+ * @brief Build a circuit allowing a user to prove that they have decomposed `this` into bits.
  *
  * @details A bit vector `result` is extracted and used to to construct a sum `sum` using the normal binary expansion.
  * Along the way, we extract a value `shifted_high_limb` which is equal to `sum_hi` in the natural decomposition
