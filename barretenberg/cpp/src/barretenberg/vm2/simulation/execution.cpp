@@ -242,7 +242,8 @@ void Execution::emit_context_snapshot(ContextInterface& context)
         .msg_sender = context.get_msg_sender(),
         .contract_addr = context.get_address(),
         .is_static = context.get_is_static(),
-        // TODO fetch parent gas used from context here.
+        .parent_gas_used = context.get_parent_gas_used(),
+        .parent_gas_limit = context.get_parent_gas_limit(),
     });
 };
 

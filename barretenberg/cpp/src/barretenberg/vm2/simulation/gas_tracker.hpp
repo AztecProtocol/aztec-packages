@@ -35,7 +35,7 @@ class GasTracker final : public GasTrackerInterface {
     const InstructionInfoDBInterface& instruction_info_db;
     ContextInterface& context;
     const Instruction& instruction;
-    GasEvent gas_event;
+    GasEvent gas_event = {};
 };
 
 } // namespace bb::avm2::simulation

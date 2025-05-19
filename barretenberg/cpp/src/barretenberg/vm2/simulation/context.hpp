@@ -60,6 +60,9 @@ class ContextInterface {
     virtual Gas get_gas_limit() const = 0;
     virtual void set_gas_used(Gas gas_used) = 0;
 
+    virtual Gas get_parent_gas_used() const = 0;
+    virtual Gas get_parent_gas_limit() const = 0;
+
     // Events
     virtual ContextEvent serialize_context_event() = 0;
 };
@@ -220,6 +223,9 @@ class EnqueuedCallContext : public BaseContext {
         return padded_calldata;
     };
 
+    Gas get_parent_gas_used() const override { return Gas{}; }
+    Gas get_parent_gas_limit() const override { return Gas{}; }
+
   private:
     std::vector<FF> calldata;
 };
@@ -253,8 +259,8 @@ class NestedContext : public BaseContext {
 
     uint32_t get_parent_id() const override { return parent_context.get_context_id(); }
 
-    Gas get_parent_gas_used() const { return parent_context.get_gas_used(); }
-    Gas get_parent_gas_limit() const { return parent_context.get_gas_limit(); }
+    Gas get_parent_gas_used() const override { return parent_context.get_gas_used(); }
+    Gas get_parent_gas_limit() const override { return parent_context.get_gas_limit(); }
 
     // Event Emitting
     ContextEvent serialize_context_event() override

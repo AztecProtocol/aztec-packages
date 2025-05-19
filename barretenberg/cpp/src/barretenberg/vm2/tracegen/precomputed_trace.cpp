@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
@@ -308,6 +309,20 @@ void PrecomputedTraceBuilder::process_memory_tag_range(TraceContainer& trace)
 
     for (uint32_t i = static_cast<uint32_t>(MemoryTag::MAX) + 1; i < num_rows; i++) {
         trace.set(C::precomputed_sel_mem_tag_out_of_range, i, 1);
+    }
+}
+
+void PrecomputedTraceBuilder::process_addressing_gas(TraceContainer& trace)
+{
+    using C = Column;
+
+    constexpr uint32_t num_rows = 1 << 16; // 65536
+    trace.reserve_column(C::precomputed_sel_addressing_gas, num_rows);
+    trace.reserve_column(C::precomputed_addressing_gas, num_rows);
+
+    for (uint32_t i = 0; i < num_rows; i++) {
+        trace.set(C::precomputed_sel_addressing_gas, i, 1);
+        trace.set(C::precomputed_addressing_gas, i, compute_addressing_gas(static_cast<uint16_t>(i)));
     }
 }
 

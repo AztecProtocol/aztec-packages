@@ -122,3 +122,5 @@ pol constant sel_dispatch_ecc;
     // Add more here
 pol constant subtrace_operation_id;
 
+pol constant sel_addressing_gas;
+pol constant addressing_gas;
