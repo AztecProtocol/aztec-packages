@@ -73,13 +73,13 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 
         ASSERT(verified);
     }
-    builder.finalize_circuit(false);
     info("Recursive Verifier: num gates = ", builder.num_gates);
     auto graph = cdg::Graph(builder, false);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     if (variables_in_one_gate.empty()) {
         info("variables in one gate is empty");
     } else {
+        info("size of variables in one gate == ", variables_in_one_gate.size());
         auto first_var = std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[4];
         info("first var == ", first_var);
         graph.print_variable_in_one_gate(builder, first_var);
