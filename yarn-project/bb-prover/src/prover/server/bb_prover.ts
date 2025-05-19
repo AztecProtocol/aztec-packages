@@ -78,10 +78,10 @@ import {
   PROOF_FILENAME,
   PUBLIC_INPUTS_FILENAME,
   VK_FILENAME,
-  generateAvmProofV2,
+  generateAvmProof,
   generateProof,
   generateTubeProof,
-  verifyAvmProofV2,
+  verifyAvmProof,
   verifyProof,
 } from '../../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../../config.js';
@@ -507,7 +507,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
     logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
-    const provingResult = await generateAvmProofV2(this.config.bbBinaryPath, workingDirectory, input, logger);
+    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
@@ -684,14 +684,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     publicInputs: AvmCircuitPublicInputs,
   ) {
     return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyAvmProofV2(
-        this.config.bbBinaryPath,
-        this.config.bbWorkingDirectory,
-        proofPath,
-        publicInputs,
-        vkPath,
-        logger,
-      ),
+      verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, vkPath, logger),
     );
   }
 
