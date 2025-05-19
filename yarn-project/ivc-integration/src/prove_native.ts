@@ -11,7 +11,7 @@ import {
   generateTubeProof,
   readClientIVCProofFromOutputDirectory,
   readProofAsFields,
-  verifyAvmProofV2,
+  verifyAvmProof,
   verifyProof,
 } from '@aztec/bb-prover';
 import {
@@ -241,7 +241,7 @@ export async function proveAvm(
     vk.push(new Fr(0));
   }
 
-  const verificationResult = await verifyAvmProofV2(
+  const verificationResult = await verifyAvmProof(
     bbPath,
     workingDirectory,
     proofRes.proofPath!,
