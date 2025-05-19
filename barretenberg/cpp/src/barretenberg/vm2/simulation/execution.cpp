@@ -236,12 +236,15 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
 
 void Execution::emit_context_snapshot(ContextInterface& context)
 {
-    ctx_stack_events.emit({ .id = context.get_context_id(),
-                            .parent_id = context.get_parent_id(),
-                            .next_pc = context.get_next_pc(),
-                            .msg_sender = context.get_msg_sender(),
-                            .contract_addr = context.get_address(),
-                            .is_static = context.get_is_static() });
+    ctx_stack_events.emit({
+        .id = context.get_context_id(),
+        .parent_id = context.get_parent_id(),
+        .next_pc = context.get_next_pc(),
+        .msg_sender = context.get_msg_sender(),
+        .contract_addr = context.get_address(),
+        .is_static = context.get_is_static(),
+        // TODO fetch parent gas used from context here.
+    });
 };
 
 } // namespace bb::avm2::simulation

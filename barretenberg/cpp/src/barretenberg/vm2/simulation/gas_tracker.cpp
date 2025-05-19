@@ -35,9 +35,7 @@ void GasTracker::consumeBaseGas()
     gas_event.oog_l2_base = gas_used.l2Gas > gas_limit.l2Gas;
     gas_event.oog_da_base = gas_used.daGas > gas_limit.daGas;
 
-    bool oog_base = gas_event.oog_l2_base || gas_event.oog_da_base;
-
-    if (oog_base) {
+    if (gas_event.oog_l2_base || gas_event.oog_da_base) {
         context.set_gas_used(gas_limit);
 
         throw OutOfGasException(GasPhase::BASE, gas_event.oog_l2_base ? GasDimension::L2 : GasDimension::DA);
@@ -65,9 +63,7 @@ void GasTracker::consumeDynamicGas(Gas dynamic_gas_factor)
     gas_event.oog_l2_dynamic = gas_used.l2Gas > gas_limit.l2Gas;
     gas_event.oog_da_dynamic = gas_used.daGas > gas_limit.daGas;
 
-    bool oog_dynamic = gas_event.oog_l2_dynamic || gas_event.oog_da_dynamic;
-
-    if (oog_dynamic) {
+    if (gas_event.oog_l2_dynamic || gas_event.oog_da_dynamic) {
         context.set_gas_used(gas_limit);
         throw OutOfGasException(GasPhase::DYNAMIC, gas_event.oog_l2_dynamic ? GasDimension::L2 : GasDimension::DA);
     }

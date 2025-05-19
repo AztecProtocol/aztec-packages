@@ -25,6 +25,7 @@ include "public_data_check.pil";
 include "update_check.pil";
 include "nullifier_check.pil";
 include "public_inputs.pil";
+include "gas.pil";
 
 namespace execution;
 

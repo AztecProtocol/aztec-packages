@@ -177,8 +177,37 @@ void ExecutionTraceBuilder::process(
                       { C::execution_last_child_returndata_offset_addr, ex_event.context_event.last_child_rd_addr },
                       { C::execution_last_child_returndata_size_addr, ex_event.context_event.last_child_rd_size_addr },
                       { C::execution_last_child_success, ex_event.context_event.last_child_success },
+                      { C::execution_l2_gas_limit, ex_event.context_event.gas_limit.l2Gas },
+                      { C::execution_da_gas_limit, ex_event.context_event.gas_limit.daGas },
+                      { C::execution_l2_gas_used, ex_event.context_event.gas_used.l2Gas },
+                      { C::execution_da_gas_used, ex_event.context_event.gas_used.daGas },
+                      { C::execution_parent_l2_gas_limit, ex_event.context_event.parent_gas_limit.l2Gas },
+                      { C::execution_parent_da_gas_limit, ex_event.context_event.parent_gas_limit.daGas },
+                      { C::execution_parent_l2_gas_used, ex_event.context_event.parent_gas_used.l2Gas },
+                      { C::execution_parent_da_gas_used, ex_event.context_event.parent_gas_used.daGas },
                       { C::execution_next_context_id, ex_event.next_context_id },
                   } });
+
+        // Gas
+        trace.set(
+            row,
+            { {
+                { C::execution_opcode_gas, ex_event.gas_event.opcode_gas },
+                { C::execution_addressing_gas, ex_event.gas_event.addressing_gas },
+                { C::execution_l2_base_gas, ex_event.gas_event.base_gas.l2Gas },
+                { C::execution_da_base_gas, ex_event.gas_event.base_gas.daGas },
+                { C::execution_l2_dynamic_gas_factor, ex_event.gas_event.dynamic_gas_factor.l2Gas },
+                { C::execution_da_dynamic_gas_factor, ex_event.gas_event.dynamic_gas_factor.daGas },
+                { C::execution_l2_dynamic_gas, ex_event.gas_event.dynamic_gas.l2Gas },
+                { C::execution_da_dynamic_gas, ex_event.gas_event.dynamic_gas.daGas },
+                { C::execution_out_of_gas_l2_base, ex_event.gas_event.oog_l2_base },
+                { C::execution_out_of_gas_da_base, ex_event.gas_event.oog_da_base },
+                { C::execution_out_of_gas_base, ex_event.gas_event.oog_l2_base || ex_event.gas_event.oog_da_base },
+                { C::execution_out_of_gas_l2_dynamic, ex_event.gas_event.oog_l2_dynamic },
+                { C::execution_out_of_gas_da_dynamic, ex_event.gas_event.oog_da_dynamic },
+                { C::execution_out_of_gas_dynamic,
+                  ex_event.gas_event.oog_l2_dynamic || ex_event.gas_event.oog_da_dynamic },
+            } });
 
         row++;
     }
