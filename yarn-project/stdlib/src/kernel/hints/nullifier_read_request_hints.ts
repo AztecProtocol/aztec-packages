@@ -40,7 +40,10 @@ export class NullifierReadRequestHintsBuilder<PENDING extends number, SETTLED ex
   private numPendingReadHints = 0;
   private numSettledReadHints = 0;
 
-  constructor(public readonly maxPending: PENDING, public readonly maxSettled: SETTLED) {
+  constructor(
+    public readonly maxPending: PENDING,
+    public readonly maxSettled: SETTLED,
+  ) {
     this.hints = new ReadRequestResetHints(
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestStatus.nada),
       makeTuple(maxPending, () => PendingReadHint.nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX)),

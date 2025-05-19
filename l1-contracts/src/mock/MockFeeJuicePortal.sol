@@ -9,6 +9,7 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 contract MockFeeJuicePortal is IFeeJuicePortal {
+  // solhint-disable ordering
   IERC20 public immutable UNDERLYING;
   bytes32 public constant L2_TOKEN_ADDRESS = bytes32(0);
   IRollup public constant ROLLUP = IRollup(address(0));

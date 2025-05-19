@@ -152,6 +152,7 @@ describe('Private Execution test suite', () => {
       argsOfCalls: [hashedArguments],
       authWitnesses: [],
       capsules: [],
+      salt: Fr.random(),
     });
 
     return acirSimulator.run(txRequest, contractAddress, selector, msgSender);
@@ -168,7 +169,7 @@ describe('Private Execution test suite', () => {
     }
     const tree = trees[name];
 
-    await tree.appendLeaves(leaves);
+    tree.appendLeaves(leaves);
 
     // Create a new snapshot.
     const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));

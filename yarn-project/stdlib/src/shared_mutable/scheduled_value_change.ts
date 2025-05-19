@@ -1,7 +1,11 @@
 import { Fr } from '@aztec/foundation/fields';
 
 export class ScheduledValueChange {
-  constructor(public previous: Fr[], public post: Fr[], public blockOfChange: number) {
+  constructor(
+    public previous: Fr[],
+    public post: Fr[],
+    public blockOfChange: number,
+  ) {
     if (this.previous.length !== this.post.length) {
       throw new Error('Previous and post must have the same length');
     }

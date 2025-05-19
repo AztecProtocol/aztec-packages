@@ -36,7 +36,10 @@ import { ExpectedFailureError } from '../util/expected_failure_error.js';
 export class TXEService {
   public oraclesEnabled = true;
 
-  constructor(private logger: Logger, private typedOracle: TypedOracle) {}
+  constructor(
+    private logger: Logger,
+    private typedOracle: TypedOracle,
+  ) {}
 
   static async init(logger: Logger, protocolContracts: ProtocolContract[]) {
     logger.debug(`TXE service initialized`);
@@ -588,14 +591,16 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
+  public async notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    this.typedOracle.notifySetMinRevertibleSideEffectCounter(fromSingle(minRevertibleSideEffectCounter).toNumber());
+    await this.typedOracle.notifySetMinRevertibleSideEffectCounter(
+      fromSingle(minRevertibleSideEffectCounter).toNumber(),
+    );
     return toForeignCallResult([]);
   }
 
