@@ -101,7 +101,6 @@ pub contract AMM {
         // We don't yet know how many tokens the sender will actually supply - that can only be computed during public
         // execution since the amounts supplied must have the same ratio as the live balances. We therefore transfer the
         // maximum amounts here, and prepare partial notes that return the change to the sender (if any).
-        // TODO(#10286): consider merging these two calls
         let refund_token0_partial_note = token0
             .transfer_to_public_and_prepare_private_balance_increase(
                 sender,
@@ -263,7 +262,7 @@ pub contract AMM {
 
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
-        // partial notees.
+        // partial notes.
         AMM::at(context.this_address())
             ._remove_liquidity(
                 config,
@@ -332,7 +331,6 @@ pub contract AMM {
 
         // We transfer the full amount in, since it is an exact amount, and prepare a partial note for the amount out,
         // which will only be known during public execution as it depends on the live balances.
-        // TODO(#10286): consider merging these two calls
         Token::at(token_in)
             .transfer_to_public(sender, context.this_address(), amount_in, nonce)
             .call(&mut context);
@@ -406,12 +404,14 @@ pub contract AMM {
         // Technically the token out note does not need to be partial, since we do know the amount out, but we do want
         // to wait until the swap has been completed before committing the note to the tree to avoid it being spent too
         // early.
-        // TODO(#10286): consider merging these two calls
-        Token::at(token_in)
-            .transfer_to_public(sender, context.this_address(), amount_in_max, nonce)
+        let change_token_in_partial_note = Token::at(token_in)
+            .transfer_to_public_and_prepare_private_balance_increase(
+                sender,
+                context.this_address(),
+                amount_in_max,
+                nonce,
+            )
             .call(&mut context);
-        let change_token_in_partial_note =
-            Token::at(token_in).prepare_private_balance_increase(sender, sender).call(&mut context);
 
         let token_out_partial_note = Token::at(token_out)
             .prepare_private_balance_increase(sender, sender)
