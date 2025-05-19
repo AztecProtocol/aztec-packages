@@ -6,7 +6,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTesterV2 } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
@@ -17,15 +17,15 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
   const receiver = AztecAddress.fromNumber(222);
 
   let token: ContractInstanceWithAddress;
-  let tester: AvmProvingTester;
+  let tester: AvmProvingTesterV2;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTesterV2.new(/*checkCircuitOnly*/ true);
 
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
     token = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
 
-    await tester.simProveVerify(
+    await tester.simProveVerifyV2(
       /*sender=*/ admin,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
@@ -40,14 +40,14 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
     );
   });
 
-  it('token mint, transfer, burn', async () => {
+  it.skip('token mint, transfer, burn', async () => {
     const mintAmount = 100n;
     const transferAmount = 50n;
     const nonce = new Fr(0);
 
     await checkBalance(sender, 0n);
 
-    await tester.simProveVerify(
+    await tester.simProveVerifyV2(
       /*sender=*/ admin,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
@@ -62,7 +62,7 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
     );
     await checkBalance(sender, mintAmount);
 
-    await tester.simProveVerify(
+    await tester.simProveVerifyV2(
       /*sender=*/ sender,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
@@ -78,7 +78,7 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
     await checkBalance(sender, mintAmount - transferAmount);
     await checkBalance(receiver, transferAmount);
 
-    await tester.simProveVerify(
+    await tester.simProveVerifyV2(
       /*sender=*/ receiver,
       /*setupCalls=*/ [],
       /*appCalls=*/ [

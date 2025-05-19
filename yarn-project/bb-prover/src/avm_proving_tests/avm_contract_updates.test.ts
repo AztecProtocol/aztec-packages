@@ -6,7 +6,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { ScheduledDelayChange, ScheduledValueChange, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTesterV2 } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
@@ -19,7 +19,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
   beforeEach(async () => {});
 
   const writeContractUpdate = async (
-    tester: AvmProvingTester,
+    tester: AvmProvingTesterV2,
     contractAddress: AztecAddress,
     previousClassId: Fr,
     nextClassId: Fr,
@@ -44,7 +44,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
+      const tester = await AvmProvingTesterV2.new(/*checkCircuitOnly*/ true, globals);
 
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
@@ -63,7 +63,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
         globals.blockNumber.toNumber(),
       );
 
-      await tester.simProveVerify(
+      await tester.simProveVerifyV2(
         sender,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -82,7 +82,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
+      const tester = await AvmProvingTesterV2.new(/*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
@@ -101,7 +101,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       );
 
       await expect(
-        tester.simProveVerify(
+        tester.simProveVerifyV2(
           sender,
           /*setupCalls=*/ [],
           /*appCalls=*/ [
@@ -122,7 +122,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       const newClassId = new Fr(27);
 
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
+      const tester = await AvmProvingTesterV2.new(/*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
@@ -139,7 +139,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
         globals.blockNumber.toNumber() + 1,
       );
 
-      await tester.simProveVerify(
+      await tester.simProveVerifyV2(
         sender,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -159,7 +159,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       const newClassId = new Fr(27);
 
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
+      const tester = await AvmProvingTesterV2.new(/*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
@@ -177,7 +177,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       );
 
       await expect(
-        tester.simProveVerify(
+        tester.simProveVerifyV2(
           sender,
           /*setupCalls=*/ [],
           /*appCalls=*/ [

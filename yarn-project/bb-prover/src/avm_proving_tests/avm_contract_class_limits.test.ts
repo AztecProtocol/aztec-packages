@@ -4,18 +4,18 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTesterV2 } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
 describe('AVM WitGen & Circuit – check circuit - contract class limits', () => {
   const deployer = AztecAddress.fromNumber(42);
   let instances: ContractInstanceWithAddress[];
-  let tester: AvmProvingTester;
+  let tester: AvmProvingTesterV2;
   let avmTestContractAddress: AztecAddress;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true);
+    tester = await AvmProvingTesterV2.new(/*checkCircuitOnly=*/ true);
     // create enough unique contract classes to hit the limit
     instances = [];
     for (let i = 0; i <= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {
@@ -50,7 +50,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
       // add it to the contract data source so it is found
       await tester.addContractInstance(instanceSameClassAsFirstContract);
 
-      await tester.simProveVerifyAppLogic(
+      await tester.simProveVerifyAppLogicV2(
         {
           address: avmTestContractAddress,
           fnName: 'nested_call_to_add_n_times_different_addresses',
@@ -69,7 +69,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
       const instanceAddresses = instances.map(instance => instance.address);
       // push an empty one (just padding to match function calldata size of MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+2)
       instanceAddresses.push(AztecAddress.zero());
-      await tester.simProveVerifyAppLogic(
+      await tester.simProveVerifyAppLogicV2(
         {
           address: avmTestContractAddress,
           fnName: 'nested_call_to_add_n_times_different_addresses',

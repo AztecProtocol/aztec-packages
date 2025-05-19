@@ -49,8 +49,6 @@ export type BBFailure = {
 
 export type BBResult = BBSuccess | BBFailure;
 
-export type VerificationFunction = typeof verifyProof | typeof verifyAvmProof;
-
 type BBExecResult = {
   status: BB_RESULT;
   exitCode: number;
@@ -354,7 +352,8 @@ export async function generateTubeProof(
  * @param pathToBB - The full path to the bb binary
  * @param workingDirectory - A working directory for use by bb
  * @param input - The inputs for the public function to be proven
- * @param log - A logging function
+ * @param logger - A logging function
+ * @param checkCircuitOnly - A boolean to toggle a "check-circuit only" operation instead of proving.
  * @returns An object containing a result indication, the location of the proof and the duration taken
  */
 export async function generateAvmProofV2(
@@ -362,6 +361,7 @@ export async function generateAvmProofV2(
   workingDirectory: string,
   input: AvmCircuitInputs,
   logger: Logger,
+  checkCircuitOnly: boolean = false,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -401,99 +401,12 @@ export async function generateAvmProofV2(
       args.push(loggingArg);
     }
     const timer = new Timer();
-    const logFunction = (message: string) => {
-      logger.verbose(`AvmCircuit (prove) BB out - ${message}`);
-    };
-    const result = await executeBB(pathToBB, 'avm2_prove', args, logFunction);
-    const duration = timer.ms();
 
-    if (result.status == BB_RESULT.SUCCESS) {
-      return {
-        status: BB_RESULT.SUCCESS,
-        durationMs: duration,
-        proofPath: join(outputPath, PROOF_FILENAME),
-        pkPath: undefined,
-        vkDirectoryPath: outputPath,
-      };
-    }
-    // Not a great error message here but it is difficult to decipher what comes from bb
-    return {
-      status: BB_RESULT.FAILURE,
-      reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-      retry: !!result.signal,
-    };
-  } catch (error) {
-    return { status: BB_RESULT.FAILURE, reason: `${error}` };
-  }
-}
-
-/**
- * Used for generating AVM proofs (or doing check-circuit).
- * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
- * @param pathToBB - The full path to the bb binary
- * @param workingDirectory - A working directory for use by bb
- * @param bytecode - The AVM bytecode for the public function to be proven (expected to be decompressed)
- * @param log - A logging function
- * @returns An object containing a result indication, the location of the proof and the duration taken
- */
-export async function generateAvmProof(
-  pathToBB: string,
-  workingDirectory: string,
-  _input: AvmCircuitInputs,
-  logger: Logger,
-  checkCircuitOnly: boolean = false,
-): Promise<BBFailure | BBSuccess> {
-  // Check that the working directory exists
-  try {
-    await fs.access(workingDirectory);
-  } catch {
-    return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
-  }
-
-  // Paths for the inputs
-  const publicInputsPath = join(workingDirectory, AVM_PUBLIC_INPUTS_FILENAME);
-
-  // The proof is written to e.g. /workingDirectory/proof
-  const outputPath = workingDirectory;
-
-  const filePresent = async (file: string) =>
-    await fs
-      .access(file, fs.constants.R_OK)
-      .then(_ => true)
-      .catch(_ => false);
-
-  const binaryPresent = await filePresent(pathToBB);
-  if (!binaryPresent) {
-    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-  }
-
-  try {
-    // Write the inputs to the working directory.
-
-    // WARNING: Not writing the inputs since VM1 is disabled!
-    // await fs.writeFile(publicInputsPath, input.publicInputs.toBuffer());
-    // if (!(await filePresent(publicInputsPath))) {
-    //   return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
-    // }
-
-    // await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
-    // if (!(await filePresent(avmHintsPath))) {
-    //   return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
-    // }
-
-    const args = ['--avm-public-inputs', publicInputsPath, '-o', outputPath];
-    const loggingArg =
-      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
-    if (loggingArg !== '') {
-      args.push(loggingArg);
-    }
-
-    const timer = new Timer();
-    const cmd = checkCircuitOnly ? 'check_circuit' : 'prove';
+    const cmd = checkCircuitOnly ? 'avm2_check_circuit' : 'avm2_prove';
     const logFunction = (message: string) => {
       logger.verbose(`AvmCircuit (${cmd}) BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, `avm_${cmd}`, args, logFunction);
+    const result = await executeBB(pathToBB, cmd, args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -539,23 +452,6 @@ export async function verifyProof(
     log,
     getArgs(ultraHonkFlavor),
   );
-}
-
-/**
- * Used for verifying proofs of the AVM
- * @param pathToBB - The full path to the bb binary
- * @param proofFullPath - The full path to the proof to be verified
- * @param verificationKeyPath - The full path to the circuit verification key
- * @param log - A logging function
- * @returns An object containing a result indication and duration taken
- */
-export async function verifyAvmProof(
-  pathToBB: string,
-  proofFullPath: string,
-  verificationKeyPath: string,
-  logger: Logger,
-): Promise<BBFailure | BBSuccess> {
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'avm_verify', logger);
 }
 
 export async function verifyAvmProofV2(
@@ -633,7 +529,7 @@ export async function verifyClientIvcProof(
  * @param pathToBB - The full path to the bb binary
  * @param proofFullPath - The full path to the proof to be verified
  * @param verificationKeyPath - The full path to the circuit verification key
- * @param command - The BB command to execute (verify/avm_verify)
+ * @param command - The BB command to execute (verify/avm2_verify)
  * @param log - A logging function
  * @returns An object containing a result indication and duration taken
  */
@@ -641,7 +537,7 @@ async function verifyProofInternal(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
-  command: 'verify' | 'avm_verify' | 'avm2_verify',
+  command: 'verify' | 'avm2_verify',
   logger: Logger,
   extraArgs: string[] = [],
 ): Promise<BBFailure | BBSuccess> {

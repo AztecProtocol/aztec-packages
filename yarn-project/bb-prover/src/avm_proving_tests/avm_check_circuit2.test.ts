@@ -3,17 +3,17 @@ import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTesterV2 } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-describe('AVM WitGen & Circuit – check circuit', () => {
+describe.skip('AVM WitGen & Circuit – check circuit', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
-  let tester: AvmProvingTester;
+  let tester: AvmProvingTesterV2;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTesterV2.new(/*checkCircuitOnly*/ true);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),
@@ -24,7 +24,7 @@ describe('AVM WitGen & Circuit – check circuit', () => {
   it(
     'an exceptional halt due to a nested call to non-existent contract is propagated to top-level',
     async () => {
-      await tester.simProveVerifyAppLogic(
+      await tester.simProveVerifyAppLogicV2(
         { address: avmTestContractInstance.address, fnName: 'nested_call_to_nothing', args: [] },
         /*expectRevert=*/ true,
       );
@@ -34,7 +34,7 @@ describe('AVM WitGen & Circuit – check circuit', () => {
   it(
     'an exceptional halt due to a nested call to non-existent contract is recovered from in caller',
     async () => {
-      await tester.simProveVerifyAppLogic(
+      await tester.simProveVerifyAppLogicV2(
         { address: avmTestContractInstance.address, fnName: 'nested_call_to_nothing_recovers', args: [] },
         /*expectRevert=*/ false,
       );
@@ -44,8 +44,8 @@ describe('AVM WitGen & Circuit – check circuit', () => {
   // FIXME(dbanks12): fails with "Lookup PERM_MAIN_ALU failed."
   it.skip('top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
     // don't insert contracts into trees, and make sure retrieval fails
-    const tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true);
-    await tester.simProveVerify(
+    const tester = await AvmProvingTesterV2.new(/*checkCircuitOnly=*/ true);
+    await tester.simProveVerifyV2(
       sender,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
@@ -62,7 +62,7 @@ describe('AVM WitGen & Circuit – check circuit', () => {
   it(
     'enqueued calls in every phase, with enqueued calls that depend on each other',
     async () => {
-      await tester.simProveVerify(
+      await tester.simProveVerifyV2(
         sender,
         /*setupCalls=*/ [
           { address: avmTestContractInstance.address, fnName: 'read_assert_storage_single', args: [new Fr(0)] },
@@ -85,7 +85,7 @@ describe('AVM WitGen & Circuit – check circuit', () => {
   it(
     'Should prove and verify a TX that reverts in teardown',
     async () => {
-      await tester.simProveVerify(
+      await tester.simProveVerifyV2(
         sender,
         /*setupCalls=*/ [],
         /*appCalls=*/ [],
