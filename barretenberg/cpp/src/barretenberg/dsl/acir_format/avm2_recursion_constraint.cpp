@@ -81,6 +81,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
+    // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
     // TODO(#14234)[Unconditional PIs validation]: Remove next line and use offset == 0 for subsequent line.
     builder.assert_equal(builder.add_variable(1), proof_fields[0].witness_index);
     builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[1].witness_index);
