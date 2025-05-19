@@ -38,6 +38,11 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5
+
       - name: Configure Git
         run: |
           git config --global user.name AztecBot
