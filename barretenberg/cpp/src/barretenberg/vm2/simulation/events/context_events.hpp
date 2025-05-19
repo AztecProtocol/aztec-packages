@@ -28,10 +28,11 @@ struct ContextEvent {
     bool last_child_success;
 
     // Gas
-    // uint32_t l2_gas_used;
-    // uint32_t l2_gas_limit;
-    // uint32_t da_gas_used;
-    // uint32_t da_gas_limit;
+    Gas gas_used;
+    Gas gas_limit;
+
+    Gas parent_gas_used;
+    Gas parent_gas_limit;
 
     // Tree State
     // TreeSnapshots tree_state;
@@ -52,10 +53,8 @@ struct ContextStackEvent {
     uint32_t parent_cd_size_addr;
 
     // Gas
-    // uint32_t l2_gas_used;
-    // uint32_t l2_gas_limit;
-    // uint32_t da_gas_used;
-    // uint32_t da_gas_limit;
+    Gas parent_gas_used;
+    Gas parent_gas_limit;
 
     // Tree State
     // TreeSnapshots tree_state;

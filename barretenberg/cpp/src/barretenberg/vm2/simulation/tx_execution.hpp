@@ -20,7 +20,9 @@ class TxExecution final {
     std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
                                                             AztecAddress msg_sender,
                                                             std::span<const FF> calldata,
-                                                            bool is_static);
+                                                            bool is_static,
+                                                            Gas gas_limit,
+                                                            Gas gas_used);
 
   private:
     ExecutionInterface& call_execution;

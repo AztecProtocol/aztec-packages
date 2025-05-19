@@ -56,6 +56,10 @@ class ContextInterface {
     virtual bool get_last_success() const = 0;
     virtual void set_last_success(bool success) = 0;
 
+    virtual Gas get_gas_used() const = 0;
+    virtual Gas get_gas_limit() const = 0;
+    virtual void set_gas_used(Gas gas_used) = 0;
+
     // Events
     virtual ContextEvent serialize_context_event() = 0;
 };
@@ -67,12 +71,16 @@ class BaseContext : public ContextInterface {
                 AztecAddress address,
                 AztecAddress msg_sender,
                 bool is_static,
+                Gas gas_limit,
+                Gas gas_used,
                 std::unique_ptr<BytecodeManagerInterface> bytecode,
                 std::unique_ptr<MemoryInterface> memory)
         : address(address)
         , msg_sender(msg_sender)
         , is_static(is_static)
         , context_id(context_id)
+        , gas_used(gas_used)
+        , gas_limit(gas_limit)
         , bytecode(std::move(bytecode))
         , memory(std::move(memory))
     {}
@@ -110,6 +118,11 @@ class BaseContext : public ContextInterface {
     bool get_last_success() const override { return last_child_success; }
     void set_last_success(bool success) override { last_child_success = success; }
 
+    Gas get_gas_used() const override { return gas_used; }
+    Gas get_gas_limit() const override { return gas_limit; }
+
+    void set_gas_used(Gas gas_used) override { this->gas_used = gas_used; }
+
     // Input / Output
     std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) override
     {
@@ -140,6 +153,8 @@ class BaseContext : public ContextInterface {
     uint32_t pc = 0;
     uint32_t next_pc = 0;
     bool has_halted = false;
+    Gas gas_used;
+    Gas gas_limit;
     std::unique_ptr<BytecodeManagerInterface> bytecode;
     std::unique_ptr<MemoryInterface> memory;
 
@@ -157,10 +172,13 @@ class EnqueuedCallContext : public BaseContext {
                         AztecAddress address,
                         AztecAddress msg_sender,
                         bool is_static,
+                        Gas gas_limit,
+                        Gas gas_used,
                         std::unique_ptr<BytecodeManagerInterface> bytecode,
                         std::unique_ptr<MemoryInterface> memory,
                         std::span<const FF> calldata)
-        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
+        : BaseContext(
+              context_id, address, msg_sender, is_static, gas_limit, gas_used, std::move(bytecode), std::move(memory))
         , calldata(calldata.begin(), calldata.end())
     {}
 
@@ -181,6 +199,8 @@ class EnqueuedCallContext : public BaseContext {
             .last_child_rd_addr = get_last_rd_offset(),
             .last_child_rd_size_addr = get_last_rd_size(),
             .last_child_success = get_last_success(),
+            .gas_used = get_gas_used(),
+            .gas_limit = get_gas_limit(),
         };
     };
 
@@ -211,19 +231,30 @@ class NestedContext : public BaseContext {
                   AztecAddress address,
                   AztecAddress msg_sender,
                   bool is_static,
+                  Gas gas_limit,
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
                   std::unique_ptr<MemoryInterface> memory,
                   ContextInterface& parent_context,
                   MemoryAddress cd_offset_address, /* This is a direct mem address */
                   MemoryAddress cd_size_address    /* This is a direct mem address */
                   )
-        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
+        : BaseContext(context_id,
+                      address,
+                      msg_sender,
+                      is_static,
+                      gas_limit,
+                      Gas{ 0, 0 },
+                      std::move(bytecode),
+                      std::move(memory))
         , parent_cd_offset(cd_offset_address)
         , parent_cd_size(cd_size_address)
         , parent_context(parent_context)
     {}
 
     uint32_t get_parent_id() const override { return parent_context.get_context_id(); }
+
+    Gas get_parent_gas_used() const { return parent_context.get_gas_used(); }
+    Gas get_parent_gas_limit() const { return parent_context.get_gas_limit(); }
 
     // Event Emitting
     ContextEvent serialize_context_event() override
@@ -241,6 +272,10 @@ class NestedContext : public BaseContext {
             .last_child_rd_addr = get_last_rd_offset(),
             .last_child_rd_size_addr = get_last_rd_size(),
             .last_child_success = get_last_success(),
+            .gas_used = get_gas_used(),
+            .gas_limit = get_gas_limit(),
+            .parent_gas_used = get_parent_gas_used(),
+            .parent_gas_limit = get_parent_gas_limit(),
         };
     };
 

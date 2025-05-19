@@ -1,10 +1,18 @@
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include <algorithm>
 
 namespace bb::avm2::simulation {
 
 void TxExecution::simulate(const Tx& tx)
 {
+    Gas tx_gas_limit = tx.gasSettings.gasLimits;
+    Gas gas_used = tx.gasUsedByPrivate;
+
+    // TODO: Move the max l2 gas per tx public portion to the private tail to public.
+    Gas gas_limit =
+        Gas{ std::min(tx_gas_limit.l2Gas, gas_used.l2Gas + MAX_L2_GAS_PER_TX_PUBLIC_PORTION), tx_gas_limit.daGas };
+
     info("Simulating tx ",
          tx.hash,
          " with ",
@@ -23,8 +31,10 @@ void TxExecution::simulate(const Tx& tx)
     // Setup.
     for (const auto& call : tx.setupEnqueuedCalls) {
         info("[SETUP] Executing enqueued call to ", call.contractAddress);
-        auto context = make_enqueued_context(call.contractAddress, call.msgSender, call.calldata, call.isStaticCall);
+        auto context = make_enqueued_context(
+            call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
         call_execution.execute(*context);
+        gas_used = context->get_gas_used();
     }
 
     // Insert revertibles.
@@ -33,8 +43,10 @@ void TxExecution::simulate(const Tx& tx)
     // App logic.
     for (const auto& call : tx.appLogicEnqueuedCalls) {
         info("[APP_LOGIC] Executing enqueued call to ", call.contractAddress);
-        auto context = make_enqueued_context(call.contractAddress, call.msgSender, call.calldata, call.isStaticCall);
+        auto context = make_enqueued_context(
+            call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
         call_execution.execute(*context);
+        gas_used = context->get_gas_used();
     }
 
     // Teardown.
@@ -43,7 +55,9 @@ void TxExecution::simulate(const Tx& tx)
         auto context = make_enqueued_context(tx.teardownEnqueuedCall->contractAddress,
                                              tx.teardownEnqueuedCall->msgSender,
                                              tx.teardownEnqueuedCall->calldata,
-                                             tx.teardownEnqueuedCall->isStaticCall);
+                                             tx.teardownEnqueuedCall->isStaticCall,
+                                             tx.gasSettings.teardownGasLimits,
+                                             Gas{ 0, 0 });
         call_execution.execute(*context);
     }
 }
@@ -52,10 +66,12 @@ void TxExecution::simulate(const Tx& tx)
 std::unique_ptr<ContextInterface> TxExecution::make_enqueued_context(AztecAddress address,
                                                                      AztecAddress msg_sender,
                                                                      std::span<const FF> calldata,
-                                                                     bool is_static)
+                                                                     bool is_static,
+                                                                     Gas gas_limit,
+                                                                     Gas gas_used)
 {
     auto& execution_provider = call_execution.get_provider();
-    return execution_provider.make_enqueued_context(address, msg_sender, calldata, is_static);
+    return execution_provider.make_enqueued_context(address, msg_sender, calldata, is_static, gas_limit, gas_used);
 }
 
 void TxExecution::insert_non_revertibles(const Tx& tx)

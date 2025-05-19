@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
+#include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
@@ -33,6 +34,7 @@ struct ExecutionEvent {
     // Sub-events.
     AddressingEvent addressing_event;
     ContextEvent context_event;
+    GasEvent gas_event;
 
     // Not thread safe.
     static ExecutionEvent allocate()

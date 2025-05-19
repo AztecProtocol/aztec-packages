@@ -27,12 +27,15 @@ class ExecutionComponentsProviderInterface {
                                                                   ContextInterface& parent_context,
                                                                   MemoryAddress cd_offset_addr,
                                                                   MemoryAddress cd_size_addr,
-                                                                  bool is_static) = 0;
+                                                                  bool is_static,
+                                                                  Gas gas_limit) = 0;
 
     virtual std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
                                                                     AztecAddress msg_sender,
                                                                     std::span<const FF> calldata,
-                                                                    bool is_static) = 0;
+                                                                    bool is_static,
+                                                                    Gas gas_limit,
+                                                                    Gas gas_used) = 0;
 
     virtual std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) = 0;
 
@@ -56,11 +59,14 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
                                                           ContextInterface& parent_context,
                                                           uint32_t cd_offset_addr,
                                                           uint32_t cd_size_addr,
-                                                          bool is_static) override;
+                                                          bool is_static,
+                                                          Gas gas_limit) override;
     std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
                                                             AztecAddress msg_sender,
                                                             std::span<const FF> calldata,
-                                                            bool is_static) override;
+                                                            bool is_static,
+                                                            Gas gas_limit,
+                                                            Gas gas_used) override;
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
 
     uint32_t get_next_context_id() override { return next_context_id; }

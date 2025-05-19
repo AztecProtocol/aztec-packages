@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/gas_tracker.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -62,12 +63,14 @@ void Execution::call(ContextInterface& context,
     const auto& contract_address = memory.get(addr);
 
     // Cd size and cd offset loads are deferred to (possible) calldatacopy
-    auto nested_context = execution_components.make_nested_context(contract_address,
-                                                                   /*msg_sender=*/context.get_address(),
-                                                                   /*parent_context=*/context,
-                                                                   /*cd_offset_addr=*/cd_offset,
-                                                                   /*cd_size_addr=*/cd_size,
-                                                                   /*is_static=*/false);
+    auto nested_context = execution_components.make_nested_context(
+        contract_address,
+        /*msg_sender=*/context.get_address(),
+        /*parent_context=*/context,
+        /*cd_offset_addr=*/cd_offset,
+        /*cd_size_addr=*/cd_size,
+        /*is_static=*/false,
+        /*gas_limit=*/Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
 
     // We recurse. When we return, we'll continue with the current loop and emit the execution event.
     // That event will be out of order, but it will have the right order id. It should be sorted in tracegen.
@@ -142,8 +145,13 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             ExecutionOpCode opcode = wire_spec.exec_opcode;
             ex_event.opcode = opcode;
 
-            // Resolve the operands.
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
+
+            GasTracker gas_tracker(instruction_info_db, *addressing, context, instruction);
+
+            gas_tracker.consumeBaseGas();
+
+            // Resolve the operands.
 
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
             ex_event.resolved_operands = resolved_operands;
@@ -159,6 +167,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
             ex_event.inputs = get_inputs();
             ex_event.output = get_output();
+            ex_event.gas_event = gas_tracker.finish();
 
             // Move on to the next pc.
             context.set_pc(context.get_next_pc());

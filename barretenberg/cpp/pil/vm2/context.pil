@@ -30,6 +30,17 @@ namespace execution;
     pol commit last_child_returndata_size_addr;
     pol commit last_child_success; // Careful with this for now...
 
+    // ==== Gas ====
+    pol commit l2_gas_limit;
+    pol commit da_gas_limit;
+    pol commit l2_gas_used;
+    pol commit da_gas_used;
+
+    pol commit parent_l2_gas_limit;
+    pol commit parent_da_gas_limit;
+    pol commit parent_l2_gas_used;
+    pol commit parent_da_gas_used;
+
     // ==== Helper columns ====
     // TODO: These context modifiers also need to factor in when a new enqueued call occurs
     // REPLACE prefixed precomputed.first_row in relations with actual phase / enqueued call change
@@ -57,7 +68,7 @@ namespace execution;
     NOT_FIRST * sel' * (pc' - ((1 - CALL) * next_pc)) = 0;
 
     // CALL = 1 <==> msg_sender' = contract_address
-    // CALL = 0 <==> msg_sender' = msg_sender 
+    // CALL = 0 <==> msg_sender' = msg_sender
     #[NEXT_MSG_SENDER]
     NOT_FIRST * sel' * ((contract_address - msg_sender) * CALL + msg_sender - msg_sender') = 0;
 

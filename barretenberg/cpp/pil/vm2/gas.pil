@@ -1,40 +1,34 @@
 // This is a virtual gadget, which is part of the execution trace.
 namespace execution;
-    pol commit l2_gas_limit;
-    pol commit da_gas_limit;
-
-    pol commit l2_gas_used;
-    pol commit da_gas_used;
-
+    pol commit opcode_gas;
+    pol commit addressing_gas;
     pol commit l2_base_gas;
     pol commit da_base_gas;
 
-    pol commit l2_dynamic_gas_multiplier;
-    pol commit da_dynamic_gas_multiplier;
+    pol commit l2_dynamic_gas_factor;
+    pol commit da_dynamic_gas_factor;
+    pol commit l2_dynamic_gas;
+    pol commit da_dynamic_gas;
 
 
-    pol commit out_of_l2_gas_base;
-    out_of_l2_gas_base * (1 - out_of_l2_gas_base) = 0;
+    pol commit out_of_gas_l2_base;
+    out_of_gas_l2_base * (1 - out_of_gas_l2_base) = 0;
 
-    pol commit out_of_da_gas_base;
-    out_of_da_gas_base * (1 - out_of_da_gas_base) = 0;
+    pol commit out_of_gas_da_base;
+    out_of_gas_da_base * (1 - out_of_gas_da_base) = 0;
 
-    // out_of_gas_base = out_of_l2_gas_base OR out_of_da_gas_base
+    // out_of_gas_base = out_of_gas_l2_base OR out_of_gas_da_base
     pol commit out_of_gas_base;
-    (1 - out_of_l2_gas_base) * (1 - out_of_da_gas_base) - (1 - out_of_gas_base) = 0;
+    (1 - out_of_gas_l2_base) * (1 - out_of_gas_da_base) - (1 - out_of_gas_base) = 0;
 
-    // We need to range check this to 32 bits to be able to compare against the limit.
-    pol commit l2_dynamic_gas_used;
-    pol commit out_of_l2_gas_dynamic;
-    out_of_l2_gas_dynamic * (1 - out_of_l2_gas_dynamic) = 0;
+    pol commit out_of_gas_l2_dynamic;
+    out_of_gas_l2_dynamic * (1 - out_of_gas_l2_dynamic) = 0;
 
-    // We need to range check this to 32 bits to be able to compare against the limit.
-    pol commit da_dynamic_gas_used;
-    pol commit out_of_da_gas_dynamic;
-    out_of_da_gas_dynamic * (1 - out_of_da_gas_dynamic) = 0;
+    pol commit out_of_gas_da_dynamic;
+    out_of_gas_da_dynamic * (1 - out_of_gas_da_dynamic) = 0;
 
-    // out_of_gas_dynamic = out_of_l2_gas_dynamic OR out_of_da_gas_dynamic
+    // out_of_gas_dynamic = out_of_gas_l2_dynamic OR out_of_gas_da_dynamic
     pol commit out_of_gas_dynamic;
-    (1 - out_of_l2_gas_dynamic) * (1 - out_of_da_gas_dynamic) - (1 - out_of_gas_dynamic) = 0;
+    (1 - out_of_gas_l2_dynamic) * (1 - out_of_gas_da_dynamic) - (1 - out_of_gas_dynamic) = 0;
 
 
