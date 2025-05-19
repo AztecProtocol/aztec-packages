@@ -250,7 +250,7 @@ export function mapBlobPublicInputsToNoir(blobPublicInputs: BlobPublicInputs): B
   return {
     z: mapFieldToNoir(blobPublicInputs.z),
     y: mapBLS12BigNumToNoir(blobPublicInputs.y),
-    // eslint-disable-next-line camelcase
+
     kzg_commitment: mapBlobCommitmentToNoir(blobPublicInputs.kzgCommitment),
   };
 }

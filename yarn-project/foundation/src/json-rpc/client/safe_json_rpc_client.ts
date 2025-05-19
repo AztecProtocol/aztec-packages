@@ -164,6 +164,7 @@ export function createSafeJsonRpcClient<T extends object>(
     queue.push({ request: body, deferred });
 
     if (sendBatchTimeoutHandle === undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
       sendBatchTimeoutHandle = setTimeout(sendBatch as any, batchWindowMS);
     }
 
