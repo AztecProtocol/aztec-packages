@@ -284,7 +284,7 @@ pub contract Token {
         ));
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
 
-        // We prepare the private balance increase (the partial note).
+        // We prepare the private balance increase (the partial note for the change).
         _prepare_private_balance_increase(from, from, &mut context, storage)
     }
 
