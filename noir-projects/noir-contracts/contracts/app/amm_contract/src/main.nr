@@ -102,17 +102,23 @@ pub contract AMM {
         // execution since the amounts supplied must have the same ratio as the live balances. We therefore transfer the
         // maximum amounts here, and prepare partial notes that return the change to the sender (if any).
         // TODO(#10286): consider merging these two calls
-        token0.transfer_to_public(sender, context.this_address(), amount0_max, nonce).call(
-            &mut context,
-        );
-        let refund_token0_partial_note =
-            token0.prepare_private_balance_increase(sender, sender).call(&mut context);
+        let refund_token0_partial_note = token0
+            .transfer_to_public_and_prepare_private_balance_increase(
+                sender,
+                context.this_address(),
+                amount0_max,
+                nonce,
+            )
+            .call(&mut context);
 
-        token1.transfer_to_public(sender, context.this_address(), amount1_max, nonce).call(
-            &mut context,
-        );
-        let refund_token1_partial_note =
-            token1.prepare_private_balance_increase(sender, sender).call(&mut context);
+        let refund_token1_partial_note = token1
+            .transfer_to_public_and_prepare_private_balance_increase(
+                sender,
+                context.this_address(),
+                amount1_max,
+                nonce,
+            )
+            .call(&mut context);
 
         // The number of liquidity tokens to mint for the caller depends on both the live balances and the amount
         // supplied, both of which can only be known during public execution. We therefore prepare a partial note that
