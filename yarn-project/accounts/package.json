@@ -99,6 +99,6 @@
     "artifacts"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=20.10"
   }
 }
