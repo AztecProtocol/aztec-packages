@@ -5,6 +5,7 @@ import {IStaking, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 
 import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
 
@@ -38,14 +39,17 @@ interface IStakingAssetHandler {
   event IntervalUpdated(uint256 _interval);
   event DepositsPerMintUpdated(uint256 _depositsPerMint);
   event WithdrawerUpdated(address indexed _withdrawer);
+  event VerifierUpdated(address indexed _verifier);
 
   event UnhingedAdded(address indexed _address);
   event UnhingedRemoved(address indexed _address);
 
   error CannotMintZeroAmount();
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
+  error InvalidProof();
+  error SybilDetected(uint256 _nullifier);
 
-  function addValidator(address _attester, address _proposer) external;
+  function addValidator(address _attester, address _proposer, bytes calldata _proof, bytes32[] calldata _publicInputs) external;
   function setMintInterval(uint256 _interval) external;
   function setDepositsPerMint(uint256 _depositsPerMint) external;
   function setWithdrawer(address _withdrawer) external;
@@ -64,12 +68,14 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   IRegistry public immutable REGISTRY;
 
   mapping(address => bool) public isUnhinged;
+  mapping(bytes32 => bool) public nullifiers;
 
   uint256 public lastMintTimestamp;
   uint256 public mintInterval;
   uint256 public depositsPerMint;
 
   address public withdrawer;
+  IVerifier public verifier;
 
   Queue private entryQueue;
 
@@ -80,6 +86,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     address _withdrawer,
     uint256 _mintInterval,
     uint256 _depositsPerMint,
+    IVerifier _verifier,
     address[] memory _unhinged
   ) Ownable(_owner) {
     require(_depositsPerMint > 0, CannotMintZeroAmount());
@@ -103,6 +110,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     isUnhinged[_owner] = true;
     emit UnhingedAdded(_owner);
 
+    verifier = _verifier;
+    emit VerifierUpdated(address(_verifier));
+
     entryQueue.init();
   }
 
@@ -112,7 +122,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _attester - the validator's attester address
    * @param _proposer - the validator's proposer address
    */
-  function addValidator(address _attester, address _proposer)
+  function addValidator(address _attester, address _proposer, bytes calldata _proof, bytes32[] calldata _publicInputs)
     external
     override(IStakingAssetHandler)
   {
@@ -126,9 +136,23 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
       _triggerDeposit(rollup, depositAmount, _attester, _proposer);
     } else {
-      entryQueue.enqueue(_attester, _proposer);
-      emit AddedToQueue(_attester, _proposer);
+      _validateNewValidator(_attester, _proposer, _proof, _publicInputs);
     }
+  }
+
+  function _validateNewValidator(address _attester, address _proposer, bytes calldata _proof, bytes32[] calldata _publicInputs) internal {
+    require(verifier.verify(_proof, _publicInputs), InvalidProof());
+
+    // Check if nullifier is already used
+    bytes32 nullifier = _publicInputs[0]; // TODO: get real nullifier index
+    require(!nullifiers[nullifier], SybilDetected(nullifier));
+
+    // Set nullifier to consumed
+    nullifiers[nullifier] = true;
+
+    // Add validator into the entry queue
+    entryQueue.enqueue(_attester, _proposer);
+    emit AddedToQueue(_attester, _proposer);
   }
 
   function dripQueue() external override(IStakingAssetHandler) {
