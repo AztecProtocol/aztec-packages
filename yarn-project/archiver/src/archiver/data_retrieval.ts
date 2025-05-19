@@ -1,13 +1,19 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import type { EpochProofPublicInputArgs, ViemClient, ViemPublicClient } from '@aztec/ethereum';
+import type {
+  EpochProofPublicInputArgs,
+  ViemClient,
+  ViemCommitteeAttestation,
+  ViemPublicClient,
+} from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, CommitteeAttestation, L2Block, type ViemCommitteeAttestation } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import { Proof } from '@aztec/stdlib/proofs';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
 
