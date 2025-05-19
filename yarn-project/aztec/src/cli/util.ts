@@ -246,7 +246,7 @@ export async function preloadCrsDataForServerSideProving(
 export async function setupUpdateMonitor(
   autoUpdateMode: SharedNodeConfig['autoUpdate'],
   updatesLocation: URL,
-  rollupVersion: number | 'canonical',
+  followsCanonicalRollup: boolean,
   publicClient: ViemClient,
   registryContractAddress: EthAddress,
   signalHandlers: Array<() => Promise<void>>,
@@ -254,25 +254,29 @@ export async function setupUpdateMonitor(
 ) {
   const logger = createLogger('update-check');
   const checker = await UpdateChecker.new({
-    rollupVersion,
     baseURL: updatesLocation,
     publicClient,
     registryContractAddress,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  checker.on('newRollup', async ({ latestRollup, currentRollup }) => {
-    if (autoUpdateMode === 'enabled') {
-      logger.info(`New rollup detected. Please restart the node`, { latestRollup, currentRollup });
+  checker.on('newRollupVersion', async ({ latestVersion, currentVersion }) => {
+    // if node follows canonical rollup then this is equivalent to a config update
+    if (!followsCanonicalRollup) {
+      return;
+    }
+
+    if (autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') {
+      logger.info(`New rollup version detected. Please restart the node`, { latestVersion, currentVersion });
       await shutdown(logger.info, signalHandlers);
     } else if (autoUpdateMode === 'notify') {
-      logger.warn(`New rollup detected. Please restart the node`, { latestRollup, currentRollup });
+      logger.warn(`New rollup detected. Please restart the node`, { latestVersion, currentVersion });
     }
   });
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  checker.on('newVersion', async ({ latestVersion, currentVersion }) => {
-    if (autoUpdateMode === 'enabled') {
+  checker.on('newNodeVersion', async ({ latestVersion, currentVersion }) => {
+    if (autoUpdateMode === 'config-and-version') {
       logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
       await shutdown(logger.info, signalHandlers);
     } else if (autoUpdateMode === 'notify') {
@@ -281,8 +285,8 @@ export async function setupUpdateMonitor(
   });
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  checker.on('updateConfig', async config => {
-    if (autoUpdateMode === 'enabled' && updateNodeConfig) {
+  checker.on('updateNodeConfig', async config => {
+    if ((autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') && updateNodeConfig) {
       logger.warn(`Config change detected. Updating node`, config);
       await updateNodeConfig(config);
     }
