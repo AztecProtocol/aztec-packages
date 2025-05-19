@@ -29,7 +29,7 @@ export const DEFAULT_RATE_LIMITS: ReqRespSubProtocolRateLimits = {
     },
     globalLimit: {
       quotaTimeMs: 1000,
-      quotaCount: 20,
+      quotaCount: 200,
     },
   },
   [ReqRespSubProtocol.BLOCK]: {

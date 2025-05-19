@@ -33,6 +33,7 @@ import type { P2PReqRespConfig } from '../services/reqresp/config.js';
 import {
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
+  type ReqRespSubProtocolRateLimits,
   type ReqRespSubProtocolValidators,
   noopValidator,
 } from '../services/reqresp/interface.js';
@@ -172,8 +173,12 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
  */
-export const createNodes = (peerScoring: PeerScoring, numberOfNodes: number): Promise<ReqRespNode[]> => {
-  return timesParallel(numberOfNodes, () => createReqResp(peerScoring));
+export const createNodes = (
+  peerScoring: PeerScoring,
+  numberOfNodes: number,
+  rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
+): Promise<ReqRespNode[]> => {
+  return timesParallel(numberOfNodes, () => createReqResp(peerScoring, rateLimits));
 };
 
 export const startNodes = async (
@@ -192,17 +197,17 @@ export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
 };
 
 // Create a req resp node, exposing the underlying p2p node
-export const createReqResp = async (peerScoring: PeerScoring): Promise<ReqRespNode> => {
+export const createReqResp = async (
+  peerScoring: PeerScoring,
+  rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
+): Promise<ReqRespNode> => {
   const p2p = await createLibp2pNode();
   const config: P2PReqRespConfig = {
     overallRequestTimeoutMs: 4000,
     individualRequestTimeoutMs: 2000,
   };
-  const req = new ReqResp(config, p2p, peerScoring);
-  return {
-    p2p,
-    req,
-  };
+  const req = new ReqResp(config, p2p, peerScoring, rateLimits);
+  return { p2p, req };
 };
 
 // Given a node list; hand shake all of the nodes with each other
