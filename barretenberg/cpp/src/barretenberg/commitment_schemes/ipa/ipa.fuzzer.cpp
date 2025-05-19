@@ -6,7 +6,6 @@
 
 #define IPA_FUZZ_TEST
 #include "ipa.hpp"
-#include "./mock_transcript.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
