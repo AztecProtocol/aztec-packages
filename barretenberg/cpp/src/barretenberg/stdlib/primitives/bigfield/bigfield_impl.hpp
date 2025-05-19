@@ -2071,25 +2071,10 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     r1 = r1.normalize();
     r2 = r2.normalize();
     r3 = r3.normalize();
-    if constexpr (HasPlookup<Builder>) {
-        context->decompose_into_default_range(r0.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r1.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r2.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r3.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
-    } else {
-        context->decompose_into_base4_accumulators(r0.get_normalized_witness_index(),
-                                                   static_cast<size_t>(NUM_LIMB_BITS),
-                                                   "bigfield: assert_less_than range constraint 1.");
-        context->decompose_into_base4_accumulators(r1.get_normalized_witness_index(),
-                                                   static_cast<size_t>(NUM_LIMB_BITS),
-                                                   "bigfield: assert_less_than range constraint 2.");
-        context->decompose_into_base4_accumulators(r2.get_normalized_witness_index(),
-                                                   static_cast<size_t>(NUM_LIMB_BITS),
-                                                   "bigfield: assert_less_than range constraint 3.");
-        context->decompose_into_base4_accumulators(r3.get_normalized_witness_index(),
-                                                   static_cast<size_t>(NUM_LIMB_BITS),
-                                                   "bigfield: assert_less_than range constraint 4.");
-    }
+    context->decompose_into_default_range(r0.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+    context->decompose_into_default_range(r1.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+    context->decompose_into_default_range(r2.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+    context->decompose_into_default_range(r3.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
 }
 
 // check elements are equal mod p by proving their integer difference is a multiple of p.
