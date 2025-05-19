@@ -36,6 +36,11 @@ describe('P2PApiSchema', () => {
     expect(txs[0]).toBeInstanceOf(Tx);
   });
 
+  it('getPendingTxCount', async () => {
+    const txs = await context.client.getPendingTxCount();
+    expect(txs).toEqual(10);
+  });
+
   it('getEncodedEnr', async () => {
     const enr = await context.client.getEncodedEnr();
     expect(enr).toEqual('enr');
@@ -72,6 +77,10 @@ class MockP2P implements P2PApi {
 
   getPendingTxs(): Promise<Tx[]> {
     return Promise.resolve([Tx.random()]);
+  }
+
+  getPendingTxCount(): Promise<number> {
+    return Promise.resolve(10);
   }
 
   getEncodedEnr(): Promise<string | undefined> {

@@ -163,9 +163,9 @@ export class BotRunner implements BotRunnerApi, Traceable {
   @trackSpan('Bot.work')
   async #work() {
     if (this.config.maxPendingTxs > 0) {
-      const pendingTxs = await this.node.getPendingTxs();
-      if (pendingTxs.length >= this.config.maxPendingTxs) {
-        this.log.verbose(`Not sending bot tx since node has ${pendingTxs.length} pending txs`);
+      const pendingTxCount = await this.node.getPendingTxCount();
+      if (pendingTxCount >= this.config.maxPendingTxs) {
+        this.log.verbose(`Not sending bot tx since node has ${pendingTxCount} pending txs`);
         return;
       }
     }

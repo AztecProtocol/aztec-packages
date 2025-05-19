@@ -14,6 +14,7 @@ import { type L1ContractAddresses, RegistryContract, createEthereumChain } from 
 import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { count } from '@aztec/foundation/string';
@@ -545,9 +546,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.p2pClient!.getPendingTxs();
   }
 
-  public async getPendingTxCount() {
-    const pendingTxs = await this.getPendingTxs();
-    return pendingTxs.length;
+  public getPendingTxCount() {
+    return this.p2pClient!.getPendingTxCount();
   }
 
   /**
@@ -938,6 +938,20 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
   public async simulatePublicCalls(tx: Tx, skipFeeEnforcement = false): Promise<PublicSimulationOutput> {
+    // Check total gas limit for simulation
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    const txGasLimit = gasSettings.gasLimits.l2Gas;
+    const teardownGasLimit = gasSettings.teardownGasLimits.l2Gas;
+    if (txGasLimit + teardownGasLimit > this.config.rpcSimulatePublicMaxGasLimit) {
+      throw new BadRequestError(
+        `Transaction total gas limit ${
+          txGasLimit + teardownGasLimit
+        } (${txGasLimit} + ${teardownGasLimit}) exceeds maximum gas limit ${
+          this.config.rpcSimulatePublicMaxGasLimit
+        } for simulation`,
+      );
+    }
+
     const txHash = await tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 

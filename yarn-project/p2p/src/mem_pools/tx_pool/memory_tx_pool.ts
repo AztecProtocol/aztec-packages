@@ -89,6 +89,10 @@ export class InMemoryTxPool implements TxPool {
     );
   }
 
+  public getPendingTxCount(): Promise<number> {
+    return Promise.resolve(this.pendingTxs.size);
+  }
+
   public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
     const key = txHash.toBigInt();
     if (this.pendingTxs.has(key)) {
