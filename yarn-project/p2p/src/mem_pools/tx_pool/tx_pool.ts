@@ -75,6 +75,9 @@ export interface TxPool {
    */
   getPendingTxHashes(): Promise<TxHash[]>;
 
+  /** Returns the number of pending txs in the pool. */
+  getPendingTxCount(): Promise<number>;
+
   /**
    * Gets the hashes of mined transactions currently in the tx pool.
    * @returns An array of mined transaction hashes found in the tx pool.
