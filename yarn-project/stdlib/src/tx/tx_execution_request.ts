@@ -54,6 +54,11 @@ export class TxExecutionRequest {
      * Read-only data passed through the oracle calls during this tx execution.
      */
     public capsules: Capsule[],
+    /**
+     * A salt to make the tx request hash difficult to predict.
+     * The hash is used as the first nullifier if there is no nullifier emitted throughout the tx.
+     */
+    public salt = Fr.random(),
   ) {}
 
   static get schema(): ZodFor<TxExecutionRequest> {
@@ -66,6 +71,7 @@ export class TxExecutionRequest {
         argsOfCalls: z.array(HashedValues.schema),
         authWitnesses: z.array(AuthWitness.schema),
         capsules: z.array(Capsule.schema),
+        salt: schemas.Fr,
       })
       .transform(TxExecutionRequest.from);
   }
@@ -77,6 +83,7 @@ export class TxExecutionRequest {
       new FunctionData(this.functionSelector, true /* isPrivate */),
       this.firstCallArgsHash,
       this.txContext,
+      this.salt,
     );
   }
 
@@ -89,6 +96,7 @@ export class TxExecutionRequest {
       fields.argsOfCalls,
       fields.authWitnesses,
       fields.capsules,
+      fields.salt,
     ] as const;
   }
 
@@ -109,6 +117,7 @@ export class TxExecutionRequest {
       new Vector(this.argsOfCalls),
       new Vector(this.authWitnesses),
       new Vector(this.capsules),
+      this.salt,
     );
   }
 
@@ -135,6 +144,7 @@ export class TxExecutionRequest {
       reader.readVector(HashedValues),
       reader.readVector(AuthWitness),
       reader.readVector(Capsule),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -159,6 +169,7 @@ export class TxExecutionRequest {
         new Capsule(await AztecAddress.random(), Fr.random(), [Fr.random(), Fr.random()]),
         new Capsule(await AztecAddress.random(), Fr.random(), [Fr.random()]),
       ],
+      Fr.random(),
     );
   }
 

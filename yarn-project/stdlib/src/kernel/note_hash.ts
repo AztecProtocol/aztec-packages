@@ -5,7 +5,10 @@ import { AztecAddress } from '../aztec-address/index.js';
 import type { Ordered } from './utils/interfaces.js';
 
 export class NoteHash {
-  constructor(public value: Fr, public counter: number) {}
+  constructor(
+    public value: Fr,
+    public counter: number,
+  ) {}
 
   toFields(): Fr[] {
     return [this.value, new Fr(this.counter)];
@@ -43,7 +46,10 @@ export class NoteHash {
 }
 
 export class ScopedNoteHash implements Ordered {
-  constructor(public noteHash: NoteHash, public contractAddress: AztecAddress) {}
+  constructor(
+    public noteHash: NoteHash,
+    public contractAddress: AztecAddress,
+  ) {}
 
   get counter() {
     return this.noteHash.counter;

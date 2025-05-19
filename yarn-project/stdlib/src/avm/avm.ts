@@ -43,7 +43,10 @@ export class AvmContractClassHint {
 }
 
 export class AvmBytecodeCommitmentHint {
-  constructor(public readonly classId: Fr, public readonly commitment: Fr) {}
+  constructor(
+    public readonly classId: Fr,
+    public readonly commitment: Fr,
+  ) {}
 
   static get schema() {
     return z
@@ -622,7 +625,10 @@ export class AvmExecutionHints {
 }
 
 export class AvmCircuitInputs {
-  constructor(public readonly hints: AvmExecutionHints, public publicInputs: AvmCircuitPublicInputs) {}
+  constructor(
+    public readonly hints: AvmExecutionHints,
+    public publicInputs: AvmCircuitPublicInputs,
+  ) {}
 
   static empty() {
     return new AvmCircuitInputs(AvmExecutionHints.empty(), AvmCircuitPublicInputs.empty());

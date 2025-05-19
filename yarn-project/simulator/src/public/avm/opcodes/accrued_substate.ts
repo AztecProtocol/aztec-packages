@@ -53,7 +53,10 @@ export class EmitNoteHash extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
-  constructor(private indirect: number, private noteHashOffset: number) {
+  constructor(
+    private indirect: number,
+    private noteHashOffset: number,
+  ) {
     super();
   }
 
@@ -125,7 +128,10 @@ export class EmitNullifier extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
-  constructor(private indirect: number, private nullifierOffset: number) {
+  constructor(
+    private indirect: number,
+    private nullifierOffset: number,
+  ) {
     super();
   }
 
@@ -208,7 +214,11 @@ export class EmitUnencryptedLog extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
-  constructor(private indirect: number, private logOffset: number, private logSizeOffset: number) {
+  constructor(
+    private indirect: number,
+    private logOffset: number,
+    private logSizeOffset: number,
+  ) {
     super();
   }
 
@@ -244,7 +254,11 @@ export class SendL2ToL1Message extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
-  constructor(private indirect: number, private recipientOffset: number, private contentOffset: number) {
+  constructor(
+    private indirect: number,
+    private recipientOffset: number,
+    private contentOffset: number,
+  ) {
     super();
   }
 

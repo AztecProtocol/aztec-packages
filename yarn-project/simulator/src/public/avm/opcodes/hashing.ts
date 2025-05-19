@@ -19,7 +19,11 @@ export class Poseidon2 extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private inputStateOffset: number, private outputStateOffset: number) {
+  constructor(
+    private indirect: number,
+    private inputStateOffset: number,
+    private outputStateOffset: number,
+  ) {
     super();
   }
 
@@ -58,7 +62,11 @@ export class KeccakF1600 extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private dstOffset: number, private inputOffset: number) {
+  constructor(
+    private indirect: number,
+    private dstOffset: number,
+    private inputOffset: number,
+  ) {
     super();
   }
 

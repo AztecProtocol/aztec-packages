@@ -14,7 +14,11 @@ abstract class BaseStorageInstruction extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(protected indirect: number, protected aOffset: number, protected bOffset: number) {
+  constructor(
+    protected indirect: number,
+    protected aOffset: number,
+    protected bOffset: number,
+  ) {
     super();
   }
 }

@@ -64,7 +64,10 @@ export class SafeJsonRpcServer {
       } catch (err: any) {
         const method = (ctx.request.body as any)?.method ?? 'unknown';
         this.log.warn(`Uncaught error in JSON RPC server call ${method}: ${inspect(err)}`);
-        if (err && err instanceof SyntaxError) {
+        if (err && 'name' in err && err.name === 'BadRequestError') {
+          ctx.status = 400;
+          ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32000, message: `Bad request: ${err.message}` } };
+        } else if (err && err instanceof SyntaxError) {
           ctx.status = 400;
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32700, message: `Parse error: ${err.message}` } };
         } else {
@@ -167,7 +170,7 @@ export class SafeJsonRpcServer {
       } catch (err: any) {
         if (err && err instanceof ZodError) {
           const message = err.issues.map(e => `${e.message} (${e.path.join('.')})`).join('. ') || 'Validation error';
-          return { jsonrpc: '2.0', id: null, error: { code: -32701, message } };
+          return { jsonrpc: '2.0', id, error: { code: -32701, message } };
         } else if (err) {
           return {
             jsonrpc,
@@ -245,7 +248,10 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
   private log = createLogger('json-rpc:proxy');
   private schema: ApiSchema;
 
-  constructor(private handler: T, schema: ApiSchemaFor<T>) {
+  constructor(
+    private handler: T,
+    schema: ApiSchemaFor<T>,
+  ) {
     this.schema = schema;
   }
 
@@ -309,7 +315,10 @@ function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Lo
   return async () => {
     try {
       const results = await Promise.all(
-        Object.entries(namedHandlers).map(([name, [, , healthCheck]]) => [name, healthCheck ? healthCheck() : true]),
+        Object.entries(namedHandlers).map(async ([name, [, , healthCheck]]) => [
+          name,
+          healthCheck ? await healthCheck() : true,
+        ]),
       );
       const failed = results.filter(([_, result]) => !result);
       if (failed.length > 0) {
@@ -370,7 +379,7 @@ export function createStatusRouter(getCurrentStatus: StatusCheckFn, apiPrefix = 
     let ok: boolean;
     try {
       ok = (await getCurrentStatus()) === true;
-    } catch (err) {
+    } catch {
       ok = false;
     }
 
