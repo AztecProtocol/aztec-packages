@@ -331,7 +331,7 @@ describe('L1Publisher integration', () => {
   };
 
   describe('block building', () => {
-    const buildL2ToL1MsgTreeRoot = async (l2ToL1MsgsArray: Fr[]) => {
+    const buildL2ToL1MsgTreeRoot = (l2ToL1MsgsArray: Fr[]) => {
       const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
       const tree = new StandardTree(
         openTmpStore(true),
@@ -341,7 +341,7 @@ describe('L1Publisher integration', () => {
         0n,
         Fr,
       );
-      await tree.appendLeaves(l2ToL1MsgsArray);
+      tree.appendLeaves(l2ToL1MsgsArray);
       return new Fr(tree.getRoot(true));
     };
 
@@ -462,7 +462,7 @@ describe('L1Publisher integration', () => {
         });
         expect(ethTx.input).toEqual(expectedData);
 
-        const expectedRoot = !numTxs ? Fr.ZERO : await buildL2ToL1MsgTreeRoot(l2ToL1MsgsArray);
+        const expectedRoot = !numTxs ? Fr.ZERO : buildL2ToL1MsgTreeRoot(l2ToL1MsgsArray);
         const [returnedRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
 
         // check that values are inserted into the outbox

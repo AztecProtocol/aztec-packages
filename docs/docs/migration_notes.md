@@ -9,6 +9,16 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 0.87.0
 
+## [Aztec.js/TS libraries]
+
+We've bumped our minimum supported node version to v20, as v18 is now EOL. As a consequence, the deprecated type assertion syntax has been replaced with modern import attributes whenever contract artifact JSONs are loaded:
+
+
+```diff
+-import ArtifactJson from '../artifacts/contract-Contract.json' assert { type: 'json' };
++import ArtifactJson from '../artifacts/contract-Contract.json' with { type: 'json' };
+```
+
 ## [Aztec.js/PXE] `simulateUtility` return type
 
 `pxe.simulateUtility()` now returns a complex object (much like `.simulateTx()`) so extra information can be provided such as simulation timings.

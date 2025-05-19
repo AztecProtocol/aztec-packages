@@ -13,7 +13,10 @@ export class FieldReader {
   private index: number;
   private readonly length: number;
 
-  constructor(private fields: Fr[], offset = 0) {
+  constructor(
+    private fields: Fr[],
+    offset = 0,
+  ) {
     this.index = offset;
     this.length = fields.length;
     if (offset > this.length) {
