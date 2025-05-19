@@ -39,6 +39,7 @@
     "buildx",
     "bytecodes",
     "calldatacopy",
+    "callsite",
     "callstack",
     "callstacks",
     "camelcase",

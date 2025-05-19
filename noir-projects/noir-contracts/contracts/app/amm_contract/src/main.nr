@@ -160,7 +160,7 @@ pub contract AMM {
 
         // We read the current AMM balance of both tokens. Note that by the time this function is called the token
         // transfers have already been completed (since those calls were enqueued before this call), and so we need to
-        // substract the transfer amount to get the pre-deposit balance.
+        // subtract the transfer amount to get the pre-deposit balance.
         let balance0_plus_amount0_max =
             token0.balance_of_public(context.this_address()).view(&mut context);
         let balance0 = balance0_plus_amount0_max - amount0_max;
