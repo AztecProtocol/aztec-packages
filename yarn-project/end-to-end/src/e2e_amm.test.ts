@@ -303,7 +303,7 @@ describe('AMM', () => {
       const nonceForAuthwits = Fr.random();
       const liquidityAuthwit = await otherLiquidityProvider.createAuthWit({
         caller: amm.address,
-        action: liquidityToken.methods.transfer_to_public_and_prepare_private_balance_increase(
+        action: liquidityToken.methods.transfer_to_public(
           otherLiquidityProvider.getAddress(),
           amm.address,
           liquidityTokenBalance,
