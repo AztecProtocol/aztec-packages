@@ -773,6 +773,11 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
 
+    if constexpr (IsUltraBuilder<Builder>) {
+        result_x.get_context()->update_used_witnesses(result_x.witness_index);
+        result_y.get_context()->update_used_witnesses(result_y.witness_index);
+    }
+
     const bool_t lhs_infinity = is_point_at_infinity();
     const bool_t rhs_infinity = other.is_point_at_infinity();
     // if lhs infinity, return -rhs

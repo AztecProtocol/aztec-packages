@@ -299,7 +299,14 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
         // Compute the evaluation of the vanishing polynomia Z_H(X) at X =
         // gemini_evaluation_challenge
-        const FF vanishing_poly_eval = gemini_evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
+        auto compute_vanishing_poly_eval = [&]() {
+            FF result = FF(1);
+            for (size_t i = 0; i < SUBGROUP_SIZE; i++) {
+                result *= gemini_evaluation_challenge;
+            }
+            return result - FF(1);
+        };
+        const FF vanishing_poly_eval = compute_vanishing_poly_eval();
 
         return check_consistency(libra_evaluations,
                                  gemini_evaluation_challenge,
@@ -427,6 +434,7 @@ template <typename Curve>
 static std::vector<typename Curve::ScalarField> compute_challenge_polynomial_coeffs(
     const std::vector<typename Curve::ScalarField>& multivariate_challenge)
 {
+
     using FF = typename Curve::ScalarField;
 
     std::vector<FF> challenge_polynomial_lagrange(Curve::SUBGROUP_SIZE);
