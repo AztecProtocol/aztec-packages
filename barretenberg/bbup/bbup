@@ -122,7 +122,27 @@ install_bb() {
     fi
     local binary_url="${release_url_base}/${release_tag}/barretenberg-${architecture}-${platform}.tar.gz"
 
+    printf "${BLUE}Downloading from ${binary_url}${NC}\n"
     curl -L "$binary_url" -o "$temp_tar"
+
+    # Verify the integrity of the downloaded file before extraction
+    printf "${BLUE}Verifying file integrity...${NC}\n"
+    local checksum_url="${release_url_base}/${release_tag}/barretenberg-${architecture}-${platform}.tar.gz.sha256"
+    local expected_checksum=$(curl -s -L "$checksum_url" || echo "")
+
+    if [ -z "$expected_checksum" ]; then
+        warn "No checksum file available. Skipping verification."
+    else
+        local calculated_checksum=$(shasum -a 256 "$temp_tar" | cut -d ' ' -f 1)
+        if [ "$calculated_checksum" != "$expected_checksum" ]; then
+            printf "${RED}${ERROR} Checksum verification failed! Expected: ${expected_checksum}, Got: ${calculated_checksum}${NC}\n"
+            printf "${RED}${ERROR} The downloaded file may be corrupted or tampered with.${NC}\n"
+            rm -rf "$temp_dir"
+            exit 1
+        fi
+        printf "${GREEN}${SUCCESS} Checksum verification passed${NC}\n"
+    fi
+
     mkdir -p "$BB_PATH"
     tar xzf "$temp_tar" -C "$BB_PATH"
     rm -rf "$temp_dir"
