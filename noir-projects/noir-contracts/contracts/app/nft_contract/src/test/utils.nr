@@ -61,11 +61,6 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
     let (env, nft_contract_address, owner, recipient, minted_token_id) =
         setup_and_mint(with_account_contracts);
 
-    let note_randomness = random();
-
-    // We mock the Oracle to return the note randomness such that later on we can manually add the note
-    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
-
     // We transfer the public NFT to private.
     let _ = env.call_private_void(
         owner,

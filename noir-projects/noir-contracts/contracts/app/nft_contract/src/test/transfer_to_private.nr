@@ -29,11 +29,6 @@ unconstrained fn transfer_to_private_external_orchestration() {
     let (env, nft_contract_address, _, recipient, token_id) =
         utils::setup_and_mint(/* with_account_contracts */ false);
 
-    let note_randomness = random();
-
-    // We mock the Oracle to return the note randomness such that later on we can manually add the note
-    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
-
     // We prepare the transfer
     let partial_note = NFT::at(nft_contract_address)
         .prepare_private_balance_increase(recipient)
