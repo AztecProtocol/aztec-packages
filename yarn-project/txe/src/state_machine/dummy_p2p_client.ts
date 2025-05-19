@@ -25,7 +25,7 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getPeers"');
   }
 
-  public broadcastProposal(_proposal: BlockProposal): void {
+  public broadcastProposal(_proposal: BlockProposal): Promise<void> {
     throw new Error('DummyP2P does not implement "broadcastProposal"');
   }
 

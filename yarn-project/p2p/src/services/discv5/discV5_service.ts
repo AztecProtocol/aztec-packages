@@ -22,7 +22,7 @@ const delayBeforeStart = 2000; // 2sec
  */
 export class DiscV5Service extends EventEmitter implements PeerDiscoveryService {
   /** The Discv5 instance */
-  private discv5: Discv5 & Discv5EventEmitter;
+  private discv5: Discv5EventEmitter;
 
   /** This instance's ENR */
   private enr: SignableENR;

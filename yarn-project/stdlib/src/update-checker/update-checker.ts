@@ -140,7 +140,7 @@ export function getPackageVersion(): string | undefined {
     );
     const version = JSON.parse(readFileSync(releasePleaseManifestPath).toString())['.'];
     return version;
-  } catch (err) {
+  } catch {
     return undefined;
   }
 }
