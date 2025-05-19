@@ -119,7 +119,7 @@ export class UpdateChecker extends EventEmitter<EventMap> {
 
       const { version, config } = updateConfigSchema.parse(body);
 
-      if (this.nodeVersion !== undefined && version !== undefined && version !== this.nodeVersion) {
+      if (this.nodeVersion && version && version !== this.nodeVersion) {
         this.log.debug('New node version', { currentVersion: this.nodeVersion, latestVersion: version });
         this.emit('newNodeVersion', { currentVersion: this.nodeVersion, latestVersion: version });
       }
