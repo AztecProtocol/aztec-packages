@@ -250,7 +250,9 @@ pub contract Token {
     }
     // docs:end:transfer_to_public
 
-    /// Transfers tokens from private balance to public balance and prepares a partial note for receiving change.
+    /// Transfers tokens from private balance of `from` to public balance of `to` and prepares a partial note for
+    /// receiving change for `from`.
+    ///
     /// This is an optimization that combines two operations into one to reduce kernel iterations:
     /// 1. Transfers `amount` tokens from `from`'s private balance to `to`'s public balance
     /// 2. Creates a partial note that can later be used to receive change back to `from`'s private balance
