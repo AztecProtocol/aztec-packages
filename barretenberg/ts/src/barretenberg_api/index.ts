@@ -472,7 +472,7 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirProveUltraKeccakZKHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Promise<Uint8Array> {
+  async acirProveUltraKeccakZkHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Promise<Uint8Array> {
     const inArgs = [acirVec, witnessVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
@@ -496,7 +496,7 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirProveUltraStarknetZKHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Promise<Uint8Array> {
+  async acirProveUltraStarknetZkHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Promise<Uint8Array> {
     const inArgs = [acirVec, witnessVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
@@ -532,7 +532,7 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirVerifyUltraKeccakZKHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
+  async acirVerifyUltraKeccakZkHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
@@ -556,7 +556,7 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirVerifyUltraStarknetZKHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
+  async acirVerifyUltraStarknetZkHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
@@ -592,7 +592,7 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirWriteVkUltraKeccakZKHonk(acirVec: Uint8Array): Promise<Uint8Array> {
+  async acirWriteVkUltraKeccakZkHonk(acirVec: Uint8Array): Promise<Uint8Array> {
     const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
@@ -616,7 +616,7 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirWriteVkUltraStarknetZKHonk(acirVec: Uint8Array): Promise<Uint8Array> {
+  async acirWriteVkUltraStarknetZkHonk(acirVec: Uint8Array): Promise<Uint8Array> {
     const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
@@ -1128,7 +1128,7 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveUltraKeccakZKHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
+  acirProveUltraKeccakZkHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
     const inArgs = [acirVec, witnessVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
@@ -1188,7 +1188,7 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirVerifyUltraKeccakZKHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
+  acirVerifyUltraKeccakZkHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
@@ -1212,7 +1212,7 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirVerifyUltraStarknetZKHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
+  acirVerifyUltraStarknetZkHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
@@ -1248,7 +1248,7 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirWriteVkUltraKeccakZKHonk(acirVec: Uint8Array): Uint8Array {
+  acirWriteVkUltraKeccakZkHonk(acirVec: Uint8Array): Uint8Array {
     const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
@@ -1272,7 +1272,7 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirWriteVkUltraStarknetZKHonk(acirVec: Uint8Array): Uint8Array {
+  acirWriteVkUltraStarknetZkHonk(acirVec: Uint8Array): Uint8Array {
     const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
