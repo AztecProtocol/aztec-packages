@@ -14,14 +14,14 @@ import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
-import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
 import {Epoch, EpochLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-
+import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {TimeCheater} from "../staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
 
@@ -81,25 +81,19 @@ contract ValidatorSelectionTestBase is DecoderBase {
       initialValidators[i - 1] = createDepositArgs(i);
     }
 
-    testERC20 = new TestERC20("test", "TEST", address(this));
-    Registry registry = new Registry(address(this), testERC20);
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-    rollup = new Rollup({
-      _feeAsset: testERC20,
-      _rewardDistributor: rewardDistributor,
-      _stakingAsset: testERC20,
-      _governance: address(this),
-      _genesisState: TestConstants.getGenesisState(),
-      _config: TestConstants.getRollupConfigInput()
-    });
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
+
+    rollup = builder.getConfig().rollup;
+    rewardDistributor = builder.getConfig().rewardDistributor;
+    testERC20 = builder.getConfig().testERC20;
     slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
-    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
-    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
-
     if (_validatorCount > 0) {
-      rollup.cheat__InitialiseValidatorSet(initialValidators);
+      MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
+      testERC20.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
+      multiAdder.addValidators(initialValidators);
     }
 
     inbox = Inbox(address(rollup.getInbox()));
@@ -109,9 +103,11 @@ contract ValidatorSelectionTestBase is DecoderBase {
     _;
   }
 
-  modifier progressEpoch() {
+  modifier progressEpochs(uint256 _epochCount) {
     // Progress into the next epoch for changes to take effect
-    timeCheater.cheat__progressEpoch();
+    for (uint256 i = 0; i < _epochCount; i++) {
+      timeCheater.cheat__progressEpoch();
+    }
     _;
   }
 
@@ -130,5 +126,18 @@ contract ValidatorSelectionTestBase is DecoderBase {
       withdrawer: address(this),
       amount: TestConstants.AZTEC_MINIMUM_STAKE
     });
+  }
+
+  function createSignature(address _signer, bytes32 _digest)
+    internal
+    view
+    returns (Signature memory)
+  {
+    uint256 privateKey = attesterPrivateKeys[_signer];
+
+    bytes32 digest = _digest.toEthSignedMessageHash();
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+    return Signature({isEmpty: false, v: v, r: r, s: s});
   }
 }

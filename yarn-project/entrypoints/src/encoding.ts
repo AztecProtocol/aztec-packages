@@ -12,7 +12,6 @@ const APP_MAX_CALLS = 4;
 // - and noir-projects/aztec-nr/aztec/src/entrypoint/fee.nr
 const FEE_MAX_CALLS = 2;
 
-/* eslint-disable camelcase */
 /** Encoded function call for an Aztec entrypoint */
 export type EncodedFunctionCall = {
   /** Arguments hash for the call. */
@@ -27,7 +26,6 @@ export type EncodedFunctionCall = {
   /** Whether the function can alter state */
   is_static: boolean;
 };
-/* eslint-enable camelcase */
 
 /** Type that represents function calls ready to be sent to a circuit for execution */
 export type EncodedCalls = {
