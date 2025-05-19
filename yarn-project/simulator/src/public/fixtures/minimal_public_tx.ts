@@ -2,7 +2,7 @@ import { FunctionType, emptyContractArtifact, emptyFunctionArtifact } from '@azt
 import { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import avmMinimalCircuitInputsJson from '../../../artifacts/avm_minimal_inputs.json' assert { type: 'json' };
+import avmMinimalCircuitInputsJson from '../../../artifacts/avm_minimal_inputs.json' with { type: 'json' };
 import { TypeTag } from '../avm/avm_memory_types.js';
 import { Add, Return, Set } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
