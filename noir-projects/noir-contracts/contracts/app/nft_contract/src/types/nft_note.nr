@@ -208,6 +208,8 @@ impl PartialNFTNote {
     pub fn compute_validity_commitment(self, sender: AztecAddress) -> Field {
         let commitment_bytes: [u8; 32] = self.commitment.to_be_bytes();
         let sender_bytes: [u8; 32] = sender.to_field().to_be_bytes();
+        // We don't use separator here because `self.commitment` (computed by `compute_partial_commitment`) already
+        // includes it.
         // TODO(#10537): Can we use poseidon2 here given that partial_note.commitment() was computed with it? Or at
         // least pedersen?
         sha256_to_field(array_concat(commitment_bytes, sender_bytes))

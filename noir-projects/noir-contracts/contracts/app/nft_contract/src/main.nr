@@ -220,10 +220,10 @@ pub contract NFT {
     #[public]
     #[internal]
     fn _store_nft_set_partial_note(sender: AztecAddress, partial_note: PartialNFTNote) {
-        // We store the partial note in a slot equal to its commitment. This is safe because the commitment is computed
-        // using a generator different from the one used to compute storage slots, so there can be no collisions.
-        // We could consider storing all pending partial notes in e.g. some array, but ultimately this is pointless: all
-        // we need to verify is that the note is valid.
+        // We store the partial note validity flag in a slot equal to its validity commitment. This is safe because
+        // the commitment is computed using a generator different from the one used to compute storage slots, so there
+        // can be no collisions. We could consider storing all pending partial notes in e.g. some array, but ultimately
+        // this is pointless: all we need to verify is that the note is valid.
         context.storage_write(partial_note.compute_validity_commitment(sender), true);
     }
     // docs:end:store_payload_in_transient_storage_unsafe
