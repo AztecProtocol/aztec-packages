@@ -5,6 +5,7 @@ import {IStaking, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
 
 /**
  * @title StakingAssetHandler
@@ -51,6 +52,8 @@ interface IStakingAssetHandler {
 }
 
 contract StakingAssetHandler is IStakingAssetHandler, Ownable {
+  using QueueLib for Queue;
+
   IMintableERC20 public immutable STAKING_ASSET;
   IRegistry public immutable REGISTRY;
 
@@ -61,6 +64,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   uint256 public depositsPerMint;
 
   address public withdrawer;
+
+  Queue private entryQueue;
 
   constructor(
     address _owner,
@@ -91,39 +96,61 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
     isUnhinged[_owner] = true;
     emit UnhingedAdded(_owner);
+
+    entryQueue.init();
   }
 
+  /**
+   * Add a validator attester proposer pair into the deposit queue
+   *
+   * @param _attester - the validator's attester address
+   * @param _proposer - the validator's proposer address
+   */
   function addValidator(address _attester, address _proposer)
     external
     override(IStakingAssetHandler)
   {
+    // If the sender is unhinged, will mint the required amount (to not impact other users).
+    // Otherwise we add them to the deposit queue.
+    if (isUnhinged[msg.sender]) {
+      IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
+      uint256 depositAmount = rollup.getMinimumStake();
+
+      STAKING_ASSET.mint(address(this), depositAmount);
+
+      _triggerDeposit(rollup, depositAmount, _attester, _proposer);
+    } else {
+      entryQueue.enqueue(_attester, _proposer);
+    }
+  }
+
+  function dripQueue() external {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
     uint256 depositAmount = rollup.getMinimumStake();
+    uint256 balance = STAKING_ASSET.balanceOf(address(this));
 
-    // If the sender is unhinged, will mint the required amount (to not impact other users).
-    // Otherwise we will see if the internal allows us to mint if needed.
-    if (isUnhinged[msg.sender]) {
-      STAKING_ASSET.mint(address(this), depositAmount);
-    } else {
-      if (STAKING_ASSET.balanceOf(address(this)) < depositAmount) {
-        require(
-          block.timestamp - lastMintTimestamp >= mintInterval,
-          ValidatorQuotaFilledUntil(lastMintTimestamp + mintInterval)
-        );
-        STAKING_ASSET.mint(address(this), depositAmount * depositsPerMint);
-        lastMintTimestamp = block.timestamp;
-        emit ToppedUp(depositAmount * depositsPerMint);
-      }
+    // If we do not have enough balance, check if we can refill the quota
+    if (balance < depositAmount) {
+      require(
+        block.timestamp - lastMintTimestamp >= mintInterval,
+        ValidatorQuotaFilledUntil(lastMintTimestamp + mintInterval)
+      );
+      STAKING_ASSET.mint(address(this), depositAmount * depositsPerMint);
+      lastMintTimestamp = block.timestamp;
+      emit ToppedUp(depositAmount * depositsPerMint);
     }
 
-    // If the attester is currently exiting, we finalize the exit for him.
-    if (rollup.getInfo(_attester).status == Status.EXITING) {
-      rollup.finaliseWithdraw(_attester);
-    }
+    // Now that we have balance on the staking asset, for as many deposits that we have, we will empty the queue
+    uint256 mintsAvailable = balance / depositAmount; // (integer division)
+    uint256 queueLength = entryQueue.length();
 
-    STAKING_ASSET.approve(address(rollup), depositAmount);
-    rollup.deposit(_attester, _proposer, withdrawer, depositAmount);
-    emit ValidatorAdded(address(rollup), _attester, _proposer, withdrawer);
+    // if the queue is smaller then lets empty the queue, otherwise drip deposits per mint
+    uint256 depositsToMake = (queueLength < mintsAvailable) ? queueLength : mintsAvailable;
+
+    for (uint256 i = 0; i < depositsToMake; ++i) {
+      (address attester, address proposer) = entryQueue.dequeue();
+      _triggerDeposit(rollup, depositAmount, attester, proposer);
+    }
   }
 
   function setMintInterval(uint256 _interval) external override(IStakingAssetHandler) onlyOwner {
@@ -158,5 +185,20 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   function getRollup() external view override(IStakingAssetHandler) returns (address) {
     return address(REGISTRY.getCanonicalRollup());
+  }
+
+  function getQueueLength() external view returns (uint256) {
+    return entryQueue.length();
+  }
+
+  function _triggerDeposit(IStaking rollup, uint256 depositAmount, address _attester, address _proposer) internal {
+    // If the attester is currently exiting, we finalize the exit for him.
+    if (rollup.getInfo(_attester).status == Status.EXITING) {
+      rollup.finaliseWithdraw(_attester);
+    }
+
+    STAKING_ASSET.approve(address(rollup), depositAmount);
+    rollup.deposit(_attester, _proposer, withdrawer, depositAmount);
+    emit ValidatorAdded(address(rollup), _attester, _proposer, withdrawer);
   }
 }
