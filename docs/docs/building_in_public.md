@@ -15,20 +15,20 @@ Contributors to Aztec uphold many of the values of the Ethereum community:
 
 - building in public
 - having a rigorous commitment to open source
-- believe in a permissionless, compliant, scalable and censorship-resistant system.
+- believe in a permissionless, compliant, scalable, and censorship-resistant system.
 
 ## Our Cryptography
 
-Aztec is inspired by Ethereum. We believe in transparency for the protocol, but privacy for the user. This programmability is achieved through Smart Contracts, which are in fact Zero-Knowledge circuits.
+Ethereum inspires Aztec. We believe in transparency for the protocol, but privacy for the user. This programmability is achieved through Smart Contracts, which are in fact Zero-Knowledge circuits.
 
 To allow for this, we focus on two main components:
 
-- **Noir** - We started developing Noir long before Aztec came into being. As an easy, open-source domain specific programming language for writing zero-knowledge circuits, it became the perfect language for writing [Aztec Smart Contracts](aztec/smart_contracts_overview.md). Read about standalone Noir in the [Noir Lang Documentation](https://noir-lang.org).
+- **Noir** - We started developing Noir long before Aztec came into being. As an easy, open-source domain-specific programming language for writing zero-knowledge circuits, it became the perfect language for writing [Aztec Smart Contracts](aztec/smart_contracts_overview.md). Read about standalone Noir in the [Noir Lang Documentation](https://noir-lang.org).
 - **Honk** - A collection of cutting-edge cryptography, from proving systems, to compilers, and other sidecars. These will support Aztec's rollup and allow for fast, private, client-side proving.
 
 ## Media
 
-### Privacy Preserving Smart Contracts
+### Privacy-Preserving Smart Contracts
 
 <ReactPlayer
     controls
@@ -37,7 +37,7 @@ To allow for this, we focus on two main components:
     url="https://www.youtube.com/watch?v=09nDPDN1ORA"
   />
 
-### Public-private Composability
+### Public-Private Composability
 
 <ReactPlayer
     controls
