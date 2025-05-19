@@ -19,9 +19,6 @@ class AddressingInterface {
     virtual ~AddressingInterface() = default;
     // @throws AddressingException.
     virtual std::vector<Operand> resolve(const Instruction& instruction, MemoryInterface& memory) const = 0;
-
-    virtual uint32_t num_relative_addresses(const Instruction& instruction) const = 0;
-    virtual uint32_t num_indirect_addresses(const Instruction& instruction) const = 0;
 };
 
 class Addressing final : public AddressingInterface {
@@ -33,9 +30,6 @@ class Addressing final : public AddressingInterface {
     {}
 
     std::vector<Operand> resolve(const Instruction& instruction, MemoryInterface& memory) const override;
-
-    uint32_t num_relative_addresses(const Instruction& instruction) const override;
-    uint32_t num_indirect_addresses(const Instruction& instruction) const override;
 
   private:
     const InstructionInfoDBInterface& instruction_info_db;

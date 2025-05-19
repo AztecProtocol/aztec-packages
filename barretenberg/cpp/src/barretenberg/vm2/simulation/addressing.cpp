@@ -109,26 +109,4 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
     return event.resolved_operands;
 }
 
-uint32_t Addressing::num_relative_addresses(const Instruction& instruction) const
-{
-    uint32_t count = 0;
-    for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
-        if (((instruction.indirect >> (i * 2 + 1)) & 1) != 0) {
-            count++;
-        }
-    }
-    return count;
-}
-
-uint32_t Addressing::num_indirect_addresses(const Instruction& instruction) const
-{
-    uint32_t count = 0;
-    for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
-        if (((instruction.indirect >> (i * 2)) & 1) != 0) {
-            count++;
-        }
-    }
-    return count;
-}
-
 } // namespace bb::avm2::simulation

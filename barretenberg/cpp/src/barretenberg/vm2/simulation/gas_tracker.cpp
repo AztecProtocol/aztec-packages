@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/gas_tracker.hpp"
 
+#include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 
 namespace bb::avm2::simulation {
@@ -11,11 +12,7 @@ void GasTracker::consumeBaseGas()
 
     gas_event.opcode_gas = spec.gas_cost.base_l2;
 
-    uint32_t num_relative_addresses = addressing.num_relative_addresses(instruction);
-    uint32_t num_indirect_addresses = addressing.num_indirect_addresses(instruction);
-
-    gas_event.addressing_gas = num_indirect_addresses * AVM_ADDRESSING_INDIRECT_L2_GAS +
-                               num_relative_addresses * AVM_ADDRESSING_RELATIVE_L2_GAS;
+    gas_event.addressing_gas = compute_addressing_gas(instruction.indirect);
 
     gas_event.base_gas = Gas{
         gas_event.opcode_gas + gas_event.addressing_gas,
