@@ -11,7 +11,7 @@ export type SharedNodeConfig = {
   snapshotsUrl?: string;
 
   /** Auto update mode: disabled - to completely ignore remote signals to update the node. enabled - to respect the signals (potentially shutting this node down). log - check for updates but log a warning instead of applying them*/
-  autoUpdate?: 'disabled' | 'enabled' | 'notify';
+  autoUpdate?: 'disabled' | 'notify' | 'config' | 'config-and-version';
   /** The base URL against which to check for updates */
   autoUpdateUrl?: string;
 };
