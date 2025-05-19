@@ -356,7 +356,7 @@ export async function generateTubeProof(
  * @param checkCircuitOnly - A boolean to toggle a "check-circuit only" operation instead of proving.
  * @returns An object containing a result indication, the location of the proof and the duration taken
  */
-export async function generateAvmProofV2(
+export async function generateAvmProof(
   pathToBB: string,
   workingDirectory: string,
   input: AvmCircuitInputs,
@@ -454,7 +454,7 @@ export async function verifyProof(
   );
 }
 
-export async function verifyAvmProofV2(
+export async function verifyAvmProof(
   pathToBB: string,
   workingDirectory: string,
   proofFullPath: string,

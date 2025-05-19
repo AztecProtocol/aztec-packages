@@ -6,7 +6,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
-import { AvmProvingTesterV2 } from './avm_proving_tester.js';
+import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
@@ -22,10 +22,10 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
   let token1: ContractInstanceWithAddress;
   let liquidityToken: ContractInstanceWithAddress;
   let amm: ContractInstanceWithAddress;
-  let tester: AvmProvingTesterV2;
+  let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTesterV2.new(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
   });
 
   // TODO(dbanks12): add tester support for authwit and finish implementing this test
@@ -36,7 +36,7 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
     amm = await deployAMM();
 
     // set the AMM as the minter for the liquidity token
-    await tester.simProveVerifyV2(
+    await tester.simProveVerify(
       /*sender=*/ admin,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
@@ -77,7 +77,7 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
       seed,
     );
 
-    await tester.simProveVerifyV2(
+    await tester.simProveVerify(
       /*sender=*/ admin,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
@@ -103,7 +103,7 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
       seed,
     );
 
-    await tester.simProveVerifyV2(
+    await tester.simProveVerify(
       /*sender=*/ admin,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
@@ -120,7 +120,7 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
   };
 
   const mint = async (to: AztecAddress, amount: bigint, token: ContractInstanceWithAddress) => {
-    await tester.simProveVerifyV2(
+    await tester.simProveVerify(
       /*sender=*/ admin,
       /*setupCalls=*/ [],
       /*appCalls=*/ [

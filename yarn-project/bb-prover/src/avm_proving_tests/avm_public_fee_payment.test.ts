@@ -3,7 +3,7 @@ import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { AvmProvingTesterV2 } from './avm_proving_tester.js';
+import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
@@ -13,10 +13,10 @@ describe('AVM WitGen & Circuit – public fee payment', () => {
 
   const initialFeeJuiceBalance = new Fr(20000);
   let avmTestContractInstance: ContractInstanceWithAddress;
-  let tester: AvmProvingTesterV2;
+  let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTesterV2.new(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
 
     await tester.registerFeeJuiceContract();
     await tester.setFeePayerBalance(feePayer, initialFeeJuiceBalance);
@@ -30,7 +30,7 @@ describe('AVM WitGen & Circuit – public fee payment', () => {
   it.skip(
     'fee payment',
     async () => {
-      await tester.simProveVerifyV2(
+      await tester.simProveVerify(
         sender,
         /*setupCalls=*/ [],
         /*appCalls=*/ [

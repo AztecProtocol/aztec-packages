@@ -3,17 +3,17 @@ import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { AvmProvingTesterV2 } from './avm_proving_tester.js';
+import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
 describe.skip('AVM WitGen & Circuit – check circuit', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
-  let tester: AvmProvingTesterV2;
+  let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTesterV2.new(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),
@@ -24,7 +24,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
   it(
     'top-level exceptional halts in both app logic and teardown',
     async () => {
-      await tester.simProveVerifyV2(
+      await tester.simProveVerify(
         sender,
         /*setupCalls=*/ [],
         /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [] }],
@@ -37,7 +37,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
   it(
     'top-level exceptional halt in app logic, but teardown succeeds',
     async () => {
-      await tester.simProveVerifyV2(
+      await tester.simProveVerify(
         sender,
         /*setupCalls=*/ [],
         /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [] }],
@@ -54,7 +54,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
   it(
     'top-level exceptional halt in teardown, but app logic succeeds',
     async () => {
-      await tester.simProveVerifyV2(
+      await tester.simProveVerify(
         sender,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -69,7 +69,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
   it(
     'a nested exceptional halt propagate to top-level',
     async () => {
-      await tester.simProveVerifyAppLogicV2(
+      await tester.simProveVerifyAppLogic(
         { address: avmTestContractInstance.address, fnName: 'external_call_to_divide_by_zero', args: [] },
         /*expectRevert=*/ true,
       );
@@ -79,7 +79,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
   it(
     'a nested exceptional halt is recovered from in caller',
     async () => {
-      await tester.simProveVerifyAppLogicV2(
+      await tester.simProveVerifyAppLogic(
         { address: avmTestContractInstance.address, fnName: 'external_call_to_divide_by_zero_recovers', args: [] },
         /*expectRevert=*/ false,
       );

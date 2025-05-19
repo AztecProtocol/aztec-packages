@@ -10,16 +10,16 @@ import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { AvmProvingTesterV2 } from './avm_proving_tester.js';
+import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
 describe.skip('AVM WitGen & Circuit – check circuit', () => {
   let avmTestContractInstance: ContractInstanceWithAddress;
-  let tester: AvmProvingTesterV2;
+  let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTesterV2.new(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),
@@ -30,7 +30,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
   it(
     'perform too many storage writes and revert',
     async () => {
-      await tester.simProveVerifyAppLogicV2(
+      await tester.simProveVerifyAppLogic(
         {
           address: avmTestContractInstance.address,
           fnName: 'n_storage_writes',
@@ -44,7 +44,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
   it(
     'create too many note hashes and revert',
     async () => {
-      await tester.simProveVerifyAppLogicV2(
+      await tester.simProveVerifyAppLogic(
         {
           address: avmTestContractInstance.address,
           fnName: 'n_new_note_hashes',
@@ -58,7 +58,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
   it(
     'create too many nullifiers and revert',
     async () => {
-      await tester.simProveVerifyAppLogicV2(
+      await tester.simProveVerifyAppLogic(
         {
           address: avmTestContractInstance.address,
           fnName: 'n_new_nullifiers',
@@ -72,7 +72,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
   it(
     'create too many l2tol1 messages and revert',
     async () => {
-      await tester.simProveVerifyAppLogicV2(
+      await tester.simProveVerifyAppLogic(
         {
           address: avmTestContractInstance.address,
           fnName: 'n_new_l2_to_l1_msgs',
@@ -86,7 +86,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
   it(
     'create too many public logs and revert',
     async () => {
-      await tester.simProveVerifyAppLogicV2(
+      await tester.simProveVerifyAppLogic(
         {
           address: avmTestContractInstance.address,
           fnName: 'n_new_public_logs',

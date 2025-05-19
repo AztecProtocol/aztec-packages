@@ -18,13 +18,13 @@ import {
   type BBSuccess,
   BB_RESULT,
   VK_FILENAME,
-  generateAvmProofV2,
-  verifyAvmProofV2,
+  generateAvmProof,
+  verifyAvmProof,
 } from '../bb/execute.js';
 
 const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb');
 
-export class AvmProvingTesterV2 extends PublicTxSimulationTester {
+export class AvmProvingTester extends PublicTxSimulationTester {
   constructor(
     private bbWorkingDirectory: string,
     private checkCircuitOnly: boolean,
@@ -40,12 +40,12 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    return new AvmProvingTesterV2(bbWorkingDirectory, checkCircuitOnly, contractDataSource, merkleTrees, globals);
+    return new AvmProvingTester(bbWorkingDirectory, checkCircuitOnly, contractDataSource, merkleTrees, globals);
   }
 
-  async proveV2(avmCircuitInputs: AvmCircuitInputs): Promise<BBResult> {
+  async prove(avmCircuitInputs: AvmCircuitInputs): Promise<BBResult> {
     // Then we prove.
-    const proofRes = await generateAvmProofV2(
+    const proofRes = await generateAvmProof(
       BB_PATH,
       this.bbWorkingDirectory,
       avmCircuitInputs,
@@ -59,14 +59,14 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     return proofRes as BBSuccess;
   }
 
-  async verifyV2(proofRes: BBSuccess, publicInputs: AvmCircuitPublicInputs): Promise<BBResult> {
+  async verify(proofRes: BBSuccess, publicInputs: AvmCircuitPublicInputs): Promise<BBResult> {
     if (this.checkCircuitOnly) {
       // Skip verification if we are only checking the circuit.
       // Check-circuit does not generate a proof to verify.
       return proofRes;
     }
 
-    return await verifyAvmProofV2(
+    return await verifyAvmProof(
       BB_PATH,
       this.bbWorkingDirectory,
       proofRes.proofPath!,
@@ -76,15 +76,15 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     );
   }
 
-  public async proveVerifyV2(avmCircuitInputs: AvmCircuitInputs) {
-    const provingRes = await this.proveV2(avmCircuitInputs);
+  public async proveVerify(avmCircuitInputs: AvmCircuitInputs) {
+    const provingRes = await this.prove(avmCircuitInputs);
     expect(provingRes.status).toEqual(BB_RESULT.SUCCESS);
 
-    const verificationRes = await this.verifyV2(provingRes as BBSuccess, avmCircuitInputs.publicInputs);
+    const verificationRes = await this.verify(provingRes as BBSuccess, avmCircuitInputs.publicInputs);
     expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
   }
 
-  public async simProveVerifyV2(
+  public async simProveVerify(
     sender: AztecAddress,
     setupCalls: TestEnqueuedCall[],
     appCalls: TestEnqueuedCall[],
@@ -96,11 +96,11 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
 
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
-    await this.proveVerifyV2(avmCircuitInputs);
+    await this.proveVerify(avmCircuitInputs);
   }
 
-  public async simProveVerifyAppLogicV2(appCall: TestEnqueuedCall, expectRevert?: boolean) {
-    await this.simProveVerifyV2(
+  public async simProveVerifyAppLogic(appCall: TestEnqueuedCall, expectRevert?: boolean) {
+    await this.simProveVerify(
       /*sender=*/ AztecAddress.fromNumber(42),
       /*setupCalls=*/ [],
       [appCall],

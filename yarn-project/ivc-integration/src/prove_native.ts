@@ -6,7 +6,7 @@ import {
   VK_FILENAME,
   executeBbClientIvcProof,
   extractVkData,
-  generateAvmProofV2,
+  generateAvmProof,
   generateProof,
   generateTubeProof,
   readClientIVCProofFromOutputDirectory,
@@ -197,7 +197,7 @@ export async function proveAvm(
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
 
   // Then we prove.
-  const proofRes = await generateAvmProofV2(bbPath, workingDirectory, avmCircuitInputs, logger);
+  const proofRes = await generateAvmProof(bbPath, workingDirectory, avmCircuitInputs, logger);
   if (proofRes.status === BB_RESULT.FAILURE) {
     throw new Error(`AVM V2 proof generation failed: ${proofRes.reason}`);
   } else if (proofRes.status === BB_RESULT.ALREADY_PRESENT) {
