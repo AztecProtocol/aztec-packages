@@ -757,10 +757,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         `Proof has ${proofFields.length} fields, expected no more than ${AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED}.`,
       );
     }
-    proofFields.concat(Array(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - proofFields.length).fill(new Fr(0)));
+    const proofFieldsPadded = proofFields.concat(
+      Array(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - proofFields.length).fill(new Fr(0)),
+    );
 
     const proof = new Proof(rawProofBuffer, vkData.numPublicInputs);
-    return new RecursiveProof(proofFields, proof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+    return new RecursiveProof(proofFieldsPadded, proof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   }
 
   private runInDirectory<T>(fn: (dir: string) => Promise<T>) {
