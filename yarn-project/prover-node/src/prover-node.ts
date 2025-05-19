@@ -194,7 +194,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Starts a proving process and returns immediately.
    */
   public async startProof(epochNumber: number | bigint) {
-    const job = await this.createProvingJob(BigInt(epochNumber));
+    const job = await this.createProvingJob(BigInt(epochNumber), { skipEpochCheck: true });
     void this.runJob(job);
   }
 
@@ -273,7 +273,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   }
 
   @trackSpan('ProverNode.createProvingJob', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
-  private async createProvingJob(epochNumber: bigint) {
+  private async createProvingJob(epochNumber: bigint, opts: { skipEpochCheck?: boolean } = {}) {
     this.checkMaximumPendingJobs();
 
     // Gather all data for this epoch
@@ -297,7 +297,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     const deadlineTs = getProofSubmissionDeadlineTimestamp(epochNumber, await this.getL1Constants());
     const deadline = new Date(Number(deadlineTs) * 1000);
 
-    const job = this.doCreateEpochProvingJob(epochData, deadline, publicProcessorFactory);
+    const job = this.doCreateEpochProvingJob(epochData, deadline, publicProcessorFactory, opts);
     this.jobs.set(job.getId(), job);
     return job;
   }
@@ -388,6 +388,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     data: EpochProvingJobData,
     deadline: Date | undefined,
     publicProcessorFactory: PublicProcessorFactory,
+    opts: { skipEpochCheck?: boolean } = {},
   ) {
     const { proverNodeMaxParallelBlocksPerEpoch: parallelBlockLimit } = this.config;
     return new EpochProvingJob(
@@ -399,7 +400,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.l2BlockSource,
       this.jobMetrics,
       deadline,
-      { parallelBlockLimit },
+      { parallelBlockLimit, ...opts },
     );
   }
 

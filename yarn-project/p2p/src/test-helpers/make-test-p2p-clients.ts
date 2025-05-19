@@ -85,6 +85,7 @@ export async function makeTestP2PClient(
     proofVerifier,
     mockWorldState,
     mockEpochCache,
+    'test-p2p-client',
     undefined,
     deps,
   );
