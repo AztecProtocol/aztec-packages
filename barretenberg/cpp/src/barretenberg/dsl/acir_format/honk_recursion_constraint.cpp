@@ -97,7 +97,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 
     // Get some values for a valid aggregation object and use them here to avoid divide by 0 or other issues.
     std::array<fr, PairingPoints<Builder>::PUBLIC_INPUTS_SIZE> dummy_pairing_points_values =
-        PairingPoints<Builder>::construct_dummy_pairing_points();
+        PairingPoints<Builder>::construct_dummy();
     for (size_t i = 0; i < PairingPoints<Builder>::PUBLIC_INPUTS_SIZE; i++) {
         builder.assert_equal(builder.add_variable(dummy_pairing_points_values[i]), proof_fields[offset].witness_index);
         offset++;

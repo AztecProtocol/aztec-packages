@@ -58,6 +58,13 @@ template <typename Builder_> struct PairingPoints {
     // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
+        {
+            // check that other is a valid pairing point object
+            UltraFlavor::VerifierCommitmentKey pcs_vkey{};
+            bool result = pcs_vkey.pairing_check(this->P0.get_value(), this->P1.get_value());
+            bool result2 = pcs_vkey.pairing_check(other.P0.get_value(), other.P1.get_value());
+            info("aggregate pairing results: ", result, " and ", result2);
+        }
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
         BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
@@ -152,7 +159,7 @@ template <typename Builder_> struct PairingPoints {
         return { P0, P1 };
     }
 
-    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy_pairing_points()
+    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
     {
         // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the most
         // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to convert
@@ -180,30 +187,46 @@ template <typename Builder_> struct PairingPoints {
      */
     static void add_default_to_public_inputs(Builder& builder)
     {
+        info("in add_default_to_public_inputs");
+        using BaseField = typename Curve::BaseField;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
+        // valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
+        uint256_t x0_val("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+        uint256_t y0_val("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+        uint256_t x1_val("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+        uint256_t y1_val("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+        BaseField x0 = BaseField::from_witness(&builder, x0_val);
+        BaseField y0 = BaseField::from_witness(&builder, y0_val);
+        BaseField x1 = BaseField::from_witness(&builder, x1_val);
+        BaseField y1 = BaseField::from_witness(&builder, y1_val);
+        PairingPoints<Builder> points_accumulator{ Group(x0, y0), Group(x1, y1) };
+        points_accumulator.set_public();
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted
         // from a valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-        fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
-        fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
-        fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
-        fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+        // fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+        // fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+        // fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+        // fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
 
-        // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the most
-        // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to convert
-        // them back to biggroup elements anyway to add them to the public inputs...
-        using BigGroup = element_default::
-            element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
-        BigGroup P0(x0, y0);
-        BigGroup P1(x1, y1);
-        P0.convert_constant_to_fixed_witness(&builder);
-        P1.convert_constant_to_fixed_witness(&builder);
-        if (builder.pairing_inputs_public_input_key.is_set()) {
-            throw_or_abort("Error: trying to set PairingPoints as public inputs when it already contains one.");
-        }
-        uint32_t start_idx = P0.set_public();
-        P1.set_public();
+        // // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the
+        // // most
+        // // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to
+        // // convert
+        // // them back to biggroup elements anyway to add them to the public inputs...
+        // using BigGroup = element_default::
+        //     element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
+        // BigGroup P0(x0, y0);
+        // BigGroup P1(x1, y1);
+        // P0.convert_constant_to_fixed_witness(&builder);
+        // P1.convert_constant_to_fixed_witness(&builder);
+        // if (builder.pairing_inputs_public_input_key.is_set()) {
+        //     throw_or_abort("Error: trying to set PairingPoints as public inputs when it already contains one.");
+        // }
+        // uint32_t start_idx = P0.set_public();
+        // P1.set_public();
 
-        builder.pairing_inputs_public_input_key.start_idx = start_idx;
-        info("Num gates after set_public: ", builder.num_gates);
+        // builder.pairing_inputs_public_input_key.start_idx = start_idx;
+        // info("Num gates after set_public: ", builder.num_gates);
     }
 };
 

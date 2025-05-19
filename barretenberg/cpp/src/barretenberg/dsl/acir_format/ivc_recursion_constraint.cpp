@@ -147,8 +147,7 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t num_public_inputs
     // Populate mock public inputs
     // Get some values for a valid aggregation object and use them here to avoid divide by 0 or other issues.
     std::array<fr, stdlib::recursion::PairingPoints<MegaCircuitBuilder>::PUBLIC_INPUTS_SIZE>
-        dummy_pairing_points_values =
-            stdlib::recursion::PairingPoints<MegaCircuitBuilder>::construct_dummy_pairing_points();
+        dummy_pairing_points_values = stdlib::recursion::PairingPoints<MegaCircuitBuilder>::construct_dummy();
     size_t public_input_count = 0;
     for (size_t i = 0; i < stdlib::recursion::PairingPoints<MegaCircuitBuilder>::PUBLIC_INPUTS_SIZE; i++) {
         proof.emplace_back(dummy_pairing_points_values[i]);
