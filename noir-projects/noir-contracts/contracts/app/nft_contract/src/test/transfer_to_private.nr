@@ -1,6 +1,5 @@
 use crate::{NFT, test::utils, types::nft_note::PartialNFTNote};
 use dep::aztec::{oracle::random::random, prelude::AztecAddress};
-use std::test::OracleMock;
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the NFT contract itself.
