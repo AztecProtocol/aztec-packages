@@ -552,10 +552,12 @@ export function createAztecNodeClient(
   url: string,
   versions: Partial<ComponentsVersions> = {},
   fetch = makeFetch([1, 2, 3], false),
+  batchWindowMS = 0,
 ): AztecNode {
   return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
     namespaceMethods: 'node',
     fetch,
+    batchWindowMS,
     onResponse: getVersioningResponseHandler(versions),
   });
 }

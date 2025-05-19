@@ -11,7 +11,10 @@ export class ReqRespMetrics {
   private readonly failedOutboundRequests: UpDownCounter;
   private readonly failedInboundRequests: UpDownCounter;
 
-  constructor(readonly telemetryClient: TelemetryClient, name = 'ReqResp') {
+  constructor(
+    readonly telemetryClient: TelemetryClient,
+    name = 'ReqResp',
+  ) {
     this.tracer = telemetryClient.getTracer(name);
 
     const meter = telemetryClient.getMeter(name);

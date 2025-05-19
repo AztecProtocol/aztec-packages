@@ -78,9 +78,8 @@ describe('KeyStore', () => {
     );
 
     // Manages to find master incoming viewing secret key for pub key
-    const masterIncomingViewingSecretKeyFromPublicKey = await keyStore.getMasterSecretKey(
-      masterIncomingViewingPublicKey,
-    );
+    const masterIncomingViewingSecretKeyFromPublicKey =
+      await keyStore.getMasterSecretKey(masterIncomingViewingPublicKey);
     expect(masterIncomingViewingSecretKeyFromPublicKey.toString()).toMatchInlineSnapshot(
       `"0x1d1d920024dd64e019c23de36d27aefe4d9d4d05983b99cf85bea9e85fd60020"`,
     );

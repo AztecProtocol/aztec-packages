@@ -246,9 +246,7 @@ export class Point {
 
   // Used for IvpkM, OvpkM, NpkM and TpkM. TODO(#8124): Consider removing this method.
   toWrappedNoirStruct() {
-    /* eslint-disable camelcase */
     return { inner: this.toNoirStruct() };
-    /* eslint-enable camelcase */
   }
 
   /**
