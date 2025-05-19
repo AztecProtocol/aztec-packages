@@ -380,7 +380,13 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     static std::array<FF, NUM_BARYCENTRIC_EVALUATIONS> compute_batched_barycentric_evaluations(
         const std::vector<FF>& coeffs, const FF& r, const FF& vanishing_poly_eval)
     {
-        FF one = FF{ 1 };
+        FF one{ 1 };
+        FF zero{ 0 };
+        if constexpr (Curve::is_stdlib_type) {
+            auto builder = r.get_context();
+            one.convert_constant_to_fixed_witness(builder);
+            zero.convert_constant_to_fixed_witness(builder);
+        }
 
         // Construct the denominators of the Lagrange polynomials evaluated
         // at r
@@ -403,7 +409,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         // Lagrange last evaluated at r
         FF numerator = vanishing_poly_eval * FF(SUBGROUP_SIZE).invert(); // (r^n - 1) / n
         std::array<FF, NUM_BARYCENTRIC_EVALUATIONS> result{
-            std::inner_product(coeffs.begin(), coeffs.end(), denominators.begin(), FF(0)),
+            std::inner_product(coeffs.begin(), coeffs.end(), denominators.begin(), zero),
             denominators[0],
             denominators[SUBGROUP_SIZE - 1]
         };
@@ -436,23 +442,38 @@ static std::vector<typename Curve::ScalarField> compute_challenge_polynomial_coe
 {
 
     using FF = typename Curve::ScalarField;
-
     std::vector<FF> challenge_polynomial_lagrange(Curve::SUBGROUP_SIZE);
     static constexpr size_t libra_univariates_length = Curve::LIBRA_UNIVARIATES_LENGTH;
 
-    challenge_polynomial_lagrange[0] = FF{ 1 };
+    const size_t challenge_poly_length = libra_univariates_length * multivariate_challenge.size() + 1;
+
+    FF one{ 1 };
+    FF zero{ 0 };
+    if constexpr (Curve::is_stdlib_type) {
+        auto builder = multivariate_challenge[0].get_context();
+        one.convert_constant_to_fixed_witness(builder);
+        zero.convert_constant_to_fixed_witness(builder);
+    }
+
+    challenge_polynomial_lagrange[0] = one;
 
     // Populate the vector with the powers of the challenges
     size_t round_idx = 0;
     for (auto challenge : multivariate_challenge) {
         size_t current_idx = 1 + libra_univariates_length * round_idx;
-        challenge_polynomial_lagrange[current_idx] = FF(1);
+        challenge_polynomial_lagrange[current_idx] = one;
         for (size_t idx = current_idx + 1; idx < current_idx + libra_univariates_length; idx++) {
             // Recursively compute the powers of the challenge up to the length of libra univariates
             challenge_polynomial_lagrange[idx] = challenge_polynomial_lagrange[idx - 1] * challenge;
         }
         round_idx++;
     }
+
+    // Ensure that the coefficients are padded with fixed witnesses obtained from 0
+    for (size_t idx = challenge_poly_length; idx < Curve::SUBGROUP_SIZE; idx++) {
+        challenge_polynomial_lagrange[idx] = zero;
+    }
+
     return challenge_polynomial_lagrange;
 }
 
@@ -473,9 +494,15 @@ std::vector<typename Curve::ScalarField> compute_eccvm_challenge_coeffs(
     const typename Curve::ScalarField& evaluation_challenge_x, const typename Curve::ScalarField& batching_challenge_v)
 {
     using FF = typename Curve::ScalarField;
-    std::vector<FF> coeffs_lagrange_basis(Curve::SUBGROUP_SIZE, FF{ 0 });
-
-    FF v_power = FF{ 1 };
+    std::vector<FF> coeffs_lagrange_basis(Curve::SUBGROUP_SIZE);
+    FF one{ 1 };
+    FF zero{ 0 };
+    if constexpr (Curve::is_stdlib_type) {
+        auto builder = evaluation_challenge_x.get_context();
+        one.convert_constant_to_fixed_witness(builder);
+        zero.convert_constant_to_fixed_witness(builder);
+    }
+    FF v_power = one;
     for (size_t poly_idx = 0; poly_idx < NUM_TRANSLATION_EVALUATIONS; poly_idx++) {
         const size_t start = NUM_DISABLED_ROWS_IN_SUMCHECK * poly_idx;
         coeffs_lagrange_basis[start] = v_power;
@@ -485,6 +512,13 @@ std::vector<typename Curve::ScalarField> compute_eccvm_challenge_coeffs(
         }
 
         v_power *= batching_challenge_v;
+    }
+
+    static constexpr size_t challenge_poly_length = NUM_TRANSLATION_EVALUATIONS * NUM_DISABLED_ROWS_IN_SUMCHECK;
+
+    // Ensure that the coefficients are padded with fixed witnesses obtained from 0
+    for (size_t idx = challenge_poly_length; idx < Curve::SUBGROUP_SIZE; idx++) {
+        coeffs_lagrange_basis[idx] = zero;
     }
 
     return coeffs_lagrange_basis;
