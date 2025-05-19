@@ -7,10 +7,7 @@ use dep::aztec::{
     oracle::random::random,
     protocol_types::{
         address::AztecAddress,
-        constants::{
-            GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER,
-            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
-        },
+        constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
         hash::{poseidon2_hash_with_separator, sha256_to_field},
         traits::{Deserialize, Hash, Packable, Serialize, ToField},
         utils::arrays::array_concat,
@@ -211,22 +208,9 @@ impl PartialNFTNote {
     pub fn compute_validity_commitment(self, sender: AztecAddress) -> Field {
         let commitment_bytes: [u8; 32] = self.commitment.to_be_bytes();
         let sender_bytes: [u8; 32] = sender.to_field().to_be_bytes();
-        // We use separator because the resulting commitment is used as a public storage slot in the partial note
-        // validity check scheme.
-        // (We use 4 bytes for the value because the constant is u32)
-        let separator_bytes: [u8; 4] =
-            (GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT as Field).to_be_bytes();
         // TODO(#10537): Can we use poseidon2 here given that partial_note.commitment() was computed with it? Or at
         // least pedersen?
-        // TODO: Is the hash really properly separated given that it's just appended to the array and has no "special
-        // place"? (e.g. how pedersen has a special generator for the separator)
-        // (Not dealing with the second TODO now as we will likely replace the hash function anyway).
-        sha256_to_field(
-            array_concat(
-                array_concat(commitment_bytes, sender_bytes),
-                separator_bytes,
-            ),
-        )
+        sha256_to_field(array_concat(commitment_bytes, sender_bytes))
     }
 
     /// Completes the partial note, creating a new note that can be used like any other NFTNote.
