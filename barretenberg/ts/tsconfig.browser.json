@@ -7,5 +7,5 @@
     "sourceMap": false,
     "outDir": "dest/browser",
   },
-  "include": ["!src/main.ts", "src", "src/barretenberg_wasm/barretenberg_wasm_thread/factory/browser/thread.worker.ts", "src/barretenberg_wasm/barretenberg_wasm_main/factory/browser/main.worker.ts"]
+  "include": ["!src/main.ts", "src"]
 }

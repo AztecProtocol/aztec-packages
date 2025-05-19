@@ -9,7 +9,10 @@
   "exports": {
     ".": {
       "require": "./dest/node-cjs/index.js",
-      "browser": "./dest/browser/index.js",
+      "browser": {
+        "script": "./dest/browser/index.js",
+        "default": "./dest/browser-esm/index.js"
+      },
       "default": "./dest/node/index.js"
     }
   },
@@ -26,6 +29,7 @@
     "build:wasm": "./scripts/build_wasm.sh",
     "build:esm": "tsc -b tsconfig.esm.json && chmod +x ./dest/node/main.js",
     "build:cjs": "tsc -b tsconfig.cjs.json && ./scripts/cjs_postprocess.sh",
+    "build:browser-esm": "tsc -b tsconfig.browser-esm.json && ./scripts/browser_esm_postprocess.sh",
     "build:browser": "webpack",
     "build:bindings": "cd .. && ./scripts/bindgen.sh",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
