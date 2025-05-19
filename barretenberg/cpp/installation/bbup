@@ -65,9 +65,46 @@ main() {
   RELEASE_URL="https://github.com/${BBUP_REPO}/releases/download/${BBUP_TAG}"
   BIN_TARBALL_URL="${RELEASE_URL}/barretenberg-${ARCHITECTURE}-${PLATFORM}.tar.gz"
 
-  # Download the binary's tarball and unpack it into the .bb directory.
-  say "downloading bb to '$BB_HOME'"
-  ensure curl -# -L $BIN_TARBALL_URL | tar -xzC $BB_HOME
+  # Create temporary directory and file
+  TEMP_DIR=$(mktemp -d)
+  TEMP_TAR="${TEMP_DIR}/bb.tar.gz"
+
+  # Download the binary's tarball
+  say "downloading bb from ${BIN_TARBALL_URL}"
+  ensure curl -# -L $BIN_TARBALL_URL -o "$TEMP_TAR"
+
+  # Verify the integrity of the downloaded file before extraction
+  say "verifying file integrity"
+  CHECKSUM_URL="${RELEASE_URL}/barretenberg-${ARCHITECTURE}-${PLATFORM}.tar.gz.sha256"
+  EXPECTED_CHECKSUM=$(curl -s -L "$CHECKSUM_URL" || echo "")
+
+  if [ -z "$EXPECTED_CHECKSUM" ]; then
+    warn "no checksum file available. skipping verification."
+  else
+    if command -v shasum >/dev/null 2>&1; then
+      CALCULATED_CHECKSUM=$(shasum -a 256 "$TEMP_TAR" | cut -d ' ' -f 1)
+    elif command -v sha256sum >/dev/null 2>&1; then
+      CALCULATED_CHECKSUM=$(sha256sum "$TEMP_TAR" | cut -d ' ' -f 1)
+    else
+      warn "neither shasum nor sha256sum commands available. skipping verification."
+      CALCULATED_CHECKSUM=""
+    fi
+
+    if [ -n "$CALCULATED_CHECKSUM" ] && [ "$CALCULATED_CHECKSUM" != "$EXPECTED_CHECKSUM" ]; then
+      err "checksum verification failed! Expected: ${EXPECTED_CHECKSUM}, Got: ${CALCULATED_CHECKSUM}. The downloaded file may be corrupted or tampered with."
+    elif [ -n "$CALCULATED_CHECKSUM" ]; then
+      say "checksum verification passed"
+    fi
+  fi
+
+  # Create the installation directory if it doesn't exist
+  mkdir -p "$BB_HOME"
+
+  # Extract the tarball
+  ensure tar -xzf "$TEMP_TAR" -C "$BB_HOME"
+
+  # Clean up
+  rm -rf "$TEMP_DIR"
 
   say "done"
 }
