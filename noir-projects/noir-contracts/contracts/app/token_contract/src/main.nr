@@ -250,6 +250,42 @@ pub contract Token {
     }
     // docs:end:transfer_to_public
 
+    /// Transfers tokens from private balance to public balance and prepares a partial note for receiving change.
+    /// This is an optimization that combines two operations into one to reduce kernel iterations:
+    /// 1. Transfers `amount` tokens from `from`'s private balance to `to`'s public balance
+    /// 2. Creates a partial note that can later be used to receive change back to `from`'s private balance
+    ///
+    /// This pattern is useful when interacting with contracts that:
+    /// - Receive tokens from a user's private balance
+    /// - Need to wait until public execution to determine how many tokens to return (e.g. AMM, FPC)
+    /// - Will return tokens to the user's private balance
+    ///
+    /// The contract can use the returned partial note to complete the transfer back to private
+    /// once the final amount is known during public execution.
+    #[private]
+    fn transfer_to_public_and_prepare_private_balance_increase(
+        from: AztecAddress,
+        to: AztecAddress,
+        amount: u128,
+        nonce: Field,
+    ) -> PartialUintNote {
+        if (!from.eq(context.msg_sender())) {
+            assert_current_call_valid_authwit(&mut context, from);
+        } else {
+            assert(nonce == 0, "invalid nonce");
+        }
+
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+            &mut context,
+            from,
+            from,
+        ));
+        Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
+
+        // We prepare the private balance increase (the partial note).
+        _prepare_private_balance_increase(from, from, &mut context, storage)
+    }
+
     // docs:start:transfer
     #[private]
     fn transfer(to: AztecAddress, amount: u128) {
