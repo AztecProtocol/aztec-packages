@@ -402,7 +402,7 @@ export async function generateAvmProof(
     }
     const timer = new Timer();
 
-    const cmd = checkCircuitOnly ? 'avm2_check_circuit' : 'avm2_prove';
+    const cmd = checkCircuitOnly ? 'avm_check_circuit' : 'avm_prove';
     const logFunction = (message: string) => {
       logger.verbose(`AvmCircuit (${cmd}) BB out - ${message}`);
     };
@@ -476,7 +476,7 @@ export async function verifyAvmProof(
     return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
   }
 
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'avm2_verify', logger, [
+  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'avm_verify', logger, [
     '--avm-public-inputs',
     avmInputsPath,
   ]);
@@ -529,7 +529,7 @@ export async function verifyClientIvcProof(
  * @param pathToBB - The full path to the bb binary
  * @param proofFullPath - The full path to the proof to be verified
  * @param verificationKeyPath - The full path to the circuit verification key
- * @param command - The BB command to execute (verify/avm2_verify)
+ * @param command - The BB command to execute (verify/avm_verify)
  * @param log - A logging function
  * @returns An object containing a result indication and duration taken
  */
@@ -537,7 +537,7 @@ async function verifyProofInternal(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
-  command: 'verify' | 'avm2_verify',
+  command: 'verify' | 'avm_verify',
   logger: Logger,
   extraArgs: string[] = [],
 ): Promise<BBFailure | BBSuccess> {

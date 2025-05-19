@@ -12,9 +12,9 @@ namespace bb {
  * @param inputs_path Path to the file containing the serialised avm public inputs and hints
  * @param output_path Path (directory) to write the output proof and verification keys
  */
-void avm2_prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path);
+void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path);
 
-void avm2_check_circuit(const std::filesystem::path& inputs_path);
+void avm_check_circuit(const std::filesystem::path& inputs_path);
 
 /**
  * @brief Verifies an avm proof and writes the result to stdout
@@ -29,8 +29,8 @@ void avm2_check_circuit(const std::filesystem::path& inputs_path);
  * @return false If the proof is invalid
  */
 // NOTE: The proof should NOT include the public inputs.
-bool avm2_verify(const std::filesystem::path& proof_path,
-                 const std::filesystem::path& public_inputs_path,
-                 const std::filesystem::path& vk_path);
+bool avm_verify(const std::filesystem::path& proof_path,
+                const std::filesystem::path& public_inputs_path,
+                const std::filesystem::path& vk_path);
 } // namespace bb
 #endif

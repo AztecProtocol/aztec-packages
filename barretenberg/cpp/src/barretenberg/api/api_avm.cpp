@@ -24,7 +24,7 @@ void print_avm_stats()
 
 } // namespace
 
-void avm2_prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path)
+void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path)
 {
     avm2::AvmAPI avm;
     auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
@@ -47,7 +47,7 @@ void avm2_prove(const std::filesystem::path& inputs_path, const std::filesystem:
     }
 }
 
-void avm2_check_circuit(const std::filesystem::path& inputs_path)
+void avm_check_circuit(const std::filesystem::path& inputs_path)
 {
     avm2::AvmAPI avm;
     auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
@@ -59,9 +59,9 @@ void avm2_check_circuit(const std::filesystem::path& inputs_path)
 }
 
 // NOTE: The proof should NOT include the public inputs.
-bool avm2_verify(const std::filesystem::path& proof_path,
-                 const std::filesystem::path& public_inputs_path,
-                 const std::filesystem::path& vk_path)
+bool avm_verify(const std::filesystem::path& proof_path,
+                const std::filesystem::path& public_inputs_path,
+                const std::filesystem::path& vk_path)
 {
     const auto proof = many_from_buffer<fr>(read_file(proof_path));
     std::vector<uint8_t> vk_bytes = read_file(vk_path);
