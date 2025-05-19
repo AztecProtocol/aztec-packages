@@ -646,7 +646,7 @@ export class AztecKVTxPool implements TxPool {
 
   private async increasePendingTxCount(count: number): Promise<void> {
     const pendingTxCount = (await this.#pendingTxCount.getAsync()) ?? 0;
-    this.#log.warn(
+    this.#log.debug(
       `Increasing pending tx count: current ${pendingTxCount} + count ${count} = ${pendingTxCount + count}`,
     );
     await this.#pendingTxCount.set(pendingTxCount + count);
