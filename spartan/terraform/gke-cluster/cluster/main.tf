@@ -202,7 +202,7 @@ resource "google_container_node_pool" "aztec_nodes-8core" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 50
+    max_node_count = 1
   }
 
   # Node configuration
