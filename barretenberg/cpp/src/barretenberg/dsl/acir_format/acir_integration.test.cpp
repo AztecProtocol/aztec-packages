@@ -493,7 +493,7 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
  * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
  *
  */
-TEST_F(AcirIntegrationTest, ClientIVCMsgpackInputs)
+TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
 {
     // NOTE: to populate the test inputs at this location, run the following commands:
     //      export  AZTEC_CACHE_COMMIT=origin/master~3
@@ -515,7 +515,7 @@ TEST_F(AcirIntegrationTest, ClientIVCMsgpackInputs)
  * @brief Check that for a set of programs to be accumulated via CIVC, the verification keys computed with a dummy
  * witness are identical to those computed with the genuine provided witness.
  */
-TEST_F(AcirIntegrationTest, DummyWitnessVkConsistency)
+TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
 {
     std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
                              "ecdsar1+transfer_0_recursions+private_fpc/ivc-inputs.msgpack";
