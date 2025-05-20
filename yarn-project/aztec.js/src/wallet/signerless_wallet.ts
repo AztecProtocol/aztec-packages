@@ -14,7 +14,10 @@ import { BaseWallet } from './base_wallet.js';
  * Wallet implementation which creates a transaction request directly to the requested contract without any signing.
  */
 export class SignerlessWallet extends BaseWallet {
-  constructor(pxe: PXE, private entrypoint?: EntrypointInterface) {
+  constructor(
+    pxe: PXE,
+    private entrypoint?: EntrypointInterface,
+  ) {
     super(pxe);
   }
   async createTxExecutionRequest(

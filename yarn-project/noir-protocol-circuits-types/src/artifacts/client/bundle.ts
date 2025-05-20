@@ -1,14 +1,14 @@
 import type { NoirCompiledCircuit, NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
-import PrivateKernelInitJson from '../../../artifacts/private_kernel_init.json' assert { type: 'json' };
-import PrivateKernelInitSimulatedJson from '../../../artifacts/private_kernel_init_simulated.json' assert { type: 'json' };
-import PrivateKernelInnerJson from '../../../artifacts/private_kernel_inner.json' assert { type: 'json' };
-import PrivateKernelInnerSimulatedJson from '../../../artifacts/private_kernel_inner_simulated.json' assert { type: 'json' };
-import PrivateKernelTailJson from '../../../artifacts/private_kernel_tail.json' assert { type: 'json' };
-import PrivateKernelTailSimulatedJson from '../../../artifacts/private_kernel_tail_simulated.json' assert { type: 'json' };
-import PrivateKernelTailToPublicJson from '../../../artifacts/private_kernel_tail_to_public.json' assert { type: 'json' };
-import PrivateKernelTailToPublicSimulatedJson from '../../../artifacts/private_kernel_tail_to_public_simulated.json' assert { type: 'json' };
+import PrivateKernelInitJson from '../../../artifacts/private_kernel_init.json' with { type: 'json' };
+import PrivateKernelInitSimulatedJson from '../../../artifacts/private_kernel_init_simulated.json' with { type: 'json' };
+import PrivateKernelInnerJson from '../../../artifacts/private_kernel_inner.json' with { type: 'json' };
+import PrivateKernelInnerSimulatedJson from '../../../artifacts/private_kernel_inner_simulated.json' with { type: 'json' };
+import PrivateKernelTailJson from '../../../artifacts/private_kernel_tail.json' with { type: 'json' };
+import PrivateKernelTailSimulatedJson from '../../../artifacts/private_kernel_tail_simulated.json' with { type: 'json' };
+import PrivateKernelTailToPublicJson from '../../../artifacts/private_kernel_tail_to_public.json' with { type: 'json' };
+import PrivateKernelTailToPublicSimulatedJson from '../../../artifacts/private_kernel_tail_to_public_simulated.json' with { type: 'json' };
 import { PrivateKernelResetArtifacts, PrivateKernelResetSimulatedArtifacts } from '../../private_kernel_reset_data.js';
 import type { ArtifactProvider, ClientProtocolArtifact } from '../types.js';
 import { ClientCircuitVks } from '../vks/client.js';
