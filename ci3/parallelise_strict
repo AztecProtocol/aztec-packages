@@ -7,9 +7,9 @@ cd $root
 
 if [ -z "${1:-}" ]; then
   num_cpus=$(get_num_cpus)
-  jobs=$((num_cpus / 2))
+  num_cpus=$((num_cpus / 2))
 else
-  jobs=$(get_num_cpus_max ${1:-})
+  num_cpus=$(get_num_cpus_max ${1:-})
 fi
 
 [ -t 1 ] && no_term=0 || no_term=1

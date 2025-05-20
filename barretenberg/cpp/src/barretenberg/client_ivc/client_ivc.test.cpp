@@ -1,6 +1,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/protogalaxy/folding_test_utils.hpp"
@@ -467,7 +468,7 @@ TEST(ClientIVCBenchValidation, Full6)
 }
 
 /**
- * @brief Test that running the benchmark suite with movked verification keys will not error out.
+ * @brief Test that running the benchmark suite with mocked verification keys will not error out.
  */
 TEST(ClientIVCBenchValidation, Full6MockedVKs)
 {
@@ -644,11 +645,12 @@ TEST_F(ClientIVCTests, MsgpackProofFromBuffer)
     const auto proof = ivc.prove();
 
     // Serialize/deserialize proof to/from a heap buffer, check that it verifies
-    uint8_t const* buffer = proof.to_msgpack_heap_buffer();
+    uint8_t* buffer = proof.to_msgpack_heap_buffer();
     auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
     uint8_t const* uint8_ptr = uint8_buffer.data();
     auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(uint8_ptr);
     EXPECT_TRUE(ivc.verify(proof_deserialized));
+    aligned_free(buffer);
 };
 
 /**

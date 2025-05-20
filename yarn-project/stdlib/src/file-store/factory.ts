@@ -36,7 +36,7 @@ export async function createFileStore(
       const store = new GoogleCloudFileStore(bucket, path);
       await store.checkCredentials();
       return store;
-    } catch (err) {
+    } catch {
       throw new Error(`Invalid google cloud store definition: '${config}'.`);
     }
   } else {
