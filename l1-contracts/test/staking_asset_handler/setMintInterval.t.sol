@@ -52,6 +52,8 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
 
   function test_WhenOwnerTriesToMintAfterTheNewIntervalHasPassed(uint256 _newMintInterval) external {
     _newMintInterval = bound(_newMintInterval, mintInterval + 1, type(uint24).max);
+    setMockZKPassportVerifier();
+
     stakingAssetHandler.setMintInterval(_newMintInterval);
     vm.warp(block.timestamp + _newMintInterval);
     // it mints

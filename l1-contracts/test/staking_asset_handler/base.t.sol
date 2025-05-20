@@ -8,7 +8,7 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {StakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
-import { ZKPassportBase } from "./zkpassport/ZKPassportBase.sol";
+import {ZKPassportBase} from "./zkpassport/ZKPassportBase.sol";
 
 // solhint-disable comprehensive-interface
 

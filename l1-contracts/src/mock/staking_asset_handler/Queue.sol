@@ -11,6 +11,7 @@ struct Queue {
 
 library QueueLib {
   error AlreadySeen(address _attester, address _proposer);
+  error QueueEmpty();
 
   function init(Queue storage self) internal {
     self.first = 1;
@@ -28,7 +29,7 @@ library QueueLib {
   }
 
   function dequeue(Queue storage self) internal returns (address attester, address proposer) {
-    require(self.last > self.first);
+    require(self.last > self.first, QueueEmpty());
 
     attester = self.attester[self.first];
     proposer = self.proposer[self.first];

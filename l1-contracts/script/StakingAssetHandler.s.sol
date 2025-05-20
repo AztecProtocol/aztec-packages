@@ -20,14 +20,15 @@ import {StakingAssetHandler} from "../src/mock/StakingAssetHandler.sol";
 import {FeeAssetHandler} from "../src/mock/FeeAssetHandler.sol";
 import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
-import { ZKPassportVerifier } from "@zkpassport/ZKPassportVerifier.sol";
+import {ZKPassportVerifier} from "@zkpassport/ZKPassportVerifier.sol";
 
 contract StakingAssetHandlerScript is Test {
   using ProposalLib for DataStructures.Proposal;
 
   address internal constant ME = address(0xf8d7d601759CBcfB78044bA7cA9B0c0D6301A54f);
 
-  ZKPassportVerifier internal constant zkPassportVerifier = ZKPassportVerifier(0x21E12Fa30a1F98699F242ac062Db4a8e7b344B5d);
+  ZKPassportVerifier internal constant zkPassportVerifier =
+    ZKPassportVerifier(0x21E12Fa30a1F98699F242ac062Db4a8e7b344B5d);
 
   TestERC20 public constant stakingAsset = TestERC20(0x5C30c66847866A184ccb5197cBE31Fce7A92eB26);
   IRegistry public constant registry = IRegistry(0x4d2cC1d5fb6BE65240e0bFC8154243e69c0Fb19E);

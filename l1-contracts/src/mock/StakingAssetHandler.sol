@@ -29,6 +29,7 @@ import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
  * @dev Only the owner can grant and revoke the `isUnhinged` role, and perform other administrative tasks
  *      such as setting the REGISTRY address, mint interval, deposits per mint, and withdrawer.
  */
+
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
   event AddedToQueue(address indexed _attester, address _proposer);
@@ -38,7 +39,9 @@ interface IStakingAssetHandler {
   event IntervalUpdated(uint256 _interval);
   event DepositsPerMintUpdated(uint256 _depositsPerMint);
   event WithdrawerUpdated(address indexed _withdrawer);
-  event VerifierUpdated(address indexed _verifier);
+  event ZKPassportVerifierUpdated(address indexed _verifier);
+  event ScopeUpdated(string newScope);
+  event SubScopeUpdated(string newSubScope);
 
   event UnhingedAdded(address indexed _address);
   event UnhingedRemoved(address indexed _address);
@@ -48,12 +51,19 @@ interface IStakingAssetHandler {
   error InvalidProof();
   error SybilDetected(bytes32 _nullifier);
 
-  function addValidator(address _attester, address _proposer, ProofVerificationParams memory _params) external;
+  function addValidator(
+    address _attester,
+    address _proposer,
+    ProofVerificationParams memory _params
+  ) external;
   function setMintInterval(uint256 _interval) external;
   function setDepositsPerMint(uint256 _depositsPerMint) external;
   function setWithdrawer(address _withdrawer) external;
   function addUnhinged(address _address) external;
   function removeUnhinged(address _address) external;
+  function setZKPassportVerifier(address _address) external;
+  function setScope(string memory _scope) external;
+  function setSubscope(string memory _subscope) external;
   function getQueueLength() external returns (uint256);
   function dripQueue() external;
 
@@ -114,7 +124,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit UnhingedAdded(_owner);
 
     zkPassportVerifier = _zkPassportVerifier;
-    emit VerifierUpdated(address( _zkPassportVerifier));
+    emit ZKPassportVerifierUpdated(address(_zkPassportVerifier));
 
     validScope = "sequencer.alpha-testnet.aztec.network";
     validSubscope = "personhood";
@@ -128,10 +138,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _attester - the validator's attester address
    * @param _proposer - the validator's proposer address
    */
-  function addValidator(address _attester, address _proposer, ProofVerificationParams calldata _params)
-    external
-    override(IStakingAssetHandler)
-  {
+  function addValidator(
+    address _attester,
+    address _proposer,
+    ProofVerificationParams calldata _params
+  ) external override(IStakingAssetHandler) {
     // If the sender is unhinged, will mint the required amount (to not impact other users).
     // Otherwise we add them to the deposit queue.
     if (isUnhinged[msg.sender]) {
@@ -144,27 +155,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     } else {
       _validateNewValidator(_attester, _proposer, _params);
     }
-  }
-
-
-  function _validateNewValidator(address _attester, address _proposer, ProofVerificationParams calldata _params) internal {
-    // Must NOT be using dev mode
-    require(_params.devMode == false, InvalidProof());
-
-    (bool verified, bytes32 nullifier) = zkPassportVerifier.verifyProof(_params);
-
-    require(verified, InvalidProof());
-    require(!nullifiers[nullifier], SybilDetected(nullifier));
-
-    // Note: below appears to be checked within verifyProof
-    // require(zkPassportVerifier.verifyScopes(params.publicInputs, validScope, validSubscope), InvalidProof());
-
-    // Set nullifier to consumed
-    nullifiers[nullifier] = true;
-
-    // Add validator into the entry queue
-    entryQueue.enqueue(_attester, _proposer);
-    emit AddedToQueue(_attester, _proposer);
   }
 
   function dripQueue() external override(IStakingAssetHandler) {
@@ -213,16 +203,23 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit DepositsPerMintUpdated(_depositsPerMint);
   }
 
-  function setZKPassportVerifier(address _zkPassportVerifier) public onlyOwner {
+  function setZKPassportVerifier(address _zkPassportVerifier)
+    external
+    override(IStakingAssetHandler)
+    onlyOwner
+  {
     zkPassportVerifier = ZKPassportVerifier(_zkPassportVerifier);
+    emit ZKPassportVerifierUpdated(_zkPassportVerifier);
   }
 
-  function setScope(string calldata _scope) public onlyOwner {
+  function setScope(string memory _scope) external override(IStakingAssetHandler) onlyOwner {
     validScope = _scope;
+    emit ScopeUpdated(_scope);
   }
 
-  function setSubscope(string calldata _subscope) public onlyOwner {
+  function setSubscope(string memory _subscope) external override(IStakingAssetHandler) onlyOwner {
     validSubscope = _subscope;
+    emit SubScopeUpdated(_subscope);
   }
 
   function setWithdrawer(address _withdrawer) external override(IStakingAssetHandler) onlyOwner {
@@ -246,6 +243,30 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   function getQueueLength() external view override(IStakingAssetHandler) returns (uint256) {
     return entryQueue.length();
+  }
+
+  function _validateNewValidator(
+    address _attester,
+    address _proposer,
+    ProofVerificationParams calldata _params
+  ) internal {
+    // Must NOT be using dev mode
+    require(_params.devMode == false, InvalidProof());
+
+    (bool verified, bytes32 nullifier) = zkPassportVerifier.verifyProof(_params);
+
+    require(verified, InvalidProof());
+    require(!nullifiers[nullifier], SybilDetected(nullifier));
+
+    // Note: below appears to be checked within verifyProof
+    // require(zkPassportVerifier.verifyScopes(params.publicInputs, validScope, validSubscope), InvalidProof());
+
+    // Set nullifier to consumed
+    nullifiers[nullifier] = true;
+
+    // Add validator into the entry queue
+    entryQueue.enqueue(_attester, _proposer);
+    emit AddedToQueue(_attester, _proposer);
   }
 
   function _triggerDeposit(
