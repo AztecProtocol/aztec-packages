@@ -1,3 +1,5 @@
+import { GeneratorIndex } from '@aztec/constants';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
@@ -137,7 +139,18 @@ async function addLiquidity(
   const liquidityPartialNote = {
     commitment: new Fr(99),
   };
-
+  const refundToken0PartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    refundToken0PartialNote,
+    amm.address,
+  );
+  const refundToken1PartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    refundToken1PartialNote,
+    amm.address,
+  );
+  const liquidityPartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    liquidityPartialNote,
+    amm.address,
+  );
   return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/add_liquidity',
     /*sender=*/ sender,
@@ -154,7 +167,7 @@ async function addLiquidity(
       {
         sender: token0.address, // INTERNAL FUNCTION! Sender must be 'this'.
         fnName: '_set_uint_partial_note_validity',
-        args: [refundToken0PartialNote],
+        args: [refundToken0PartialNoteValidityCommitment],
         address: token0.address,
       },
       // token1.transfer_to_public enqueues a call to _increase_public_balance
@@ -168,14 +181,14 @@ async function addLiquidity(
       {
         sender: token1.address, // INTERNAL FUNCTION! Sender must be 'this'.
         fnName: '_set_uint_partial_note_validity',
-        args: [refundToken1PartialNote],
+        args: [refundToken1PartialNoteValidityCommitment],
         address: token1.address,
       },
       // liquidityToken.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
       {
         sender: liquidityToken.address, // INTERNAL FUNCTION! Sender must be 'this'.
         fnName: '_set_uint_partial_note_validity',
-        args: [liquidityPartialNote],
+        args: [liquidityPartialNoteValidityCommitment],
         address: liquidityToken.address,
       },
       // amm.add_liquidity enqueues a call to _add_liquidity
@@ -216,6 +229,10 @@ async function swapExactTokensForTokens(
   const tokenOutPartialNote = {
     commitment: new Fr(66),
   };
+  const tokenOutPartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    tokenOutPartialNote,
+    amm.address,
+  );
 
   return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/swap_exact_tokens_for_tokens',
@@ -233,7 +250,7 @@ async function swapExactTokensForTokens(
       {
         sender: tokenOut.address, // INTERNAL FUNCTION! Sender must be 'this'.
         fnName: '_set_uint_partial_note_validity',
-        args: [tokenOutPartialNote],
+        args: [tokenOutPartialNoteValidityCommitment],
         address: tokenOut.address,
       },
 
@@ -265,7 +282,14 @@ async function removeLiquidity(
   const token1PartialNote = {
     commitment: new Fr(222),
   };
-
+  const token0PartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    token0PartialNote,
+    amm.address,
+  );
+  const token1PartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    token1PartialNote,
+    amm.address,
+  );
   return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/remove_liquidity',
     /*sender=*/ sender,
@@ -282,14 +306,14 @@ async function removeLiquidity(
       {
         sender: token0.address, // INTERNAL FUNCTION! Sender must be 'this'.
         fnName: '_set_uint_partial_note_validity',
-        args: [token0PartialNote],
+        args: [token0PartialNoteValidityCommitment],
         address: token0.address,
       },
       // token1.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
       {
         sender: token1.address, // INTERNAL FUNCTION! Sender must be 'this'.
         fnName: '_set_uint_partial_note_validity',
-        args: [token1PartialNote],
+        args: [token1PartialNoteValidityCommitment],
         address: token1.address,
       },
       // amm.remove_liquidity enqueues a call to _remove_liquidity
@@ -312,5 +336,12 @@ async function removeLiquidity(
         address: amm.address,
       },
     ],
+  );
+}
+
+async function computePartialNoteValidityCommitment(partialNote: { commitment: Fr }, completer: AztecAddress) {
+  return await poseidon2HashWithSeparator(
+    [partialNote.commitment, completer],
+    GeneratorIndex.PARTIAL_NOTE_VALIDITY_COMMITMENT,
   );
 }
