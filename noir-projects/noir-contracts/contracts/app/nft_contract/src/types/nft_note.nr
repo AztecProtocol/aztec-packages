@@ -8,7 +8,7 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress,
         constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
-        hash::{poseidon2_hash_with_separator, sha256_to_field},
+        hash::{poseidon2_hash, poseidon2_hash_with_separator},
         traits::{Deserialize, Hash, Packable, Serialize, ToField},
         utils::arrays::array_concat,
     },
@@ -206,13 +206,9 @@ impl PartialNFTNote {
     /// partial note in private and then is used to check that sender and note are valid upon partial note completion
     /// in public.
     pub fn compute_validity_commitment(self, sender: AztecAddress) -> Field {
-        let commitment_bytes: [u8; 32] = self.commitment.to_be_bytes();
-        let sender_bytes: [u8; 32] = sender.to_field().to_be_bytes();
         // We don't use separator here because `self.commitment` (computed by `compute_partial_commitment`) already
         // includes it.
-        // TODO(#10537): Can we use poseidon2 here given that partial_note.commitment() was computed with it? Or at
-        // least pedersen?
-        sha256_to_field(array_concat(commitment_bytes, sender_bytes))
+        poseidon2_hash([self.commitment, sender.to_field()])
     }
 
     /// Completes the partial note, creating a new note that can be used like any other NFTNote.
