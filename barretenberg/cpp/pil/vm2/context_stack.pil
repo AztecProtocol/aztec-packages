@@ -1,6 +1,17 @@
 namespace context_stack;
+    pol commit sel;
+    sel * (1 - sel) = 0;
 
-    pol commit context_id;
+    #[skippable_if]
+    sel = 0;
+
+    // Sel = 1 IFF context_id != 0 - this is probably overconstrained, since it's a lookup
+    // it maybe naturally constrained to be 1 based on the lookup relations
+    pol commit context_id_inv;
+    context_id * ((1 - sel) * (1 - context_id_inv) + context_id_inv) - sel = 0;
+
+    pol commit entered_context_id;
+    pol commit context_id; // Constrained to != 0 based on context.pil
     pol commit parent_id;
     pol commit next_pc;
     pol commit msg_sender;

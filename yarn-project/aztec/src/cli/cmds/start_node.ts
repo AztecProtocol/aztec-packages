@@ -189,7 +189,7 @@ export async function startNode(
     await setupUpdateMonitor(
       nodeConfig.autoUpdate,
       new URL(nodeConfig.autoUpdateUrl),
-      followsCanonicalRollup ? 'canonical' : nodeConfig.rollupVersion,
+      followsCanonicalRollup,
       getPublicClient(nodeConfig!),
       nodeConfig.l1Contracts.registryAddress,
       signalHandlers,
