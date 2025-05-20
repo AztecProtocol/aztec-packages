@@ -210,8 +210,8 @@ pub contract NFT {
 
         // We can't simply return the partial note because we won't be able to later on verify that it was created
         // correctly (e.g. that the storage slot corresponds to the owner, and that we're using the `private_nfts`
-        // state variable and not another state variable) once this information is hidden in the partial note
-        // commitment. We also want to verify that only the caller of this function can complete the partial note.
+        // state variable and not a different one) once this information is hidden in the partial note commitment.
+        // We also want to verify that only the caller of this function can complete the partial note.
         //
         // We achieve the above by storing a flag in public storage under a slot index equal to its
         // `validity_commitment`. This commitment contains all the necessary information to verify the completer and

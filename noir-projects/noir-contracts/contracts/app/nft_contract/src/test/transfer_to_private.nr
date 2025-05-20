@@ -84,7 +84,9 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
 
 #[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn incorrect_completer_cannot_complete_partial_note() {
-    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
+    // We mint to the incorrect completer to avoid the test failing due to the NFT owner check (we want to fail on
+    // the partial note validity check).
     let (env, nft_contract_address, incorrect_completer, recipient, token_id) =
         utils::setup_and_mint(/* with_account_contracts */ false);
 
