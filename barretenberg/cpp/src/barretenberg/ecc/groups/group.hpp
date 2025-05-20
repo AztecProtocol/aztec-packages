@@ -23,7 +23,7 @@ namespace bb {
 
 /**
  * @brief group class. Represents an elliptic curve group element.
- * Group is parametrised by Fq and subgroup_field
+ * Group is parametrised by Fq and Fr
  *
  * Note: Currently subgroup checks are NOT IMPLEMENTED
  * Our current implementation uses G1 points that have a cofactor of 1.
