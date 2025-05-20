@@ -161,7 +161,10 @@ export class BatchedBlob {
  * Iteratively calculated by BlobAccumulatorPublicInputs.accumulate() in nr. See also precomputeBatchedBlobChallenges() above.
  */
 export class FinalBlobBatchingChallenges {
-  constructor(public readonly z: Fr, public readonly gamma: BLS12Fr) {}
+  constructor(
+    public readonly z: Fr,
+    public readonly gamma: BLS12Fr,
+  ) {}
 
   equals(other: FinalBlobBatchingChallenges) {
     return this.z.equals(other.z) && this.gamma.equals(other.gamma);

@@ -98,7 +98,12 @@ export class BlobAccumulatorPublicInputs {
  * See nr FinalBlobAccumulatorPublicInputs and ts BatchedBlobAccumulator for documentation.
  */
 export class FinalBlobAccumulatorPublicInputs {
-  constructor(public blobCommitmentsHash: Fr, public z: Fr, public y: BLS12Fr, public c: BLS12Point) {}
+  constructor(
+    public blobCommitmentsHash: Fr,
+    public z: Fr,
+    public y: BLS12Fr,
+    public c: BLS12Point,
+  ) {}
 
   static empty(): FinalBlobAccumulatorPublicInputs {
     return new FinalBlobAccumulatorPublicInputs(Fr.ZERO, Fr.ZERO, BLS12Fr.ZERO, BLS12Point.ZERO);
