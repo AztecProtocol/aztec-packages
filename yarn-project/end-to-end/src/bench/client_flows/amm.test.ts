@@ -110,7 +110,7 @@ describe('AMM benchmark', () => {
             const nonceForAuthwits = Fr.random();
             const token0Authwit = await benchysWallet.createAuthWit({
               caller: amm.address,
-              action: bananaCoin.methods.transfer_to_public(
+              action: bananaCoin.methods.transfer_to_public_and_prepare_private_balance_increase(
                 benchysWallet.getAddress(),
                 amm.address,
                 amountToSend,
@@ -119,7 +119,7 @@ describe('AMM benchmark', () => {
             });
             const token1Authwit = await benchysWallet.createAuthWit({
               caller: amm.address,
-              action: candyBarCoin.methods.transfer_to_public(
+              action: candyBarCoin.methods.transfer_to_public_and_prepare_private_balance_increase(
                 benchysWallet.getAddress(),
                 amm.address,
                 amountToSend,
