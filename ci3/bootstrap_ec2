@@ -228,6 +228,7 @@ function run {
       -e RUN_ID=${RUN_ID:-} \
       -e JOB_ID=${JOB_ID:-} \
       -e REF_NAME=${REF_NAME:-} \
+      -e TARGET_BRANCH=${TARGET_BRANCH:-} \
       -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
       -e NO_CACHE=${NO_CACHE:-} \
       -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
