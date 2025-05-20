@@ -71,12 +71,14 @@
     ],
     "dictionaryDefinitions": [
       {
-          "name": "docs-words",
-          "path": "./docs-words.txt",
-          "addWords": true
+        "name": "docs-words",
+        "path": "./docs-words.txt",
+        "addWords": true
       }
     ],
-    "dictionaries": ["docs-words"],
+    "dictionaries": [
+      "docs-words"
+    ],
     "files": [
       "./docs/**/{*.md,*.md?}",
       "./versioned_docs/**/{*.md,*.md?}",
@@ -84,10 +86,10 @@
       "./src/components/Snippets/*.js"
     ],
     "ignorePaths": [
-        "node_modules",
-        "processed-docs",
-        "processed-docs-cache",
-        "/docs-words.txt"
+      "node_modules",
+      "processed-docs",
+      "processed-docs-cache",
+      "/docs-words.txt"
     ]
   },
   "browserslist": {
