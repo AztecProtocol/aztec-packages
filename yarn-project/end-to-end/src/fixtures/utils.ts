@@ -819,10 +819,12 @@ export async function expectMappingDelta<K, V extends number | bigint>(
  * but by conventions its address is computed with a salt of 0.
  * @returns The address of the sponsored FPC contract
  */
-export async function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
-  return getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
-    salt: new Fr(SPONSORED_FPC_SALT),
-  });
+export function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
+  return Promise.resolve(
+    getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+      salt: new Fr(SPONSORED_FPC_SALT),
+    }),
+  );
 }
 
 /**
