@@ -104,7 +104,7 @@ export function extractCallStack(
 
   try {
     return resolveOpcodeLocations(callStack, debug.debugSymbols, debug.files, brilligFunctionId);
-  } catch (err) {
+  } catch {
     return callStack;
   }
 }

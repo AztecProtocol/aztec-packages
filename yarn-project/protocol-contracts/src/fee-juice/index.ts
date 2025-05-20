@@ -4,7 +4,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import FeeJuiceJson from '../../artifacts/FeeJuice.json' assert { type: 'json' };
+import FeeJuiceJson from '../../artifacts/FeeJuice.json' with { type: 'json' };
 import { makeProtocolContract } from '../make_protocol_contract.js';
 import type { ProtocolContract } from '../protocol_contract.js';
 import { ProtocolContractAddress } from '../protocol_contract_data.js';

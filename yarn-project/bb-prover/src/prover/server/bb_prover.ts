@@ -1,4 +1,3 @@
-/* eslint-disable require-await */
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -108,7 +107,10 @@ export interface BBProverConfig extends BBConfig, ACVMConfig {
 export class BBNativeRollupProver implements ServerCircuitProver {
   private instrumentation: ProverInstrumentation;
 
-  constructor(private config: BBProverConfig, telemetry: TelemetryClient) {
+  constructor(
+    private config: BBProverConfig,
+    telemetry: TelemetryClient,
+  ) {
     this.instrumentation = new ProverInstrumentation(telemetry, 'BBNativeRollupProver');
   }
 

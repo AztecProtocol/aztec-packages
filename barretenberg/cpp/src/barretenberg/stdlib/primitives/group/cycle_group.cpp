@@ -1504,7 +1504,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     // populate the set of points we are going to add into our accumulator, *before* we do any ECC operations
     // this way we are able to fuse mutliple ecc add / ecc double operations and reduce total gate count.
-    // (ecc add/ecc double gates normally cost 2 UltraPlonk gates. However if we chain add->add, add->double,
+    // (ecc add/ecc double gates normally cost 2 Ultra gates. However if we chain add->add, add->double,
     // double->add, double->double, they only cost one)
     std::vector<cycle_group> points_to_add;
     for (size_t i = 0; i < num_rounds; ++i) {
@@ -2001,7 +2001,6 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/
     throw_or_abort("Implementation under construction...");
 }
 
-template class cycle_group<bb::StandardCircuitBuilder>;
 template class cycle_group<bb::UltraCircuitBuilder>;
 template class cycle_group<bb::MegaCircuitBuilder>;
 

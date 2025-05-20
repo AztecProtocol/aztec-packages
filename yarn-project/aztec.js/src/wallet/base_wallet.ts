@@ -104,7 +104,7 @@ export abstract class BaseWallet implements Wallet {
     args: any[],
     to: AztecAddress,
     authwits?: AuthWitness[],
-    from?: AztecAddress | undefined,
+    from?: AztecAddress,
   ): Promise<UtilitySimulationResult> {
     return this.pxe.simulateUtility(functionName, args, to, authwits, from);
   }
