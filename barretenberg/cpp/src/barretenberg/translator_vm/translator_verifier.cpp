@@ -175,6 +175,12 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
         const BF& z1 = translation_evaluations.z1;
         const BF& z2 = translation_evaluations.z2;
 
+        std::cout << "t op = " << translation_evaluations.op << std::endl;
+        std::cout << "t Px = " << translation_evaluations.Px << std::endl;
+        std::cout << "t Py = " << translation_evaluations.Py << std::endl;
+        std::cout << "t Z1 = " << translation_evaluations.Py << std::endl;
+        std::cout << "t Z2 = " << translation_evaluations.Py << std::endl;
+        std::cout << "mask = " << translation_masking_term_eval << std::endl;
         const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
         // multiply by x here to deal with shift
         return x * accumulated_result == eccvm_opening;

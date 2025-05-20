@@ -9,9 +9,44 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/thread.hpp"
 
+#include <span>
 #include <typeinfo>
 
 namespace bb {
+template <typename FF, typename Relation, typename Polynomials, bool UseMultithreading = false>
+void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_parameters, const size_t circuit_size)
+{
+    std::cout << "mthread = " << UseMultithreading << std::endl;
+    using Accumulator = typename Relation::ValueAccumulator0;
+    constexpr size_t READ_TERMS = Relation::READ_TERMS;
+    constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;
+
+    auto& inverse_polynomial = Relation::template get_inverse_polynomial(polynomials);
+    for (size_t i = 0; i < circuit_size; ++i) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
+        auto row = polynomials.get_row(i);
+        bool has_inverse = Relation::operation_exists_at_row(row);
+        if (!has_inverse) {
+            continue;
+        }
+        FF denominator = 1;
+        bb::constexpr_for<0, READ_TERMS, 1>([&]<size_t read_index> {
+            auto denominator_term =
+                Relation::template compute_read_term<Accumulator, read_index>(row, relation_parameters);
+            denominator *= denominator_term;
+        });
+        bb::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t write_index> {
+            auto denominator_term =
+                Relation::template compute_write_term<Accumulator, write_index>(row, relation_parameters);
+            denominator *= denominator_term;
+        });
+        inverse_polynomial.at(i) = denominator;
+    };
+
+    // Compute inverse polynomial I in place by inverting the product at each row
+    // Note: zeroes are ignored as they are not used anyway
+    FF::batch_invert(inverse_polynomial.coeffs());
+}
 
 /**
  * @brief Compute the inverse polynomial I(X) required for logderivative lookups
@@ -31,48 +66,68 @@ namespace bb {
  *
  * The specific algebraic relations that define read terms and write terms are defined in Flavor::LookupRelation
  *
+ * Note: tparam UseMultithreading exists because the AVM calls this fn in a multithreaded loop (no nested multithreading
+ * allowed) but the ECCVM benefits from multithreading this fn
  */
-template <typename FF, typename Relation, typename Polynomials>
+/*
+template <typename FF, typename Relation, typename Polynomials, bool UseMultithreading = false>
 void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_parameters, const size_t circuit_size)
 {
-    using Accumulator = typename Relation::ValueAccumulator0;
-    constexpr size_t READ_TERMS = Relation::READ_TERMS;
-    constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;
+   using Accumulator = typename Relation::ValueAccumulator0;
+   constexpr size_t READ_TERMS = Relation::READ_TERMS;
+   constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;
 
-    auto& inverse_polynomial = Relation::template get_inverse_polynomial(polynomials);
-    const size_t min_iterations_per_thread = 128;
-    size_t num_threads = bb::calculate_num_threads_pow2(circuit_size, min_iterations_per_thread);
-    const size_t rows_per_thread = circuit_size / num_threads;
-    parallel_for(num_threads, [&](size_t thread_idx) {
-        const size_t start = thread_idx * rows_per_thread;
-        const size_t end = (thread_idx == num_threads - 1) ? circuit_size : (thread_idx + 1) * rows_per_thread;
-        for (size_t i = start; i < end; ++i) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
-            auto row = polynomials.get_row(i);
-            bool has_inverse = Relation::operation_exists_at_row(row);
-            if (!has_inverse) {
-                continue;
-            }
-            FF denominator = 1;
-            bb::constexpr_for<0, READ_TERMS, 1>([&]<size_t read_index> {
-                auto denominator_term =
-                    Relation::template compute_read_term<Accumulator, read_index>(row, relation_parameters);
-                denominator *= denominator_term;
-            });
-            bb::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t write_index> {
-                auto denominator_term =
-                    Relation::template compute_write_term<Accumulator, write_index>(row, relation_parameters);
-                denominator *= denominator_term;
-            });
-            inverse_polynomial.at(i) = denominator;
-        };
-    });
+   auto& inverse_polynomial = Relation::template get_inverse_polynomial(polynomials);
+   std::cout << "start ldiv inverse, mthread = " << UseMultithreading << std::endl;
+   ASSERT(inverse_polynomial.start_index() == 0);
 
-    // Compute inverse polynomial I in place by inverting the product at each row
-    // Note: zeroes are ignored as they are not used anyway
-    FF::batch_invert(inverse_polynomial.coeffs());
+   const auto compute_inverses = [&](size_t start, size_t end) {
+       for (size_t i = start; i < end; ++i) {
+           // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
+           auto row = polynomials.get_row(i);
+           bool has_inverse = Relation::operation_exists_at_row(row);
+           if (!has_inverse) {
+               continue;
+           }
+           FF denominator = 1;
+           bb::constexpr_for<0, READ_TERMS, 1>([&]<size_t read_index> {
+               auto denominator_term =
+                   Relation::template compute_read_term<Accumulator, read_index>(row, relation_parameters);
+               denominator *= denominator_term;
+           });
+           bb::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t write_index> {
+               auto denominator_term =
+                   Relation::template compute_write_term<Accumulator, write_index>(row, relation_parameters);
+               denominator *= denominator_term;
+           });
+           inverse_polynomial.at(i) = denominator;
+       }
+       FF* ffstart = &inverse_polynomial.coeffs()[start];
+       std::span<FF> to_invert(ffstart, end - start);
+       std::cout << "inverse span. start = " << start << ", size = " << to_invert.size()
+                 << "orig size = " << inverse_polynomial.coeffs().size() << "vs circuit size = " << circuit_size
+                 << std::endl;
+       // Compute inverse polynomial I in place by inverting the product at each row
+       // Note: zeroes are ignored as they are not used anyway
+       FF::batch_invert(to_invert);
+   };
+   if constexpr (UseMultithreading) {
+       const size_t min_iterations_per_thread = 128;
+       size_t num_threads = bb::calculate_num_threads_pow2(inverse_polynomial.size(), min_iterations_per_thread);
+       const size_t rows_per_thread = inverse_polynomial.size() / num_threads;
+       parallel_for(num_threads, [&](size_t thread_idx) {
+           const size_t start = thread_idx * rows_per_thread;
+           const size_t end = (thread_idx == num_threads - 1) ? circuit_size : (thread_idx + 1) * rows_per_thread;
+           compute_inverses(start, end);
+       });
+   } else {
+       {
+           compute_inverses(0, inverse_polynomial.size());
+       }
+   }
+   std::cout << "end ldiv inverse" << std::endl;
 }
-
+*/
 /**
  * @brief Compute generic log-derivative lookup subrelation accumulation
  * @details The generic log-derivative lookup relation consistes of two subrelations. The first demonstrates that the

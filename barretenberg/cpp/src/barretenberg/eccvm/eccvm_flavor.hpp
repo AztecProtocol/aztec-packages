@@ -1499,14 +1499,15 @@ class ECCVMFlavor {
      *          If a row is completely empty, the values of z_perm and z_perm_shift will match,
      *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate
      **/
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
-    static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                [[maybe_unused]] const EdgeType edge_idx)
-    {
-        return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
-               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
-               polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0;
-    }
+    // template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+    // static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates&
+    // polynomials,
+    //                             [[maybe_unused]] const EdgeType edge_idx)
+    // {
+    //     return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
+    //            (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
+    //            polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0;
+    // }
 };
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)

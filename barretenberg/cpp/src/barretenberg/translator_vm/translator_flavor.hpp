@@ -919,27 +919,28 @@ class TranslatorFlavor {
      *          If a row is completely empty, the values of z_perm and z_perm_shift will match,
      *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate
      **/
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
-    static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                [[maybe_unused]] const EdgeType edge_idx)
-    {
-        // TODO(@Rumata888) do you know of a more efficient way of determining if we can skip a row?
-        auto s0 = polynomials.ordered_range_constraints_0_shift[edge_idx];
-        auto s1 = polynomials.ordered_range_constraints_1_shift[edge_idx];
-        auto s2 = polynomials.ordered_range_constraints_2_shift[edge_idx];
-        auto s3 = polynomials.ordered_range_constraints_3_shift[edge_idx];
-        auto s4 = polynomials.ordered_range_constraints_4_shift[edge_idx];
-        auto s5 = polynomials.ordered_range_constraints_0_shift[edge_idx + 1];
-        auto s6 = polynomials.ordered_range_constraints_1_shift[edge_idx + 1];
-        auto s7 = polynomials.ordered_range_constraints_2_shift[edge_idx + 1];
-        auto s8 = polynomials.ordered_range_constraints_3_shift[edge_idx + 1];
-        auto s9 = polynomials.ordered_range_constraints_4_shift[edge_idx + 1];
-        auto shift_0 = (s0 == 0) && (s1 == 0) && (s2 == 0) && (s3 == 0) && (s4 == 0) && (s5 == 0) && (s6 == 0) &&
-                       (s7 == 0) && (s8 == 0) && (s9 == 0);
-        return shift_0 && (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
-               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
-               polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0;
-    }
+    // template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+    // static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates&
+    // polynomials,
+    //                             [[maybe_unused]] const EdgeType edge_idx)
+    // {
+    //     // TODO(@Rumata888) do you know of a more efficient way of determining if we can skip a row?
+    //     auto s0 = polynomials.ordered_range_constraints_0_shift[edge_idx];
+    //     auto s1 = polynomials.ordered_range_constraints_1_shift[edge_idx];
+    //     auto s2 = polynomials.ordered_range_constraints_2_shift[edge_idx];
+    //     auto s3 = polynomials.ordered_range_constraints_3_shift[edge_idx];
+    //     auto s4 = polynomials.ordered_range_constraints_4_shift[edge_idx];
+    //     auto s5 = polynomials.ordered_range_constraints_0_shift[edge_idx + 1];
+    //     auto s6 = polynomials.ordered_range_constraints_1_shift[edge_idx + 1];
+    //     auto s7 = polynomials.ordered_range_constraints_2_shift[edge_idx + 1];
+    //     auto s8 = polynomials.ordered_range_constraints_3_shift[edge_idx + 1];
+    //     auto s9 = polynomials.ordered_range_constraints_4_shift[edge_idx + 1];
+    //     auto shift_0 = (s0 == 0) && (s1 == 0) && (s2 == 0) && (s3 == 0) && (s4 == 0) && (s5 == 0) && (s6 == 0) &&
+    //                    (s7 == 0) && (s8 == 0) && (s9 == 0);
+    //     return shift_0 && (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
+    //            (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
+    //            polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0;
+    // }
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
     using Transcript = NativeTranscript;
