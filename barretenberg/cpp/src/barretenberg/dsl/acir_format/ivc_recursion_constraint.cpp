@@ -158,9 +158,9 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t num_public_inputs
         // Databus commitments if necessary
         for (size_t i = 0; i < NUM_DATABUS_COMMITMENTS; ++i) {
             // We represent commitments in the public inputs as biggroup elements.
-            using BigGroup = stdlib::element_default::element<Builder,
-                                                              stdlib::bigfield<Builder, bb::Bn254FqParams>,
-                                                              stdlib::field_t<Builder>,
+            using BigGroup = stdlib::element_default::element<MegaCircuitBuilder,
+                                                              stdlib::bigfield<MegaCircuitBuilder, bb::Bn254FqParams>,
+                                                              stdlib::field_t<MegaCircuitBuilder>,
                                                               curve::BN254::Group>;
             auto pub_input_comm_vals = BigGroup::construct_dummy();
             for (const fr& comm_fr : pub_input_comm_vals) {

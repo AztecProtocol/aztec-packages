@@ -188,8 +188,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 {
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
-    // ASSERT(UltraCircuitChecker::check(circuit));
-    // RelationChecker<MegaFlavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
 
     // Construct merge proof for the present circuit
     MergeProof merge_proof = goblin.prove_merge();
@@ -210,9 +208,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     {
         PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
         honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
-        // if (precomputed_vk) {
-        //     BB_ASSERT_EQ(*precomputed_vk, MegaVerificationKey(proving_key->proving_key));
-        // }
     }
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
@@ -325,9 +320,6 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
         recursive_verifier_accumulator->public_inputs,
         recursive_verifier_accumulator->verification_key->pairing_inputs_public_input_key);
     points_accumulator.aggregate(nested_pairing_points);
-
-    // DeciderVerifier_<Flavor> decider_verifier(verifier_accumulator);
-    // ASSERT(decider_verifier.verify_proof(decider_proof).check());
 
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };

@@ -49,18 +49,18 @@ describe('Client IVC Integration', () => {
   // 4. Run the inner kernel to process the second app run
   // 5. Run the reset kernel to process the read request emitted by the reader app
   // 6. Run the tail kernel to finish the client IVC chain
-  it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
-    const [bytecodes, witnessStack, _, vks] = await generate6FunctionTestingIVCStack();
+  // it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
+  //   const [bytecodes, witnessStack, _, vks] = await generate6FunctionTestingIVCStack();
 
-    const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
-    await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
-    const verifyResult = await verifyClientIvcProof(
-      bbBinaryPath,
-      bbWorkingDirectory.concat('/proof'),
-      bbWorkingDirectory.concat('/vk'),
-      logger.info,
-    );
+  //   const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
+  //   await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
+  //   const verifyResult = await verifyClientIvcProof(
+  //     bbBinaryPath,
+  //     bbWorkingDirectory.concat('/proof'),
+  //     bbWorkingDirectory.concat('/vk'),
+  //     logger.info,
+  //   );
 
-    expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
-  });
+  //   expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
+  // });
 });

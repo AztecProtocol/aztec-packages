@@ -58,13 +58,6 @@ template <typename Builder_> struct PairingPoints {
     // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
-        // {
-        //     // check that other is a valid pairing point object
-        //     UltraFlavor::VerifierCommitmentKey pcs_vkey{};
-        //     bool result = pcs_vkey.pairing_check(this->P0.get_value(), this->P1.get_value());
-        //     bool result2 = pcs_vkey.pairing_check(other.P0.get_value(), other.P1.get_value());
-        //     info("aggregate pairing results: ", result, " and ", result2);
-        // }
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
         BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
@@ -153,9 +146,10 @@ template <typename Builder_> struct PairingPoints {
      *
      * @param builder
      */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Check how many gates this costs and if they're
+    // necessary.
     static void add_default_to_public_inputs(Builder& builder)
     {
-        info("in add_default_to_public_inputs");
         using BaseField = typename Curve::BaseField;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
         // valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
@@ -169,43 +163,6 @@ template <typename Builder_> struct PairingPoints {
         BaseField y1 = BaseField::from_witness(&builder, y1_val);
         PairingPoints<Builder> points_accumulator{ Group(x0, y0), Group(x1, y1) };
         points_accumulator.set_public();
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted
-        // from a valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-        // bigfield<Builder, bb::Bn254FqParams> x0(
-        //     fq("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf"));
-        // bigfield<Builder, bb::Bn254FqParams> y0(
-        //     fq("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4"));
-        // bigfield<Builder, bb::Bn254FqParams> x1(
-        //     fq("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38"));
-        // bigfield<Builder, bb::Bn254FqParams> y1(
-        //     fq("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f"));
-
-        // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the
-        // most
-        // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to
-        // convert
-        // them back to biggroup elements anyway to add them to the public inputs...
-        // using BigGroup = element_default::
-        //     element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
-        // BigGroup P0(x0, y0);
-        // BigGroup P1(x1, y1);
-        // P0.convert_constant_to_fixed_witness(&builder);
-        // P1.convert_constant_to_fixed_witness(&builder);
-        // x0.convert_constant_to_fixed_witness(&builder);
-        // y0.convert_constant_to_fixed_witness(&builder);
-        // x1.convert_constant_to_fixed_witness(&builder);
-        // y1.convert_constant_to_fixed_witness(&builder);
-
-        // if (builder.pairing_inputs_public_input_key.is_set()) {
-        //     throw_or_abort("Error: trying to set PairingPoints as public inputs when it already contains one.");
-        // }
-        // uint32_t start_idx = x0.set_public();
-        // y0.set_public();
-        // x1.set_public();
-        // y1.set_public();
-
-        // builder.pairing_inputs_public_input_key.start_idx = start_idx;
-        // info("Num gates after set_public: ", builder.num_gates);
     }
 };
 
