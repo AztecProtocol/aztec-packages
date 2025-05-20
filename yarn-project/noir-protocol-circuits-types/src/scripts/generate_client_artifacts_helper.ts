@@ -2,7 +2,7 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 
 import { promises as fs } from 'fs';
 
-import { type ClientProtocolArtifact } from '../artifacts/types.js';
+import type { ClientProtocolArtifact } from '../artifacts/types.js';
 import { PrivateKernelResetArtifactFileNames } from '../private_kernel_reset_types.js';
 
 const log = createConsoleLogger('autogenerate');
@@ -53,7 +53,7 @@ function generateCircuitArtifactImportFunction() {
       // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
       // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
       return `case '${artifactName}': {
-        const { default: compiledCircuit } = await import(\"../artifacts/${artifactName}.json\");
+        const { default: compiledCircuit } = await import("../artifacts/${artifactName}.json");
         return { ...(compiledCircuit as NoirCompiledCircuit), name: '${artifactName}' };
       }`;
     });
@@ -80,7 +80,7 @@ function generateVkImportFunction() {
     // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
     // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
     return `case '${artifactName}': {
-        const { default: keyData } = await import(\"../artifacts/keys/${artifactName}.vk.data.json\");
+        const { default: keyData } = await import("../artifacts/keys/${artifactName}.vk.data.json");
         return keyJsonToVKData(keyData);
       }`;
   });

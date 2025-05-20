@@ -14,9 +14,7 @@ on:
   merge_group: {}
 
 concurrency:
-  # On PR's the group id is the ref_name so only 1 can run at a time per PR.
-  group: |
-    ci3-${{ github.event_name == 'pull_request' && github.ref_name || github.run_id }}
+  group: ci3-${{ github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -84,11 +82,11 @@ jobs:
           fi
 
       - name: Download benchmarks
-        if: github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'ci-full')
+        if: github.event_name == 'merge_group'
         run: ./ci.sh gh-bench
 
       - name: Upload benchmarks
-        if: github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'ci-full')
+        if: github.event_name == 'merge_group'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks

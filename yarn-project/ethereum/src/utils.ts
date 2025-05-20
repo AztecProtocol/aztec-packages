@@ -158,7 +158,7 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
         return new FormattedViemError(`${errorName}${args}`, error?.metaMessages);
       }
     }
-  } catch (decodeErr) {
+  } catch {
     // If decoding fails, we fall back to the original formatting
   }
 
@@ -400,7 +400,7 @@ export function tryGetCustomErrorName(err: any) {
         return (revertError as ContractFunctionRevertedError).data?.errorName;
       }
     }
-  } catch (_e) {
+  } catch {
     return undefined;
   }
 }
