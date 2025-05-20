@@ -73,6 +73,7 @@ function build_bench {
   export LOG_LEVEL=error
   export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER LOG_LEVEL"
   rm -rf $CAPTURE_IVC_FOLDER && mkdir -p $CAPTURE_IVC_FOLDER
+  rm -rf bench-out && mkdir -p bench-out
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
     return
   fi
