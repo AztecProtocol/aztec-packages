@@ -525,7 +525,7 @@ pub contract Token {
         // just make the transaction be more expensive.
         assert(
             context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
-            "Invalid partial note",
+            "Invalid partial note or completer",
         );
         partial_note.complete(amount, context);
     }
@@ -620,7 +620,7 @@ pub contract Token {
         // expensive.
         assert(
             context.storage_read(partial_note.compute_validity_commitment(completer)),
-            "Invalid partial note",
+            "Invalid partial note or completer",
         );
         partial_note.complete(amount, context);
     }

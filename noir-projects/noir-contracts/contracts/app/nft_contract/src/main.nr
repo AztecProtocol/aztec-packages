@@ -299,7 +299,7 @@ pub contract NFT {
         // make the transaction be more expensive.
         assert(
             context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
-            "Invalid partial note",
+            "Invalid partial note or completer",
         );
         partial_note.complete(token_id, context);
     }
