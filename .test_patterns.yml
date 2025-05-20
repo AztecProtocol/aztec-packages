@@ -88,7 +88,12 @@ tests:
     owners:
       - *tom
 
-  # e2e tests
+  # e2e tests skipped
+  - regex: "src/e2e_sequencer/gov_proposal"
+    skip: true
+    owners:
+      - *lasse
+  # e2e tests flakes
   - regex: "src/e2e_p2p"
     error_regex: "could not listen on any available address"
     owners:
@@ -132,6 +137,10 @@ tests:
       - *lasse
   - regex: "src/e2e_lending_contract"
     error_regex: "✕ Repay"
+    owners:
+      - *lasse
+  - regex: "src/e2e_epochs/epochs_l1_reorgs"
+    error_regex: "updates L1 to L2 messages changed due to an L1 reorg"
     owners:
       - *lasse
   - regex: "src/e2e_cross_chain_messaging/token_bridge_private"

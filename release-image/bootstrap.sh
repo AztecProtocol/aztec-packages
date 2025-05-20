@@ -8,7 +8,15 @@ hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile
 function build_image {
   set -euo pipefail
   cd ..
-  docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) .
+  if semver check $REF_NAME; then
+    # We are a tagged release. Use the version from the tag.
+    # We strip leading 'v' so that this is a valid semver.
+    local version=${REF_NAME#v}
+  else
+    # Otherwise, use the commit hash as the version.
+    local version=$(git rev-parse HEAD)
+  fi
+  docker build -f release-image/Dockerfile --build-arg VERSION=$version -t aztecprotocol/aztec:$(git rev-parse HEAD) .
   docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
 
   # Remove all but the most recent image.
@@ -33,13 +41,6 @@ function build {
 case "$cmd" in
   ""|"fast"|"full")
     build
-
-    # TOOD(#10775): see 'releases'. We want to move away from this and use nightlies.
-    if [ "$REF_NAME" == "master" ] && [ "$CI" -eq 1 ] && [ -n "${DOCKERHUB_PASSWORD:-}" ]; then
-      echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
-      docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:$COMMIT_HASH-$(arch)
-      do_or_dryrun denoise "docker push aztecprotocol/aztec:$COMMIT_HASH-$(arch)"
-    fi
     ;;
   "release")
     echo_header "release-image release"

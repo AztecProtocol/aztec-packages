@@ -2934,7 +2934,6 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
     for (auto var : this->variables) {
         cir.variables.push_back(var);
     }
-    // TODO(alex): manage non native gates
 
     FF curve_b;
     if constexpr (FF::modulus == bb::fq::modulus) {
@@ -2996,6 +2995,37 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
 
     for (const auto& list : range_lists) {
         cir.range_tags[list.second.range_tag] = list.first;
+    }
+
+    for (auto& rom_table : this->rom_arrays) {
+        std::sort(rom_table.records.begin(), rom_table.records.end());
+
+        std::vector<std::vector<uint32_t>> table;
+        table.reserve(rom_table.records.size());
+        for (const auto& rom_entry : rom_table.records) {
+            table.push_back({
+                this->real_variable_index[rom_entry.index_witness],
+                this->real_variable_index[rom_entry.value_column1_witness],
+                this->real_variable_index[rom_entry.value_column2_witness],
+            });
+        }
+        cir.rom_records.push_back(table);
+        cir.rom_states.push_back(rom_table.state);
+    }
+
+    for (auto& ram_table : this->ram_arrays) {
+        std::sort(ram_table.records.begin(), ram_table.records.end());
+
+        std::vector<std::vector<uint32_t>> table;
+        table.reserve(ram_table.records.size());
+        for (const auto& ram_entry : ram_table.records) {
+            table.push_back({ this->real_variable_index[ram_entry.index_witness],
+                              this->real_variable_index[ram_entry.value_witness],
+                              this->real_variable_index[ram_entry.timestamp_witness],
+                              ram_entry.access_type });
+        }
+        cir.ram_records.push_back(table);
+        cir.ram_states.push_back(ram_table.state);
     }
 
     cir.circuit_finalized = this->circuit_finalized;

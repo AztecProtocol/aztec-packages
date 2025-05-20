@@ -15,7 +15,10 @@ export class RollupCheatCodes {
 
   private logger = createLogger('aztecjs:cheat_codes');
 
-  constructor(private ethCheatCodes: EthCheatCodes, addresses: Pick<L1ContractAddresses, 'rollupAddress'>) {
+  constructor(
+    private ethCheatCodes: EthCheatCodes,
+    addresses: Pick<L1ContractAddresses, 'rollupAddress'>,
+  ) {
     this.client = createPublicClient({
       chain: foundry,
       transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url))),
@@ -86,6 +89,22 @@ export class RollupCheatCodes {
       this.rollup.read.getSlotDuration(),
     ]);
     return { epochDuration, slotDuration };
+  }
+
+  /**
+   * Advances time to the beginning of the given epoch
+   * @param epoch - The epoch to advance to
+   */
+  public async advanceToEpoch(epoch: bigint) {
+    const { epochDuration: slotsInEpoch } = await this.getConfig();
+    const timestamp = await this.rollup.read.getTimestampForSlot([epoch * slotsInEpoch]);
+    try {
+      await this.ethCheatCodes.warp(Number(timestamp));
+      this.logger.warn(`Warped to epoch ${epoch}`);
+    } catch {
+      this.logger.debug('Warp failed, time already satisfied');
+    }
+    return timestamp;
   }
 
   /** Warps time in L1 until the next epoch */

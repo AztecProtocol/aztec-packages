@@ -6,7 +6,6 @@ import {
   flattenFieldsAsArray,
   ProofData,
   reconstructHonkProof,
-  reconstructUltraPlonkProof,
   splitHonkProof,
   PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
@@ -91,10 +90,10 @@ export class UltraHonkBackend {
     const proveUltraHonk = options?.keccak
       ? this.api.acirProveUltraKeccakHonk.bind(this.api)
       : options?.keccakZK
-      ? this.api.acirProveUltraKeccakZKHonk.bind(this.api)
-      : options?.starknet
-      ? this.api.acirProveUltraStarknetHonk.bind(this.api)
-      : this.api.acirProveUltraHonk.bind(this.api);
+        ? this.api.acirProveUltraKeccakZKHonk.bind(this.api)
+        : options?.starknet
+          ? this.api.acirProveUltraStarknetHonk.bind(this.api)
+          : this.api.acirProveUltraHonk.bind(this.api);
 
     const proofWithPublicInputs = await proveUltraHonk(this.acirUncompressedBytecode, gunzip(compressedWitness));
 
@@ -102,10 +101,10 @@ export class UltraHonkBackend {
     const writeVKUltraHonk = options?.keccak
       ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
       : options?.keccakZK
-      ? this.api.acirWriteVkUltraKeccakZKHonk.bind(this.api)
-      : options?.starknet
-      ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-      : this.api.acirWriteVkUltraHonk.bind(this.api);
+        ? this.api.acirWriteVkUltraKeccakZKHonk.bind(this.api)
+        : options?.starknet
+          ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
+          : this.api.acirWriteVkUltraHonk.bind(this.api);
 
     const vk = await writeVKUltraHonk(this.acirUncompressedBytecode);
     const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
@@ -128,17 +127,17 @@ export class UltraHonkBackend {
     const writeVkUltraHonk = options?.keccak
       ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
       : options?.keccakZK
-      ? this.api.acirWriteVkUltraKeccakZKHonk.bind(this.api)
-      : options?.starknet
-      ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-      : this.api.acirWriteVkUltraHonk.bind(this.api);
+        ? this.api.acirWriteVkUltraKeccakZKHonk.bind(this.api)
+        : options?.starknet
+          ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
+          : this.api.acirWriteVkUltraHonk.bind(this.api);
     const verifyUltraHonk = options?.keccak
       ? this.api.acirVerifyUltraKeccakHonk.bind(this.api)
       : options?.keccakZK
-      ? this.api.acirVerifyUltraKeccakZKHonk.bind(this.api)
-      : options?.starknet
-      ? this.api.acirVerifyUltraStarknetHonk.bind(this.api)
-      : this.api.acirVerifyUltraHonk.bind(this.api);
+        ? this.api.acirVerifyUltraKeccakZKHonk.bind(this.api)
+        : options?.starknet
+          ? this.api.acirVerifyUltraStarknetHonk.bind(this.api)
+          : this.api.acirVerifyUltraHonk.bind(this.api);
 
     const vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode);
     return await verifyUltraHonk(proof, new RawBuffer(vkBuf));
@@ -149,10 +148,10 @@ export class UltraHonkBackend {
     return options?.keccak
       ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode)
       : options?.keccakZK
-      ? await this.api.acirWriteVkUltraKeccakZKHonk(this.acirUncompressedBytecode)
-      : options?.starknet
-      ? await this.api.acirWriteVkUltraStarknetHonk(this.acirUncompressedBytecode)
-      : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+        ? await this.api.acirWriteVkUltraKeccakZKHonk(this.acirUncompressedBytecode)
+        : options?.starknet
+          ? await this.api.acirWriteVkUltraStarknetHonk(this.acirUncompressedBytecode)
+          : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
   }
 
   /** @description Returns a solidity verifier */
@@ -243,7 +242,10 @@ export class AztecClientBackend {
 
   protected api!: Barretenberg;
 
-  constructor(protected acirBuf: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
+  constructor(
+    protected acirBuf: Uint8Array[],
+    protected options: BackendOptions = { threads: 1 },
+  ) {}
 
   /** @ignore */
   private async instantiate(): Promise<void> {

@@ -6,17 +6,17 @@ import Home from './components/home/Home';
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <Global styles={globalStyle}></Global>
-      <NotificationsProvider slotProps={{
-        snackbar: {
-          anchorOrigin: { vertical: 'top', horizontal: 'right' },
-          autoHideDuration: 5000,
-        }
-      }}>
+    <NotificationsProvider slotProps={{
+      snackbar: {
+        anchorOrigin: { vertical: 'top', horizontal: 'right' },
+        autoHideDuration: 5000,
+      }
+    }}>
+      <ThemeProvider theme={theme}>
+        <Global styles={globalStyle}></Global>
         <Home />
-      </NotificationsProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </NotificationsProvider>
   );
 }
 

@@ -7,6 +7,7 @@ import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
+import {MultiAdder} from "@aztec/mock/MultiAdder.sol";
 
 contract SetupEpochTest is ValidatorSelectionTestBase {
   using Checkpoints for Checkpoints.Trace224;
@@ -18,55 +19,53 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
 
   function test_GivenTheRollupIsInGenesisState() external setup(0) whenTheRollupIsInGenesisState {
     // it should set the sample seed to max
-    // it should set the sample seed for the next epoch
+    // it should set the sample seed for the next 2 epochs
     // it should not change the current epoch
 
     rollup.setupEpoch();
 
     // Read the sample seed for epoch 0 through the rollup contract
     uint256 sampleSeed = IValidatorSelection(address(rollup)).getCurrentSampleSeed();
-    assertEq(sampleSeed, type(uint224).max, "Sample seed should be max in genesis state");
+    assertEq(sampleSeed, type(uint224).max, "Sample seed for epoch0 should be max in genesis state");
 
     // Read the sample seed for epoch 1 through the rollup contract
-    Timestamp nextEpochTimestamp = Timestamp.wrap(
+    Timestamp epoch1Timestamp = Timestamp.wrap(
       block.timestamp + TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
     );
-    uint256 nextEpochSeed = IValidatorSelection(address(rollup)).getSampleSeedAt(nextEpochTimestamp);
-    assertTrue(nextEpochSeed != 0, "Next epoch seed should be set");
-    assertTrue(
-      nextEpochSeed != sampleSeed, "Next epoch seed should be different from current epoch seed"
+    uint256 epoch1Seed = IValidatorSelection(address(rollup)).getSampleSeedAt(epoch1Timestamp);
+    assertEq(epoch1Seed, type(uint224).max, "Sample seed for epoch1 should be max in genesis state");
+
+    // Read the sample seed for epoch 2 through the rollup contract
+    Timestamp epoch2Timestamp = Timestamp.wrap(
+      block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
     );
+    uint256 epoch2Seed = IValidatorSelection(address(rollup)).getSampleSeedAt(epoch2Timestamp);
+    assertTrue(epoch2Seed != 0, "Epoch 2 seed should be set");
+    assertTrue(epoch2Seed != type(uint224).max, "Epoch 2 seed should be different from max");
 
-    // Advance into the next epoch
-    vm.warp(Timestamp.unwrap(nextEpochTimestamp));
+    // Advance into epoch 2
+    vm.warp(Timestamp.unwrap(epoch2Timestamp));
 
-    // Read the sample seed for epoch 1 now that we are in epoch 1, it should not change
-    uint256 epoch1SampleSeedInPast =
-      IValidatorSelection(address(rollup)).getSampleSeedAt(nextEpochTimestamp);
+    // Read the sample seed for epoch 2 now that we are in epoch 2, it should not change
+    uint256 epoch2SampleSeedInPast = IValidatorSelection(address(rollup)).getCurrentSampleSeed();
     assertEq(
-      epoch1SampleSeedInPast,
-      nextEpochSeed,
-      "Next epoch seed should be the same as the current epoch seed"
+      epoch2SampleSeedInPast, epoch2Seed, "Epoch 2 seed should remain the same when re-reading"
     );
 
     // Call setupEpoch again, from the current epoch it should not change the sample seed
     rollup.setupEpoch();
     assertEq(
       IValidatorSelection(address(rollup)).getCurrentSampleSeed(),
-      nextEpochSeed,
-      "Sample seed should not change"
+      epoch2Seed,
+      "Epoch 2 seed should not change when calling setupEpoch"
     );
 
-    // Seed for the next epoch should be set
-    Timestamp nextEpochTimestamp2 = Timestamp.wrap(
-      block.timestamp + TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
+    // Seed for the epoch 4 should be set
+    Timestamp epoch4Timestamp = Timestamp.wrap(
+      block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
     );
-    uint256 nextEpochSeedInPast =
-      IValidatorSelection(address(rollup)).getSampleSeedAt(nextEpochTimestamp2);
-    assertTrue(
-      nextEpochSeedInPast != nextEpochSeed,
-      "Next epoch seed should not be the same as the current epoch seed"
-    );
+    uint256 epoch4Seed = IValidatorSelection(address(rollup)).getSampleSeedAt(epoch4Timestamp);
+    assertTrue(epoch4Seed != epoch2Seed, "Epoch 4 seed should not be the same as epoch 2 seed");
   }
 
   modifier whenTheRollupIsNotInGenesisState() {
@@ -76,7 +75,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
 
   function test_GivenTheSeedHasBeenSampled() external setup(4) whenTheRollupIsNotInGenesisState {
     // it should not change the sample seed
-    // it should be calcaulte the same committee when looking into the past
+    // it should be calculate the same committee when looking into the past
     // it should not change the commitee even when validators are added or removed
     // it should not change the next seed
 
@@ -137,9 +136,9 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     // it should use the most recent sample seed
     rollup.setupEpoch();
 
-    // Check that the sample seed has been set for the next epoch
+    // Check that the sample seed has been set for two epochs next
     uint256 nextEpochTimestamp =
-      block.timestamp + TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
+      block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
     uint256 nextEpochSeed =
       IValidatorSelection(address(rollup)).getSampleSeedAt(Timestamp.wrap(nextEpochTimestamp));
     assertGt(nextEpochSeed, 0, "Sample seed should be set for the next epoch");
@@ -178,10 +177,10 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
 
     // The sample seed for the next epoch should have changed
     uint256 nextEpochTimestamp2 =
-      block.timestamp + TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
+      block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
     uint256 nextEpochSeed2 =
       IValidatorSelection(address(rollup)).getSampleSeedAt(Timestamp.wrap(nextEpochTimestamp2));
-    assertGt(nextEpochSeed2, nextEpochSeed, "Sample seed for the next epoch should have changed");
+    assertNotEq(nextEpochSeed2, nextEpochSeed, "Sample seed for the next epoch should have changed");
   }
 
   function test_WhenNewSampleSeedsAreAdded()
@@ -189,7 +188,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     whenItHasBeenALongTimeSinceTheLastSampleSeedWasSet
   {
     // it should continue to use the snapshotted sample seed
-    // it should calcaulte the same committee
+    // it should calculate the same committee
   }
 
   function addNumberOfValidators(uint256 _saltStart, uint256 _numberOfValidators) internal {
@@ -198,8 +197,8 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
       validators[i] = createDepositArgs(i + _saltStart);
     }
 
-    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * validators.length);
-    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * validators.length);
-    rollup.cheat__InitialiseValidatorSet(validators);
+    MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
+    testERC20.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * validators.length);
+    multiAdder.addValidators(validators);
   }
 }

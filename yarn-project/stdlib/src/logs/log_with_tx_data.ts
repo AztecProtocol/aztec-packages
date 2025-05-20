@@ -1,4 +1,4 @@
-import { MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -6,6 +6,8 @@ import { TxHash } from '@aztec/stdlib/tx';
 // response for PXE's custom getLogByTag oracle.
 export class LogWithTxData {
   constructor(
+    // The emitted fields of a log.
+    // For public logs, the contract address is prepended to the content.
     public logContent: Fr[],
     public txHash: TxHash,
     public uniqueNoteHashesInTx: Fr[],
@@ -14,7 +16,10 @@ export class LogWithTxData {
 
   toNoirSerialization(): (Fr | Fr[])[] {
     return [
-      ...toBoundedVecSerialization(this.logContent, PUBLIC_LOG_DATA_SIZE_IN_FIELDS),
+      // The log fields length is PUBLIC_LOG_SIZE_IN_FIELDS. + 1 because the contract address is prepended to the content.
+      // This is only used for public logs currently, so the maxLength is PUBLIC_LOG_SIZE_IN_FIELDS + 1.
+      // TODO(#11639): this could also be used for private logs.
+      ...toBoundedVecSerialization(this.logContent, PUBLIC_LOG_SIZE_IN_FIELDS + 1),
       this.txHash.hash,
       ...toBoundedVecSerialization(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,

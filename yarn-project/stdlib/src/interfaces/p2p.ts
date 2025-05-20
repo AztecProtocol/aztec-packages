@@ -30,6 +30,9 @@ export interface P2PApiWithoutAttestations {
    */
   getPendingTxs(): Promise<Tx[]>;
 
+  /** Returns the number of pending txs in the p2p tx pool. */
+  getPendingTxCount(): Promise<number>;
+
   /**
    * Returns the ENR for this node, if any.
    */
@@ -65,6 +68,7 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
     .args(schemas.BigInt, optional(z.string()))
     .returns(z.array(BlockAttestation.schema)),
   getPendingTxs: z.function().returns(z.array(Tx.schema)),
+  getPendingTxCount: z.function().returns(schemas.Integer),
   getEncodedEnr: z.function().returns(z.string().optional()),
   getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),
   addAttestation: z.function().args(BlockAttestation.schema).returns(z.void()),
