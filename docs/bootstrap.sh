@@ -41,6 +41,11 @@ function release_docs {
 }
 
 function test_cmds {
+  if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
+    # Not running docs tests for arm64 in CI.
+    return
+  fi
+
   local test_hash=$hash
   echo "$test_hash cd docs && yarn spellcheck"
 }
