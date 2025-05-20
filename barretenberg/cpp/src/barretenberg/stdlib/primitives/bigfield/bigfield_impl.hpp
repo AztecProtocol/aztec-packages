@@ -2867,17 +2867,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
         ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
     }
-    /*  NOTE TO AUDITOR: An extraneous block
-           if constexpr (HasPlookup<Builder>) {
-               carry_lo = carry_lo.normalize();
-               carry_hi = carry_hi.normalize();
-               ctx->decompose_into_default_range(carry_lo.witness_index, static_cast<size_t>(carry_lo_msb));
-               ctx->decompose_into_default_range(carry_hi.witness_index, static_cast<size_t>(carry_hi_msb));
-           }
-        was removed from the `else` block below. See  the conversation at
-           https://github.com/AztecProtocol/aztec2-internal/pull/1023
-        We should make sure that no constraint like this is needed but missing (e.g., an equivalent constraint
-        was just imposed?). */
 }
 
 template <typename Builder, typename T>
