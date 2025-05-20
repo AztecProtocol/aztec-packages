@@ -12,6 +12,8 @@ void GasTracker::consume_base_gas()
 
     gas_event.opcode_gas = spec.gas_cost.base_l2;
 
+    std::cout << "indirect: " << instruction.indirect << std::endl;
+
     gas_event.addressing_gas = compute_addressing_gas(instruction.indirect);
 
     gas_event.base_gas = Gas{

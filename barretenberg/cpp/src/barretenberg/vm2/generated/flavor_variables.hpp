@@ -36,6 +36,7 @@
 #include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_ff_gt.hpp"
+#include "relations/lookups_gas.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_nullifier_check.hpp"
@@ -51,10 +52,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 73;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2126;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2159;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2343;
+    static constexpr size_t NUM_ALL_ENTITIES = 2376;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -118,6 +119,15 @@ struct AvmFlavorVariables {
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
+        lookup_gas_addressing_gas_read_relation<FF_>,
+        lookup_gas_limit_used_da_base_range_hi_relation<FF_>,
+        lookup_gas_limit_used_da_base_range_lo_relation<FF_>,
+        lookup_gas_limit_used_da_dynamic_range_hi_relation<FF_>,
+        lookup_gas_limit_used_da_dynamic_range_lo_relation<FF_>,
+        lookup_gas_limit_used_l2_base_range_hi_relation<FF_>,
+        lookup_gas_limit_used_l2_base_range_lo_relation<FF_>,
+        lookup_gas_limit_used_l2_dynamic_range_hi_relation<FF_>,
+        lookup_gas_limit_used_l2_dynamic_range_lo_relation<FF_>,
         lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_instr_abs_diff_positive_relation<FF_>,

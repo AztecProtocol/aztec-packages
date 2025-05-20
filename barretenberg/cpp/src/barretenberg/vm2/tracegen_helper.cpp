@@ -320,7 +320,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
                                                   PublicDataTreeCheckTraceBuilder::lookup_jobs(),
                                                   UpdateCheckTraceBuilder::lookup_jobs(),
                                                   NullifierTreeCheckTraceBuilder::lookup_jobs(),
-                                                  MemoryTraceBuilder::lookup_jobs());
+                                                  MemoryTraceBuilder::lookup_jobs(),
+                                                  ExecutionTraceBuilder::lookup_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
