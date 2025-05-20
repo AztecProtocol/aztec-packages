@@ -288,7 +288,11 @@ export async function setupUpdateMonitor(
   checker.on('updateNodeConfig', async config => {
     if ((autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') && updateNodeConfig) {
       logger.warn(`Config change detected. Updating node`, config);
-      await updateNodeConfig(config);
+      try {
+        await updateNodeConfig(config);
+      } catch (err) {
+        logger.warn('Failed to update config', { err });
+      }
     }
     // don't notify on these config changes
   });

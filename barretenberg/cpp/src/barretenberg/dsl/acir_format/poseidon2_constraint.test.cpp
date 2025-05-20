@@ -2,9 +2,6 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
 #include <cstdint>
 #include <gtest/gtest.h>
@@ -14,7 +11,6 @@
 namespace acir_format::tests {
 
 using namespace bb;
-using Composer = plonk::UltraComposer;
 
 class Poseidon2Tests : public ::testing::Test {
   protected:
@@ -87,13 +83,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
 
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
-
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 } // namespace acir_format::tests
