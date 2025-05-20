@@ -5,10 +5,9 @@ import {IStaking, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
+import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 
 import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
-
 /**
  * @title StakingAssetHandler
  * @notice This contract is used as a faucet for creating validators.
@@ -47,9 +46,9 @@ interface IStakingAssetHandler {
   error CannotMintZeroAmount();
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
   error InvalidProof();
-  error SybilDetected(uint256 _nullifier);
+  error SybilDetected(bytes32 _nullifier);
 
-  function addValidator(address _attester, address _proposer, bytes calldata _proof, bytes32[] calldata _publicInputs) external;
+  function addValidator(address _attester, address _proposer, ProofVerificationParams memory _params) external;
   function setMintInterval(uint256 _interval) external;
   function setDepositsPerMint(uint256 _depositsPerMint) external;
   function setWithdrawer(address _withdrawer) external;
@@ -67,6 +66,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   IMintableERC20 public immutable STAKING_ASSET;
   IRegistry public immutable REGISTRY;
 
+  ZKPassportVerifier public zkPassportVerifier;
+
   mapping(address => bool) public isUnhinged;
   mapping(bytes32 => bool) public nullifiers;
 
@@ -75,9 +76,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   uint256 public depositsPerMint;
 
   address public withdrawer;
-  IVerifier public verifier;
 
   Queue private entryQueue;
+
+  string public validScope;
+  string public validSubscope;
 
   constructor(
     address _owner,
@@ -86,7 +89,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     address _withdrawer,
     uint256 _mintInterval,
     uint256 _depositsPerMint,
-    IVerifier _verifier,
+    ZKPassportVerifier _zkPassportVerifier,
     address[] memory _unhinged
   ) Ownable(_owner) {
     require(_depositsPerMint > 0, CannotMintZeroAmount());
@@ -110,8 +113,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     isUnhinged[_owner] = true;
     emit UnhingedAdded(_owner);
 
-    verifier = _verifier;
-    emit VerifierUpdated(address(_verifier));
+    zkPassportVerifier = _zkPassportVerifier;
+    emit VerifierUpdated(address( _zkPassportVerifier));
+
+    validScope = "sequencer.alpha-testnet.aztec.network";
+    validSubscope = "personhood";
 
     entryQueue.init();
   }
@@ -122,7 +128,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _attester - the validator's attester address
    * @param _proposer - the validator's proposer address
    */
-  function addValidator(address _attester, address _proposer, bytes calldata _proof, bytes32[] calldata _publicInputs)
+  function addValidator(address _attester, address _proposer, ProofVerificationParams calldata _params)
     external
     override(IStakingAssetHandler)
   {
@@ -136,16 +142,22 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
       _triggerDeposit(rollup, depositAmount, _attester, _proposer);
     } else {
-      _validateNewValidator(_attester, _proposer, _proof, _publicInputs);
+      _validateNewValidator(_attester, _proposer, _params);
     }
   }
 
-  function _validateNewValidator(address _attester, address _proposer, bytes calldata _proof, bytes32[] calldata _publicInputs) internal {
-    require(verifier.verify(_proof, _publicInputs), InvalidProof());
 
-    // Check if nullifier is already used
-    bytes32 nullifier = _publicInputs[0]; // TODO: get real nullifier index
+  function _validateNewValidator(address _attester, address _proposer, ProofVerificationParams calldata _params) internal {
+    // Must NOT be using dev mode
+    require(_params.devMode == false, InvalidProof());
+
+    (bool verified, bytes32 nullifier) = zkPassportVerifier.verifyProof(_params);
+
+    require(verified, InvalidProof());
     require(!nullifiers[nullifier], SybilDetected(nullifier));
+
+    // Note: below appears to be checked within verifyProof
+    // require(zkPassportVerifier.verifyScopes(params.publicInputs, validScope, validSubscope), InvalidProof());
 
     // Set nullifier to consumed
     nullifiers[nullifier] = true;
@@ -199,6 +211,18 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(_depositsPerMint > 0, CannotMintZeroAmount());
     depositsPerMint = _depositsPerMint;
     emit DepositsPerMintUpdated(_depositsPerMint);
+  }
+
+  function setZKPassportVerifier(address _zkPassportVerifier) public onlyOwner {
+    zkPassportVerifier = ZKPassportVerifier(_zkPassportVerifier);
+  }
+
+  function setScope(string calldata _scope) public onlyOwner {
+    validScope = _scope;
+  }
+
+  function setSubscope(string calldata _subscope) public onlyOwner {
+    validSubscope = _subscope;
   }
 
   function setWithdrawer(address _withdrawer) external override(IStakingAssetHandler) onlyOwner {

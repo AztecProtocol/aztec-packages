@@ -33,7 +33,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     // If exiting, we need to create a sequencer that can be exited and exit it first.
     if (_isExiting) {
       vm.prank(unhinged);
-      stakingAssetHandler.addValidator(_attester, _proposer);
+      stakingAssetHandler.addValidator(_attester, _proposer, fakeProof);
 
       vm.prank(WITHDRAWER);
       staking.initiateWithdraw(_attester, address(this));
@@ -43,7 +43,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     }
 
     vm.prank(unhinged);
-    stakingAssetHandler.addValidator(_attester, _proposer);
+    stakingAssetHandler.addValidator(_attester, _proposer, fakeProof);
 
     ValidatorInfo memory info = staking.getInfo(_attester);
     assertEq(info.proposer, _proposer);
@@ -61,25 +61,30 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     _;
   }
 
+  modifier givenPassportProofIsValid() {
+    // Set the lastMintTimestamp to be the same as the current timestamp such that our proof will be valid
+    // block.timestamp is overriden to be the time of the proof in ZKPassportBase constructor
+    stdstore.target(address(stakingAssetHandler)).sig("lastMintTimestamp()").checked_write(
+      block.timestamp
+    );
+    _;
+  }
+
   function test_WhenInsufficientTimePassed(address _caller, address _attester, address _proposer)
     external
     whenCallerIsNotUnhinged(_caller)
     givenBalanceLTDepositamount
+    givenPassportProofIsValid
   {
     // it reverts
     vm.assume(_attester != address(0) && _proposer != address(0));
-
-    // We overwrite the lastMintTimestamp to be now such that we can see if will revert.
-    stdstore.target(address(stakingAssetHandler)).sig("lastMintTimestamp()").checked_write(
-      block.timestamp
-    );
 
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, _proposer);
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, _proposer);
+    stakingAssetHandler.addValidator(_attester, _proposer, realProof);
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -94,12 +99,14 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     external
     whenCallerIsNotUnhinged(_caller)
     givenBalanceLTDepositamount
+    givenPassportProofIsValid
   {
     // it mints staking asset
     // it emits a {ToppedUp} event
     // it updates the lastMintTimestamp
     // it deposits into the rollup
     // it emits a {ValidatorAdded} event
+
 
     vm.assume(_attester != address(0) && _proposer != address(0));
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
@@ -108,7 +115,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, _proposer);
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, _proposer);
+    stakingAssetHandler.addValidator(_attester, _proposer, realProof);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * depositsPerMint);
@@ -129,6 +136,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
   function test_GivenBalanceGEDepositAmount(address _caller, address _attester, address _proposer)
     external
     whenCallerIsNotUnhinged(_caller)
+    givenPassportProofIsValid
   {
     // it exits the attester if needed
     // it deposits into the rollup
@@ -141,7 +149,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, _proposer);
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, _proposer);
+    stakingAssetHandler.addValidator(_attester, _proposer, realProof);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * depositsPerMint);
