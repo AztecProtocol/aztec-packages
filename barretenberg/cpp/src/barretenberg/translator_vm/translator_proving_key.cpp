@@ -70,8 +70,8 @@ void TranslatorProvingKey::compute_interleaved_polynomials()
  * contain the same values which implies that the small wires in the groups are indeed within the correct range.
  *
  * Ideally, we could simply rearrange the values in interleaved_.._0 ,..., interleaved_.._3 and get 4 denominator
- * polynomials (ordered_constraints), but we could get the worst case scenario: each value in the polynomials is the
- * maximum value. What can we do in that case? We still have to add (max_range/3)+1 values  to each of the ordered
+ * polynomials (ordered_range_constraints), but we could get the worst case scenario: each value in the polynomials is
+ * the maximum value. What can we do in that case? We still have to add (max_range/3)+1 values  to each of the ordered
  * wires for the sort constraint to hold.  So we also need an extra denominator to store k ⋅ ( max_range / 3 + 1 )
  * values that couldn't go in + ( max_range / 3 +  1 ) connecting values. To counteract the extra ( k + 1 ) ⋅
  * ⋅ (max_range / 3 + 1 ) values needed for denominator sort constraints we need a polynomial in the numerator. So we
@@ -86,10 +86,9 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     constexpr size_t sort_step = Flavor::SORT_STEP;
     constexpr size_t num_interleaved_wires = Flavor::NUM_INTERLEAVED_WIRES;
 
-    const size_t mini_NUM_DISABLED_ROWS_IN_SUMCHECK = masking ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
-    const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK =
-        masking ? mini_NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE : 0;
-    const size_t real_circuit_size = dyadic_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
+    const size_t mini_masking = masking ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    const size_t total_num_disabled = masking ? mini_masking * Flavor::INTERLEAVING_GROUP_SIZE : 0;
+    const size_t real_circuit_size = dyadic_circuit_size - total_num_disabled;
 
     // The value we have to end polynomials with, 2¹⁴ - 1
     constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
@@ -135,10 +134,9 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         for (size_t j = 0; j < Flavor::INTERLEAVING_GROUP_SIZE; j++) {
 
             // Calculate the offset in the target vector
-            auto current_offset = j * (mini_circuit_dyadic_size - mini_NUM_DISABLED_ROWS_IN_SUMCHECK);
+            auto current_offset = j * (mini_circuit_dyadic_size - 2 * mini_masking);
             // For each element in the polynomial
-            for (size_t k = group[j].start_index(); k < group[j].end_index() - mini_NUM_DISABLED_ROWS_IN_SUMCHECK;
-                 k++) {
+            for (size_t k = group[j].start_index() + mini_masking; k < group[j].end_index() - mini_masking; k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {
@@ -165,7 +163,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         std::sort(ordered_vectors_uint.begin(), ordered_vectors_uint.end());
         ASSERT(ordered_vectors_uint.size() == real_circuit_size);
         // Copy the values into the actual polynomial
-        ordered_constraint_polynomials[i].copy_vector(ordered_vectors_uint);
+        ordered_constraint_polynomials[i].copy_vector(ordered_vectors_uint, mini_masking);
     };
 
     // Construct the first 4 polynomials
@@ -188,7 +186,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     ASSERT(extra_denominator_uint.size() == real_circuit_size);
 
     // Copy the values into the actual polynomial
-    proving_key->polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);
+    proving_key->polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint, mini_masking);
 }
 
 void TranslatorProvingKey::compute_lagrange_polynomials()

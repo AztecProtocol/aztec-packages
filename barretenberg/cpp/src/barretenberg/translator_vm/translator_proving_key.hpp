@@ -91,5 +91,24 @@ class TranslatorProvingKey {
     void compute_translator_range_constraint_ordered_polynomials(bool masking = false);
 
     void compute_interleaved_polynomials();
+
+    std::pair<size_t, size_t> range_of_real_values_mini_polynomials(Polynomial& polynomial)
+    {
+        return std::make_pair(polynomial.start_index() + 4, polynomial.end_index() - 2);
+    }
+
+    std::pair<size_t, size_t> range_of_real_values_full_polynomials(Polynomial& polynomial)
+    {
+        return std::make_pair(polynomial.start_index() + 4 * Flavor::INTERLEAVING_GROUP_SIZE,
+                              polynomial.end_index() - 2 * Flavor::INTERLEAVING_GROUP_SIZE);
+    }
+
+    void populate_polynomial_with_real_values(Polynomial& polynomial, std::vector<FF>& coefficients)
+    {
+        auto [start, end] = range_of_real_values_mini_polynomials(polynomial);
+        for (size_t i = start; i < end; i++) {
+            polynomial.at(i) = coefficients[i - start];
+        }
+    }
 };
 } // namespace bb
