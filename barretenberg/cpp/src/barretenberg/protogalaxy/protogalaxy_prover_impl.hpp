@@ -6,7 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/op_count.hpp"
-#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
+#include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
