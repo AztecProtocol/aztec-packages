@@ -5,12 +5,13 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import { type Account, type GetContractReturnType, type Hex, getAddress, getContract } from 'viem';
+import { type Account, type GetContractReturnType, type Hex, encodeFunctionData, getAddress, getContract } from 'viem';
 
 import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
+import type { L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
@@ -460,5 +461,16 @@ export class RollupContract {
       attester = attester.toString();
     }
     return this.rollup.read.getProposerForAttester([attester]);
+  }
+
+  setupEpoch(l1TxUtils: L1TxUtils) {
+    return l1TxUtils.sendAndMonitorTransaction({
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'setupEpoch',
+        args: [],
+      }),
+    });
   }
 }

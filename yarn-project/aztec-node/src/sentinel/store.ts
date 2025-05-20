@@ -2,20 +2,69 @@ import { BufferReader, numToUInt8, numToUInt32BE, serializeToBuffer } from '@azt
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { ValidatorStatusHistory, ValidatorStatusInSlot } from '@aztec/stdlib/validators';
 
-export class SentinelStore {
-  public static readonly SCHEMA_VERSION = 1;
+import { isAddress } from 'viem';
 
-  private readonly map: AztecAsyncMap<`0x${string}`, Buffer>;
+export class SentinelStore {
+  public static readonly SCHEMA_VERSION = 2;
+
+  // a map from validator address to their ValidatorStatusHistory
+  private readonly historyMap: AztecAsyncMap<`0x${string}`, Buffer>;
+
+  // a map from validator address to their historical proven epoch performance
+  // e.g. { validator: [{ epoch: 1, missed: 1, total: 10 }, { epoch: 2, missed: 3, total: 7 }, ...] }
+  private readonly provenMap: AztecAsyncMap<`0x${string}`, Buffer>;
 
   constructor(
     private store: AztecAsyncKVStore,
     private config: { historyLength: number },
   ) {
-    this.map = store.openMap('sentinel-validator-status');
+    this.historyMap = store.openMap('sentinel-validator-status');
+    this.provenMap = store.openMap('sentinel-validator-proven');
   }
 
   public getHistoryLength() {
     return this.config.historyLength;
+  }
+
+  public async updateProvenPerformance(
+    epoch: bigint,
+    performance: Record<`0x${string}`, { missed: number; total: number }>,
+  ) {
+    await this.store.transactionAsync(async () => {
+      for (const [who, { missed, total }] of Object.entries(performance)) {
+        if (!isAddress(who)) {
+          continue;
+        }
+        await this.pushValidatorProvenPerformanceForEpoch({ who, missed, total, epoch });
+      }
+    });
+  }
+
+  public async getProvenPerformance(who: `0x${string}`): Promise<{ missed: number; total: number; epoch: bigint }[]> {
+    const currentPerformanceBuffer = await this.provenMap.getAsync(who);
+    return currentPerformanceBuffer ? this.deserializePerformance(currentPerformanceBuffer) : [];
+  }
+
+  private async pushValidatorProvenPerformanceForEpoch({
+    who,
+    missed,
+    total,
+    epoch,
+  }: {
+    who: `0x${string}`;
+    missed: number;
+    total: number;
+    epoch: bigint;
+  }) {
+    const currentPerformance = await this.getProvenPerformance(who);
+    const existingIndex = currentPerformance.findIndex(p => p.epoch === epoch);
+    if (existingIndex !== -1) {
+      currentPerformance[existingIndex] = { missed, total, epoch };
+    } else {
+      currentPerformance.push({ missed, total, epoch });
+    }
+
+    await this.provenMap.set(who, this.serializePerformance(currentPerformance));
   }
 
   public async updateValidators(slot: bigint, statuses: Record<`0x${string}`, ValidatorStatusInSlot | undefined>) {
@@ -35,20 +84,39 @@ export class SentinelStore {
   ) {
     const currentHistory = (await this.getHistory(who)) ?? [];
     const newHistory = [...currentHistory, { slot, status }].slice(-this.config.historyLength);
-    await this.map.set(who, this.serializeHistory(newHistory));
+    await this.historyMap.set(who, this.serializeHistory(newHistory));
   }
 
   public async getHistories(): Promise<Record<`0x${string}`, ValidatorStatusHistory>> {
     const histories: Record<`0x${string}`, ValidatorStatusHistory> = {};
-    for await (const [address, history] of this.map.entriesAsync()) {
+    for await (const [address, history] of this.historyMap.entriesAsync()) {
       histories[address] = this.deserializeHistory(history);
     }
     return histories;
   }
 
   private async getHistory(address: `0x${string}`): Promise<ValidatorStatusHistory | undefined> {
-    const data = await this.map.getAsync(address);
+    const data = await this.historyMap.getAsync(address);
     return data && this.deserializeHistory(data);
+  }
+
+  private serializePerformance(performance: { missed: number; total: number; epoch: bigint }[]): Buffer {
+    return serializeToBuffer(
+      performance.map(p => [numToUInt32BE(Number(p.epoch)), numToUInt32BE(p.missed), numToUInt32BE(p.total)]),
+    );
+  }
+
+  private deserializePerformance(buffer: Buffer): { missed: number; total: number; epoch: bigint }[] {
+    const reader = new BufferReader(buffer);
+    const performance: { missed: number; total: number; epoch: bigint }[] = [];
+    while (!reader.isEmpty()) {
+      performance.push({
+        epoch: BigInt(reader.readNumber()),
+        missed: reader.readNumber(),
+        total: reader.readNumber(),
+      });
+    }
+    return performance;
   }
 
   private serializeHistory(history: ValidatorStatusHistory): Buffer {
