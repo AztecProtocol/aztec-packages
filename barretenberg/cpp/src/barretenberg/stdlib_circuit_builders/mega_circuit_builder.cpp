@@ -1,7 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "mega_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include <barretenberg/plonk/proof_system/constants.hpp>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -126,6 +131,21 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq()
     // Add corresponding gates for the operation
     ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
     op_tuple.return_is_infinity = ultra_op.return_is_infinity;
+    return op_tuple;
+}
+
+/**
+ * @brief Logic for a no-op operation.
+ *
+ * @return ecc_op_tuple with all its fields set to zero
+ */
+template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
+{
+    // Add the operation to the op queue
+    auto ultra_op = op_queue->no_op_ultra_only();
+
+    // Add corresponding gates for the operation
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
     return op_tuple;
 }
 

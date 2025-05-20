@@ -58,6 +58,11 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'The minimum number of txs to include in a block.',
     ...numberConfigHelper(1),
   },
+  publishTxsWithProposals: {
+    env: 'SEQ_PUBLISH_TXS_WITH_PROPOSALS',
+    description: 'Whether to publish txs with proposals.',
+    ...booleanConfigHelper(false),
+  },
   maxL2BlockGas: {
     env: 'SEQ_MAX_L2_BLOCK_GAS',
     description: 'The maximum L2 block gas.',

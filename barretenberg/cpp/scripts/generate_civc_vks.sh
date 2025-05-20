@@ -13,8 +13,6 @@ cd ..
 echo_header "bb ivc write_vk build step"
 
 export HARDWARE_CONCURRENCY=16
-export IGNITION_CRS_PATH=./srs_db/ignition
-export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 
 function write_vk {
   set -eu
@@ -25,10 +23,11 @@ function write_vk {
 export -f write_vk
 
 # Run on one public and one private input.
-parallel -v --line-buffer --tag write_vk {} ::: \
-  token-transfer \
-  amm-swap-exact-tokens
+PRIV=ecdsar1+transfer_0_recursions+sponsored_fpc
+PUB=ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc
+parallel -v --line-buffer --tag write_vk {} ::: $PRIV $PUB
+
 
 mkdir -p "$output_folder"
-mv "$input_folder/token-transfer/vk" "$output_folder/private-civc-vk"
-mv "$input_folder/amm-swap-exact-tokens/vk" "$output_folder/public-civc-vk"
+mv "$input_folder/$PRIV/vk" "$output_folder/private-civc-vk"
+mv "$input_folder/$PUB/vk" "$output_folder/public-civc-vk"

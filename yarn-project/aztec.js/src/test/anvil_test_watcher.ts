@@ -1,4 +1,4 @@
-import type { ViemPublicClient } from '@aztec/ethereum';
+import type { ViemClient } from '@aztec/ethereum';
 import type { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -20,7 +20,7 @@ import { RollupCheatCodes } from './rollup_cheat_codes.js';
 export class AnvilTestWatcher {
   private isSandbox: boolean = false;
 
-  private rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
   private rollupCheatCodes: RollupCheatCodes;
 
   private filledRunningPromise?: RunningPromise;
@@ -34,13 +34,13 @@ export class AnvilTestWatcher {
   constructor(
     private cheatcodes: EthCheatCodes,
     rollupAddress: EthAddress,
-    publicClient: ViemPublicClient,
+    l1Client: ViemClient,
     private dateProvider?: TestDateProvider,
   ) {
     this.rollup = getContract({
       address: getAddress(rollupAddress.toString()),
       abi: RollupAbi,
-      client: publicClient,
+      client: l1Client,
     });
 
     this.rollupCheatCodes = new RollupCheatCodes(this.cheatcodes, {
@@ -157,7 +157,7 @@ export class AnvilTestWatcher {
 
         this.logger.info(`Slot ${currentSlot} was missed, jumped to next slot`);
       }
-    } catch (err) {
+    } catch {
       this.logger.error('mineIfSlotFilled failed');
     }
   }

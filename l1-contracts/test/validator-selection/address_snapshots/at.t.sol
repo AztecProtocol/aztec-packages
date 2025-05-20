@@ -9,8 +9,11 @@ import {
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {TimeCheater} from "../../staking/TimeCheater.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 contract AddressSnapshotAtTest is AddressSnapshotsBase {
+  using SafeCast for uint256;
+
   function test_WhenNoValidatorsAreRegistered(uint256 _index) public {
     // It reverts
     vm.expectRevert(
@@ -20,12 +23,17 @@ contract AddressSnapshotAtTest is AddressSnapshotsBase {
   }
 
   function test_WhenIndexIsOutOfBounds(uint256 _index) public {
+    vm.assume(_index >= 1);
     validatorSet.add(address(1));
-
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, _index, 0)
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, _index, 1)
     );
     validatorSet.at(_index);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, _index, 1)
+    );
+    validatorSet.getAddressFromIndexAtTimestamp(_index, block.timestamp.toUint32());
   }
 
   function test_WhenIndexIsValid(address[] memory _addrs) public {
@@ -36,20 +44,13 @@ contract AddressSnapshotAtTest is AddressSnapshotsBase {
     timeCheater.cheat__setEpochNow(1);
     for (uint256 i = 0; i < _addrs.length; i++) {
       validatorSet.add(_addrs[i]);
-    }
-
-    for (uint256 i = 0; i < _addrs.length; i++) {
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, i, 0)
-      );
-      validatorSet.at(i);
-    }
-
-    // it returns the correct validator after reordering
-    timeCheater.cheat__setEpochNow(2);
-    for (uint256 i = 0; i < _addrs.length; i++) {
       assertEq(validatorSet.at(i), _addrs[i]);
+      assertEq(
+        validatorSet.getAddressFromIndexAtTimestamp(i, block.timestamp.toUint32()), _addrs[i]
+      );
     }
+
+    address last = validatorSet.at(_addrs.length - 1);
 
     // Remove a random index
     // -1 to not remove the last item
@@ -59,15 +60,11 @@ contract AddressSnapshotAtTest is AddressSnapshotsBase {
     address removedAddr = _addrs[randomIndex];
     validatorSet.remove(randomIndex);
 
-    // All still there
-    for (uint256 i = 0; i < _addrs.length; i++) {
-      assertEq(validatorSet.at(i), _addrs[i]);
-    }
-
-    // Progress in time, the deletion should take place
-    timeCheater.cheat__setEpochNow(3);
-
     // The item at the random index should be different, as it has been replaced
     assertNotEq(validatorSet.at(randomIndex), removedAddr);
+    assertEq(validatorSet.at(randomIndex), last);
+    assertEq(
+      validatorSet.getAddressFromIndexAtTimestamp(randomIndex, block.timestamp.toUint32()), last
+    );
   }
 }

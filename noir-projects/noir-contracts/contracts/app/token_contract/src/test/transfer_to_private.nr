@@ -1,7 +1,6 @@
 use crate::{test::utils, Token};
 use dep::aztec::oracle::random::random;
 use dep::uint_note::uint_note::PartialUintNote;
-use std::test::OracleMock;
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the TOKEN contract itself.
@@ -26,11 +25,6 @@ unconstrained fn transfer_to_private_external_orchestration() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
-
-    let note_randomness = random();
-
-    // We mock the Oracle to return the note randomness such that later on we can manually add the note
-    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We prepare the transfer
     let partial_uint_note = Token::at(token_contract_address)
@@ -63,7 +57,7 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
     );
 }
 
-#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow 'self - other'")]
+#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow")]
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, not_owner, amount) =

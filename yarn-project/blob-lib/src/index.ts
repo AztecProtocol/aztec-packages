@@ -1,6 +1,5 @@
 import cKzg from 'c-kzg';
 
-/* eslint-disable import/no-named-as-default-member */
 const { loadTrustedSetup } = cKzg;
 
 export * from './blob.js';

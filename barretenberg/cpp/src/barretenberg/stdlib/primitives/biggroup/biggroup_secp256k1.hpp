@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 /**
  * Special case function for performing secp256k1 ecdsa signature verification group operations
@@ -83,7 +89,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
         accumulator = accumulator.dbl();
 
         // u2_hi_wnaf.wnaf[2 * i] is a field_t element (as are the other wnafs).
-        // See `stdlib/memory/rom_table.hpp` for how indirect array accesses are implemented in UltraPlonk
+        // See `stdlib/memory/rom_table.hpp` for how indirect array accesses are implemented in Ultra
         const auto& add_1 = endoP2_table[u2_hi_wnaf.wnaf[2 * i]];
         const auto& add_2 = P2_table[u2_lo_wnaf.wnaf[2 * i + 1]];
         const auto& add_3 = endoP1_table[u1_hi_wnaf.wnaf[i]];

@@ -1,13 +1,12 @@
 import { type Logger, retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { EthAddress } from '@aztec/foundation/eth-address';
-// eslint-disable-next-line no-restricted-imports
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext, L1_BLOCK_TIME_IN_S } from './epochs_test.js';
+import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -17,11 +16,13 @@ describe('e2e_epochs/epochs_multi_proof', () => {
   let constants: L1RollupConstants;
   let logger: Logger;
 
+  let L1_BLOCK_TIME_IN_S: number;
+
   let test: EpochsTestContext;
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup();
-    ({ context, rollup, constants, logger } = test);
+    ({ context, rollup, constants, logger, L1_BLOCK_TIME_IN_S } = test);
   });
 
   afterEach(async () => {

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "bit_array.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 
@@ -156,9 +162,7 @@ template <typename Builder> std::string bit_array<Builder>::get_witness_as_strin
     return output;
 }
 
-template class bit_array<bb::StandardCircuitBuilder>;
 template class bit_array<bb::UltraCircuitBuilder>;
 template class bit_array<bb::MegaCircuitBuilder>;
-template class bit_array<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

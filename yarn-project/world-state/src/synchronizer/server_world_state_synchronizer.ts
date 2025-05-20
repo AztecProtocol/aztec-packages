@@ -85,6 +85,10 @@ export class ServerWorldStateSynchronizer
     return this.merkleTreeDb.backupTo(dstPath, compact);
   }
 
+  public clear(): Promise<void> {
+    return this.merkleTreeDb.clear();
+  }
+
   public async start() {
     if (this.currentState === WorldStateRunningState.STOPPED) {
       throw new Error('Synchronizer already stopped');
@@ -280,7 +284,7 @@ export class ServerWorldStateSynchronizer
 
     for (let i = 0; i < l2Blocks.length; i++) {
       const [duration, result] = await elapsed(() => this.handleL2Block(l2Blocks[i], l1ToL2Messages[i]));
-      this.log.verbose(`World state updated with L2 block ${l2Blocks[i].number}`, {
+      this.log.info(`World state updated with L2 block ${l2Blocks[i].number}`, {
         eventName: 'l2-block-handled',
         duration,
         unfinalisedBlockNumber: result.summary.unfinalisedBlockNumber,

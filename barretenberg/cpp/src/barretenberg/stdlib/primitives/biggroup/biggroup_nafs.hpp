@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
@@ -385,8 +391,6 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         field_t<C> entry(witness_t<C>(ctx, offset_entry));
         if constexpr (HasPlookup<C>) {
             ctx->create_new_range_constraint(entry.witness_index, 1ULL << (WNAF_SIZE), "biggroup_nafs");
-        } else if constexpr (IsSimulator<C>) {
-            ctx->create_range_constraint(entry.get_value(), WNAF_SIZE, "biggroup_nafs");
         } else {
             ctx->create_range_constraint(entry.witness_index, WNAF_SIZE, "biggroup_nafs");
         }
@@ -397,8 +401,6 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
     wnaf_entries.emplace_back(witness_t<C>(ctx, skew));
     if constexpr (HasPlookup<C>) {
         ctx->create_new_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
-    } else if constexpr (IsSimulator<C>) {
-        ctx->create_range_constraint(wnaf_entries[wnaf_entries.size() - 1].get_value(), 1, "biggroup_nafs");
     } else {
         ctx->create_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
     }
@@ -515,17 +517,14 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     for (size_t i = 0; i < num_rounds - 1; ++i) {
         bool next_entry = scalar_multiplier.get_bit(i + 1);
         // if the next entry is false, we need to flip the sign of the current entry. i.e. make negative
-        // This is a VERY hacky workaround to ensure that UltraPlonkBuilder will apply a basic
+        // This is a VERY hacky workaround to ensure that UltraBuilder will apply a basic
         // range constraint per bool, and not a full 1-bit range gate
         if (next_entry == false) {
             bool_ct bit(ctx, true);
             bit.context = ctx;
             bit.witness_index = witness_t<C>(ctx, true).witness_index; // flip sign
             bit.witness_bool = true;
-            if constexpr (IsSimulator<C>) {
-                ctx->create_range_constraint(
-                    bit.get_value(), 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
-            } else if constexpr (HasPlookup<C>) {
+            if constexpr (HasPlookup<C>) {
                 ctx->create_new_range_constraint(
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
             } else {
@@ -537,11 +536,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             bool_ct bit(ctx, false);
             bit.witness_index = witness_t<C>(ctx, false).witness_index; // don't flip sign
             bit.witness_bool = false;
-            if constexpr (IsSimulator<C>) {
-                ctx->create_range_constraint(
-                    bit.get_value(), 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
-            } else if constexpr (HasPlookup<C>) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/665)
+            if constexpr (HasPlookup<C>) {
                 ctx->create_new_range_constraint(
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
             } else {

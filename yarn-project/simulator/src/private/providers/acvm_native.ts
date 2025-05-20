@@ -78,7 +78,7 @@ export async function executeNativeCircuit(
   try {
     // Check that the directory exists
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: ACVM_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -123,27 +123,32 @@ export async function executeNativeCircuit(
       });
     });
 
-    const duration = new Timer();
+    const timer = new Timer();
     const output = await processPromise;
+    const duration = timer.ms();
     if (outputFilename) {
       const outputWitnessFileName = `${workingDirectory}/output-witness.gz`;
       await fs.copyFile(outputWitnessFileName, outputFilename);
     }
     const witness = parseIntoWitnessMap(output);
-    return { status: ACVM_RESULT.SUCCESS, witness, duration: duration.ms() };
+    return { status: ACVM_RESULT.SUCCESS, witness, duration };
   } catch (error) {
     return { status: ACVM_RESULT.FAILURE, reason: `${error}` };
   }
 }
 
 export class NativeACVMSimulator implements SimulationProvider {
-  constructor(private workingDirectory: string, private pathToAcvm: string, private witnessFilename?: string) {}
+  constructor(
+    private workingDirectory: string,
+    private pathToAcvm: string,
+    private witnessFilename?: string,
+  ) {}
 
   async executeProtocolCircuit(
     input: ACVMWitness,
     artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler | undefined,
-  ): Promise<ACVMWitness> {
+  ): Promise<ACVMSuccess> {
     // Execute the circuit on those initial witness values
 
     if (callback) {
@@ -166,7 +171,7 @@ export class NativeACVMSimulator implements SimulationProvider {
         throw new Error(`Failed to generate witness: ${result.reason}`);
       }
 
-      return result.witness;
+      return result;
     };
 
     return await runInDirectory(this.workingDirectory, operation, false, logger);

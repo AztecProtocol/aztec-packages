@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -10,6 +16,7 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
     using VerificationKey = typename Flavor::VerificationKey;
     using DeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using ArrayType = std::array<std::shared_ptr<DeciderVK>, NUM_>;
+    using FF = typename Flavor::FF;
 
   public:
     static constexpr size_t NUM = NUM_;
@@ -37,20 +44,24 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
     }
 
     /**
-     * @brief Get the max log circuit size from the set of decider verification keys
+     * @brief Get the max circuit size (and corresponding log circuit size) from the set of decider verification keys
      *
-     * @return size_t
+     * @return {max circuit size, max log circuit size}
+     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
      */
-    size_t get_max_log_circuit_size() const
+    std::pair<FF, FF> get_max_circuit_size_and_log_size() const
     {
-        size_t max_log_circuit_size{ 0 };
-        for (auto key : _data) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value.
-            max_log_circuit_size = std::max(
-                max_log_circuit_size,
-                static_cast<size_t>(static_cast<uint32_t>(key->verification_key->log_circuit_size.get_value())));
+        // Find the key with the largest circuit size and reaturn its circuit size and log circuit size
+        auto* max_key = _data[0].get();
+        size_t max_circuit_size =
+            static_cast<size_t>(static_cast<uint32_t>(max_key->verification_key->circuit_size.get_value()));
+        for (const auto& key : _data) {
+            if (static_cast<size_t>(static_cast<uint32_t>(key->verification_key->circuit_size.get_value())) >
+                max_circuit_size) {
+                max_key = key.get();
+            }
         }
-        return max_log_circuit_size;
+        return { max_key->verification_key->circuit_size, max_key->verification_key->log_circuit_size };
     }
 
     /**

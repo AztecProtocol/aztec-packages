@@ -1,5 +1,6 @@
 import { type L2Block, retryUntil } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import type { ViemPublicClient } from '@aztec/ethereum';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -22,17 +23,11 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
-import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
-import {
-  BlockHeader,
-  ContentCommitment,
-  type GlobalVariables,
-  StateReference,
-  Tx,
-  type TxHash,
-} from '@aztec/stdlib/tx';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { ContentCommitment, GlobalVariables, ProposedBlockHeader, Tx, type TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
   L1Metrics,
@@ -108,16 +103,18 @@ export class Sequencer {
     this.metrics = new SequencerMetrics(
       telemetry,
       () => this.state,
-      this._coinbase,
+      this.config.coinbase ?? this.publisher.getSenderAddress(),
       this.publisher.getRollupContract(),
       'Sequencer',
     );
-    this.l1Metrics = new L1Metrics(telemetry.getMeter('SequencerL1Metrics'), publisher.l1TxUtils.publicClient, [
-      publisher.getSenderAddress(),
-    ]);
+    this.l1Metrics = new L1Metrics(
+      telemetry.getMeter('SequencerL1Metrics'),
+      publisher.l1TxUtils.client as unknown as ViemPublicClient,
+      [publisher.getSenderAddress()],
+    );
 
     // Register the block builder with the validator client for re-execution
-    this.validatorClient?.registerBlockBuilder(this.buildBlock.bind(this));
+    this.validatorClient?.registerBlockBuilder(this.buildBlockFromProposal.bind(this));
 
     // Register the slasher on the publisher to fetch slashing payloads
     this.publisher.registerSlashPayloadGetter(this.slasherClient.getSlashPayload.bind(this.slasherClient));
@@ -158,6 +155,7 @@ export class Sequencer {
     }
     if (config.coinbase) {
       this._coinbase = config.coinbase;
+      this.metrics.setCoinbase(this._coinbase);
     }
     if (config.feeRecipient) {
       this._feeRecipient = config.feeRecipient;
@@ -308,14 +306,13 @@ export class Sequencer {
     });
 
     // If I created a "partial" header here that should make our job much easier.
-    const proposalHeader = new BlockHeader(
-      new AppendOnlyTreeSnapshot(chainTipArchive, 1),
-      ContentCommitment.empty(),
-      StateReference.empty(),
-      newGlobalVariables,
-      Fr.ZERO,
-      Fr.ZERO,
-    );
+    const proposalHeader = ProposedBlockHeader.from({
+      ...newGlobalVariables,
+      timestamp: newGlobalVariables.timestamp.toBigInt(),
+      lastArchiveRoot: chainTipArchive,
+      contentCommitment: ContentCommitment.empty(),
+      totalManaUsed: Fr.ZERO,
+    });
 
     let finishedFlushing = false;
     const pendingTxCount = await this.p2pClient.getPendingTxCount();
@@ -324,7 +321,7 @@ export class Sequencer {
       // and also we may need to fetch more if we don't have enough valid txs.
       const pendingTxs = this.p2pClient.iteratePendingTxs();
 
-      await this.buildBlockAndEnqueuePublish(pendingTxs, proposalHeader).catch(err => {
+      await this.buildBlockAndEnqueuePublish(pendingTxs, proposalHeader, newGlobalVariables).catch(err => {
         this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
       });
       finishedFlushing = true;
@@ -423,11 +420,8 @@ export class Sequencer {
   /**
    * Build a block
    *
-   * Shared between the sequencer and the validator for re-execution
-   *
    * @param pendingTxs - The pending transactions to construct the block from
    * @param newGlobalVariables - The global variables for the new block
-   * @param historicalHeader - The historical header of the parent
    * @param opts - Whether to just validate the block as a validator, as opposed to building it as a proposal
    */
   protected async buildBlock(
@@ -506,7 +500,7 @@ export class Sequencer {
         maxBlockGas: this.maxBlockGas,
       };
       const limits = opts.validateOnly ? { deadline } : { deadline, ...proposerLimits };
-      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
+      const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
         processor.process(pendingTxs, limits, validator),
       );
 
@@ -550,6 +544,7 @@ export class Sequencer {
         numTxs: processedTxs.length,
         numFailedTxs: failedTxs.length,
         blockBuildingTimer,
+        usedTxs,
       };
     } finally {
       // We create a fresh processor each time to reset any cached state (eg storage writes)
@@ -569,6 +564,31 @@ export class Sequencer {
   }
 
   /**
+   * Build a block from a proposal. Used by the validator to re-execute transactions.
+   *
+   * @param blockNumber - The block number of the proposal.
+   * @param header - The header of the proposal.
+   * @param pendingTxs - The pending transactions to construct the block from.
+   * @param opts - Whether to just validate the block as a validator, as opposed to building it as a proposal.
+   */
+  async buildBlockFromProposal(
+    blockNumber: Fr,
+    header: ProposedBlockHeader,
+    pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
+    opts: { validateOnly?: boolean } = {},
+  ) {
+    const { chainId, version } = await this.globalsBuilder.getGlobalConstantVariables();
+    const globalVariables = GlobalVariables.from({
+      ...header,
+      blockNumber,
+      timestamp: new Fr(header.timestamp),
+      chainId,
+      version,
+    });
+    return await this.buildBlock(pendingTxs, globalVariables, opts);
+  }
+
+  /**
    * @notice  Build and propose a block to the chain
    *
    * @dev     MUST throw instead of exiting early to ensure that world-state
@@ -577,18 +597,18 @@ export class Sequencer {
    * @param pendingTxs - Iterable of pending transactions to construct the block from
    * @param proposalHeader - The partial header constructed for the proposal
    */
-  @trackSpan('Sequencer.buildBlockAndEnqueuePublish', (_validTxs, proposalHeader) => ({
-    [Attributes.BLOCK_NUMBER]: proposalHeader.globalVariables.blockNumber.toNumber(),
+  @trackSpan('Sequencer.buildBlockAndEnqueuePublish', (_validTxs, _proposalHeader, newGlobalVariables) => ({
+    [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber.toNumber(),
   }))
   private async buildBlockAndEnqueuePublish(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
-    proposalHeader: BlockHeader,
+    proposalHeader: ProposedBlockHeader,
+    newGlobalVariables: GlobalVariables,
   ): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
-    const newGlobalVariables = proposalHeader.globalVariables;
     const blockNumber = newGlobalVariables.blockNumber.toNumber();
-    const slot = newGlobalVariables.slotNumber.toBigInt();
+    const slot = proposalHeader.slotNumber.toBigInt();
 
     // this.metrics.recordNewBlock(blockNumber, validTxs.length);
     const workTimer = new Timer();
@@ -596,12 +616,12 @@ export class Sequencer {
 
     try {
       const buildBlockRes = await this.buildBlock(pendingTxs, newGlobalVariables);
-      const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer } = buildBlockRes;
+      const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer, usedTxs } = buildBlockRes;
       this.metrics.recordBuiltBlock(workTimer.ms(), publicGas.l2Gas);
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
       // block being published before ours instead of just waiting on our block
-      await this.publisher.validateBlockForSubmission(block.header);
+      await this.publisher.validateBlockForSubmission(block.header.toPropose());
 
       const blockStats: L2BlockBuiltStats = {
         eventName: 'l2-block-built',
@@ -628,7 +648,7 @@ export class Sequencer {
 
       this.log.debug('Collecting attestations');
       const stopCollectingAttestationsTimer = this.metrics.startCollectingAttestationsTimer();
-      const attestations = await this.collectAttestations(block, txHashes);
+      const attestations = await this.collectAttestations(block, usedTxs);
       if (attestations !== undefined) {
         this.log.verbose(`Collected ${attestations.length} attestations`, { blockHash, blockNumber });
       }
@@ -646,7 +666,7 @@ export class Sequencer {
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.BLOCK_TXS_COUNT]: txHashes.length,
   }))
-  protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
+  protected async collectAttestations(block: L2Block, txs: Tx[]): Promise<Signature[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
 
@@ -668,14 +688,22 @@ export class Sequencer {
     this.setState(SequencerState.COLLECTING_ATTESTATIONS, slotNumber);
 
     this.log.debug('Creating block proposal for validators');
-    const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
+    const blockProposalOptions: BlockProposalOptions = { publishFullTxs: !!this.config.publishTxsWithProposals };
+    const proposal = await this.validatorClient.createBlockProposal(
+      block.header.globalVariables.blockNumber,
+      block.header.toPropose(),
+      block.archive.root,
+      block.header.state,
+      txs,
+      blockProposalOptions,
+    );
     if (!proposal) {
       const msg = `Failed to create block proposal`;
       throw new Error(msg);
     }
 
     this.log.debug('Broadcasting block proposal to validators');
-    this.validatorClient.broadcastBlockProposal(proposal);
+    await this.validatorClient.broadcastBlockProposal(proposal);
 
     const attestationTimeAllowed = this.enforceTimeTable
       ? this.timetable.getMaxAllowedTime(SequencerState.PUBLISHING_BLOCK)!

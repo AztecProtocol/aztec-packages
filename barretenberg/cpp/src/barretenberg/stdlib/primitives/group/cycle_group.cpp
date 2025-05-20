@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "../field/field.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
@@ -1281,7 +1287,7 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     // if the input point is constant, it is cheaper to fix the point as a witness and then derive the table, than it is
     // to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate, and fixing x/y coords
     // to be constant = 2 gates)
-    if (modded_base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
+    if (base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
         modded_base_point = cycle_group::from_constant_witness(_context, modded_base_point.get_value());
         point_table[0] = cycle_group::from_constant_witness(_context, offset_generator.get_value());
         for (size_t i = 1; i < table_size; ++i) {
@@ -1498,7 +1504,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     // populate the set of points we are going to add into our accumulator, *before* we do any ECC operations
     // this way we are able to fuse mutliple ecc add / ecc double operations and reduce total gate count.
-    // (ecc add/ecc double gates normally cost 2 UltraPlonk gates. However if we chain add->add, add->double,
+    // (ecc add/ecc double gates normally cost 2 Ultra gates. However if we chain add->add, add->double,
     // double->add, double->double, they only cost one)
     std::vector<cycle_group> points_to_add;
     for (size_t i = 0; i < num_rounds; ++i) {
@@ -1590,8 +1596,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
-        // Merge all tags of scalars (we don't have to account for CircuitSimulator in cycle_group yet, because it
-        // breaks)
+        // Merge all tags of scalars
         tag = OriginTag(tag, scalars[i].get_origin_tag());
         std::optional<std::array<MultiTableId, 2>> table_id =
             plookup::fixed_base::table::get_lookup_table_ids_for_point(base_points[i]);
@@ -1996,9 +2001,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/
     throw_or_abort("Implementation under construction...");
 }
 
-template class cycle_group<bb::StandardCircuitBuilder>;
 template class cycle_group<bb::UltraCircuitBuilder>;
 template class cycle_group<bb::MegaCircuitBuilder>;
-template class cycle_group<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

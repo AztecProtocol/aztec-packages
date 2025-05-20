@@ -1,6 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/op_count.hpp"
-#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
+#include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -134,8 +140,8 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     if (keys[1]->overflow_size > result.accumulator->overflow_size) {
         ASSERT(DeciderProvingKeys::NUM == 2); // this mechanism is not supported for the folding of multiple keys
         // DEBUG: At this point the virtual sizes of the polynomials should already agree
-        ASSERT(result.accumulator->proving_key.polynomials.w_l.virtual_size() ==
-               keys[1]->proving_key.polynomials.w_l.virtual_size());
+        BB_ASSERT_EQ(result.accumulator->proving_key.polynomials.w_l.virtual_size(),
+                     keys[1]->proving_key.polynomials.w_l.virtual_size());
         std::swap(result.accumulator->proving_key.polynomials, keys[1]->proving_key.polynomials); // swap the polys
         std::swap(lagranges[0], lagranges[1]); // swap the lagrange coefficients so the sum is unchanged
         std::swap(result.accumulator->proving_key.circuit_size, keys[1]->proving_key.circuit_size); // swap circuit size

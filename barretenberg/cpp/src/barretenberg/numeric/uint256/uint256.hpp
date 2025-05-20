@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 /**
  * uint256_t
  * Copyright Aztec 2020
@@ -7,7 +13,7 @@
  * Constructor and all methods are constexpr.
  * Ideally, uint256_t should be able to be treated like any other literal type.
  *
- * Not optimized for performance, this code doesn't touch any of our hot paths when constructing PLONK proofs.
+ * Not optimized for performance, this code doesn't touch any of our hot paths when constructing proofs.
  **/
 #pragma once
 

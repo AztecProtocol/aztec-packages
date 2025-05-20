@@ -6,12 +6,7 @@ import {
   getAllFunctionAbis,
   loadContractArtifact,
 } from '@aztec/aztec.js/abi';
-import {
-  type DeployL1ContractsReturnType,
-  type L1ContractsConfig,
-  RegistryContract,
-  RollupContract,
-} from '@aztec/ethereum';
+import { type DeployL1ContractsReturnType, type L1ContractsConfig, RollupContract } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { NoirPackageConfig } from '@aztec/foundation/noir';
@@ -101,7 +96,7 @@ export async function deployNewRollupContracts(
   config: L1ContractsConfig,
   logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
-  const { createEthereumChain, deployRollupForUpgrade, createL1Clients } = await import('@aztec/ethereum');
+  const { createEthereumChain, deployRollupForUpgrade, createExtendedL1Client } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
@@ -109,17 +104,16 @@ export async function deployNewRollupContracts(
     ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const chain = createEthereumChain(rpcUrls, chainId);
-  const clients = createL1Clients(rpcUrls, account, chain.chainInfo, mnemonicIndex);
+  const client = createExtendedL1Client(rpcUrls, account, chain.chainInfo, undefined, mnemonicIndex);
 
   if (!initialValidators || initialValidators.length === 0) {
-    const registry = new RegistryContract(clients.publicClient, registryAddress);
-    const rollup = new RollupContract(clients.publicClient, await registry.getCanonicalAddress());
-    initialValidators = (await rollup.getAttesters()).map(str => EthAddress.fromString(str));
+    // initialize the new rollup with Amin's validator address.
+    initialValidators = [EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637')];
     logger.info('Initializing new rollup with old attesters', { initialValidators });
   }
 
   const { rollup, slashFactoryAddress } = await deployRollupForUpgrade(
-    clients,
+    client,
     {
       salt,
       vkTreeRoot: getVKTreeRoot(),

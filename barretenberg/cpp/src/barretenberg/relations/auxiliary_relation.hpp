@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -57,8 +63,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
 
     /**
      * @brief Expression for the generalized permutation sort gate.
-     * @details The following explanation is reproduced from the Plonk analog 'plookup_auxiliary_widget':
-     * Adds contributions for identities associated with several custom gates:
+     * @details Adds contributions for identities associated with several custom gates:
      *  * RAM/ROM read-write consistency check
      *  * RAM timestamp difference consistency check
      *  * RAM/ROM index difference consistency check

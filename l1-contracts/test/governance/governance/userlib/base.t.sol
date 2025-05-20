@@ -2,16 +2,14 @@
 pragma solidity >=0.8.27;
 
 import {TestBase} from "@test/base/Base.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
-import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
 
 contract UserLibBase is TestBase {
-  using UserLib for DataStructures.User;
+  using UserLib for User;
 
   uint256 internal constant CHECKPOINT_COUNT = 8;
 
-  DataStructures.User internal user;
+  User internal user;
 
   uint256 internal amount;
   uint256 internal sumBefore;

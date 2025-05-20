@@ -1,10 +1,16 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/ultra_honk/witness_computation.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
-#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
+#include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
@@ -25,7 +31,7 @@ namespace bb {
  * @tparam Flavor
  * @param eta challenge produced after commitment to first three wire polynomials
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(typename Flavor::ProvingKey& proving_key,
                                                                       const typename Flavor::FF& eta,
                                                                       const typename Flavor::FF& eta_two,
@@ -59,7 +65,7 @@ void WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(typename F
  * @param beta
  * @param gamma
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void WitnessComputation<Flavor>::compute_logderivative_inverses(Flavor::ProvingKey& proving_key,
                                                                 RelationParameters<FF>& relation_parameters)
 {
@@ -90,7 +96,7 @@ void WitnessComputation<Flavor>::compute_logderivative_inverses(Flavor::ProvingK
  * @param relation_parameters
  * @param size_override override the size of the domain over which to compute the grand product
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void WitnessComputation<Flavor>::compute_grand_product_polynomial(Flavor::ProvingKey& proving_key,
                                                                   RelationParameters<FF>& relation_parameters,
                                                                   size_t size_override)
@@ -112,7 +118,7 @@ void WitnessComputation<Flavor>::compute_grand_product_polynomial(Flavor::Provin
  * @tparam Flavor
  * @param decider_pk
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void WitnessComputation<Flavor>::complete_proving_key_for_test(
     const std::shared_ptr<DeciderProvingKey_<Flavor>>& decider_pk)
 {
@@ -138,9 +144,11 @@ void WitnessComputation<Flavor>::complete_proving_key_for_test(
 template class WitnessComputation<UltraFlavor>;
 template class WitnessComputation<UltraZKFlavor>;
 template class WitnessComputation<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
 template class WitnessComputation<UltraStarknetFlavor>;
-template class WitnessComputation<UltraKeccakZKFlavor>;
 template class WitnessComputation<UltraStarknetZKFlavor>;
+#endif
+template class WitnessComputation<UltraKeccakZKFlavor>;
 template class WitnessComputation<UltraRollupFlavor>;
 template class WitnessComputation<MegaFlavor>;
 template class WitnessComputation<MegaZKFlavor>;

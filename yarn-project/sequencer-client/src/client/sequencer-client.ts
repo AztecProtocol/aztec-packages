@@ -6,7 +6,7 @@ import {
   RollupContract,
   SlashingProposerContract,
   createEthereumChain,
-  createL1Clients,
+  createExtendedL1Client,
   isAnvilTestChain,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
@@ -80,9 +80,9 @@ export class SequencerClient {
     const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
     const chain = createEthereumChain(rpcUrls, chainId);
     const log = createLogger('sequencer-client');
-    const { publicClient, walletClient } = createL1Clients(rpcUrls, publisherPrivateKey, chain.chainInfo);
-    const l1TxUtils = deps.l1TxUtils ?? new L1TxUtilsWithBlobs(publicClient, walletClient, log, config);
-    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+    const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey, chain.chainInfo);
+    const l1TxUtils = deps.l1TxUtils ?? new L1TxUtilsWithBlobs(l1Client, log, config);
+    const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
@@ -90,24 +90,23 @@ export class SequencerClient {
     const forwarderContract =
       config.customForwarderContractAddress && config.customForwarderContractAddress !== EthAddress.ZERO
         ? new ForwarderContract(
-            publicClient,
+            l1Client,
             config.customForwarderContractAddress.toString(),
             config.l1Contracts.rollupAddress.toString(),
           )
         : await ForwarderContract.create(
-            walletClient.account.address,
-            walletClient,
-            publicClient,
+            l1Client.account.address,
+            l1Client,
             log,
             config.l1Contracts.rollupAddress.toString(),
           );
 
     const governanceProposerContract = new GovernanceProposerContract(
-      publicClient,
+      l1Client,
       config.l1Contracts.governanceProposerAddress.toString(),
     );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new SlashingProposerContract(publicClient, slashingProposerAddress.toString());
+    const slashingProposerContract = new SlashingProposerContract(l1Client, slashingProposerAddress.toString());
     const epochCache =
       deps.epochCache ??
       (await EpochCache.create(
@@ -158,7 +157,7 @@ export class SequencerClient {
     // make it with a propagation time into slot equal to 4s. However, we prefer being conservative.
     // See https://www.blocknative.com/blog/anatomy-of-a-slot#7 for more info.
     const maxL1TxInclusionTimeIntoSlot =
-      config.maxL1TxInclusionTimeIntoSlot ?? isAnvilTestChain(config.l1ChainId) ? ethereumSlotDuration : 0;
+      (config.maxL1TxInclusionTimeIntoSlot ?? isAnvilTestChain(config.l1ChainId)) ? ethereumSlotDuration : 0;
 
     const l1Constants = {
       l1GenesisTime,

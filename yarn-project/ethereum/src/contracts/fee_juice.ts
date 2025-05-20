@@ -3,36 +3,33 @@ import { TestERC20Abi as FeeJuiceAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 
 import { type GetContractReturnType, type Hex, getContract } from 'viem';
 
-import type { L1Clients } from '../types.js';
+import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from '../types.js';
 
 export class FeeJuiceContract {
-  private readonly publicFeeJuice: GetContractReturnType<typeof FeeJuiceAbi, L1Clients['publicClient']>;
-  private readonly walletFeeJuice: GetContractReturnType<typeof FeeJuiceAbi, L1Clients['walletClient']> | undefined;
+  private readonly feeJuiceContract: GetContractReturnType<typeof FeeJuiceAbi, ViemClient>;
 
   constructor(
     address: Hex,
-    public readonly publicClient: L1Clients['publicClient'],
-    public readonly walletClient: L1Clients['walletClient'] | undefined,
+    public readonly client: ViemClient,
   ) {
-    this.publicFeeJuice = getContract({ address, abi: FeeJuiceAbi, client: publicClient });
-    this.walletFeeJuice = walletClient ? getContract({ address, abi: FeeJuiceAbi, client: walletClient }) : undefined;
+    this.feeJuiceContract = getContract({ address, abi: FeeJuiceAbi, client });
   }
 
   public get address() {
-    return EthAddress.fromString(this.publicFeeJuice.address);
+    return EthAddress.fromString(this.feeJuiceContract.address);
   }
 
-  private assertWalletFeeJuice() {
-    if (!this.walletFeeJuice) {
+  private assertWalletFeeJuice(): GetContractReturnType<typeof FeeJuiceAbi, ExtendedViemWalletClient> {
+    if (!isExtendedClient(this.client)) {
       throw new Error('Wallet client is required for this operation');
     }
-    return this.walletFeeJuice;
+    return this.feeJuiceContract as GetContractReturnType<typeof FeeJuiceAbi, ExtendedViemWalletClient>;
   }
 
   public async mint(to: Hex, amount: bigint) {
     const walletFeeJuice = this.assertWalletFeeJuice();
     const tx = await walletFeeJuice.write.mint([to, amount]);
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash: tx });
+    const receipt = await this.client.waitForTransactionReceipt({ hash: tx });
 
     if (receipt.status === 'success') {
       return;
@@ -43,7 +40,7 @@ export class FeeJuiceContract {
   public async approve(spender: Hex, amount: bigint) {
     const walletFeeJuice = this.assertWalletFeeJuice();
     const tx = await walletFeeJuice.write.approve([spender, amount]);
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash: tx });
+    const receipt = await this.client.waitForTransactionReceipt({ hash: tx });
 
     if (receipt.status === 'success') {
       return;

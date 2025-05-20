@@ -1,12 +1,14 @@
+import type { L1BlockId } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
-import type { AztecAsyncKVStore, StoreSize } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
+  ContractDataSource,
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
   ExecutablePrivateFunctionWithMembershipProof,
@@ -14,13 +16,12 @@ import type {
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/stdlib/logs';
-import type { InboxLeaf } from '@aztec/stdlib/messaging';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 import { join } from 'path';
 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
-import type { DataRetrieval } from '../structs/data_retrieval.js';
+import type { InboxMessage } from '../structs/inbox_message.js';
 import type { PublishedL2Block } from '../structs/published.js';
 import { BlockStore } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
@@ -28,12 +29,12 @@ import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
-export const ARCHIVER_DB_VERSION = 1;
+export const ARCHIVER_DB_VERSION = 2;
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
-export class KVArchiverDataStore implements ArchiverDataStore {
+export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSource {
   public static readonly SCHEMA_VERSION = ARCHIVER_DB_VERSION;
 
   #blockStore: BlockStore;
@@ -45,12 +46,30 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   #log = createLogger('archiver:data-store');
 
-  constructor(private db: AztecAsyncKVStore, logsMaxPageSize: number = 1000) {
+  constructor(
+    private db: AztecAsyncKVStore,
+    logsMaxPageSize: number = 1000,
+  ) {
     this.#blockStore = new BlockStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
+  }
+
+  public transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
+    return this.db.transactionAsync(callback);
+  }
+
+  public getBlockNumber(): Promise<number> {
+    return this.getSynchedL2BlockNumber();
+  }
+
+  public async getContract(
+    address: AztecAddress,
+    blockNumber?: number,
+  ): Promise<ContractInstanceWithAddress | undefined> {
+    return this.getContractInstance(address, blockNumber ?? (await this.getBlockNumber()));
   }
 
   public async backupTo(path: string, compress = true): Promise<string> {
@@ -92,6 +111,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#contractInstanceStore.getContractInstance(address, blockNumber);
   }
 
+  getContractInstanceDeploymentBlockNumber(address: AztecAddress): Promise<number | undefined> {
+    return this.#contractInstanceStore.getContractInstanceDeploymentBlockNumber(address);
+  }
+
   async addContractClasses(
     data: ContractClassPublic[],
     bytecodeCommitments: Fr[],
@@ -122,8 +145,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, utilityFunctions);
   }
 
-  async addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
-    return (await Promise.all(data.map(c => this.#contractInstanceStore.addContractInstance(c)))).every(Boolean);
+  async addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean> {
+    return (await Promise.all(data.map(c => this.#contractInstanceStore.addContractInstance(c, blockNumber)))).every(
+      Boolean,
+    );
   }
 
   async deleteContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
@@ -157,8 +182,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
-    return this.#blockStore.addBlocks(blocks);
+  addBlocks(blocks: PublishedL2Block[], opts: { force?: boolean } = {}): Promise<boolean> {
+    return this.#blockStore.addBlocks(blocks, opts);
   }
 
   /**
@@ -172,6 +197,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#blockStore.unwindBlocks(from, blocksToUnwind);
   }
 
+  getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {
+    return this.#blockStore.getBlock(number);
+  }
+
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    *
@@ -179,7 +208,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  getBlocks(start: number, limit: number): Promise<PublishedL2Block[]> {
+  getPublishedBlocks(start: number, limit: number): Promise<PublishedL2Block[]> {
     return toArray(this.#blockStore.getBlocks(start, limit));
   }
 
@@ -229,12 +258,15 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#messageStore.getTotalL1ToL2MessageCount();
   }
 
+  getLastL1ToL2Message(): Promise<InboxMessage | undefined> {
+    return this.#messageStore.getLastMessage();
+  }
+
   /**
    * Append L1 to L2 messages to the store.
-   * @param messages - The L1 to L2 messages to be added to the store and the last processed L1 block.
-   * @returns True if the operation is successful.
+   * @param messages - The L1 to L2 messages to be added to the store.
    */
-  addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean> {
+  addL1ToL2Messages(messages: InboxMessage[]): Promise<void> {
     return this.#messageStore.addL1ToL2Messages(messages);
   }
 
@@ -326,8 +358,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     await this.#blockStore.setSynchedL1BlockNumber(l1BlockNumber);
   }
 
-  async setMessageSynchedL1BlockNumber(l1BlockNumber: bigint) {
-    await this.#messageStore.setSynchedL1BlockNumber(l1BlockNumber);
+  async setMessageSynchedL1Block(l1Block: L1BlockId) {
+    await this.#messageStore.setSynchedL1Block(l1Block);
   }
 
   /**
@@ -336,7 +368,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   async getSynchPoint(): Promise<ArchiverL1SynchPoint> {
     const [blocksSynchedTo, messagesSynchedTo] = await Promise.all([
       this.#blockStore.getSynchedL1BlockNumber(),
-      this.#messageStore.getSynchedL1BlockNumber(),
+      this.#messageStore.getSynchedL1Block(),
     ]);
     return {
       blocksSynchedTo,
@@ -346,5 +378,17 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   public estimateSize(): Promise<StoreSize> {
     return this.db.estimateSize();
+  }
+
+  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number | bigint): Promise<void> {
+    return this.#messageStore.rollbackL1ToL2MessagesToL2Block(BigInt(targetBlockNumber));
+  }
+
+  public iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {
+    return this.#messageStore.iterateL1ToL2Messages(range);
+  }
+
+  public removeL1ToL2Messages(startIndex: bigint): Promise<void> {
+    return this.#messageStore.removeL1ToL2Messages(startIndex);
   }
 }

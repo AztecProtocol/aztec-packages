@@ -2,9 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 
 #include <gtest/gtest.h>
@@ -13,7 +11,6 @@
 using namespace bb;
 using namespace bb::crypto;
 using namespace acir_format;
-using Composer = plonk::UltraComposer;
 
 using curve_ct = stdlib::secp256r1<Builder>;
 
@@ -98,7 +95,7 @@ size_t generate_ecdsa_constraint(EcdsaSecp256r1Constraint& ecdsa_r1_constraint, 
 
 TEST(ECDSASecp256r1, test_hardcoded)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     EcdsaSecp256r1Constraint ecdsa_r1_constraint;
     WitnessVector witness_values;
 
@@ -167,17 +164,12 @@ TEST(ECDSASecp256r1, test_hardcoded)
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 1);
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     EcdsaSecp256r1Constraint ecdsa_r1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_r1_constraint, witness_values);
@@ -217,12 +209,7 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 1);
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 // Test that the verifier can create an ECDSA circuit.
@@ -230,7 +217,7 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
 // even though we are just building the circuit.
 TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     EcdsaSecp256r1Constraint ecdsa_r1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_r1_constraint, witness_values);
@@ -268,11 +255,13 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
     mock_opcode_indices(constraint_system);
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST(ECDSASecp256r1, TestECDSAConstraintFail)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     EcdsaSecp256r1Constraint ecdsa_r1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_r1_constraint, witness_values);
@@ -319,10 +308,6 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 0);
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
 
-    auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }

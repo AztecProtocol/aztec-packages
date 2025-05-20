@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "byte_array.hpp"
 
 #include <bitset>
@@ -394,9 +400,7 @@ typename byte_array<Builder>::byte_slice byte_array<Builder>::split_byte(const s
     return { low, scaled_high, bit };
 }
 
-template class byte_array<bb::StandardCircuitBuilder>;
 template class byte_array<bb::UltraCircuitBuilder>;
 template class byte_array<bb::MegaCircuitBuilder>;
-template class byte_array<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

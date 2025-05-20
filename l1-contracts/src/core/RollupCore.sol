@@ -6,7 +6,6 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {
   IRollupCore,
   ITestRollup,
-  CheatDepositArgs,
   RollupStore,
   SubmitEpochRootProofArgs,
   RollupConfigInput
@@ -28,7 +27,7 @@ import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-import {Slasher} from "@aztec/core/staking/Slasher.sol";
+import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -113,15 +112,6 @@ contract RollupCore is
   /* -------------------------------------------------------------------------- */
   /*                          CHEAT CODES START HERE                            */
   /* -------------------------------------------------------------------------- */
-
-  function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args)
-    external
-    override(ITestRollup)
-    onlyOwner
-  {
-    CheatLib.cheat__InitialiseValidatorSet(_args);
-    setupEpoch();
-  }
 
   function setEpochVerifier(address _verifier) external override(ITestRollup) onlyOwner {
     CheatLib.setEpochVerifier(_verifier);
@@ -217,6 +207,10 @@ contract RollupCore is
 
   function setupEpoch() public override(IValidatorSelectionCore) {
     ExtRollupLib.setupEpoch();
+  }
+
+  function setupSeedSnapshotForNextEpoch() public override(IValidatorSelectionCore) {
+    ExtRollupLib.setupSeedSnapshotForNextEpoch();
   }
 
   /**

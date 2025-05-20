@@ -5,7 +5,8 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
+#include "barretenberg/honk/relation_checker.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
@@ -21,7 +22,7 @@ using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
 
 template <typename Flavor> class MegaHonkTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
@@ -86,6 +87,29 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
 };
 
 TYPED_TEST_SUITE(MegaHonkTests, FlavorTypes);
+
+/**
+ * @brief Check that size of a mega proof matches the corresponding constant
+ *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - Proof length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
+ * - mega_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, various main.nr files of programs
+ * with recursive verification circuits
+ * - Places that define SIZE_OF_PROOF_IF_LOGN_IS_28
+ */
+TYPED_TEST(MegaHonkTests, MegaProofSizeCheck)
+{
+    using Flavor = TypeParam;
+
+    auto builder = typename Flavor::CircuitBuilder{};
+    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
+
+    // Construct a mega proof and ensure its size matches expectation; if not, the constant may need to be updated
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    UltraProver_<Flavor> prover(proving_key);
+    HonkProof mega_proof = prover.construct_proof();
+    EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE);
+}
 
 /**
  * @brief Check that size of a merge proof matches the corresponding constant

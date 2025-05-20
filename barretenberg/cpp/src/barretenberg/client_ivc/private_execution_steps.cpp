@@ -5,9 +5,9 @@
 
 namespace bb {
 
-std::string decompress(const void* bytes, size_t size)
+std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
-    std::string content;
+    std::vector<uint8_t> content;
     // initial size guess
     content.resize(1024ULL * 128ULL);
     for (;;) {
@@ -56,6 +56,7 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load_and_decompress(
     const std::filesystem::path& input_path)
 {
+    PROFILE_THIS();
     auto raw_steps = unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
     for (PrivateExecutionStepRaw& step : raw_steps) {
         step.bytecode = decompress(step.bytecode.data(), step.bytecode.size());
@@ -73,25 +74,33 @@ std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::parse_uncompressed
     return raw_steps;
 }
 
-void PrivateExecutionSteps::parse(const std::vector<PrivateExecutionStepRaw>& steps)
+void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
 {
-    for (const PrivateExecutionStepRaw& step : steps) {
+    PROFILE_THIS();
+
+    // Preallocate space to write into diretly as push_back would not be thread safe
+    folding_stack.resize(steps.size());
+    precomputed_vks.resize(steps.size());
+    function_names.resize(steps.size());
+
+    // https://github.com/AztecProtocol/barretenberg/issues/1395 multithread this once bincode is thread-safe
+    for (size_t i = 0; i < steps.size(); i++) {
+        PrivateExecutionStepRaw step = std::move(steps[i]);
+
         // TODO(#7371) there is a lot of copying going on in bincode. We need the generated bincode code to
         // use spans instead of vectors.
-        std::vector<uint8_t> bytecode_buf(step.bytecode.begin(), step.bytecode.end());
-        std::vector<uint8_t> witness_buf(step.witness.begin(), step.witness.end());
-        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(bytecode_buf);
-        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(witness_buf);
+        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(step.bytecode));
+        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(std::move(step.witness));
 
-        folding_stack.push_back({ constraints, witness });
+        folding_stack[i] = { std::move(constraints), std::move(witness) };
         if (step.vk.empty()) {
             // For backwards compatibility, but it affects performance and correctness.
-            precomputed_vks.emplace_back();
+            precomputed_vks[i] = nullptr;
         } else {
             auto vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(step.vk);
-            precomputed_vks.push_back(vk);
+            precomputed_vks[i] = vk;
         }
-        function_names.push_back(step.function_name);
+        function_names[i] = step.function_name;
     }
 }
 

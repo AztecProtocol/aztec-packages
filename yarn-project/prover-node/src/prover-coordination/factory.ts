@@ -6,21 +6,27 @@ import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { createP2PClient } from '@aztec/p2p';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
+import { type AztecNode, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import type { ProverCoordination, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, makeTracedFetch } from '@aztec/telemetry-client';
 
 import type { ProverNodeConfig } from '../config.js';
+import {
+  type CombinedCoordinationOptions,
+  CombinedProverCoordination,
+  type TxSource,
+} from './combined-prover-coordination.js';
 
 // We return a reference to the P2P client so that the prover node can stop the service when it shuts down.
 type ProverCoordinationDeps = {
-  aztecNodeTxProvider?: ProverCoordination;
-  worldStateSynchronizer?: WorldStateSynchronizer;
-  archiver?: Archiver | ArchiveSource;
+  aztecNodeTxProvider?: TxSource;
+  worldStateSynchronizer: WorldStateSynchronizer;
+  archiver: Archiver | ArchiveSource;
   telemetry?: TelemetryClient;
-  epochCache?: EpochCache;
+  epochCache: EpochCache;
 };
 
 /**
@@ -35,9 +41,14 @@ export async function createProverCoordination(
 ): Promise<ProverCoordination> {
   const log = createLogger('prover-node:prover-coordination');
 
+  const coordinationConfig: CombinedCoordinationOptions = {
+    txGatheringBatchSize: config.txGatheringBatchSize ?? 10,
+    txGatheringMaxParallelRequestsPerNode: config.txGatheringMaxParallelRequestsPerNode ?? 10,
+  };
+
   if (deps.aztecNodeTxProvider) {
     log.info('Using prover coordination via aztec node');
-    return deps.aztecNodeTxProvider;
+    return new CombinedProverCoordination(undefined, [deps.aztecNodeTxProvider!], coordinationConfig);
   }
 
   if (config.p2pEnabled) {
@@ -46,27 +57,30 @@ export async function createProverCoordination(
     if (!deps.archiver || !deps.worldStateSynchronizer || !deps.telemetry || !deps.epochCache) {
       throw new Error('Missing dependencies for p2p prover coordination');
     }
-
-    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
-    const p2pClient = await createP2PClient(
-      P2PClientType.Prover,
-      config,
-      deps.archiver,
-      proofVerifier,
-      deps.worldStateSynchronizer,
-      deps.epochCache,
-      deps.telemetry,
-    );
-    await p2pClient.start();
-
-    return p2pClient;
   }
 
-  if (config.proverCoordinationNodeUrl) {
-    log.info('Using prover coordination via node url');
+  let nodes: AztecNode[] = [];
+  if (config.proverCoordinationNodeUrls && config.proverCoordinationNodeUrls.length > 0) {
+    log.info('Using prover coordination via node urls');
     const versions = getComponentsVersionsFromConfig(config, protocolContractTreeRoot, getVKTreeRoot());
-    return createAztecNodeClient(config.proverCoordinationNodeUrl, versions, makeTracedFetch([1, 2, 3], false));
-  } else {
-    throw new Error(`Aztec Node URL for Tx Provider is not set.`);
+    nodes = config.proverCoordinationNodeUrls.map(url => {
+      log.info(`Creating aztec node client for prover coordination with url: ${url}`);
+      return createAztecNodeClient(url, versions, makeTracedFetch([1, 2, 3], false));
+    });
   }
+
+  const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+  const p2pClient = await createP2PClient(
+    P2PClientType.Prover,
+    config,
+    deps.archiver,
+    proofVerifier,
+    deps.worldStateSynchronizer,
+    deps.epochCache,
+    getPackageVersion() ?? '',
+    deps.telemetry,
+  );
+  await p2pClient.start();
+
+  return new CombinedProverCoordination(p2pClient, nodes, coordinationConfig);
 }

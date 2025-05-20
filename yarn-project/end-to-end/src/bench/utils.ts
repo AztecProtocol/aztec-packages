@@ -1,12 +1,13 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { type AztecNode, BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
-import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
+import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe/server';
 import type { MetricsType } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
-import { writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
+import path from 'path';
 
 import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/utils.js';
 
@@ -36,6 +37,7 @@ export async function benchmarkSetup(
       throw new Error(`No benchmark data generated. Please review your test setup.`);
     }
     const benchOutput = opts.benchOutput ?? process.env.BENCH_OUTPUT ?? 'bench.json';
+    mkdirSync(path.dirname(benchOutput), { recursive: true });
     writeFileSync(benchOutput, JSON.stringify(formatted));
     context.logger.info(`Wrote ${data.length} metrics to ${benchOutput}`);
     await origTeardown();
@@ -136,7 +138,7 @@ export async function sendTxs(
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
   context.logger.info(`Creating ${txCount} txs`);
-  const provenTxs = await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
+  const provenTxs = await Promise.all(calls.map(call => call.prove()));
   context.logger.info(`Sending ${txCount} txs`);
   return provenTxs.map(tx => tx.send());
 }
@@ -166,7 +168,9 @@ export async function createNewPXE(node: AztecNode, contract: BenchmarkingContra
     l1ChainId,
     rollupVersion,
   } as PXEServiceConfig;
+  // docs:start:PXEcreate
   const pxe = await createPXEService(node, pxeConfig);
+  // docs:end:PXEcreate
   await pxe.registerContract(contract);
   return pxe;
 }

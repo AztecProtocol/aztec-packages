@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
@@ -28,11 +34,8 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
 {
     using InnerFF = typename InnerFlavor::FF;
     static constexpr size_t FIRST_WITNESS_INDEX = InnerFlavor::NUM_PRECOMPUTED_ENTITIES;
-    if constexpr (!std::is_same_v<InnerFlavor, ECCVMFlavor>) {
-        inner_prover.transcript->deserialize_full_transcript(inner_prover.proving_key->proving_key.num_public_inputs);
-    } else {
-        inner_prover.transcript->deserialize_full_transcript();
-    }
+
+    inner_prover.transcript->deserialize_full_transcript(inner_prover.proving_key->proving_key.num_public_inputs);
 
     switch (type) {
 
@@ -43,12 +46,9 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
         if constexpr (!InnerFlavor::HasZK) {
             inner_prover.transcript->sumcheck_univariates[0].value_at(0) += random_value;
             inner_prover.transcript->sumcheck_univariates[0].value_at(1) -= random_value;
-        } else if constexpr (!std::is_same_v<InnerFlavor, ECCVMFlavor>) {
+        } else {
             inner_prover.transcript->zk_sumcheck_univariates[0].value_at(0) += random_value;
             inner_prover.transcript->zk_sumcheck_univariates[0].value_at(1) -= random_value;
-        } else {
-            inner_prover.transcript->sumcheck_round_evaluations[0][0] += random_value;
-            inner_prover.transcript->sumcheck_round_evaluations[0][1] -= random_value;
         }
         break;
     }
@@ -76,11 +76,41 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     }
     }
     inner_prover.transcript->serialize_full_transcript();
-    // Re-export proof after tampering
-    if constexpr (!std::is_same_v<InnerFlavor, ECCVMFlavor>) {
-        inner_proof = inner_prover.export_proof();
+    // Extract the tampered proof
+
+    inner_proof = (HasIPAAccumulator<InnerFlavor>) ? inner_prover.export_proof() : inner_prover.transcript->proof_data;
+}
+
+/**
+ * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1 and by modifying the last
+ * commitment.
+ *
+ */
+template <typename InnerProver, typename InnerFlavor, typename ProofType>
+void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
+{
+    using Commitment = typename InnerFlavor::Curve::AffineElement;
+    using FF = typename InnerFlavor::FF;
+
+    if (!end_of_proof) {
+        for (auto& val : inner_proof) {
+            if (val > 0) {
+                val += 1;
+                break;
+            }
+        }
     } else {
-        inner_proof.pre_ipa_proof = inner_prover.transcript->proof_data;
+        // Manually deserialize, modify, and serialize the last commitment contained in the proof.
+        static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+        size_t offset = inner_proof.size() - num_frs_comm;
+
+        auto element_frs = std::span{ inner_proof }.subspan(offset, num_frs_comm);
+        auto last_commitment = NativeTranscriptParams::template convert_from_bn254_frs<Commitment>(element_frs);
+        last_commitment = last_commitment * FF(2);
+        auto last_commitment_reserialized = bb::NativeTranscriptParams::convert_to_bn254_frs(last_commitment);
+        std::copy(last_commitment_reserialized.begin(),
+                  last_commitment_reserialized.end(),
+                  inner_proof.begin() + static_cast<std::ptrdiff_t>(offset));
     }
 }
 } // namespace bb

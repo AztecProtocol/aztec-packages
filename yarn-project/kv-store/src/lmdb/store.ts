@@ -32,7 +32,11 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
   #multiMapData: Database<unknown, Key>;
   #log = createLogger('kv-store:lmdb');
 
-  constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path: string) {
+  constructor(
+    rootDb: RootDatabase,
+    public readonly isEphemeral: boolean,
+    private path: string,
+  ) {
     this.#rootDb = rootDb;
 
     // big bucket to store all the data
@@ -187,10 +191,15 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     if ('mapSize' in stats && typeof stats.mapSize === 'number') {
       mapSize = stats.mapSize;
     }
+    let physicalFileSize = 0;
+    if ('physicalFileSize' in stats && typeof stats.physicalFileSize === 'number') {
+      physicalFileSize = stats.physicalFileSize;
+    }
     const dataResult = this.estimateSubDBSize(this.#data);
     const multiResult = this.estimateSubDBSize(this.#multiMapData);
     return Promise.resolve({
       mappingSize: mapSize,
+      physicalFileSize: physicalFileSize,
       actualSize: dataResult.actualSize + multiResult.actualSize,
       numItems: dataResult.numItems + multiResult.numItems,
     });

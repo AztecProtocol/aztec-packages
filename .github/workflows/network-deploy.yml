@@ -11,20 +11,10 @@ on:
         description: The namespace to deploy to, e.g. smoke
         required: true
         type: string
-      metrics_namespace:
-        description: The namespace of the metrics deployment, e.g. metrics
-        required: false
-        type: string
-        default: metrics
       values_file:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
         type: string
-      resources_file:
-        description: The resources file to use, e.g. gcloud.yaml
-        required: false
-        type: string
-        default: gcloud.yaml
       aztec_docker_image:
         description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
         required: true
@@ -59,6 +49,11 @@ on:
         required: false
         type: string
         default: "false"
+      sepolia_accounts_mnemonic_secret_name:
+        description: The name of the secret which holds the sepolia accounts mnemonic
+        required: false
+        type: string
+        default: sepolia-accounts-mnemonic
     secrets:
       GCP_SA_KEY:
         required: true
@@ -71,19 +66,9 @@ on:
       namespace:
         description: The namespace to deploy to, e.g. smoke
         required: true
-      metrics_namespace:
-        description: The namespace of the metrics deployment, e.g. metrics
-        required: false
-        type: string
-        default: metrics
       values_file:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
-      resources_file:
-        description: The resources file to use, e.g. gcloud.yaml
-        required: false
-        type: string
-        default: gcloud.yaml
       aztec_docker_image:
         description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
         required: true
@@ -105,6 +90,11 @@ on:
         required: false
         type: string
         default: "false"
+      sepolia_accounts_mnemonic_secret_name:
+        description: The name of the secret which holds the sepolia accounts mnemonic
+        required: false
+        type: string
+        default: sepolia-accounts-mnemonic
 
 jobs:
   network_deployment:
@@ -118,9 +108,9 @@ jobs:
     env:
       AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
-      METRICS_NAMESPACE: ${{ inputs.metrics_namespace }}
+      METRICS_NAMESPACE: "metrics"
       VALUES_FILE: ${{ inputs.values_file }}
-      RESOURCES_FILE: ${{ inputs.resources_file }}
+      RESOURCES_FILE: gcloud.yaml
       DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
       DEPLOYMENT_SALT: ${{ inputs.deployment_salt }}
       CHART_PATH: ./spartan/aztec-network
@@ -135,7 +125,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
 
@@ -182,6 +172,13 @@ jobs:
 
           $REPO/spartan/scripts/generate_devnet_config.sh ${{ env.VALUES_FILE }}
 
+      - name: Fund sepolia accounts
+        uses: ./.github/workflows/fund-sepolia-accounts.yml
+        if: ${{ inputs.sepolia_deployment == 'true' }}
+        with:
+          values_file: ${{ env.VALUES_FILE }}
+          sepolia_accounts_mnemonic_secret_name: ${{ inputs.sepolia_accounts_mnemonic_secret_name }}
+
       - name: Generate sepolia accounts
         id: generate-sepolia-accounts
         if: ${{ inputs.sepolia_deployment == 'true' }}
@@ -216,7 +213,7 @@ jobs:
         continue-on-error: true
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
-            export L1_DEPLOYMENT_MNEMONIC="${{ steps.generate-sepolia-accounts.outputs.mnemonic }}"
+            L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=${{ inputs.sepolia_accounts_mnemonic_secret_name }})
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
@@ -247,7 +244,7 @@ jobs:
         working-directory: ./spartan/terraform/deploy-release
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
-            export L1_DEPLOYMENT_MNEMONIC="${{ steps.generate-sepolia-accounts.outputs.mnemonic }}"
+            L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=${{ inputs.sepolia_accounts_mnemonic_secret_name }})
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "sha256.hpp"
 #include "barretenberg/stdlib/primitives/bit_array/bit_array.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
@@ -195,11 +201,8 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
     }
 }
 
-template byte_array<bb::StandardCircuitBuilder> sha256_block(const byte_array<bb::StandardCircuitBuilder>& input);
 template byte_array<bb::UltraCircuitBuilder> sha256_block(const byte_array<bb::UltraCircuitBuilder>& input);
 template byte_array<bb::MegaCircuitBuilder> sha256_block(const byte_array<bb::MegaCircuitBuilder>& input);
-template packed_byte_array<bb::StandardCircuitBuilder> sha256(
-    const packed_byte_array<bb::StandardCircuitBuilder>& input);
 template packed_byte_array<bb::UltraCircuitBuilder> sha256(const packed_byte_array<bb::UltraCircuitBuilder>& input);
 template packed_byte_array<bb::MegaCircuitBuilder> sha256(const packed_byte_array<bb::MegaCircuitBuilder>& input);
 template void generate_sha256_test_circuit(bb::UltraCircuitBuilder&, size_t);

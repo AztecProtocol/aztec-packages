@@ -1,9 +1,15 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "honk_recursion_constraint.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
@@ -19,7 +25,7 @@ using namespace bb;
 using namespace bb::stdlib::recursion::honk;
 template <typename Builder> using field_ct = stdlib::field_t<Builder>;
 template <typename Builder> using bn254 = stdlib::bn254<Builder>;
-template <typename Builder> using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<Builder>;
+template <typename Builder> using PairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
 
 namespace {
 /**
@@ -44,34 +50,29 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 {
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
-    using AggregationObject = aggregation_state_ct<Builder>;
     // Set vkey->circuit_size correctly based on the proof size
-    ASSERT(proof_size == NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
     auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
+    uint32_t offset = 0;
     // First key field is circuit size
-    builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
+    builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[offset++].witness_index);
     // Second key field is number of public inputs
-    builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[1].witness_index);
+    builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[offset++].witness_index);
     // Third key field is the pub inputs offset
-    builder.assert_equal(builder.add_variable(NativeFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
-    // Fourth key field is the whether the proof contains an aggregation object.
-    builder.assert_equal(builder.add_variable(1), key_fields[3].witness_index);
-    uint32_t offset = 4;
-    size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+    builder.assert_equal(builder.add_variable(NativeFlavor::has_zero_row ? 1 : 0), key_fields[offset++].witness_index);
+    size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINTS_SIZE;
     if constexpr (HasIPAAccumulator<Flavor>) {
         num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
     }
 
     // We are making the assumption that the pairing point object is behind all the inner public inputs
-    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; i++) {
-        builder.assert_equal(builder.add_variable(num_inner_public_inputs + i), key_fields[offset].witness_index);
-        offset++;
-    }
+    builder.assert_equal(builder.add_variable(num_inner_public_inputs), key_fields[offset].witness_index);
+    offset++;
 
     if constexpr (HasIPAAccumulator<Flavor>) {
         // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
-        builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE),
+        builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINTS_SIZE),
                              key_fields[offset].witness_index);
         offset++;
     }
@@ -97,7 +98,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // issue.
     fr SMALL_DUMMY_VALUE(2); // arbtirary small value that shouldn't cause builder problems.
     // The aggregation object
-    for (size_t i = 0; i < AggregationObject::PUBLIC_INPUTS_SIZE; i++) {
+    for (size_t i = 0; i < PairingPoints<Builder>::PUBLIC_INPUTS_SIZE; i++) {
         builder.assert_equal(builder.add_variable(SMALL_DUMMY_VALUE), proof_fields[offset].witness_index);
         offset++;
     }
@@ -190,7 +191,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         builder.assert_equal(builder.add_variable(a_zero_frs[1]), proof_fields[offset + 1].witness_index);
         offset += 2;
     }
-    ASSERT(offset == proof_size + public_inputs_size);
+    BB_ASSERT_EQ(offset, proof_size + public_inputs_size);
 }
 } // namespace
 
@@ -199,20 +200,13 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
  *
  * @param builder
  * @param input
- * @param input_aggregation_object_indices. The aggregation object coming from previous Honk recursion constraints.
+ * @param input_points_accumulator_indices. The aggregation object coming from previous Honk recursion constraints.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
- *
- * @note We currently only support HonkRecursionConstraint where inner_proof_contains_pairing_point_accumulator = false.
- *       We would either need a separate ACIR opcode where inner_proof_contains_pairing_point_accumulator = true,
- *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
 
 template <typename Flavor>
 HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
-    typename Flavor::CircuitBuilder& builder,
-    const RecursionConstraint& input,
-    stdlib::recursion::aggregation_state<typename Flavor::CircuitBuilder> input_agg_obj,
-    bool has_valid_witness_assignments)
+    typename Flavor::CircuitBuilder& builder, const RecursionConstraint& input, bool has_valid_witness_assignments)
     requires IsRecursiveFlavor<Flavor>
 {
     using Builder = typename Flavor::CircuitBuilder;
@@ -247,11 +241,11 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     if (!has_valid_witness_assignments) {
         // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::PAIRING_POINTS_SIZE;
         if constexpr (HasIPAAccumulator<Flavor>) {
             size_of_proof_with_no_pub_inputs -= bb::IPA_CLAIM_SIZE;
         }
-        size_t total_num_public_inputs = input.public_inputs.size() + bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        size_t total_num_public_inputs = input.public_inputs.size() + bb::PAIRING_POINTS_SIZE;
         if constexpr (HasIPAAccumulator<Flavor>) {
             total_num_public_inputs += bb::IPA_CLAIM_SIZE;
         }
@@ -262,36 +256,24 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
-    HonkRecursionConstraintOutput<Builder> output;
-    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields, input_agg_obj);
+    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
-
-    output.agg_obj = verifier_output.agg_obj;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        ASSERT(HasIPAAccumulator<Flavor>);
-        output.ipa_claim = verifier_output.ipa_claim;
-        output.ipa_proof = verifier_output.ipa_proof;
-    }
-    return output;
+    return verifier_output;
 }
 
 template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
     UltraRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
                                                 const RecursionConstraint& input,
-                                                stdlib::recursion::aggregation_state<UltraCircuitBuilder> input_agg_obj,
                                                 bool has_valid_witness_assignments);
 
 template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
-    UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(
-    UltraCircuitBuilder& builder,
-    const RecursionConstraint& input,
-    stdlib::recursion::aggregation_state<UltraCircuitBuilder> input_agg_obj,
-    bool has_valid_witness_assignments);
+    UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
+                                                      const RecursionConstraint& input,
+                                                      bool has_valid_witness_assignments);
 
 template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion_constraints<
     UltraRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
                                                const RecursionConstraint& input,
-                                               stdlib::recursion::aggregation_state<MegaCircuitBuilder> input_agg_obj,
                                                bool has_valid_witness_assignments);
 } // namespace acir_format

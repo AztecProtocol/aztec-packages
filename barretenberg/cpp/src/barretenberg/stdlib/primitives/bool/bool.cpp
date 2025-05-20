@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
@@ -415,9 +421,7 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
     const bool_t lhs = *this;
     Builder* ctx = lhs.get_context() ? lhs.get_context() : rhs.get_context();
 
-    if constexpr (IsSimulator<Builder>) {
-        ctx->assert_equal(lhs.get_value(), rhs.get_value(), msg);
-    } else if (lhs.is_constant() && rhs.is_constant()) {
+    if (lhs.is_constant() && rhs.is_constant()) {
         ASSERT(lhs.get_value() == rhs.get_value());
     } else if (lhs.is_constant()) {
         // if rhs is inverted, flip the value of the lhs constant
@@ -570,9 +574,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
     return *this;
 }
 
-template class bool_t<bb::StandardCircuitBuilder>;
 template class bool_t<bb::UltraCircuitBuilder>;
 template class bool_t<bb::MegaCircuitBuilder>;
-template class bool_t<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "pedersen.hpp"
 #include "../../hash/pedersen/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -40,7 +46,6 @@ cycle_group<C> pedersen_commitment<C>::commit(const std::vector<std::pair<field_
     return cycle_group::batch_mul(points, scalars);
 }
 
-template class pedersen_commitment<bb::StandardCircuitBuilder>;
 template class pedersen_commitment<bb::UltraCircuitBuilder>;
 template class pedersen_commitment<bb::MegaCircuitBuilder>;
 

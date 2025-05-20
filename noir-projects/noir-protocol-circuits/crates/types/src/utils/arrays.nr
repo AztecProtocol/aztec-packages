@@ -24,7 +24,7 @@ pub use assert_combined_transformed_array::{
 };
 pub use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
-    get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint},
+    get_order_hints::{get_order_hints_asc, OrderHint},
 };
 pub use assert_sorted_array::assert_sorted_array;
 pub use assert_sorted_transformed_value_array::{
@@ -32,12 +32,11 @@ pub use assert_sorted_transformed_value_array::{
 };
 pub use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc,
-    assert_split_sorted_transformed_value_arrays_desc,
-    get_split_order_hints::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints},
+    get_split_order_hints::{get_split_order_hints_asc, SplitOrderHints},
 };
 pub use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
 pub use get_sorted_result::{get_sorted_result, SortedResult};
-pub use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
+pub use sort_by_counter::sort_by_counter_asc;
 
 use crate::traits::{Empty, is_empty};
 
@@ -125,6 +124,25 @@ where
     length
 }
 
+// Returns the number of consecutive elements at the start of the array for which the predicate returns false.
+// This function ensures that any element after the first matching element (predicate returns true) also matches the predicate.
+pub fn array_length_until<T, let N: u32, Env>(array: [T; N], predicate: fn[Env](T) -> bool) -> u32 {
+    let mut length = 0;
+    let mut stop = false;
+    for i in 0..N {
+        if predicate(array[i]) {
+            stop = true;
+        } else {
+            assert(
+                stop == false,
+                "matching element found after already encountering a non-matching element",
+            );
+            length += 1;
+        }
+    }
+    length
+}
+
 pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -> [T; N + M] {
     let mut result = [array1[0]; N + M];
     for i in 1..N {
@@ -135,6 +153,7 @@ pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -
     }
     result
 }
+
 /// This function assumes that `array1` and `array2` contain no more than N non-empty elements between them,
 /// if this is not the case then elements from the end of `array2` will be dropped.
 pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
@@ -266,6 +285,21 @@ where
     length
 }
 
+// Helper function to check if an array is padded with a given value from a given index.
+// Different to padded_array_length in that it allows the elements before the given index to be the same as the padded value.
+pub fn array_padded_with<T, let N: u32>(array: [T; N], from_index: u32, padded_with: T) -> bool
+where
+    T: Eq,
+{
+    let mut is_valid = true;
+    let mut should_check = false;
+    for i in 0..N {
+        should_check |= i == from_index;
+        is_valid &= !should_check | (array[i] == padded_with);
+    }
+    is_valid
+}
+
 #[test]
 fn smoke_validate_array() {
     let valid_array: [Field; 0] = [];
@@ -353,6 +387,27 @@ fn test_array_length_invalid_arrays() {
 }
 
 #[test]
+fn test_array_length_until() {
+    let array = [11, 22, 33, 44, 55];
+    assert_eq(array_length_until(array, |x| x == 55), 4);
+    assert_eq(array_length_until(array, |x| x == 56), 5);
+    assert_eq(array_length_until(array, |x| x > 40), 3);
+    assert_eq(array_length_until(array, |x| x > 10), 0);
+}
+
+#[test(should_fail_with = "matching element found after already encountering a non-matching element")]
+fn test_array_length_until_non_consecutive_fails() {
+    let array = [1, 1, 0, 1, 0];
+    let _ = array_length_until(array, |x| x == 0);
+}
+
+#[test(should_fail_with = "matching element found after already encountering a non-matching element")]
+fn test_array_length_until_first_non_matching_fails() {
+    let array = [1, 0, 0, 0, 0];
+    let _ = array_length_until(array, |x| x == 1);
+}
+
+#[test]
 unconstrained fn find_index_greater_than_min() {
     let values = [10, 20, 30, 40];
     let min = 22;
@@ -398,4 +453,17 @@ fn check_permutation_invalid_index() {
     let permuted_array = [1, 0, 0];
     let indexes = [1, 0, 2];
     check_permutation(original_array, permuted_array, indexes);
+}
+
+#[test]
+fn test_array_padded_with() {
+    let array = [11, 22, 33, 44, 44];
+    assert_eq(array_padded_with(array, 0, 44), false);
+    assert_eq(array_padded_with(array, 1, 44), false);
+    assert_eq(array_padded_with(array, 2, 44), false);
+    assert_eq(array_padded_with(array, 3, 44), true);
+    assert_eq(array_padded_with(array, 4, 44), true);
+    assert_eq(array_padded_with(array, 4, 33), false);
+    assert_eq(array_padded_with(array, 5, 44), true); // Index out of bounds.
+    assert_eq(array_padded_with(array, 0, 11), false);
 }

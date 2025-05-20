@@ -13,8 +13,8 @@ export function getSharedMemoryAvailable() {
  * Note we give it the type information it needs so the returned Proxy object looks like that type.
  * Node has a different implementation, needing this nodeEndpoint wrapper, hence this function exists here.
  */
-export function getRemoteBarretenbergWasm<T>(worker: Worker): T {
-  return wrap(nodeEndpoint(worker)) as T;
+export function getRemoteBarretenbergWasm<T>(worker: Worker) {
+  return wrap<T>(nodeEndpoint(worker));
 }
 
 /**

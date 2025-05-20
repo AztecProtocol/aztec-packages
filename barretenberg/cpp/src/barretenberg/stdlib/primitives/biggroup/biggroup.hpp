@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "../bigfield/bigfield.hpp"
@@ -548,7 +554,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     /**
      * Helper class to split a set of points into lookup table subsets
      *
-     * UltraPlonk version
+     * Ultra version
      **/
     template <typename X = typename std::enable_if<HasPlookup<Builder>>> struct batch_lookup_table_plookup {
         batch_lookup_table_plookup(const std::vector<element>& points)

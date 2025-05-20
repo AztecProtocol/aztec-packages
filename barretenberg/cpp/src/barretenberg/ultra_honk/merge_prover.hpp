@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
@@ -27,16 +33,15 @@ class MergeProver {
   public:
     using MergeProof = std::vector<FF>;
 
-    std::shared_ptr<Transcript> transcript;
-
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         std::shared_ptr<CommitmentKey> commitment_key = nullptr);
+                         const std::shared_ptr<CommitmentKey>& commitment_key = nullptr,
+                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     BB_PROFILE MergeProof construct_proof();
 
-  private:
     std::shared_ptr<ECCOpQueue> op_queue;
     std::shared_ptr<CommitmentKey> pcs_commitment_key;
+    std::shared_ptr<Transcript> transcript;
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;

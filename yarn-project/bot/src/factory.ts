@@ -15,7 +15,7 @@ import {
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { Timer } from '@aztec/foundation/timer';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
@@ -173,7 +173,6 @@ export class BotFactory {
       deployOpts.skipPublicDeployment = true;
       deployOpts.skipClassRegistration = true;
       deployOpts.skipInitialization = false;
-      deployOpts.skipPublicSimulation = true;
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
@@ -239,9 +238,9 @@ export class BotFactory {
   ): Promise<void> {
     const getPrivateBalances = () =>
       Promise.all([
-        token0.methods.balance_of_private(wallet.getAddress()),
-        token1.methods.balance_of_private(wallet.getAddress()),
-        lpToken.methods.balance_of_private(wallet.getAddress()),
+        token0.methods.balance_of_private(wallet.getAddress()).simulate(),
+        token1.methods.balance_of_private(wallet.getAddress()).simulate(),
+        lpToken.methods.balance_of_private(wallet.getAddress()).simulate(),
       ]);
 
     const nonce = Fr.random();
@@ -366,9 +365,9 @@ export class BotFactory {
 
     const { l1ChainId } = await this.pxe.getNodeInfo();
     const chain = createEthereumChain(l1RpcUrls, l1ChainId);
-    const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
+    const extendedClient = createExtendedL1Client(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
-    const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
+    const portal = await L1FeeJuicePortalManager.new(this.pxe, extendedClient, this.log);
     const mintAmount = await portal.getTokenManager().getMintAmount();
     const claim = await portal.bridgeTokensPublic(recipient, mintAmount, true /* mint */);
 

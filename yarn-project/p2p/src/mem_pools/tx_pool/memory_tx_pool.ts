@@ -24,11 +24,18 @@ export class InMemoryTxPool implements TxPool {
    * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
    * @param log - A logger.
    */
-  constructor(telemetry: TelemetryClient = getTelemetryClient(), private log = createLogger('p2p:tx_pool')) {
+  constructor(
+    telemetry: TelemetryClient = getTelemetryClient(),
+    private log = createLogger('p2p:tx_pool'),
+  ) {
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();
     this.metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL);
+  }
+
+  public isEmpty(): Promise<boolean> {
+    return Promise.resolve(this.txs.size === 0);
   }
 
   public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
@@ -82,6 +89,10 @@ export class InMemoryTxPool implements TxPool {
     );
   }
 
+  public getPendingTxCount(): Promise<number> {
+    return Promise.resolve(this.pendingTxs.size);
+  }
+
   public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
     const key = txHash.toBigInt();
     if (this.pendingTxs.has(key)) {
@@ -101,6 +112,13 @@ export class InMemoryTxPool implements TxPool {
   public getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     const result = this.txs.get(txHash.toBigInt());
     return Promise.resolve(result === undefined ? undefined : Tx.clone(result));
+  }
+
+  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    return Promise.all(txHashes.map(txHash => this.getTxByHash(txHash)));
+  }
+  hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
+    return Promise.resolve(txHashes.map(txHash => this.txs.has(txHash.toBigInt())));
   }
 
   public getArchivedTxByHash(): Promise<Tx | undefined> {
@@ -170,5 +188,13 @@ export class InMemoryTxPool implements TxPool {
    */
   public getAllTxHashes(): Promise<TxHash[]> {
     return Promise.resolve(Array.from(this.txs.keys()).map(x => TxHash.fromBigInt(x)));
+  }
+
+  setMaxTxPoolSize(_maxSizeBytes: number | undefined): Promise<void> {
+    return Promise.resolve();
+  }
+
+  markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
+    return Promise.resolve();
   }
 }

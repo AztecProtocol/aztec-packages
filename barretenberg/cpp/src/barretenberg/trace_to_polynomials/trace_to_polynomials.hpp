@@ -1,6 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
+#include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 namespace bb {
@@ -31,7 +37,7 @@ template <class Flavor> class TraceToPolynomials {
 
             PROFILE_THIS_NAME("TraceData constructor");
 
-            if constexpr (IsUltraFlavor<Flavor>) {
+            if constexpr (IsUltraOrMegaHonk<Flavor>) {
                 // Initialize and share the wire and selector polynomials
                 for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
                     wire = other_wire.share();
@@ -94,7 +100,7 @@ template <class Flavor> class TraceToPolynomials {
     static void add_memory_records_to_proving_key(TraceData& trace_data,
                                                   Builder& builder,
                                                   typename Flavor::ProvingKey& proving_key)
-        requires IsUltraPlonkOrHonk<Flavor>;
+        requires IsUltraOrMegaHonk<Flavor>;
 
     /**
      * @brief Construct wire polynomials, selector polynomials and copy cycles from raw circuit data

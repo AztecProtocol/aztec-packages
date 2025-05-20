@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "../../common/assert.hpp"
@@ -18,7 +24,7 @@ namespace bb {
  * Group is parametrised by coordinate_field and subgroup_field
  *
  * Note: Currently subgroup checks are NOT IMPLEMENTED
- * Our current Plonk implementation uses G1 points that have a cofactor of 1.
+ * Our current implementation uses G1 points that have a cofactor of 1.
  * All G2 points are precomputed (generator [1]_2 and trusted setup point [x]_2).
  * Explicitly assume precomputed points are valid members of the prime-order subgroup for G2.
  *

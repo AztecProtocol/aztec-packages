@@ -41,8 +41,7 @@ std::string Solver::get(const cvc5::Term& term) const
         return term.getBitVectorValue();
     }
     if (term.getKind() == cvc5::Kind::CONST_BOOLEAN) {
-        std::vector<std::string> bool_res = { "false", "true" };
-        return bool_res[static_cast<size_t>(term.getBooleanValue())];
+        return std::to_string(static_cast<size_t>(term.getBooleanValue()));
     }
 
     if (!this->checked) {
@@ -60,6 +59,8 @@ std::string Solver::get(const cvc5::Term& term) const
         str_val = val.getFiniteFieldValue();
     } else if (val.isBitVectorValue()) {
         str_val = val.getBitVectorValue();
+    } else if (val.isBooleanValue()) {
+        str_val = std::to_string(static_cast<size_t>(val.getBooleanValue()));
     } else {
         throw std::invalid_argument("Expected Integer or FiniteField sorts. Got: " + val.getSort().toString());
     }
@@ -106,6 +107,121 @@ std::unordered_map<std::string, std::string> Solver::model(std::vector<cvc5::Ter
 }
 
 /**
+ * @brief print the trace of array assigments up to previously printed ones
+ *
+ * @param term array term
+ * @param is_head end of the recursion indicator
+ * @return std::pair<std::string, size_t> pair: array_name, current_depth
+ */
+std::pair<std::string, size_t> Solver::print_array_trace(const cvc5::Term& term, bool is_head)
+{
+    bool is_store = term.getKind() == cvc5::Kind::STORE;
+    bool is_array = term.getSort().isArray() && term.getKind() == cvc5::Kind::CONSTANT;
+    if (!is_store && !is_array) {
+        throw std::invalid_argument("Expected ARRAY or STORE. Got: " + term.toString());
+    };
+
+    if (term.getSort().isArray() && term.getKind() == cvc5::Kind::CONSTANT) {
+        std::string arr_name = term.toString();
+        if (!this->cached_array_traces.contains(arr_name)) {
+            this->cached_array_traces.insert({ arr_name, 0 });
+        }
+        return { term.toString(), 1 };
+    }
+    auto [arr_name, cur_depth] = print_array_trace(term[0], /*is_head=*/false);
+    if (this->cached_array_traces[arr_name] < cur_depth) {
+        info(arr_name, "[", stringify_term(term[1]), "] = ", stringify_term(term[2]));
+    }
+    if (is_head) {
+        this->cached_array_traces[arr_name] = cur_depth;
+    }
+    return { arr_name, cur_depth + 1 };
+}
+
+/**
+ * @brief recover the array name from the nested assigments
+ *
+ * @param term array term
+ * @return std::string array name
+ */
+std::string Solver::get_array_name(const cvc5::Term& term)
+{
+    bool is_store = term.getKind() == cvc5::Kind::STORE;
+    bool is_array = term.getSort().isArray() && term.getKind() == cvc5::Kind::CONSTANT;
+    if (!is_store && !is_array) {
+        throw std::invalid_argument("Expected ARRAY or STORE. Got: " + term.toString());
+    };
+
+    if (term.getKind() == cvc5::Kind::STORE) {
+        return get_array_name(term[0]);
+    }
+    return stringify_term(term);
+}
+
+/**
+ * @brief print the trace of SET insertions up to previously printed ones
+ *
+ * @param term set term
+ * @param is_head end of the recursion indicator
+ * @return std::pair<std::string, size_t> pair: set_name, current_depth
+ */
+std::pair<std::string, size_t> Solver::print_set_trace(const cvc5::Term& term, bool is_head)
+{
+    bool is_insert = term.getKind() == cvc5::Kind::SET_INSERT;
+    bool is_set = term.getSort().isSet() && term.getKind() == cvc5::Kind::CONSTANT;
+    if (!is_insert && !is_set) {
+        throw std::invalid_argument("Expected ARRAY or STORE. Got: " + term.toString());
+    };
+
+    if (term.getSort().isSet() && term.getKind() == cvc5::Kind::CONSTANT) {
+        std::string set_name = term.toString();
+        if (!this->cached_set_traces.contains(set_name)) {
+            this->cached_set_traces.insert({ set_name, 0 });
+        }
+        return { term.toString(), 1 };
+    }
+    auto [set_name, cur_depth] = print_set_trace(term[term.getNumChildren() - 1], /*is_head=*/false);
+    if (this->cached_set_traces[set_name] < cur_depth) {
+        std::string res = stringify_term(term[term.getNumChildren() - 1]) + " <- {";
+
+        size_t to_print = term.getNumChildren() > 257 ? 128 : term.getNumChildren() - 2;
+        for (size_t i = 0; i < to_print; i++) {
+            res += stringify_term(term[i]) + ", ";
+        }
+        if (to_print != term.getNumChildren() - 2) {
+            res += "... , ";
+        }
+        res += stringify_term(term[term.getNumChildren() - 2]);
+        res += "}";
+        info(res);
+    }
+    if (is_head) {
+        this->cached_set_traces[set_name] = cur_depth;
+    }
+    return { set_name, cur_depth + 1 };
+}
+
+/**
+ * @brief recover the set name from the nested assigments
+ *
+ * @param term set term
+ * @return std::string array name
+ */
+std::string Solver::get_set_name(const cvc5::Term& term)
+{
+    bool is_insert = term.getKind() == cvc5::Kind::SET_INSERT;
+    bool is_set = term.getSort().isSet() && term.getKind() == cvc5::Kind::CONSTANT;
+    if (!is_insert && !is_set) {
+        throw std::invalid_argument("Expected SET or INSERT. Got: " + term.toString());
+    };
+
+    if (term.getKind() == cvc5::Kind::SET_INSERT) {
+        return get_set_name(term[term.getNumChildren() - 1]);
+    }
+    return stringify_term(term);
+}
+
+/**
  * A simple recursive function that converts native smt language
  * to somewhat readable by humans.
  *
@@ -118,9 +234,6 @@ std::unordered_map<std::string, std::string> Solver::model(std::vector<cvc5::Ter
  * */
 std::string Solver::stringify_term(const cvc5::Term& term, bool parenthesis)
 {
-    if (term.getKind() == cvc5::Kind::CONSTANT) {
-        return term.toString();
-    }
     if (term.getKind() == cvc5::Kind::CONST_FINITE_FIELD) {
         return term.getFiniteFieldValue();
     }
@@ -135,21 +248,25 @@ std::string Solver::stringify_term(const cvc5::Term& term, bool parenthesis)
         return bool_res[static_cast<size_t>(term.getBooleanValue())];
     }
     // handling tuples
-    if (term.getKind() == cvc5::Kind::APPLY_CONSTRUCTOR) {
+    if (term.getSort().isTuple() && term.getKind() == cvc5::Kind::APPLY_CONSTRUCTOR) {
         std::string res = "(";
-        for (const auto& t : term) {
-            res += stringify_term(t) + ", ";
+        for (size_t i = 1; i < term.getNumChildren() - 1; i++) {
+            res += stringify_term(term[i]) + ", ";
         }
+        res += stringify_term(term[term.getNumChildren() - 1]);
         return res + ")";
-    }
-    if (term.getKind() == cvc5::Kind::INTERNAL_KIND) {
-        return "";
-    }
-    if (term.getKind() == cvc5::Kind::SET_INSERT) {
-        return "set_" + std::to_string(this->tables[term]);
     }
     if (term.getKind() == cvc5::Kind::SET_EMPTY) {
         return "{}";
+    }
+    if (term.getKind() == cvc5::Kind::CONSTANT) {
+        if (term.getSort().isSet()) {
+            return "{" + term.toString() + "}";
+        }
+        if (term.getSort().isArray()) {
+            return "[" + term.toString() + "]";
+        }
+        return term.toString();
     }
 
     std::string res;
@@ -166,7 +283,6 @@ std::string Solver::stringify_term(const cvc5::Term& term, bool parenthesis)
     case cvc5::Kind::SUB:
     case cvc5::Kind::BITVECTOR_SUB:
         op = " - ";
-        child_parenthesis = false;
         break;
     case cvc5::Kind::NEG:
     case cvc5::Kind::FINITE_FIELD_NEG:
@@ -241,26 +357,52 @@ std::string Solver::stringify_term(const cvc5::Term& term, bool parenthesis)
         op = " % ";
         parenthesis = true;
         break;
-    case cvc5::Kind::SET_MEMBER:
-        op = " in ";
-        parenthesis = true;
-        break;
+    case cvc5::Kind::SET_INSERT:
+        // Due to the specifics of sets implementation
+        // We can't print all the INSERTs in place
+        // In such case we will just return the array name
+        return get_set_name(term[term.getNumChildren() - 1]);
+    case cvc5::Kind::SET_MEMBER: {
+        // On the other hand, here I'll be printing the whole trace of the set
+        // initializations up to the previous print
+        if (term.getNumChildren() != 2) {
+            throw std::runtime_error("Expected set_member op. Got: " + term.toString());
+        }
+        std::string set_name = get_set_name(term[1]);
+        print_set_trace(term[1]);
+        std::string res = stringify_term(term[0], /*parenthesis=*/true) + " in " + set_name;
+        if (parenthesis) {
+            return "(" + res + ")";
+        }
+        return res;
+    }
+    case cvc5::Kind::STORE: {
+        // Due to the specifics of arrays implementation
+        // We can't print all the STOREs in place
+        // In such case we will just return the array name
+        return get_array_name(term[0]);
+    }
+    case cvc5::Kind::SELECT: {
+        // On the other hand, here I'll be printing the whole trace of the array
+        // initializations up to the previous print
+        if (term.getNumChildren() != 2) {
+            throw std::runtime_error("Expected SELECT op. Got: " + term.toString());
+        }
+        std::string res = get_array_name(term[0]);
+        print_array_trace(term[0]);
+        res += "[" + stringify_term(term[1]) + "]";
+        return res;
+    }
     default:
-        info("Invalid operand :", term.getKind());
-        info(term);
-        break;
+        info("\033[31m", "Unprocessed operand :", term.getKind(), "\033[0m");
+        info("\033[31m", term, "\033[0m");
+        return "failed to process";
     }
 
-    size_t i = 0;
-    cvc5::Term child;
-    for (const auto& t : term) {
-        if (i == term.getNumChildren() - 1) {
-            child = t;
-            break;
-        }
-        res += stringify_term(t, child_parenthesis) + op;
-        i += 1;
+    for (size_t i = 0; i < term.getNumChildren() - 1; i++) {
+        res += stringify_term(term[i], child_parenthesis) + op;
     }
+    cvc5::Term child = term[term.getNumChildren() - 1];
 
     res = res + stringify_term(child, child_parenthesis);
     if (back) {
@@ -281,46 +423,5 @@ void Solver::print_assertions()
     for (const auto& t : this->solver.getAssertions()) {
         info(this->stringify_term(t));
     }
-}
-
-cvc5::Term Solver::create_lookup_table(std::vector<std::vector<cvc5::Term>>& table)
-{
-    cvc5::Term tmp = table[0][0];
-    cvc5::Sort tuple_sort = this->term_manager.mkTupleSort({ tmp.getSort(), tmp.getSort(), tmp.getSort() });
-    cvc5::Sort relation = this->term_manager.mkSetSort(tuple_sort);
-    cvc5::Term resulting_table = this->term_manager.mkEmptySet(relation);
-
-    std::vector<cvc5::Term> children;
-    children.reserve(table.size() + 1);
-    for (auto& table_entry : table) {
-        cvc5::Term entry = this->term_manager.mkTuple(table_entry);
-        children.push_back(entry);
-    }
-    children.push_back(resulting_table);
-    cvc5::Term res = this->term_manager.mkTerm(cvc5::Kind::SET_INSERT, children);
-    size_t cursize = this->tables.size();
-    info("Creating table for op: ", children.size(), ", № ", cursize);
-    this->tables.insert({ res, cursize });
-    return res;
-}
-
-cvc5::Term Solver::create_table(std::vector<cvc5::Term>& table)
-{
-    cvc5::Term tmp = table[0];
-    cvc5::Sort relation = this->term_manager.mkSetSort(tmp.getSort());
-    cvc5::Term resulting_table = this->term_manager.mkEmptySet(relation);
-
-    std::vector<cvc5::Term> children;
-    children.reserve(table.size() + 1);
-    for (auto& table_entry : table) {
-        children.push_back(table_entry);
-    }
-    children.push_back(resulting_table);
-    cvc5::Term res = this->term_manager.mkTerm(cvc5::Kind::SET_INSERT, children);
-    size_t cursize = this->tables.size();
-    info("Creating table for range: ", children.size(), ", № ", cursize);
-
-    this->tables.insert({ res, cursize });
-    return res;
 }
 }; // namespace smt_solver

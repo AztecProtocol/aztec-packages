@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
@@ -164,7 +170,7 @@ template <typename Builder> class cycle_group {
      * We can ensure that all Provers cannot create point collisions between the base points and offset generators.
      * For this restricted case we can skip the x-coordiante collision checks when performing group operations.
      *
-     * @note straus_lookup_table uses UltraPlonk ROM tables if available. If not, we use simple conditional assignment
+     * @note straus_lookup_table uses Ultra ROM tables if available. If not, we use simple conditional assignment
      * constraints and restrict the table size to be 1 bit.
      */
     struct straus_lookup_table {

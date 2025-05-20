@@ -9,6 +9,11 @@ export type SharedNodeConfig = {
   syncMode: 'full' | 'snapshot' | 'force-snapshot';
   /** Base URL for snapshots index. Index file will be searched at `SNAPSHOTS_BASE_URL/aztec-L1_CHAIN_ID-VERSION-ROLLUP_ADDRESS/index.json` */
   snapshotsUrl?: string;
+
+  /** Auto update mode: disabled - to completely ignore remote signals to update the node. enabled - to respect the signals (potentially shutting this node down). log - check for updates but log a warning instead of applying them*/
+  autoUpdate?: 'disabled' | 'notify' | 'config' | 'config-and-version';
+  /** The base URL against which to check for updates */
+  autoUpdateUrl?: string;
 };
 
 export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
@@ -31,5 +36,14 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
   snapshotsUrl: {
     env: 'SYNC_SNAPSHOTS_URL',
     description: 'Base URL for snapshots index.',
+  },
+  autoUpdate: {
+    env: 'AUTO_UPDATE',
+    description: 'The auto update mode for this node',
+    defaultValue: 'disabled',
+  },
+  autoUpdateUrl: {
+    env: 'AUTO_UPDATE_URL',
+    description: 'Base URL to check for updates',
   },
 };

@@ -116,14 +116,18 @@ export class PrivateKernelExecutionProver {
         );
         while (resetBuilder.needsReset()) {
           const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
-          output = simulate
-            ? await this.proofCreator.simulateReset(privateInputs)
-            : await this.proofCreator.generateResetOutput(privateInputs);
+          const witgenTimer = new Timer();
+          output = generateWitnesses
+            ? await this.proofCreator.generateResetOutput(privateInputs)
+            : await this.proofCreator.simulateReset(privateInputs);
           executionSteps.push({
             functionName: 'private_kernel_reset',
             bytecode: output.bytecode,
             witness: output.outputWitness,
             vk: output.verificationKey.keyAsBytes,
+            timings: {
+              witgen: witgenTimer.ms(),
+            },
           });
           resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
             output,
@@ -148,6 +152,9 @@ export class PrivateKernelExecutionProver {
         bytecode: currentExecution.acir,
         witness: currentExecution.partialWitness,
         vk: currentExecution.vk,
+        timings: {
+          witgen: currentExecution.profileResult?.timings.witgen ?? 0,
+        },
       });
 
       const privateCallData = await this.createPrivateCallData(currentExecution);
@@ -167,6 +174,7 @@ export class PrivateKernelExecutionProver {
 
         pushTestData('private-kernel-inputs-init', proofInput);
 
+        const witgenTimer = new Timer();
         output = generateWitnesses
           ? await this.proofCreator.generateInitOutput(proofInput)
           : await this.proofCreator.simulateInit(proofInput);
@@ -176,6 +184,9 @@ export class PrivateKernelExecutionProver {
           bytecode: output.bytecode,
           witness: output.outputWitness,
           vk: output.verificationKey.keyAsBytes,
+          timings: {
+            witgen: witgenTimer.ms(),
+          },
         });
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(
@@ -190,7 +201,7 @@ export class PrivateKernelExecutionProver {
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
 
         pushTestData('private-kernel-inputs-inner', proofInput);
-
+        const witgenTimer = new Timer();
         output = generateWitnesses
           ? await this.proofCreator.generateInnerOutput(proofInput)
           : await this.proofCreator.simulateInner(proofInput);
@@ -200,6 +211,9 @@ export class PrivateKernelExecutionProver {
           bytecode: output.bytecode,
           witness: output.outputWitness,
           vk: output.verificationKey.keyAsBytes,
+          timings: {
+            witgen: witgenTimer.ms(),
+          },
         });
       }
       firstIteration = false;
@@ -214,6 +228,7 @@ export class PrivateKernelExecutionProver {
     );
     while (resetBuilder.needsReset()) {
       const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
+      const witgenTimer = new Timer();
       output = generateWitnesses
         ? await this.proofCreator.generateResetOutput(privateInputs)
         : await this.proofCreator.simulateReset(privateInputs);
@@ -223,6 +238,9 @@ export class PrivateKernelExecutionProver {
         bytecode: output.bytecode,
         witness: output.outputWitness,
         vk: output.verificationKey.keyAsBytes,
+        timings: {
+          witgen: witgenTimer.ms(),
+        },
       });
 
       resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
@@ -256,6 +274,7 @@ export class PrivateKernelExecutionProver {
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
 
+    const witgenTimer = new Timer();
     const tailOutput = generateWitnesses
       ? await this.proofCreator.generateTailOutput(privateInputs)
       : await this.proofCreator.simulateTail(privateInputs);
@@ -265,12 +284,17 @@ export class PrivateKernelExecutionProver {
       bytecode: tailOutput.bytecode,
       witness: tailOutput.outputWitness,
       vk: tailOutput.verificationKey.keyAsBytes,
+      timings: {
+        witgen: witgenTimer.ms(),
+      },
     });
 
     if (profileMode == 'gates' || profileMode == 'full') {
       for (const entry of executionSteps) {
+        const gateCountTimer = new Timer();
         const gateCount = await this.proofCreator.computeGateCountForCircuit(entry.bytecode, entry.functionName);
         entry.gateCount = gateCount;
+        entry.timings.gateCount = gateCountTimer.ms();
       }
     }
     if (profileMode === 'gates') {
@@ -287,8 +311,11 @@ export class PrivateKernelExecutionProver {
 
     let clientIvcProof: ClientIvcProof;
     // TODO(#7368) how do we 'bincode' encode these inputs?
+    let provingTime;
     if (!skipProofGeneration) {
+      const provingTimer = new Timer();
       clientIvcProof = await this.proofCreator.createClientIvcProof(executionSteps);
+      provingTime = provingTimer.ms();
     } else {
       clientIvcProof = ClientIvcProof.random();
     }
@@ -298,6 +325,7 @@ export class PrivateKernelExecutionProver {
       executionSteps,
       clientIvcProof,
       vk: tailOutput.verificationKey.keyAsBytes,
+      timings: provingTime ? { proving: provingTime } : undefined,
     };
   }
 

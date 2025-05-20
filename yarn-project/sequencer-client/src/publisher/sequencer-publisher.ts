@@ -18,7 +18,7 @@ import {
   formatViemError,
 } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { toHex } from '@aztec/foundation/bigint-buffer';
+import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
@@ -26,11 +26,11 @@ import { Timer } from '@aztec/foundation/timer';
 import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { type BlockHeader, TxHash } from '@aztec/stdlib/tx';
+import { type ProposedBlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, encodeFunctionData } from 'viem';
+import { type TransactionReceipt, encodeFunctionData, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -41,6 +41,8 @@ type L1ProcessArgs = {
   header: Buffer;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
+  /** State reference after the L2 block is applied. */
+  stateReference: Buffer;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** L2 block tx hashes */
@@ -285,7 +287,7 @@ export class SequencerPublisher {
    *
    */
   public async validateBlockForSubmission(
-    header: BlockHeader,
+    header: ProposedBlockHeader,
     attestationData: { digest: Buffer; signatures: Signature[] } = {
       digest: Buffer.alloc(32),
       signatures: [],
@@ -297,11 +299,11 @@ export class SequencerPublisher {
     const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };
 
     const args = [
-      `0x${header.toBuffer().toString('hex')}`,
+      toHex(header.toBuffer()),
       formattedSignatures,
-      `0x${attestationData.digest.toString('hex')}`,
+      toHex(attestationData.digest),
       ts,
-      `0x${header.contentCommitment.blobsHash.toString('hex')}`,
+      toHex(header.contentCommitment.blobsHash),
       flags,
     ] as const;
 
@@ -407,14 +409,16 @@ export class SequencerPublisher {
     txHashes?: TxHash[],
     opts: { txTimeoutAt?: Date } = {},
   ): Promise<boolean> {
-    const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
+    const proposedBlockHeader = block.header.toPropose();
 
+    const consensusPayload = ConsensusPayload.fromBlock(block);
     const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
     const blobs = await Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
-      header: block.header.toBuffer(),
+      header: proposedBlockHeader.toBuffer(),
       archive: block.archive.root.toBuffer(),
+      stateReference: block.header.state.toBuffer(),
       body: block.body.toBuffer(),
       blobs,
       attestations,
@@ -425,7 +429,7 @@ export class SequencerPublisher {
     //        This means that we can avoid the simulation issues in later checks.
     //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
     //        make time consistency checks break.
-    const ts = await this.validateBlockForSubmission(block.header, {
+    const ts = await this.validateBlockForSubmission(proposedBlockHeader, {
       digest: digest.toBuffer(),
       signatures: attestations ?? [],
     });
@@ -453,12 +457,15 @@ export class SequencerPublisher {
   }
 
   private async prepareProposeTx(encodedData: L1ProcessArgs, timestamp: bigint) {
+    if (!this.l1TxUtils.client.account) {
+      throw new Error('L1 TX utils needs to be initialized with an account wallet.');
+    }
     const kzg = Blob.getViemKzgInstance();
     const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(
-        this.l1TxUtils.walletClient.account,
+        this.l1TxUtils.client.account,
         {
           to: this.rollupContract.address,
           data: encodeFunctionData({
@@ -485,8 +492,9 @@ export class SequencerPublisher {
     const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
     const args = [
       {
-        header: `0x${encodedData.header.toString('hex')}`,
-        archive: `0x${encodedData.archive.toString('hex')}`,
+        header: toHex(encodedData.header),
+        archive: toHex(encodedData.archive),
+        stateReference: toHex(encodedData.stateReference),
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
@@ -528,8 +536,8 @@ export class SequencerPublisher {
             // @note we override checkBlob to false since blobs are not part simulate()
             stateDiff: [
               {
-                slot: toHex(RollupContract.checkBlobStorageSlot, true),
-                value: toHex(0n, true),
+                slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true),
+                value: toPaddedHex(0n, true),
               },
             ],
           },

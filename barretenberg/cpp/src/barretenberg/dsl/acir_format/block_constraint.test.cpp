@@ -1,9 +1,7 @@
 #include "block_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -12,11 +10,10 @@
 #include <vector>
 
 using namespace acir_format;
-using Composer = plonk::UltraComposer;
 
 class UltraPlonkRAM : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 class MegaHonk : public ::testing::Test {
@@ -40,7 +37,7 @@ class MegaHonk : public ::testing::Test {
     }
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& witness_values)
 {
@@ -173,12 +170,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
 
     auto builder = create_circuit(program);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST_F(MegaHonk, Databus)
@@ -224,7 +216,7 @@ TEST_F(MegaHonk, Databus)
     // Construct a bberg circuit from the acir representation
     auto circuit = create_circuit<Builder>(program);
 
-    EXPECT_TRUE(prove_and_verify(circuit));
+    EXPECT_TRUE(CircuitChecker::check(circuit));
 }
 
 TEST_F(MegaHonk, DatabusReturn)
@@ -329,5 +321,5 @@ TEST_F(MegaHonk, DatabusReturn)
     // Construct a bberg circuit from the acir representation
     auto circuit = create_circuit<Builder>(program);
 
-    EXPECT_TRUE(prove_and_verify(circuit));
+    EXPECT_TRUE(CircuitChecker::check(circuit));
 }
