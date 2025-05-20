@@ -49,9 +49,7 @@ describe('Deployment benchmark', () => {
 
           beforeEach(async () => {
             isClassRegistered = !!(await node.getContractClass(
-              (
-                await getContractClassFromArtifact(EasyPrivateVotingContract.artifact)
-              ).id,
+              (await getContractClassFromArtifact(EasyPrivateVotingContract.artifact)).id,
             ));
           });
 

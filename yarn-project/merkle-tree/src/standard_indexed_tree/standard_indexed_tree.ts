@@ -218,7 +218,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
   public getLatestLeafPreimageCopy(index: bigint, includeUncommitted: boolean): IndexedTreeLeafPreimage | undefined {
     const preimage = !includeUncommitted
       ? this.getDbPreimage(index)
-      : this.getCachedPreimage(index) ?? this.getDbPreimage(index);
+      : (this.getCachedPreimage(index) ?? this.getDbPreimage(index));
     return preimage && this.leafPreimageFactory.clone(preimage);
   }
 

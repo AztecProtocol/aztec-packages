@@ -1,12 +1,7 @@
 import { jest } from '@jest/globals';
 import chalk from 'chalk';
 import createDebug from 'debug';
-import {
-  type Browser,
-  type Page,
-  chromium,
-  /* firefox, webkit */
-} from 'playwright';
+import { type Browser, type Page, chromium } from /* firefox, webkit */ 'playwright';
 
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
 import { proveThenVerifyAztecClient } from './prove_wasm.js';

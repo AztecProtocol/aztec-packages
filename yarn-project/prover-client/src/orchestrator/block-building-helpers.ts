@@ -269,10 +269,10 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
       previousRollupData.length === 0
         ? Fr.ZERO.toBuffer()
         : previousRollupData.length === 1
-        ? previousRollupData[0].outHash.toBuffer()
-        : sha256Trunc(
-            Buffer.concat([previousRollupData[0].outHash.toBuffer(), previousRollupData[1].outHash.toBuffer()]),
-          );
+          ? previousRollupData[0].outHash.toBuffer()
+          : sha256Trunc(
+              Buffer.concat([previousRollupData[0].outHash.toBuffer(), previousRollupData[1].outHash.toBuffer()]),
+            );
     const contentCommitment = new ContentCommitment(
       new Fr(numTxs),
       blobsHash,
@@ -324,11 +324,11 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       numTxs === 0
         ? Fr.ZERO.toBuffer()
         : numTxs === 1
-        ? body.txEffects[0].txOutHash()
-        : computeUnbalancedMerkleRoot(
-            body.txEffects.map(tx => tx.txOutHash()),
-            TxEffect.empty().txOutHash(),
-          );
+          ? body.txEffects[0].txOutHash()
+          : computeUnbalancedMerkleRoot(
+              body.txEffects.map(tx => tx.txOutHash()),
+              TxEffect.empty().txOutHash(),
+            );
 
     l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     const hasher = (left: Buffer, right: Buffer) =>

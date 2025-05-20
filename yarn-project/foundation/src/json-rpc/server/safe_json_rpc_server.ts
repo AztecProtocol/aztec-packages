@@ -248,7 +248,10 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
   private log = createLogger('json-rpc:proxy');
   private schema: ApiSchema;
 
-  constructor(private handler: T, schema: ApiSchemaFor<T>) {
+  constructor(
+    private handler: T,
+    schema: ApiSchemaFor<T>,
+  ) {
     this.schema = schema;
   }
 

@@ -124,8 +124,8 @@ const sortNotes = (a: Fr[], b: Fr[], sorts: Sort[], level = 0): number => {
   return aValue.toBigInt() === bValue.toBigInt()
     ? sortNotes(a, b, sorts, level + 1)
     : aValue.toBigInt() > bValue.toBigInt()
-    ? dir[0]
-    : dir[1];
+      ? dir[0]
+      : dir[1];
 };
 
 /**

@@ -138,7 +138,11 @@ export async function executeNativeCircuit(
 }
 
 export class NativeACVMSimulator implements SimulationProvider {
-  constructor(private workingDirectory: string, private pathToAcvm: string, private witnessFilename?: string) {}
+  constructor(
+    private workingDirectory: string,
+    private pathToAcvm: string,
+    private witnessFilename?: string,
+  ) {}
 
   async executeProtocolCircuit(
     input: ACVMWitness,

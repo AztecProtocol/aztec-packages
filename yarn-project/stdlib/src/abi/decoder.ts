@@ -13,7 +13,10 @@ export type AbiDecoded = bigint | boolean | AztecAddress | AbiDecoded[] | { [key
  * Decodes values using a provided ABI.
  */
 class AbiDecoder {
-  constructor(private types: AbiType[], private flattened: Fr[]) {}
+  constructor(
+    private types: AbiType[],
+    private flattened: Fr[],
+  ) {}
 
   /**
    * Decodes a single return value from field to the given type.
@@ -116,7 +119,11 @@ export function decodeFromAbi(typ: AbiType[], buffer: Fr[]) {
  */
 export class FunctionSignatureDecoder {
   private separator: string;
-  constructor(private name: string, private parameters: ABIParameter[], private includeNames = false) {
+  constructor(
+    private name: string,
+    private parameters: ABIParameter[],
+    private includeNames = false,
+  ) {
     this.separator = includeNames ? ', ' : ',';
   }
 

@@ -196,9 +196,8 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     convertOutputs: (outputs: WitnessMap, abi: Abi) => O,
   ): Promise<PrivateKernelSimulateOutput<O>> {
     this.log.debug(`Generating witness for ${circuitType}`);
-    const compiledCircuit: NoirCompiledCircuitWithName = await this.artifactProvider.getClientCircuitArtifactByName(
-      circuitType,
-    );
+    const compiledCircuit: NoirCompiledCircuitWithName =
+      await this.artifactProvider.getClientCircuitArtifactByName(circuitType);
 
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
     const outputWitness = await this.simulationProvider.executeProtocolCircuit(
