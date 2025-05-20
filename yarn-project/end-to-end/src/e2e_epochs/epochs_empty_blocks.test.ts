@@ -30,7 +30,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
     await test.teardown();
   });
 
-  it.skip('submits proof even if there are no txs to build a block', async () => {
+  it('submits proof even if there are no txs to build a block', async () => {
     await context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
     await test.waitUntilEpochStarts(1);
 
@@ -52,45 +52,27 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
     let epochNumber = 0;
     while (provenBlockNumber < targetProvenBlockNumber) {
       logger.info(`Waiting for the end of epoch ${epochNumber}`);
-      console.log('START OF WHILE LOOP');
-      console.log('ROLLUP BLOCK PROVEN START', await rollup.getProvenBlockNumber());
       await test.waitUntilEpochStarts(epochNumber + 1);
-      console.log('EPOCH START', epochNumber + 1);
-      console.log('EPOCH DURATION', test.epochDuration);
-      console.log('ROLLUP BLOCK PROVEN MID', await rollup.getProvenBlockNumber());
       const epochTargetBlockNumber = Number(await rollup.getBlockNumber());
       logger.info(`Epoch ${epochNumber} ended with PENDING block number ${epochTargetBlockNumber}`);
-      console.log(`Epoch ${epochNumber} ended with PENDING block number ${epochTargetBlockNumber}`);
       await test.waitUntilL2BlockNumber(epochTargetBlockNumber);
       provenBlockNumber = epochTargetBlockNumber;
       logger.info(
         `Reached PENDING L2 block ${epochTargetBlockNumber}, proving should now start, waiting for PROVEN block to reach ${provenBlockNumber}`,
       );
-      console.log(
-        `Reached PENDING L2 block ${epochTargetBlockNumber}, proving should now start, waiting for PROVEN block to reach ${provenBlockNumber}`,
-      );
-      console.log('ROLLUP BLOCK PROVEN PRE WAIT', await rollup.getProvenBlockNumber());
-      console.log('SYNCHED', (await test.context.aztecNode.getWorldStateSyncStatus()).finalisedBlockNumber);
       await test.waitUntilProvenL2BlockNumber(provenBlockNumber, 120);
-      // TODO TUES below failing, proven past the target?
-      console.log('ROLLUP BLOCK PROVEN POST WAIT', await rollup.getProvenBlockNumber());
       expect(Number(await rollup.getProvenBlockNumber())).toBeGreaterThanOrEqual(provenBlockNumber);
       logger.info(`Reached PROVEN block number ${provenBlockNumber}, epoch ${epochNumber} is now proven`);
       epochNumber++;
 
       // Verify the state syncs
-      console.log('ROLLUP BLOCK PROVEN PRE SYNC WAIT', await rollup.getProvenBlockNumber(), provenBlockNumber);
-      console.log('SYNCHED', (await test.context.aztecNode.getWorldStateSyncStatus()).finalisedBlockNumber);
       await test.waitForNodeToSync(provenBlockNumber, 'finalised');
-      console.log('ROLLUP BLOCK PROVEN POST SYNC', await rollup.getProvenBlockNumber());
-      console.log('SYNCHED', (await test.context.aztecNode.getWorldStateSyncStatus()).finalisedBlockNumber);
       // TODO(MW): While waiting for the node to sync, the proven block number can overtake what we expect,
       // hence updated below - TODO should rework timings to ensure this test covers all blocks?
       provenBlockNumber = (await test.context.aztecNode.getWorldStateSyncStatus()).finalisedBlockNumber;
       await test.verifyHistoricBlock(provenBlockNumber, true);
       const expectedOldestHistoricBlock = provenBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1;
       const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
-      console.log('ROLLUP BLOCK PROVEN POST REMOVED', await rollup.getProvenBlockNumber());
       await test.waitForNodeToSync(expectedOldestHistoricBlock, 'historic');
       await test.verifyHistoricBlock(Math.max(expectedOldestHistoricBlock, 1), true);
       if (expectedBlockRemoved > 0) {
