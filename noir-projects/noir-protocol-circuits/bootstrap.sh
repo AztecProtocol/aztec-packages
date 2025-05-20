@@ -53,7 +53,7 @@ function compile {
     SECONDS=0
     rm -f $json_path
     # TODO(#10754): Remove --skip-brillig-constraints-check
-    local compile_cmd="$NARGO compile --package $name --skip-brillig-constraints-check"
+    local compile_cmd="ALLOW_EMPTY_INPUT=1 $NARGO compile --package $name --skip-brillig-constraints-check"
     echo_stderr "$compile_cmd"
     dump_fail "$compile_cmd"
     echo_stderr "Compilation complete for: $name (${SECONDS}s)"
