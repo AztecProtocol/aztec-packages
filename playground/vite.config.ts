@@ -78,18 +78,5 @@ export default defineConfig(({ mode }) => {
       // Required by vite-plugin-bundle-size
       sourcemap: 'hidden',
     },
-    // Workaround for another vite-plugin-node-polyfills issue. See:
-    // https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/78#issuecomment-2606838268
-    resolve: {
-      alias: [
-        {
-          find: /^(vite-plugin-node-polyfills\/shims\/.+)/,
-          replacement: '$1',
-          customResolver(source) {
-            return import.meta.resolve(source).replace(/^file:\/\//, '')
-          },
-        },
-      ],
-    },
   };
 });
