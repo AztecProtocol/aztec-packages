@@ -206,11 +206,11 @@ pub struct PartialNFTNote {
 
 impl PartialNFTNote {
     /// Computes a partial note validity commitment. This commitment is stored in public storage when creating the
-    /// partial note in private and then is used to check that sender and note are valid upon partial note completion
-    /// in public.
-    pub fn compute_validity_commitment(self, sender: AztecAddress) -> Field {
+    /// partial note in private and then is used to check that completer and note are valid upon partial note completion
+    /// in public (completer is the entity that can complete the partial note).
+    pub fn compute_validity_commitment(self, completer: AztecAddress) -> Field {
         poseidon2_hash_with_separator(
-            [self.commitment, sender.to_field()],
+            [self.commitment, completer.to_field()],
             GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         )
     }
