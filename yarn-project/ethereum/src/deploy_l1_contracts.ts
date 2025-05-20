@@ -527,18 +527,6 @@ export const deployRollup = async (
   await deployer.waitForDeployments();
   logger.verbose(`All core contracts have been deployed`);
 
-  if (args.initialValidators) {
-    await addMultipleValidators(
-      extendedClient,
-      deployer,
-      rollupAddress.toString(),
-      addresses.stakingAssetAddress.toString(),
-      args.initialValidators,
-      args.acceleratedTestDeployments,
-      logger,
-    );
-  }
-
   if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
     const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
 
@@ -599,11 +587,7 @@ export const deployRollup = async (
     client: extendedClient,
   });
   if ((await gseContract.read.owner()) === getAddress(extendedClient.account.address)) {
-    const version = await rollupContract.getVersion();
-    try {
-      const retrievedRollupAddress = await registryContract.read.getRollup([version]);
-      logger.verbose(`Rollup ${retrievedRollupAddress} already exists in registry`);
-    } catch (e) {
+    if (!(await gseContract.read.isRollupRegistered([rollupContract.address]))) {
       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
         to: addresses.gseAddress.toString(),
         data: encodeFunctionData({
@@ -615,9 +599,23 @@ export const deployRollup = async (
       logger.verbose(`Adding rollup ${rollupContract.address} to GSE ${addresses.gseAddress} in tx ${addRollupTxHash}`);
 
       txHashes.push(addRollupTxHash);
+    } else {
+      logger.verbose(`Rollup ${rollupContract.address} is already registered in GSE ${addresses.gseAddress}`);
     }
   } else {
-    logger.verbose(`Not the owner of the registry, skipping rollup addition`);
+    logger.verbose(`Not the owner of the gse, skipping rollup addition`);
+  }
+
+  if (args.initialValidators && (await gseContract.read.isRollupRegistered([rollupContract.address]))) {
+    await addMultipleValidators(
+      extendedClient,
+      deployer,
+      rollupAddress.toString(),
+      addresses.stakingAssetAddress.toString(),
+      args.initialValidators,
+      args.acceleratedTestDeployments,
+      logger,
+    );
   }
 
   await deployer.waitForDeployments();

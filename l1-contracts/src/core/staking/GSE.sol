@@ -37,6 +37,7 @@ interface IGSE {
   function withdraw(address _attester, uint256 _amount) external returns (uint256, bool);
 
   function isRegistered(address _instance, address _attester) external view returns (bool);
+  function isRollupRegistered(address _instance) external view returns (bool);
   function getWithdrawer(address _instance, address _attester)
     external
     view
@@ -205,6 +206,10 @@ contract GSE is IGSE, Ownable {
     STAKING_ASSET.transfer(msg.sender, amountWithdrawn);
 
     return (amountWithdrawn, isRemoved);
+  }
+
+  function isRollupRegistered(address _instance) external view override(IGSE) returns (bool) {
+    return instances[_instance].exists;
   }
 
   function isRegistered(address _instance, address _attester)
