@@ -232,7 +232,7 @@ pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
 pub global SPONGE_BLOB_LENGTH: u32 = 11;
 pub global BLS12_FR_LIMBS: u32 = 3; // TODO(MW): get this from bignum
 pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(MW): get this from bignum
-pub global BLS12_POINT: u32 = 2 * BLS12_FQ_LIMBS;
+pub global BLS12_POINT: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(MW): reduce num fields needed here but avoid breaking recursion
 pub global BLOB_ACCUMULATOR_PUBLIC_INPUTS: u32 = 3 /* v_acc, z_acc, and gamma_acc */
     + 2 * BLS12_FR_LIMBS /* y_acc and gamma^i */
     + BLS12_POINT /* c_acc */;
@@ -442,8 +442,8 @@ pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH
     + 2 * SPONGE_BLOB_LENGTH
     + 5;
-pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
-    * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
+pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
+    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 2 * GLOBAL_VARIABLES_LENGTH
     + 1 /* out_hash */
     + AZTEC_MAX_EPOCH_DURATION /* proposedBlockHeaderHashes */

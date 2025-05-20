@@ -269,6 +269,7 @@ impl Serialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs {
         fields.extend_from_array(self.y.get_limbs().map(|l| l as Field));
         fields.extend_from_array(self.c.x.get_limbs().map(|l| l as Field));
         fields.extend_from_array(self.c.y.get_limbs().map(|l| l as Field));
+        fields.push(self.c.is_infinity as Field);
         fields.push(self.gamma);
         fields.extend_from_array(self.gamma_pow.get_limbs().map(|l| l as Field));
         fields.storage()
@@ -285,14 +286,11 @@ impl Deserialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs
             c: BLSPoint {
                 x: Q::from_limbs(reader.read_array().map(|e| e as u128)),
                 y: Q::from_limbs(reader.read_array().map(|e| e as u128)),
-                is_infinity: false,
+                is_infinity: reader.read_bool(),
             },
             gamma: reader.read(),
             gamma_pow: F::from_limbs(reader.read_array().map(|e| e as u128)),
         };
-        if (item.c.x.eq(Q::zero())) & (item.c.y.eq(Q::zero())) {
-            item.c.is_infinity = true;
-        }
         item
     }
 }
