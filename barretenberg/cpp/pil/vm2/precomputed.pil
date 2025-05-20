@@ -138,3 +138,9 @@ pol constant sel_non_revertible_append_nullifier;
 pol constant sel_revertible_append_note_hash;
 pol constant sel_revertible_append_nullifier;
 pol constant sel_collect_fee;
+
+// Keccak round constants
+// Store the 24 round constants with indices ranging from 1 to 24.
+// Warning: Not a standard 0-based array!
+pol constant sel_keccak;
+pol constant keccak_round_constant;

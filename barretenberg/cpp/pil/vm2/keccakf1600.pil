@@ -1,8 +1,1304 @@
+include "bitwise.pil";
+include "constants_gen.pil";
+include "range_check.pil";
+include "precomputed.pil";
+
 namespace keccakf1600;
 
-// Dummy.
-pol commit keccak[1000];
+// Reference document: https://keccak.team/files/Keccak-reference-3.0.pdf
+// Overview: https://keccak.team/keccak_specs_summary.html
+//
+// A keccakf1600 permutation is the result of 24 (AVM_KECCAKF1600_NUM_ROUNDS) iterations
+// of a round function.
+// The round function is composed of 5 sub-functions: theta, rho, pi, chi, and iota.
+// Main low-level operations are: XOR, AND, bit rotations
+// All the sub-functions operate over a state of 25 64-bit values.
+
+
+// TODO: Remove the dummy values below
 
 // Dummy.
-keccak[0] = keccak[0];
-keccak[1] = keccak[1];
+pol commit dummy_keccak[1000];
+
+// Dummy.
+dummy_keccak[0] = dummy_keccak[0];
+dummy_keccak[1] = dummy_keccak[1];
+
+//#################################################################################################
+//                  High-Level Trace Structure Columns
+//#################################################################################################
+//   ctr   sel   start   last    state_in_00  state_in_01 ....  state_out_00    state_out_01 ......
+//    1     1      1      0
+//    2     1      0      0         ROUND FUNCTION SPECIFICS           No Constraints
+//    3     1      0      0
+//    ...  ...    ...    ...               ...                        ...              ...
+//    24    1      0      1                                          OUT_00           OUT_01
+
+// We use one row to compute a single round function.
+// 24 rows correspond to one keccak permutation.
+// Only on last row, we constrain the output columns.
+
+// keccakf1600 selector
+pol commit sel;
+sel * (1 - sel) = 0;
+
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel + last = 0;
+
+// Round number which starts at 1 and ends at AVM_KECCAKF1600_NUM_ROUNDS (24).
+pol commit round;
+
+// First round of a keccak permutation. This is where the multi-rows computation starts and selector start
+// is used by the caller to trigger the keccak permutation computation.
+pol commit start;
+start * (1 - start) = 0;
+
+// We enforce the initial round to be set to 1.
+start * (round - 1) = 0;
+
+// sel == 1 <==> round != 0
+pol commit round_inv;
+#[KECCAK_SEL_ROUND_NON_ZERO]
+round * ((1 - sel) * (1 - round_inv) + round_inv) - sel = 0;
+
+#[KECCAK_ROUND_INCREMENT]
+// Note: sel factor is required for an empty row to satisfy this relation
+sel * (1 - last) * (round' - round - 1) = 0;
+
+// Last round of a keccak permutation
+pol commit last;
+last * (1 - last) = 0;
+
+// We define last == 1 <==> round == AVM_KECCAKF1600_NUM_ROUNDS (24)
+pol commit round_min_num_rounds_inv;
+#[KECCAK_LAST]
+sel * ((round - constants.AVM_KECCAKF1600_NUM_ROUNDS) * (last * (1 - round_min_num_rounds_inv) + round_min_num_rounds_inv) + last - 1) = 0;
+
+// TODO: We need this temporarily while we do not allow for constants in the lookup tuple
+pol commit bitwise_xor_op_id;
+sel * (bitwise_xor_op_id - constants.AVM_BITWISE_XOR_OP_ID) = 0;
+pol commit bitwise_and_op_id;
+sel * (bitwise_and_op_id - constants.AVM_BITWISE_AND_OP_ID) = 0;
+
+//######################## Constraining Bit rotations over 64-bit values ############################
+// Let a,b <= 64 be two positive integers such that a + b = 64.
+// Let X a 64-bit integer which will undergo a circular left bit rotation by `a` bits.
+// We denote by `p` the modulus of the underlying field on which we perform computations.
+// We decompose X in two limbs `hi` and `low` where hi < 2^b and low < 2^a, i.e.,
+// [DECOMPOSE]: X = hi * 2^a + low (mod.p)
+// The resulting rotated value is
+// [ROTATED]: Y = low * 2^b + hi (mod.p)
+// In what follows, we show that it is sufficient to constrain X < 2^64, Y < 2^64, and low < 2^a,
+// therefore we can relax the condition hi < 2^b.
+// Claim: hi < 2^b
+// Proof: From low < 2^a < 2^64, we get that low * 2^b < 2^128 over the integers. For hi, to satisfy
+//        [ROTATED], we have over the integers two possibilities (One can only overflow p once.):
+//        1) Y = low * 2^b + hi
+//        2) Y = low * 2^b + hi - p
+//        If 1) holds and Y < 2^64, then hi < 2^64. Therefore, right hand side of [DECOMPOSE] does not
+//              overflow p and since X < 2^64, we must have hi < 2^b as a+b=64.
+//        If 2) holds, we reformulate into: hi = p - (low * 2^b - Y) over the integers and since low < 2^a
+//              and a+b=64, we have hi > p - (2^64 - Y) > p - 2^64. So, `hi` might take values only in
+//              integer range [p-1, p-2^64]. If we multiply the whole range by 2^a modulo p, we obtain
+//              the values p - 2^a, p - 2*2^a, p - 3 * 2^a .. p - 2^{64 + a}. Therefore, it is
+//              impossible for X = hi * 2^a + low (mod.p) to be < 2^64 because low < 2^a.
+//
+// Important: Based on the relations [DECOMPOSE] and [ROTATED] being symmetric with respect to low and hi,
+//            instead of showing low < 2^a and relaxing hi < 2^b, we can constrain hi < 2^b and relax the
+//            constraint low < 2^a. This has the effect that we can only chose to range-check the smaller
+//            value between a and b.
+
+//#############################################################################
+//                  Keccak Round Functions
+//#############################################################################
+// keccakf1600 permutation state corresponds to 25 64-bit words. They are indexed by two
+// indices ranging over 0,1,2,3,4.
+// Each state word evolves over the different transformations and a state word is prefixed by
+// "state" and suffixed bye the corresponding indices.
+
+// State words before starting the round.
+pol commit state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
+           state_in_10, state_in_11, state_in_12, state_in_13, state_in_14,
+           state_in_20, state_in_21, state_in_22, state_in_23, state_in_24,
+           state_in_30, state_in_31, state_in_32, state_in_33, state_in_34,
+           state_in_40, state_in_41, state_in_42, state_in_43, state_in_44;
+
+// Theta function
+// For each index i in state_in_ij, we XOR the 5 values state_in_ij together.
+// Denote these values theta_xor_row_i.
+
+// We define intermediate values to each xor computation as follows:
+// theta_xor_i1 = state_in_i0 ^ state_in_i1
+// theta_xor_i2 = rhi_xor_i1 ^ state_in_i2
+// theta_xor_i3 = theta_xor_i2 ^ state_in_i3
+// theta_xor_row_i = theta_xor_i3 ^ state_in_i4
+
+// We need 4 lookups to bitwise gadgets per theta_xor_i
+
+//#############################################################################
+//                  Theta XOR Computation Index 0
+//#############################################################################
+
+// state_in_00 ^ state_in_01 = theta_xor_01
+pol commit theta_xor_01;
+#[THETA_XOR_01]
+sel {bitwise_xor_op_id, state_in_00, state_in_01, theta_xor_01} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_01 ^ state_in_02 = theta_xor_02
+pol commit theta_xor_02;
+#[THETA_XOR_02]
+sel {bitwise_xor_op_id, theta_xor_01, state_in_02, theta_xor_02} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_02 ^ state_in_03 = theta_xor_03
+pol commit theta_xor_03;
+#[THETA_XOR_03]
+sel {bitwise_xor_op_id, theta_xor_02, state_in_03, theta_xor_03} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_03 ^ state_in_04 = theta_xor_row_0
+pol commit theta_xor_row_0;
+#[THETA_XOR_ROW_0]
+sel {bitwise_xor_op_id, theta_xor_03, state_in_04, theta_xor_row_0} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                  Theta XOR Computation Index 1
+//#############################################################################
+
+// state_in_10 ^ state_in_11 = theta_xor_11
+pol commit theta_xor_11;
+#[THETA_XOR_11]
+sel {bitwise_xor_op_id, state_in_10, state_in_11, theta_xor_11} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_11 ^ state_in_12 = theta_xor_12
+pol commit theta_xor_12;
+#[THETA_XOR_12]
+sel {bitwise_xor_op_id, theta_xor_11, state_in_12, theta_xor_12} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_12 ^ state_in_13 = theta_xor_13
+pol commit theta_xor_13;
+#[THETA_XOR_13]
+sel {bitwise_xor_op_id, theta_xor_12, state_in_13, theta_xor_13} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_13 ^ state_in_14 = theta_xor_row_1
+pol commit theta_xor_row_1;
+#[THETA_XOR_ROW_1]
+sel {bitwise_xor_op_id, theta_xor_13, state_in_14, theta_xor_row_1} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                  Theta XOR Computation Index 2
+//#############################################################################
+
+// state_in_20 ^ state_in_21 = theta_xor_21
+pol commit theta_xor_21;
+#[THETA_XOR_21]
+sel {bitwise_xor_op_id, state_in_20, state_in_21, theta_xor_21} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_21 ^ state_in_22 = theta_xor_22
+pol commit theta_xor_22;
+#[THETA_XOR_22]
+sel {bitwise_xor_op_id, theta_xor_21, state_in_22, theta_xor_22} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_22 ^ state_in_23 = theta_xor_23
+pol commit theta_xor_23;
+#[THETA_XOR_23]
+sel {bitwise_xor_op_id, theta_xor_22, state_in_23, theta_xor_23} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_23 ^ state_in_24 = theta_xor_row_2
+pol commit theta_xor_row_2;
+#[THETA_XOR_ROW_2]
+sel {bitwise_xor_op_id, theta_xor_23, state_in_24, theta_xor_row_2} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                  Theta XOR Computation Index 3
+//#############################################################################
+
+// state_in_30 ^ state_in_31 = theta_xor_31
+pol commit theta_xor_31;
+#[THETA_XOR_31]
+sel {bitwise_xor_op_id, state_in_30, state_in_31, theta_xor_31} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_31 ^ state_in_32 = theta_xor_32
+pol commit theta_xor_32;
+#[THETA_XOR_32]
+sel {bitwise_xor_op_id, theta_xor_31, state_in_32, theta_xor_32} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_32 ^ state_in_33 = theta_xor_33
+pol commit theta_xor_33;
+#[THETA_XOR_33]
+sel {bitwise_xor_op_id, theta_xor_32, state_in_33, theta_xor_33} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_33 ^ state_in_34 = theta_xor_row_3
+pol commit theta_xor_row_3;
+#[THETA_XOR_ROW_3]
+sel {bitwise_xor_op_id, theta_xor_33, state_in_34, theta_xor_row_3} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                  Theta XOR Computation Index 4
+//#############################################################################
+
+// state_in_40 ^ state_in_41 = theta_xor_41
+pol commit theta_xor_41;
+#[THETA_XOR_41]
+sel {bitwise_xor_op_id, state_in_40, state_in_41, theta_xor_41} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_41 ^ state_in_42 = theta_xor_42
+pol commit theta_xor_42;
+#[THETA_XOR_42]
+sel {bitwise_xor_op_id, theta_xor_41, state_in_42, theta_xor_42} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_42 ^ state_in_43 = theta_xor_43
+pol commit theta_xor_43;
+#[THETA_XOR_43]
+sel {bitwise_xor_op_id, theta_xor_42, state_in_43, theta_xor_43} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_43 ^ state_in_44 = theta_xor_row_4
+pol commit theta_xor_row_4;
+#[THETA_XOR_ROW_4]
+sel {bitwise_xor_op_id, theta_xor_43, state_in_44, theta_xor_row_4} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                  Theta XOR ROTL1 Computation
+//#############################################################################
+
+// The theta_xor_row_i's need to be left rotated by 1.
+// We denote them by theta_xor_row_rotl1_i.
+// We need to split theta_xor_row_i with most significant bit and the last 63 bits.
+// theta_xor_row_i = theta_xor_row_msb_i || theta_xor_row_low63_i
+// resulting into theta_xor_row_rotl1_i = theta_xor_row_low63_i || theta_xor_row_msb_i
+// It is sufficient to enforce theta_xor_row_msb_i to be boolean.
+// No other range check is required as long as theta_xor_row_i and theta_xor_row_rotl1_i are
+// 64-bit range-checked through the use of bitwise 64-bit operations. theta_xor_row_i was range-checked
+// as the output of #[THETA_XOR_ROW_i] and theta_xor_row_rotl1_i will be range-checked as part of
+// a XOR computation (#[THETA_COMBINED_XOR_i]) to compute the state values after theta.
+
+// ##################### THETA_XOR_ROW_ROTL1_0 ##############################
+pol commit theta_xor_row_msb_0;
+pol commit theta_xor_row_low63_0;
+#[THETA_XOR_ROW_MSB_0_BOOLEAN]
+theta_xor_row_msb_0 * (1 - theta_xor_row_msb_0) = 0;
+#[THETA_XOR_ROW_0_DECOMPOSITION]
+theta_xor_row_0 = 2**63 * theta_xor_row_msb_0 + theta_xor_row_low63_0;
+pol commit theta_xor_row_rotl1_0;
+#[THETA_XOR_ROW_ROTL1_0]
+theta_xor_row_rotl1_0 = 2 * theta_xor_row_low63_0 + theta_xor_row_msb_0;
+
+// ##################### THETA_XOR_ROW_ROTL1_1 ##############################
+pol commit theta_xor_row_msb_1;
+pol commit theta_xor_row_low63_1;
+#[THETA_XOR_ROW_MSB_1_BOOLEAN]
+theta_xor_row_msb_1 * (1 - theta_xor_row_msb_1) = 0;
+#[THETA_XOR_ROW_1_DECOMPOSITION]
+theta_xor_row_1 = 2**63 * theta_xor_row_msb_1 + theta_xor_row_low63_1;
+pol commit theta_xor_row_rotl1_1;
+#[THETA_XOR_ROW_ROTL1_1]
+theta_xor_row_rotl1_1 = 2 * theta_xor_row_low63_1 + theta_xor_row_msb_1;
+
+// ##################### THETA_XOR_ROW_ROTL1_2 ##############################
+pol commit theta_xor_row_msb_2;
+pol commit theta_xor_row_low63_2;
+#[THETA_XOR_ROW_MSB_2_BOOLEAN]
+theta_xor_row_msb_2 * (1 - theta_xor_row_msb_2) = 0;
+#[THETA_XOR_ROW_2_DECOMPOSITION]
+theta_xor_row_2 = 2**63 * theta_xor_row_msb_2 + theta_xor_row_low63_2;
+pol commit theta_xor_row_rotl1_2;
+#[THETA_XOR_ROW_ROTL1_2]
+theta_xor_row_rotl1_2 = 2 * theta_xor_row_low63_2 + theta_xor_row_msb_2;
+
+// ##################### THETA_XOR_ROW_ROTL1_3 ##############################
+pol commit theta_xor_row_msb_3;
+pol commit theta_xor_row_low63_3;
+#[THETA_XOR_ROW_MSB_3_BOOLEAN]
+theta_xor_row_msb_3 * (1 - theta_xor_row_msb_3) = 0;
+#[THETA_XOR_ROW_3_DECOMPOSITION]
+theta_xor_row_3 = 2**63 * theta_xor_row_msb_3 + theta_xor_row_low63_3;
+pol commit theta_xor_row_rotl1_3;
+#[THETA_XOR_ROW_ROTL1_3]
+theta_xor_row_rotl1_3 = 2 * theta_xor_row_low63_3 + theta_xor_row_msb_3;
+
+// ##################### THETA_XOR_ROW_ROTL1_4 ##############################
+pol commit theta_xor_row_msb_4;
+pol commit theta_xor_row_low63_4;
+#[THETA_XOR_ROW_MSB_4_BOOLEAN]
+theta_xor_row_msb_4 * (1 - theta_xor_row_msb_4) = 0;
+#[THETA_XOR_ROW_4_DECOMPOSITION]
+theta_xor_row_4 = 2**63 * theta_xor_row_msb_4 + theta_xor_row_low63_4;
+pol commit theta_xor_row_rotl1_4;
+#[THETA_XOR_ROW_ROTL1_4]
+theta_xor_row_rotl1_4 = 2 * theta_xor_row_low63_4 + theta_xor_row_msb_4;
+
+//#############################################################################
+//                  Theta XOR between two rows
+//#############################################################################
+// For each row i, we need to compute the xor between theta_xor_row_{i-1} with theta_xor_row_rotl1_{i+1}
+// We denote the result as: theta_combined_xor_i.
+
+pol commit theta_combined_xor_0;
+#[THETA_COMBINED_XOR_0]
+sel {bitwise_xor_op_id, theta_xor_row_4, theta_xor_row_rotl1_1, theta_combined_xor_0} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+pol commit theta_combined_xor_1;
+#[THETA_COMBINED_XOR_1]
+sel {bitwise_xor_op_id, theta_xor_row_0, theta_xor_row_rotl1_2, theta_combined_xor_1} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+pol commit theta_combined_xor_2;
+#[THETA_COMBINED_XOR_2]
+sel {bitwise_xor_op_id, theta_xor_row_1, theta_xor_row_rotl1_3, theta_combined_xor_2} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+pol commit theta_combined_xor_3;
+#[THETA_COMBINED_XOR_3]
+sel {bitwise_xor_op_id, theta_xor_row_2, theta_xor_row_rotl1_4, theta_combined_xor_3} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+pol commit theta_combined_xor_4;
+#[THETA_COMBINED_XOR_4]
+sel {bitwise_xor_op_id, theta_xor_row_3, theta_xor_row_rotl1_0, theta_combined_xor_4} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                  State after Theta
+//#############################################################################
+// The state after theta is obtained by XORing each state word with the corresponding
+// theta_combined_xor value.
+// state_theta_ij = state_in_ij ^ theta_combined_xor_i
+pol commit state_theta_00, state_theta_01, state_theta_02, state_theta_03, state_theta_04,
+           state_theta_10, state_theta_11, state_theta_12, state_theta_13, state_theta_14,
+           state_theta_20, state_theta_21, state_theta_22, state_theta_23, state_theta_24,
+           state_theta_30, state_theta_31, state_theta_32, state_theta_33, state_theta_34,
+           state_theta_40, state_theta_41, state_theta_42, state_theta_43, state_theta_44;
+
+// ##################### STATE_THETA Row 0 ##############################
+#[STATE_THETA_00]
+sel {bitwise_xor_op_id, state_in_00, theta_combined_xor_0, state_theta_00} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_01]
+sel {bitwise_xor_op_id, state_in_01, theta_combined_xor_0, state_theta_01} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_02]
+sel {bitwise_xor_op_id, state_in_02, theta_combined_xor_0, state_theta_02} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_03]
+sel {bitwise_xor_op_id, state_in_03, theta_combined_xor_0, state_theta_03} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_04]
+sel {bitwise_xor_op_id, state_in_04, theta_combined_xor_0, state_theta_04} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// ##################### STATE_THETA Row 1 ##############################
+#[STATE_THETA_10]
+sel {bitwise_xor_op_id, state_in_10, theta_combined_xor_1, state_theta_10} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_11]
+sel {bitwise_xor_op_id, state_in_11, theta_combined_xor_1, state_theta_11} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_12]
+sel {bitwise_xor_op_id, state_in_12, theta_combined_xor_1, state_theta_12} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_13]
+sel {bitwise_xor_op_id, state_in_13, theta_combined_xor_1, state_theta_13} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_14]
+sel {bitwise_xor_op_id, state_in_14, theta_combined_xor_1, state_theta_14} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// ##################### STATE_THETA Row 2 ##############################
+#[STATE_THETA_20]
+sel {bitwise_xor_op_id, state_in_20, theta_combined_xor_2, state_theta_20} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_21]
+sel {bitwise_xor_op_id, state_in_21, theta_combined_xor_2, state_theta_21} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_22]
+sel {bitwise_xor_op_id, state_in_22, theta_combined_xor_2, state_theta_22} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_23]
+sel {bitwise_xor_op_id, state_in_23, theta_combined_xor_2, state_theta_23} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_24]
+sel {bitwise_xor_op_id, state_in_24, theta_combined_xor_2, state_theta_24} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// ##################### STATE_THETA Row 3 ##############################
+#[STATE_THETA_30]
+sel {bitwise_xor_op_id, state_in_30, theta_combined_xor_3, state_theta_30} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_31]
+sel {bitwise_xor_op_id, state_in_31, theta_combined_xor_3, state_theta_31} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_32]
+sel {bitwise_xor_op_id, state_in_32, theta_combined_xor_3, state_theta_32} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_33]
+sel {bitwise_xor_op_id, state_in_33, theta_combined_xor_3, state_theta_33} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_34]
+sel {bitwise_xor_op_id, state_in_34, theta_combined_xor_3, state_theta_34} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// ##################### STATE_THETA Row 4 ##############################
+#[STATE_THETA_40]
+sel {bitwise_xor_op_id, state_in_40, theta_combined_xor_4, state_theta_40} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_41]
+sel {bitwise_xor_op_id, state_in_41, theta_combined_xor_4, state_theta_41} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_42]
+sel {bitwise_xor_op_id, state_in_42, theta_combined_xor_4, state_theta_42} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_43]
+sel {bitwise_xor_op_id, state_in_43, theta_combined_xor_4, state_theta_43} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_44]
+sel {bitwise_xor_op_id, state_in_44, theta_combined_xor_4, state_theta_44} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                      Rho round function
+//#############################################################################
+// Rho function consists in some left circular bit rotation of each state. The rotation
+// length is a constant depending on the state indices.
+// Reference: https://keccak.team/keccak_specs_summary.html#rotationOffsets
+//    j  0  1   2   3   4
+// i  ####################
+// 0  #  0  36   3  41  18
+// 1  #  1  44  10  45   2
+// 2  # 62   6  43  15  61
+// 3  # 28  55  25  21  56
+// 4  # 27  20  39   8  14
+
+// #################### ROTATION RELATED CONSTANTS ######################################
+pol ROT_LEN_01 = 36;    pol POW_ROT_LEN_01 = 2**36;   pol POW_ROT_64_MIN_LEN_01 = 2**28;
+pol ROT_LEN_02 = 3;     pol POW_ROT_LEN_02 = 2**3;    pol POW_ROT_64_MIN_LEN_02 = 2**61;
+pol ROT_LEN_03 = 41;    pol POW_ROT_LEN_03 = 2**41;   pol POW_ROT_64_MIN_LEN_03 = 2**23;
+pol ROT_LEN_04 = 18;    pol POW_ROT_LEN_04 = 2**18;   pol POW_ROT_64_MIN_LEN_04 = 2**46;
+
+pol ROT_LEN_10 = 1;     pol POW_ROT_LEN_10 = 2**1;    pol POW_ROT_64_MIN_LEN_10 = 2**63;
+pol ROT_LEN_11 = 44;    pol POW_ROT_LEN_11 = 2**44;   pol POW_ROT_64_MIN_LEN_11 = 2**20;
+pol ROT_LEN_12 = 10;    pol POW_ROT_LEN_12 = 2**10;   pol POW_ROT_64_MIN_LEN_12 = 2**54;
+pol ROT_LEN_13 = 45;    pol POW_ROT_LEN_13 = 2**45;   pol POW_ROT_64_MIN_LEN_13 = 2**19;
+pol ROT_LEN_14 = 2;     pol POW_ROT_LEN_14 = 2**2;    pol POW_ROT_64_MIN_LEN_14 = 2**62;
+
+pol ROT_LEN_20 = 62;    pol POW_ROT_LEN_20 = 2**62;   pol POW_ROT_64_MIN_LEN_20 = 2**2;
+pol ROT_LEN_21 = 6;     pol POW_ROT_LEN_21 = 2**6;    pol POW_ROT_64_MIN_LEN_21 = 2**58;
+pol ROT_LEN_22 = 43;    pol POW_ROT_LEN_22 = 2**43;   pol POW_ROT_64_MIN_LEN_22 = 2**21;
+pol ROT_LEN_23 = 15;    pol POW_ROT_LEN_23 = 2**15;   pol POW_ROT_64_MIN_LEN_23 = 2**49;
+pol ROT_LEN_24 = 61;    pol POW_ROT_LEN_24 = 2**61;   pol POW_ROT_64_MIN_LEN_24 = 2**3;
+
+pol ROT_LEN_30 = 28;    pol POW_ROT_LEN_30 = 2**28;   pol POW_ROT_64_MIN_LEN_30 = 2**36;
+pol ROT_LEN_31 = 55;    pol POW_ROT_LEN_31 = 2**55;   pol POW_ROT_64_MIN_LEN_31 = 2**9;
+pol ROT_LEN_32 = 25;    pol POW_ROT_LEN_32 = 2**25;   pol POW_ROT_64_MIN_LEN_32 = 2**39;
+pol ROT_LEN_33 = 21;    pol POW_ROT_LEN_33 = 2**21;   pol POW_ROT_64_MIN_LEN_33 = 2**43;
+pol ROT_LEN_34 = 56;    pol POW_ROT_LEN_34 = 2**56;   pol POW_ROT_64_MIN_LEN_34 = 2**8;
+
+pol ROT_LEN_40 = 27;    pol POW_ROT_LEN_40 = 2**27;   pol POW_ROT_64_MIN_LEN_40 = 2**37;
+pol ROT_LEN_41 = 20;    pol POW_ROT_LEN_41 = 2**20;   pol POW_ROT_64_MIN_LEN_41 = 2**44;
+pol ROT_LEN_42 = 39;    pol POW_ROT_LEN_42 = 2**39;   pol POW_ROT_64_MIN_LEN_42 = 2**25;
+pol ROT_LEN_43 = 8;     pol POW_ROT_LEN_43 = 2**8;    pol POW_ROT_64_MIN_LEN_43 = 2**56;
+pol ROT_LEN_44 = 14;    pol POW_ROT_LEN_44 = 2**14;   pol POW_ROT_64_MIN_LEN_44 = 2**50;
+
+// #################### STATE AFTER RHO #################################################
+pol commit               state_rho_01, state_rho_02, state_rho_03, state_rho_04,
+           state_rho_10, state_rho_11, state_rho_12, state_rho_13, state_rho_14,
+           state_rho_20, state_rho_21, state_rho_22, state_rho_23, state_rho_24,
+           state_rho_30, state_rho_31, state_rho_32, state_rho_33, state_rho_34,
+           state_rho_40, state_rho_41, state_rho_42, state_rho_43, state_rho_44;
+
+// state_rho_00 is state_theta_00 rotated by 0, so state_rho_00 = state_theta_00
+pol STATE_RHO_00 = state_theta_00;
+
+// We decompose state_theta_ij = state_theta_hi_ij * 2^{64 - ROT_LEN_ij} + state_theta_low_ij
+// and the resulting rotation is:
+// state_rho_ij = state_theta_low_ij * 2^{ROT_LEN_ij} + state_theta_hi_ij
+
+pol commit                    state_theta_hi_01, state_theta_hi_02, state_theta_hi_03, state_theta_hi_04,
+           state_theta_hi_10, state_theta_hi_11, state_theta_hi_12, state_theta_hi_13, state_theta_hi_14,
+           state_theta_hi_20, state_theta_hi_21, state_theta_hi_22, state_theta_hi_23, state_theta_hi_24,
+           state_theta_hi_30, state_theta_hi_31, state_theta_hi_32, state_theta_hi_33, state_theta_hi_34,
+           state_theta_hi_40, state_theta_hi_41, state_theta_hi_42, state_theta_hi_43, state_theta_hi_44;
+
+pol commit                     state_theta_low_01, state_theta_low_02, state_theta_low_03, state_theta_low_04,
+           state_theta_low_10, state_theta_low_11, state_theta_low_12, state_theta_low_13, state_theta_low_14,
+           state_theta_low_20, state_theta_low_21, state_theta_low_22, state_theta_low_23, state_theta_low_24,
+           state_theta_low_30, state_theta_low_31, state_theta_low_32, state_theta_low_33, state_theta_low_34,
+           state_theta_low_40, state_theta_low_41, state_theta_low_42, state_theta_low_43, state_theta_low_44;
+
+
+#[STATE_THETA_01_DECOMPOSE]
+state_theta_01 = POW_ROT_64_MIN_LEN_01 * state_theta_hi_01 + state_theta_low_01;
+#[STATE_RHO_01]
+state_rho_01 = POW_ROT_LEN_01 * state_theta_low_01 + state_theta_hi_01;
+
+#[STATE_THETA_02_DECOMPOSE]
+state_theta_02 = POW_ROT_64_MIN_LEN_02 * state_theta_hi_02 + state_theta_low_02;
+#[STATE_RHO_02]
+state_rho_02 = POW_ROT_LEN_02 * state_theta_low_02 + state_theta_hi_02;
+
+#[STATE_THETA_03_DECOMPOSE]
+state_theta_03 = POW_ROT_64_MIN_LEN_03 * state_theta_hi_03 + state_theta_low_03;
+#[STATE_RHO_03]
+state_rho_03 = POW_ROT_LEN_03 * state_theta_low_03 + state_theta_hi_03;
+
+#[STATE_THETA_04_DECOMPOSE]
+state_theta_04 = POW_ROT_64_MIN_LEN_04 * state_theta_hi_04 + state_theta_low_04;
+#[STATE_RHO_04]
+state_rho_04 = POW_ROT_LEN_04 * state_theta_low_04 + state_theta_hi_04;
+
+#[STATE_THETA_10_DECOMPOSE]
+state_theta_10 = POW_ROT_64_MIN_LEN_10 * state_theta_hi_10 + state_theta_low_10;
+#[STATE_RHO_10]
+state_rho_10 = POW_ROT_LEN_10 * state_theta_low_10 + state_theta_hi_10;
+
+#[STATE_THETA_11_DECOMPOSE]
+state_theta_11 = POW_ROT_64_MIN_LEN_11 * state_theta_hi_11 + state_theta_low_11;
+#[STATE_RHO_11]
+state_rho_11 = POW_ROT_LEN_11 * state_theta_low_11 + state_theta_hi_11;
+
+#[STATE_THETA_12_DECOMPOSE]
+state_theta_12 = POW_ROT_64_MIN_LEN_12 * state_theta_hi_12 + state_theta_low_12;
+#[STATE_RHO_12]
+state_rho_12 = POW_ROT_LEN_12 * state_theta_low_12 + state_theta_hi_12;
+
+#[STATE_THETA_13_DECOMPOSE]
+state_theta_13 = POW_ROT_64_MIN_LEN_13 * state_theta_hi_13 + state_theta_low_13;
+#[STATE_RHO_13]
+state_rho_13 = POW_ROT_LEN_13 * state_theta_low_13 + state_theta_hi_13;
+
+#[STATE_THETA_14_DECOMPOSE]
+state_theta_14 = POW_ROT_64_MIN_LEN_14 * state_theta_hi_14 + state_theta_low_14;
+#[STATE_RHO_14]
+state_rho_14 = POW_ROT_LEN_14 * state_theta_low_14 + state_theta_hi_14;
+
+#[STATE_THETA_20_DECOMPOSE]
+state_theta_20 = POW_ROT_64_MIN_LEN_20 * state_theta_hi_20 + state_theta_low_20;
+#[STATE_RHO_20]
+state_rho_20 = POW_ROT_LEN_20 * state_theta_low_20 + state_theta_hi_20;
+
+#[STATE_THETA_21_DECOMPOSE]
+state_theta_21 = POW_ROT_64_MIN_LEN_21 * state_theta_hi_21 + state_theta_low_21;
+#[STATE_RHO_21]
+state_rho_21 = POW_ROT_LEN_21 * state_theta_low_21 + state_theta_hi_21;
+
+#[STATE_THETA_22_DECOMPOSE]
+state_theta_22 = POW_ROT_64_MIN_LEN_22 * state_theta_hi_22 + state_theta_low_22;
+#[STATE_RHO_22]
+state_rho_22 = POW_ROT_LEN_22 * state_theta_low_22 + state_theta_hi_22;
+
+#[STATE_THETA_23_DECOMPOSE]
+state_theta_23 = POW_ROT_64_MIN_LEN_23 * state_theta_hi_23 + state_theta_low_23;
+#[STATE_RHO_23]
+state_rho_23 = POW_ROT_LEN_23 * state_theta_low_23 + state_theta_hi_23;
+
+#[STATE_THETA_24_DECOMPOSE]
+state_theta_24 = POW_ROT_64_MIN_LEN_24 * state_theta_hi_24 + state_theta_low_24;
+#[STATE_RHO_24]
+state_rho_24 = POW_ROT_LEN_24 * state_theta_low_24 + state_theta_hi_24;
+
+#[STATE_THETA_30_DECOMPOSE]
+state_theta_30 = POW_ROT_64_MIN_LEN_30 * state_theta_hi_30 + state_theta_low_30;
+#[STATE_RHO_30]
+state_rho_30 = POW_ROT_LEN_30 * state_theta_low_30 + state_theta_hi_30;
+
+#[STATE_THETA_31_DECOMPOSE]
+state_theta_31 = POW_ROT_64_MIN_LEN_31 * state_theta_hi_31 + state_theta_low_31;
+#[STATE_RHO_31]
+state_rho_31 = POW_ROT_LEN_31 * state_theta_low_31 + state_theta_hi_31;
+
+#[STATE_THETA_32_DECOMPOSE]
+state_theta_32 = POW_ROT_64_MIN_LEN_32 * state_theta_hi_32 + state_theta_low_32;
+#[STATE_RHO_32]
+state_rho_32 = POW_ROT_LEN_32 * state_theta_low_32 + state_theta_hi_32;
+
+#[STATE_THETA_33_DECOMPOSE]
+state_theta_33 = POW_ROT_64_MIN_LEN_33 * state_theta_hi_33 + state_theta_low_33;
+#[STATE_RHO_33]
+state_rho_33 = POW_ROT_LEN_33 * state_theta_low_33 + state_theta_hi_33;
+
+#[STATE_THETA_34_DECOMPOSE]
+state_theta_34 = POW_ROT_64_MIN_LEN_34 * state_theta_hi_34 + state_theta_low_34;
+#[STATE_RHO_34]
+state_rho_34 = POW_ROT_LEN_34 * state_theta_low_34 + state_theta_hi_34;
+
+#[STATE_THETA_40_DECOMPOSE]
+state_theta_40 = POW_ROT_64_MIN_LEN_40 * state_theta_hi_40 + state_theta_low_40;
+#[STATE_RHO_40]
+state_rho_40 = POW_ROT_LEN_40 * state_theta_low_40 + state_theta_hi_40;
+
+#[STATE_THETA_41_DECOMPOSE]
+state_theta_41 = POW_ROT_64_MIN_LEN_41 * state_theta_hi_41 + state_theta_low_41;
+#[STATE_RHO_41]
+state_rho_41 = POW_ROT_LEN_41 * state_theta_low_41 + state_theta_hi_41;
+
+#[STATE_THETA_42_DECOMPOSE]
+state_theta_42 = POW_ROT_64_MIN_LEN_42 * state_theta_hi_42 + state_theta_low_42;
+#[STATE_RHO_42]
+state_rho_42 = POW_ROT_LEN_42 * state_theta_low_42 + state_theta_hi_42;
+
+#[STATE_THETA_43_DECOMPOSE]
+state_theta_43 = POW_ROT_64_MIN_LEN_43 * state_theta_hi_43 + state_theta_low_43;
+#[STATE_RHO_43]
+state_rho_43 = POW_ROT_LEN_43 * state_theta_low_43 + state_theta_hi_43;
+
+#[STATE_THETA_44_DECOMPOSE]
+state_theta_44 = POW_ROT_64_MIN_LEN_44 * state_theta_hi_44 + state_theta_low_44;
+#[STATE_RHO_44]
+state_rho_44 = POW_ROT_LEN_44 * state_theta_low_44 + state_theta_hi_44;
+
+
+// Range check constraints for the low bits of the decomposition.
+// We only need to range check the smaller part of the decomposition.
+// For a rotation of length a, we decompose X = hi * 2^(64-a) + low.
+// If a <= 32, we range check hi < 2^a.
+// Otherwise, we range check low < 2^(64-a).
+// See above discussion on bit rotation which shows that this is sufficient provided that
+// the input and output of the rotation is range-checked over 64 bits.
+// We note that state_theta_ij's are
+// constrained to be 64 bits thanks to [#STATE_THETA_ij] bitwise lookup. Similarly,
+// state_rho_ij's are guaranteed to be 64 bits thanks to [#STATE_PI_AND_02] bitwise
+// lookup.
+
+// Rotations with length <= 32:
+// Indices:  02, 04, 10, 12, 14, 21, 23, 30, 32, 33, 40, 41, 43, 44
+// Length:    3, 18   1, 10,  2,  6, 15, 28, 25, 21, 27, 20,  8, 14
+// Range check state_theta_hi_ij < 2^{ROT_LEN_ij}
+
+pol commit rot_len_02;
+sel * (rot_len_02 - ROT_LEN_02) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_02_RANGE]
+sel {state_theta_hi_02, rot_len_02} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_04;
+sel * (rot_len_04 - ROT_LEN_04) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_04_RANGE]
+sel {state_theta_hi_04, rot_len_04} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_10;
+sel * (rot_len_10 - ROT_LEN_10) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_10_RANGE]
+sel {state_theta_hi_10, rot_len_10} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_12;
+sel * (rot_len_12 - ROT_LEN_12) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_12_RANGE]
+sel {state_theta_hi_12, rot_len_12} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_14;
+sel * (rot_len_14 - ROT_LEN_14) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_14_RANGE]
+sel {state_theta_hi_14, rot_len_14} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_21;
+sel * (rot_len_21 - ROT_LEN_21) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_21_RANGE]
+sel {state_theta_hi_21, rot_len_21} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_23;
+sel * (rot_len_23 - ROT_LEN_23) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_23_RANGE]
+sel {state_theta_hi_23, rot_len_23} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_30;
+sel * (rot_len_30 - ROT_LEN_30) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_30_RANGE]
+sel {state_theta_hi_30, rot_len_30} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_32;
+sel * (rot_len_32 - ROT_LEN_32) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_32_RANGE]
+sel {state_theta_hi_32, rot_len_32} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_33;
+sel * (rot_len_33 - ROT_LEN_33) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_33_RANGE]
+sel {state_theta_hi_33, rot_len_33} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_40;
+sel * (rot_len_40 - ROT_LEN_40) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_40_RANGE]
+sel {state_theta_hi_40, rot_len_40} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_41;
+sel * (rot_len_41 - ROT_LEN_41) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_41_RANGE]
+sel {state_theta_hi_41, rot_len_41} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_43;
+sel * (rot_len_43 - ROT_LEN_43) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_43_RANGE]
+sel {state_theta_hi_43, rot_len_43} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_44;
+sel * (rot_len_44 - ROT_LEN_44) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_44_RANGE]
+sel {state_theta_hi_44, rot_len_44} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+// Rotations with length > 32:
+// Indices:  01, 03, 11, 13, 20, 22, 24, 31, 34, 42
+// Length:   36, 41, 44, 45, 62, 43, 61, 55, 56, 39
+// Range check state_theta_lo_ij < 2^{64 - ROT_LEN_ij}
+
+pol commit rot_64_min_len_01;
+sel * (rot_64_min_len_01 - (64 - ROT_LEN_01)) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_01_RANGE]
+sel {state_theta_low_01, rot_64_min_len_01} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_03;
+sel * (rot_64_min_len_03 - (64 - ROT_LEN_03)) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_03_RANGE]
+sel {state_theta_low_03, rot_64_min_len_03} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_11;
+sel * (rot_64_min_len_11 - (64 - ROT_LEN_11)) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_11_RANGE]
+sel {state_theta_low_11, rot_64_min_len_11} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_13;
+sel * (rot_64_min_len_13 - (64 - ROT_LEN_13)) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_13_RANGE]
+sel {state_theta_low_13, rot_64_min_len_13} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_20;
+sel * (rot_64_min_len_20 - (64 - ROT_LEN_20)) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_20_RANGE]
+sel {state_theta_low_20, rot_64_min_len_20} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_22;
+sel * (rot_64_min_len_22 - (64 - ROT_LEN_22)) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_22_RANGE]
+sel {state_theta_low_22, rot_64_min_len_22} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_24;
+sel * (rot_64_min_len_24 - (64 - ROT_LEN_24)) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_24_RANGE]
+sel {state_theta_low_24, rot_64_min_len_24} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_31;
+sel * (rot_64_min_len_31 - (64 - ROT_LEN_31)) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_31_RANGE]
+sel {state_theta_low_31, rot_64_min_len_31} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_34;
+sel * (rot_64_min_len_34 - (64 - ROT_LEN_34)) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_34_RANGE]
+sel {state_theta_low_34, rot_64_min_len_34} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_42;
+sel * (rot_64_min_len_42 - (64 - ROT_LEN_42)) = 0; // TODO: Remove once we support constants in lookups
+#[THETA_LIMB_42_RANGE]
+sel {state_theta_low_42, rot_64_min_len_42} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+//#############################################################################
+//                      Pi round function
+//#############################################################################
+// Pi function is purely permuting the state rho elements among each other so that
+// there is no constraints to be added here. Namely, we will have to re-map the
+// state elements correctly for the next function chi.
+// The permutation is defined as: OUT[j][2*i + 3*j % 5] = IN[i][j]
+// The inverse operation is: OUT[i][j] = IN[i + 3*j % 5][i]
+// If we apply this permutation to state_rho_ij and denote the output STATE_PI_ij, we get:
+
+pol STATE_PI_00 = STATE_RHO_00;
+pol STATE_PI_01 = state_rho_30;
+pol STATE_PI_02 = state_rho_10;
+pol STATE_PI_03 = state_rho_40;
+pol STATE_PI_04 = state_rho_20;
+
+pol STATE_PI_10 = state_rho_11;
+pol STATE_PI_11 = state_rho_41;
+pol STATE_PI_12 = state_rho_21;
+pol STATE_PI_13 = state_rho_01;
+pol STATE_PI_14 = state_rho_31;
+
+pol STATE_PI_20 = state_rho_22;
+pol STATE_PI_21 = state_rho_02;
+pol STATE_PI_22 = state_rho_32;
+pol STATE_PI_23 = state_rho_12;
+pol STATE_PI_24 = state_rho_42;
+
+pol STATE_PI_30 = state_rho_33;
+pol STATE_PI_31 = state_rho_13;
+pol STATE_PI_32 = state_rho_43;
+pol STATE_PI_33 = state_rho_23;
+pol STATE_PI_34 = state_rho_03;
+
+pol STATE_PI_40 = state_rho_44;
+pol STATE_PI_41 = state_rho_24;
+pol STATE_PI_42 = state_rho_04;
+pol STATE_PI_43 = state_rho_34;
+pol STATE_PI_44 = state_rho_14;
+
+//#############################################################################
+//                      Chi round function
+//#############################################################################
+// For each i,j, Chi function computes:
+// state_chi_ij = state_pi_ij ^ ((NOT state_pi_{i+1,j}) & state_pi_{i+2,j})
+//
+// We will use the following intermediate states:
+// state_pi_not_ij = NOT state_pi_ij
+// state_pi_and_ij = state_pi_not_ij AND state_pi_{i+2,j}
+// state_chi_ij = state_pi_ij ^ state_pi_and_ij
+//
+//#################### NOT Computation ########################################
+// NOT computation for a 64-bit integer x amounts to: 2^64 - 1 - x
+pol POW_64_MIN_1 = 2**64 - 1;
+
+pol commit state_pi_not_00, state_pi_not_01, state_pi_not_02, state_pi_not_03, state_pi_not_04,
+           state_pi_not_10, state_pi_not_11, state_pi_not_12, state_pi_not_13, state_pi_not_14,
+           state_pi_not_20, state_pi_not_21, state_pi_not_22, state_pi_not_23, state_pi_not_24,
+           state_pi_not_30, state_pi_not_31, state_pi_not_32, state_pi_not_33, state_pi_not_34,
+           state_pi_not_40, state_pi_not_41, state_pi_not_42, state_pi_not_43, state_pi_not_44;
+
+// As state_pi_ij are not committed columns
+
+#[STATE_PI_NOT_00]
+state_pi_not_00 = sel * (POW_64_MIN_1 - STATE_PI_00);
+#[STATE_PI_NOT_01]
+state_pi_not_01 = sel * (POW_64_MIN_1 - STATE_PI_01);
+#[STATE_PI_NOT_02]
+state_pi_not_02 = sel * (POW_64_MIN_1 - STATE_PI_02);
+#[STATE_PI_NOT_03]
+state_pi_not_03 = sel * (POW_64_MIN_1 - STATE_PI_03);
+#[STATE_PI_NOT_04]
+state_pi_not_04 = sel * (POW_64_MIN_1 - STATE_PI_04);
+
+#[STATE_PI_NOT_10]
+state_pi_not_10 = sel * (POW_64_MIN_1 - STATE_PI_10);
+#[STATE_PI_NOT_11]
+state_pi_not_11 = sel * (POW_64_MIN_1 - STATE_PI_11);
+#[STATE_PI_NOT_12]
+state_pi_not_12 = sel * (POW_64_MIN_1 - STATE_PI_12);
+#[STATE_PI_NOT_13]
+state_pi_not_13 = sel * (POW_64_MIN_1 - STATE_PI_13);
+#[STATE_PI_NOT_14]
+state_pi_not_14 = sel * (POW_64_MIN_1 - STATE_PI_14);
+
+#[STATE_PI_NOT_20]
+state_pi_not_20 = sel * (POW_64_MIN_1 - STATE_PI_20);
+#[STATE_PI_NOT_21]
+state_pi_not_21 = sel * (POW_64_MIN_1 - STATE_PI_21);
+#[STATE_PI_NOT_22]
+state_pi_not_22 = sel * (POW_64_MIN_1 - STATE_PI_22);
+#[STATE_PI_NOT_23]
+state_pi_not_23 = sel * (POW_64_MIN_1 - STATE_PI_23);
+#[STATE_PI_NOT_24]
+state_pi_not_24 = sel * (POW_64_MIN_1 - STATE_PI_24);
+
+#[STATE_PI_NOT_30]
+state_pi_not_30 = sel * (POW_64_MIN_1 - STATE_PI_30);
+#[STATE_PI_NOT_31]
+state_pi_not_31 = sel * (POW_64_MIN_1 - STATE_PI_31);
+#[STATE_PI_NOT_32]
+state_pi_not_32 = sel * (POW_64_MIN_1 - STATE_PI_32);
+#[STATE_PI_NOT_33]
+state_pi_not_33 = sel * (POW_64_MIN_1 - STATE_PI_33);
+#[STATE_PI_NOT_34]
+state_pi_not_34 = sel * (POW_64_MIN_1 - STATE_PI_34);
+
+#[STATE_PI_NOT_40]
+state_pi_not_40 = sel * (POW_64_MIN_1 - STATE_PI_40);
+#[STATE_PI_NOT_41]
+state_pi_not_41 = sel * (POW_64_MIN_1 - STATE_PI_41);
+#[STATE_PI_NOT_42]
+state_pi_not_42 = sel * (POW_64_MIN_1 - STATE_PI_42);
+#[STATE_PI_NOT_43]
+state_pi_not_43 = sel * (POW_64_MIN_1 - STATE_PI_43);
+#[STATE_PI_NOT_44]
+state_pi_not_44 = sel * (POW_64_MIN_1 - STATE_PI_44);
+
+//#################### AND Computation ########################################
+// state_pi_and_ij = state_pi_not_{i+1,j} AND state_pi_{i+2,j}
+//
+// We do not support aliases in lookups and therefore we need to manually
+// re-map the term state_pi_{i+2,j} as state_rho_XX according.
+
+pol commit state_pi_and_00, state_pi_and_01, state_pi_and_02, state_pi_and_03, state_pi_and_04,
+           state_pi_and_10, state_pi_and_11, state_pi_and_12, state_pi_and_13, state_pi_and_14,
+           state_pi_and_20, state_pi_and_21, state_pi_and_22, state_pi_and_23, state_pi_and_24,
+           state_pi_and_30, state_pi_and_31, state_pi_and_32, state_pi_and_33, state_pi_and_34,
+           state_pi_and_40, state_pi_and_41, state_pi_and_42, state_pi_and_43, state_pi_and_44;
+
+// STATE_PI_20 = state_rho_22
+#[STATE_PI_AND_00]
+sel {bitwise_and_op_id, state_pi_not_10, state_rho_22, state_pi_and_00} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_21 = state_rho_02
+#[STATE_PI_AND_01]
+sel {bitwise_and_op_id, state_pi_not_11, state_rho_02, state_pi_and_01} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_22 = state_rho_32
+#[STATE_PI_AND_02]
+sel {bitwise_and_op_id, state_pi_not_12, state_rho_32, state_pi_and_02} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_23 = state_rho_12
+#[STATE_PI_AND_03]
+sel {bitwise_and_op_id, state_pi_not_13, state_rho_12, state_pi_and_03} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_24 = state_rho_42
+#[STATE_PI_AND_04]
+sel {bitwise_and_op_id, state_pi_not_14, state_rho_42, state_pi_and_04} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_30 = state_rho_33
+#[STATE_PI_AND_10]
+sel {bitwise_and_op_id, state_pi_not_20, state_rho_33, state_pi_and_10} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_31 = state_rho_13
+#[STATE_PI_AND_11]
+sel {bitwise_and_op_id, state_pi_not_21, state_rho_13, state_pi_and_11} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_32 = state_rho_43
+#[STATE_PI_AND_12]
+sel {bitwise_and_op_id, state_pi_not_22, state_rho_43, state_pi_and_12} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_33 = state_rho_23
+#[STATE_PI_AND_13]
+sel {bitwise_and_op_id, state_pi_not_23, state_rho_23, state_pi_and_13} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_34 = state_rho_03
+#[STATE_PI_AND_14]
+sel {bitwise_and_op_id, state_pi_not_24, state_rho_03, state_pi_and_14} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_40 = state_rho_44
+#[STATE_PI_AND_20]
+sel {bitwise_and_op_id, state_pi_not_30, state_rho_44, state_pi_and_20} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_41 = state_rho_24
+#[STATE_PI_AND_21]
+sel {bitwise_and_op_id, state_pi_not_31, state_rho_24, state_pi_and_21} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_42 = state_rho_04
+#[STATE_PI_AND_22]
+sel {bitwise_and_op_id, state_pi_not_32, state_rho_04, state_pi_and_22} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_43 = state_rho_34
+#[STATE_PI_AND_23]
+sel {bitwise_and_op_id, state_pi_not_33, state_rho_34, state_pi_and_23} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_44 = state_rho_14
+#[STATE_PI_AND_24]
+sel {bitwise_and_op_id, state_pi_not_34, state_rho_14, state_pi_and_24} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_00 = STATE_RHO_00 = state_theta_00
+#[STATE_PI_AND_30]
+sel {bitwise_and_op_id, state_pi_not_40, state_theta_00, state_pi_and_30} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_01 = state_rho_30
+#[STATE_PI_AND_31]
+sel {bitwise_and_op_id, state_pi_not_41, state_rho_30, state_pi_and_31} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_02 = state_rho_10
+#[STATE_PI_AND_32]
+sel {bitwise_and_op_id, state_pi_not_42, state_rho_10, state_pi_and_32} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_03 = state_rho_40
+#[STATE_PI_AND_33]
+sel {bitwise_and_op_id, state_pi_not_43, state_rho_40, state_pi_and_33} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_04 = state_rho_20
+#[STATE_PI_AND_34]
+sel {bitwise_and_op_id, state_pi_not_44, state_rho_20, state_pi_and_34} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_10 = state_rho_11
+#[STATE_PI_AND_40]
+sel {bitwise_and_op_id, state_pi_not_00, state_rho_11, state_pi_and_40} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_11 = state_rho_41
+#[STATE_PI_AND_41]
+sel {bitwise_and_op_id, state_pi_not_01, state_rho_41, state_pi_and_41} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_12 = state_rho_21
+#[STATE_PI_AND_42]
+sel {bitwise_and_op_id, state_pi_not_02, state_rho_21, state_pi_and_42} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_13 = state_rho_01
+#[STATE_PI_AND_43]
+sel {bitwise_and_op_id, state_pi_not_03, state_rho_01, state_pi_and_43} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_14 = state_rho_31
+#[STATE_PI_AND_44]
+sel {bitwise_and_op_id, state_pi_not_04, state_rho_31, state_pi_and_44} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#################### chi final XOR Computation ########################################
+// state_chi_ij = state_pi_ij ^ state_pi_and_ij
+
+pol commit state_chi_00, state_chi_01, state_chi_02, state_chi_03, state_chi_04,
+           state_chi_10, state_chi_11, state_chi_12, state_chi_13, state_chi_14,
+           state_chi_20, state_chi_21, state_chi_22, state_chi_23, state_chi_24,
+           state_chi_30, state_chi_31, state_chi_32, state_chi_33, state_chi_34,
+           state_chi_40, state_chi_41, state_chi_42, state_chi_43, state_chi_44;
+
+// STATE_PI_00 = STATE_RHO_00 = state_theta_00
+#[STATE_CHI_00]
+sel {bitwise_xor_op_id, state_theta_00, state_pi_and_00, state_chi_00} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_01 = state_rho_30
+#[STATE_CHI_01]
+sel {bitwise_xor_op_id, state_rho_30, state_pi_and_01, state_chi_01} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_02 = state_rho_10
+#[STATE_CHI_02]
+sel {bitwise_xor_op_id, state_rho_10, state_pi_and_02, state_chi_02} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_03 = state_rho_40
+#[STATE_CHI_03]
+sel {bitwise_xor_op_id, state_rho_40, state_pi_and_03, state_chi_03} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_04 = state_rho_20
+#[STATE_CHI_04]
+sel {bitwise_xor_op_id, state_rho_20, state_pi_and_04, state_chi_04} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_10 = state_rho_11
+#[STATE_CHI_10]
+sel {bitwise_xor_op_id, state_rho_11, state_pi_and_10, state_chi_10} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_11 = state_rho_41
+#[STATE_CHI_11]
+sel {bitwise_xor_op_id, state_rho_41, state_pi_and_11, state_chi_11} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_12 = state_rho_21
+#[STATE_CHI_12]
+sel {bitwise_xor_op_id, state_rho_21, state_pi_and_12, state_chi_12} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_13 = state_rho_01
+#[STATE_CHI_13]
+sel {bitwise_xor_op_id, state_rho_01, state_pi_and_13, state_chi_13} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_14 = state_rho_31
+#[STATE_CHI_14]
+sel {bitwise_xor_op_id, state_rho_31, state_pi_and_14, state_chi_14} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_20 = state_rho_22
+#[STATE_CHI_20]
+sel {bitwise_xor_op_id, state_rho_22, state_pi_and_20, state_chi_20} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_21 = state_rho_02
+#[STATE_CHI_21]
+sel {bitwise_xor_op_id, state_rho_02, state_pi_and_21, state_chi_21} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_22 = state_rho_32
+#[STATE_CHI_22]
+sel {bitwise_xor_op_id, state_rho_32, state_pi_and_22, state_chi_22} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_23 = state_rho_12
+#[STATE_CHI_23]
+sel {bitwise_xor_op_id, state_rho_12, state_pi_and_23, state_chi_23} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_24 = state_rho_42
+#[STATE_CHI_24]
+sel {bitwise_xor_op_id, state_rho_42, state_pi_and_24, state_chi_24} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_30 = state_rho_33
+#[STATE_CHI_30]
+sel {bitwise_xor_op_id, state_rho_33, state_pi_and_30, state_chi_30} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_31 = state_rho_13
+#[STATE_CHI_31]
+sel {bitwise_xor_op_id, state_rho_13, state_pi_and_31, state_chi_31} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_32 = state_rho_43
+#[STATE_CHI_32]
+sel {bitwise_xor_op_id, state_rho_43, state_pi_and_32, state_chi_32} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_33 = state_rho_23
+#[STATE_CHI_33]
+sel {bitwise_xor_op_id, state_rho_23, state_pi_and_33, state_chi_33} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_34 = state_rho_03
+#[STATE_CHI_34]
+sel {bitwise_xor_op_id, state_rho_03, state_pi_and_34, state_chi_34} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_40 = state_rho_44
+#[STATE_CHI_40]
+sel {bitwise_xor_op_id, state_rho_44, state_pi_and_40, state_chi_40} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_41 = state_rho_24
+#[STATE_CHI_41]
+sel {bitwise_xor_op_id, state_rho_24, state_pi_and_41, state_chi_41} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_42 = state_rho_04
+#[STATE_CHI_42]
+sel {bitwise_xor_op_id, state_rho_04, state_pi_and_42, state_chi_42} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_43 = state_rho_34
+#[STATE_CHI_43]
+sel {bitwise_xor_op_id, state_rho_34, state_pi_and_43, state_chi_43} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_44 = state_rho_14
+#[STATE_CHI_44]
+sel {bitwise_xor_op_id, state_rho_14, state_pi_and_44, state_chi_44} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                      Iota round function
+//#############################################################################
+// Iota function XORs the state_chi_00 word with a round constant.
+// state_iota_00 = state_chi_00 ^ round_cst
+// round_cst depends on the round number and is fetched through a lookup from precomputed sub-trace.
+// The other state words remain unchanged.
+// state_iota_ij = state_chi_ij for (i,j) != (0,0)
+
+pol commit round_cst;
+pol commit state_iota_00;
+
+#[ROUND_CST]
+sel {round, round_cst} in precomputed.sel_keccak {precomputed.clk, precomputed.keccak_round_constant};
+
+#[STATE_IOTA_00]
+sel {bitwise_xor_op_id, state_chi_00, round_cst, state_iota_00} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                      Next state Inputs OR Outputs
+//#############################################################################
+pol commit state_out_00, state_out_01, state_out_02, state_out_03, state_out_04,
+           state_out_10, state_out_11, state_out_12, state_out_13, state_out_14,
+           state_out_20, state_out_21, state_out_22, state_out_23, state_out_24,
+           state_out_30, state_out_31, state_out_32, state_out_33, state_out_34,
+           state_out_40, state_out_41, state_out_42, state_out_43, state_out_44;
+
+// If last == 1, state_iota is the output state, otherwise we initialize the next
+// state_in values for the next round.
+
+#[NEXT_STATE_IN_OR_OUT_00]
+(1-last) * state_in_00' + last * state_out_00 = state_iota_00;
+#[NEXT_STATE_IN_OR_OUT_01]
+(1-last) * state_in_01' + last * state_out_01 = state_chi_01;
+#[NEXT_STATE_IN_OR_OUT_02]
+(1-last) * state_in_02' + last * state_out_02 = state_chi_02;
+#[NEXT_STATE_IN_OR_OUT_03]
+(1-last) * state_in_03' + last * state_out_03 = state_chi_03;
+#[NEXT_STATE_IN_OR_OUT_04]
+(1-last) * state_in_04' + last * state_out_04 = state_chi_04;
+
+#[NEXT_STATE_IN_OR_OUT_10]
+(1-last) * state_in_10' + last * state_out_10 = state_chi_10;
+#[NEXT_STATE_IN_OR_OUT_11]
+(1-last) * state_in_11' + last * state_out_11 = state_chi_11;
+#[NEXT_STATE_IN_OR_OUT_12]
+(1-last) * state_in_12' + last * state_out_12 = state_chi_12;
+#[NEXT_STATE_IN_OR_OUT_13]
+(1-last) * state_in_13' + last * state_out_13 = state_chi_13;
+#[NEXT_STATE_IN_OR_OUT_14]
+(1-last) * state_in_14' + last * state_out_14 = state_chi_14;
+
+#[NEXT_STATE_IN_OR_OUT_20]
+(1-last) * state_in_20' + last * state_out_20 = state_chi_20;
+#[NEXT_STATE_IN_OR_OUT_21]
+(1-last) * state_in_21' + last * state_out_21 = state_chi_21;
+#[NEXT_STATE_IN_OR_OUT_22]
+(1-last) * state_in_22' + last * state_out_22 = state_chi_22;
+#[NEXT_STATE_IN_OR_OUT_23]
+(1-last) * state_in_23' + last * state_out_23 = state_chi_23;
+#[NEXT_STATE_IN_OR_OUT_24]
+(1-last) * state_in_24' + last * state_out_24 = state_chi_24;
+
+#[NEXT_STATE_IN_OR_OUT_30]
+(1-last) * state_in_30' + last * state_out_30 = state_chi_30;
+#[NEXT_STATE_IN_OR_OUT_31]
+(1-last) * state_in_31' + last * state_out_31 = state_chi_31;
+#[NEXT_STATE_IN_OR_OUT_32]
+(1-last) * state_in_32' + last * state_out_32 = state_chi_32;
+#[NEXT_STATE_IN_OR_OUT_33]
+(1-last) * state_in_33' + last * state_out_33 = state_chi_33;
+#[NEXT_STATE_IN_OR_OUT_34]
+(1-last) * state_in_34' + last * state_out_34 = state_chi_34;
+
+#[NEXT_STATE_IN_OR_OUT_40]
+(1-last) * state_in_40' + last * state_out_40 = state_chi_40;
+#[NEXT_STATE_IN_OR_OUT_41]
+(1-last) * state_in_41' + last * state_out_41 = state_chi_41;
+#[NEXT_STATE_IN_OR_OUT_42]
+(1-last) * state_in_42' + last * state_out_42 = state_chi_42;
+#[NEXT_STATE_IN_OR_OUT_43]
+(1-last) * state_in_43' + last * state_out_43 = state_chi_43;
+#[NEXT_STATE_IN_OR_OUT_44]
+(1-last) * state_in_44' + last * state_out_44 = state_chi_44;
