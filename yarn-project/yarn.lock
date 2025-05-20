@@ -353,11 +353,10 @@ __metadata:
   dependencies:
     comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
-    debug: "npm:^4.3.4"
-    fflate: "npm:^0.8.0"
     msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
     tslib: "npm:^2.4.0"
+    tslog: "npm:^4.9.3"
   bin:
     bb.js: dest/node/main.js
   languageName: node
@@ -797,7 +796,6 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.3"
-    chalk: "npm:^5.3.0"
     change-case: "npm:^5.4.4"
     copy-webpack-plugin: "npm:^12.0.2"
     debug: "npm:^4.3.4"
@@ -12345,13 +12343,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fflate@npm:^0.8.0":
-  version: 0.8.2
-  resolution: "fflate@npm:0.8.2"
-  checksum: 10/2bd26ba6d235d428de793c6a0cd1aaa96a06269ebd4e21b46c8fd1bd136abc631acf27e188d47c3936db090bf3e1ede11d15ce9eae9bffdc4bfe1b9dc66ca9cb
-  languageName: node
-  linkType: hard
-
 "file-entry-cache@npm:^8.0.0":
   version: 8.0.0
   resolution: "file-entry-cache@npm:8.0.0"
@@ -21717,6 +21708,13 @@ __metadata:
   version: 2.6.2
   resolution: "tslib@npm:2.6.2"
   checksum: 10/bd26c22d36736513980091a1e356378e8b662ded04204453d353a7f34a4c21ed0afc59b5f90719d4ba756e581a162ecbf93118dc9c6be5acf70aa309188166ca
+  languageName: node
+  linkType: hard
+
+"tslog@npm:^4.9.3":
+  version: 4.9.3
+  resolution: "tslog@npm:4.9.3"
+  checksum: 10/134ea14335902b64a49e3ab02f03bab7746e114e1bed6c4a0e9aaf7927d2f7816f5fad50406b905e52fac9f9897cb3f19bd7be84e2c23153f0fc7752277d2622
   languageName: node
   linkType: hard
 
