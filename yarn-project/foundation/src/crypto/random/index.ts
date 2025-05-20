@@ -8,7 +8,7 @@ export const randomBytes = (len: number) => {
   if (singleton.isDeterministic()) {
     return singleton.getBytes(len);
   }
-  return bbRandomBytes(len) as Buffer<ArrayBuffer>;
+  return Buffer.from(bbRandomBytes(len)) as Buffer<ArrayBuffer>;
 };
 
 /**
