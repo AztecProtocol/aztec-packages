@@ -29,7 +29,6 @@ __metadata:
     "@jest/globals": "npm:^29.4.3"
     "@swc/core": "npm:^1.10.1"
     "@swc/jest": "npm:^0.2.37"
-    "@types/debug": "npm:^4.1.7"
     "@types/detect-node": "npm:^2.0.0"
     "@types/jest": "npm:^29.4.0"
     "@types/node": "npm:^22.15.17"
@@ -1384,15 +1383,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/debug@npm:^4.1.7":
-  version: 4.1.12
-  resolution: "@types/debug@npm:4.1.12"
-  dependencies:
-    "@types/ms": "npm:*"
-  checksum: 10/47876a852de8240bfdaf7481357af2b88cb660d30c72e73789abf00c499d6bc7cd5e52f41c915d1b9cd8ec9fef5b05688d7b7aef17f7f272c2d04679508d1053
-  languageName: node
-  linkType: hard
-
 "@types/detect-node@npm:^2.0.0":
   version: 2.0.2
   resolution: "@types/detect-node@npm:2.0.2"
@@ -1548,13 +1538,6 @@ __metadata:
   version: 1.3.5
   resolution: "@types/mime@npm:1.3.5"
   checksum: 10/e29a5f9c4776f5229d84e525b7cd7dd960b51c30a0fb9a028c0821790b82fca9f672dab56561e2acd9e8eed51d431bde52eafdfef30f643586c4162f1aecfc78
-  languageName: node
-  linkType: hard
-
-"@types/ms@npm:*":
-  version: 0.7.34
-  resolution: "@types/ms@npm:0.7.34"
-  checksum: 10/f38d36e7b6edecd9badc9cf50474159e9da5fa6965a75186cceaf883278611b9df6669dc3a3cc122b7938d317b68a9e3d573d316fcb35d1be47ec9e468c6bd8a
   languageName: node
   linkType: hard
 

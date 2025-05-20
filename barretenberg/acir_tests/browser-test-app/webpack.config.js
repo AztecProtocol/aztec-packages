@@ -19,11 +19,6 @@ export default {
   },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), "./dest"),
-    filename: "[name].js",
-    chunkFormat: 'module',
-  },
-  experiments: {
-    outputModule: true,
   },
   plugins: [
     new HtmlWebpackPlugin({ inject: false, template: "./src/index.html" }),

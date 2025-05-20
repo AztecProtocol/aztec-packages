@@ -82,7 +82,6 @@
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
-    "@types/debug": "^4.1.7",
     "@types/jest": "^29.5.0",
     "@types/lodash.groupby": "^4.6.9",
     "@types/lodash.omit": "^4.5.7",

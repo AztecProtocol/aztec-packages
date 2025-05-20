@@ -15,12 +15,6 @@ export default {
   // devtool: 'source-map',
   entry: {
     index: './src/index.ts',
-    // Force inclusion of inlined wasm files without mangling await import statements.
-    barretenberg: { import: './src/barretenberg_wasm/fetch_code/browser/barretenberg.ts', filename: 'barretenberg.js' },
-    "barretenberg-threads": { import: './src/barretenberg_wasm/fetch_code/browser/barretenberg-threads.ts', filename: 'barretenberg-threads.js' },
-    // Force inclusion of worker threads without mangling worker import statements.
-    main: { import: './src/barretenberg_wasm/barretenberg_wasm_main/factory/browser/main.worker.ts', filename: 'main.worker.js' },
-    thread: { import: './src/barretenberg_wasm/barretenberg_wasm_thread/factory/browser/thread.worker.ts', filename: 'thread.worker.js' },
   },
   module: {
     parser: {
@@ -54,7 +48,6 @@ export default {
     library: {
       type: 'module',
     },
-    asyncChunks: false,
   },
   optimization: {
     minimizer: [
