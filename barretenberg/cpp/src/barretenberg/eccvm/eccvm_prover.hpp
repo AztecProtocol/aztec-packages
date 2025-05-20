@@ -38,7 +38,7 @@ class ECCVMProver {
     using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
 
     explicit ECCVMProver(CircuitBuilder& builder,
-                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                         const std::shared_ptr<Transcript>& transcript,
                          const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
     BB_PROFILE void execute_wire_commitments_round();
