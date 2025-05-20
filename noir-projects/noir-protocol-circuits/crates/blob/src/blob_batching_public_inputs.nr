@@ -78,7 +78,6 @@ impl Empty for BatchingBlobCommitment {
 // So, e.g., can just call point.compress_to_bytes() in future. For now:
 pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) {
     let (flags, x) = get_flags(point);
-    // TODO(#13609): use built in .to_be_bytes() in bignum 0.7.0
     let mut compressed = x.to_be_bytes();
     let most_sig_bits = byte_to_bits_be(compressed[0]);
     // TODO(MW): May not need to assert this since Bignum may check it's 381 bits?
@@ -442,6 +441,66 @@ mod tests {
             reconstructed_y
         };
         assert_eq(reconstructed_y, point.y);
+    }
+
+    #[test]
+    unconstrained fn test_point_compression_greater() {
+        // Note that this p is the negation of p from the test test_point_compression_not_greater...
+        let p = BLSPoint {
+            x: Q::from_limbs([
+                0x2616100269935afcb1b98c85d5e93e,
+                0x96a76064f68c0d4f659f25a046a6d4,
+                0x62cc6c3ab4c1ac1abcb9da9677e127,
+                0x0f2f5f,
+            ]),
+            y: Q::from_limbs([
+                0x3a9f24892593bdff45e837976d7857,
+                0x60e8fb551976c560b98e9554ab95ce,
+                0x3e3f3b48eae5fb8b8b1efb31c70b9e,
+                0x0f0f2d,
+            ]),
+            is_infinity: false,
+        };
+
+        let compressed_point = compress_to_blob_commitment(p).compressed;
+
+        // ...so the compressed point only differs in the first byte, where the is_greater flag is stored.
+        let expected_compressed_point_greater = [
+            175, 47, 95, 98, 204, 108, 58, 180, 193, 172, 26, 188, 185, 218, 150, 119, 225, 39, 150,
+            167, 96, 100, 246, 140, 13, 79, 101, 159, 37, 160, 70, 166, 212, 38, 22, 16, 2, 105,
+            147, 90, 252, 177, 185, 140, 133, 213, 233, 62,
+        ];
+        assert_eq(expected_compressed_point_greater, compressed_point);
+    }
+
+    #[test]
+    unconstrained fn test_point_compression_not_greater() {
+        // Note that this p is the negation of p from the test test_point_compression_greater...
+        let p = BLSPoint {
+            x: Q::from_limbs([
+                0x2616100269935afcb1b98c85d5e93e,
+                0x96a76064f68c0d4f659f25a046a6d4,
+                0x62cc6c3ab4c1ac1abcb9da9677e127,
+                0x0f2f5f,
+            ]),
+            y: Q::from_limbs([
+                0x7160da282e6c41bab917c868923254,
+                0xea9bf82ff948a1d01912615c4a8e50,
+                0xabfa449daf65201c2b24507b1058d8,
+                0x0af1e4,
+            ]),
+            is_infinity: false,
+        };
+
+        let compressed_point = compress_to_blob_commitment(p).compressed;
+
+        // ...so the compressed point only differs in the first byte, where the is_greater flag is stored.
+        let expected_compressed_point_not_greater = [
+            143, 47, 95, 98, 204, 108, 58, 180, 193, 172, 26, 188, 185, 218, 150, 119, 225, 39, 150,
+            167, 96, 100, 246, 140, 13, 79, 101, 159, 37, 160, 70, 166, 212, 38, 22, 16, 2, 105,
+            147, 90, 252, 177, 185, 140, 133, 213, 233, 62,
+        ];
+        assert_eq(expected_compressed_point_not_greater, compressed_point);
     }
 
     #[test]
