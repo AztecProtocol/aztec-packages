@@ -48,6 +48,7 @@ namespace execution;
     pol commit last_child_success; // Careful with this for now...
 
     // ==== Gas ====
+    // TODO: Constrain the evolution of these columns with calls and returns
     pol commit l2_gas_limit;
     pol commit da_gas_limit;
     pol commit l2_gas_used;

@@ -1,6 +1,7 @@
 include "precomputed.pil";
 
 // This is a virtual gadget, which is part of the execution trace.
+// TODO: Overflow checks: might be needed? especially for dynamic gas
 namespace execution;
 
     // ==== BASE GAS ====
