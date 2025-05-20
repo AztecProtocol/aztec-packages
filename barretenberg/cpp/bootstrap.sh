@@ -8,6 +8,13 @@ export native_preset=${NATIVE_PRESET:-clang16-assert}
 export pic_preset=${PIC_PRESET:-clang16-pic-assert}
 export hash=$(cache_content_hash .rebuild_patterns)
 
+# Mostly arbitrary set that touches lots of the code.
+declare -A asan_tests=(
+  ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
+  ["client_ivc_tests"]="ClientIVCTests.BasicStructured"
+  ["ultra_honk_tests"]="MegaHonkTests/0.BasicStructured"
+  ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+)
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
@@ -46,6 +53,16 @@ function build_native {
     ./format.sh check
     build_preset $native_preset
     cache_upload barretenberg-native-$hash.zst build/bin
+  fi
+}
+
+# Selectively build components with address sanitizer (with optimizations)
+function build_asan_fast {
+  set -eu
+  if ! cache_download barretenberg-asan-fast-$hash.zst; then
+    # Pass the keys from asan_tests to the build_preset function.
+    build_preset asan-fast --target "${!asan_tests[@]}"
+    cache_upload barretenberg-asan-fast-$hash.zst build-asan-fast/bin
   fi
 }
 
@@ -145,7 +162,7 @@ function build_release {
   fi
 }
 
-export -f build_preset build_native build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only
+export -f build_preset build_native build_asan_fast build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only
 
 function build {
   echo_header "bb cpp build"
@@ -156,8 +173,7 @@ function build {
     build_wasm_threads
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-    # TODO figure out why this is failing on arm64 with ultra circuit builder string op overflow.
-    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only)
+    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
   fi
   if [ "$CI_FULL" -eq 1 ]; then
     builds+=(build_darwin)
@@ -188,8 +204,14 @@ function test_cmds {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
   if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-    # We only want to sanity check that we haven't broken wasm ecc ops in merge queue.
+    # We only want to sanity check that we haven't broken wasm ecc in merge queue.
     echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+    # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
+    for bin_name in "${!asan_tests[@]}"; do
+      local filter=${asan_tests[$bin_name]}
+      local prefix="$hash:CPUS=4:MEM=8g"
+      echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+    done
   fi
   echo "$hash barretenberg/cpp/scripts/test_civc_standalone_vks_havent_changed.sh"
 }
@@ -286,7 +308,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
+  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
     $cmd "$@"
     ;;
   *)

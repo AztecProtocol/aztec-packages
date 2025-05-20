@@ -14,10 +14,6 @@ import { type SequencerClientConfig, sequencerClientConfigMappings } from '@azte
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
 
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
-
 import { type SentinelConfig, sentinelConfigMappings } from '../sentinel/config.js';
 
 export { sequencerClientConfigMappings, type SequencerClientConfig };
@@ -70,16 +66,4 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
  */
 export function getConfigEnvVars(): AztecNodeConfig {
   return getConfigFromMappings<AztecNodeConfig>(aztecNodeConfigMappings);
-}
-
-/**
- * Returns package version.
- */
-export function getPackageVersion() {
-  const releasePleaseManifestPath = resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    '../../../../.release-please-manifest.json',
-  );
-  const version = JSON.parse(readFileSync(releasePleaseManifestPath).toString());
-  return version['.'];
 }
