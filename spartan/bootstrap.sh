@@ -62,7 +62,7 @@ function test_cmds {
   # echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
-    echo "$hash:TIMEOUT=20m ./spartan/bootstrap.sh test-kind-transfer"
+    echo "$hash:TIMEOUT=20m ./spartan/bootstrap.sh test-gke-transfer"
     # TODO(#12791) re-enable
     # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-proving"
     # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-4epochs"
