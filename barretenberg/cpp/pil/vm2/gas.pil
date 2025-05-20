@@ -5,12 +5,14 @@ namespace execution;
 
     // ==== BASE GAS ====
 
+    // Looked up in execution.pil
     pol commit opcode_gas;
     pol commit addressing_gas;
 
     pol commit l2_base_gas;
     opcode_gas + addressing_gas - l2_base_gas = 0;
 
+    // Looked up in execution.pil
     pol commit da_base_gas;
 
     pol commit out_of_gas_l2_base;
@@ -23,24 +25,24 @@ namespace execution;
     pol commit out_of_gas_base;
     (1 - out_of_gas_l2_base) * (1 - out_of_gas_da_base) - (1 - out_of_gas_base) = 0;
 
-    // TODO use opcode gas from the lookup into the instruction spec
-
     #[ADDRESSING_GAS_READ]
     sel { indirect, addressing_gas }
     in
     precomputed.sel_addressing_gas
         { precomputed.clk, precomputed.addressing_gas };
 
-    // TODO read the da base gas from the instruction spec
-
-
-    // From the previous row
+    // nested_exit_call = 1 <==> prev_gas_used' = parent_gas_used + gas_used
+    // sel_enter_call   = 1 <==> prev_gas_used' = 0
+    // otherwise        = 0 <==> prev_gas_used' = prev_gas_used
     pol commit prev_l2_gas_used;
     pol commit prev_da_gas_used;
 
-    // TODO Commented out since boundary conditions are not handled yet
-    // prev_l2_gas_used' - l2_gas_used = 0;
-    // prev_da_gas_used' - da_gas_used = 0;
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_used - prev_l2_gas_used') = 0;
+    NOT_LAST_EXEC * sel_enter_call * prev_l2_gas_used' = 0;
+    NOT_LAST_EXEC * nested_exit_call * (parent_l2_gas_used + l2_gas_used - prev_l2_gas_used') = 0;
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (prev_da_gas_used' - da_gas_used) = 0;
+    NOT_LAST_EXEC * sel_enter_call * prev_da_gas_used' = 0;
+    NOT_LAST_EXEC * nested_exit_call * (parent_da_gas_used + da_gas_used - prev_da_gas_used') = 0;
 
     // Check l2 base gas
 
@@ -106,7 +108,9 @@ namespace execution;
     (1 - should_run_dyn_gas_check) * l2_dynamic_gas_factor = 0;
     pol commit da_dynamic_gas_factor;
     (1 - should_run_dyn_gas_check) * da_dynamic_gas_factor = 0;
+    // Looked up in execution.pil
     pol commit l2_dynamic_gas;
+    // Looked up in execution.pil
     pol commit da_dynamic_gas;
 
     pol commit out_of_gas_l2_dynamic;
@@ -121,11 +125,6 @@ namespace execution;
 
     // out_of_gas_dynamic and out_of_gas_base are mutually exclusive
     out_of_gas_dynamic * out_of_gas_base = 0;
-
-    // TODO read the l2 dynamic gas from the instruction spec
-
-    // TODO read the da dynamic gas from the instruction spec
-
 
     // Check l2 dynamic gas
 
@@ -181,7 +180,7 @@ namespace execution;
 
 
     // ==== GAS USED CONSTRAINING ====
-
+    // Safe since they are mutually exclusive
     pol OUT_OF_GAS = out_of_gas_base + out_of_gas_dynamic;
     pol PREV_GAS_PLUS_USAGE_L2 = prev_l2_gas_used + l2_base_gas + l2_dynamic_gas;
     pol PREV_GAS_PLUS_USAGE_DA = prev_da_gas_used + da_base_gas + da_dynamic_gas;

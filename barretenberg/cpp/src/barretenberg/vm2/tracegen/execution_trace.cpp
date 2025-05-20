@@ -9,6 +9,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -49,8 +50,6 @@ void ExecutionTraceBuilder::process(
     std::transform(orig_events.begin(), orig_events.end(), ex_events.begin(), [](const auto& event) { return &event; });
     std::ranges::sort(ex_events, [](const auto& lhs, const auto& rhs) { return lhs->order < rhs->order; });
 
-    uint32_t prev_l2_gas_used = 0;
-    uint32_t prev_da_gas_used = 0;
     uint32_t last_seen_parent_id = 0;
     FF cached_parent_id_inv = 0;
 
@@ -238,8 +237,8 @@ void ExecutionTraceBuilder::process(
                   } });
 
         // Base gas
-        uint32_t l2_gas_after_base = prev_l2_gas_used + ex_event.gas_event.base_gas.l2Gas;
-        uint32_t da_gas_after_base = prev_da_gas_used + ex_event.gas_event.base_gas.daGas;
+        uint32_t l2_gas_after_base = ex_event.gas_event.prev_gas_used.l2Gas + ex_event.gas_event.base_gas.l2Gas;
+        uint32_t da_gas_after_base = ex_event.gas_event.prev_gas_used.daGas + ex_event.gas_event.base_gas.daGas;
 
         uint32_t limit_used_l2_base_cmp_diff =
             gas_comparison_witness(ex_event.context_event.gas_limit.l2Gas, l2_gas_after_base);
@@ -279,8 +278,8 @@ void ExecutionTraceBuilder::process(
                 { C::execution_out_of_gas_l2_base, ex_event.gas_event.oog_l2_base },
                 { C::execution_out_of_gas_da_base, ex_event.gas_event.oog_da_base },
                 { C::execution_out_of_gas_base, ex_event.gas_event.oog_l2_base || ex_event.gas_event.oog_da_base },
-                { C::execution_prev_l2_gas_used, prev_l2_gas_used },
-                { C::execution_prev_da_gas_used, prev_da_gas_used },
+                { C::execution_prev_l2_gas_used, ex_event.gas_event.prev_gas_used.l2Gas },
+                { C::execution_prev_da_gas_used, ex_event.gas_event.prev_gas_used.daGas },
                 { C::execution_limit_used_l2_base_cmp_diff, limit_used_l2_base_cmp_diff },
                 { C::execution_limit_used_l2_base_cmp_diff_lo, limit_used_l2_base_cmp_diff_lo },
                 { C::execution_limit_used_l2_base_cmp_diff_hi, limit_used_l2_base_cmp_diff_hi },
@@ -304,9 +303,6 @@ void ExecutionTraceBuilder::process(
                 { C::execution_limit_used_da_dynamic_cmp_diff_hi, limit_used_da_dynamic_cmp_diff_hi },
             } });
 
-        prev_l2_gas_used = ex_event.context_event.gas_used.l2Gas;
-        prev_da_gas_used = ex_event.context_event.gas_used.daGas;
-
         row++;
     }
 
@@ -318,6 +314,8 @@ void ExecutionTraceBuilder::process(
 std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder::lookup_jobs()
 {
     return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        // Execution
+        std::make_unique<LookupIntoIndexedByClk<lookup_execution_exec_spec_read_settings>>(),
         // Gas
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_limit_used_l2_base_range_lo_settings>>(),

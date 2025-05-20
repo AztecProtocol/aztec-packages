@@ -37,6 +37,7 @@
 #include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
+#include "relations/lookups_execution.hpp"
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
 #include "relations/lookups_instr_fetching.hpp"
@@ -54,10 +55,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 73;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2179;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2181;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 148;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2398;
+    static constexpr size_t NUM_ALL_ENTITIES = 2402;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -123,6 +124,7 @@ struct AvmFlavorVariables {
         lookup_context_ctx_stack_call_relation<FF_>,
         lookup_context_ctx_stack_return_relation<FF_>,
         lookup_context_ctx_stack_rollback_relation<FF_>,
+        lookup_execution_exec_spec_read_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,

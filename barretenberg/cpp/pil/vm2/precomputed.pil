@@ -100,7 +100,8 @@ pol constant p_decomposition_limb;
 // Maps an execution opcode value to useful information used during execution
 // - Gas Costs
 // - Opcode memory operations and destination registers
-pol constant exec_opcode_value; // Would be nice to re-use exec_opcode but that has duplicate lines (i.e. ADD_8 & ADD_16 map to ADD)
+pol constant sel_exec_spec;
+// exec_opcode is clk
 pol constant exec_opcode_base_l2_gas;
 pol constant exec_opcode_base_da_gas;
 pol constant exec_opcode_dynamic_l2_gas;
@@ -122,5 +123,7 @@ pol constant sel_dispatch_ecc;
     // Add more here
 pol constant subtrace_operation_id;
 
+// Addressing gas
 pol constant sel_addressing_gas;
+// Indirect is clk
 pol constant addressing_gas;

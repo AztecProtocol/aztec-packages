@@ -60,6 +60,8 @@ struct OutOfGasException : public std::runtime_error {
 };
 
 struct GasEvent {
+    Gas prev_gas_used;
+
     uint32_t opcode_gas;
     uint32_t addressing_gas;
     Gas base_gas;

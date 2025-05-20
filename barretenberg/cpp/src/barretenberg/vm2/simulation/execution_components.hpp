@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
+#include "barretenberg/vm2/simulation/gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
 
@@ -38,6 +39,9 @@ class ExecutionComponentsProviderInterface {
                                                                     Gas gas_used) = 0;
 
     virtual std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) = 0;
+
+    virtual std::unique_ptr<GasTrackerInterface> make_gas_tracker(ContextInterface& context,
+                                                                  Instruction instruction) = 0;
 
     // This can be removed if we use clk for the context id
     virtual uint32_t get_next_context_id() = 0;
@@ -68,6 +72,8 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
                                                             Gas gas_limit,
                                                             Gas gas_used) override;
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
+
+    std::unique_ptr<GasTrackerInterface> make_gas_tracker(ContextInterface& context, Instruction instruction) override;
 
     uint32_t get_next_context_id() override { return next_context_id; }
 

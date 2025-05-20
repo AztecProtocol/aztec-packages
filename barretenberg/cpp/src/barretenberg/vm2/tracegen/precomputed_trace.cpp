@@ -221,7 +221,6 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
 {
     using C = Column;
 
-    uint32_t row = 0;
     for (const auto& [exec_opcode, exec_instruction_spec] : EXEC_INSTRUCTION_SPEC) {
         auto dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
         uint8_t alu_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0;
@@ -232,8 +231,8 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
 
         auto register_info = REGISTER_INFO_MAP.at(exec_opcode);
 
-        trace.set(row,
-                  { { { C::precomputed_exec_opcode_value, static_cast<uint32_t>(exec_opcode) },
+        trace.set(static_cast<uint32_t>(exec_opcode),
+                  { { { C::precomputed_sel_exec_spec, 1 },
                       { C::precomputed_exec_opcode_base_l2_gas, exec_instruction_spec.gas_cost.base_l2 },
                       { C::precomputed_exec_opcode_base_da_gas, exec_instruction_spec.gas_cost.base_da },
                       { C::precomputed_exec_opcode_dynamic_l2_gas, exec_instruction_spec.gas_cost.dyn_l2 },
@@ -260,7 +259,6 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
                       { C::precomputed_sel_dispatch_to_radix, to_radix_sel },
                       { C::precomputed_sel_dispatch_ecc, ecc_sel },
                       { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id } } });
-        row++;
     }
 }
 

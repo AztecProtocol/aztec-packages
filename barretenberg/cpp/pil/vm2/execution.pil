@@ -93,3 +93,20 @@ last * sel' = 0;
 
 // These are needed to have a non-empty set of columns for each type.
 pol public input;
+
+#[EXEC_SPEC_READ]
+sel {
+    ex_opcode,
+    opcode_gas,
+    da_base_gas,
+    l2_dynamic_gas,
+    da_dynamic_gas
+    // Mem ops, subtrace selectors, etc
+} in
+precomputed.sel_exec_spec {
+    precomputed.clk,
+    precomputed.exec_opcode_base_l2_gas,
+    precomputed.exec_opcode_base_da_gas,
+    precomputed.exec_opcode_dynamic_l2_gas,
+    precomputed.exec_opcode_dynamic_da_gas
+};

@@ -165,9 +165,10 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
 
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
 
-            GasTracker gas_tracker(instruction_info_db, context, instruction);
+            // Change this to use the execution components as provider for DI.
+            auto gas_tracker = execution_components.make_gas_tracker(context, instruction);
 
-            gas_tracker.consume_base_gas();
+            gas_tracker->consume_base_gas();
 
             // Resolve the operands.
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
@@ -184,7 +185,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
             ex_event.inputs = get_inputs();
             ex_event.output = get_output();
-            ex_event.gas_event = gas_tracker.finish();
+            ex_event.gas_event = gas_tracker->finish();
 
             // Move on to the next pc.
             context.set_pc(context.get_next_pc());

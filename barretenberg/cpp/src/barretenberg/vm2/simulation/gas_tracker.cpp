@@ -21,10 +21,9 @@ void GasTracker::consume_base_gas()
         spec.gas_cost.base_da,
     };
 
-    Gas prev_gas_used = context.get_gas_used();
     Gas gas_limit = context.get_gas_limit();
 
-    Gas gas_used = prev_gas_used;
+    Gas gas_used = gas_event.prev_gas_used;
     gas_used.l2Gas += gas_event.base_gas.l2Gas;
     gas_used.daGas += gas_event.base_gas.daGas;
 
