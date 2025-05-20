@@ -206,9 +206,6 @@ class ECCOpQueue {
     UltraOp no_op_ultra_only()
     {
         EccOpCode op_code{};
-        accumulator.self_set_infinity();
-        // Store eccvm operation
-        append_eccvm_op(ECCVMOperation{ .op_code = op_code });
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(op_code, accumulator);
