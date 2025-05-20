@@ -16,8 +16,6 @@ GAS_LIMIT=${GAS_LIMIT:-"1000000000"}
 CHAIN_ID=${CHAIN_ID:-"1337"}
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
 
-echo "GENERATING GENESIS FILES AT $GENESIS_PATH"
-
 # Install cast if it is not installed
 if ! command -v cast &> /dev/null; then
   curl -L https://foundry.paradigm.xyz | bash
