@@ -243,7 +243,7 @@ pub contract NFT {
     /// resulting `partial_note` must be passed as an argument to this function.
     ///
     /// Note that this contract does not protect against a `partial_note` being used multiple times and it is up to
-    /// the developer to ensure that it doesn't happen. If the same `partial_note` is used multiple times, the NFT
+    /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple times, the NFT
     /// with `token_id` would most likely get lost (the partial note log processing functionality would fail to find
     /// the pending partial note when trying to complete it).
     // docs:start:finalize_transfer_to_private
