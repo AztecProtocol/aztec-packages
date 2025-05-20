@@ -90,7 +90,11 @@ export class Not extends Instruction {
   static readonly wireFormat8 = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT8, OperandType.UINT8];
   static readonly wireFormat16 = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
-  constructor(private indirect: number, private srcOffset: number, private dstOffset: number) {
+  constructor(
+    private indirect: number,
+    private srcOffset: number,
+    private dstOffset: number,
+  ) {
     super();
   }
 

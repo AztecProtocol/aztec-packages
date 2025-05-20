@@ -199,20 +199,22 @@ export class NoteDataProvider implements DataProvider {
               this.#notesByRecipientAndScope.get(formattedScopeString)!.getValuesAsync(filter.recipient.toString()),
             )
           : filter.txHash
-          ? await toArray(
-              this.#notesByTxHashAndScope.get(formattedScopeString)!.getValuesAsync(filter.txHash.toString()),
-            )
-          : filter.contractAddress
-          ? await toArray(
-              this.#notesByContractAndScope
-                .get(formattedScopeString)!
-                .getValuesAsync(filter.contractAddress.toString()),
-            )
-          : filter.storageSlot
-          ? await toArray(
-              this.#notesByStorageSlotAndScope.get(formattedScopeString)!.getValuesAsync(filter.storageSlot.toString()),
-            )
-          : await toArray(this.#notesByRecipientAndScope.get(formattedScopeString)!.valuesAsync()),
+            ? await toArray(
+                this.#notesByTxHashAndScope.get(formattedScopeString)!.getValuesAsync(filter.txHash.toString()),
+              )
+            : filter.contractAddress
+              ? await toArray(
+                  this.#notesByContractAndScope
+                    .get(formattedScopeString)!
+                    .getValuesAsync(filter.contractAddress.toString()),
+                )
+              : filter.storageSlot
+                ? await toArray(
+                    this.#notesByStorageSlotAndScope
+                      .get(formattedScopeString)!
+                      .getValuesAsync(filter.storageSlot.toString()),
+                  )
+                : await toArray(this.#notesByRecipientAndScope.get(formattedScopeString)!.valuesAsync()),
       );
     }
 
@@ -226,12 +228,12 @@ export class NoteDataProvider implements DataProvider {
         ids: filter.recipient
           ? await toArray(this.#nullifiedNotesByRecipient.getValuesAsync(filter.recipient.toString()))
           : filter.txHash
-          ? await toArray(this.#nullifiedNotesByTxHash.getValuesAsync(filter.txHash.toString()))
-          : filter.contractAddress
-          ? await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString()))
-          : filter.storageSlot
-          ? await toArray(this.#nullifiedNotesByStorageSlot.getValuesAsync(filter.storageSlot.toString()))
-          : await toArray(this.#nullifiedNotes.keysAsync()),
+            ? await toArray(this.#nullifiedNotesByTxHash.getValuesAsync(filter.txHash.toString()))
+            : filter.contractAddress
+              ? await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString()))
+              : filter.storageSlot
+                ? await toArray(this.#nullifiedNotesByStorageSlot.getValuesAsync(filter.storageSlot.toString()))
+                : await toArray(this.#nullifiedNotes.keysAsync()),
         notes: this.#nullifiedNotes,
       });
     }

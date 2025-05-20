@@ -321,4 +321,37 @@ describe('In-Memory P2P Client', () => {
       expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(15n);
     });
   });
+
+  describe('Chain events', () => {
+    beforeEach(() => {
+      // P2P client skips syncing first 100 blocks if tx pool is empty
+      txPool.isEmpty.mockResolvedValue(true);
+    });
+
+    it('syncs new blocks', async () => {
+      await client.start();
+      blockSource.addBlocks([await L2Block.random(101), await L2Block.random(102)]);
+      await client.sync();
+      expect(await client.getSyncedLatestBlockNum()).toEqual(102);
+    });
+
+    it('handles proven and finalized chain behind starting point', async () => {
+      blockSource.setProvenBlockNumber(0);
+      blockSource.setFinalizedBlockNumber(0);
+
+      await client.start();
+
+      const provenBlock = await client.getSyncedProvenBlockNum();
+      const finalizedBlock = await client.getSyncedFinalizedBlockNum();
+
+      expect(provenBlock).toEqual(0);
+      expect(finalizedBlock).toEqual(0);
+
+      await advanceToProvenBlock(10);
+      await advanceToFinalizedBlock(5);
+
+      expect(await client.getSyncedProvenBlockNum()).toEqual(10);
+      expect(await client.getSyncedFinalizedBlockNum()).toEqual(5);
+    });
+  });
 });

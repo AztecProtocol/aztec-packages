@@ -63,7 +63,7 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "bench")
+  bench|bench_cmds)
     # Empty handling just to make this command valid.
     ;;
   test|test_cmds|release)

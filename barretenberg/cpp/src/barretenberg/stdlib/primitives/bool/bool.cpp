@@ -576,7 +576,6 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
     return *this;
 }
 
-template class bool_t<bb::StandardCircuitBuilder>;
 template class bool_t<bb::UltraCircuitBuilder>;
 template class bool_t<bb::MegaCircuitBuilder>;
 

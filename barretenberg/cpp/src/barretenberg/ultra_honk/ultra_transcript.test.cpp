@@ -3,7 +3,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -261,7 +261,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
         ipa_proof = HonkProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
-        honk_proof = HonkProof(proof.begin(), proof.end() + honk_proof_with_pub_inputs_length);
+        honk_proof = HonkProof(proof.begin(), proof.begin() + honk_proof_with_pub_inputs_length);
     } else {
         honk_proof = proof;
     }
