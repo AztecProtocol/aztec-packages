@@ -35,7 +35,7 @@ chaos_values="${CHAOS_VALUES:-}"
 fresh_install="${FRESH_INSTALL:-false}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 cleanup_cluster=${CLEANUP_CLUSTER:-false}
-install_metrics=${INSTALL_METRICS:-true}
+install_metrics=${INSTALL_METRICS:-false}
 project_id=${PROJECT_ID:-}
 # NOTE: slated for removal along with e2e image!
 use_docker=${USE_DOCKER:-true}
@@ -99,7 +99,7 @@ function cleanup {
   # kill everything in our process group except our process
   trap - SIGTERM && kill $stern_pid $(jobs -p) &>/dev/null || true
 
-  if [ "$cleanup_cluster" = "true" ]; then
+  if [[ "$cleanup_cluster" = "true" && "$target" = "kind" ]]; then
     kind delete cluster || true
   elif [ "$fresh_install" = "true" ]; then
     # Run helm uninstall first to ensure post-delete hooks are run
