@@ -1,4 +1,8 @@
-use bigcurve::{BigCurveTrait, curves::bls12_381::{BLS12_381, BLS12_381Scalar}};
+use bigcurve::{
+    BigCurveTrait,
+    curves::bls12_381::{BLS12_381, BLS12_381Scalar},
+    scalar_field::ScalarFieldTrait,
+};
 use bigint::{BigNum, BLS12_381_Fq as Q, BLS12_381_Fr as F};
 use std::ops::{Add, Mul};
 use types::{
