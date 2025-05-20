@@ -562,6 +562,11 @@ pub global MEM_TAG_U32: Field = 4;
 pub global MEM_TAG_U64: Field = 5;
 pub global MEM_TAG_U128: Field = 6;
 
+// AVM bitwise operation IDs
+pub global AVM_BITWISE_AND_OP_ID: u8 = 0;
+pub global AVM_BITWISE_OR_OP_ID: u8 = 1;
+pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
+
 // AvmCircuitPublicInputs - row indices
 // TODO(dbanks12): could we somehow use Noir macros to generate these?
 // TODO(dbanks12): could we somehow generate these from the actual struct? Or no, because codegen can't use that?

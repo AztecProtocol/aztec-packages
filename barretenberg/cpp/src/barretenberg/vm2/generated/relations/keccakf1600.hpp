@@ -13,7 +13,13 @@ template <typename FF_> class keccakf1600Impl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS = { 2, 2 };
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 2, 2, 3, 3 };
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        using C = ColumnAndShifts;
+        return (in.get(C::keccakf1600_sel)).is_zero();
+    }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -22,6 +28,8 @@ template <typename FF_> class keccakf1600Impl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        const auto constants_AVM_BITWISE_XOR_OP_ID = FF(2);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -34,6 +42,19 @@ template <typename FF_> class keccakf1600Impl {
             auto tmp = (in.get(C::keccakf1600_keccak_1_) - in.get(C::keccakf1600_keccak_1_));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
+            auto tmp = in.get(C::keccakf1600_sel) * (FF(1) - in.get(C::keccakf1600_sel));
+            tmp *= scaling_factor;
+            std::get<2>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+            auto tmp = in.get(C::keccakf1600_sel) *
+                       (in.get(C::keccakf1600_bitwise_xor_op_id) - constants_AVM_BITWISE_XOR_OP_ID);
+            tmp *= scaling_factor;
+            std::get<3>(evals) += typename Accumulator::View(tmp);
         }
     }
 };

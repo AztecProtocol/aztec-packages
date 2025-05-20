@@ -1,4 +1,9 @@
+include "bitwise.pil";
+include "constants_gen.pil";
+
 namespace keccakf1600;
+
+// TODO: Remove the dummy values below
 
 // Dummy.
 pol commit keccak[1000];
@@ -6,3 +11,181 @@ pol commit keccak[1000];
 // Dummy.
 keccak[0] = keccak[0];
 keccak[1] = keccak[1];
+
+
+// keccakf1600 selector
+pol commit sel;
+sel * (1 - sel) = 0;
+
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel = 0;
+
+// TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+pol commit bitwise_xor_op_id;
+sel * (bitwise_xor_op_id - constants.AVM_BITWISE_XOR_OP_ID) = 0;
+
+// keccakf1600 permutation state corresponds to 25 64-bit words. They are indexed by two
+// indices ranging over 0,1,2,3,4.
+// Each state word evolves over the different transformations and a state word is prefixed by
+// "state" and suffixed bye the corresponding indices.
+
+// State words before starting the round.
+pol commit state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
+           state_in_10, state_in_11, state_in_12, state_in_13, state_in_14,
+           state_in_20, state_in_21, state_in_22, state_in_23, state_in_24,
+           state_in_30, state_in_31, state_in_32, state_in_33, state_in_34,
+           state_in_40, state_in_41, state_in_42, state_in_43, state_in_44;
+
+// Theta function
+// For each index i in state_in_ij, we XOR the 5 values state_in_ij together.
+// Denote these values theta_i.
+pol commit theta_xor_0, theta_xor_1, theta_xor_2, theta_xor_3, theta_xor_4;
+
+// We define intermediate values to each zor computation as follows:
+// theta_xor_i1 = state_in_i0 ^ state_in_i1
+// theta_xor_i2 = rhi_xor_i1 ^ state_in_i2
+// theta_xor_i3 = theta_xor_i2 ^ state_in_i3
+// theta_xor_final_i = theta_xor_i3 ^ state_in_i4
+
+// We need 4 lookups to bitwise gadgets per theta_xor_i
+
+//#############################################################################
+//                  Theta XOR Computation Index 0
+//#############################################################################
+
+// state_in_00 ^ state_in_01 = theta_xor_01
+pol commit theta_xor_01;
+#[THETA_XOR_01]
+sel {bitwise_xor_op_id, state_in_00, state_in_01, theta_xor_01} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_01 ^ state_in_02 = theta_xor_02
+pol commit theta_xor_02;
+#[THETA_XOR_02]
+sel {bitwise_xor_op_id, theta_xor_01, state_in_02, theta_xor_02} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_02 ^ state_in_03 = theta_xor_03
+pol commit theta_xor_03;
+#[THETA_XOR_03]
+sel {bitwise_xor_op_id, theta_xor_02, state_in_03, theta_xor_03} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_03 ^ state_in_04 = theta_xor_final_0
+pol commit theta_xor_final_0;
+#[THETA_XOR_FINAL_0]
+sel {bitwise_xor_op_id, theta_xor_03, state_in_04, theta_xor_final_0} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                  Theta XOR Computation Index 1
+//#############################################################################
+
+// state_in_10 ^ state_in_11 = theta_xor_11
+pol commit theta_xor_11;
+#[THETA_XOR_11]
+sel {bitwise_xor_op_id, state_in_10, state_in_11, theta_xor_11} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_11 ^ state_in_12 = theta_xor_12
+pol commit theta_xor_12;
+#[THETA_XOR_12]
+sel {bitwise_xor_op_id, theta_xor_11, state_in_12, theta_xor_12} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_12 ^ state_in_13 = theta_xor_13
+pol commit theta_xor_13;
+#[THETA_XOR_13]
+sel {bitwise_xor_op_id, theta_xor_12, state_in_13, theta_xor_13} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_13 ^ state_in_14 = theta_xor_final_1
+pol commit theta_xor_final_1;
+#[THETA_XOR_FINAL_1]
+sel {bitwise_xor_op_id, theta_xor_13, state_in_14, theta_xor_final_1} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                  Theta XOR Computation Index 2
+//#############################################################################
+
+// state_in_20 ^ state_in_21 = theta_xor_21
+pol commit theta_xor_21;
+#[THETA_XOR_21]
+sel {bitwise_xor_op_id, state_in_20, state_in_21, theta_xor_21} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_21 ^ state_in_22 = theta_xor_22
+pol commit theta_xor_22;
+#[THETA_XOR_22]
+sel {bitwise_xor_op_id, theta_xor_21, state_in_22, theta_xor_22} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_22 ^ state_in_23 = theta_xor_23
+pol commit theta_xor_23;
+#[THETA_XOR_23]
+sel {bitwise_xor_op_id, theta_xor_22, state_in_23, theta_xor_23} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_23 ^ state_in_24 = theta_xor_final_2
+pol commit theta_xor_final_2;
+#[THETA_XOR_FINAL_2]
+sel {bitwise_xor_op_id, theta_xor_23, state_in_24, theta_xor_final_2} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                  Theta XOR Computation Index 3
+//#############################################################################
+
+// state_in_30 ^ state_in_31 = theta_xor_31
+pol commit theta_xor_31;
+#[THETA_XOR_31]
+sel {bitwise_xor_op_id, state_in_30, state_in_31, theta_xor_31} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_31 ^ state_in_32 = theta_xor_32
+pol commit theta_xor_32;
+#[THETA_XOR_32]
+sel {bitwise_xor_op_id, theta_xor_31, state_in_32, theta_xor_32} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_32 ^ state_in_33 = theta_xor_33
+pol commit theta_xor_33;
+#[THETA_XOR_33]
+sel {bitwise_xor_op_id, theta_xor_32, state_in_33, theta_xor_33} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_33 ^ state_in_34 = theta_xor_final_3
+pol commit theta_xor_final_3;
+#[THETA_XOR_FINAL_3]
+sel {bitwise_xor_op_id, theta_xor_33, state_in_34, theta_xor_final_3} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                  Theta XOR Computation Index 4
+//#############################################################################
+
+// state_in_40 ^ state_in_41 = theta_xor_41
+pol commit theta_xor_41;
+#[THETA_XOR_41]
+sel {bitwise_xor_op_id, state_in_40, state_in_41, theta_xor_41} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_41 ^ state_in_42 = theta_xor_42
+pol commit theta_xor_42;
+#[THETA_XOR_42]
+sel {bitwise_xor_op_id, theta_xor_41, state_in_42, theta_xor_42} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_42 ^ state_in_43 = theta_xor_43
+pol commit theta_xor_43;
+#[THETA_XOR_43]
+sel {bitwise_xor_op_id, theta_xor_42, state_in_43, theta_xor_43} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// theta_xor_43 ^ state_in_44 = theta_xor_final_4
+pol commit theta_xor_final_4;
+#[THETA_XOR_FINAL_4]
+sel {bitwise_xor_op_id, theta_xor_43, state_in_44, theta_xor_final_4} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
