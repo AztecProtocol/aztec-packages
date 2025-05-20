@@ -53,10 +53,30 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 25317e64b6 (Theta xor operations with simulation, tracegen, unit test)
     static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = 2315;
+<<<<<<< HEAD
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2212;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2429;
+>>>>>>> 06c527d238 (keccakf1600: firs pil relations for theta xoring)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2315;
+>>>>>>> 434948a93a (Theta xor operations with simulation, tracegen, unit test)
+>>>>>>> 25317e64b6 (Theta xor operations with simulation, tracegen, unit test)
 
     // Need to be templated for recursive verifier
     template <typename FF_>

@@ -39,10 +39,9 @@ pol commit state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
 
 // Theta function
 // For each index i in state_in_ij, we XOR the 5 values state_in_ij together.
-// Denote these values theta_i.
-pol commit theta_xor_0, theta_xor_1, theta_xor_2, theta_xor_3, theta_xor_4;
+// Denote these values theta_xor_final_i.
 
-// We define intermediate values to each zor computation as follows:
+// We define intermediate values to each xor computation as follows:
 // theta_xor_i1 = state_in_i0 ^ state_in_i1
 // theta_xor_i2 = rhi_xor_i1 ^ state_in_i2
 // theta_xor_i3 = theta_xor_i2 ^ state_in_i3
