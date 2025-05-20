@@ -4,12 +4,15 @@ pragma solidity >=0.8.27;
 
 import {Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
 interface IGovernanceProposer {
   event VoteCast(IPayload indexed proposal, uint256 indexed round, address indexed voter);
   event ProposalExecuted(IPayload indexed proposal, uint256 indexed round);
 
   function vote(IPayload _proposal) external returns (bool);
+  function voteWithSig(IPayload _proposal, Signature memory _sig) external returns (bool);
+
   function executeProposal(uint256 _roundNumber) external returns (bool);
   function yeaCount(address _instance, uint256 _round, IPayload _proposal)
     external

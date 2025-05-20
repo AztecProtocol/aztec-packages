@@ -271,7 +271,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         ree.shouldRevert = true;
 
         if (_invalidProposer) {
-          address realProposer = ree.proposer;
           ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
           vm.expectRevert(abi.encodeWithSelector(Errors.SignatureLib__CannotVerifyEmpty.selector));
         } else if (_signatureCount < ree.needed) {

@@ -87,7 +87,7 @@ describe('e2e_p2p_network', () => {
 
     expect(t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress).toBeDefined();
 
-    const { validators, proposerEOAs } = t.getValidators();
+    const { validators } = t.getValidators();
 
     const rollup = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
@@ -106,14 +106,12 @@ describe('e2e_p2p_network', () => {
     // Add the validators to the rollup using the same function as the CLI
     for (let i = 0; i < validators.length; i++) {
       const validator = validators[i];
-      const proposerEOA = proposerEOAs[i];
       await addL1Validator({
         rpcUrls: t.ctx.aztecNodeConfig.l1RpcUrls,
         chainId: t.ctx.aztecNodeConfig.l1ChainId,
         privateKey: t.baseAccountPrivateKey,
         mnemonic: undefined,
-        attesterAddress: EthAddress.fromString(validator.attester),
-        proposerEOAAddress: EthAddress.fromString(proposerEOA),
+        attesterAddress: EthAddress.fromString(validator.attester.toString()),
         stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
         log: t.logger.info,
         debugLogger: t.logger,
@@ -126,8 +124,7 @@ describe('e2e_p2p_network', () => {
     // Check that the validators are added correctly
     const withdrawer = await stakingAssetHandler.read.withdrawer();
     for (const validator of validators) {
-      const info = await rollup.read.getAttesterView([validator.attester]);
-      expect(info.config.proposer).toBe(validator.proposer);
+      const info = await rollup.read.getAttesterView([validator.attester.toString()]);
       expect(info.config.withdrawer).toBe(withdrawer);
     }
 
