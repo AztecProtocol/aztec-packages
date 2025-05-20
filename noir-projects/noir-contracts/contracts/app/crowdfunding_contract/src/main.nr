@@ -18,7 +18,6 @@ pub contract Crowdfunding {
         messages::logs::note::encode_and_encrypt_note,
         prelude::{AztecAddress, PrivateSet, PublicImmutable},
         protocol_types::traits::{Serialize, ToField},
-        unencrypted_logs::unencrypted_event_emission::encode_event,
         utils::comparison::Comparator,
     };
     use dep::uint_note::uint_note::UintNote;
@@ -110,7 +109,7 @@ pub contract Crowdfunding {
     #[public]
     #[internal]
     fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
-        WithdrawalProcessed { amount, who: to }.emit(encode_event(&mut context));
+        WithdrawalProcessed { amount, who: to }.emit_in_public_log(&mut context);
     }
     // docs:end:operator-withdrawals
 }

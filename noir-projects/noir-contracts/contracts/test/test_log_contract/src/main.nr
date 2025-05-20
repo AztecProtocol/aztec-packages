@@ -6,7 +6,6 @@ pub contract TestLog {
     use dep::aztec::messages::logs::event::encode_and_encrypt_event;
     use dep::aztec::prelude::PrivateSet;
     use dep::aztec::protocol_types::{address::AztecAddress, traits::Serialize};
-    use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
     use dep::value_note::value_note::ValueNote;
     use aztec::event::event_interface::EventInterface;
     use aztec::protocol_types::traits::FromField;
@@ -51,16 +50,12 @@ pub contract TestLog {
     #[public]
     fn emit_unencrypted_events(preimages: [Field; 4]) {
         // docs:start:emit_public
-        let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
-
-        event0.emit(encode_event(&mut context));
+        ExampleEvent0 { value0: preimages[0], value1: preimages[1] }.emit_in_public_log(
+            &mut context,
+        );
         // docs:end:emit_public
 
-        let event1 = ExampleEvent1 {
-            value2: AztecAddress::from_field(preimages[2]),
-            value3: preimages[3] as u8,
-        };
-
-        event1.emit(encode_event(&mut context));
+        ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 }
+            .emit_in_public_log(&mut context);
     }
 }
