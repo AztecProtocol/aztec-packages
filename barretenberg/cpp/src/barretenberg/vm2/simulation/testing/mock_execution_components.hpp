@@ -40,6 +40,11 @@ class MockExecutionComponentsProvider : public ExecutionComponentsProviderInterf
 
     MOCK_METHOD(std::unique_ptr<AddressingInterface>, make_addressing, (AddressingEvent & event), (override));
 
+    MOCK_METHOD(std::unique_ptr<GasTrackerInterface>,
+                make_gas_tracker,
+                (ContextInterface & context, Instruction instruction),
+                (override));
+
     MOCK_METHOD(uint32_t, get_next_context_id, (), (override));
 };
 
