@@ -212,7 +212,7 @@ pub contract NFT {
         // validity check.
         let validity_commitment = partial_note.compute_validity_commitment(sender);
 
-        NFT::at(context.this_address())._store_nft_set_partial_note(validity_commitment).enqueue(
+        NFT::at(context.this_address())._set_nft_partial_note_validity(validity_commitment).enqueue(
             context,
         );
 
@@ -223,7 +223,7 @@ pub contract NFT {
     // docs:start:store_payload_in_transient_storage_unsafe
     #[public]
     #[internal]
-    fn _store_nft_set_partial_note(validity_commitment: Field) {
+    fn _set_nft_partial_note_validity(validity_commitment: Field) {
         // We store the partial note validity flag in a slot equal to its validity commitment. This is safe because
         // the commitment is computed using a generator different from the one used to compute storage slots, so there
         // can be no collisions. We could consider storing all pending partial notes in e.g. some array, but ultimately
