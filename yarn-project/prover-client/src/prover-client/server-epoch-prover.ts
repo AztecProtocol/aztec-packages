@@ -11,7 +11,10 @@ import type { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_
 
 /** Encapsulates the proving orchestrator and the broker facade */
 export class ServerEpochProver implements EpochProver {
-  constructor(private facade: BrokerCircuitProverFacade, private orchestrator: ProvingOrchestrator) {}
+  constructor(
+    private facade: BrokerCircuitProverFacade,
+    private orchestrator: ProvingOrchestrator,
+  ) {}
 
   startNewEpoch(
     epochNumber: number,

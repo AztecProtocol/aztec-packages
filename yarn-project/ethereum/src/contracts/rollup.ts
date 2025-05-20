@@ -61,7 +61,10 @@ export class RollupContract {
     return new RollupContract(client, address);
   }
 
-  constructor(public readonly client: ViemClient, address: Hex | EthAddress) {
+  constructor(
+    public readonly client: ViemClient,
+    address: Hex | EthAddress,
+  ) {
     if (address instanceof EthAddress) {
       address = address.toString();
     }

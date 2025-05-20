@@ -93,7 +93,7 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  local node_min_version="18.19.0"
+  local node_min_version="22.15.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
     encourage_dev_container
@@ -402,6 +402,7 @@ case "$cmd" in
     export CI_NIGHTLY=1
     build
     test
+    release
     docs/bootstrap.sh release-docs
     ;;
   "ci-release")
