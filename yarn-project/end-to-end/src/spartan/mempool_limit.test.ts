@@ -1,13 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import {
-  AztecAddress,
-  type ContractInstanceWithAddress,
-  Fr,
-  SponsoredFeePaymentMethod,
-  Tx,
-  TxStatus,
-  type Wallet,
-} from '@aztec/aztec.js';
+import { AztecAddress, Fr, SponsoredFeePaymentMethod, Tx, TxStatus, type Wallet } from '@aztec/aztec.js';
 import type { UserFeeOptions } from '@aztec/entrypoints/interfaces';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { times, timesAsync } from '@aztec/foundation/collection';
@@ -50,7 +42,6 @@ describe('mempool limiter test', () => {
 
   let accountSecretKey: Fr;
   let accountSalt: Fr;
-  let tokenInstance: ContractInstanceWithAddress;
   let tokenContractAddress: AztecAddress;
   let sampleTx: Tx;
 
@@ -122,7 +113,6 @@ describe('mempool limiter test', () => {
     const tokenDeploy = TokenContract.deploy(wallet, wallet.getAddress(), 'TEST', 'T', 18);
     const token = await tokenDeploy.register({ contractAddressSalt: Fr.ONE });
     tokenContractAddress = token.address;
-    tokenInstance = token.instance;
 
     const tokenMeta = await pxe.getContractMetadata(token.address);
     if (!tokenMeta.isContractInitialized) {
@@ -169,7 +159,7 @@ describe('mempool limiter test', () => {
       return tx;
     });
 
-    await asyncPool(CONCURRENCY, txs, async tx => node.sendTx(tx));
+    await asyncPool(CONCURRENCY, txs, tx => node.sendTx(tx));
     const receipts = await asyncPool(CONCURRENCY, txs, async tx => node.getTxReceipt(await tx.getTxHash()));
     const pending = receipts.reduce((count, receipt) => (receipt.status === TxStatus.PENDING ? count + 1 : count), 0);
     expect(pending).toBeLessThanOrEqual(TX_MEMPOOL_LIMIT);
