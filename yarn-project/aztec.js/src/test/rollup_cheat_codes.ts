@@ -15,7 +15,10 @@ export class RollupCheatCodes {
 
   private logger = createLogger('aztecjs:cheat_codes');
 
-  constructor(private ethCheatCodes: EthCheatCodes, addresses: Pick<L1ContractAddresses, 'rollupAddress'>) {
+  constructor(
+    private ethCheatCodes: EthCheatCodes,
+    addresses: Pick<L1ContractAddresses, 'rollupAddress'>,
+  ) {
     this.client = createPublicClient({
       chain: foundry,
       transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url))),
@@ -98,7 +101,7 @@ export class RollupCheatCodes {
     try {
       await this.ethCheatCodes.warp(Number(timestamp));
       this.logger.warn(`Warped to epoch ${epoch}`);
-    } catch (err) {
+    } catch {
       this.logger.debug('Warp failed, time already satisfied');
     }
     return timestamp;

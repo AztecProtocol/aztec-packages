@@ -7,7 +7,7 @@
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <cstdint>
 namespace bb {

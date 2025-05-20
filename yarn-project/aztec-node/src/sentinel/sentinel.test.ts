@@ -201,7 +201,7 @@ describe('sentinel', () => {
     });
 
     it('considers only latest slots', () => {
-      const history = times(20, i => ({ slot: BigInt(i), status: 'block-missed' } as const));
+      const history = times(20, i => ({ slot: BigInt(i), status: 'block-missed' }) as const);
       const stats = sentinel.computeStatsForValidator(validator, history, 15n);
 
       expect(stats.address.toString()).toEqual(validator);
