@@ -70,7 +70,6 @@ GoblinProof Goblin::prove(MergeProof merge_proof_in)
 
 bool Goblin::verify(const GoblinProof& proof)
 {
-    std::cout << "in verify? " << std::endl;
     MergeVerifier merge_verifier;
     bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
 
@@ -90,11 +89,11 @@ bool Goblin::verify(const GoblinProof& proof)
     bool op_queue_consistency_verified =
         translator_verifier.verify_consistency_with_final_merge(merge_verifier.T_commitments);
 
-    std::cout << "merge verified?: " << merge_verified << std::endl;
-    std::cout << "eccvm verified?: " << eccvm_verified << std::endl;
-    std::cout << "accumulator construction_verified?: " << accumulator_construction_verified << std::endl;
-    std::cout << "translation verified?: " << translation_verified << std::endl;
-    std::cout << "consistency verified?: " << op_queue_consistency_verified << std::endl;
+    vinfo("merge verified?: ", merge_verified);
+    vinfo("eccvm verified?: ", eccvm_verified);
+    vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
+    vinfo("translation verified?: ", translation_verified);
+    vinfo("consistency verified?: ", op_queue_consistency_verified);
 
     return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
            op_queue_consistency_verified;

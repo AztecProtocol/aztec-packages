@@ -267,6 +267,7 @@ template <typename Flavor> class SumcheckProverRound {
                 }
             }
         });
+
         // Accumulate the per-thread univariate accumulators into a single set of accumulators
         for (auto& accumulators : thread_univariate_accumulators) {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
