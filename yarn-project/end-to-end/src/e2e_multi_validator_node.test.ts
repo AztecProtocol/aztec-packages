@@ -5,14 +5,19 @@ import {
   ContractDeployer,
   EthAddress,
   Fr,
-  type PXE,
+  type Logger,
   type Wallet,
   waitForProven,
 } from '@aztec/aztec.js';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsReturnType,
+  type ExtendedViemWalletClient,
+  RollupContract,
+  getL1ContractsConfigEnvVars,
+} from '@aztec/ethereum';
+import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
-import { ConsensusPayload } from '@aztec/stdlib/p2p';
-import { BlockAttestation } from '@aztec/stdlib/p2p';
+import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -23,13 +28,26 @@ const VALIDATOR_COUNT = 5;
 describe('e2e_multi_validator_node', () => {
   let initialValidatorPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];
-  // let pxe: PXE;
   let teardown: () => Promise<void>;
   let owner: Wallet;
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
-
+  let logger: Logger;
+  let deployL1ContractsValues: DeployL1ContractsReturnType;
+  let l1Client: ExtendedViemWalletClient;
+  let rollup: RollupContract;
+  let ethCheatCodes: EthCheatCodesWithState;
   const artifact = StatefulTestContractArtifact;
+
+  const progressTimeBySlot = async (slotsToJump = 1n) => {
+    const currentTime = (await l1Client.getBlock()).timestamp;
+    const currentSlot = await rollup.getSlotNumber();
+    const timestamp = await rollup.getTimestampForSlot(currentSlot + slotsToJump);
+    if (timestamp > currentTime) {
+      await ethCheatCodes.warp(Number(timestamp));
+    }
+  };
+
   beforeAll(async () => {
     initialValidatorPrivateKeys = Array.from(
       { length: VALIDATOR_COUNT },
@@ -43,15 +61,31 @@ describe('e2e_multi_validator_node', () => {
 
     ({
       teardown,
-      // logger,
+      logger,
       wallets: [owner],
-      // pxe,
       aztecNode,
       config,
+      deployL1ContractsValues,
     } = await setup(1, {
       initialValidatorPrivateKeys,
       minTxsPerBlock: 1,
+      archiverPollingIntervalMS: 200,
+      transactionPollingIntervalMS: 200,
+      worldStateBlockCheckIntervalMS: 200,
+      blockCheckIntervalMS: 200,
+      startProverNode: true,
     }));
+
+    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
+    l1Client = deployL1ContractsValues.l1Client;
+    rollup = new RollupContract(
+      deployL1ContractsValues.l1Client,
+      deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+    );
+
+    // We jump to the next epoch such that the committee can be setup.
+    const timeToJump = await rollup.getEpochDuration();
+    await progressTimeBySlot(timeToJump);
   });
 
   afterAll(async () => {
@@ -63,6 +97,7 @@ describe('e2e_multi_validator_node', () => {
 
     const ownerAddress = owner.getCompleteAddress().address;
     const sender = ownerAddress;
+    logger.info(`Deploying contract from ${sender}`);
     const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
       contractAddressSalt: new Fr(BigInt(1)),
       skipClassRegistration: true,
@@ -81,12 +116,10 @@ describe('e2e_multi_validator_node', () => {
       .filter(s => !s.isEmpty)
       .map(sig => new BlockAttestation(new Fr(block.block.number), payload, sig));
 
-    expect(attestations.length).toBe(4); // Math.floor((5 * 2) / 3) + 1
+    expect(attestations.length).toBeGreaterThanOrEqual(4); // Math.floor((5 * 2) / 3) + 1
 
     const signers = attestations.map(att => att.getSender().toString());
 
     expect(signers).toEqual(expect.arrayContaining(validatorAddresses));
-    // expect(block.transactions.length).toBe(1);
-    // expect(block.transactions[0].transactionHash).toBe(tx.hash);
   });
 });

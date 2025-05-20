@@ -226,7 +226,7 @@ export class SequencerClient {
     return this.sequencer.getForwarderAddress();
   }
 
-  get validatorAddresses(): EthAddress[] {
+  get validatorAddresses(): EthAddress[] | undefined {
     return this.sequencer.getValidatorAddresses();
   }
 

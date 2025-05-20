@@ -215,7 +215,6 @@ export class EpochCache implements EpochCacheInterface {
     currentSlot: bigint;
     nextSlot: bigint;
   }> {
-    console.log('getProposerAttesterAddressInCurrentOrNextSlot');
     const current = this.getEpochAndSlotNow();
     const next = this.getEpochAndSlotInNextSlot();
 
