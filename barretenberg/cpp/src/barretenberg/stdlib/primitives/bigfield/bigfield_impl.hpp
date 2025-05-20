@@ -2640,7 +2640,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         ++max_hi_bits;
     }
 
-    // The plookup custom bigfield gate requires inputs are witnesses.
+    // The custom bigfield multiplication gate requires inputs are witnesses.
     // If we're using constant values, instantiate them as circuit variables
     //
     // Explanation:
