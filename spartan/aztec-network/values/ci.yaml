@@ -12,19 +12,13 @@ ethereum:
     resources:
       requests:
         cpu: "200m"
-      limits:
-        cpu: "200m"
   beacon:
     resources:
       requests:
         cpu: "200m"
-      limits:
-        cpu: "200m"
   validator:
     resources:
       requests:
-        cpu: "200m"
-      limits:
         cpu: "200m"
 
 telemetry:

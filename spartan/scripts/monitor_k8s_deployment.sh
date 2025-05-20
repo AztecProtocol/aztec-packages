@@ -44,9 +44,6 @@ for i in {1..100}; do
   echo "--- Pod status ---"
   kubectl get pods -n "$namespace" || true
 
-  echo -e "\n--- Control Pane Node Description ---"
-  kubectl describe node kind-control-plane || true
-
   echo -e "\n--- Recent Pod Events ---"
   kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -10 || true
 

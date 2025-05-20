@@ -401,6 +401,7 @@ case "$cmd" in
     export CI=1
     export CI_NIGHTLY=1
     build
+    release-image/bootstrap.sh push
     test
     release
     docs/bootstrap.sh release-docs
