@@ -1,7 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import chalk from 'chalk';
 import { type Browser, type Page, chromium } from /* firefox, webkit */ 'playwright';
 
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
