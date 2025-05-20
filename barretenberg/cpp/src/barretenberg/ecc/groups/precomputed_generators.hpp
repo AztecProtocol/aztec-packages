@@ -74,7 +74,7 @@ inline bool check_precomputed_generators()
         if (p != g) {
             info("WARNING: Generators do not match precomputed generators! THESE SHOULD GENERALLY NOT CHANGE, "
                  "SOMETHING MAY BE WRONG ON A MORE FUNDAMENTAL LEVEL!");
-            info("WARNING: IF YOU REALLY ARE SURE THESE NEED TO BE CHANGE: Include the below code in "
+            info("WARNING: IF YOU REALLY ARE SURE THESE NEED TO BE CHANGED: Include the below code in "
                  "precomputed_generators_*_impl.hpp to hardcode the generators");
 
             // Demangle the AffineElement type name to get a human-readable string.
