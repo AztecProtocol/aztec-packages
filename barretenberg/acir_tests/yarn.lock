@@ -15,6 +15,9 @@ __metadata:
 "@aztec/acir-tests@workspace:.":
   version: 0.0.0-use.local
   resolution: "@aztec/acir-tests@workspace:."
+  dependencies:
+    debug: "npm:^4.4.1"
+    tslog: "npm:^4.9.3"
   languageName: unknown
   linkType: soft
 
@@ -24,11 +27,10 @@ __metadata:
   dependencies:
     comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
-    debug: "npm:^4.3.4"
-    fflate: "npm:^0.8.0"
     msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
     tslib: "npm:^2.4.0"
+    tslog: "npm:^4.9.3"
   bin:
     bb.js: dest/node/main.js
   languageName: node
@@ -40,11 +42,10 @@ __metadata:
   dependencies:
     comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
-    debug: "npm:^4.3.4"
-    fflate: "npm:^0.8.0"
     msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
     tslib: "npm:^2.4.0"
+    tslog: "npm:^4.9.3"
   bin:
     bb.js: dest/node/main.js
   languageName: node
@@ -1227,6 +1228,7 @@ __metadata:
     pako: "npm:^2.1.0"
     serve: "npm:^14.2.1"
     ts-loader: "npm:^9.5.1"
+    tslog: "npm:^4.9.3"
     typescript: "npm:^5.4.2"
     webpack: "npm:^5.99.6"
     webpack-cli: "npm:^6.0.1"
@@ -1729,6 +1731,18 @@ __metadata:
     supports-color:
       optional: true
   checksum: 10c0/db94f1a182bf886f57b4755f85b3a74c39b5114b9377b7ab375dc2cfa3454f09490cc6c30f829df3fc8042bc8b8995f6567ce5cd96f3bc3688bd24027197d9de
+  languageName: node
+  linkType: hard
+
+"debug@npm:^4.4.1":
+  version: 4.4.1
+  resolution: "debug@npm:4.4.1"
+  dependencies:
+    ms: "npm:^2.1.3"
+  peerDependenciesMeta:
+    supports-color:
+      optional: true
+  checksum: 10c0/d2b44bc1afd912b49bb7ebb0d50a860dc93a4dd7d946e8de94abc957bb63726b7dd5aa48c18c2386c379ec024c46692e15ed3ed97d481729f929201e671fcd55
   languageName: node
   linkType: hard
 
@@ -2287,13 +2301,6 @@ __metadata:
   dependencies:
     pend: "npm:~1.2.0"
   checksum: 10c0/304dd70270298e3ffe3bcc05e6f7ade2511acc278bc52d025f8918b48b6aa3b77f10361bddfadfe2a28163f7af7adbdce96f4d22c31b2f648ba2901f0c5fc20e
-  languageName: node
-  linkType: hard
-
-"fflate@npm:^0.8.0":
-  version: 0.8.2
-  resolution: "fflate@npm:0.8.2"
-  checksum: 10c0/03448d630c0a583abea594835a9fdb2aaf7d67787055a761515bf4ed862913cfd693b4c4ffd5c3f3b355a70cf1e19033e9ae5aedcca103188aaff91b8bd6e293
   languageName: node
   linkType: hard
 
@@ -5046,6 +5053,13 @@ __metadata:
   version: 2.8.1
   resolution: "tslib@npm:2.8.1"
   checksum: 10c0/9c4759110a19c53f992d9aae23aac5ced636e99887b51b9e61def52611732872ff7668757d4e4c61f19691e36f4da981cd9485e869b4a7408d689f6bf1f14e62
+  languageName: node
+  linkType: hard
+
+"tslog@npm:^4.9.3":
+  version: 4.9.3
+  resolution: "tslog@npm:4.9.3"
+  checksum: 10c0/9db2c02b01be44a97e447061958565ceb8faf33a241cf9c030d5f1ebefff74434b66090985f5a75189a514aae2267999851c281b8cd8dc8cd93dd158b1033319
   languageName: node
   linkType: hard
 

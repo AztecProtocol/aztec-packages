@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 import 'source-map-support/register.js';
 import { Crs, GrumpkinCrs, Barretenberg, RawBuffer } from './index.js';
-import createDebug from 'debug';
+import { createChildLogger, logger } from './log.js';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { Command } from 'commander';
 import { Timer, writeBenchmark } from './benchmark/index.js';
 import path from 'path';
 import { UltraHonkBackendOptions } from './barretenberg/backend.js';
-createDebug.log = console.error.bind(console);
-const debug = createDebug('bb.js');
+
+const debug = createChildLogger('bb.js');
 
 // Maximum circuit size for plonk we support in node and the browser is 2^19.
 // This is because both node and browser use barretenberg.wasm which has a 4GB memory limit.
@@ -32,16 +32,6 @@ function getBytecode(bytecodePath: string): Uint8Array {
   const encodedCircuit = readFileSync(bytecodePath);
   const decompressed = gunzipSync(encodedCircuit);
   return Uint8Array.from(decompressed);
-}
-
-function base64ToUint8Array(base64: string) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): split this into separate Plonk and Honk functions as their gate count differs
@@ -523,7 +513,7 @@ program.option('-c, --crs-path <path>', 'set crs path', './crs');
 
 function handleGlobalOptions() {
   if (program.opts().verbose) {
-    createDebug.enable('bb.js*');
+    logger.settings.minLevel = 0;
   }
   return { crsPath: program.opts().crsPath };
 }

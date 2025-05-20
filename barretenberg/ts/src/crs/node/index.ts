@@ -2,9 +2,9 @@ import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, createWriteStream } from 'fs';
 import { stat } from 'fs/promises';
 import { Readable } from 'stream';
-import createDebug from 'debug';
 import { homedir } from 'os';
 import { finished } from 'stream/promises';
+import { createChildLogger } from '../../log.js';
 
 /**
  * Generic CRS finder utility class.
@@ -13,13 +13,13 @@ export class Crs {
   constructor(
     public readonly numPoints: number,
     public readonly path: string,
-    private readonly logger: (msg: string) => void = createDebug('bb.js:crs'),
+    private readonly logger: (msg: string) => void = createChildLogger('crs'),
   ) {}
 
   static async new(
     numPoints: number,
     crsPath = homedir() + '/.bb-crs',
-    logger: (msg: string) => void = createDebug('bb.js:crs'),
+    logger: (msg: string) => void = createChildLogger('crs'),
   ) {
     const crs = new Crs(numPoints, crsPath, logger);
     await crs.init();
@@ -82,13 +82,13 @@ export class GrumpkinCrs {
   constructor(
     public readonly numPoints: number,
     public readonly path: string,
-    private readonly logger: (msg: string) => void = createDebug('bb.js:crs'),
+    private readonly logger: (msg: string) => void = createChildLogger('crs'),
   ) {}
 
   static async new(
     numPoints: number,
     crsPath = homedir() + '/.bb-crs',
-    logger: (msg: string) => void = createDebug('bb.js:crs'),
+    logger: (msg: string) => void = createChildLogger('crs'),
   ) {
     const crs = new GrumpkinCrs(numPoints, crsPath, logger);
     await crs.init();

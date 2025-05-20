@@ -1,10 +1,9 @@
 import { Crs } from '../crs/index.js';
-import createDebug from 'debug';
 import { Barretenberg } from '../barretenberg/index.js';
 import { RawBuffer } from '../types/index.js';
+import { createChildLogger } from '../log.js';
 
-createDebug.enable('*');
-const debug = createDebug('simple_test');
+const debug = createChildLogger('simple_test');
 
 async function main() {
   const CIRCUIT_SIZE = 2 ** 19;
