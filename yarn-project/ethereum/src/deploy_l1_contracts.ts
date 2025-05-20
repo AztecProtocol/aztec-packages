@@ -528,7 +528,7 @@ export const deployRollup = async (
   logger.verbose(`All core contracts have been deployed`);
 
   if (args.initialValidators) {
-    await cheat_initializeValidatorSet(
+    await addMultipleValidators(
       extendedClient,
       deployer,
       rollupAddress.toString(),
@@ -700,8 +700,7 @@ export type Operator = {
 };
 
 /*
- * Initialize the validator set for the rollup using a cheat function.
- * @note This function will only be used when the chain is local anvil node soon (#12050)
+ * Adds multiple validators to the rollup
  *
  * @param extendedClient - The L1 clients.
  * @param deployer - The L1 deployer.
@@ -712,7 +711,7 @@ export type Operator = {
  * @param logger - The logger.
  */
 // eslint-disable-next-line camelcase
-export const cheat_initializeValidatorSet = async (
+export const addMultipleValidators = async (
   extendedClient: ExtendedViemWalletClient,
   deployer: L1Deployer,
   rollupAddress: Hex,

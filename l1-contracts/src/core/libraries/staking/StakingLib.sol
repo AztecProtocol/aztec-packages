@@ -105,9 +105,9 @@ library StakingLib {
       (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
       require(attesterExists, Errors.Staking__NoOneToSlash(_attester));
 
-      (uint256 amountWithdrawn, bool removed) = store.gse.withdraw(_attester, _amount);
+      (uint256 amountWithdrawn, bool isRemoved) = store.gse.withdraw(_attester, _amount);
 
-      if (removed) {
+      if (isRemoved) {
         uint256 toUser = amountWithdrawn - _amount;
         store.exits[_attester] = Exit({
           amount: toUser,

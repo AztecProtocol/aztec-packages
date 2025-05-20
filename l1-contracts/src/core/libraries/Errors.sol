@@ -118,7 +118,12 @@ library Errors {
   error Staking__NotWithdrawer(address, address); // 0x8e668e5d
   error Staking__NothingToExit(address); // 0xd2aac9b6
   error Staking__WithdrawalNotUnlockedYet(Timestamp, Timestamp); // 0x88e1826c
-  error Staking__WithdrawFailed(address);
+  error Staking__WithdrawFailed(address); // 0x377422c1
+  error Staking__OutOfBounds(uint256, uint256); // 0x4bea6597
+  error Staking__NotRollup(address); // 0xf5509eb3
+  error Staking__RollupAlreadyRegistered(address); // 0x108a39c8
+  error Staking__InvalidRollupAddress(address); // 0xd876720e
+  error Staking__NotCanonical(address); // 0x6244212e
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe

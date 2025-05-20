@@ -31,9 +31,6 @@ interface IGSE {
     address indexed instance, address indexed attester, address proposer, address withdrawer
   );
 
-  error GSE__AttesterNotFound(address instance, address attester);
-  error GSE__AttesterAlreadyRegistered(address instance, address attester);
-
   function addRollup(address _rollup) external;
   function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
     external;
@@ -98,7 +95,7 @@ contract GSE is IGSE, Ownable {
   mapping(address instance => InstanceStaking) internal instances;
 
   modifier onlyRollup() {
-    require(instances[msg.sender].exists, "Not a rollup");
+    require(instances[msg.sender].exists, Errors.Staking__NotRollup(msg.sender));
     _;
   }
 
@@ -108,32 +105,43 @@ contract GSE is IGSE, Ownable {
   }
 
   function addRollup(address _rollup) external override(IGSE) onlyOwner {
-    require(_rollup != address(0), "Rollup not found");
-    require(!instances[_rollup].exists, "Rollup already not registered");
+    require(_rollup != address(0), Errors.Staking__InvalidRollupAddress(_rollup));
+    require(!instances[_rollup].exists, Errors.Staking__RollupAlreadyRegistered(_rollup));
     instances[_rollup].exists = true;
     canonical.push(block.timestamp.toUint32(), uint224(uint160(_rollup)));
   }
 
+  /**
+   * @notice  Deposits a new validator on the rollup
+   *
+   * @dev     The attester key is used as the primary key, and duplicates in the same functional set
+   *          must not occur. Functional set here being `specific ∪ canonical`.
+   *          E.g., it is not acceptable to have attester `a` in both the `canonical` accounting and
+   *          the specific instance accounting, `A` if `A` can become the `canonical`.
+   *          However, it is fine to have the same attester in `A`, `B` and `C` as long as they were
+   *          never in the same functional set.
+   *
+   * @dev     Deposits only allowed to and by listed rollups.
+   *
+   * @param _attester - The attester address of the validator
+   * @param _proposer - The proposer address of the validator
+   * @param _withdrawer - The withdrawer address of the validator
+   * @param _onCanonical - Whether to deposit into the specific instance, or canonical
+   *  @dev Must be the current canonical for `_onCanonical = true` to be valid.
+   */
   function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
     external
     override(IGSE)
     onlyRollup
   {
-    require(!_onCanonical || getCanonical() == msg.sender, "Not the canonical rollup");
-
-    // Ensure that it is not already registered on the canonical or this rollup
-    // We wish to avoid that such that are no ambiguity around who is the proposer and such.
-    // The safest way to do this is that only valid rollups can register validators, and that
-    // rollups only become valid when they are added as the new canonical, and cannot "flip-flop".
-    // That way, it is not possible to have registered validators before the canonical was moved
-    // and collisions would have happened.
+    require(!_onCanonical || getCanonical() == msg.sender, Errors.Staking__NotCanonical(msg.sender));
 
     (, bool attesterExists,) = _getInstanceStoreWithAttester(msg.sender, _attester);
-    require(!attesterExists, "Attester found");
+    require(!attesterExists, Errors.Staking__AlreadyRegistered(_attester));
 
     InstanceStaking storage instanceStaking =
       instances[_onCanonical ? CANONICAL_MAGIC_ADDRESS : msg.sender];
-    require(instanceStaking.attesters.add(_attester), "Validator already registered");
+    require(instanceStaking.attesters.add(_attester), Errors.Staking__AlreadyRegistered(_attester));
     instanceStaking.configOf[_attester] =
       AttesterConfig({withdrawer: _withdrawer, proposer: _proposer});
     instanceStaking.balanceOf[_attester] += MINIMUM_DEPOSIT;
@@ -155,8 +163,14 @@ contract GSE is IGSE, Ownable {
    *          just withdrawing events happen, the rollup can use this function to withdraw the funds.
    *          Will be taking into account the "canonical" as well.
    *
+   * @dev     Note that all funds are returned to the rollup, so for slashing the rollup itself must
+   *          address the problem of "what to do" with the funds. And it must look at the returned amount
+   *          withdrawn and the bool.
+   *
    * @param _attester The attester to withdraw from.
+   *
    * @return The actual amount withdrawn.
+   * @return True if attester is removed from set, false otherwise
    */
   function withdraw(address _attester, uint256 _amount)
     external
@@ -167,17 +181,19 @@ contract GSE is IGSE, Ownable {
     (InstanceStaking storage instanceStaking, bool attesterExists,) =
       _getInstanceStoreWithAttester(msg.sender, _attester);
 
-    require(attesterExists, "Attester not found");
+    require(attesterExists, Errors.Staking__NothingToExit(_attester));
 
     uint256 balance = instanceStaking.balanceOf[_attester];
     require(balance >= _amount, Errors.Staking__InsufficientStake(balance, _amount));
 
     uint256 amountWithdrawn = _amount;
-    bool removed = balance - _amount < MINIMUM_BALANCE;
+    bool isRemoved = balance - _amount < MINIMUM_BALANCE;
 
     // By default, we will be removing, but in the case of slash, we might just reduce.
-    if (removed) {
-      require(instanceStaking.attesters.remove(_attester), "Failed to remove attester");
+    if (isRemoved) {
+      require(
+        instanceStaking.attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester)
+      );
       delete instanceStaking.configOf[_attester];
       amountWithdrawn = balance;
     }
@@ -188,7 +204,7 @@ contract GSE is IGSE, Ownable {
 
     STAKING_ASSET.transfer(msg.sender, amountWithdrawn);
 
-    return (amountWithdrawn, removed);
+    return (amountWithdrawn, isRemoved);
   }
 
   function isRegistered(address _instance, address _attester)
@@ -354,7 +370,7 @@ contract GSE is IGSE, Ownable {
 
     for (uint256 i = 0; i < _indices.length; i++) {
       uint256 index = _indices[i];
-      require(index < totalSize, "Index out of bounds");
+      require(index < totalSize, Errors.Staking__OutOfBounds(index, totalSize));
 
       if (index < storeSize) {
         attesters[i] = store.attesters.getAddressFromIndexAtTimestamp(index, ts);

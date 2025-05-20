@@ -131,6 +131,7 @@ contract InitiateWithdrawTest is StakingBase {
     staking.slash(ATTESTER, MINIMUM_STAKE / 2);
 
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(address(staking.getGSE())), 0);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
