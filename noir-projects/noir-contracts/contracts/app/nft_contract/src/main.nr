@@ -243,9 +243,9 @@ pub contract NFT {
     /// resulting `partial_note` must be passed as an argument to this function.
     ///
     /// Note that this contract does not protect against a `partial_note` being used multiple times and it is up to
-    /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple times, the NFT
-    /// with `token_id` would most likely get lost (the partial note log processing functionality would fail to find
-    /// the pending partial note when trying to complete it).
+    /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
+    /// times, the NFT with `token_id` would most likely get lost (the partial note log processing functionality
+    /// would fail to find the pending partial note when trying to complete it).
     // docs:start:finalize_transfer_to_private
     #[public]
     fn finalize_transfer_to_private(token_id: Field, partial_note: PartialNFTNote) {
@@ -303,8 +303,8 @@ pub contract NFT {
         // state variable's storage slot, and it is internally consistent). We *could* clear the storage since each
         // partial note should only be used once, but since the AVM offers no gas refunds for doing so this would just
         // make the transaction be more expensive. We don't worry about the validity commitment being checked against
-        // multiple times because it is up to the caller to ensure that a partial note is used only once (see
-        // function docs of `finalize_transfer_to_private`).
+        // multiple times because it is up to the caller to ensure that a partial note is used only once (see function
+        // docs of `finalize_transfer_to_private`).
         assert(
             context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
             "Invalid partial note or completer",
