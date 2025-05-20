@@ -52,10 +52,25 @@ function build {
   fi
 }
 
+function test_scream {
+  echo_header "l1-contracts screaming test"
+
+  if ! git merge-base --is-ancestor origin/next HEAD; then
+    echo "Not child of next, running screaming test"
+    build
+    forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest
+  else
+    echo "Child of next, skipping screaming test"
+  fi
+}
+
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
+  echo "$hash cd l1-contracts && forge test"
+  if ! git merge-base --is-ancestor origin/next HEAD; then
+    echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest"
+  fi
 }
 
 function test {
@@ -437,7 +452,7 @@ case "$cmd" in
     shift
     gas_benchmark "$@"
     ;;
-  test|test_cmds|bench|bench_cmds|inspect|release)
+  test|test_scream|test_cmds|bench|bench_cmds|inspect|release)
     $cmd
     ;;
   "hash")
