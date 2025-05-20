@@ -10,21 +10,14 @@ const log = createLogger('json-rpc:json_rpc_client:undici');
 export { Agent };
 
 export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
-  return async (
-    host: string,
-    rpcMethod: string,
-    body: any,
-    useApiEndpoints: boolean,
-    extraHeaders: Record<string, string> = {},
-    noRetry = false,
-  ) => {
-    log.trace(`JsonRpcClient.fetch: ${host} ${rpcMethod}`, { host, rpcMethod, body });
+  return async (host: string, body: unknown, extraHeaders: Record<string, string> = {}, noRetry = false) => {
+    log.trace(`JsonRpcClient.fetch: ${host}`, { host, body });
     let resp: Dispatcher.ResponseData;
     try {
       resp = await client.request({
         method: 'POST',
         origin: new URL(host),
-        path: useApiEndpoints ? rpcMethod : '/',
+        path: '/',
         body: jsonStringify(body),
         headers: {
           ...extraHeaders,
@@ -32,7 +25,7 @@ export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
         },
       });
     } catch (err) {
-      const errorMessage = `Error fetching from host ${host} with method ${rpcMethod}: ${String(err)}`;
+      const errorMessage = `Error fetching from host ${host}: ${String(err)}`;
       throw new Error(errorMessage);
     }
 
@@ -40,7 +33,7 @@ export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
     const responseOk = resp.statusCode >= 200 && resp.statusCode <= 299;
     try {
       responseJson = await resp.body.json();
-    } catch (err) {
+    } catch {
       if (!responseOk) {
         throw new Error('HTTP ' + resp.statusCode);
       }
@@ -48,7 +41,7 @@ export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
     }
 
     if (!responseOk) {
-      const errorMessage = `Error ${resp.statusCode} response from server ${host} on ${rpcMethod}: ${responseJson.error.message}`;
+      const errorMessage = `Error ${resp.statusCode} response from server ${host}: ${responseJson}`;
       if (noRetry || (resp.statusCode >= 400 && resp.statusCode < 500)) {
         throw new NoRetryError(errorMessage);
       } else {

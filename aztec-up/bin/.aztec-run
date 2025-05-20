@@ -135,6 +135,8 @@ function run {
     ${arg_container_name:-} \
     --rm \
     --workdir "$PWD" \
+    --restart "${DOCKER_RESTART_POLICY:-no}" \
+    --pull "${DOCKER_PULL_POLICY:-missing}" \
     ${arg_interactive:-} \
     ${arg_volume_mounts:-} \
     ${arg_port_assignment:-} \

@@ -22,6 +22,7 @@ import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../../../staking/TimeCheater.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
+import {RollupBuilder} from "../../../builder/RollupBuilder.sol";
 
 contract SlashingScenario is TestBase {
   TestERC20 internal testERC20;
@@ -51,17 +52,12 @@ contract SlashingScenario is TestBase {
       });
     }
 
-    testERC20 = new TestERC20("test", "TEST", address(this));
-    Registry registry = new Registry(address(this), testERC20);
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-    rollup = new Rollup({
-      _feeAsset: testERC20,
-      _rewardDistributor: rewardDistributor,
-      _stakingAsset: testERC20,
-      _governance: address(this),
-      _genesisState: TestConstants.getGenesisState(),
-      _config: TestConstants.getRollupConfigInput()
-    });
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
+
+    rollup = builder.getConfig().rollup;
+    testERC20 = builder.getConfig().testERC20;
+
     slasher = Slasher(rollup.getSlasher());
     slashingProposer = slasher.PROPOSER();
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
@@ -78,7 +74,7 @@ contract SlashingScenario is TestBase {
     multiAdder.addValidators(initialValidators);
 
     // Cast a bunch of votes
-    timeCheater.cheat__jumpForwardEpochs(1);
+    timeCheater.cheat__jumpForwardEpochs(2);
 
     assertEq(rollup.getActiveAttesterCount(), validatorCount, "Invalid attester count");
 
@@ -91,7 +87,7 @@ contract SlashingScenario is TestBase {
     uint256 round = slashingProposer.computeRound(rollup.getCurrentSlot());
 
     uint256 slashAmount = 10e18;
-    IPayload payload = slashFactory.createSlashPayload(Epoch.wrap(1), slashAmount);
+    IPayload payload = slashFactory.createSlashPayload(Epoch.wrap(2), slashAmount);
 
     for (uint256 i = 0; i < 10; i++) {
       address proposer = rollup.getCurrentProposer();
@@ -100,7 +96,7 @@ contract SlashingScenario is TestBase {
       timeCheater.cheat__progressSlot();
     }
 
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(1));
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
     assertEq(attesters.length, validatorCount, "Invalid attester count");
     uint256[] memory stakes = new uint256[](attesters.length);
 

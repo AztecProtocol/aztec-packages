@@ -1990,43 +1990,6 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
     return 0;
 }
 #endif
-#ifndef DISABLE_CUSTOM_MUTATORS
-/**
- * @brief Custom mutator. Since we know the structure, this is more efficient than basic
- *
- */
-extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* Data, size_t Size, size_t MaxSize, unsigned int Seed)
-{
-    using FuzzerClass = BigFieldBase<bb::StandardCircuitBuilder>;
-    auto fast_random = FastRandom(Seed);
-    auto size_occupied = ArithmeticFuzzHelper<FuzzerClass>::MutateInstructionBuffer(Data, Size, MaxSize, fast_random);
-    if ((fast_random.next() % 200) < fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB) {
-        size_occupied = LLVMFuzzerMutate(Data, size_occupied, MaxSize);
-    }
-    return size_occupied;
-}
-
-/**
- * @brief Custom crossover that parses the buffers as instructions and then splices them
- *
- */
-extern "C" size_t LLVMFuzzerCustomCrossOver(const uint8_t* Data1,
-                                            size_t Size1,
-                                            const uint8_t* Data2,
-                                            size_t Size2,
-                                            uint8_t* Out,
-                                            size_t MaxOutSize,
-                                            unsigned int Seed)
-{
-    using FuzzerClass = BigFieldBase<bb::StandardCircuitBuilder>;
-    auto fast_random = FastRandom(Seed);
-    auto vecA = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data1, Size1);
-    auto vecB = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data2, Size2);
-    auto vecC = ArithmeticFuzzHelper<FuzzerClass>::crossoverInstructionVector(vecA, vecB, fast_random);
-    return ArithmeticFuzzHelper<FuzzerClass>::writeInstructionsToBuffer(vecC, Out, MaxOutSize);
-}
-
-#endif
 
 /**
  * @brief Fuzzer entry function

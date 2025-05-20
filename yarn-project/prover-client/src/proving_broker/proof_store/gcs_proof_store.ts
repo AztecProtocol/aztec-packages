@@ -20,7 +20,10 @@ const INPUTS_PATH = 'inputs';
 export class GoogleCloudStorageProofStore implements ProofStore {
   private readonly storage: Storage;
 
-  constructor(private readonly bucketName: string, private readonly path: string) {
+  constructor(
+    private readonly bucketName: string,
+    private readonly path: string,
+  ) {
     this.storage = new Storage();
   }
 

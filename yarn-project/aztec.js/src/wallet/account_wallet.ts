@@ -22,7 +22,10 @@ import { BaseWallet } from './base_wallet.js';
  * A wallet implementation that forwards authentication requests to a provided account.
  */
 export class AccountWallet extends BaseWallet {
-  constructor(pxe: PXE, protected account: AccountInterface) {
+  constructor(
+    pxe: PXE,
+    protected account: AccountInterface,
+  ) {
     super(pxe);
   }
 

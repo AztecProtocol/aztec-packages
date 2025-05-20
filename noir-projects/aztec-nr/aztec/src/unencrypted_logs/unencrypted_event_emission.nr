@@ -1,9 +1,9 @@
 use crate::{context::PublicContext, event::event_interface::EventInterface};
-use protocol_types::traits::ToField;
+use protocol_types::traits::{Serialize, ToField};
 
 fn emit<Event, let N: u32>(context: &mut PublicContext, event: Event)
 where
-    Event: EventInterface<N>,
+    Event: EventInterface + Serialize<N>,
 {
     let selector = Event::get_event_type_id();
 
@@ -24,7 +24,7 @@ pub fn encode_event<Event, let N: u32>(
     context: &mut PublicContext,
 ) -> fn[(&mut PublicContext,)](Event) -> ()
 where
-    Event: EventInterface<N>,
+    Event: EventInterface + Serialize<N>,
 {
     |e: Event| { emit(context, e); }
 }
