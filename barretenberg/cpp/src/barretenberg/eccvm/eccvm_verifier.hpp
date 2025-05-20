@@ -23,17 +23,8 @@ class ECCVMVerifier {
     using PCS = typename Flavor::PCS;
 
   public:
-    ECCVMVerifier() = default;
-
-    // Constructor accepting existing transcript
     explicit ECCVMVerifier(const std::shared_ptr<Transcript>& transcript)
         : transcript(transcript){};
-
-    explicit ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key)
-        : key(verifier_key){};
-
-    explicit ECCVMVerifier(const std::shared_ptr<ProvingKey>& proving_key)
-        : ECCVMVerifier(std::make_shared<VerificationKey>(proving_key)){};
 
     bool verify_proof(const ECCVMProof& proof);
     void compute_translation_opening_claims(

@@ -348,7 +348,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     MegaZKProver prover(decider_pk, goblin.transcript);
     HonkProof proof = prover.construct_proof();
 
-    return { proof };
+    return proof;
 }
 
 /**

@@ -300,7 +300,7 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
     if constexpr (IsAnyOf<Flavor, MegaZKFlavor, MegaFlavor>) {
         // For compatibility with Goblin, MegaZKFlavor is using NativeTranscript which does not support
         // serialize/deserialize full transcript methods.
-        GTEST_SKIP() << "Skipping FooBarTest for MegaZKFlavor";
+        GTEST_SKIP() << "Skipping StructureTest for MegaZKFlavor";
     } else {
         // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
         typename Flavor::CircuitBuilder builder;

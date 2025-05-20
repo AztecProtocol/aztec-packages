@@ -95,8 +95,7 @@ class Goblin {
      * @return true
      * @return false
      */
-    static bool verify(const GoblinProof& proof,
-                       const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    static bool verify(const GoblinProof& proof, const std::shared_ptr<Transcript>& transcript);
 };
 
 } // namespace bb

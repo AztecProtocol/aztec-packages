@@ -26,7 +26,7 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
   public:
     explicit ECCVMRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+                                     const std::shared_ptr<Transcript>& transcript);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/991): switch recursive verifiers to StdlibProof
     [[nodiscard("IPA claim should be accumulated")]] std::pair<OpeningClaim<Curve>, std::shared_ptr<Transcript>>

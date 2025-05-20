@@ -65,7 +65,9 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
 
-    EXPECT_TRUE(Goblin::verify(proof));
+    std::shared_ptr<Goblin::Transcript> verifier_transcript = std::make_shared<Goblin::Transcript>();
+
+    EXPECT_TRUE(Goblin::verify(proof, verifier_transcript));
 }
 
 /**
@@ -233,24 +235,32 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
 {
 
     {
+        using Commitment = TranslatorFlavor::Commitment;
+        using FF = TranslatorFlavor::FF;
+        using BF = TranslatorFlavor::BF;
+
         auto [proof, verifier_input] = create_goblin_prover_output();
 
-        // Check that the proof is valid.
-        EXPECT_TRUE(Goblin::verify(proof));
+        std::shared_ptr<Goblin::Transcript> verifier_transcript = std::make_shared<Goblin::Transcript>();
+
+        // Check natively that the proof is correct.
+        EXPECT_TRUE(Goblin::verify(proof, verifier_transcript));
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
         // Better recursion testing - create more flexible proof tampering tests.
         // Modify the `op` commitment which a part of the Merge protocol.
         auto tamper_with_op_commitment = [](HonkProof& translator_proof) {
-            static constexpr size_t num_frs_comm =
-                bb::field_conversion::calc_num_bn254_frs<TranslatorFlavor::Commitment>();
-            static constexpr size_t offset = bb::field_conversion::calc_num_bn254_frs<TranslatorFlavor::BF>();
-
-            using Commitment = TranslatorFlavor::Commitment;
-            using FF = TranslatorFlavor::FF;
-
+            // Compute the size of a Translator commitment (in bb::fr's)
+            static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+            // The `op` wire commitment is currently the second element of the proof, following the
+            // `accumulated_result` which is a BN254 BaseField element.
+            static constexpr size_t offset = bb::field_conversion::calc_num_bn254_frs<BF>();
+            // Extract `op` fields and convert them to a Commitment object
             auto element_frs = std::span{ translator_proof }.subspan(offset, num_frs_comm);
             auto op_commitment = NativeTranscriptParams::template convert_from_bn254_frs<Commitment>(element_frs);
+            // Modify the commitment
             op_commitment = op_commitment * FF(2);
+            // Serialize the tampered commitment into the proof (overwriting the valid one).
             auto op_commitment_reserialized = bb::NativeTranscriptParams::convert_to_bn254_frs(op_commitment);
             std::copy(op_commitment_reserialized.begin(),
                       op_commitment_reserialized.end(),
@@ -258,7 +268,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         };
 
         tamper_with_op_commitment(proof.translator_proof);
-
+        // Construct and check the Goblin Recursive Verifier circuit
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
         [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof);

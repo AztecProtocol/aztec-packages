@@ -25,9 +25,6 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     using ClaimBatch = ClaimBatcher::Batch;
 
     RelationParameters<FF> relation_parameters;
-    if (!transcript) {
-        transcript = std::make_shared<Transcript>();
-    }
 
     ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
     transcript->enable_manifest();

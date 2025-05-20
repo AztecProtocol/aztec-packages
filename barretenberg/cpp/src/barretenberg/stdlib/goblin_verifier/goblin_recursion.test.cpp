@@ -78,7 +78,8 @@ TEST_F(GoblinRecursionTests, Vanilla)
     // Verify the final ultra proof
     MegaVerifier ultra_verifier{ kernel_accum.verification_key };
     bool ultra_verified = ultra_verifier.verify_proof(kernel_accum.proof);
-    // Verify the goblin proof (eccvm, translator, merge)
-    bool verified = Goblin::verify(proof);
+    // Verify the goblin proof (merge,eccvm, translator)
+    std::shared_ptr<Goblin::Transcript> verifier_transcript = std::make_shared<Goblin::Transcript>();
+    bool verified = Goblin::verify(proof, verifier_transcript);
     EXPECT_TRUE(ultra_verified && verified);
 }
