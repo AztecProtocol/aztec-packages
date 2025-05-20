@@ -2436,7 +2436,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         modulus,
     };
 
-    // N.B. this method also evaluates the prime field component of the non-native field mul
+    // N.B. this method DOES NOT evaluate the prime field component of the non-native field mul
     const auto [lo_idx, hi_idx] = ctx->evaluate_non_native_field_multiplication(witnesses);
 
     bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
