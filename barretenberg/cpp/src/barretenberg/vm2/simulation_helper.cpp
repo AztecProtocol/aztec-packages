@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
+#include "barretenberg/vm2/simulation/bitwise.hpp"
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
@@ -23,6 +24,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
+#include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
@@ -37,6 +39,7 @@
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
@@ -88,6 +91,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
     typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
     typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
+    typename S::template DefaultEventEmitter<KeccakF1600Event> keccakf1600_emitter;
     typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
     typename S::template DefaultEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
     typename S::template DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
@@ -143,6 +147,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     ContextProvider context_provider(
         bytecode_manager, memory_provider, calldata_hashing_provider, internal_call_stack_manager_provider);
     DataCopy data_copy(execution_id_manager, data_copy_emitter);
+    Bitwise bitwise(bitwise_emitter);
 
     Execution execution(alu,
                         data_copy,
@@ -153,6 +158,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         execution_emitter,
                         context_stack_emitter);
     TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
+    KeccakF1600 keccakf1600(keccakf1600_emitter, bitwise, range_check);
 
     tx_execution.simulate(hints.tx);
 
@@ -174,6 +180,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         scalar_mul_emitter.dump_events(),
         poseidon2_hash_emitter.dump_events(),
         poseidon2_perm_emitter.dump_events(),
+             keccakf1600_emitter.dump_events(),
         to_radix_emitter.dump_events(),
         field_gt_emitter.dump_events(),
         merkle_check_emitter.dump_events(),

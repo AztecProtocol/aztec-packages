@@ -54,7 +54,11 @@
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
 #include "relations/lookups_instr_fetching.hpp"
+<<<<<<< HEAD
 #include "relations/lookups_internal_call.hpp"
+=======
+#include "relations/lookups_keccakf1600.hpp"
+>>>>>>> 6e0c4ea535 (keccakf1600: permutation without memory)
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
@@ -69,11 +73,20 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
+<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2458;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 178;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2730;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 2712;
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2638;
+>>>>>>> 29603e509e (keccakf1600: permutation without memory)
+>>>>>>> 6e0c4ea535 (keccakf1600: permutation without memory)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -182,8 +195,137 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+<<<<<<< HEAD
         lookup_internal_call_push_call_stack_relation<FF_>,
         lookup_internal_call_unwind_call_stack_relation<FF_>,
+=======
+        lookup_keccakf1600_round_cst_relation<FF_>,
+        lookup_keccakf1600_state_chi_00_relation<FF_>,
+        lookup_keccakf1600_state_chi_01_relation<FF_>,
+        lookup_keccakf1600_state_chi_02_relation<FF_>,
+        lookup_keccakf1600_state_chi_03_relation<FF_>,
+        lookup_keccakf1600_state_chi_04_relation<FF_>,
+        lookup_keccakf1600_state_chi_10_relation<FF_>,
+        lookup_keccakf1600_state_chi_11_relation<FF_>,
+        lookup_keccakf1600_state_chi_12_relation<FF_>,
+        lookup_keccakf1600_state_chi_13_relation<FF_>,
+        lookup_keccakf1600_state_chi_14_relation<FF_>,
+        lookup_keccakf1600_state_chi_20_relation<FF_>,
+        lookup_keccakf1600_state_chi_21_relation<FF_>,
+        lookup_keccakf1600_state_chi_22_relation<FF_>,
+        lookup_keccakf1600_state_chi_23_relation<FF_>,
+        lookup_keccakf1600_state_chi_24_relation<FF_>,
+        lookup_keccakf1600_state_chi_30_relation<FF_>,
+        lookup_keccakf1600_state_chi_31_relation<FF_>,
+        lookup_keccakf1600_state_chi_32_relation<FF_>,
+        lookup_keccakf1600_state_chi_33_relation<FF_>,
+        lookup_keccakf1600_state_chi_34_relation<FF_>,
+        lookup_keccakf1600_state_chi_40_relation<FF_>,
+        lookup_keccakf1600_state_chi_41_relation<FF_>,
+        lookup_keccakf1600_state_chi_42_relation<FF_>,
+        lookup_keccakf1600_state_chi_43_relation<FF_>,
+        lookup_keccakf1600_state_chi_44_relation<FF_>,
+        lookup_keccakf1600_state_iota_00_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_00_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_01_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_02_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_03_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_04_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_10_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_11_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_12_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_13_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_14_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_20_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_21_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_22_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_23_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_24_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_30_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_31_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_32_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_33_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_34_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_40_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_41_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_42_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_43_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_44_relation<FF_>,
+        lookup_keccakf1600_state_theta_00_relation<FF_>,
+        lookup_keccakf1600_state_theta_01_relation<FF_>,
+        lookup_keccakf1600_state_theta_02_relation<FF_>,
+        lookup_keccakf1600_state_theta_03_relation<FF_>,
+        lookup_keccakf1600_state_theta_04_relation<FF_>,
+        lookup_keccakf1600_state_theta_10_relation<FF_>,
+        lookup_keccakf1600_state_theta_11_relation<FF_>,
+        lookup_keccakf1600_state_theta_12_relation<FF_>,
+        lookup_keccakf1600_state_theta_13_relation<FF_>,
+        lookup_keccakf1600_state_theta_14_relation<FF_>,
+        lookup_keccakf1600_state_theta_20_relation<FF_>,
+        lookup_keccakf1600_state_theta_21_relation<FF_>,
+        lookup_keccakf1600_state_theta_22_relation<FF_>,
+        lookup_keccakf1600_state_theta_23_relation<FF_>,
+        lookup_keccakf1600_state_theta_24_relation<FF_>,
+        lookup_keccakf1600_state_theta_30_relation<FF_>,
+        lookup_keccakf1600_state_theta_31_relation<FF_>,
+        lookup_keccakf1600_state_theta_32_relation<FF_>,
+        lookup_keccakf1600_state_theta_33_relation<FF_>,
+        lookup_keccakf1600_state_theta_34_relation<FF_>,
+        lookup_keccakf1600_state_theta_40_relation<FF_>,
+        lookup_keccakf1600_state_theta_41_relation<FF_>,
+        lookup_keccakf1600_state_theta_42_relation<FF_>,
+        lookup_keccakf1600_state_theta_43_relation<FF_>,
+        lookup_keccakf1600_state_theta_44_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_0_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_1_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_2_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_3_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_4_relation<FF_>,
+        lookup_keccakf1600_theta_limb_01_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_02_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_03_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_04_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_10_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_11_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_12_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_13_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_14_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_20_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_21_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_22_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_23_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_24_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_30_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_31_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_32_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_33_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_34_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_40_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_41_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_42_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_43_range_relation<FF_>,
+        lookup_keccakf1600_theta_limb_44_range_relation<FF_>,
+        lookup_keccakf1600_theta_xor_01_relation<FF_>,
+        lookup_keccakf1600_theta_xor_02_relation<FF_>,
+        lookup_keccakf1600_theta_xor_03_relation<FF_>,
+        lookup_keccakf1600_theta_xor_11_relation<FF_>,
+        lookup_keccakf1600_theta_xor_12_relation<FF_>,
+        lookup_keccakf1600_theta_xor_13_relation<FF_>,
+        lookup_keccakf1600_theta_xor_21_relation<FF_>,
+        lookup_keccakf1600_theta_xor_22_relation<FF_>,
+        lookup_keccakf1600_theta_xor_23_relation<FF_>,
+        lookup_keccakf1600_theta_xor_31_relation<FF_>,
+        lookup_keccakf1600_theta_xor_32_relation<FF_>,
+        lookup_keccakf1600_theta_xor_33_relation<FF_>,
+        lookup_keccakf1600_theta_xor_41_relation<FF_>,
+        lookup_keccakf1600_theta_xor_42_relation<FF_>,
+        lookup_keccakf1600_theta_xor_43_relation<FF_>,
+        lookup_keccakf1600_theta_xor_row_0_relation<FF_>,
+        lookup_keccakf1600_theta_xor_row_1_relation<FF_>,
+        lookup_keccakf1600_theta_xor_row_2_relation<FF_>,
+        lookup_keccakf1600_theta_xor_row_3_relation<FF_>,
+        lookup_keccakf1600_theta_xor_row_4_relation<FF_>,
+>>>>>>> 6e0c4ea535 (keccakf1600: permutation without memory)
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,
