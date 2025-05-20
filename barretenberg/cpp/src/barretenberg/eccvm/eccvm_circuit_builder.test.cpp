@@ -31,7 +31,6 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
     op_queue->mul_accumulate(b, y);
     op_queue->add_accumulate(a);
     op_queue->mul_accumulate(b, x);
-    op_queue->no_op();
     op_queue->add_accumulate(b);
     op_queue->eq_and_reset();
     op_queue->add_accumulate(c);
@@ -72,8 +71,6 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
 TEST(ECCVMCircuitBuilderTests, NoOp)
 {
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-
-    op_queue->no_op();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);

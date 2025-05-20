@@ -5,7 +5,11 @@ export class BlobArchiveClientInstrumentation {
   private blobRequestCounter: UpDownCounter;
   private retrievedBlobs: UpDownCounter;
 
-  constructor(client: TelemetryClient, private httpHost: string, name: string) {
+  constructor(
+    client: TelemetryClient,
+    private httpHost: string,
+    name: string,
+  ) {
     const meter = client.getMeter(name);
     this.blockRequestCounter = meter.createUpDownCounter(Metrics.BLOB_SINK_ARCHIVE_BLOCK_REQUEST_COUNT, {
       description: 'Number of requests made to retrieve blocks from the blob archive',

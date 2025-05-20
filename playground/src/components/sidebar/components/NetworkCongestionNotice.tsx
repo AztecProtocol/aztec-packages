@@ -15,6 +15,13 @@ const container = css({
   marginTop: '2rem',
   '@media (max-width: 900px)': {
     marginTop: '1rem',
+    marginBottom: '1rem',
+    fontSize: '0.8rem',
+    padding: '0.5rem',
+    svg: {
+      width: '1.2rem',
+      height: '1.2rem',
+    },
   },
 });
 

@@ -51,7 +51,7 @@ body:
     attributes:
       label: Node Version
       description: Your Node.js version
-      placeholder: e.g. 18.19.0
+      placeholder: e.g. 22.15.0
   - type: textarea
     id: additional-context
     attributes:

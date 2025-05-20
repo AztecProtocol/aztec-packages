@@ -313,7 +313,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return Promise.resolve(notifications.concat(completedJobs));
   }
 
-  // eslint-disable-next-line require-await
   #getProvingJob(filter: ProvingJobFilter = { allowList: [] }): { job: ProvingJob; time: number } | undefined {
     const allowedProofs: ProvingRequestType[] =
       Array.isArray(filter.allowList) && filter.allowList.length > 0

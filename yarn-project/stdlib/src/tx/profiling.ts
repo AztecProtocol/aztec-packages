@@ -1,8 +1,11 @@
+import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, optional } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
+import type { AbiDecoded } from '../abi/decoder.js';
 import { type PrivateExecutionStep, PrivateExecutionStepSchema } from '../kernel/private_kernel_prover_output.js';
+import { AbiDecodedSchema } from '../schemas/schemas.js';
 
 type FunctionTiming = {
   functionName: string;
@@ -46,7 +49,10 @@ export const SimulationTimingsSchema = z.object({
 });
 
 export class TxProfileResult {
-  constructor(public executionSteps: PrivateExecutionStep[], public timings: ProvingTimings) {}
+  constructor(
+    public executionSteps: PrivateExecutionStep[],
+    public timings: ProvingTimings,
+  ) {}
 
   static get schema(): ZodFor<TxProfileResult> {
     return z
@@ -84,5 +90,37 @@ export class TxProfileResult {
         total: 4,
       },
     );
+  }
+}
+
+export class UtilitySimulationResult {
+  constructor(
+    public result: AbiDecoded,
+    public timings?: SimulationTimings,
+  ) {}
+
+  static get schema(): ZodFor<UtilitySimulationResult> {
+    return z
+      .object({
+        result: AbiDecodedSchema,
+        timings: optional(SimulationTimingsSchema),
+      })
+      .transform(({ result, timings }) => new UtilitySimulationResult(result, timings));
+  }
+
+  static random(): UtilitySimulationResult {
+    return new UtilitySimulationResult(Fr.random().toBigInt(), {
+      sync: 1,
+      publicSimulation: 1,
+      validation: 1,
+      perFunction: [
+        {
+          functionName: 'random',
+          time: 1,
+        },
+      ],
+      unaccounted: 1,
+      total: 5,
+    });
   }
 }
