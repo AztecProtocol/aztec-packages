@@ -39,14 +39,14 @@ export default {
         use: [
           {
             loader: 'ts-loader',
-            options: { configFile: 'tsconfig.browser.json', onlyCompileBundledFiles: true },
+            options: { configFile: 'tsconfig.browser.bundle.json', onlyCompileBundledFiles: true },
           },
         ],
       },
     ],
   },
   output: {
-    path: resolve(dirname(fileURLToPath(import.meta.url)), './dest/browser'),
+    path: resolve(dirname(fileURLToPath(import.meta.url)), './dest/browser-bundle'),
     filename: '[name].js',
     chunkFilename: '[name].[chunkhash].js',
     module: true,

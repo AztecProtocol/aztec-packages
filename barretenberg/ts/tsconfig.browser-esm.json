@@ -1,7 +1,0 @@
-{
-  "extends": "./tsconfig.esm.json",
-  "compilerOptions": {
-    "outDir": "dest/browser-esm",
-  },
-  "include": ["!src/main.ts", "src"],
-}
