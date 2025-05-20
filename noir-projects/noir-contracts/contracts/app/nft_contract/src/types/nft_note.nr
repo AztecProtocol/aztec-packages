@@ -7,8 +7,11 @@ use dep::aztec::{
     oracle::random::random,
     protocol_types::{
         address::AztecAddress,
-        constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
-        hash::{poseidon2_hash, poseidon2_hash_with_separator},
+        constants::{
+            GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER,
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        },
+        hash::poseidon2_hash_with_separator,
         traits::{Deserialize, Hash, Packable, Serialize, ToField},
         utils::arrays::array_concat,
     },
@@ -206,9 +209,10 @@ impl PartialNFTNote {
     /// partial note in private and then is used to check that sender and note are valid upon partial note completion
     /// in public.
     pub fn compute_validity_commitment(self, sender: AztecAddress) -> Field {
-        // We don't use separator here because `self.commitment` (computed by `compute_partial_commitment`) already
-        // includes it.
-        poseidon2_hash([self.commitment, sender.to_field()])
+        poseidon2_hash_with_separator(
+            [self.commitment, sender.to_field()],
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        )
     }
 
     /// Completes the partial note, creating a new note that can be used like any other NFTNote.
