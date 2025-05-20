@@ -78,7 +78,7 @@ export async function executeNativeCircuit(
   try {
     // Check that the directory exists
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: ACVM_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 

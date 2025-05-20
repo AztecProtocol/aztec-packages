@@ -16,7 +16,7 @@ import { convertToMultiaddr, getPeerIdPrivateKey } from '../util.js';
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
  */
 export class BootstrapNode implements P2PBootstrapApi {
-  private node?: Discv5 & Discv5EventEmitter = undefined;
+  private node?: Discv5EventEmitter = undefined;
   private peerId?: PeerId;
 
   constructor(

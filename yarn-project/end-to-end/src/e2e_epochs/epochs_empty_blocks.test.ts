@@ -1,5 +1,4 @@
 import { type Logger, sleep } from '@aztec/aztec.js';
-// eslint-disable-next-line no-restricted-imports
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
 

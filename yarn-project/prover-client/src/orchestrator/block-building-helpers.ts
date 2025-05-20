@@ -331,9 +331,14 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
           );
 
     l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    const hasher = (left: Buffer, right: Buffer) => Promise.resolve(sha256Trunc(Buffer.concat([left, right])));
+    const hasher = (left: Buffer, right: Buffer) =>
+      Promise.resolve(sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>);
     const parityHeight = Math.ceil(Math.log2(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
-    const parityCalculator = await MerkleTreeCalculator.create(parityHeight, Fr.ZERO.toBuffer(), hasher);
+    const parityCalculator = await MerkleTreeCalculator.create(
+      parityHeight,
+      Fr.ZERO.toBuffer() as Buffer<ArrayBuffer>,
+      hasher,
+    );
     const parityShaRoot = await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
     const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobs(body.toBlobFields()));
 

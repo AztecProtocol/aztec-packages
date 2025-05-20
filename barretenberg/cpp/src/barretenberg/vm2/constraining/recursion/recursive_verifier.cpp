@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"

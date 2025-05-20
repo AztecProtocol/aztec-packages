@@ -20,6 +20,8 @@ class MegaZKFlavor : public bb::MegaFlavor {
     static constexpr bool HasZK = true;
     // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
+    static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
+                  "LIBRA_UNIVARIATES_LENGTH must be equal to MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
 
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =

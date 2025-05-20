@@ -202,12 +202,14 @@ export class Oracle {
     }
 
     // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
-    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note]
+    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note].
 
     const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, nonce, index, note }) => {
       // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
       const noteIsTransient = index === undefined;
       const nonzeroNoteHashCounter = noteIsTransient ? true : false;
+      // If you change the array on the next line you have to change the `unpack_retrieved_note` function in
+      // `aztec/src/note/retrieved_note.nr`
       return [contractAddress, nonce, nonzeroNoteHashCounter, ...note.items];
     });
 
@@ -354,8 +356,10 @@ export class Oracle {
     return [];
   }
 
-  notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    this.typedOracle.notifySetMinRevertibleSideEffectCounter(Fr.fromString(minRevertibleSideEffectCounter).toNumber());
+  async notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.notifySetMinRevertibleSideEffectCounter(
+      Fr.fromString(minRevertibleSideEffectCounter).toNumber(),
+    );
     return Promise.resolve([]);
   }
 

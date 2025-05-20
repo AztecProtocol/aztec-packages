@@ -1,4 +1,3 @@
-/* eslint-disable require-await */
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   NESTED_RECURSIVE_PROOF_LENGTH,

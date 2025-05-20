@@ -11,8 +11,6 @@ import {
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
 import { proveThenVerifyAztecClient } from './prove_wasm.js';
 
-/* eslint-disable camelcase */
-
 const logger = createDebug('aztec:browser-ivc-test');
 
 jest.setTimeout(120_000);

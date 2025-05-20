@@ -98,7 +98,7 @@ export class RollupCheatCodes {
     try {
       await this.ethCheatCodes.warp(Number(timestamp));
       this.logger.warn(`Warped to epoch ${epoch}`);
-    } catch (err) {
+    } catch {
       this.logger.debug('Warp failed, time already satisfied');
     }
     return timestamp;

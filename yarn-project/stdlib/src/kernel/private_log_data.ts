@@ -54,7 +54,7 @@ export class PrivateLogData {
 
   [inspect.custom]() {
     return `PrivateLogData {
-      log: ${this.log}
+      log: ${this.log.fields}
       noteHashCounter: ${this.noteHashCounter}
       counter: ${this.counter}
     }`;
@@ -100,7 +100,9 @@ export class ScopedPrivateLogData {
 
   [inspect.custom]() {
     return `ScopedPrivateLogData {
-      inner: ${this.inner}
+      inner.counter: ${this.inner.counter}
+      inner.noteHashCounter: ${this.inner.noteHashCounter}
+      inner.log: ${this.inner.log.fields}
       contractAddress: ${this.contractAddress}
     }`;
   }

@@ -72,6 +72,7 @@ export class ReadOnlyGovernanceContract {
 
   public async getProposalState(proposalId: bigint): Promise<ProposalState> {
     const state = await this.governanceContract.read.getProposalState([proposalId]);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
     if (state < 0 || state > ProposalState.Expired) {
       throw new Error(`Invalid proposal state: ${state}`);
     }

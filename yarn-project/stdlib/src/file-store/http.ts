@@ -53,7 +53,7 @@ export class HttpFileStore implements ReadOnlyFileStore {
     try {
       await this.fetch<unknown>({ url, method: 'HEAD' });
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
