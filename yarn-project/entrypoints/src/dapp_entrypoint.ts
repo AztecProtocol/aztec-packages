@@ -70,6 +70,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs],
       authWitnesses: [entypointAuthwitness, ...authWitnesses],
       capsules,
+      salt: Fr.random(),
     });
 
     return txRequest;

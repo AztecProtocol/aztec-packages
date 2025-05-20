@@ -93,7 +93,7 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  local node_min_version="18.19.0"
+  local node_min_version="22.15.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
     encourage_dev_container
@@ -150,7 +150,7 @@ function sort_by_cpus {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
+    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir docs
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
@@ -402,6 +402,7 @@ case "$cmd" in
     export CI_NIGHTLY=1
     build
     test
+    release
     docs/bootstrap.sh release-docs
     ;;
   "ci-release")

@@ -65,8 +65,8 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   seqMaxTxsPerBlock: 20,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
-  autoUpdate: 'enabled',
-  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/',
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
 };
 
 export async function getBootnodes(networkName: NetworkNames) {

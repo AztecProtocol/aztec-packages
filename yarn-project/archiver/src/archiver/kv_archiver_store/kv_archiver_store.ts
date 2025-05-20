@@ -46,7 +46,10 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
 
   #log = createLogger('archiver:data-store');
 
-  constructor(private db: AztecAsyncKVStore, logsMaxPageSize: number = 1000) {
+  constructor(
+    private db: AztecAsyncKVStore,
+    logsMaxPageSize: number = 1000,
+  ) {
     this.#blockStore = new BlockStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);

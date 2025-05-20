@@ -6,8 +6,8 @@
 
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 
+#include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
@@ -19,7 +19,7 @@ namespace bb::stdlib::recursion::honk {
 template <typename Flavor>
 OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
                                                        const std::shared_ptr<RecursiveDeciderVK>& verification_key,
-                                                       std::shared_ptr<Transcript> transcript,
+                                                       const std::shared_ptr<Transcript>& transcript,
                                                        std::string domain_separator)
     : verification_key(verification_key)
     , builder(builder)
