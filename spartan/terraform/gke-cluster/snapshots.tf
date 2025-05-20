@@ -30,3 +30,26 @@ resource "google_storage_bucket" "snapshots-bucket" {
       }
     }
 }
+
+resource "google_storage_managed_folder" "aztec_testnet_auto_update_folder" {
+  bucket        = google_storage_bucket.snapshots-bucket.name
+  name          = "auto-update/"
+  force_destroy = true
+}
+
+resource "google_storage_managed_folder_iam_policy" "aztec_testnet_auto_update_folder_policy" {
+  bucket         = google_storage_managed_folder.aztec_testnet_auto_update_folder.bucket
+  managed_folder = google_storage_managed_folder.aztec_testnet_auto_update_folder.name
+  policy_data    = data.google_iam_policy.all_users_storage_read.policy_data
+}
+
+resource "google_storage_bucket_object" "alpha_testnet_json" {
+  bucket = google_storage_managed_folder.aztec_testnet_auto_update_folder.bucket
+  name   = "${google_storage_managed_folder.aztec_testnet_auto_update_folder.name}alpha-testnet.json"
+  content_type = "application/json"
+  # see yarn-project/foundation/src/update-checker/update-checker.ts for latest schema
+  content = jsonencode({
+    config = {}
+  })
+}
+

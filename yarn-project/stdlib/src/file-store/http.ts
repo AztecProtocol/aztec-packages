@@ -14,7 +14,10 @@ export class HttpFileStore implements ReadOnlyFileStore {
   private readonly axiosInstance: AxiosInstance;
   private readonly fetch: <T>(config: AxiosRequestConfig) => Promise<AxiosResponse<T>>;
 
-  constructor(private readonly baseUrl: string, private readonly log: Logger = createLogger('stdlib:http-file-store')) {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly log: Logger = createLogger('stdlib:http-file-store'),
+  ) {
     this.axiosInstance = axios.create();
     this.fetch = async <T>(config: AxiosRequestConfig) => {
       return await retry(
@@ -53,7 +56,7 @@ export class HttpFileStore implements ReadOnlyFileStore {
     try {
       await this.fetch<unknown>({ url, method: 'HEAD' });
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

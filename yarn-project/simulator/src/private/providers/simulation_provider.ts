@@ -60,7 +60,7 @@ export function enrichNoirError(artifact: NoirCompiledCircuit, originalError: Ex
         // If not, attach the payload to the original error
         enrichedError.decodedAssertionPayload = decodedPayload;
       }
-    } catch (_errorDecoding) {
+    } catch {
       // Ignore errors decoding the payload
     }
   }
@@ -82,7 +82,7 @@ export function enrichNoirError(artifact: NoirCompiledCircuit, originalError: Ex
         return `at ${errorLocation.locationText} (${errorLocation.filePath}:${errorLocation.line}:${errorLocation.column})`;
       }
     });
-  } catch (_errorResolving) {
+  } catch {
     // Ignore errors resolving the callstack
   }
 

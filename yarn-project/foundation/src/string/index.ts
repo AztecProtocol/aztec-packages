@@ -19,7 +19,7 @@ export function bufferToHex(buffer: Buffer): `0x${string}` {
 }
 
 export function pluralize(str: string, count: number | bigint, plural?: string): string {
-  return count === 1 || count === 1n ? str : plural ?? `${str}s`;
+  return count === 1 || count === 1n ? str : (plural ?? `${str}s`);
 }
 
 export function count(count: number | bigint, str: string, plural?: string): string {

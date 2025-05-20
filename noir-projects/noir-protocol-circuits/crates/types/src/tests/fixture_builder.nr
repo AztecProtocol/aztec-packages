@@ -360,6 +360,7 @@ impl FixtureBuilder {
             args_hash: self.args_hash,
             tx_context: self.tx_context,
             function_data: self.function_data,
+            salt: 54321,
         }
     }
 

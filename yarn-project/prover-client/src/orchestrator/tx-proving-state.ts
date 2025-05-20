@@ -123,7 +123,7 @@ export class TxProvingState {
     let vkIndex = TUBE_VK_INDEX;
     try {
       vkIndex = getVKIndex(this.tube!.verificationKey);
-    } catch (_ignored) {
+    } catch {
       // TODO(#7410) The VK for the tube won't be in the tree for now, so we manually set it to the tube vk index
     }
     const vkPath = getVKSiblingPath(vkIndex);

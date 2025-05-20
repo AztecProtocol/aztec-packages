@@ -16,17 +16,17 @@ import {
 } from '@aztec/constants';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
-import BaseParityVkJson from '../../../artifacts/keys/parity_base.vk.data.json' assert { type: 'json' };
-import RootParityVkJson from '../../../artifacts/keys/parity_root.vk.data.json' assert { type: 'json' };
-import PrivateBaseRollupVkJson from '../../../artifacts/keys/rollup_base_private.vk.data.json' assert { type: 'json' };
-import PublicBaseRollupVkJson from '../../../artifacts/keys/rollup_base_public.vk.data.json' assert { type: 'json' };
-import BlockMergeRollupVkJson from '../../../artifacts/keys/rollup_block_merge.vk.data.json' assert { type: 'json' };
-import BlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_root.vk.data.json' assert { type: 'json' };
-import EmptyBlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_root_empty.vk.data.json' assert { type: 'json' };
-import SingleTxBlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_root_single_tx.vk.data.json' assert { type: 'json' };
-import MergeRollupVkJson from '../../../artifacts/keys/rollup_merge.vk.data.json' assert { type: 'json' };
-import RootRollupVkJson from '../../../artifacts/keys/rollup_root.vk.data.json' assert { type: 'json' };
-import TubeVkJson from '../../../artifacts/keys/tube.vk.data.json' assert { type: 'json' };
+import BaseParityVkJson from '../../../artifacts/keys/parity_base.vk.data.json' with { type: 'json' };
+import RootParityVkJson from '../../../artifacts/keys/parity_root.vk.data.json' with { type: 'json' };
+import PrivateBaseRollupVkJson from '../../../artifacts/keys/rollup_base_private.vk.data.json' with { type: 'json' };
+import PublicBaseRollupVkJson from '../../../artifacts/keys/rollup_base_public.vk.data.json' with { type: 'json' };
+import BlockMergeRollupVkJson from '../../../artifacts/keys/rollup_block_merge.vk.data.json' with { type: 'json' };
+import BlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_root.vk.data.json' with { type: 'json' };
+import EmptyBlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_root_empty.vk.data.json' with { type: 'json' };
+import SingleTxBlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_root_single_tx.vk.data.json' with { type: 'json' };
+import MergeRollupVkJson from '../../../artifacts/keys/rollup_merge.vk.data.json' with { type: 'json' };
+import RootRollupVkJson from '../../../artifacts/keys/rollup_root.vk.data.json' with { type: 'json' };
+import TubeVkJson from '../../../artifacts/keys/tube.vk.data.json' with { type: 'json' };
 import { PrivateKernelResetVkIndexes } from '../../private_kernel_reset_vks.js';
 import { keyJsonToVKData } from '../../utils/vk_json.js';
 import type { ProtocolArtifact, ServerProtocolArtifact } from '../types.js';

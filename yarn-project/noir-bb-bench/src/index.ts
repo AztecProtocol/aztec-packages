@@ -5,10 +5,10 @@ import type { InputValue } from '@aztec/noir-noirc_abi';
 import createDebug from 'debug';
 
 // these files are generated
-import Circuit1 from '../artifacts/circuit_1.json' assert { type: 'json' };
-import Circuit2 from '../artifacts/circuit_2.json' assert { type: 'json' };
-import Vk1 from '../artifacts/keys/circuit_1.vk.data.json' assert { type: 'json' };
-import Vk2 from '../artifacts/keys/circuit_2.vk.data.json' assert { type: 'json' };
+import Circuit1 from '../artifacts/circuit_1.json' with { type: 'json' };
+import Circuit2 from '../artifacts/circuit_2.json' with { type: 'json' };
+import Vk1 from '../artifacts/keys/circuit_1.vk.data.json' with { type: 'json' };
+import Vk2 from '../artifacts/keys/circuit_2.vk.data.json' with { type: 'json' };
 import type { FixedLengthArray } from './types/index.js';
 
 export const logger = createDebug('aztec:bb-bench');

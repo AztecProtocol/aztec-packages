@@ -61,9 +61,9 @@ export interface Validator {
     txs: Tx[],
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined>;
-  attestToProposal(proposal: BlockProposal): void;
+  attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined>;
 
-  broadcastBlockProposal(proposal: BlockProposal): void;
+  broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
   collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
 }
 
@@ -444,8 +444,8 @@ export class ValidatorClient extends WithTracer implements Validator {
     return newProposal;
   }
 
-  broadcastBlockProposal(proposal: BlockProposal): void {
-    this.p2pClient.broadcastProposal(proposal);
+  async broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
+    await this.p2pClient.broadcastProposal(proposal);
   }
 
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962)
@@ -502,7 +502,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 function validatePrivateKey(privateKey: string): Buffer32 {
   try {
     return Buffer32.fromString(privateKey);
-  } catch (error) {
+  } catch {
     throw new InvalidValidatorPrivateKeyError();
   }
 }

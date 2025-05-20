@@ -249,6 +249,7 @@ export function mapBlobPublicInputsToNoir(blobPublicInputs: BlobPublicInputs): B
   return {
     z: mapFieldToNoir(blobPublicInputs.z),
     y: mapBLS12BigNumToNoir(blobPublicInputs.y),
+
     kzg_commitment: mapBlobCommitmentToNoir(blobPublicInputs.kzgCommitment),
   };
 }
