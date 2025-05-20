@@ -280,7 +280,7 @@ export type SetupOptions = {
   /** Salt to use in L1 contract deployment */
   salt?: number;
   /** An initial set of validators */
-  initialValidators?: EthAddress[];
+  initialValidatorPrivateKeys?: `0x${string}`[];
   /** Anvil Start time */
   l1StartTime?: number;
   /** The anvil time where we should at the earliest be seeing L2 blocks */
@@ -352,6 +352,14 @@ export async function setup(
   let anvil: Anvil | undefined;
   try {
     const config = { ...getConfigEnvVars(), ...opts };
+    // use initialValidators for the node config
+    config.validatorPrivateKeys = opts.initialValidatorPrivateKeys;
+
+    const initialValidators = opts.initialValidatorPrivateKeys?.map(privateKey => {
+      const account = privateKeyToAccount(privateKey);
+      return EthAddress.fromString(account.address);
+    });
+
     config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
     // For tests we only want proving enabled if specifically requested
     config.realProofs = !!opts.realProofs;
@@ -436,7 +444,7 @@ export async function setup(
         config.l1RpcUrls,
         publisherHdAccount!,
         logger,
-        { ...opts, genesisArchiveRoot, feeJuicePortalInitialBalance: fundingNeeded },
+        { ...opts, genesisArchiveRoot, feeJuicePortalInitialBalance: fundingNeeded, initialValidators },
         chain,
       ));
 

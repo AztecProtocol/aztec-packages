@@ -48,19 +48,23 @@ export class ValidationService {
   }
 
   /**
-   * Attest with all validators to the given block proposal, constructed by the current sequencer
+   * Attest with selection of validators to the given block proposal, constructed by the current sequencer
    *
    * NOTE: This is just a blind signing.
    *       We assume that the proposal is valid and DA guarantees have been checked previously.
    *
    * @param proposal - The proposal to attest to
+   * @param attestors - The validators to attest with
    * @returns attestations
    */
-  async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation[]> {
+  async attestToProposal(proposal: BlockProposal, attestors: EthAddress[]): Promise<BlockAttestation[]> {
     const buf = Buffer32.fromBuffer(
       keccak256(proposal.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation)),
     );
-    const signatures = await this.keyStore.signMessage(buf);
+    const signatures = await Promise.all(
+      attestors.map(attestor => this.keyStore.signMessageWithAddress(attestor, buf)),
+    );
+    //await this.keyStore.signMessage(buf);
     return signatures.map(sig => new BlockAttestation(proposal.blockNumber, proposal.payload, sig));
   }
 }

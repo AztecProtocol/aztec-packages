@@ -286,7 +286,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.metrics.incAttestations(inCommittee.length);
 
     // If the above function does not throw an error, then we can attest to the proposal
-    return this.doAttestToProposal(proposal);
+    return this.doAttestToProposal(proposal, inCommittee);
   }
 
   /**
@@ -481,7 +481,8 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     const proposalId = proposal.archive.toString();
     // adds attestations for all of my addresses locally
-    await this.doAttestToProposal(proposal);
+    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
+    await this.doAttestToProposal(proposal, inCommittee);
 
     const myAddresses = this.keyStore.getAddresses();
 
@@ -515,8 +516,8 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
   }
 
-  private async doAttestToProposal(proposal: BlockProposal): Promise<BlockAttestation[]> {
-    const attestations = await this.validationService.attestToProposal(proposal);
+  private async doAttestToProposal(proposal: BlockProposal, attestors: EthAddress[] = []): Promise<BlockAttestation[]> {
+    const attestations = await this.validationService.attestToProposal(proposal, attestors);
     await this.p2pClient.addAttestations(attestations);
     return attestations;
   }

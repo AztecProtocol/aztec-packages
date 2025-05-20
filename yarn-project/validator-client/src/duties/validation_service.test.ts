@@ -68,7 +68,7 @@ describe('ValidationService', () => {
   it('attests to proposal', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const proposal = makeBlockProposal({ txs });
-    const attestations = await service.attestToProposal(proposal);
+    const attestations = await service.attestToProposal(proposal, addresses);
     expect(attestations.length).toBe(2);
     expect(attestations[0].getSender()).toEqual(addresses[0]);
     expect(attestations[1].getSender()).toEqual(addresses[1]);

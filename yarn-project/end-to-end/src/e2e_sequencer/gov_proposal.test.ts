@@ -7,13 +7,10 @@ import {
   deployL1Contract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
 import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
 import type { PXEService } from '@aztec/pxe/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-
-import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 import { submitTxsTo } from '../shared/submit-transactions.js';
@@ -28,13 +25,12 @@ describe('e2e_gov_proposal', () => {
   let aztecSlotDuration: number;
   let cheatCodes: CheatCodes;
   beforeEach(async () => {
-    const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
-    const initialValidators = [EthAddress.fromString(account.address)];
+    const initialValidatorPrivateKeys = [`0x${getPrivateKeyFromIndex(0)!.toString('hex')}` as `0x${string}`];
     const { ethereumSlotDuration, aztecSlotDuration: _aztecSlotDuration } = getL1ContractsConfigEnvVars();
     aztecSlotDuration = _aztecSlotDuration;
 
     ({ teardown, logger, wallet, pxe, aztecNodeAdmin, deployL1ContractsValues, cheatCodes } = await setup(1, {
-      initialValidators,
+      initialValidatorPrivateKeys,
       ethereumSlotDuration,
       salt: 420,
       minTxsPerBlock: 8,
