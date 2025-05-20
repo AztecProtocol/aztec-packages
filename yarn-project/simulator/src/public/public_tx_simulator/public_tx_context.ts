@@ -18,8 +18,9 @@ import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
+  PrivateToPublicAccumulatedData,
   PublicCallRequest,
+  PublicCallRequestArrayLengths,
   countAccumulatedItems,
 } from '@aztec/stdlib/kernel';
 import { PublicLog } from '@aztec/stdlib/logs';
@@ -369,6 +370,11 @@ export class PublicTxContext {
       /*startGasUsed=*/ this.gasUsedByPrivate,
       this.gasSettings,
       this.feePayer,
+      /*publicCallRequestArrayLengths=*/ new PublicCallRequestArrayLengths(
+        this.setupCallRequests.length,
+        this.appLogicCallRequests.length,
+        this.teardownCallRequests.length > 0,
+      ),
       /*publicSetupCallRequests=*/ padArrayEnd(
         this.setupCallRequests.map(r => r.request),
         PublicCallRequest.empty(),

@@ -90,6 +90,11 @@ TEST(AvmInputsTest, ValuesInColumns)
     // Set fee payer
     pi.feePayer = 12345;
 
+    // Set Public Call Request Array Lengths
+    pi.publicCallRequestArrayLengths.setupCalls = 2;
+    pi.publicCallRequestArrayLengths.appLogicCalls = 3;
+    pi.publicCallRequestArrayLengths.teardownCall = true;
+
     // Set call requests (using all 4 columns)
     pi.publicSetupCallRequests[0].msgSender = 1111;
     pi.publicSetupCallRequests[0].contractAddress = 2222;
@@ -233,6 +238,14 @@ TEST(AvmInputsTest, ValuesInColumns)
 
     // Fee payer
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX], pi.feePayer);
+
+    // Public Call Request Array Lengths
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX],
+              pi.publicCallRequestArrayLengths.setupCalls);
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX],
+              pi.publicCallRequestArrayLengths.appLogicCalls);
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX],
+              static_cast<uint8_t>(pi.publicCallRequestArrayLengths.teardownCall));
 
     // Public call requests (testing use of all 4 columns)
     size_t setup_row = AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX;

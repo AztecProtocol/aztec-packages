@@ -115,7 +115,11 @@ import { PrivateCallRequest } from '../kernel/private_call_request.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import { PrivateLogData } from '../kernel/private_log_data.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from '../kernel/private_to_rollup_kernel_circuit_public_inputs.js';
-import { CountedPublicCallRequest, PublicCallRequest } from '../kernel/public_call_request.js';
+import {
+  CountedPublicCallRequest,
+  PublicCallRequest,
+  PublicCallRequestArrayLengths,
+} from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
 import { ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
@@ -453,6 +457,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
     makeGas(seed + 0x20),
     makeGasSettings(),
     makeAztecAddress(seed + 0x40),
+    makePublicCallRequestArrayLengths(seed + 0x40),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x200),
     makePublicCallRequest(seed + 0x300),
@@ -531,6 +536,10 @@ function makePrivateCallRequest(seed = 1): PrivateCallRequest {
 
 export function makePublicCallRequest(seed = 1) {
   return new PublicCallRequest(makeAztecAddress(seed), makeAztecAddress(seed + 1), false, fr(seed + 0x3));
+}
+
+export function makePublicCallRequestArrayLengths(seed = 1) {
+  return new PublicCallRequestArrayLengths(seed, seed + 1, seed % 2 === 0);
 }
 
 function makeCountedPublicCallRequest(seed = 1) {

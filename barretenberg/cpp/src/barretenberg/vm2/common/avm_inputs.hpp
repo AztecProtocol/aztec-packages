@@ -32,6 +32,7 @@ struct PublicInputs {
     Gas startGasUsed;
     GasSettings gasSettings;
     AztecAddress feePayer;
+    PublicCallRequestArrayLengths publicCallRequestArrayLengths;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests;
     PublicCallRequest publicTeardownCallRequest;
@@ -87,6 +88,7 @@ struct PublicInputs {
                    startGasUsed,
                    gasSettings,
                    feePayer,
+                   publicCallRequestArrayLengths,
                    publicSetupCallRequests,
                    publicAppLogicCallRequests,
                    publicTeardownCallRequest,

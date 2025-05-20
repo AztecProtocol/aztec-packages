@@ -11,7 +11,7 @@ use crate::{
         gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
-        public_call_request::PublicCallRequest,
+        public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
         public_log::PublicLog,
         tree_snapshots::TreeSnapshots,
@@ -55,6 +55,9 @@ use crate::{
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX,
@@ -79,6 +82,7 @@ pub struct AvmCircuitPublicInputs {
     pub start_gas_used: Gas,
     pub gas_settings: GasSettings,
     pub fee_payer: AztecAddress,
+    pub public_call_request_array_lengths: PublicCallRequestArrayLengths,
     pub public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
     pub public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
     pub public_teardown_call_request: PublicCallRequest,
@@ -104,6 +108,7 @@ impl Empty for AvmCircuitPublicInputs {
             start_gas_used: Gas::empty(),
             gas_settings: GasSettings::empty(),
             fee_payer: AztecAddress::zero(),
+            public_call_request_array_lengths: PublicCallRequestArrayLengths::empty(),
             public_setup_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             public_app_logic_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             public_teardown_call_request: PublicCallRequest::empty(),
@@ -127,6 +132,7 @@ impl Eq for AvmCircuitPublicInputs {
             & (self.start_gas_used == other.start_gas_used)
             & (self.gas_settings == other.gas_settings)
             & (self.fee_payer == other.fee_payer)
+            & (self.public_call_request_array_lengths == other.public_call_request_array_lengths)
             & (self.public_setup_call_requests == other.public_setup_call_requests)
             & (self.public_app_logic_call_requests == other.public_app_logic_call_requests)
             & (self.public_teardown_call_request == other.public_teardown_call_request)
@@ -163,6 +169,7 @@ impl Serialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
         fields.extend_from_array(self.start_gas_used.serialize());
         fields.extend_from_array(self.gas_settings.serialize());
         fields.push(self.fee_payer.to_field());
+        fields.extend_from_array(self.public_call_request_array_lengths.serialize());
         for i in 0..self.public_setup_call_requests.len() {
             fields.extend_from_array(self.public_setup_call_requests[i].serialize());
         }
@@ -197,6 +204,9 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
             start_gas_used: reader.read_struct(Gas::deserialize),
             gas_settings: reader.read_struct(GasSettings::deserialize),
             fee_payer: AztecAddress::from_field(reader.read()),
+            public_call_request_array_lengths: reader.read_struct(
+                PublicCallRequestArrayLengths::deserialize,
+            ),
             public_setup_call_requests: reader.read_struct_array(
                 PublicCallRequest::deserialize,
                 [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
@@ -418,6 +428,14 @@ impl AvmCircuitPublicInputs {
 
         // Fee payer
         cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = self.fee_payer.to_field();
+
+        // Setup, app logic, and teardown call request array lengths
+        cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX] =
+            self.public_call_request_array_lengths.setup_calls as Field;
+        cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX] =
+            self.public_call_request_array_lengths.app_logic_calls as Field;
+        cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX] =
+            self.public_call_request_array_lengths.teardown_call as Field;
 
         // Setup, app logic, and teardown call requests
         set_public_call_request_array_in_cols(

@@ -14,7 +14,7 @@ import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
 } from '../kernel/private_to_avm_accumulated_data.js';
-import { PublicCallRequest } from '../kernel/public_call_request.js';
+import { PublicCallRequest, PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
 import { AvmAccumulatedData } from './avm_accumulated_data.js';
@@ -31,6 +31,7 @@ export class AvmCircuitPublicInputs {
     public startGasUsed: Gas,
     public gasSettings: GasSettings,
     public feePayer: AztecAddress,
+    public publicCallRequestArrayLengths: PublicCallRequestArrayLengths,
     public publicSetupCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public publicAppLogicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public publicTeardownCallRequest: PublicCallRequest,
@@ -55,6 +56,7 @@ export class AvmCircuitPublicInputs {
         startGasUsed: Gas.schema,
         gasSettings: GasSettings.schema,
         feePayer: AztecAddress.schema,
+        publicCallRequestArrayLengths: PublicCallRequestArrayLengths.schema,
         publicSetupCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
         publicAppLogicCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
         publicTeardownCallRequest: PublicCallRequest.schema,
@@ -75,6 +77,7 @@ export class AvmCircuitPublicInputs {
           startGasUsed,
           gasSettings,
           feePayer,
+          publicCallRequestArrayLengths,
           publicSetupCallRequests,
           publicAppLogicCallRequests,
           publicTeardownCallRequest,
@@ -94,6 +97,7 @@ export class AvmCircuitPublicInputs {
             startGasUsed,
             gasSettings,
             feePayer,
+            publicCallRequestArrayLengths,
             assertLength(publicSetupCallRequests, MAX_ENQUEUED_CALLS_PER_TX),
             assertLength(publicAppLogicCallRequests, MAX_ENQUEUED_CALLS_PER_TX),
             publicTeardownCallRequest,
@@ -118,6 +122,7 @@ export class AvmCircuitPublicInputs {
       reader.readObject(Gas),
       reader.readObject(GasSettings),
       reader.readObject(AztecAddress),
+      reader.readObject(PublicCallRequestArrayLengths),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readObject(PublicCallRequest),
@@ -140,6 +145,7 @@ export class AvmCircuitPublicInputs {
       this.startGasUsed,
       this.gasSettings,
       this.feePayer,
+      this.publicCallRequestArrayLengths,
       this.publicSetupCallRequests,
       this.publicAppLogicCallRequests,
       this.publicTeardownCallRequest,
@@ -171,6 +177,7 @@ export class AvmCircuitPublicInputs {
       Gas.fromFields(reader),
       GasSettings.fromFields(reader),
       AztecAddress.fromFields(reader),
+      PublicCallRequestArrayLengths.fromFields(reader),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       PublicCallRequest.fromFields(reader),
@@ -193,6 +200,7 @@ export class AvmCircuitPublicInputs {
       ...this.startGasUsed.toFields(),
       ...this.gasSettings.toFields(),
       this.feePayer,
+      ...this.publicCallRequestArrayLengths.toFields(),
       ...this.publicSetupCallRequests.map(request => request.toFields()),
       ...this.publicAppLogicCallRequests.map(request => request.toFields()),
       ...this.publicTeardownCallRequest.toFields(),
@@ -215,6 +223,7 @@ export class AvmCircuitPublicInputs {
       Gas.empty(),
       GasSettings.empty(),
       AztecAddress.zero(),
+      PublicCallRequestArrayLengths.empty(),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       PublicCallRequest.empty(),
@@ -241,6 +250,7 @@ export class AvmCircuitPublicInputs {
       startGasUsed: ${inspect(this.startGasUsed)},
       gasSettings: ${inspect(this.gasSettings)},
       feePayer: ${inspect(this.feePayer)},
+      publicCallRequestArrayLengths: ${inspect(this.publicCallRequestArrayLengths)},
       publicSetupCallRequests: [${this.publicSetupCallRequests
         .filter(x => !x.isEmpty())
         .map(h => inspect(h))

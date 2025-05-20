@@ -169,6 +169,14 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     // Fee payer
     cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = feePayer;
 
+    // Public Call Request Array Lengths
+    cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX] =
+        publicCallRequestArrayLengths.setupCalls;
+    cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX] =
+        publicCallRequestArrayLengths.appLogicCalls;
+    cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX] =
+        static_cast<uint8_t>(publicCallRequestArrayLengths.teardownCall);
+
     // Setup, app logic, and teardown call requests
     set_public_call_request_array_in_cols(
         publicSetupCallRequests, cols, AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX);

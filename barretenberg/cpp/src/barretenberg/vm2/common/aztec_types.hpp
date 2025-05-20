@@ -142,6 +142,16 @@ struct PublicCallRequest {
     MSGPACK_FIELDS(msgSender, contractAddress, isStaticCall, calldataHash);
 };
 
+struct PublicCallRequestArrayLengths {
+    uint32_t setupCalls;
+    uint32_t appLogicCalls;
+    bool teardownCall;
+
+    bool operator==(const PublicCallRequestArrayLengths& other) const = default;
+
+    MSGPACK_FIELDS(setupCalls, appLogicCalls, teardownCall);
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Accumulated Data Types
 ////////////////////////////////////////////////////////////////////////////
