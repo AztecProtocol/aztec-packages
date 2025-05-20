@@ -62,6 +62,9 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput output = verifier.verify(proof);
     output.points_accumulator.set_public();
+    auto translator_pairing_points = output.translator_pairing_points;
+    translator_pairing_points.P0.fix_witness();
+    translator_pairing_points.P1.fix_witness();
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
