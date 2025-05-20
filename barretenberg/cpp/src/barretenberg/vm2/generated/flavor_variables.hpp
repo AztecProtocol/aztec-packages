@@ -36,6 +36,7 @@
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_instr_fetching.hpp"
+#include "relations/lookups_keccakf1600.hpp"
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
@@ -50,10 +51,17 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = 2315;
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2212;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2429;
+>>>>>>> 06c527d238 (keccakf1600: firs pil relations for theta xoring)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -122,6 +130,26 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+        lookup_keccakf1600_theta_xor_01_relation<FF_>,
+        lookup_keccakf1600_theta_xor_02_relation<FF_>,
+        lookup_keccakf1600_theta_xor_03_relation<FF_>,
+        lookup_keccakf1600_theta_xor_11_relation<FF_>,
+        lookup_keccakf1600_theta_xor_12_relation<FF_>,
+        lookup_keccakf1600_theta_xor_13_relation<FF_>,
+        lookup_keccakf1600_theta_xor_21_relation<FF_>,
+        lookup_keccakf1600_theta_xor_22_relation<FF_>,
+        lookup_keccakf1600_theta_xor_23_relation<FF_>,
+        lookup_keccakf1600_theta_xor_31_relation<FF_>,
+        lookup_keccakf1600_theta_xor_32_relation<FF_>,
+        lookup_keccakf1600_theta_xor_33_relation<FF_>,
+        lookup_keccakf1600_theta_xor_41_relation<FF_>,
+        lookup_keccakf1600_theta_xor_42_relation<FF_>,
+        lookup_keccakf1600_theta_xor_43_relation<FF_>,
+        lookup_keccakf1600_theta_xor_final_0_relation<FF_>,
+        lookup_keccakf1600_theta_xor_final_1_relation<FF_>,
+        lookup_keccakf1600_theta_xor_final_2_relation<FF_>,
+        lookup_keccakf1600_theta_xor_final_3_relation<FF_>,
+        lookup_keccakf1600_theta_xor_final_4_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,
