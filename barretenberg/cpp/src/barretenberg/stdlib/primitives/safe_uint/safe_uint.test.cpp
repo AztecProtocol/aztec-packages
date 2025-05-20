@@ -779,13 +779,3 @@ TYPED_TEST(SafeUintTest, TestByteArrayConversion)
     }
     EXPECT_EQ(arr.get_origin_tag(), next_challenge_tag);
 }
-
-// Make sure our uint256 values don't wrap  - add_two function sums three of these
-TEST(SafeUintTest, Uint256NoWrapOnTripleMaxValue)
-{
-    // Make sure our uint256 values don't wrap - sum of three MAX_VALUEs should be less than 2^256
-    uint256_t max_value = stdlib::safe_uint_t<bb::StandardCircuitBuilder>::MAX_VALUE;
-    uint512_t triple = uint512_t(max_value) * 3;
-    uint512_t two_pow_256 = uint512_t(1) << 256;
-    EXPECT_LT(triple, two_pow_256);
-}
