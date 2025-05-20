@@ -182,9 +182,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             info("Error: ", e.what());
             // Bah, we are done (for now).
             // TODO: we eventually want this to just set and handle exceptional halt.
-            return {
-                .success = true,
-            };
+            throw std::runtime_error("Execution loop error: " + std::string(e.what()));
         }
 
         events.emit(std::move(ex_event));

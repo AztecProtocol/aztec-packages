@@ -47,9 +47,12 @@ resource "google_storage_bucket_object" "alpha_testnet_json" {
   bucket = google_storage_managed_folder.aztec_testnet_auto_update_folder.bucket
   name   = "${google_storage_managed_folder.aztec_testnet_auto_update_folder.name}alpha-testnet.json"
   content_type = "application/json"
+  cache_control = "no-store"
   # see yarn-project/foundation/src/update-checker/update-checker.ts for latest schema
   content = jsonencode({
-    config = {}
+    version = ""
+    config = {
+      governanceProposerPayload = "0x0000000000000000000000000000000000000000"
+    }
   })
 }
-
