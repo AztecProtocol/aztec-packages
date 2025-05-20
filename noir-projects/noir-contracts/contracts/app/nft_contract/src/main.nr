@@ -208,7 +208,11 @@ pub contract NFT {
             sender,
         );
 
-        NFT::at(context.this_address())._store_nft_set_partial_note(sender, partial_note).enqueue(
+        // We compute the validity commitment of the partial note and store it in public storage for later partial note
+        // validity check.
+        let validity_commitment = partial_note.compute_validity_commitment(sender);
+
+        NFT::at(context.this_address())._store_nft_set_partial_note(validity_commitment).enqueue(
             context,
         );
 
@@ -219,12 +223,12 @@ pub contract NFT {
     // docs:start:store_payload_in_transient_storage_unsafe
     #[public]
     #[internal]
-    fn _store_nft_set_partial_note(sender: AztecAddress, partial_note: PartialNFTNote) {
+    fn _store_nft_set_partial_note(validity_commitment: Field) {
         // We store the partial note validity flag in a slot equal to its validity commitment. This is safe because
         // the commitment is computed using a generator different from the one used to compute storage slots, so there
         // can be no collisions. We could consider storing all pending partial notes in e.g. some array, but ultimately
         // this is pointless: all we need to verify is that the note is valid.
-        context.storage_write(partial_note.compute_validity_commitment(sender), true);
+        context.storage_write(validity_commitment, true);
     }
     // docs:end:store_payload_in_transient_storage_unsafe
     /// Finalizes a transfer of NFT with `token_id` from public balance of `from` to a private balance of `to`.
