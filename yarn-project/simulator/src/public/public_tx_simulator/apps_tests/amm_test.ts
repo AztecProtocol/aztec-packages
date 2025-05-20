@@ -150,10 +150,10 @@ async function addLiquidity(
         args: [/*to=*/ amm.address, /*amount=*/ amount0Max],
         address: token0.address,
       },
-      // token0.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      // token0.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
       {
         sender: token0.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_store_balances_set_partial_note',
+        fnName: '_set_uint_partial_note_validity',
         args: [refundToken0PartialNote],
         address: token0.address,
       },
@@ -164,17 +164,17 @@ async function addLiquidity(
         args: [/*to=*/ amm.address, /*amount=*/ amount1Max],
         address: token1.address,
       },
-      // token1.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      // token1.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
       {
         sender: token1.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_store_balances_set_partial_note',
+        fnName: '_set_uint_partial_note_validity',
         args: [refundToken1PartialNote],
         address: token1.address,
       },
-      // liquidityToken.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      // liquidityToken.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
       {
         sender: liquidityToken.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_store_balances_set_partial_note',
+        fnName: '_set_uint_partial_note_validity',
         args: [liquidityPartialNote],
         address: liquidityToken.address,
       },
@@ -229,10 +229,10 @@ async function swapExactTokensForTokens(
         args: [/*to=*/ amm.address, /*amount=*/ amountIn],
         address: tokenIn.address,
       },
-      // tokenOut.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      // tokenOut.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
       {
         sender: tokenOut.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_store_balances_set_partial_note',
+        fnName: '_set_uint_partial_note_validity',
         args: [tokenOutPartialNote],
         address: tokenOut.address,
       },
@@ -278,17 +278,17 @@ async function removeLiquidity(
         args: [/*to=*/ amm.address, /*amount=*/ liquidity],
         address: liquidityToken.address,
       },
-      // token0.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      // token0.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
       {
         sender: token0.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_store_balances_set_partial_note',
+        fnName: '_set_uint_partial_note_validity',
         args: [token0PartialNote],
         address: token0.address,
       },
-      // token1.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      // token1.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
       {
         sender: token1.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_store_balances_set_partial_note',
+        fnName: '_set_uint_partial_note_validity',
         args: [token1PartialNote],
         address: token1.address,
       },
