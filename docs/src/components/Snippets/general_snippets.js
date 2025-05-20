@@ -27,9 +27,8 @@ export const General = {
 
   node_ver: () => (
     <p>
-      When using Aztec libraries you will need Node.js version {">="} v18.xx.x
-      and {"<="} v20.17.x (lts/iron). You can use{" "}
-      <a href="https://github.com/nvm-sh/nvm">nvm</a> to help manage node
+      When using Aztec libraries you will need Node.js version v22.xx.x. You can
+      use <a href="https://github.com/nvm-sh/nvm">nvm</a> to help manage node
       versions.
     </p>
   ),
