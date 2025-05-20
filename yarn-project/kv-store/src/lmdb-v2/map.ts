@@ -11,7 +11,10 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
   private prefix: string;
   private encoder = new Encoder();
 
-  constructor(private store: AztecLMDBStoreV2, name: string) {
+  constructor(
+    private store: AztecLMDBStoreV2,
+    name: string,
+  ) {
     this.prefix = `map:${name}`;
   }
   /**

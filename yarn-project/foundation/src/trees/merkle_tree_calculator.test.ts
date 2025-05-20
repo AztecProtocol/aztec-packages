@@ -21,7 +21,7 @@ describe('merkle tree root calculator', () => {
   });
 
   it('should correctly handle non default zero leaf', async () => {
-    const zeroLeaf = new Fr(666).toBuffer();
+    const zeroLeaf = new Fr(666).toBuffer() as Buffer<ArrayBuffer>;
     const calculator = await MerkleTreeCalculator.create(4, zeroLeaf);
     const leaves = Array.from({ length: 5 }).map((_, i) => new Fr(i).toBuffer());
     const padded = [...leaves, ...new Array(3).fill(zeroLeaf)];

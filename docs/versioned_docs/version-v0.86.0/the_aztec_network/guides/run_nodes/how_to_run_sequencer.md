@@ -126,36 +126,6 @@ The timestamp is when the next round of sequencers can be added as validators, s
 
 :::
 
-
-### Issues/Resolutions
-
-See the next section regarding any issues, and also the [Aztec discord server](https://discord.gg/aztec), namely the `# operator | faq` channel.
-
-### Update aztec alpha-testnet version
-To make sure you're using the latest version, run: `aztec-up alpha-testnet`, then restart your node.
-
-#### "rpc rate", "quota limit"
-Registering with your rpc url provider will give you a token that may permit more requests.
-
-#### "No blob bodies found", "Unable to get blob sidecar, Gateway Time-out (504)"
-Check `L1_CONSENSUS_HOST_URLS` (for the beacon chain), if you see it regularly likely also a rate/limit issue.
-
-#### "Insufficient L1 funds"
-EOA needs sepolia eth, use faucet.
-
-#### "CodeError: stream reset"
-Seen occasionally in logs. Reason: ...
-Ignore.
-
-#### "SYNC_BLOCK failed"
-`ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: block state does not match world state`
-
-- Stop aztec
-- Delete current snapshot: `rm -rf ~/.aztec/alpha-testnet/data/archiver`
-- Update to latest version: `aztec-up alpha-testnet`
-- Start aztec
-
-
 ## Deeper dive
 
 This guide will describe how to setup your sequencer using the `aztec start` command. For more advanced setups, refer to the Advanced Configuration section below.

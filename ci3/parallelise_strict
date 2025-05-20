@@ -4,21 +4,27 @@
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cd $root
-num_cpus=$(get_num_cpus_max ${1:-})
+
+if [ -z "${1:-}" ]; then
+  num_cpus=$(get_num_cpus)
+  num_cpus=$((num_cpus / 2))
+else
+  num_cpus=$(get_num_cpus_max ${1:-})
+fi
+
 [ -t 1 ] && no_term=0 || no_term=1
 
-echo "Starting test run using max $num_cpus cpus..."
+echo "Starting parallel run using max $num_cpus cpus..."
 
 sem_sched init $num_cpus
 
 function cleanup {
-  echo >&2
   [ -f "$output" ] && rm -f $output
   kill -TERM $(jobs -p) &>/dev/null
 }
 trap cleanup EXIT
 
-trap exit SIGINT SIGTERM
+trap 'echo >&2; exit' SIGINT SIGTERM
 
 output=$(mktemp)
 
