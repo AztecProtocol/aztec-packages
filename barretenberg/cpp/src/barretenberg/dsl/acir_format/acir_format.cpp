@@ -12,6 +12,7 @@
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
