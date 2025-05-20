@@ -33,7 +33,7 @@ export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
     const responseOk = resp.statusCode >= 200 && resp.statusCode <= 299;
     try {
       responseJson = await resp.body.json();
-    } catch (err) {
+    } catch {
       if (!responseOk) {
         throw new Error('HTTP ' + resp.statusCode);
       }

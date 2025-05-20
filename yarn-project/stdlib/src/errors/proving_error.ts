@@ -10,7 +10,11 @@ export class ProvingError extends Error {
    * @param cause - The cause of the error.
    * @param retry - Whether the proof should be retried.
    */
-  constructor(message: string, cause?: unknown, public readonly retry: boolean = false) {
+  constructor(
+    message: string,
+    cause?: unknown,
+    public readonly retry: boolean = false,
+  ) {
     super(message);
     this.name = ProvingError.NAME;
     this.cause = cause;

@@ -71,7 +71,10 @@ export class ReadRequest {
  * ReadRequest with context of the contract emitting the request.
  */
 export class ScopedReadRequest {
-  constructor(public readRequest: ReadRequest, public contractAddress: AztecAddress) {}
+  constructor(
+    public readRequest: ReadRequest,
+    public contractAddress: AztecAddress,
+  ) {}
 
   get value() {
     return this.readRequest.value;
