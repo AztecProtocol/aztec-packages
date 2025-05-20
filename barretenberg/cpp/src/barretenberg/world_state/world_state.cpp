@@ -49,6 +49,10 @@ WorldState::WorldState(uint64_t thread_pool_size,
     // We set the max readers to be high, at least the number of given threads or the default if higher
     uint64_t maxReaders = std::max(thread_pool_size, DEFAULT_MIN_NUMBER_OF_READERS);
     create_canonical_fork(data_dir, map_size, prefilled_public_data, maxReaders);
+    try {
+        attempt_tree_resync();
+    } catch (std::exception& e) {
+    }
 }
 
 WorldState::WorldState(uint64_t thread_pool_size,
@@ -1035,8 +1039,12 @@ void WorldState::validate_trees_are_equally_synched()
 bool WorldState::determine_if_synched(std::array<TreeMeta, NUM_TREES>& metaResponses)
 {
     block_number_t blockNumber = metaResponses[0].unfinalisedBlockHeight;
+    block_number_t finalisedBlockNumber = metaResponses[0].finalisedBlockHeight;
     for (size_t i = 1; i < metaResponses.size(); i++) {
         if (blockNumber != metaResponses[i].unfinalisedBlockHeight) {
+            return false;
+        }
+        if (finalisedBlockNumber != metaResponses[i].finalisedBlockHeight) {
             return false;
         }
     }
@@ -1122,6 +1130,62 @@ void WorldState::revert_checkpoint(const uint64_t& forkId)
             throw std::runtime_error(m.message);
         }
     }
+}
+
+WorldStateStatusFull WorldState::attempt_tree_resync()
+{
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    std::array<TreeMeta, NUM_TREES> responses;
+    get_all_tree_info(revision, responses);
+    std::array<index_t, NUM_TREES> historicalBlockNumbers{ responses[NULLIFIER_TREE].oldestHistoricBlock,
+                                                           responses[NOTE_HASH_TREE].oldestHistoricBlock,
+                                                           responses[PUBLIC_DATA_TREE].oldestHistoricBlock,
+                                                           responses[L1_TO_L2_MESSAGE_TREE].oldestHistoricBlock,
+                                                           responses[ARCHIVE].oldestHistoricBlock };
+    std::array<index_t, NUM_TREES> unfinalisedBlockNumbers{ responses[NULLIFIER_TREE].unfinalisedBlockHeight,
+                                                            responses[NOTE_HASH_TREE].unfinalisedBlockHeight,
+                                                            responses[PUBLIC_DATA_TREE].unfinalisedBlockHeight,
+                                                            responses[L1_TO_L2_MESSAGE_TREE].unfinalisedBlockHeight,
+                                                            responses[ARCHIVE].unfinalisedBlockHeight };
+    std::array<index_t, NUM_TREES> finalisedBlockNumbers{ responses[NULLIFIER_TREE].finalisedBlockHeight,
+                                                          responses[NOTE_HASH_TREE].finalisedBlockHeight,
+                                                          responses[PUBLIC_DATA_TREE].finalisedBlockHeight,
+                                                          responses[L1_TO_L2_MESSAGE_TREE].finalisedBlockHeight,
+                                                          responses[ARCHIVE].finalisedBlockHeight };
+
+    auto historicBlockRange = std::minmax_element(std::begin(historicalBlockNumbers), std::end(historicalBlockNumbers));
+
+    auto unfinalisedBlockRange =
+        std::minmax_element(std::begin(unfinalisedBlockNumbers), std::end(unfinalisedBlockNumbers));
+
+    auto finalisedBlockRange = std::minmax_element(std::begin(finalisedBlockNumbers), std::end(finalisedBlockNumbers));
+
+    // We re-sync by
+    // 1. Unwinding any blocks that are ahread of the lowest unfinalised block number
+    // 2. Increasing finalised block numbers to the highest finalised block number
+    // 3. Removing any historical blocks that are lower then the highest historic block number
+
+    WorldStateStatusFull status;
+    index_t blockToUnwind = *unfinalisedBlockRange.second;
+    while (blockToUnwind > *unfinalisedBlockRange.first) {
+        unwind_block(blockToUnwind, status);
+        blockToUnwind--;
+    }
+
+    index_t blockToFinalise = *finalisedBlockRange.first;
+    while (blockToFinalise <= *finalisedBlockRange.second) {
+        set_finalised_block(blockToFinalise);
+        blockToFinalise++;
+    }
+
+    index_t blockToRemove = *historicBlockRange.first;
+    while (blockToRemove < *historicBlockRange.second) {
+        remove_historical_block(blockToRemove, status);
+        blockToRemove++;
+    }
+
+    populate_status_summary(status);
+    return status;
 }
 
 } // namespace bb::world_state

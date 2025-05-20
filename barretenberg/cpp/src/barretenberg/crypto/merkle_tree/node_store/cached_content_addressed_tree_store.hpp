@@ -824,12 +824,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
                                             forkConstantData_.name_));
         }
     }
-    // can only finalise blocks that are not finalised
+    // do nothing if the block is already finalised
     if (committedMeta.finalisedBlockHeight >= blockNumber) {
-        throw std::runtime_error(format("Unable to finalise block ",
-                                        blockNumber,
-                                        " currently finalised block height ",
-                                        committedMeta.finalisedBlockHeight));
+        return;
     }
 
     // can currently only finalise up to the unfinalised block height
@@ -890,6 +887,12 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
                        blockNumber,
                        " Can't unwind with uncommitted data, first rollback before unwinding. Tree name: ",
                        forkConstantData_.name_));
+        }
+        if (blockNumber > uncommittedMeta.unfinalisedBlockHeight) {
+            // Nothing to do, the block doesn't exist. Maybe it was already removed
+            finalMeta = uncommittedMeta;
+            extract_db_stats(dbStats);
+            return;
         }
         if (blockNumber != uncommittedMeta.unfinalisedBlockHeight) {
             throw std::runtime_error(format("Unable to unwind block: ",
