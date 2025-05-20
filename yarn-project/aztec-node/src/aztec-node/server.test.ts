@@ -1,6 +1,7 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { unfreeze } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P } from '@aztec/p2p';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -25,6 +26,7 @@ import {
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INVALID_BLOCK_NUMBER,
 } from '@aztec/stdlib/tx';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { readFileSync } from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -138,6 +140,7 @@ describe('aztec node', () => {
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
+      getPackageVersion() ?? '',
       new TestCircuitVerifier(),
     );
   });
@@ -278,6 +281,14 @@ describe('aztec node', () => {
         l2BlockSource.getBlockHeader.mockResolvedValue(undefined);
         expect(await node.getBlockHeader(3)).toEqual(undefined);
       });
+    });
+  });
+
+  describe('simulatePublicCalls', () => {
+    it('refuses to simulate public calls if the gas limit is too high', async () => {
+      const tx = await mockTxForRollup(0x10000);
+      unfreeze(tx.data.constants.txContext.gasSettings.gasLimits).l2Gas = 1e12;
+      await expect(node.simulatePublicCalls(tx)).rejects.toThrow(/gas/i);
     });
   });
 });

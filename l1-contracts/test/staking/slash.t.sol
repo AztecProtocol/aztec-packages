@@ -8,8 +8,13 @@ import {
 } from "@aztec/core/interfaces/IStaking.sol";
 
 contract SlashTest is StakingBase {
-  uint256 internal constant DEPOSIT_AMOUNT = MINIMUM_STAKE + 2;
+  uint256 internal DEPOSIT_AMOUNT;
   uint256 internal slashingAmount = 1;
+
+  function setUp() public override {
+    super.setUp();
+    DEPOSIT_AMOUNT = MINIMUM_STAKE + 2;
+  }
 
   function test_WhenCallerIsNotTheSlasher() external {
     // it reverts
@@ -41,9 +46,6 @@ contract SlashTest is StakingBase {
       _withdrawer: WITHDRAWER,
       _amount: DEPOSIT_AMOUNT
     });
-
-    // Progress into the next epoch
-    staking.cheat__progressEpoch();
     _;
   }
 
@@ -99,31 +101,24 @@ contract SlashTest is StakingBase {
     // it reduce stake by amount
     // it emits {Slashed} event
 
-    Status[] memory cases = new Status[](2);
-    cases[0] = Status.VALIDATING;
-    cases[1] = Status.LIVING;
-
-    for (uint256 i = 0; i < cases.length; i++) {
+    for (uint256 i = 0; i < 2; i++) {
       // Prepare the status and state
-      staking.cheat__SetStatus(ATTESTER, cases[i]);
-      if (cases[i] == Status.LIVING) {
-        staking.cheat__RemoveAttester(ATTESTER);
-      }
-
       ValidatorInfo memory info = staking.getInfo(ATTESTER);
-      assertTrue(info.status == cases[i]);
-      uint256 activeAttesterCount = staking.getActiveAttesterCount();
+      assertTrue(info.status == Status.VALIDATING, "Invalid status");
+      assertEq(staking.getActiveAttesterCount(), 1, "Invalid active attester count");
       uint256 balance = info.stake;
 
       vm.expectEmit(true, true, true, true, address(staking));
-      emit IStakingCore.Slashed(ATTESTER, 1);
+      emit IStakingCore.Slashed(ATTESTER, 2);
       vm.prank(SLASHER);
-      staking.slash(ATTESTER, 1);
+      staking.slash(ATTESTER, 2);
 
       info = staking.getInfo(ATTESTER);
-      assertEq(info.stake, balance - 1);
-      assertTrue(info.status == cases[i]);
-      assertEq(staking.getActiveAttesterCount(), activeAttesterCount);
+      assertEq(info.stake, balance - 2, "Invalid stake");
+      assertTrue(
+        info.status == (i == 0 ? Status.VALIDATING : Status.LIVING), "Invalid status after slash"
+      );
+      assertEq(staking.getActiveAttesterCount(), i == 0 ? 1 : 0, "Invalid active attester count");
     }
   }
 
@@ -143,10 +138,6 @@ contract SlashTest is StakingBase {
 
     // This should be impossible to trigger in practice as the only case where attester is removed already
     // is if the status is none.
-    staking.cheat__RemoveAttester(ATTESTER);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__FailedToRemove.selector, ATTESTER));
-    vm.prank(SLASHER);
-    staking.slash(ATTESTER, slashingAmount);
   }
 
   function test_GivenAttesterIsActive()

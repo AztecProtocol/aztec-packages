@@ -70,8 +70,8 @@ export class MsgpackChannel<
     const buf = Buffer.isBuffer(encodedResponse)
       ? encodedResponse
       : isAnyArrayBuffer(encodedResponse)
-      ? Buffer.from(encodedResponse)
-      : encodedResponse;
+        ? Buffer.from(encodedResponse)
+        : encodedResponse;
 
     if (!Buffer.isBuffer(buf)) {
       throw new TypeError(

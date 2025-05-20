@@ -16,9 +16,6 @@ contract GettersTest is StakingBase {
       _withdrawer: WITHDRAWER,
       _amount: MINIMUM_STAKE
     });
-
-    // Progress into the next epoch
-    staking.cheat__progressEpoch();
   }
 
   function test_getAttesterAtIndex() external view {

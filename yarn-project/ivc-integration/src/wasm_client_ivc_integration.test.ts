@@ -3,7 +3,6 @@ import { AztecClientBackend } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-
 /* eslint-disable camelcase */
 import createDebug from 'debug';
 import { ungzip } from 'pako';

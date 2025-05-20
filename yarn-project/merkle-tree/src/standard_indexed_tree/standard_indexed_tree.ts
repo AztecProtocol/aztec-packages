@@ -88,7 +88,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @returns Empty promise.
    * @remarks Use batchInsert method instead.
    */
-  override appendLeaves(_leaves: Buffer[]): Promise<void> {
+  override appendLeaves(_leaves: Buffer[]): void {
     throw new Error('Not implemented');
   }
 
@@ -218,7 +218,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
   public getLatestLeafPreimageCopy(index: bigint, includeUncommitted: boolean): IndexedTreeLeafPreimage | undefined {
     const preimage = !includeUncommitted
       ? this.getDbPreimage(index)
-      : this.getCachedPreimage(index) ?? this.getDbPreimage(index);
+      : (this.getCachedPreimage(index) ?? this.getDbPreimage(index));
     return preimage && this.leafPreimageFactory.clone(preimage);
   }
 
@@ -319,7 +319,6 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     }
   }
 
-  /* eslint-disable jsdoc/require-description-complete-sentence */
   /* The following doc block messes up with complete-sentence, so we just disable it */
 
   /**
