@@ -14,14 +14,6 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
-struct Exit {
-  uint256 amount;
-  Timestamp exitableAt;
-  address recipientOrWithdrawer;
-  bool isRecipient;
-  bool exists;
-}
-
 // None -> Does not exist in our setup
 // Validating -> Participating as validator
 // Living -> Not participating as validator, but have funds in setup,
@@ -32,6 +24,14 @@ enum Status {
   VALIDATING,
   LIVING,
   EXITING
+}
+
+struct Exit {
+  uint256 amount;
+  Timestamp exitableAt;
+  address recipientOrWithdrawer;
+  bool isRecipient;
+  bool exists;
 }
 
 struct AttesterView {

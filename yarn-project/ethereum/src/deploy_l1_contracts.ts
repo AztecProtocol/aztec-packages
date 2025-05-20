@@ -708,7 +708,6 @@ export type Operator = {
  * @param acceleratedTestDeployments - Whether to use accelerated test deployments.
  * @param logger - The logger.
  */
-// eslint-disable-next-line camelcase
 export const addMultipleValidators = async (
   extendedClient: ExtendedViemWalletClient,
   deployer: L1Deployer,
