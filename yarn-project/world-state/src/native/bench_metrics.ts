@@ -48,7 +48,7 @@ export class NativeBenchMetics {
     }
     pretty += `Data retrieval metrics:\n`;
     for (const metric of this.dataRetrievalMetrics) {
-      pretty += `  ${DataRetrievalType[metric.retrievalType]}: ${metric.value} ms\n`;
+      pretty += `  ${DataRetrievalType[metric.retrievalType]}: ${metric.value} us\n`;
     }
     return pretty;
   }
