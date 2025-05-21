@@ -2,8 +2,8 @@
   {
     "contract": "src/core/Rollup.sol:Rollup",
     "deployment": {
-      "gas": 8581903,
-      "size": 42484
+      "gas": 0,
+      "size": 42586
     },
     "functions": {
       "archive()": {
@@ -14,7 +14,7 @@
         "max": 4605
       },
       "getBlock(uint256)": {
-        "calls": 907,
+        "calls": 883,
         "min": 9230,
         "mean": 9230,
         "median": 9230,
@@ -49,10 +49,10 @@
         "max": 5418
       },
       "getFeeAssetPortal()": {
-        "calls": 1552,
-        "min": 2497,
-        "mean": 2497,
-        "median": 2497,
+        "calls": 3104,
+        "min": 497,
+        "mean": 1497,
+        "median": 1497,
         "max": 2497
       },
       "getInbox()": {
@@ -141,17 +141,17 @@
       },
       "getVersion()": {
         "calls": 3875,
-        "min": 2493,
-        "mean": 2493,
+        "min": 493,
+        "mean": 1691,
         "median": 2493,
         "max": 2493
       },
       "propose((bytes32,bytes,(int256),bytes,bytes32[]),(address,(uint8,bytes32,bytes32))[],bytes)": {
         "calls": 2327,
-        "min": 160930,
-        "mean": 325575,
-        "median": 328264,
-        "max": 357839
+        "min": 161379,
+        "mean": 328644,
+        "median": 331629,
+        "max": 358749
       },
       "prune()": {
         "calls": 6,
@@ -168,9 +168,9 @@
         "max": 28669
       },
       "submitEpochRootProof((uint256,uint256,(bytes32,bytes32,uint256,bytes32,address),bytes32[],bytes,bytes))": {
-        "calls": 906,
+        "calls": 882,
         "min": 59223,
-        "mean": 419125,
+        "mean": 418677,
         "median": 415430,
         "max": 449529
       }
@@ -232,19 +232,12 @@
   {
     "contract": "src/governance/Registry.sol:Registry",
     "deployment": {
-      "gas": 845410,
+      "gas": 0,
       "size": 4070
     },
     "functions": {
-      "addRollup(address)": {
-        "calls": 1552,
-        "min": 97461,
-        "mean": 97461,
-        "median": 97461,
-        "max": 97461
-      },
       "getCanonicalRollup()": {
-        "calls": 2706,
+        "calls": 2634,
         "min": 1016,
         "mean": 3016,
         "median": 1016,
@@ -267,14 +260,14 @@
     },
     "functions": {
       "BLOCK_REWARD()": {
-        "calls": 3,
+        "calls": 1555,
         "min": 238,
         "mean": 238,
         "median": 238,
         "max": 238
       },
       "canonicalRollup()": {
-        "calls": 902,
+        "calls": 878,
         "min": 10158,
         "mean": 10158,
         "median": 10158,
