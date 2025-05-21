@@ -5,11 +5,9 @@ import { createDebugLogger, logger } from './log.js';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { Command } from 'commander';
-import { Timer, writeBenchmark } from './benchmark/index.js';
-import path from 'path';
 import { UltraHonkBackendOptions } from './barretenberg/backend.js';
 
-const debug = createDebugLogger('bb.js');
+let debug: (msg: string) => void;
 
 const threads = +process.env.HARDWARE_CONCURRENCY! || undefined;
 
@@ -65,20 +63,6 @@ async function initUltraHonk(bytecodePath: string, crsPath: string) {
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
   await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
   return { api, circuitSize, dyadicCircuitSize };
-}
-
-async function initClientIVC(crsPath: string) {
-  const api = await Barretenberg.new({ threads });
-
-  debug('Loading CRS for ClientIVC');
-  const crs = await Crs.new(2 ** 21 + 1, crsPath);
-  const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, crsPath);
-
-  // Load CRS into wasm global CRS state.
-  // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
-  await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
-  await api.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
-  return { api };
 }
 
 async function initLite(crsPath: string) {
@@ -301,6 +285,7 @@ function handleGlobalOptions() {
   if (program.opts().verbose) {
     logger.level = 'trace';
   }
+  debug = createDebugLogger('bb');
   return { crsPath: program.opts().crsPath };
 }
 
