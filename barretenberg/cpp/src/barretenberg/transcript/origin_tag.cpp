@@ -92,6 +92,5 @@ bool OriginTag::operator==(const OriginTag&) const
     return true;
 }
 
-OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
 #endif
 } // namespace bb
