@@ -1,7 +1,7 @@
 use crate::{
     abis::{
         accumulated_data::{
-            avm_accumulated_data::AvmAccumulatedData,
+            avm_accumulated_data::{AvmAccumulatedData, AvmAccumulatedDataArrayLengths},
             private_to_avm_accumulated_data::{
                 PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths,
             },
@@ -19,12 +19,17 @@ use crate::{
     address::{AztecAddress, EthAddress},
     constants::{
         AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH, AVM_NUM_PUBLIC_INPUT_COLUMNS,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH,
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX,
@@ -95,6 +100,7 @@ pub struct AvmCircuitPublicInputs {
     // Outputs.
     pub end_tree_snapshots: TreeSnapshots,
     pub end_gas_used: Gas,
+    pub accumulated_data_array_lengths: AvmAccumulatedDataArrayLengths,
     pub accumulated_data: AvmAccumulatedData,
     pub transaction_fee: Field,
     pub reverted: bool,
@@ -118,6 +124,7 @@ impl Empty for AvmCircuitPublicInputs {
             previous_revertible_accumulated_data: PrivateToAvmAccumulatedData::empty(),
             end_tree_snapshots: TreeSnapshots::empty(),
             end_gas_used: Gas::empty(),
+            accumulated_data_array_lengths: AvmAccumulatedDataArrayLengths::empty(),
             accumulated_data: AvmAccumulatedData::empty(),
             transaction_fee: 0,
             reverted: false,
@@ -156,6 +163,7 @@ impl Eq for AvmCircuitPublicInputs {
             & (self.end_gas_used == other.end_gas_used)
             & (self.accumulated_data == other.accumulated_data)
             & (self.transaction_fee == other.transaction_fee)
+            & (self.accumulated_data_array_lengths == other.accumulated_data_array_lengths)
             & (self.reverted == other.reverted)
     }
 }
@@ -185,6 +193,7 @@ impl Serialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
         fields.extend_from_array(self.previous_revertible_accumulated_data.serialize());
         fields.extend_from_array(self.end_tree_snapshots.serialize());
         fields.extend_from_array(self.end_gas_used.serialize());
+        fields.extend_from_array(self.accumulated_data_array_lengths.serialize());
         fields.extend_from_array(self.accumulated_data.serialize());
         fields.push(self.transaction_fee);
         fields.push(self.reverted as Field);
@@ -230,6 +239,9 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
             ),
             end_tree_snapshots: reader.read_struct(TreeSnapshots::deserialize),
             end_gas_used: reader.read_struct(Gas::deserialize),
+            accumulated_data_array_lengths: reader.read_struct(
+                AvmAccumulatedDataArrayLengths::deserialize,
+            ),
             accumulated_data: reader.read_struct(AvmAccumulatedData::deserialize),
             transaction_fee: reader.read(),
             reverted: reader.read() as bool,
@@ -533,31 +545,43 @@ impl AvmCircuitPublicInputs {
             AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX,
         );
 
-        // End accumulated data
+        // Accumulated Data Array Lengths
+        cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+            self.accumulated_data_array_lengths.note_hashes as Field;
+        cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+            self.accumulated_data_array_lengths.nullifiers as Field;
+        cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+            self.accumulated_data_array_lengths.l2_to_l1_msgs as Field;
+        cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX] =
+            self.accumulated_data_array_lengths.public_logs as Field;
+        cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX] =
+            self.accumulated_data_array_lengths.public_data_writes as Field;
+
+        // AVM accumulated data
         set_field_array_in_cols(
             self.accumulated_data.note_hashes,
             &mut cols,
-            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
+            AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         );
         set_field_array_in_cols(
             self.accumulated_data.nullifiers,
             &mut cols,
-            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
+            AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
         );
         set_l2_to_l1_msg_array_in_cols(
             self.accumulated_data.l2_to_l1_msgs,
             &mut cols,
-            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
+            AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
         );
         set_public_logs_in_cols(
             self.accumulated_data.public_logs,
             &mut cols,
-            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
+            AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
         );
         set_public_data_writes_in_cols(
             self.accumulated_data.public_data_writes,
             &mut cols,
-            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
+            AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
         );
 
         // transaction fee
@@ -695,12 +719,12 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     // Array elements
     // Note hash array
     assert_eq(
-        flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 2],
+        flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 2],
         54321,
     );
 
     // Public logs
-    let public_log_row = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
+    let public_log_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
     assert_eq(flat[col1_offset + public_log_row], (PUBLIC_LOG_SIZE_IN_FIELDS - 2) as Field);
     for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
         assert_eq(flat[col2_offset + public_log_row + j], 10000 + j as Field);
@@ -708,13 +732,13 @@ fn flat_columns_of_avm_circuit_public_inputs() {
 
     // Public data writes
     let public_data_write_row =
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + 1;
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + 1;
     assert_eq(flat[col0_offset + public_data_write_row], 5555);
     assert_eq(flat[col1_offset + public_data_write_row], 6666);
 
     // Pick a an unset/empty element and confirm that it is zero
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
-    assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
+    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
+    assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
 
     // End gas used
     assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], 5000);

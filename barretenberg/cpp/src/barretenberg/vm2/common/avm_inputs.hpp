@@ -44,6 +44,7 @@ struct PublicInputs {
     // Outputs
     TreeSnapshots endTreeSnapshots;
     Gas endGasUsed;
+    AvmAccumulatedDataArrayLengths accumulatedDataArrayLengths;
     AvmAccumulatedData accumulatedData;
     FF transactionFee;
     bool reverted;
@@ -98,6 +99,7 @@ struct PublicInputs {
                    previousRevertibleAccumulatedData,
                    endTreeSnapshots,
                    endGasUsed,
+                   accumulatedDataArrayLengths,
                    accumulatedData,
                    transactionFee,
                    reverted);

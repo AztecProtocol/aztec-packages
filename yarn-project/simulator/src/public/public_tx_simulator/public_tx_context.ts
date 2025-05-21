@@ -10,7 +10,13 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { AvmAccumulatedData, AvmCircuitPublicInputs, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
+import {
+  AvmAccumulatedData,
+  AvmAccumulatedDataArrayLengths,
+  AvmCircuitPublicInputs,
+  PublicDataWrite,
+  RevertCode,
+} from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { computeTransactionFee } from '@aztec/stdlib/fees';
@@ -357,11 +363,19 @@ export class PublicTxContext {
     // This converts the private accumulated data to the avm accumulated data format.
     const convertAccumulatedData = (from: PrivateToPublicAccumulatedData) =>
       new PrivateToAvmAccumulatedData(from.noteHashes, from.nullifiers, from.l2ToL1Msgs);
-    const getArrayLengths = (from: PrivateToPublicAccumulatedData) =>
+    const getPreviousAccumulatedDataArrayLengths = (from: PrivateToPublicAccumulatedData) =>
       new PrivateToAvmAccumulatedDataArrayLengths(
         countAccumulatedItems(from.noteHashes),
         countAccumulatedItems(from.nullifiers),
         countAccumulatedItems(from.l2ToL1Msgs),
+      );
+    const getAvmAccumulatedDataArrayLengths = (from: AvmAccumulatedData) =>
+      new AvmAccumulatedDataArrayLengths(
+        from.noteHashes.length,
+        from.nullifiers.length,
+        from.l2ToL1Msgs.length,
+        from.publicLogs.length,
+        from.publicDataWrites.length,
       );
 
     return new AvmCircuitPublicInputs(
@@ -388,12 +402,13 @@ export class PublicTxContext {
       /*publicTeardownCallRequests=*/ this.teardownCallRequests.length > 0
         ? this.teardownCallRequests[0].request
         : PublicCallRequest.empty(),
-      getArrayLengths(this.nonRevertibleAccumulatedDataFromPrivate),
-      getArrayLengths(this.revertibleAccumulatedDataFromPrivate),
+      getPreviousAccumulatedDataArrayLengths(this.nonRevertibleAccumulatedDataFromPrivate),
+      getPreviousAccumulatedDataArrayLengths(this.revertibleAccumulatedDataFromPrivate),
       convertAccumulatedData(this.nonRevertibleAccumulatedDataFromPrivate),
       convertAccumulatedData(this.revertibleAccumulatedDataFromPrivate),
       endTreeSnapshots,
       this.getTotalGasUsed(),
+      getAvmAccumulatedDataArrayLengths(accumulatedData),
       accumulatedData,
       /*transactionFee=*/ this.getTransactionFeeUnsafe(),
       /*isReverted=*/ !this.revertCode.isOK(),
