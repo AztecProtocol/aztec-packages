@@ -26,6 +26,7 @@ export default {
   plugins: [
     new HtmlWebpackPlugin({ inject: false, template: "./src/index.html" }),
     new webpack.DefinePlugin({ "process.env.NODE_DEBUG": false }),
+    new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
   ],
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],
