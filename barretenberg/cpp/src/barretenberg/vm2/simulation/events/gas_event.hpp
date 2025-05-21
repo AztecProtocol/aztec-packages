@@ -74,6 +74,8 @@ struct GasEvent {
 
     bool oog_l2_dynamic;
     bool oog_da_dynamic;
+
+    bool operator==(const GasEvent& other) const = default;
 };
 
 } // namespace bb::avm2::simulation

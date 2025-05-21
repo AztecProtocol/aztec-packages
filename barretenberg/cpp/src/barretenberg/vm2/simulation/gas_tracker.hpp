@@ -26,9 +26,7 @@ class GasTracker final : public GasTrackerInterface {
         : instruction_info_db(instruction_info_db)
         , context(context)
         , instruction(instruction)
-    {
-        gas_event.prev_gas_used = context.get_gas_used();
-    }
+    {}
 
     void consume_base_gas() override;
     void consume_dynamic_gas(Gas dynamic_gas_factor) override;

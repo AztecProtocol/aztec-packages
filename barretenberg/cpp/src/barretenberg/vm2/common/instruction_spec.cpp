@@ -408,6 +408,18 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
     { ExecutionOpCode::JUMPI,
       { .num_addresses = 1,
         .gas_cost = { .base_l2 = AVM_JUMPI_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
+    { ExecutionOpCode::CALLDATACOPY,
+      { .num_addresses = 3,
+        .gas_cost = { .base_l2 = AVM_CALLDATACOPY_BASE_L2_GAS,
+                      .base_da = 0,
+                      .dyn_l2 = AVM_CALLDATACOPY_DYN_L2_GAS,
+                      .dyn_da = 0 } } },
+    { ExecutionOpCode::SSTORE,
+      { .num_addresses = 2,
+        .gas_cost = { .base_l2 = AVM_SSTORE_BASE_L2_GAS,
+                      .base_da = 0,
+                      .dyn_l2 = 0,
+                      .dyn_da = AVM_SSTORE_DYN_DA_GAS } } },
 };
 
 } // namespace bb::avm2

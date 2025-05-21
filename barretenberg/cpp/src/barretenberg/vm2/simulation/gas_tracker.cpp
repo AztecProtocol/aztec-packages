@@ -7,6 +7,8 @@ namespace bb::avm2::simulation {
 
 void GasTracker::consume_base_gas()
 {
+    gas_event.prev_gas_used = context.get_gas_used();
+
     ExecutionOpCode exec_opcode = instruction_info_db.get(instruction.opcode).exec_opcode;
     const ExecInstructionSpec& spec = instruction_info_db.get(exec_opcode);
 
