@@ -63,7 +63,7 @@ template <typename Builder> class field_t {
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
     {}
-
+    // is it safe?
     field_t(const uint256_t& value)
         : context(nullptr)
         , additive_constant(value)
@@ -298,13 +298,12 @@ template <typename Builder> class field_t {
 
     // Test this
     /**
-     * Create a witness form a constant. This way the value of the witness is fixed and public (public, because the
+     * Create a witness from a constant. This way the value of the witness is fixed and public (public, because the
      * value becomes hard-coded as an element of the q_c selector vector).
      */
-    void convert_constant_to_fixed_witness(Builder* ctx)
+    void convert_constant_to_fixed_witness(Builder* context)
     {
         ASSERT(witness_index == IS_CONSTANT);
-        context = ctx;
         (*this) = field_t<Builder>(witness_t<Builder>(context, get_value()));
         context->fix_witness(witness_index, get_value());
     }
@@ -336,7 +335,7 @@ template <typename Builder> class field_t {
      * @brief  Get the index of a normalized version of this element
      *
      * @details Most of the time when using field elements in other parts of stdlib we want to use this API instead of
-     * get_witness index. The reason is it will prevent some soundess vulnerabilities
+     * get_witness index. The reason is it will prevent some soundness vulnerabilities
      *
      * @return uint32_t
      */
@@ -352,11 +351,11 @@ template <typename Builder> class field_t {
 
     /**
      * @brief Return (a < b) as bool circuit type.
-     *        This method *assumes* that both a and b are < 2^{input_bits} - 1
+     *        This method *assumes* that both a and b are < 2^{num_bits} - 1
      *        i.e. it is not checked here, we assume this has been done previously
      *
      * @tparam Builder
-     * @tparam input_bits
+     * @tparam num_bits
      * @param a
      * @param b
      * @return bool_t<Builder>
@@ -372,9 +371,11 @@ template <typename Builder> class field_t {
 
         // a < b
         // both a and b are < K where K = 2^{input_bits} - 1
-        // if a < b, this implies b - a - 1 < K
-        // if a >= b, this implies b - a + K - 1 < K
-        // i.e. (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
+        // Let q = (a < b)
+        // if q == 1, this implies b - a - 1 < K
+        // if q == 0, this implies b - a + K - 1 < K
+        // i.e. for any value of q:
+        // (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
         // q.(b - a - b + a) + b - a + K - 1 - (K - 1).q - q = r
         // b - a + (K - 1) - (K).q = r
         uint256_t range_constant = (uint256_t(1) << num_bits);
