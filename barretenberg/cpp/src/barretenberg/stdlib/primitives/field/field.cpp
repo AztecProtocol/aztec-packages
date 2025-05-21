@@ -422,7 +422,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const size_t 
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_t& to_mul, const field_t& to_add) const
 {
-    Builder* ctx = (context == nullptr) ? (to_mul.context == nullptr ? to_add.context : to_mul.context) : context;
+    Builder* ctx = first_non_null<Builder>(context, to_mul.context, to_add.context);
 
     if ((to_mul.witness_index == IS_CONSTANT) && (to_add.witness_index == IS_CONSTANT) &&
         (witness_index == IS_CONSTANT)) {
@@ -478,23 +478,34 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
     return result;
 }
 
-// Need docs here
+/**
+ * @brief Returns (this + a + b)
+ *
+ * @details Use custom big_mul_gate to save gates.
+ *
+ * @tparam Builder
+ * @param add_a
+ * @param add_b
+ * @return field_t<Builder>
+ */
 template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const field_t& add_a, const field_t& add_b) const
 {
-    Builder* ctx = (context == nullptr) ? (add_a.context == nullptr ? add_b.context : add_a.context) : context;
+    Builder* ctx = first_non_null<Builder>(context, add_a.context, add_b.context);
 
-    if ((add_a.witness_index == IS_CONSTANT) && (add_b.witness_index == IS_CONSTANT) &&
-        (witness_index == IS_CONSTANT)) {
+    if ((add_a.is_constant()) && (add_b.is_constant()) && (this->is_constant())) {
         return ((*this) + add_a + add_b).normalize();
     }
+    // Extract multiplicative constants of inputs
     bb::fr q_1 = multiplicative_constant;
     bb::fr q_2 = add_a.multiplicative_constant;
     bb::fr q_3 = add_b.multiplicative_constant;
+
+    // Define the multiplicative constant of the result
     bb::fr q_c = additive_constant + add_a.additive_constant + add_b.additive_constant;
 
-    bb::fr a = witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(witness_index);
-    bb::fr b = add_a.witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(add_a.witness_index);
-    bb::fr c = add_b.witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(add_b.witness_index);
+    bb::fr a = this->is_constant() ? bb::fr(0) : ctx->get_variable(witness_index);
+    bb::fr b = add_a.is_constant() ? bb::fr(0) : ctx->get_variable(add_a.witness_index);
+    bb::fr c = add_b.is_constant() ? bb::fr(0) : ctx->get_variable(add_b.witness_index);
 
     bb::fr out = a * q_1 + b * q_2 + c * q_3 + q_c;
 
@@ -709,11 +720,10 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
     if (witness_index != IS_CONSTANT) {
         ASSERT(context != nullptr);
         return (multiplicative_constant * context->get_variable(witness_index)) + additive_constant;
-    } else {
-        ASSERT(this->multiplicative_constant == bb::fr::one());
-        // A constant field_t's value is tracked wholly by its additive_constant member.
-        return additive_constant;
     }
+    ASSERT(this->multiplicative_constant == bb::fr::one());
+    // A constant field_t's value is tracked wholly by its additive_constant member.
+    return additive_constant;
 }
 // Recent changes, review, add docs
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const field_t& other) const
@@ -770,7 +780,21 @@ field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& pre
     return multiplicand.madd(*this, *this);
 }
 
-// if predicate == true then return lhs, else return rhs
+/**
+ * @brief If predicate == true then return lhs, else return rhs
+
+ * @details Conditional assign x = (predicate) ? lhs : rhs can be expressed arithmetically as
+ * x = predciate * lhs + (1 -predicate) * rhs
+ * which is equivalent to
+ * x = (lhs - rhs) * predicate + rhs = (lhs - rhs)*madd(predicate, rhs)
+ * where take advantage of `madd()` to create less gates.
+ *
+ * @tparam Builder
+ * @param predicate
+ * @param lhs
+ * @param rhs
+ * @return field_t<Builder>
+ */
 template <typename Builder>
 field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& predicate,
                                                       const field_t& lhs,
@@ -781,12 +805,12 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
         result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
         return result;
     }
-    // if lhs and rhs are the same witness, just return it!
+    // if lhs and rhs are the same witness, just return it
     if (lhs.get_witness_index() == rhs.get_witness_index() && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
         return lhs;
     }
-    // expand why it's doing the right thing
+
     return (lhs - rhs).madd(predicate, rhs);
 }
 
@@ -857,7 +881,7 @@ void field_t<Builder>::assert_is_in_set(const std::vector<field_t>& set, std::st
     }
     product.assert_is_zero(msg);
 }
-// Will be gone with plookups
+// Will be gone with plookups?
 template <typename Builder>
 std::array<field_t<Builder>, 4> field_t<Builder>::preprocess_two_bit_table(const field_t& T0,
                                                                            const field_t& T1,
@@ -934,16 +958,22 @@ field_t<Builder> field_t<Builder>::select_from_three_bit_table(const std::array<
     field_t R6 = static_cast<field_t>(t0).madd(R5, R4);
     return R6;
 }
-// Docs, usage?
+
+/**
+ * @brief Constrain a + b + c + d = 0
+ *
+ * @tparam Builder
+ * @param a
+ * @param b
+ * @param c
+ * @param d
+ */
 template <typename Builder>
 void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d)
 {
-    Builder* ctx = a.context == nullptr
-                       ? (b.context == nullptr ? (c.context == nullptr ? d.context : c.context) : b.context)
-                       : a.context;
+    Builder* ctx = first_non_null(a.context, b.context, c.context, d.context);
 
-    if (a.witness_index == IS_CONSTANT && b.witness_index == IS_CONSTANT && c.witness_index == IS_CONSTANT &&
-        d.witness_index == IS_CONSTANT) {
+    if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
         ASSERT(a.get_value() + b.get_value() + c.get_value() + d.get_value() == 0);
         return;
     }
@@ -956,10 +986,10 @@ void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t&
     bb::fr q_c = a.additive_constant + b.additive_constant + c.additive_constant + d.additive_constant;
 
     ctx->create_big_add_gate({
-        a.witness_index == IS_CONSTANT ? ctx->zero_idx : a.witness_index,
-        b.witness_index == IS_CONSTANT ? ctx->zero_idx : b.witness_index,
-        c.witness_index == IS_CONSTANT ? ctx->zero_idx : c.witness_index,
-        d.witness_index == IS_CONSTANT ? ctx->zero_idx : d.witness_index,
+        a.is_constant() ? ctx->zero_idx : a.witness_index,
+        b.is_constant() ? ctx->zero_idx : b.witness_index,
+        c.is_constant() ? ctx->zero_idx : c.witness_index,
+        d.is_constant() ? ctx->zero_idx : d.witness_index,
         q_1,
         q_2,
         q_3,
@@ -974,12 +1004,9 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
                                                     const field_t& c,
                                                     const field_t& d)
 {
-    Builder* ctx = a.context == nullptr
-                       ? (b.context == nullptr ? (c.context == nullptr ? d.context : c.context) : b.context)
-                       : a.context;
+    Builder* ctx = first_non_null(a.context, b.context, c.context, d.context);
 
-    if (a.witness_index == IS_CONSTANT && b.witness_index == IS_CONSTANT && c.witness_index == IS_CONSTANT &&
-        d.witness_index == IS_CONSTANT) {
+    if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
         ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
         return;
     }
@@ -993,10 +1020,10 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
     bb::fr q_c = a.additive_constant * b.additive_constant + c.additive_constant + d.additive_constant;
 
     ctx->create_big_mul_gate({
-        a.witness_index == IS_CONSTANT ? ctx->zero_idx : a.witness_index,
-        b.witness_index == IS_CONSTANT ? ctx->zero_idx : b.witness_index,
-        c.witness_index == IS_CONSTANT ? ctx->zero_idx : c.witness_index,
-        d.witness_index == IS_CONSTANT ? ctx->zero_idx : d.witness_index,
+        a.is_constant() ? ctx->zero_idx : a.witness_index,
+        b.is_constant() ? ctx->zero_idx : b.witness_index,
+        c.is_constant() ? ctx->zero_idx : c.witness_index,
+        d.is_constant() ? ctx->zero_idx : d.witness_index,
         q_m,
         q_1,
         q_2,
@@ -1012,7 +1039,7 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
 template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const std::vector<field_t>& input)
 {
     // Usage?
-    if (input.size() == 0) {
+    if (input.empty()) {
         return field_t<Builder>(nullptr, 0);
     }
     if (input.size() == 1) {
@@ -1173,16 +1200,16 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
  */
 template <typename Builder>
 std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
-    const size_t num_bits, const std::function<witness_t<Builder>(Builder*, uint64_t, uint256_t)> get_bit) const
+    const std::function<witness_t<Builder>(Builder*, uint64_t, uint256_t)> get_bit) const
 {
-    ASSERT(num_bits <= 256);
+    static constexpr size_t num_bits = 256;
+    static constexpr size_t midpoint = 127;
+
     std::vector<bool_t<Builder>> result(num_bits);
 
     const uint256_t val_u256 = static_cast<uint256_t>(get_value());
     field_t<Builder> sum(context, 0);
     field_t<Builder> shifted_high_limb(context, 0); // will equal high 128 bits, left shifted by 128 bits
-    // TODO: Guido will make a PR that will fix an error here; hard-coded 127 is incorrect when 128 < num_bits < 256.
-    // Extract bit vector and show that it has the same value as `this`.
     for (size_t i = 0; i < num_bits; ++i) {
         bool_t<Builder> bit = get_bit(context, num_bits - 1 - i, val_u256);
         bit.set_origin_tag(tag);
@@ -1191,8 +1218,9 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
         field_t<Builder> scaling_factor(context, scaling_factor_value);
 
         sum = sum + (scaling_factor * bit);
-        if (i == 127)
+        if (i == midpoint) {
             shifted_high_limb = sum;
+        }
     }
 
     this->assert_equal(sum); // `this` and `sum` are both normalized here.

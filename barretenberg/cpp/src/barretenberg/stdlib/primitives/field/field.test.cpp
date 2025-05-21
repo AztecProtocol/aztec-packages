@@ -73,10 +73,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
   public:
     static void test_constructor_from_witness()
     {
-        bb::fr val = 2;
+        bb::fr val = fr::random_element();
         Builder builder = Builder();
         field_ct elt(witness_ct(&builder, val));
+        // Ensure the value is correct
         EXPECT_EQ(elt.get_value(), val);
+        // Ensure that the context is not missing
+        EXPECT_FALSE(elt.is_constant());
     }
 
     static void create_range_constraint()
@@ -98,7 +101,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         run_test(3, 2, true);
         // 130 = 0b10000010, 8 bits
         for (size_t num_bits = 1; num_bits < 17; num_bits++) {
-            run_test(130, num_bits, num_bits < 8 ? false : true);
+            run_test(130, num_bits, num_bits >= 8);
         }
 
         // -1 has maximum bit length
@@ -120,21 +123,31 @@ template <typename Builder> class stdlib_field : public testing::Test {
     }
 
     /**
-     * @brief Test that conditional assign doesn't produce a new witness
+     * @brief Test that conditional assign doesn't produce a new witness if lhs and rhs are constant
      *
      */
     static void test_conditional_assign_regression()
     {
+
+        auto check_that_conditional_assign_result_is_constant = [](bool_ct& predicate) {
+            field_ct x(2);
+            field_ct y(2);
+            field_ct z(1);
+            field_ct alpha = x.madd(y, -z);
+            field_ct beta(3);
+            field_ct zeta = field_ct::conditional_assign(predicate, alpha, beta);
+            EXPECT_TRUE(zeta.is_constant());
+        };
+
         Builder builder = Builder();
+        // Populate predicate array, ensure that both constant and witness predicates are present
+        std::array<bool_ct, 4> predicates{
+            bool_ct(true), bool_ct(false), bool_ct(witness_ct(&builder, true)), bool_ct(witness_ct(&builder, false))
+        };
 
-        field_ct x(2);
-        field_ct y(2);
-        field_ct z(1);
-        field_ct alpha = x.madd(y, -z);
-        field_ct beta(3);
-        field_ct zeta = field_ct::conditional_assign(bool_ct(witness_ct(&builder, false)), alpha, beta);
-
-        EXPECT_TRUE(zeta.is_constant());
+        for (auto& predicate : predicates) {
+            check_that_conditional_assign_result_is_constant(predicate);
+        }
     }
 
     /**
@@ -670,7 +683,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
             for (auto a_expected : test_elements) {
                 field_ct a = witness_ct(&builder, a_expected);
-                std::vector<bool_ct> c = a.decompose_into_bits(256);
+                std::vector<bool_ct> c = a.decompose_into_bits();
                 fr bit_sum = 0;
                 for (size_t i = 0; i < c.size(); i++) {
                     fr scaling_factor_value = fr(2).pow(static_cast<uint64_t>(i));
@@ -705,7 +718,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
             fr a_expected = 0;
             field_ct a = witness_ct(&builder, a_expected);
-            std::vector<bool_ct> c = a.decompose_into_bits(256, witness_supplier);
+            std::vector<bool_ct> c = a.decompose_into_bits(witness_supplier);
 
             bool verified = CircuitChecker::check(builder);
             ASSERT_FALSE(verified);
@@ -952,20 +965,20 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
     static void test_add_two()
     {
-        Builder composer = Builder();
+        Builder builder = Builder();
         auto x_1 = bb::fr::random_element();
         auto x_2 = bb::fr::random_element();
         auto x_3 = bb::fr::random_element();
 
-        field_ct x_1_ct = witness_ct(&composer, x_1);
-        field_ct x_2_ct = witness_ct(&composer, x_2);
-        field_ct x_3_ct = witness_ct(&composer, x_3);
+        field_ct x_1_ct = witness_ct(&builder, x_1);
+        field_ct x_2_ct = witness_ct(&builder, x_2);
+        field_ct x_3_ct = witness_ct(&builder, x_3);
 
         auto sum_ct = x_1_ct.add_two(x_2_ct, x_3_ct);
 
         EXPECT_EQ(sum_ct.get_value(), x_1 + x_2 + x_3);
 
-        bool circuit_checks = composer.check_circuit();
+        bool circuit_checks = CircuitChecker::check(builder);
         EXPECT_TRUE(circuit_checks);
     }
     static void test_origin_tag_consistency()
@@ -1077,7 +1090,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         // Decomposition preserves tags
 
-        auto decomposed_bits = a.decompose_into_bits(256);
+        auto decomposed_bits = a.decompose_into_bits();
         for (const auto& bit : decomposed_bits) {
             EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
         }
@@ -1250,4 +1263,9 @@ TYPED_TEST(stdlib_field, test_ranged_less_than)
 TYPED_TEST(stdlib_field, test_origin_tag_consistency)
 {
     TestFixture::test_origin_tag_consistency();
+}
+
+TYPED_TEST(stdlib_field, test_add_two)
+{
+    TestFixture::test_add_two();
 }

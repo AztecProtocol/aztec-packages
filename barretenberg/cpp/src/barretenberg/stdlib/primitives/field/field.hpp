@@ -13,6 +13,17 @@
 
 namespace bb::stdlib {
 
+// Recursive helper to determine first non-null ptr to avoid sequential ternary choices.
+template <typename T> T* first_non_null(T* ptr)
+{
+    return ptr;
+}
+
+template <typename T, typename... Ts> T* first_non_null(T* first, Ts*... rest)
+{
+    return first ? first : first_non_null(rest...);
+}
+
 template <typename Builder> class bool_t;
 template <typename Builder> class field_t {
   public:
@@ -185,14 +196,6 @@ template <typename Builder> class field_t {
 
     field_t invert() const { return (field_t(1) / field_t(*this)).normalize(); }
 
-    // Remove with plonk
-    static field_t coset_generator(const size_t generator_idx)
-    {
-        return field_t(bb::fr::coset_generator(generator_idx));
-    }
-    // Remove with plonk
-    static field_t external_coset_generator() { return field_t(bb::fr::external_coset_generator()); }
-
     field_t operator-() const
     {
         field_t result(*this);
@@ -343,7 +346,6 @@ template <typename Builder> class field_t {
 
     // remove num bits
     std::vector<bool_t<Builder>> decompose_into_bits(
-        size_t num_bits = 256,
         std::function<witness_t<Builder>(Builder* ctx, uint64_t, uint256_t)> get_bit =
             [](Builder* ctx, uint64_t j, const uint256_t& val) {
                 return witness_t<Builder>(ctx, val.get_bit(j));
