@@ -1262,6 +1262,11 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
             // trying to remove a block that is not the most historic should fail
             remove_historic_block(tree, oldestBlock + 1, false);
 
+            if (oldestBlock > 1) {
+                // trying to remove a block that is older than the most historic should succeed
+                remove_historic_block(tree, oldestBlock - 1, true);
+            }
+
             fr rootToRemove = roots[oldestBlock - 1];
             check_block_and_root_data(db, oldestBlock, rootToRemove, true);
 
