@@ -62,7 +62,8 @@ function build_asan_fast {
   if ! cache_download barretenberg-asan-fast-$hash.zst; then
     # Pass the keys from asan_tests to the build_preset function.
     build_preset asan-fast --target "${!asan_tests[@]}"
-    cache_upload barretenberg-asan-fast-$hash.zst build-asan-fast/bin
+    # We upload only the binaries specified in --target in build-asan-fast/bin
+    echo cache_upload barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " "${!asan_tests[@]}")
   fi
 }
 
