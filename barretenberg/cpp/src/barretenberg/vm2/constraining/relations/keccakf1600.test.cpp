@@ -30,6 +30,7 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 
 using keccakf1600_relation = bb::avm2::keccakf1600<FF>;
+// Theta XOR values
 using lookup_theta_xor_01 = lookup_keccakf1600_theta_xor_01_relation<FF>;
 using lookup_theta_xor_02 = lookup_keccakf1600_theta_xor_02_relation<FF>;
 using lookup_theta_xor_03 = lookup_keccakf1600_theta_xor_03_relation<FF>;
@@ -50,6 +51,12 @@ using lookup_theta_xor_41 = lookup_keccakf1600_theta_xor_41_relation<FF>;
 using lookup_theta_xor_42 = lookup_keccakf1600_theta_xor_42_relation<FF>;
 using lookup_theta_xor_43 = lookup_keccakf1600_theta_xor_43_relation<FF>;
 using lookup_theta_xor_row_4 = lookup_keccakf1600_theta_xor_row_4_relation<FF>;
+// Theta XOR combined and final values
+using lookup_theta_combined_xor_0 = lookup_keccakf1600_theta_combined_xor_0_relation<FF>;
+using lookup_theta_combined_xor_1 = lookup_keccakf1600_theta_combined_xor_1_relation<FF>;
+using lookup_theta_combined_xor_2 = lookup_keccakf1600_theta_combined_xor_2_relation<FF>;
+using lookup_theta_combined_xor_3 = lookup_keccakf1600_theta_combined_xor_3_relation<FF>;
+using lookup_theta_combined_xor_4 = lookup_keccakf1600_theta_combined_xor_4_relation<FF>;
 
 } // namespace
 
@@ -84,6 +91,7 @@ TEST(KeccakF1600ConstrainingTest, withSimulationAndTraceGenInteractions)
     keccak_builder.process(keccak_event_emitter.dump_events(), trace);
     bitwise_builder.process(bitwise_event_emitter.dump_events(), trace);
 
+    // Theta XOR values
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_01::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_02::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_03::Settings>().process(trace);
@@ -104,6 +112,12 @@ TEST(KeccakF1600ConstrainingTest, withSimulationAndTraceGenInteractions)
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_42::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_43::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_row_4::Settings>().process(trace);
+    // Theta XOR combined and final values
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_combined_xor_0::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_combined_xor_1::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_combined_xor_2::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_combined_xor_3::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_combined_xor_4::Settings>().process(trace);
 
     check_relation<keccakf1600_relation>(trace);
 }

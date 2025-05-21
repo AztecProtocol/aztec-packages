@@ -63,15 +63,23 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
     }
 
     // Theta xor values left rotated by 1
-    std::array<MemoryValue, 5> theta_xor_final_rotl1_values;
+    std::array<MemoryValue, 5> theta_xor_row_rotl1_values;
     for (size_t i = 0; i < 5; ++i) {
-        theta_xor_final_rotl1_values[i] = rotate_left(theta_xor_values[i][3], 1);
+        theta_xor_row_rotl1_values[i] = rotate_left(theta_xor_values[i][3], 1);
+    }
+
+    // Theta combined xor computation
+    std::array<MemoryValue, 5> theta_combined_xor_values;
+    for (size_t i = 0; i < 5; ++i) {
+        theta_combined_xor_values[i] =
+            bitwise.xor_op(theta_xor_values[(i + 4) % 5][3], theta_xor_row_rotl1_values[(i + 1) % 5]);
     }
 
     perm_events.emit({
         .state = input,
         .theta_xor = two_dim_array_to_uint64(theta_xor_values),
-        .theta_xor_row_rotl1 = array_to_uint64(theta_xor_final_rotl1_values),
+        .theta_xor_row_rotl1 = array_to_uint64(theta_xor_row_rotl1_values),
+        .theta_combined_xor = array_to_uint64(theta_combined_xor_values),
     });
 
     // TODO: return real keccakf1600 output

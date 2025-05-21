@@ -54,6 +54,7 @@ struct AvmFlavorVariables {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -76,6 +77,12 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = 2439;
 >>>>>>> 79b3f35b1a (Theta left rotated by 1 values)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2237;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2454;
+>>>>>>> dda4dca536 (Theta xor combined values)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -144,6 +151,11 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_0_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_1_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_2_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_3_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_4_relation<FF_>,
         lookup_keccakf1600_theta_xor_01_relation<FF_>,
         lookup_keccakf1600_theta_xor_02_relation<FF_>,
         lookup_keccakf1600_theta_xor_03_relation<FF_>,
