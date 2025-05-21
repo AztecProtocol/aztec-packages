@@ -32,7 +32,6 @@ import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../te
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from './native_world_state.js';
-import type { NativeWorldState } from './native_world_state_instance.js';
 
 jest.setTimeout(60_000);
 
