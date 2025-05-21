@@ -146,8 +146,8 @@ helm upgrade --install "$helm_instance" ../aztec-network \
   --create-namespace \
   "${helm_set_args[@]}" \
   $(generate_overrides "$overrides") \
-  -f "../aztec-network/values/$values_file" \
   -f "../aztec-network/resources/$resources_file" \
+  -f "../aztec-network/values/$values_file" \
   --wait \
   --wait-for-jobs=true \
   --timeout="$install_timeout"
