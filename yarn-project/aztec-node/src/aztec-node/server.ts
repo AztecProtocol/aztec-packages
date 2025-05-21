@@ -14,6 +14,7 @@ import { type L1ContractAddresses, RegistryContract, createEthereumChain } from 
 import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { count } from '@aztec/foundation/string';
@@ -77,6 +78,7 @@ import {
   TxStatus,
   type TxValidationResult,
 } from '@aztec/stdlib/tx';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorsStats } from '@aztec/stdlib/validators';
 import {
   Attributes,
@@ -93,14 +95,13 @@ import { createPublicClient, fallback, getContract, http } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
-import { type AztecNodeConfig, getPackageVersion } from './config.js';
+import type { AztecNodeConfig } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
 
 /**
  * The aztec node.
  */
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
-  private packageVersion: string;
   private metrics: NodeMetrics;
 
   // Prevent two snapshot operations to happen simultaneously
@@ -124,11 +125,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
+    private readonly packageVersion: string,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
   ) {
-    this.packageVersion = getPackageVersion();
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
     this.txQueue.start();
@@ -164,8 +165,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       prefilledPublicData?: PublicDataTreeLeaf[];
     } = {},
   ): Promise<AztecNodeService> {
-    const telemetry = deps.telemetry ?? getTelemetryClient();
     const log = deps.logger ?? createLogger('node');
+    const packageVersion = getPackageVersion() ?? '';
+    const telemetry = deps.telemetry ?? getTelemetryClient();
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const blobSinkClient =
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
@@ -236,6 +238,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       proofVerifier,
       worldStateSynchronizer,
       epochCache,
+      packageVersion,
       telemetry,
     );
 
@@ -291,6 +294,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       ethereumChain.chainInfo.id,
       config.rollupVersion,
       new GlobalVariableBuilder(config),
+      packageVersion,
       proofVerifier,
       telemetry,
       log,
@@ -542,9 +546,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.p2pClient!.getPendingTxs();
   }
 
-  public async getPendingTxCount() {
-    const pendingTxs = await this.getPendingTxs();
-    return pendingTxs.length;
+  public getPendingTxCount() {
+    return this.p2pClient!.getPendingTxCount();
   }
 
   /**
@@ -732,16 +735,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const tempStores: AztecKVStore[] = [];
 
     // Construct message subtrees
-    const l2toL1Subtrees = await Promise.all(
-      l2ToL1Messages.map(async (msgs, i) => {
-        const store = openTmpStore(true);
-        tempStores.push(store);
-        const treeHeight = msgs.length <= 1 ? 1 : Math.ceil(Math.log2(msgs.length));
-        const tree = new StandardTree(store, new SHA256Trunc(), `temp_msgs_subtrees_${i}`, treeHeight, 0n, Fr);
-        await tree.appendLeaves(msgs);
-        return tree;
-      }),
-    );
+    const l2toL1Subtrees = l2ToL1Messages.map((msgs, i) => {
+      const store = openTmpStore(true);
+      tempStores.push(store);
+      const treeHeight = msgs.length <= 1 ? 1 : Math.ceil(Math.log2(msgs.length));
+      const tree = new StandardTree(store, new SHA256Trunc(), `temp_msgs_subtrees_${i}`, treeHeight, 0n, Fr);
+      tree.appendLeaves(msgs);
+      return tree;
+    });
 
     // path of the input msg from leaf -> first out hash calculated in base rolllup
     const subtreePathOfL2ToL1Message = await l2toL1Subtrees[indexOfMsgTx].getSiblingPath(
@@ -937,6 +938,20 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
   public async simulatePublicCalls(tx: Tx, skipFeeEnforcement = false): Promise<PublicSimulationOutput> {
+    // Check total gas limit for simulation
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    const txGasLimit = gasSettings.gasLimits.l2Gas;
+    const teardownGasLimit = gasSettings.teardownGasLimits.l2Gas;
+    if (txGasLimit + teardownGasLimit > this.config.rpcSimulatePublicMaxGasLimit) {
+      throw new BadRequestError(
+        `Transaction total gas limit ${
+          txGasLimit + teardownGasLimit
+        } (${txGasLimit} + ${teardownGasLimit}) exceeds maximum gas limit ${
+          this.config.rpcSimulatePublicMaxGasLimit
+        } for simulation`,
+      );
+    }
+
     const txHash = await tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
