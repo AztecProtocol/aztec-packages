@@ -287,7 +287,7 @@ export function parsePublicKey(publicKey: string): PublicKeys | undefined {
   }
   try {
     return PublicKeys.fromString(publicKey);
-  } catch (err) {
+  } catch {
     throw new InvalidArgumentError(`Invalid public key: ${publicKey}`);
   }
 }
@@ -301,7 +301,7 @@ export function parsePublicKey(publicKey: string): PublicKeys | undefined {
 export function parsePartialAddress(address: string): Fr {
   try {
     return Fr.fromHexString(address);
-  } catch (err) {
+  } catch {
     throw new InvalidArgumentError(`Invalid partial address: ${address}`);
   }
 }
@@ -315,7 +315,7 @@ export function parsePartialAddress(address: string): Fr {
 export function parseSecretKey(secretKey: string): Fr {
   try {
     return Fr.fromHexString(secretKey);
-  } catch (err) {
+  } catch {
     throw new InvalidArgumentError(`Invalid encryption secret key: ${secretKey}`);
   }
 }
@@ -348,7 +348,7 @@ export function parseField(field: string): Fr {
     }
 
     return new Fr(BigInt(field));
-  } catch (err) {
+  } catch {
     throw new InvalidArgumentError(`Invalid field: ${field}`);
   }
 }

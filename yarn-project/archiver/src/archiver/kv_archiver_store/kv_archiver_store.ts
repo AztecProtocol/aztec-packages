@@ -46,12 +46,19 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
 
   #log = createLogger('archiver:data-store');
 
-  constructor(private db: AztecAsyncKVStore, logsMaxPageSize: number = 1000) {
+  constructor(
+    private db: AztecAsyncKVStore,
+    logsMaxPageSize: number = 1000,
+  ) {
     this.#blockStore = new BlockStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
+  }
+
+  public transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
+    return this.db.transactionAsync(callback);
   }
 
   public getBlockNumber(): Promise<number> {
@@ -104,6 +111,10 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#contractInstanceStore.getContractInstance(address, blockNumber);
   }
 
+  getContractInstanceDeploymentBlockNumber(address: AztecAddress): Promise<number | undefined> {
+    return this.#contractInstanceStore.getContractInstanceDeploymentBlockNumber(address);
+  }
+
   async addContractClasses(
     data: ContractClassPublic[],
     bytecodeCommitments: Fr[],
@@ -134,8 +145,10 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, utilityFunctions);
   }
 
-  async addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
-    return (await Promise.all(data.map(c => this.#contractInstanceStore.addContractInstance(c)))).every(Boolean);
+  async addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean> {
+    return (await Promise.all(data.map(c => this.#contractInstanceStore.addContractInstance(c, blockNumber)))).every(
+      Boolean,
+    );
   }
 
   async deleteContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {

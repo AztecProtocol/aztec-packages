@@ -45,7 +45,7 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
       }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:
-      throw new Error(`Unknown type ${type}`);
+      throw new Error(`Unknown type ${type.kind}`);
   }
 }
 
@@ -185,7 +185,7 @@ function generateArtifactGetters(name: string) {
  */
 function generateAbiStatement(name: string, artifactImportPath: string) {
   const stmts = [
-    `import ${name}ContractArtifactJson from '${artifactImportPath}' assert { type: 'json' };`,
+    `import ${name}ContractArtifactJson from '${artifactImportPath}' with { type: 'json' };`,
     `export const ${name}ContractArtifact = loadContractArtifact(${name}ContractArtifactJson as NoirCompiledContract);`,
   ];
   return stmts.join('\n');

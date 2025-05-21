@@ -26,7 +26,7 @@ export function jsonParseWithSchemaSync<T>(json: string, schema: ZodFor<T>): T {
  * @param obj - The object to be stringified.
  * @returns The resulting string.
  */
-export function jsonStringify(obj: object, prettify?: boolean): string {
+export function jsonStringify(obj: unknown, prettify?: boolean): string {
   return JSON.stringify(
     obj,
     (_key, value) => {
@@ -55,7 +55,7 @@ export function jsonStringify(obj: object, prettify?: boolean): string {
 export function tryJsonStringify(obj: any, prettify?: boolean): string | undefined {
   try {
     return jsonStringify(obj, prettify);
-  } catch (e) {
+  } catch {
     return undefined;
   }
 }

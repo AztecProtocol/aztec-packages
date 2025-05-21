@@ -61,7 +61,11 @@ export class GetEnvVar extends Instruction {
     OperandType.UINT8, // variable enum (immediate)
   ];
 
-  constructor(private indirect: number, private dstOffset: number, private varEnum: number) {
+  constructor(
+    private indirect: number,
+    private dstOffset: number,
+    private varEnum: number,
+  ) {
     super();
   }
 

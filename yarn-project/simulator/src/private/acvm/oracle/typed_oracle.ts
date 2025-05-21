@@ -198,7 +198,7 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('notifySetPublicTeardownFunctionCall'));
   }
 
-  notifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): void {
+  notifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): Promise<void> {
     throw new OracleMethodNotAvailableError('notifySetMinRevertibleSideEffectCounter');
   }
 
@@ -214,8 +214,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('incrementAppTaggingSecretIndexAsSender'));
   }
 
-  syncNotes(_pendingTaggedLogArrayBaseSlot: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('syncNotes'));
+  syncPrivateState(_pendingTaggedLogArrayBaseSlot: Fr): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('syncPrivateState'));
   }
 
   deliverNote(

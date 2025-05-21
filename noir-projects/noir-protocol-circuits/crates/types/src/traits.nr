@@ -17,32 +17,38 @@ pub trait Empty {
 }
 
 impl Empty for Field {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
 }
 
 impl Empty for u1 {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
 }
 impl Empty for u8 {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
 }
 impl Empty for u32 {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
 }
 impl Empty for u64 {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
 }
 impl Empty for u128 {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
@@ -52,12 +58,14 @@ impl<T, let N: u32> Empty for [T; N]
 where
     T: Empty,
 {
+    #[inline_always]
     fn empty() -> Self {
         [T::empty(); N]
     }
 }
 
 impl<T> Empty for Option<T> {
+    #[inline_always]
     fn empty() -> Self {
         Option::none()
     }
@@ -86,42 +94,50 @@ pub trait ToField {
 }
 
 impl ToField for Field {
+    #[inline_always]
     fn to_field(self) -> Field {
         self
     }
 }
 
 impl ToField for bool {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl ToField for u1 {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl ToField for u8 {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl ToField for u32 {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl ToField for u64 {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl ToField for u128 {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl<let N: u32> ToField for str<N> {
+    #[inline_always]
     fn to_field(self) -> Field {
         assert(N < 32, "String doesn't fit in a field, consider using Serialize instead");
         field_from_bytes(self.as_bytes(), true)
@@ -133,37 +149,44 @@ pub trait FromField {
 }
 
 impl FromField for Field {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value
     }
 }
 
 impl FromField for bool {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value as bool
     }
 }
 impl FromField for u1 {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value as u1
     }
 }
 impl FromField for u8 {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value as u8
     }
 }
 impl FromField for u32 {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value as u32
     }
 }
 impl FromField for u64 {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value as u64
     }
 }
 impl FromField for u128 {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value as u128
     }
@@ -207,6 +230,7 @@ pub trait Serialize<let N: u32> {
 // docs:end:serialize
 
 impl<let N: u32> Serialize<N> for str<N> {
+    #[inline_always]
     fn serialize(self) -> [Field; N] {
         let bytes = self.as_bytes();
         let mut fields = [0; N];
@@ -225,6 +249,7 @@ impl<T, let M: u32, let O: u32> Deserialize<O * M + 1> for BoundedVec<T, M>
 where
     T: Deserialize<O>,
 {
+    #[inline_always]
     fn deserialize(fields: [Field; O * M + 1]) -> Self {
         let mut new_bounded_vec: BoundedVec<T, M> = BoundedVec::new();
 
@@ -250,6 +275,7 @@ impl<T, let M: u32, let O: u32> Serialize<O * M + 1> for BoundedVec<T, M>
 where
     T: Serialize<O>,
 {
+    #[inline_always]
     fn serialize(self) -> [Field; O * M + 1] {
         let mut fields = [0; O * M + 1];
 
@@ -298,6 +324,7 @@ pub trait Deserialize<let N: u32> {
 // docs:end:deserialize
 
 impl<let N: u32> Deserialize<N> for str<N> {
+    #[inline_always]
     fn deserialize(fields: [Field; N]) -> Self {
         str::<N>::from(fields.map(|value| value as u8))
     }

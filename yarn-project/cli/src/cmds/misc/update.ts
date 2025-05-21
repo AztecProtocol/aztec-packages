@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import type { LogFn } from '@aztec/foundation/log';
 
 import { relative, resolve } from 'path';

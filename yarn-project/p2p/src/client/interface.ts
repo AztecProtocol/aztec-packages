@@ -40,7 +40,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
    *
    * @param proposal - the block proposal
    */
-  broadcastProposal(proposal: BlockProposal): void;
+  broadcastProposal(proposal: BlockProposal): Promise<void>;
 
   /**
    * Registers a callback from the validator client that determines how to behave when
@@ -138,6 +138,12 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
 
   /** Returns the number of pending txs in the mempool. */
   getPendingTxCount(): Promise<number>;
+
+  /**
+   * Marks transactions as non-evictable in the pool.
+   * @param txHashes - Hashes of the transactions to mark as non-evictable.
+   */
+  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
 
   /**
    * Starts the p2p client.

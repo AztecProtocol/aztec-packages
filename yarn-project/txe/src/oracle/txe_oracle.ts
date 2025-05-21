@@ -647,7 +647,6 @@ export class TXE implements TypedOracle {
       counter,
     );
     this.sideEffectCounter = counter + 1;
-    return Promise.resolve();
   }
 
   async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
@@ -1162,7 +1161,7 @@ export class TXE implements TypedOracle {
     return await this.pxeOracleInterface.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  async syncNotes(pendingTaggedLogArrayBaseSlot: Fr) {
+  async syncPrivateState(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot);
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);

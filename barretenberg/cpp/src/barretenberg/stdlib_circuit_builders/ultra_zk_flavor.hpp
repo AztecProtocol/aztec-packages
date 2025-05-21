@@ -26,7 +26,8 @@ class UltraZKFlavor : public UltraFlavor {
     // Determine the number of evaluations of Prover and Libra Polynomials that the Prover sends to the Verifier in
     // the rounds of ZK Sumcheck.
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
-
+    static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
+                  "LIBRA_UNIVARIATES_LENGTH must be equal to UltraZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
     // Proof length formula
