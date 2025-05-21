@@ -8,6 +8,10 @@ set(DSL_DEPENDENCIES
     stdlib_schnorr
     stdlib_honk_verifier)
 
+if (NOT DISABLE_AZTEC_VM)
+    list(APPEND DSL_DEPENDENCIES vm2)
+endif()
+
 barretenberg_module(
     dsl
     ${DSL_DEPENDENCIES}

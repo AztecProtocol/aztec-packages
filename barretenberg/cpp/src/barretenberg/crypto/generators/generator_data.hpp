@@ -59,7 +59,7 @@ template <typename Curve> class generator_data {
      * @brief We precompute and hard-code a small number of generators. For small pedersen commitments + pedersen
      * hashes, this prevents us from having to derive generators at runtime
      */
-    static inline const std::span<const AffineElement> precomputed_generators =
+    static constexpr std::span<const AffineElement> precomputed_generators =
         get_precomputed_generators<Group, "DEFAULT_DOMAIN_SEPARATOR", DEFAULT_NUM_GENERATORS, 0>();
 
     [[nodiscard]] inline GeneratorView get(const size_t num_generators,
