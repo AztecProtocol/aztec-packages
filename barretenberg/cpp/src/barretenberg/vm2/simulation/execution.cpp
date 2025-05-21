@@ -14,7 +14,11 @@
 
 namespace bb::avm2::simulation {
 
-void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+void Execution::add(ContextInterface& context,
+                    OpcodeIOInterface& opcode_io,
+                    MemoryAddress a_addr,
+                    MemoryAddress b_addr,
+                    MemoryAddress dst_addr)
 {
     auto& memory = context.get_memory();
     MemoryValue a = memory.get(a_addr);
@@ -23,29 +27,34 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     MemoryValue c = alu.add(a, b);
     memory.set(dst_addr, c);
 
-    set_inputs({ a, b });
-    set_output(c);
+    opcode_io.set_inputs({ a, b });
+    opcode_io.set_output(c);
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
-void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value)
+void Execution::set(
+    ContextInterface& context, OpcodeIOInterface& opcode_io, MemoryAddress dst_addr, uint8_t tag, FF value)
 {
     TaggedValue tagged_value = TaggedValue::from_tag(static_cast<ValueTag>(tag), value);
     context.get_memory().set(dst_addr, tagged_value);
-    set_output(tagged_value);
+    opcode_io.set_output(tagged_value);
 }
 
-void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
+void Execution::mov(ContextInterface& context,
+                    OpcodeIOInterface& opcode_io,
+                    MemoryAddress src_addr,
+                    MemoryAddress dst_addr)
 {
     auto& memory = context.get_memory();
     auto v = memory.get(src_addr);
     memory.set(dst_addr, v);
 
-    set_inputs({ v });
-    set_output(v);
+    opcode_io.set_inputs({ v });
+    opcode_io.set_output(v);
 }
 
 void Execution::call(ContextInterface& context,
+                     OpcodeIOInterface& opcode_io,
                      MemoryAddress l2_gas_offset,
                      MemoryAddress da_gas_offset,
                      MemoryAddress addr,
@@ -77,22 +86,17 @@ void Execution::call(ContextInterface& context,
     // We recurse. When we return, we'll continue with the current loop and emit the execution event.
     // That event will be out of order, but it will have the right order id. It should be sorted in tracegen.
     auto result = execute_internal(*nested_context);
-
-    // TODO: Update gas in context based on the gas consumed by the nested context.
-    // TODO: do more things based on the result. This happens in the parent context
-    // 1) Accept / Reject side effects (e.g. tree state, newly emitted nullifiers, notes, public writes)
-    // 2) Set return data information
-    context.set_child_context(std::move(nested_context));
-    // TODO(ilyas): Look into just having a setter using ExecutionResult, but this gives us more flexibility
-    context.set_last_rd_offset(result.rd_offset);
-    context.set_last_rd_size(result.rd_size);
-    context.set_last_success(result.success);
+    opcode_io.set_child_context(std::move(nested_context));
+    opcode_io.set_nested_execution_result(result);
 
     // Set inputs and outputs for the event
-    set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address });
+    opcode_io.set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address });
 }
 
-void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
+void Execution::ret(ContextInterface& context,
+                    OpcodeIOInterface& opcode_io,
+                    MemoryAddress ret_size_offset,
+                    MemoryAddress ret_offset)
 {
     auto& memory = context.get_memory();
     auto get_ret_size = memory.get(ret_size_offset);
@@ -100,11 +104,14 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
     auto rd_size = get_ret_size.as<uint32_t>();
     set_execution_result({ .rd_offset = ret_offset, .rd_size = rd_size, .success = true });
 
-    set_inputs({ get_ret_size });
+    opcode_io.set_inputs({ get_ret_size });
     context.halt();
 }
 
-void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset)
+void Execution::revert(ContextInterface& context,
+                       OpcodeIOInterface& opcode_io,
+                       MemoryAddress rev_size_offset,
+                       MemoryAddress rev_offset)
 {
     auto& memory = context.get_memory();
     auto get_rev_size = memory.get(rev_size_offset);
@@ -112,16 +119,16 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
     auto rd_size = get_rev_size.as<uint32_t>();
     set_execution_result({ .rd_offset = rev_offset, .rd_size = rd_size, .success = false });
 
-    set_inputs({ get_rev_size });
+    opcode_io.set_inputs({ get_rev_size });
     context.halt();
 }
 
-void Execution::jump(ContextInterface& context, uint32_t loc)
+void Execution::jump(ContextInterface& context, OpcodeIOInterface&, uint32_t loc)
 {
     context.set_next_pc(loc);
 }
 
-void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc)
+void Execution::jumpi(ContextInterface& context, OpcodeIOInterface& opcode_io, MemoryAddress cond_addr, uint32_t loc)
 {
     auto& memory = context.get_memory();
 
@@ -131,7 +138,7 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
         context.set_next_pc(loc);
     }
 
-    set_inputs({ resolved_cond });
+    opcode_io.set_inputs({ resolved_cond });
 }
 
 // This context interface is an top-level enqueued one
@@ -171,23 +178,29 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             // Change this to use the execution components as provider for DI.
             auto gas_tracker = execution_components.make_gas_tracker(context, instruction);
 
+            // TODO: Consider splitting this into inputs/outputs and have inputs be argument to dispatch and
+            // outputs be return value of dispatch.
+            OpcodeIO opcode_io(*gas_tracker);
+
             gas_tracker->consume_base_gas();
 
             // Resolve the operands.
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
             ex_event.resolved_operands = resolved_operands;
 
+            // Execute the opcode.
+            dispatch_opcode(opcode, context, opcode_io, resolved_operands);
+
             // "Emit" the context event
-            // TODO: think about whether we need to know the success at this point
             auto context_event = context.serialize_context_event();
             ex_event.context_event = context_event;
             ex_event.next_context_id = execution_components.get_next_context_id();
 
-            // Execute the opcode.
-            dispatch_opcode(opcode, context, resolved_operands);
+            update_context_for_next_opcode(opcode_io, context);
+
             // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
-            ex_event.inputs = get_inputs();
-            ex_event.output = get_output();
+            ex_event.inputs = opcode_io.get_inputs();
+            ex_event.output = opcode_io.get_output();
             ex_event.gas_event = gas_tracker->finish();
 
             // Move on to the next pc.
@@ -206,31 +219,54 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
     return get_execution_result();
 }
 
+void Execution::update_context_for_next_opcode(OpcodeIOInterface& opcode_io, ContextInterface& context)
+{
+    auto child_context = opcode_io.extract_child_context();
+    if (child_context) {
+        // TODO: do more things based on the result. This happens in the parent context
+        // 1) Accept / Reject side effects (e.g. tree state, newly emitted nullifiers, notes, public writes)
+        // 2) Set return data information
+
+        // Safe since the gas limit was set to available gas at most.
+        context.set_gas_used(context.get_gas_used() + child_context->get_gas_used());
+        context.set_child_context(std::move(child_context));
+    }
+
+    auto nested_execution_result = opcode_io.get_nested_execution_result();
+    if (nested_execution_result) {
+        // TODO(ilyas): Look into just having a setter using ExecutionResult, but this gives us more flexibility
+        context.set_last_rd_offset(nested_execution_result->rd_offset);
+        context.set_last_rd_size(nested_execution_result->rd_size);
+        context.set_last_success(nested_execution_result->success);
+    }
+}
+
 void Execution::dispatch_opcode(ExecutionOpCode opcode,
                                 ContextInterface& context,
+                                OpcodeIOInterface& opcode_io,
                                 const std::vector<Operand>& resolved_operands)
 {
     switch (opcode) {
     case ExecutionOpCode::ADD:
-        call_with_operands(&Execution::add, context, resolved_operands);
+        call_with_operands(&Execution::add, context, opcode_io, resolved_operands);
         break;
     case ExecutionOpCode::SET:
-        call_with_operands(&Execution::set, context, resolved_operands);
+        call_with_operands(&Execution::set, context, opcode_io, resolved_operands);
         break;
     case ExecutionOpCode::MOV:
-        call_with_operands(&Execution::mov, context, resolved_operands);
+        call_with_operands(&Execution::mov, context, opcode_io, resolved_operands);
         break;
     case ExecutionOpCode::CALL:
-        call_with_operands(&Execution::call, context, resolved_operands);
+        call_with_operands(&Execution::call, context, opcode_io, resolved_operands);
         break;
     case ExecutionOpCode::RETURN:
-        call_with_operands(&Execution::ret, context, resolved_operands);
+        call_with_operands(&Execution::ret, context, opcode_io, resolved_operands);
         break;
     case ExecutionOpCode::JUMP:
-        call_with_operands(&Execution::jump, context, resolved_operands);
+        call_with_operands(&Execution::jump, context, opcode_io, resolved_operands);
         break;
     case ExecutionOpCode::JUMPI:
-        call_with_operands(&Execution::jumpi, context, resolved_operands);
+        call_with_operands(&Execution::jumpi, context, opcode_io, resolved_operands);
         break;
     default:
         // TODO: should be caught by parsing.
@@ -241,15 +277,16 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
 // Some template magic to dispatch the opcode by deducing the number of arguments and types,
 // and making the appropriate checks and casts.
 template <typename... Ts>
-inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&, Ts...),
+inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&, OpcodeIOInterface&, Ts...),
                                           ContextInterface& context,
+                                          OpcodeIOInterface& opcode_io,
                                           const std::vector<Operand>& resolved_operands)
 {
     assert(resolved_operands.size() == sizeof...(Ts));
     auto operand_indices = std::make_index_sequence<sizeof...(Ts)>{};
-    [f, this, &context, &resolved_operands]<std::size_t... Is>(std::index_sequence<Is...>) {
+    [f, this, &context, &resolved_operands, &opcode_io]<std::size_t... Is>(std::index_sequence<Is...>) {
         // FIXME(fcarreiro): we go through FF here.
-        (this->*f)(context, static_cast<Ts>(resolved_operands.at(Is).as_ff())...);
+        (this->*f)(context, opcode_io, static_cast<Ts>(resolved_operands.at(Is).as_ff())...);
     }(operand_indices);
 }
 

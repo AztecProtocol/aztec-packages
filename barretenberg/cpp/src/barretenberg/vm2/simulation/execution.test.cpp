@@ -19,6 +19,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_opcode_io.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -37,6 +38,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockMemory> memory;
     StrictMock<MockExecutionComponentsProvider> execution_components;
     StrictMock<MockContext> context;
+    StrictMock<MockOpcodeIO> opcode_io;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
@@ -48,12 +50,16 @@ TEST_F(ExecutionSimulationTest, Add)
 {
     MemoryValue a = MemoryValue::from<uint32_t>(4);
     MemoryValue b = MemoryValue::from<uint32_t>(5);
+    MemoryValue c = MemoryValue::from<uint32_t>(9);
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
-    EXPECT_CALL(alu, add(a, b)).WillOnce(Return(MemoryValue::from<uint32_t>(9)));
-    EXPECT_CALL(memory, set(6, MemoryValue::from<uint32_t>(9)));
-    execution.add(context, 4, 5, 6);
+    EXPECT_CALL(alu, add(a, b)).WillOnce(Return(c));
+    EXPECT_CALL(memory, set(6, c));
+    EXPECT_CALL(opcode_io, set_inputs({ { a, b } }));
+    EXPECT_CALL(opcode_io, set_output(c));
+
+    execution.add(context, opcode_io, 4, 5, 6);
 }
 
 TEST_F(ExecutionSimulationTest, Call)
@@ -87,13 +93,14 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _, _))
         .WillOnce(Return(std::move(nested_context)));
 
-    // Back in parent context
-    EXPECT_CALL(context, set_child_context(_));
-    EXPECT_CALL(context, set_last_rd_offset(_));
-    EXPECT_CALL(context, set_last_rd_size(_));
-    EXPECT_CALL(context, set_last_success(_));
+    // Call also outputs the child context and nested execution result
+    EXPECT_CALL(opcode_io,
+                set_inputs(std::vector<MemoryValue>{ l2_gas_allocated, da_gas_allocated, nested_address_value }));
+    EXPECT_CALL(opcode_io, set_child_context(_));
+    EXPECT_CALL(opcode_io, set_nested_execution_result(_));
 
     execution.call(context,
+                   opcode_io,
                    /*l2_gas_offset=*/1,
                    /*da_gas_offset=*/2,
                    /*addr=*/3,
