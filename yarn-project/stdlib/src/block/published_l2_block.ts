@@ -1,12 +1,13 @@
+// Ignoring import issue to fix portable inferred type issue in zod schema
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Signature } from '@aztec/foundation/eth-signature';
 import { schemas } from '@aztec/foundation/schemas';
+import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 
 import { z } from 'zod';
 
 import { BlockAttestation } from '../p2p/block_attestation.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
-import { L2Block } from './l2_block.js';
-import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
 export type L1PublishedData = {
   blockNumber: bigint;

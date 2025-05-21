@@ -200,7 +200,7 @@ async function processL2BlockProposedLogs(
         l1BlockNumber: log.blockNumber,
         l2BlockNumber,
         archive: archive.toString(),
-        attestations: block.attestations.map(attestation => attestation.toString()),
+        attestations: block.attestations,
       });
     } else {
       logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {

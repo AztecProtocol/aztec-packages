@@ -10,7 +10,6 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { randomInt } from '@aztec/foundation/crypto';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { SiblingPath } from '@aztec/foundation/trees';

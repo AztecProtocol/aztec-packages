@@ -11,12 +11,14 @@ export class CommitteeAttestation {
     public readonly signature: Signature,
   ) {}
 
-  static schema = z
-    .object({
-      address: EthAddress.schema,
-      signature: Signature.schema,
-    })
-    .transform(({ address, signature }) => new CommitteeAttestation(address, signature));
+  static get schema() {
+    return z
+      .object({
+        address: EthAddress.schema,
+        signature: Signature.schema,
+      })
+      .transform(({ address, signature }) => new CommitteeAttestation(address, signature));
+  }
 
   // Create an empty attestation for an address that has not signed
   static fromAddress(address: EthAddress): CommitteeAttestation {
