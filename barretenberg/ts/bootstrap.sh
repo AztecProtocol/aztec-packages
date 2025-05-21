@@ -13,7 +13,7 @@ function build {
     find . -exec touch -d "@0" {} + 2>/dev/null || true
     yarn clean
     yarn build:wasm
-    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser build:browser:bundle
+    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
     cache_upload bb.js-$hash.tar.gz dest
   fi
 
