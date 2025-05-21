@@ -228,7 +228,7 @@ TEST(ExecutionTraceGenTest, Gas)
 
     builder.process({ ex_event }, trace);
 
-    ASSERT_THAT(trace.as_rows(),
+    EXPECT_THAT(trace.as_rows(),
                 AllOf(Contains(Field(&R::execution_opcode_gas, 100)),
                       Contains(Field(&R::execution_addressing_gas, 50)),
                       Contains(Field(&R::execution_l2_base_gas, 150)),
@@ -256,14 +256,14 @@ TEST(ExecutionTraceGenTest, Gas)
     Gas gas_used_after_dynamic = gas_used_after_base + ex_event.gas_event.dynamic_gas;
     uint32_t limit_used_da_dynamic_cmp_diff = gas_limit.daGas - gas_used_after_dynamic.daGas;
 
-    ASSERT_THAT(trace.as_rows(),
+    EXPECT_THAT(trace.as_rows(),
                 AllOf(Contains(Field(&R::execution_limit_used_l2_base_cmp_diff, limit_used_l2_base_cmp_diff)),
                       Contains(Field(&R::execution_limit_used_da_base_cmp_diff, limit_used_da_base_cmp_diff)),
                       Contains(Field(&R::execution_limit_used_l2_dynamic_cmp_diff, 0)), // Exactly out of gas
                       Contains(Field(&R::execution_limit_used_da_dynamic_cmp_diff, limit_used_da_dynamic_cmp_diff))));
 
     // Test decompositions of the comparisons
-    ASSERT_THAT(
+    EXPECT_THAT(
         trace.as_rows(),
         AllOf(Contains(Field(&R::execution_limit_used_l2_base_cmp_diff_lo, limit_used_l2_base_cmp_diff & 0xffff)),
               Contains(Field(&R::execution_limit_used_l2_base_cmp_diff_hi, limit_used_l2_base_cmp_diff >> 16)),
