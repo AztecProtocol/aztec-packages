@@ -3,6 +3,9 @@ include "constants_gen.pil";
 
 namespace keccakf1600;
 
+// TODO: Documentation and explanations of some tricks like for the bit circular rotation which requires
+//       a single range check.
+
 // TODO: Remove the dummy values below
 
 // Dummy.
@@ -406,3 +409,16 @@ bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 #[STATE_THETA_44]
 sel {bitwise_xor_op_id, state_in_44, theta_combined_xor_4, state_theta_44} in
 bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+//#############################################################################
+//                      Rho round function
+//#############################################################################
+// Rho function consists in some left circular bit rotation of each state. The rotation
+// length is a constant depending on the state indices.
+//    j  0  1   2   3   4
+// i  ####################
+// 0  #  0  36   3  41  18
+// 1  #  1  44  10  45   2
+// 2  # 62   6  43  15  61
+// 3  # 28  55  25  21  56
+// 4  # 27  20  39   8  14
