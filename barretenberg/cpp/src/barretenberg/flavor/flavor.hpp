@@ -188,8 +188,8 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
     {
         using namespace bb::field_conversion;
 
-        auto serialize_to_field_buffer = [](const auto& input, std::vector<fr>& buffer) {
-            std::vector<fr> input_fields = convert_to_bn254_frs(input);
+        auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
+            std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 
@@ -245,8 +245,8 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     {
         using namespace bb::stdlib::field_conversion;
 
-        auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
-            std::vector<FF> input_fields = convert_to_bn254_frs(input);
+        auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
+            std::vector<FF> input_fields = convert_to_bn254_frs<Builder, T>(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 
@@ -255,7 +255,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         serialize_to_field_buffer(this->circuit_size, elements);
         serialize_to_field_buffer(this->num_public_inputs, elements);
         serialize_to_field_buffer(this->pub_inputs_offset, elements);
-        serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
+        serialize_to_field_buffer(static_cast<FF>(this->pairing_inputs_public_input_key.start_idx), elements);
 
         for (const Commitment& commitment : this->get_all()) {
             serialize_to_field_buffer(commitment, elements);
@@ -264,7 +264,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         return elements;
     }
 
-    FF hash() { return stdlib::poseidon2<Builder>::hash(to_field_elements()); }
+    FF hash(Builder& builder) { return stdlib::poseidon2<Builder>::hash(builder, to_field_elements()); }
 };
 
 // Because of how Gemini is written, it is important to put the polynomials out in this order.
