@@ -11,7 +11,6 @@
   "devDependencies": {
     "@aztec/bb.js": "portal:../../ts",
     "@types/pako": "^2.0.3",
-    "debug": "^4.3.4",
     "html-webpack-plugin": "^5.6.0",
     "pako": "^2.1.0",
     "serve": "^14.2.1",

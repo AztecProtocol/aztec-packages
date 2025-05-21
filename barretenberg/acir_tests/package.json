@@ -9,7 +9,6 @@
     "bbjs-test"
   ],
   "dependencies": {
-    "debug": "^4.4.1",
     "tslog": "^4.9.3"
   }
 }

@@ -102,7 +102,6 @@ __metadata:
     "@types/lodash.omit": "npm:^4.5.7"
     "@types/node": "npm:^22.15.17"
     concurrently: "npm:^8.0.1"
-    debug: "npm:^4.3.4"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.4"
     lodash.groupby: "npm:^4.6.0"
@@ -294,7 +293,6 @@ __metadata:
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.15.17"
-    debug: "npm:^4.3.4"
     favicon-emoji: "npm:2.3.1"
     html-webpack-plugin: "npm:^5.6.0"
     jest: "npm:^29.5.0"
@@ -736,8 +734,6 @@ __metadata:
     c-kzg: "npm:4.0.0-alpha.1"
     colorette: "npm:^2.0.20"
     comlink: "npm:^4.4.1"
-    debug: "npm:^4.3.4"
-    detect-node: "npm:^2.1.0"
     eslint: "npm:^9.26.0"
     eslint-config-prettier: "npm:^10.1.5"
     eslint-plugin-import: "npm:^2.31.0"
@@ -795,7 +791,6 @@ __metadata:
     "@types/pako": "npm:^2.0.3"
     change-case: "npm:^5.4.4"
     copy-webpack-plugin: "npm:^12.0.2"
-    debug: "npm:^4.3.4"
     html-webpack-plugin: "npm:^5.6.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^4.0.0-beta1"
@@ -10581,7 +10576,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"detect-node@npm:^2.0.4, detect-node@npm:^2.1.0":
+"detect-node@npm:^2.0.4":
   version: 2.1.0
   resolution: "detect-node@npm:2.1.0"
   checksum: 10/832184ec458353e41533ac9c622f16c19f7c02d8b10c303dfd3a756f56be93e903616c0bb2d4226183c9351c15fc0b3dba41a17a2308262afabcfa3776e6ae6e

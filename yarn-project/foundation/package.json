@@ -105,8 +105,6 @@
     "@noble/curves": "^1.2.0",
     "c-kzg": "4.0.0-alpha.1",
     "colorette": "^2.0.20",
-    "debug": "^4.3.4",
-    "detect-node": "^2.1.0",
     "hash.js": "^1.1.7",
     "koa": "^2.16.1",
     "koa-bodyparser": "^4.4.0",
