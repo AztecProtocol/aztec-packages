@@ -320,10 +320,6 @@ library ValidatorSelectionLib {
   /**
    * @notice  Get the sample seed for an epoch
    *
-   * @dev     This should behave as walking past the line, but it does not currently do that.
-   *          If there are entire skips, e.g., 1, 2, 5 and we then go back and try executing
-   *          for 4 we will get an invalid value because we will read lastSeed which is from 5.
-   *
    * @dev     The `_epoch` will never be 0 nor in the future
    *
    * @dev     The return value will be equal to keccak256(n, block.prevrandao) for n being the

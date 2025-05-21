@@ -204,8 +204,10 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint {
-    // if committe size is 0, then mod 1
-    size = size != 0n ? size : 1n;
+    // if committe size is 0, then mod 1 is 0
+    if (size === 0n) {
+      return 0n;
+    }
     return BigInt(keccak256(this.getProposerIndexEncoding(epoch, slot, seed))) % size;
   }
 

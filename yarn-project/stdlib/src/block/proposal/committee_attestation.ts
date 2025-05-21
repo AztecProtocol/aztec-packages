@@ -6,7 +6,10 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { z } from 'zod';
 
 export class CommitteeAttestation {
-  constructor(public readonly address: EthAddress, public readonly signature: Signature) {}
+  constructor(
+    public readonly address: EthAddress,
+    public readonly signature: Signature,
+  ) {}
 
   static schema = z
     .object({

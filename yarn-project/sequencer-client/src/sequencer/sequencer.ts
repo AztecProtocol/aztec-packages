@@ -3,7 +3,6 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { FormattedViemError, type ViemPublicClient } from '@aztec/ethereum';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
