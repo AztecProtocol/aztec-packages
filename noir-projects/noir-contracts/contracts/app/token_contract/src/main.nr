@@ -526,8 +526,10 @@ pub contract Token {
 
         // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
         // state variable's storage slot, and it is internally consistent). We *could* clear the storage since each
-        // partial note should only be used once, but since the AVM offers no gas refunds for doing so this would
-        // just make the transaction be more expensive.
+        // partial note should only be used once, but since the AVM offers no gas refunds for doing so this would just
+        // make the transaction be more expensive. We don't worry about the validity commitment being checked against
+        // multiple times because it is up to the caller to ensure that a partial note is used only once (see function
+        // docs of `finalize_transfer_to_private`).
         assert(
             context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
             "Invalid partial note or completer",
