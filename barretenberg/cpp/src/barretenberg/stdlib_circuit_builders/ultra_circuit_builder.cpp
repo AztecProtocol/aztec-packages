@@ -14,6 +14,7 @@
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 
+#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include <execution>
 #include <unordered_map>

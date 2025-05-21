@@ -11,7 +11,6 @@
 #include "barretenberg/honk/types/merkle_hash_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
-#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
 // TODO(md): note that this has now been added
 #include "circuit_builder_base.hpp"

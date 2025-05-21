@@ -104,7 +104,8 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<FF, TranslatorFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey
+        : public StdlibVerificationKey_<BuilderType, FF, TranslatorFlavor::PrecomputedEntities<Commitment>> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {

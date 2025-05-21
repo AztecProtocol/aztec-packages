@@ -83,6 +83,8 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 
 #include <array>
@@ -155,24 +157,22 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
 };
 
 /**
- * @brief Base verification key class.
+ * @brief Base Native verification key class.
  *
- * @tparam FF_, the type that we will represent our VK metadata (circuit_size, log_circuit_size, num_public_inputs,
- * pub_inputs_offset). It will either be uint64_t or a stdlib field type.
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
  */
-template <typename FF_, typename PrecomputedCommitments> class VerificationKey_ : public PrecomputedCommitments {
+template <typename PrecomputedCommitments> class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
-    FF_ circuit_size;
-    FF_ log_circuit_size;
-    FF_ num_public_inputs;
-    FF_ pub_inputs_offset = 0;
+    uint64_t circuit_size;
+    uint64_t log_circuit_size;
+    uint64_t num_public_inputs;
+    uint64_t pub_inputs_offset = 0;
     PublicComponentKey pairing_inputs_public_input_key;
 
-    bool operator==(const VerificationKey_&) const = default;
-    VerificationKey_() = default;
-    VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
+    bool operator==(const NativeVerificationKey_&) const = default;
+    NativeVerificationKey_() = default;
+    NativeVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
         this->circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
@@ -208,6 +208,63 @@ template <typename FF_, typename PrecomputedCommitments> class VerificationKey_ 
     }
 
     fr hash() { return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(to_field_elements()); }
+};
+
+/**
+ * @brief Base Stdlib verification key class.
+ *
+ * @tparam Builder
+ * @tparam FF
+ * @tparam PrecomputedCommitments
+ */
+template <typename Builder, typename FF, typename PrecomputedCommitments>
+class StdlibVerificationKey_ : public PrecomputedCommitments {
+  public:
+    using Commitment = typename PrecomputedCommitments::DataType;
+    FF circuit_size;
+    FF log_circuit_size;
+    FF num_public_inputs;
+    FF pub_inputs_offset = 0;
+    PublicComponentKey pairing_inputs_public_input_key;
+
+    bool operator==(const StdlibVerificationKey_&) const = default;
+    StdlibVerificationKey_() = default;
+    StdlibVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
+    {
+        this->circuit_size = circuit_size;
+        this->log_circuit_size = numeric::get_msb(circuit_size);
+        this->num_public_inputs = num_public_inputs;
+    };
+
+    /**
+     * @brief Serialize verification key to field elements.
+     *
+     * @return std::vector<FF>
+     */
+    std::vector<FF> to_field_elements() const
+    {
+        using namespace bb::stdlib::field_conversion;
+
+        auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
+            std::vector<FF> input_fields = convert_to_bn254_frs(input);
+            buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+        };
+
+        std::vector<FF> elements;
+
+        serialize_to_field_buffer(this->circuit_size, elements);
+        serialize_to_field_buffer(this->num_public_inputs, elements);
+        serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
+
+        for (const Commitment& commitment : this->get_all()) {
+            serialize_to_field_buffer(commitment, elements);
+        }
+
+        return elements;
+    }
+
+    FF hash() { return stdlib::poseidon2<Builder>::hash(to_field_elements()); }
 };
 
 // Because of how Gemini is written, it is important to put the polynomials out in this order.
@@ -341,106 +398,4 @@ template <typename BuilderType> class AvmRecursiveFlavor_;
 
 }
 
-} // namespace bb
-
-// Establish concepts for testing flavor attributes
-namespace bb {
-/**
- * @brief Test whether a type T lies in a list of types ...U.
- *
- * @tparam T The type being tested
- * @tparam U A parameter pack of types being checked against T.
- */
-// clang-format off
-
-#ifdef STARKNET_GARAGA_FLAVORS
-template <typename T>
-concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
-#else
-template <typename T>
-concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
-#endif
-template <typename T>
-concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor>;
-
-template <typename T>
-concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
-                                    MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                    MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                    MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                    MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-
-template <typename T>
-concept HasDataBus = IsMegaFlavor<T>;
-
-template <typename T>
-concept HasIPAAccumulator = IsAnyOf<T, UltraRollupFlavor, UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
-
-template <typename T>
-concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                       UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                       UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                                       MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                       MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                        MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-                                        TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
-                                        TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
-                                        ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
-                                        AvmRecursiveFlavor_<UltraCircuitBuilder>,
-                                        AvmRecursiveFlavor_<MegaCircuitBuilder>,
-                                        avm2::AvmRecursiveFlavor_<UltraCircuitBuilder>,
-                                        avm2::AvmRecursiveFlavor_<MegaCircuitBuilder>>;
-
-// These concepts are relevant for Sumcheck, where the logic is different for BN254 and Grumpkin Flavors
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
-template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
-
-#ifdef STARKNET_GARAGA_FLAVORS
-template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
-                                                           // Note(md): must be here to use oink prover
-                                                           UltraKeccakFlavor,
-                                                           UltraStarknetFlavor,
-                                                           UltraKeccakZKFlavor,
-                                                           UltraStarknetZKFlavor,
-                                                           UltraRollupFlavor,
-                                                           UltraZKFlavor,
-                                                           MegaFlavor,
-                                                           MegaZKFlavor,
-                                                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                                           UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-#else
-template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
-                                                           // Note(md): must be here to use oink prover
-                                                           UltraKeccakFlavor,
-                                                           UltraKeccakZKFlavor,
-                                                           UltraRollupFlavor,
-                                                           UltraZKFlavor,
-                                                           MegaFlavor,
-                                                           MegaZKFlavor,
-                                                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                                           UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-#endif
-
-template <typename Container, typename Element>
-inline std::string flavor_get_label(Container&& container, const Element& element) {
-    for (auto [label, data] : zip_view(container.get_labels(), container.get_all())) {
-        if (&data == &element) {
-            return label;
-        }
-    }
-    return "(unknown label)";
-}
-
-// clang-format on
 } // namespace bb
