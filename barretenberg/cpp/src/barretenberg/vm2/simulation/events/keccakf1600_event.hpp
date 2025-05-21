@@ -10,7 +10,7 @@ using KeccakF1600State = std::array<std::array<uint64_t, 5>, 5>;
 struct KeccakF1600Event {
     KeccakF1600State state;
     std::array<std::array<uint64_t, 4>, 5> theta_xor;
-    std::array<uint64_t, 5> theta_xor_final_rotl1;
+    std::array<uint64_t, 5> theta_xor_row_rotl1;
 };
 
 } // namespace bb::avm2::simulation

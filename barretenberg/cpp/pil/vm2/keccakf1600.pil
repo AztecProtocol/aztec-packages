@@ -39,13 +39,13 @@ pol commit state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
 
 // Theta function
 // For each index i in state_in_ij, we XOR the 5 values state_in_ij together.
-// Denote these values theta_xor_final_i.
+// Denote these values theta_xor_row_i.
 
 // We define intermediate values to each xor computation as follows:
 // theta_xor_i1 = state_in_i0 ^ state_in_i1
 // theta_xor_i2 = rhi_xor_i1 ^ state_in_i2
 // theta_xor_i3 = theta_xor_i2 ^ state_in_i3
-// theta_xor_final_i = theta_xor_i3 ^ state_in_i4
+// theta_xor_row_i = theta_xor_i3 ^ state_in_i4
 
 // We need 4 lookups to bitwise gadgets per theta_xor_i
 
@@ -71,10 +71,10 @@ pol commit theta_xor_03;
 sel {bitwise_xor_op_id, theta_xor_02, state_in_03, theta_xor_03} in
 bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 
-// theta_xor_03 ^ state_in_04 = theta_xor_final_0
-pol commit theta_xor_final_0;
-#[THETA_XOR_FINAL_0]
-sel {bitwise_xor_op_id, theta_xor_03, state_in_04, theta_xor_final_0} in
+// theta_xor_03 ^ state_in_04 = theta_xor_row_0
+pol commit theta_xor_row_0;
+#[THETA_XOR_ROW_0]
+sel {bitwise_xor_op_id, theta_xor_03, state_in_04, theta_xor_row_0} in
 bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 
 //#############################################################################
@@ -99,10 +99,10 @@ pol commit theta_xor_13;
 sel {bitwise_xor_op_id, theta_xor_12, state_in_13, theta_xor_13} in
 bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 
-// theta_xor_13 ^ state_in_14 = theta_xor_final_1
-pol commit theta_xor_final_1;
-#[THETA_XOR_FINAL_1]
-sel {bitwise_xor_op_id, theta_xor_13, state_in_14, theta_xor_final_1} in
+// theta_xor_13 ^ state_in_14 = theta_xor_row_1
+pol commit theta_xor_row_1;
+#[THETA_XOR_ROW_1]
+sel {bitwise_xor_op_id, theta_xor_13, state_in_14, theta_xor_row_1} in
 bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 
 //#############################################################################
@@ -127,10 +127,10 @@ pol commit theta_xor_23;
 sel {bitwise_xor_op_id, theta_xor_22, state_in_23, theta_xor_23} in
 bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 
-// theta_xor_23 ^ state_in_24 = theta_xor_final_2
-pol commit theta_xor_final_2;
-#[THETA_XOR_FINAL_2]
-sel {bitwise_xor_op_id, theta_xor_23, state_in_24, theta_xor_final_2} in
+// theta_xor_23 ^ state_in_24 = theta_xor_row_2
+pol commit theta_xor_row_2;
+#[THETA_XOR_ROW_2]
+sel {bitwise_xor_op_id, theta_xor_23, state_in_24, theta_xor_row_2} in
 bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 
 //#############################################################################
@@ -155,10 +155,10 @@ pol commit theta_xor_33;
 sel {bitwise_xor_op_id, theta_xor_32, state_in_33, theta_xor_33} in
 bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 
-// theta_xor_33 ^ state_in_34 = theta_xor_final_3
-pol commit theta_xor_final_3;
-#[THETA_XOR_FINAL_3]
-sel {bitwise_xor_op_id, theta_xor_33, state_in_34, theta_xor_final_3} in
+// theta_xor_33 ^ state_in_34 = theta_xor_row_3
+pol commit theta_xor_row_3;
+#[THETA_XOR_ROW_3]
+sel {bitwise_xor_op_id, theta_xor_33, state_in_34, theta_xor_row_3} in
 bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 
 //#############################################################################
@@ -183,78 +183,78 @@ pol commit theta_xor_43;
 sel {bitwise_xor_op_id, theta_xor_42, state_in_43, theta_xor_43} in
 bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 
-// theta_xor_43 ^ state_in_44 = theta_xor_final_4
-pol commit theta_xor_final_4;
-#[THETA_XOR_FINAL_4]
-sel {bitwise_xor_op_id, theta_xor_43, state_in_44, theta_xor_final_4} in
+// theta_xor_43 ^ state_in_44 = theta_xor_row_4
+pol commit theta_xor_row_4;
+#[THETA_XOR_ROW_4]
+sel {bitwise_xor_op_id, theta_xor_43, state_in_44, theta_xor_row_4} in
 bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 
 //#############################################################################
 //                  Theta XOR ROTL1 Computation
 //#############################################################################
 
-// The theta_xor_final_i's need to be left rotated by 1.
-// We denote them by theta_xor_final_rotl1_i.
-// We need to split theta_xor_final_i with most significant bit and the last 63 bits.
-// theta_xor_final_i = theta_xor_final_msb_i || theta_xor_final_low63_i
-// resulting into theta_xor_final_rotl1_i = theta_xor_final_low63_i || theta_xor_final_msb_i
-// It is sufficient to enforce theta_xor_final_msb_i to be boolean.
-// No other range check is required as long as theta_xor_final_i and theta_xor_final_rotl1_i are
-// 64-bit range-checked through the use of bitwise 64-bit operations. theta_xor_final_i was range-checked
-// as the output of #[THETA_XOR_FINAL_i] and theta_xor_final_rotl1_i will be range-checked as part of
+// The theta_xor_row_i's need to be left rotated by 1.
+// We denote them by theta_xor_row_rotl1_i.
+// We need to split theta_xor_row_i with most significant bit and the last 63 bits.
+// theta_xor_row_i = theta_xor_row_msb_i || theta_xor_row_low63_i
+// resulting into theta_xor_row_rotl1_i = theta_xor_row_low63_i || theta_xor_row_msb_i
+// It is sufficient to enforce theta_xor_row_msb_i to be boolean.
+// No other range check is required as long as theta_xor_row_i and theta_xor_row_rotl1_i are
+// 64-bit range-checked through the use of bitwise 64-bit operations. theta_xor_row_i was range-checked
+// as the output of #[THETA_XOR_ROW_i] and theta_xor_row_rotl1_i will be range-checked as part of
 // a XOR computation to compute the state values after theta.
 
-// ##################### THETA_XOR_FINAL_ROTL1_0 ##############################
-pol commit theta_xor_final_msb_0;
-pol commit theta_xor_final_low63_0;
-#[THETA_XOR_FINAL_MSB_0_BOOLEAN]
-theta_xor_final_msb_0 * (1 - theta_xor_final_msb_0) = 0;
-#[THETA_XOR_FINAL_0_DECOMPOSITION]
-theta_xor_final_0 = 2**63 * theta_xor_final_msb_0 + theta_xor_final_low63_0;
-pol commit theta_xor_final_rotl1_0;
-#[THETA_XOR_FINAL_ROTL1_0]
-theta_xor_final_rotl1_0 = 2 * theta_xor_final_low63_0 + theta_xor_final_msb_0;
+// ##################### THETA_XOR_ROW_ROTL1_0 ##############################
+pol commit theta_xor_row_msb_0;
+pol commit theta_xor_row_low63_0;
+#[THETA_XOR_ROW_MSB_0_BOOLEAN]
+theta_xor_row_msb_0 * (1 - theta_xor_row_msb_0) = 0;
+#[THETA_XOR_ROW_0_DECOMPOSITION]
+theta_xor_row_0 = 2**63 * theta_xor_row_msb_0 + theta_xor_row_low63_0;
+pol commit theta_xor_row_rotl1_0;
+#[THETA_XOR_ROW_ROTL1_0]
+theta_xor_row_rotl1_0 = 2 * theta_xor_row_low63_0 + theta_xor_row_msb_0;
 
-// ##################### THETA_XOR_FINAL_ROTL1_1 ##############################
-pol commit theta_xor_final_msb_1;
-pol commit theta_xor_final_low63_1;
-#[THETA_XOR_FINAL_MSB_1_BOOLEAN]
-theta_xor_final_msb_1 * (1 - theta_xor_final_msb_1) = 0;
-#[THETA_XOR_FINAL_1_DECOMPOSITION]
-theta_xor_final_1 = 2**63 * theta_xor_final_msb_1 + theta_xor_final_low63_1;
-pol commit theta_xor_final_rotl1_1;
-#[THETA_XOR_FINAL_ROTL1_1]
-theta_xor_final_rotl1_1 = 2 * theta_xor_final_low63_1 + theta_xor_final_msb_1;
+// ##################### THETA_XOR_ROW_ROTL1_1 ##############################
+pol commit theta_xor_row_msb_1;
+pol commit theta_xor_row_low63_1;
+#[THETA_XOR_ROW_MSB_1_BOOLEAN]
+theta_xor_row_msb_1 * (1 - theta_xor_row_msb_1) = 0;
+#[THETA_XOR_ROW_1_DECOMPOSITION]
+theta_xor_row_1 = 2**63 * theta_xor_row_msb_1 + theta_xor_row_low63_1;
+pol commit theta_xor_row_rotl1_1;
+#[THETA_XOR_ROW_ROTL1_1]
+theta_xor_row_rotl1_1 = 2 * theta_xor_row_low63_1 + theta_xor_row_msb_1;
 
-// ##################### THETA_XOR_FINAL_ROTL1_2 ##############################
-pol commit theta_xor_final_msb_2;
-pol commit theta_xor_final_low63_2;
-#[THETA_XOR_FINAL_MSB_2_BOOLEAN]
-theta_xor_final_msb_2 * (1 - theta_xor_final_msb_2) = 0;
-#[THETA_XOR_FINAL_2_DECOMPOSITION]
-theta_xor_final_2 = 2**63 * theta_xor_final_msb_2 + theta_xor_final_low63_2;
-pol commit theta_xor_final_rotl1_2;
-#[THETA_XOR_FINAL_ROTL1_2]
-theta_xor_final_rotl1_2 = 2 * theta_xor_final_low63_2 + theta_xor_final_msb_2;
+// ##################### THETA_XOR_ROW_ROTL1_2 ##############################
+pol commit theta_xor_row_msb_2;
+pol commit theta_xor_row_low63_2;
+#[THETA_XOR_ROW_MSB_2_BOOLEAN]
+theta_xor_row_msb_2 * (1 - theta_xor_row_msb_2) = 0;
+#[THETA_XOR_ROW_2_DECOMPOSITION]
+theta_xor_row_2 = 2**63 * theta_xor_row_msb_2 + theta_xor_row_low63_2;
+pol commit theta_xor_row_rotl1_2;
+#[THETA_XOR_ROW_ROTL1_2]
+theta_xor_row_rotl1_2 = 2 * theta_xor_row_low63_2 + theta_xor_row_msb_2;
 
-// ##################### THETA_XOR_FINAL_ROTL1_3 ##############################
-pol commit theta_xor_final_msb_3;
-pol commit theta_xor_final_low63_3;
-#[THETA_XOR_FINAL_MSB_3_BOOLEAN]
-theta_xor_final_msb_3 * (1 - theta_xor_final_msb_3) = 0;
-#[THETA_XOR_FINAL_3_DECOMPOSITION]
-theta_xor_final_3 = 2**63 * theta_xor_final_msb_3 + theta_xor_final_low63_3;
-pol commit theta_xor_final_rotl1_3;
-#[THETA_XOR_FINAL_ROTL1_3]
-theta_xor_final_rotl1_3 = 2 * theta_xor_final_low63_3 + theta_xor_final_msb_3;
+// ##################### THETA_XOR_ROW_ROTL1_3 ##############################
+pol commit theta_xor_row_msb_3;
+pol commit theta_xor_row_low63_3;
+#[THETA_XOR_ROW_MSB_3_BOOLEAN]
+theta_xor_row_msb_3 * (1 - theta_xor_row_msb_3) = 0;
+#[THETA_XOR_ROW_3_DECOMPOSITION]
+theta_xor_row_3 = 2**63 * theta_xor_row_msb_3 + theta_xor_row_low63_3;
+pol commit theta_xor_row_rotl1_3;
+#[THETA_XOR_ROW_ROTL1_3]
+theta_xor_row_rotl1_3 = 2 * theta_xor_row_low63_3 + theta_xor_row_msb_3;
 
-// ##################### THETA_XOR_FINAL_ROTL1_4 ##############################
-pol commit theta_xor_final_msb_4;
-pol commit theta_xor_final_low63_4;
-#[THETA_XOR_FINAL_MSB_4_BOOLEAN]
-theta_xor_final_msb_4 * (1 - theta_xor_final_msb_4) = 0;
-#[THETA_XOR_FINAL_4_DECOMPOSITION]
-theta_xor_final_4 = 2**63 * theta_xor_final_msb_4 + theta_xor_final_low63_4;
-pol commit theta_xor_final_rotl1_4;
-#[THETA_XOR_FINAL_ROTL1_4]
-theta_xor_final_rotl1_4 = 2 * theta_xor_final_low63_4 + theta_xor_final_msb_4;
+// ##################### THETA_XOR_ROW_ROTL1_4 ##############################
+pol commit theta_xor_row_msb_4;
+pol commit theta_xor_row_low63_4;
+#[THETA_XOR_ROW_MSB_4_BOOLEAN]
+theta_xor_row_msb_4 * (1 - theta_xor_row_msb_4) = 0;
+#[THETA_XOR_ROW_4_DECOMPOSITION]
+theta_xor_row_4 = 2**63 * theta_xor_row_msb_4 + theta_xor_row_low63_4;
+pol commit theta_xor_row_rotl1_4;
+#[THETA_XOR_ROW_ROTL1_4]
+theta_xor_row_rotl1_4 = 2 * theta_xor_row_low63_4 + theta_xor_row_msb_4;
