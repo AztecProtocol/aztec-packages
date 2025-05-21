@@ -19,7 +19,7 @@ describe('Native World State: benchmarks', () => {
   const logger = createLogger('native-world-state-bench');
   let dataDir: string;
   let rollupAddress: EthAddress;
-  const defaultDBMapSize = 128 * 1024 * 1024 * 1024;
+  const defaultDBMapSize = 128 * 1024 * 1024;
   const wsTreeMapSizes: WorldStateTreeMapSizes = {
     archiveTreeMapSizeKb: defaultDBMapSize,
     nullifierTreeMapSizeKb: defaultDBMapSize,
