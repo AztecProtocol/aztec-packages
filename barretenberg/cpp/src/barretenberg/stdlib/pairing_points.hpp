@@ -58,6 +58,12 @@ template <typename Builder_> struct PairingPoints {
     // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
+        {
+            vinfo("Checking pairing points results in aggregate.");
+            VerifierCommitmentKey<typename Curve::NativeCurve> pcs_vkey{};
+            ASSERT(pcs_vkey.pairing_check(P0.get_value(), P1.get_value()));
+            ASSERT(pcs_vkey.pairing_check(other.P0.get_value(), other.P1.get_value()));
+        }
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
         BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
