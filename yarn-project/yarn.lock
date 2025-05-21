@@ -300,7 +300,6 @@ __metadata:
     serve: "npm:^14.2.1"
     ts-loader: "npm:^9.5.1"
     ts-node: "npm:^10.9.1"
-    tslog: "npm:^4.9.3"
     typescript: "npm:^5.3.3"
     webpack: "npm:^5.99.6"
     webpack-cli: "npm:^6.0.1"
@@ -353,8 +352,8 @@ __metadata:
     commander: "npm:^12.1.0"
     msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
+    pino: "npm:^9.5.0"
     tslib: "npm:^2.4.0"
-    tslog: "npm:^4.9.3"
   bin:
     bb.js: dest/node/main.js
   languageName: node
@@ -734,6 +733,7 @@ __metadata:
     c-kzg: "npm:4.0.0-alpha.1"
     colorette: "npm:^2.0.20"
     comlink: "npm:^4.4.1"
+    detect-node: "npm:^2.1.0"
     eslint: "npm:^9.26.0"
     eslint-config-prettier: "npm:^10.1.5"
     eslint-plugin-import: "npm:^2.31.0"
@@ -10576,7 +10576,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"detect-node@npm:^2.0.4":
+"detect-node@npm:^2.0.4, detect-node@npm:^2.1.0":
   version: 2.1.0
   resolution: "detect-node@npm:2.1.0"
   checksum: 10/832184ec458353e41533ac9c622f16c19f7c02d8b10c303dfd3a756f56be93e903616c0bb2d4226183c9351c15fc0b3dba41a17a2308262afabcfa3776e6ae6e
@@ -21675,13 +21675,6 @@ __metadata:
   version: 2.6.2
   resolution: "tslib@npm:2.6.2"
   checksum: 10/bd26c22d36736513980091a1e356378e8b662ded04204453d353a7f34a4c21ed0afc59b5f90719d4ba756e581a162ecbf93118dc9c6be5acf70aa309188166ca
-  languageName: node
-  linkType: hard
-
-"tslog@npm:^4.9.3":
-  version: 4.9.3
-  resolution: "tslog@npm:4.9.3"
-  checksum: 10/134ea14335902b64a49e3ab02f03bab7746e114e1bed6c4a0e9aaf7927d2f7816f5fad50406b905e52fac9f9897cb3f19bd7be84e2c23153f0fc7752277d2622
   languageName: node
   linkType: hard
 

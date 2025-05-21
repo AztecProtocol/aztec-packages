@@ -1,8 +1,7 @@
 /* eslint-disable camelcase */
+import { createLogger } from '@aztec/foundation/log';
 import { type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
 import type { InputValue } from '@aztec/noir-noirc_abi';
-
-import { type ILogObj, Logger } from 'tslog';
 
 // these files are generated
 import Circuit1 from '../artifacts/circuit_1.json' with { type: 'json' };
@@ -11,11 +10,7 @@ import Vk1 from '../artifacts/keys/circuit_1.vk.data.json' with { type: 'json' }
 import Vk2 from '../artifacts/keys/circuit_2.vk.data.json' with { type: 'json' };
 import type { FixedLengthArray } from './types/index.js';
 
-export const logger = new Logger<ILogObj>({
-  name: 'aztec:bb-bench',
-  stylePrettyLogs: false,
-  prettyLogTemplate: '{{dateIsoStr}} {{name}} ',
-});
+export const logger = createLogger('aztec:bb-bench');
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
 
