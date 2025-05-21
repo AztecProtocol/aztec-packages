@@ -15,6 +15,8 @@ import { mockBlock } from '../test/utils.js';
 import { DataRetrievalType, InsertionType, NativeBenchMetics } from './bench_metrics.js';
 import { NativeWorldStateService } from './native_world_state.js';
 
+jest.setTimeout(300_000);
+
 describe('Native World State: benchmarks', () => {
   const logger = createLogger('native-world-state-bench');
   let dataDir: string;
