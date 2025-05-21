@@ -17,7 +17,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cxxabi.h>
 
 namespace bb {
 

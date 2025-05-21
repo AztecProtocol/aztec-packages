@@ -741,7 +741,7 @@ template <typename C, class Fq, class Fr, class G>
 std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::compute_offset_generators(
     const size_t num_rounds)
 {
-    const typename G::affine_element offset_generator =
+    constexpr typename G::affine_element offset_generator =
         get_precomputed_generators<G, "biggroup offset generator", 1>()[0];
 
     const uint256_t offset_multiplier = uint256_t(1) << uint256_t(num_rounds - 1);

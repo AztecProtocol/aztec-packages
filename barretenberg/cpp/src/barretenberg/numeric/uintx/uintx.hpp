@@ -52,18 +52,18 @@ template <class base_uint> class uintx {
     constexpr uintx(const uintx& other) = default;
     constexpr uintx(uintx&& other) noexcept = default;
 
-    static size_t length() { return 2 * base_uint::length(); }
+    static constexpr size_t length() { return 2 * base_uint::length(); }
     uintx& operator=(const uintx& other) = default;
     uintx& operator=(uintx&& other) noexcept = default;
 
     ~uintx() = default;
-    explicit operator bool() const { return static_cast<bool>(lo); };
-    explicit operator uint8_t() const { return static_cast<uint8_t>(lo); };
-    explicit operator uint16_t() const { return static_cast<uint16_t>(lo); };
-    explicit operator uint32_t() const { return static_cast<uint32_t>(lo); };
-    explicit operator uint64_t() const { return static_cast<uint64_t>(lo); };
+    constexpr explicit operator bool() const { return static_cast<bool>(lo); };
+    constexpr explicit operator uint8_t() const { return static_cast<uint8_t>(lo); };
+    constexpr explicit operator uint16_t() const { return static_cast<uint16_t>(lo); };
+    constexpr explicit operator uint32_t() const { return static_cast<uint32_t>(lo); };
+    constexpr explicit operator uint64_t() const { return static_cast<uint64_t>(lo); };
 
-    explicit operator base_uint() const { return lo; }
+    constexpr explicit operator base_uint() const { return lo; }
 
     [[nodiscard]] bool get_bit(uint64_t bit_index) const;
     [[nodiscard]] constexpr uint64_t get_msb() const
@@ -72,10 +72,110 @@ template <class base_uint> class uintx {
         uint64_t lo_idx = lo.get_msb();
         return (hi_idx || (hi > base_uint(0))) ? (hi_idx + base_uint::length()) : lo_idx;
     }
-    uintx slice(uint64_t start, uint64_t end) const;
 
-    uintx operator+(const uintx& other) const;
-    uintx operator-(const uintx& other) const;
+    /**
+     * Viewing `this` as a bit string, and counting bits from 0, slices a substring.
+     * @returns the uintx equal to the substring of bits from (and including) the `start`-th bit, to (but excluding) the
+     * `end`-th bit of `this`.
+     * constexpr to be used in constant calculation.
+     */
+    constexpr uintx slice(const uint64_t start, const uint64_t end) const
+    {
+        const uint64_t range = end - start;
+        const uintx mask = range == base_uint::length() ? -uintx(1) : (uintx(1) << range) - 1;
+        return ((*this) >> start) & mask;
+    }
+
+    // constexpr to be used in constant calculation.
+    constexpr uintx operator-(const uintx& other) const
+    {
+        base_uint res_lo = lo - other.lo;
+        bool borrow = res_lo > lo;
+        base_uint res_hi = hi - other.hi - ((borrow) ? base_uint(1) : base_uint(0));
+        return { res_lo, res_hi };
+    }
+
+    // constexpr to be used in constant calculation.
+    constexpr uintx operator<<(const uint64_t other) const
+    {
+        const uint64_t total_shift = other;
+        if (total_shift >= length()) {
+            return uintx(0);
+        }
+        if (total_shift == 0) {
+            return *this;
+        }
+        const uint64_t num_shifted_limbs = total_shift >> (base_uint(base_uint::length()).get_msb());
+        const uint64_t limb_shift = total_shift & static_cast<uint64_t>(base_uint::length() - 1);
+
+        std::array<base_uint, 2> shifted_limbs = { 0, 0 };
+        if (limb_shift == 0) {
+            shifted_limbs[0] = lo;
+            shifted_limbs[1] = hi;
+        } else {
+            const uint64_t remainder_shift = static_cast<uint64_t>(base_uint::length()) - limb_shift;
+
+            shifted_limbs[0] = lo << limb_shift;
+
+            base_uint remainder = lo >> remainder_shift;
+
+            shifted_limbs[1] = (hi << limb_shift) + remainder;
+        }
+        uintx result(0);
+        if (num_shifted_limbs == 0) {
+            result.hi = shifted_limbs[1];
+            result.lo = shifted_limbs[0];
+        } else {
+            result.hi = shifted_limbs[0];
+        }
+        return result;
+    }
+
+    // constexpr to be used in constant calculation.
+    constexpr uintx operator>>(const uint64_t other) const
+    {
+        const uint64_t total_shift = other;
+        if (total_shift >= length()) {
+            return uintx(0);
+        }
+        if (total_shift == 0) {
+            return *this;
+        }
+        const uint64_t num_shifted_limbs = total_shift >> (base_uint(base_uint::length()).get_msb());
+
+        const uint64_t limb_shift = total_shift & static_cast<uint64_t>(base_uint::length() - 1);
+
+        std::array<base_uint, 2> shifted_limbs = { 0, 0 };
+        if (limb_shift == 0) {
+            shifted_limbs[0] = lo;
+            shifted_limbs[1] = hi;
+        } else {
+            const uint64_t remainder_shift = static_cast<uint64_t>(base_uint::length()) - limb_shift;
+
+            shifted_limbs[1] = hi >> limb_shift;
+
+            base_uint remainder = (hi) << remainder_shift;
+
+            shifted_limbs[0] = (lo >> limb_shift) + remainder;
+        }
+        uintx result(0);
+        if (num_shifted_limbs == 0) {
+            result.hi = shifted_limbs[1];
+            result.lo = shifted_limbs[0];
+        } else {
+            result.lo = shifted_limbs[1];
+        }
+        return result;
+    }
+
+    // constexpr to be used in constant calculation.
+    constexpr uintx operator+(const uintx& other) const
+    {
+        base_uint res_lo = lo + other.lo;
+        bool carry = res_lo < lo;
+        base_uint res_hi = hi + other.hi + ((carry) ? base_uint(1) : base_uint(0));
+        return { res_lo, res_hi };
+    };
     uintx operator-() const;
 
     uintx operator*(const uintx& other) const;
@@ -84,10 +184,9 @@ template <class base_uint> class uintx {
 
     std::pair<uintx, uintx> mul_extended(const uintx& other) const;
 
-    uintx operator>>(uint64_t other) const;
-    uintx operator<<(uint64_t other) const;
+    // constexpr to be used in constant calculation.
+    constexpr uintx operator&(const uintx& other) const { return { lo & other.lo, hi & other.hi }; }
 
-    uintx operator&(const uintx& other) const;
     uintx operator^(const uintx& other) const;
     uintx operator|(const uintx& other) const;
     uintx operator~() const;

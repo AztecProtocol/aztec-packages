@@ -29,9 +29,9 @@ template <class Builder> class goblin_field {
   public:
     inline static const uint1024_t DEFAULT_MAXIMUM_REMAINDER =
         bigfield<Builder, bb::Bn254FqParams>::DEFAULT_MAXIMUM_REMAINDER;
-    inline static const size_t NUM_LIMBS = bigfield<Builder, bb::Bn254FqParams>::NUM_LIMBS;
-    inline static const size_t NUM_LIMB_BITS = bigfield<Builder, bb::Bn254FqParams>::NUM_LIMB_BITS;
-    inline static const size_t NUM_LAST_LIMB_BITS =
+    static constexpr size_t NUM_LIMBS = bigfield<Builder, bb::Bn254FqParams>::NUM_LIMBS;
+    static constexpr size_t NUM_LIMB_BITS = bigfield<Builder, bb::Bn254FqParams>::NUM_LIMB_BITS;
+    static constexpr size_t NUM_LAST_LIMB_BITS =
         static_cast<size_t>(bigfield<Builder, bb::Bn254FqParams>::NUM_LAST_LIMB_BITS);
 
     using field_ct = stdlib::field_t<Builder>;
