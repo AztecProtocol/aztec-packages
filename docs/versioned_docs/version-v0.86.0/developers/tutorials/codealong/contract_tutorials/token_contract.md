@@ -206,7 +206,7 @@ Now that we have dependencies imported into our contract we can define the stora
 
 Below the dependencies, paste the following Storage struct:
 
-```rust title="storage_struct" showLineNumbers 
+```rust title="storage_struct" showLineNumbers
 #[storage]
 struct Storage<Context> {
     admin: PublicMutable<AztecAddress, Context>,
@@ -239,7 +239,7 @@ Copy and paste the body of each function into the appropriate place in your proj
 
 This function sets the creator of the contract (passed as `msg_sender` from the constructor) as the admin and makes them a minter, and sets name, symbol, and decimals.
 
-```rust title="constructor" showLineNumbers 
+```rust title="constructor" showLineNumbers
 #[public]
 #[initializer]
 fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
@@ -266,7 +266,7 @@ Storage is referenced as `storage.variable`.
 
 After storage is initialized, the contract checks that the `msg_sender` is the `admin`. If not, the transaction will fail. If it is, the `new_admin` is saved as the `admin`.
 
-```rust title="set_admin" showLineNumbers 
+```rust title="set_admin" showLineNumbers
 #[public]
 fn set_admin(new_admin: AztecAddress) {
     assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");
@@ -280,7 +280,7 @@ fn set_admin(new_admin: AztecAddress) {
 
 This function allows the `admin` to add or a remove a `minter` from the public `minters` mapping. It checks that `msg_sender` is the `admin` and finally adds the `minter` to the `minters` mapping.
 
-```rust title="set_minter" showLineNumbers 
+```rust title="set_minter" showLineNumbers
 #[public]
 fn set_minter(minter: AztecAddress, approve: bool) {
     assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");
@@ -296,7 +296,7 @@ This function allows an account approved in the public `minters` mapping to crea
 
 First, storage is initialized. Then the function checks that the `msg_sender` is approved to mint in the `minters` mapping. If it is, a new `U128` value is created of the `amount` provided. The function reads the recipients public balance and then adds the amount to mint, saving the output as `new_balance`, then reads to total supply and adds the amount to mint, saving the output as `supply`. `new_balance` and `supply` are then written to storage.
 
-```rust title="mint_to_public" showLineNumbers 
+```rust title="mint_to_public" showLineNumbers
 #[public]
 fn mint_to_public(to: AztecAddress, amount: u128) {
     assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
@@ -319,7 +319,7 @@ If the `msg_sender` is **NOT** the same as the account to debit from, the functi
 
 If the `msg_sender` is the same as the account to debit tokens from, the authorization check is bypassed and the function proceeds to update the account's `public_balance`.
 
-```rust title="transfer_in_public" showLineNumbers 
+```rust title="transfer_in_public" showLineNumbers
 #[public]
 fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
     if (!from.eq(context.msg_sender())) {
@@ -342,7 +342,7 @@ This public function enables public burning (destroying) of tokens from the send
 
 After storage is initialized, the [authorization flow specified above](#authorizing-token-spends) is checked. Then the sender's public balance and the `total_supply` are updated and saved to storage.
 
-```rust title="burn_public" showLineNumbers 
+```rust title="burn_public" showLineNumbers
 #[public]
 fn burn_public(from: AztecAddress, amount: u128, nonce: Field) {
     if (!from.eq(context.msg_sender())) {
@@ -363,7 +363,7 @@ fn burn_public(from: AztecAddress, amount: u128, nonce: Field) {
 
 This public function finalizes a transfer that has been set up by a call to `prepare_private_balance_increase` by reducing the public balance of the associated account and emitting the note for the intended recipient.
 
-```rust title="finalize_mint_to_private" showLineNumbers 
+```rust title="finalize_mint_to_private" showLineNumbers
 /// Finalizes a mint of token `amount` to a private balance of `to`. The mint must be prepared by calling
 /// `prepare_private_balance_increase` first and the resulting
 /// `partial_note` must be passed as an argument to this function.
@@ -385,7 +385,7 @@ fn finalize_mint_to_private(amount: u128, partial_note: PartialUintNote) {
 
 Similar to `finalize_mint_to_private`, this public function finalizes a transfer that has been set up by a call to `prepare_private_balance_increase` by reducing the public balance of the associated account and emitting the note for the intended recipient.
 
-```rust title="finalize_transfer_to_private" showLineNumbers 
+```rust title="finalize_transfer_to_private" showLineNumbers
 /// Finalizes a transfer of token `amount` from public balance of `from` to a private balance of `to`.
 /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
 /// `partial_note` must be passed as an argument to this function.
@@ -419,7 +419,7 @@ After initializing storage, the function checks that the `msg_sender` is authori
 
 The function returns `1` to indicate successful execution.
 
-```rust title="transfer_to_public" showLineNumbers 
+```rust title="transfer_to_public" showLineNumbers
 #[private]
 fn transfer_to_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
     if (!from.eq(context.msg_sender())) {
@@ -445,7 +445,7 @@ This private function enables private token transfers between Aztec accounts.
 
 After initializing storage, the function checks that the `msg_sender` is authorized to spend tokens. See [the Authorizing token spends section](#authorizing-token-spends) above for more detail--the only difference being that `assert_valid_message_for` is modified to work specifically in the private context. After authorization, the function gets the current balances for the sender and recipient and decrements and increments them, respectively, using the `value_note` helper functions.
 
-```rust title="transfer" showLineNumbers 
+```rust title="transfer" showLineNumbers
 #[private]
 fn transfer(to: AztecAddress, amount: u128) {
     let from = context.msg_sender();
@@ -492,7 +492,7 @@ fn transfer(to: AztecAddress, amount: u128) {
 
 This private function enables an account to transfer tokens on behalf of another account. The account that tokens are being debited from must have authorized the `msg_sender` to spend tokens on its behalf.
 
-```rust title="transfer_in_private" showLineNumbers 
+```rust title="transfer_in_private" showLineNumbers
 #[private]
 fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
     if (!from.eq(context.msg_sender())) {
@@ -518,7 +518,7 @@ This function execution flow starts in the private context and is completed with
 
 First a partial note is prepared then a call to the public, internal `_finalize_transfer_to_private_unsafe` is enqueued. The enqueued public call subtracts the `amount` from public balance of `msg_sender` and finalizes the partial note with the `amount`.
 
-```rust title="transfer_to_private" showLineNumbers 
+```rust title="transfer_to_private" showLineNumbers
 // Transfers token `amount` from public balance of message sender to a private balance of `to`.
 #[private]
 fn transfer_to_private(to: AztecAddress, amount: u128) {
@@ -541,7 +541,7 @@ fn transfer_to_private(to: AztecAddress, amount: u128) {
 
 This private function prepares a partial `UintNote` at the recipients storage slot in the contract and enqueues a public call to `_finalize_mint_to_private_unsafe`, which asserts that the `msg_sender` is an authorized minter and finalized the mint by incrementing the total supply and emitting the complete, encrypted `UintNote` to the intended recipient. Note that the `amount` and the minter (`from`) are public, but the recipient is private.
 
-```rust title="mint_to_private" showLineNumbers 
+```rust title="mint_to_private" showLineNumbers
 /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
 /// in the enqueued call).
 #[private]
@@ -570,7 +570,7 @@ fn mint_to_private(
 
 This private function allows a user to cancel an authwit that was previously granted. This is achieved by emitting the corresponding nullifier before it is used.
 
-```rust title="cancel_authwit" showLineNumbers 
+```rust title="cancel_authwit" showLineNumbers
 #[private]
 fn cancel_authwit(inner_hash: Field) {
     let on_behalf_of = context.msg_sender();
@@ -587,7 +587,7 @@ This private function enables accounts to privately burn (destroy) tokens.
 
 After initializing storage, the function checks that the `msg_sender` is authorized to spend tokens. Then it gets the sender's current balance and decrements it. Finally it stages a public function call to [`_reduce_total_supply`](#_reduce_total_supply).
 
-```rust title="burn_private" showLineNumbers 
+```rust title="burn_private" showLineNumbers
 #[private]
 fn burn_private(from: AztecAddress, amount: u128, nonce: Field) {
     if (!from.eq(context.msg_sender())) {
@@ -612,7 +612,7 @@ TODO: update from `prepare_transfer_to_private`
 
 This private function prepares to transfer from a public balance to a private balance by setting up a partial note for the recipient. The function returns the `hiding_point_slot`. After this, the public [`finalize_transfer_to_private`](#finalize_transfer_to_private) must be called, passing the amount and the hiding point slot.
 
-```rust title="prepare_private_balance_increase" showLineNumbers 
+```rust title="prepare_private_balance_increase" showLineNumbers
 /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
 /// some of the finalization functions (`finalize_transfer_to_private`, `finalize_mint_to_private`) with the
 /// returned partial note.
@@ -633,7 +633,7 @@ Internal functions are functions that can only be called by this contract. The f
 
 This function is called from [`transfer_to_public`](#transfer_to_public). The account's private balance is decremented in `transfer_to_public` and the public balance is increased in this function.
 
-```rust title="increase_public_balance" showLineNumbers 
+```rust title="increase_public_balance" showLineNumbers
 /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
 /// function.
 #[public]
@@ -649,7 +649,7 @@ fn _increase_public_balance(to: AztecAddress, amount: u128) {
 
 This function is called from [`burn`](#burn). The account's private balance is decremented in `burn` and the public `total_supply` is reduced in this function.
 
-```rust title="reduce_total_supply" showLineNumbers 
+```rust title="reduce_total_supply" showLineNumbers
 #[public]
 #[internal]
 fn _reduce_total_supply(amount: u128) {
@@ -667,7 +667,7 @@ This public internal function decrements the public balance of the `from` accoun
 
 This function is called by the private function [`transfer_to_private`](#transfer_to_private) to finalize the transfer. The `transfer_to_private` enforces the `from` argument, which is why using it `unsafe` is okay.
 
-```rust title="finalize_transfer_to_private_unsafe" showLineNumbers 
+```rust title="finalize_transfer_to_private_unsafe" showLineNumbers
 /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
 /// to `_finalize_transfer_to_private` can be enqueued. Called unsafe as it does not check `from` (this has to be
 /// done in the calling function).
@@ -688,7 +688,7 @@ fn _finalize_transfer_to_private_unsafe(
 
 Similar to `_finalize_transfer_to_private_unsafe`, this public internal function increments the private balance of the recipient by finalizing the partial note and emitting the encrypted note. It also increments the public total supply and ensures that the sender of the transaction is authorized to mint tokens on the contract.
 
-```rust title="finalize_mint_to_private_unsafe" showLineNumbers 
+```rust title="finalize_mint_to_private_unsafe" showLineNumbers
 #[public]
 #[internal]
 fn _finalize_mint_to_private_unsafe(
@@ -714,7 +714,7 @@ Public view calls that are part of a transaction will be executed by the sequenc
 
 A getter function for reading the public `admin` value.
 
-```rust title="admin" showLineNumbers 
+```rust title="admin" showLineNumbers
 #[public]
 #[view]
 fn get_admin() -> Field {
@@ -728,7 +728,7 @@ fn get_admin() -> Field {
 
 A getter function for checking the value of associated with a `minter` in the public `minters` mapping.
 
-```rust title="is_minter" showLineNumbers 
+```rust title="is_minter" showLineNumbers
 #[public]
 #[view]
 fn is_minter(minter: AztecAddress) -> bool {
@@ -742,7 +742,7 @@ fn is_minter(minter: AztecAddress) -> bool {
 
 A getter function for checking the token `total_supply`.
 
-```rust title="total_supply" showLineNumbers 
+```rust title="total_supply" showLineNumbers
 #[public]
 #[view]
 fn total_supply() -> u128 {
@@ -756,7 +756,7 @@ fn total_supply() -> u128 {
 
 A getter function for checking the public balance of the provided Aztec account.
 
-```rust title="balance_of_public" showLineNumbers 
+```rust title="balance_of_public" showLineNumbers
 #[public]
 #[view]
 fn balance_of_public(owner: AztecAddress) -> u128 {
@@ -774,7 +774,7 @@ fn balance_of_public(owner: AztecAddress) -> u128 {
 
 A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE) (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.86.0/yarn-project/pxe) must have `ivsk` ([incoming viewing secret key](../../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys)) in order to decrypt the notes.
 
-```rust title="balance_of_private" showLineNumbers 
+```rust title="balance_of_private" showLineNumbers
 #[utility]
 pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
     storage.balances.at(owner).balance_of()
@@ -803,7 +803,7 @@ aztec codegen target -o src/artifacts
 
 ### Token Bridge Contract
 
-The [token bridge tutorial](./token_bridge) is a great follow up to this one.
+The [token bridge tutorial](../js_tutorials/token_bridge) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.
 
