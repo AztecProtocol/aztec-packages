@@ -26,7 +26,7 @@ constexpr size_t operand_columns = 7;
 
 uint32_t gas_comparison_witness(uint32_t limit, uint32_t used)
 {
-    return limit > used ? limit - used : used - limit - 1;
+    return limit >= used ? limit - used : used - limit - 1;
 }
 
 std::pair<uint16_t, uint16_t> decompose_gas_value(uint32_t value)
@@ -237,13 +237,12 @@ void ExecutionTraceBuilder::process(
                   } });
 
         // Base gas
-        uint32_t l2_gas_after_base = ex_event.gas_event.prev_gas_used.l2Gas + ex_event.gas_event.base_gas.l2Gas;
-        uint32_t da_gas_after_base = ex_event.gas_event.prev_gas_used.daGas + ex_event.gas_event.base_gas.daGas;
+        Gas gas_used_after_base = ex_event.gas_event.prev_gas_used + ex_event.gas_event.base_gas;
 
         uint32_t limit_used_l2_base_cmp_diff =
-            gas_comparison_witness(ex_event.context_event.gas_limit.l2Gas, l2_gas_after_base);
+            gas_comparison_witness(ex_event.context_event.gas_limit.l2Gas, gas_used_after_base.l2Gas);
         uint32_t limit_used_da_base_cmp_diff =
-            gas_comparison_witness(ex_event.context_event.gas_limit.daGas, da_gas_after_base);
+            gas_comparison_witness(ex_event.context_event.gas_limit.daGas, gas_used_after_base.daGas);
 
         auto [limit_used_l2_base_cmp_diff_lo, limit_used_l2_base_cmp_diff_hi] =
             decompose_gas_value(limit_used_l2_base_cmp_diff);
@@ -251,15 +250,14 @@ void ExecutionTraceBuilder::process(
             decompose_gas_value(limit_used_da_base_cmp_diff);
 
         // Dynamic gas
-        uint32_t l2_gas_after_dynamic = l2_gas_after_base + ex_event.gas_event.dynamic_gas.l2Gas;
-        uint32_t da_gas_after_dynamic = da_gas_after_base + ex_event.gas_event.dynamic_gas.daGas;
+        Gas gas_used_after_dynamic = gas_used_after_base + ex_event.gas_event.dynamic_gas;
         uint32_t limit_used_l2_dynamic_cmp_diff = 0;
         uint32_t limit_used_da_dynamic_cmp_diff = 0;
         if (!ex_event.gas_event.oog_l2_base || !ex_event.gas_event.oog_da_base) {
             limit_used_l2_dynamic_cmp_diff =
-                gas_comparison_witness(ex_event.context_event.gas_limit.l2Gas, l2_gas_after_dynamic);
+                gas_comparison_witness(ex_event.context_event.gas_limit.l2Gas, gas_used_after_dynamic.l2Gas);
             limit_used_da_dynamic_cmp_diff =
-                gas_comparison_witness(ex_event.context_event.gas_limit.daGas, da_gas_after_dynamic);
+                gas_comparison_witness(ex_event.context_event.gas_limit.daGas, gas_used_after_dynamic.daGas);
         }
 
         auto [limit_used_l2_dynamic_cmp_diff_lo, limit_used_l2_dynamic_cmp_diff_hi] =
