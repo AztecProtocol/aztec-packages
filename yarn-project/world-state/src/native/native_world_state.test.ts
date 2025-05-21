@@ -739,7 +739,9 @@ describe('NativeWorldState', () => {
       await ws.unwindBlocks(8n);
 
       // check that it is not possible to re-org blocks that were already reorged.
-      await expect(ws.unwindBlocks(10n)).rejects.toThrow('Unable to unwind block, block not found');
+      await expect(ws.unwindBlocks(10n)).rejects.toThrow(
+        'Unable to unwind blocks to block number 10, current pending block 8',
+      );
 
       await compareChains(ws.getCommitted(), sequentialReorgState.getCommitted());
 
