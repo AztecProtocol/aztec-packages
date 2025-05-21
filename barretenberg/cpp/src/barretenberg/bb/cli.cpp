@@ -588,38 +588,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     /***************************************************************************************************************
-     * Subcommand: avm2_prove
+     * Subcommand: avm_prove
      ***************************************************************************************************************/
-    CLI::App* avm2_prove_command = app.add_subcommand("avm2_prove", "");
-    avm2_prove_command->group(""); // hide from list of subcommands
-    add_verbose_flag(avm2_prove_command);
-    add_debug_flag(avm2_prove_command);
-    add_crs_path_option(avm2_prove_command);
-    std::filesystem::path avm2_prove_output_path{ "./proofs" };
-    add_output_path_option(avm2_prove_command, avm2_prove_output_path);
-    add_avm_inputs_option(avm2_prove_command);
-
-    /***************************************************************************************************************
-     * Subcommand: avm2_check_circuit
-     ***************************************************************************************************************/
-    CLI::App* avm2_check_circuit_command = app.add_subcommand("avm2_check_circuit", "");
-    avm2_check_circuit_command->group(""); // hide from list of subcommands
-    add_verbose_flag(avm2_check_circuit_command);
-    add_debug_flag(avm2_check_circuit_command);
-    add_crs_path_option(avm2_check_circuit_command);
-    add_avm_inputs_option(avm2_check_circuit_command);
-
-    /***************************************************************************************************************
-     * Subcommand: avm2_verify
-     ***************************************************************************************************************/
-    CLI::App* avm2_verify_command = app.add_subcommand("avm2_verify", "");
-    avm2_verify_command->group(""); // hide from list of subcommands
-    add_verbose_flag(avm2_verify_command);
-    add_debug_flag(avm2_verify_command);
-    add_crs_path_option(avm2_verify_command);
-    add_avm_public_inputs_option(avm2_verify_command);
-    add_proof_path_option(avm2_verify_command);
-    add_vk_path_option(avm2_verify_command);
+    CLI::App* avm_prove_command = app.add_subcommand("avm_prove", "");
+    avm_prove_command->group(""); // hide from list of subcommands
+    add_verbose_flag(avm_prove_command);
+    add_debug_flag(avm_prove_command);
+    add_crs_path_option(avm_prove_command);
+    std::filesystem::path avm_prove_output_path{ "./proofs" };
+    add_output_path_option(avm_prove_command, avm_prove_output_path);
+    add_avm_inputs_option(avm_prove_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_check_circuit
@@ -629,20 +607,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(avm_check_circuit_command);
     add_debug_flag(avm_check_circuit_command);
     add_crs_path_option(avm_check_circuit_command);
-    add_avm_public_inputs_option(avm_check_circuit_command);
-    add_output_path_option(avm_check_circuit_command, output_path);
-
-    /***************************************************************************************************************
-     * Subcommand: avm_prove
-     ***************************************************************************************************************/
-    CLI::App* avm_prove_command = app.add_subcommand("avm_prove", "");
-    avm_prove_command->group(""); // hide from list of subcommands
-    add_verbose_flag(avm_prove_command);
-    add_debug_flag(avm_prove_command);
-    add_crs_path_option(avm_prove_command);
-    std::filesystem::path avm_prove_output_path{ "./proofs" };
-    add_avm_public_inputs_option(avm_prove_command);
-    add_output_path_option(avm_prove_command, avm_prove_output_path);
+    add_avm_inputs_option(avm_check_circuit_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_verify
@@ -653,7 +618,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(avm_verify_command);
     add_crs_path_option(avm_verify_command);
     add_avm_public_inputs_option(avm_verify_command);
-    add_output_path_option(avm_verify_command, output_path);
     add_proof_path_option(avm_verify_command);
     add_vk_path_option(avm_verify_command);
 #endif
@@ -769,20 +733,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
         }
         // AVM
 #ifndef DISABLE_AZTEC_VM
-        else if (avm2_prove_command->parsed()) {
+        else if (avm_prove_command->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
-            avm2_prove(avm_inputs_path, avm2_prove_output_path);
-        } else if (avm2_check_circuit_command->parsed()) {
-            avm2_check_circuit(avm_inputs_path);
-        } else if (avm2_verify_command->parsed()) {
-            return avm2_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
+            avm_prove(avm_inputs_path, avm_prove_output_path);
         } else if (avm_check_circuit_command->parsed()) {
-            avm_check_circuit(avm_public_inputs_path, "ignored");
-        } else if (avm_prove_command->parsed()) {
-            // This outputs both files: proof and vk, under the given directory.
-            avm_prove(avm_public_inputs_path, "ignored", avm_prove_output_path);
+            avm_check_circuit(avm_inputs_path);
         } else if (avm_verify_command->parsed()) {
-            return avm_verify(proof_path, vk_path) ? 0 : 1;
+            return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
         }
 #endif
         // CLIENT IVC EXTRA COMMAND
