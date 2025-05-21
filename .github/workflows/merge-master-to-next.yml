@@ -24,9 +24,10 @@ jobs:
           git fetch origin master
           git fetch origin next
           git checkout next
-          if git merge origin/master; then
-            git push origin next
+          if ! git merge origin/master; then
+            exit 1
           fi
+          git push origin next
 
       - name: Send Notification
         if: failure()
