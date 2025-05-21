@@ -1,7 +1,6 @@
 use crate::blob_batching_public_inputs::{
     BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
 };
-use bigint::BLS12_381_Fq as Q;
 use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOB_ACCUMULATOR_PUBLIC_INPUTS, BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
@@ -20,10 +19,10 @@ pub unconstrained fn evaluate_blobs_and_batch(
 ) -> BlobAccumulatorPublicInputs {
     let fields = evaluate_blobs_oracle(
         blobs_as_fields,
-        kzg_commitments.map(|p| [p.x, p.y]),
+        kzg_commitments,
         sponge_blob,
         final_blob_challenges,
-        start_accumulator.serialize(), // Serialize removes is_inf flag and makes reading info easier in foreign_call_handler
+        start_accumulator.serialize(), // Serialize makes reading info easier in foreign_call_handler
     );
     BlobAccumulatorPublicInputs::deserialize(fields)
 }
@@ -31,7 +30,7 @@ pub unconstrained fn evaluate_blobs_and_batch(
 #[oracle(evaluateBlobs)]
 unconstrained fn evaluate_blobs_oracle(
     blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    kzg_commitments: [[Q; 2]; BLOBS_PER_BLOCK],
+    kzg_commitments: [BLSPoint; BLOBS_PER_BLOCK],
     mut sponge_blob: SpongeBlob,
     final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: [Field; BLOB_ACCUMULATOR_PUBLIC_INPUTS],

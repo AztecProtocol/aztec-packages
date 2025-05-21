@@ -2,6 +2,8 @@ import { Blob, BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges, SpongeB
 import {
   BLOBS_PER_BLOCK,
   BLOB_ACCUMULATOR_PUBLIC_INPUTS,
+  BLS12_FQ_LIMBS,
+  BLS12_FR_LIMBS,
   BLS12_POINT,
   FIELDS_PER_BLOB,
   SPONGE_BLOB_LENGTH,
@@ -39,10 +41,13 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
     // TODO(MW): Omit/compress some fields to reduce number of public inputs & outputs here. Below bignum stuff is temporary:
     const kzgCommitmentsFields = flattenedArgs.slice(offset, (offset += BLS12_POINT * BLOBS_PER_BLOCK));
     const kzgCommitments: BLS12Point[] = [];
-    for (let i = 0; i < kzgCommitmentsFields.length; i += 8) {
-      const x = BLS12Fq.fromNoirBigNum({ limbs: kzgCommitmentsFields.slice(i, i + 4) });
-      const y = BLS12Fq.fromNoirBigNum({ limbs: kzgCommitmentsFields.slice(i + 4, i + 8) });
-      kzgCommitments.push(new BLS12Point(x, y, x.isZero() && y.isZero()));
+    for (let i = 0; i < kzgCommitmentsFields.length; i += BLS12_POINT) {
+      const x = BLS12Fq.fromNoirBigNum({ limbs: kzgCommitmentsFields.slice(i, i + BLS12_FQ_LIMBS) });
+      const y = BLS12Fq.fromNoirBigNum({
+        limbs: kzgCommitmentsFields.slice(i + BLS12_FQ_LIMBS, i + BLS12_FQ_LIMBS * 2),
+      });
+      const isInfinite = Fr.fromString(kzgCommitmentsFields[i + BLS12_FQ_LIMBS * 2]).toBool();
+      kzgCommitments.push(new BLS12Point(x, y, isInfinite));
     }
 
     // - args[2] is the spongeblob accumulator
@@ -56,25 +61,13 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
     // TODO(MW): Omit/compress some fields to reduce number of public inputs & outputs here. Below bignum stuff is temporary:
     const finalBlobChallenges = new FinalBlobBatchingChallenges(
       Fr.fromString(flattenedArgs[offset++]),
-      BLS12Fr.fromNoirBigNum({ limbs: flattenedArgs.slice(offset, (offset += 3)) }),
+      BLS12Fr.fromNoirBigNum({ limbs: flattenedArgs.slice(offset, (offset += BLS12_FR_LIMBS)) }),
     );
 
     // - args[4] is the start blob batching accumulator
     // TODO(MW): Omit/compress some fields to reduce number of public inputs & outputs here. Below bignum stuff is temporary:
-    // + 1 is the is_inf flag - TODO(MW): FIX
     const startBlobAccumulatorFields = flattenedArgs.slice(offset, (offset += BLOB_ACCUMULATOR_PUBLIC_INPUTS));
-    const [x, y] = [
-      BLS12Fq.fromNoirBigNum({ limbs: startBlobAccumulatorFields.slice(5, 9) }),
-      BLS12Fq.fromNoirBigNum({ limbs: startBlobAccumulatorFields.slice(9, 13) }),
-    ];
-    const startBlobAccumulator = new BlobAccumulatorPublicInputs(
-      Fr.fromString(startBlobAccumulatorFields[0]),
-      Fr.fromString(startBlobAccumulatorFields[1]),
-      BLS12Fr.fromNoirBigNum({ limbs: startBlobAccumulatorFields.slice(2, 5) }),
-      new BLS12Point(x, y, x.isZero() && y.isZero()),
-      Fr.fromString(startBlobAccumulatorFields[13]),
-      BLS12Fr.fromNoirBigNum({ limbs: startBlobAccumulatorFields.slice(14, 17) }),
-    );
+    const startBlobAccumulator = BlobAccumulatorPublicInputs.fromFields(startBlobAccumulatorFields.map(Fr.fromString));
 
     const blobsAsFr = paddedBlobsAsFr.slice(0, spongeBlob.expectedFields);
     // NB: the above used to be:

@@ -1,5 +1,6 @@
-import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BLS12_FQ_LIMBS, BLS12_FR_LIMBS } from '@aztec/constants';
+import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
@@ -90,9 +91,26 @@ export class BlobAccumulatorPublicInputs {
       ...this.y.toNoirBigNum().limbs.map(Fr.fromString),
       ...this.c.x.toNoirBigNum().limbs.map(Fr.fromString),
       ...this.c.y.toNoirBigNum().limbs.map(Fr.fromString),
+      new Fr(this.c.isInfinite),
       this.gamma,
       ...this.gammaPow.toNoirBigNum().limbs.map(Fr.fromString),
     ];
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): BlobAccumulatorPublicInputs {
+    const reader = FieldReader.asReader(fields);
+    return new BlobAccumulatorPublicInputs(
+      reader.readField(),
+      reader.readField(),
+      BLS12Fr.fromNoirBigNum({ limbs: reader.readFieldArray(BLS12_FR_LIMBS).map(f => f.toString()) }),
+      new BLS12Point(
+        BLS12Fq.fromNoirBigNum({ limbs: reader.readFieldArray(BLS12_FQ_LIMBS).map(f => f.toString()) }),
+        BLS12Fq.fromNoirBigNum({ limbs: reader.readFieldArray(BLS12_FQ_LIMBS).map(f => f.toString()) }),
+        reader.readBoolean(),
+      ),
+      reader.readField(),
+      BLS12Fr.fromNoirBigNum({ limbs: reader.readFieldArray(BLS12_FR_LIMBS).map(f => f.toString()) }),
+    );
   }
 }
 
@@ -205,19 +223,6 @@ export class BlockBlobPublicInputs {
     return serializeToBuffer(this.startBlobAccumulator, this.endBlobAccumulator, this.finalBlobChallenges);
   }
 
-  // static fromFields(fields: Fr[] | FieldReader): BlockBlobPublicInputs {
-  //   const reader = FieldReader.asReader(fields);
-  //   return new BlockBlobPublicInputs(reader.readArray(BLOBS_PER_BLOCK, BlobPublicInputs));
-  // }
-
-  // toFields() {
-  //   return this.inner.map(i => i.toFields()).flat();
-  // }
-
-  // static getFields(fields: FieldsOf<BlockBlobPublicInputs>) {
-  //   return [fields.inner] as const;
-  // }
-
   // Creates BlockBlobPublicInputs from the starting accumulator state and all blobs in the block.
   // Assumes that startBlobAccumulator.finalChallenges have already been precomputed.
   // Does not finalise challenge values (this is done in the final root rollup).
@@ -230,18 +235,4 @@ export class BlockBlobPublicInputs {
       startBlobAccumulator.finalBlobChallenges,
     );
   }
-
-  // // The below is used to send to L1 for proof verification
-  // toString() {
-  //   const nonEmptyBlobs = this.inner.filter(item => !item.isEmpty());
-  //   // Write the number of blobs for L1 to verify
-  //   let buf = Buffer.alloc(1);
-  //   buf.writeUInt8(nonEmptyBlobs.length);
-  //   // Using standard toBuffer() does not correctly encode the commitment
-  //   // On L1, it's a 48 byte number, which we convert to 2 fields for use in the circuits
-  //   nonEmptyBlobs.forEach(blob => {
-  //     buf = Buffer.concat([buf, blob.z.toBuffer(), toBufferBE(blob.y, 32), blob.commitmentToBuffer()]);
-  //   });
-  //   return buf.toString('hex');
-  // }
 }
