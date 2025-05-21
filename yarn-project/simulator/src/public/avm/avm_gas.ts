@@ -157,7 +157,8 @@ export function getDynamicGasCost(opcode: Opcode): Gas {
   return DYNAMIC_GAS_COSTS.has(opcode) ? DYNAMIC_GAS_COSTS.get(opcode)! : makeCost(0, 0);
 }
 
-/** Returns a multiplier based on the byte size of the type represented by the integer tag. Throws on invalid. */
+/** Returns a multiplier based on the byte size of the type represented by the integer tag.
+ * Used to account for necessary rows in the bitwise trace. Throws on invalid. */
 export function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
   switch (tag) {
     case TypeTag.UINT1: // same as u8

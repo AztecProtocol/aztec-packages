@@ -23,9 +23,7 @@ void GasTracker::consume_base_gas()
 
     Gas gas_limit = context.get_gas_limit();
 
-    Gas gas_used = gas_event.prev_gas_used;
-    gas_used.l2Gas += gas_event.base_gas.l2Gas;
-    gas_used.daGas += gas_event.base_gas.daGas;
+    Gas gas_used = gas_event.prev_gas_used + gas_event.base_gas;
 
     std::cout << "gas used after base gas: l2=" << gas_used.l2Gas << " da=" << gas_used.daGas << std::endl;
     std::cout << "gas limit: l2=" << gas_limit.l2Gas << " da=" << gas_limit.daGas << std::endl;
@@ -54,9 +52,7 @@ void GasTracker::consume_dynamic_gas(Gas dynamic_gas_factor)
 
     Gas prev_gas_used = context.get_gas_used();
     Gas gas_limit = context.get_gas_limit();
-    Gas gas_used = prev_gas_used;
-    gas_used.l2Gas += gas_event.dynamic_gas.l2Gas;
-    gas_used.daGas += gas_event.dynamic_gas.daGas;
+    Gas gas_used = prev_gas_used + gas_event.dynamic_gas;
 
     gas_event.oog_l2_dynamic = gas_used.l2Gas > gas_limit.l2Gas;
     gas_event.oog_da_dynamic = gas_used.daGas > gas_limit.daGas;
