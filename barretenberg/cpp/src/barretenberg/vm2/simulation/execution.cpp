@@ -62,7 +62,7 @@ void Execution::call(ContextInterface& context,
     const auto& allocated_da_gas_read = memory.get(da_gas_offset);
     const auto& contract_address = memory.get(addr);
 
-    // TODO limit the gas limits based on available gas
+    // TODO clamp the gas limits based on available gas
 
     // Cd size and cd offset loads are deferred to (possible) calldatacopy
     auto nested_context = execution_components.make_nested_context(
@@ -78,7 +78,8 @@ void Execution::call(ContextInterface& context,
     // That event will be out of order, but it will have the right order id. It should be sorted in tracegen.
     auto result = execute_internal(*nested_context);
 
-    // TODO: Update gas in context based on the gas consumed by the nested context.
+    // Safe since the nested context gas limit should be clamped to the available gas.
+    context.set_gas_used(nested_context->get_gas_used() + context.get_gas_used());
     // TODO: do more things based on the result. This happens in the parent context
     // 1) Accept / Reject side effects (e.g. tree state, newly emitted nullifiers, notes, public writes)
     // 2) Set return data information
@@ -179,10 +180,14 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
 
             // "Emit" the context event
             // TODO: think about whether we need to know the success at this point
+            // For sure we need this to be serialized after dispatching the opcode for dynamic gas.
+            // OOF
             auto context_event = context.serialize_context_event();
             ex_event.context_event = context_event;
             ex_event.next_context_id = execution_components.get_next_context_id();
 
+            // TODO: we need to pass in the gas tracker the opcode for dynamic gas.
+            // Wait for the rework of execution for this.
             // Execute the opcode.
             dispatch_opcode(opcode, context, resolved_operands);
             // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
