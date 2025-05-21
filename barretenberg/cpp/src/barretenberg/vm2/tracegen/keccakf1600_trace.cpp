@@ -126,6 +126,17 @@ constexpr std::array<C, 5> theta_xor_row_low63_cols = {
     },
 };
 
+// Mapping indices of theta_combined_xor to their columns.
+constexpr std::array<C, 5> theta_combined_xor_cols = {
+    {
+        C::keccakf1600_theta_combined_xor_0,
+        C::keccakf1600_theta_combined_xor_1,
+        C::keccakf1600_theta_combined_xor_2,
+        C::keccakf1600_theta_combined_xor_3,
+        C::keccakf1600_theta_combined_xor_4,
+    },
+};
+
 void KeccakF1600TraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
@@ -161,12 +172,20 @@ void KeccakF1600TraceBuilder::process(
             trace.set(theta_xor_row_msb_cols[i], row, theta_xor_row_msb);
             trace.set(theta_xor_row_low63_cols[i], row, theta_xor_row_low63);
         }
+
+        // Setting theta_combined_xor values
+        for (size_t i = 0; i < 5; i++) {
+            trace.set(theta_combined_xor_cols[i], row, event.theta_combined_xor[i]);
+        }
+
+        row++;
     }
 }
 
 std::vector<std::unique_ptr<InteractionBuilderInterface>> KeccakF1600TraceBuilder::lookup_jobs()
 {
     return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        // Theta XOR values
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_01_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_02_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_03_settings>>(),
@@ -186,7 +205,13 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> KeccakF1600TraceBuilde
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_41_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_42_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_43_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_4_settings>>());
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_4_settings>>(),
+        // Theta XOR combined and final values
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_0_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_1_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_2_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_3_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_4_settings>>());
 }
 
 } // namespace bb::avm2::tracegen
