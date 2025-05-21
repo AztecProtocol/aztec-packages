@@ -6,6 +6,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { L2Block } from '@aztec/stdlib/block';
 import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations } from '@aztec/stdlib/trees';
 
+import { jest } from '@jest/globals';
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import path, { join } from 'path';
