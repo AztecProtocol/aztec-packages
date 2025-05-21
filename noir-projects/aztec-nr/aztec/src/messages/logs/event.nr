@@ -3,19 +3,18 @@ use crate::{
     event::event_interface::EventInterface,
     messages::{
         encoding::encode_message,
-        encryption::{aes128::AES128, log_encryption::LogEncryption},
+        encryption::{aes128::AES128, log_encryption::{LogEncryption, PRIVATE_LOG_CIPHERTEXT_LEN}},
         logs::utils::prefix_with_tag,
         msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
     },
     prelude::AztecAddress,
 };
-use protocol_types::{constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::{Serialize, ToField}};
+use protocol_types::traits::{Serialize, ToField};
 
-fn compute_log<Event, let N: u32>(
+pub fn to_encrypted_private_event_message<Event, let N: u32>(
     event: Event,
     recipient: AztecAddress,
-    sender: AztecAddress,
-) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
+) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN]
 where
     Event: EventInterface + Serialize<N>,
 {
@@ -26,22 +25,17 @@ where
         Serialize::<N>::serialize(event),
     );
 
-    let ciphertext = AES128::encrypt_log(plaintext, recipient);
-
-    let log = prefix_with_tag(ciphertext, sender, recipient);
-
-    log
+    AES128::encrypt_log(plaintext, recipient)
 }
 
-fn compute_log_unconstrained<Event, let N: u32>(
+fn to_encrypted_private_event_message_unconstrained<Event, let N: u32>(
     event: Event,
     recipient: AztecAddress,
-    sender: AztecAddress,
-) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
+) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN]
 where
     Event: EventInterface + Serialize<N>,
 {
-    compute_log(event, recipient, sender)
+    to_encrypted_private_event_message(event, recipient)
 }
 
 /// Sends an encrypted message to `recipient` with the content of the event, which they will discover when processing
@@ -55,7 +49,8 @@ where
     Event: EventInterface + Serialize<N>,
 {
     |e: Event| {
-        let encrypted_log = compute_log(e, recipient, sender);
+        let ciphertext = to_encrypted_private_event_message(e, recipient);
+        let encrypted_log = prefix_with_tag(ciphertext, sender, recipient);
         // Regardless of the original event size `N`, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();
@@ -78,7 +73,8 @@ where
 {
     |e: Event| {
         // Safety: this function does not constrain the encryption of the log, as explained on its description.
-        let encrypted_log = compute_log_unconstrained(e, recipient, sender);
+        let ciphertext = to_encrypted_private_event_message_unconstrained(e, recipient);
+        let encrypted_log = prefix_with_tag(ciphertext, sender, recipient);
         // Regardless of the original event size `N`, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();
