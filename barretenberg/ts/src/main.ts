@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import 'source-map-support/register.js';
 import { Crs, GrumpkinCrs, Barretenberg, RawBuffer } from './index.js';
-import { createChildLogger, logger } from './log.js';
+import { createDebugLogger, logger } from './log.js';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { Command } from 'commander';
@@ -9,7 +9,7 @@ import { Timer, writeBenchmark } from './benchmark/index.js';
 import path from 'path';
 import { UltraHonkBackendOptions } from './barretenberg/backend.js';
 
-const debug = createChildLogger('bb.js');
+const debug = createDebugLogger('bb.js');
 
 const threads = +process.env.HARDWARE_CONCURRENCY! || undefined;
 

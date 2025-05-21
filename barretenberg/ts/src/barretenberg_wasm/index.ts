@@ -1,11 +1,11 @@
 import { getSharedMemoryAvailable, getAvailableThreads } from './helpers/node/index.js';
 import { fetchCode } from './fetch_code/index.js';
-import { createChildLogger } from '../log.js';
+import { createDebugLogger } from '../log.js';
 
 export async function fetchModuleAndThreads(
   desiredThreads = 32,
   wasmPath?: string,
-  logger: (msg: string) => void = createChildLogger('fetch_mat'),
+  logger: (msg: string) => void = createDebugLogger('fetch_mat'),
 ) {
   const shared = getSharedMemoryAvailable();
 

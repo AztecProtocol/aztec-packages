@@ -5,7 +5,7 @@ import { createThreadWorker } from '../barretenberg_wasm_thread/factory/node/ind
 import { type BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/index.js';
 import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
 import { HeapAllocator } from './heap_allocator.js';
-import { createChildLogger } from '../../log.js';
+import { createDebugLogger } from '../../log.js';
 
 /**
  * This is the "main thread" implementation of BarretenbergWasm.
@@ -29,7 +29,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   public async init(
     module: WebAssembly.Module,
     threads = Math.min(getNumCpu(), BarretenbergWasmMain.MAX_THREADS),
-    logger: (msg: string) => void = createChildLogger('bb_wasm'),
+    logger: (msg: string) => void = createDebugLogger('bb_wasm'),
     initial = 32,
     maximum = 2 ** 16,
   ) {

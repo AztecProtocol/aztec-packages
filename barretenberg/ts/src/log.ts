@@ -4,11 +4,11 @@ export const logger = pino({
   name: 'bb.js',
   useOnlyCustomLevels: false,
   customLevels: { verbose: 25 },
-  level: process.env.LOG_LEVEL ?? 'info',
+  level: process ? process.env.LOG_LEVEL : 'info',
   browser: { asObject: false },
 });
 
-export function createChildLogger(name: string) {
+export function createDebugLogger(name: string) {
   const sublogger = logger.child({
     name,
   });

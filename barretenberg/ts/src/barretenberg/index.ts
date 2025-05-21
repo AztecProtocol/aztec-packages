@@ -6,7 +6,7 @@ import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js
 import { Crs, GrumpkinCrs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
-import { createChildLogger } from '../log.js';
+import { createDebugLogger } from '../log.js';
 
 export { BarretenbergVerifier } from './verifier.js';
 export { UltraHonkBackend, AztecClientBackend } from './backend.js';
@@ -62,7 +62,7 @@ export class Barretenberg extends BarretenbergApi {
     await wasm.init(
       module,
       threads,
-      proxy(options.logger ?? createChildLogger('bb_wasm_async')),
+      proxy(options.logger ?? createDebugLogger('bb_wasm_async')),
       options.memory?.initial,
       options.memory?.maximum,
     );
@@ -115,14 +115,14 @@ export class BarretenbergSync extends BarretenbergApiSync {
     super(wasm);
   }
 
-  private static async new(wasmPath?: string, logger: (msg: string) => void = createChildLogger('bb_wasm_sync')) {
+  private static async new(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_wasm_sync')) {
     const wasm = new BarretenbergWasmMain();
     const { module, threads } = await fetchModuleAndThreads(1, wasmPath, logger);
     await wasm.init(module, threads, logger);
     return new BarretenbergSync(wasm);
   }
 
-  static async initSingleton(wasmPath?: string, logger: (msg: string) => void = createChildLogger('bb_wasm_sync')) {
+  static async initSingleton(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_wasm_sync')) {
     if (!barretenbergSyncSingletonPromise) {
       barretenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath, logger);
     }
