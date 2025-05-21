@@ -1,3 +1,4 @@
+import { MAX_KEY_VALIDATION_REQUESTS_PER_TX } from '@aztec/constants';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { KeyValidationHint } from './key_validation_hint.js';
@@ -10,7 +11,6 @@ export class PrivateKernelResetHints<
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
-  KEY_VALIDATION_REQUESTS extends number,
   NUM_TRANSIENT_DATA_INDEX_HINTS extends number,
 > {
   constructor(
@@ -25,7 +25,7 @@ export class PrivateKernelResetHints<
     /**
      * Contains hints for key validation request.
      */
-    public keyValidationHints: Tuple<KeyValidationHint, KEY_VALIDATION_REQUESTS>,
+    public keyValidationHints: Tuple<KeyValidationHint, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     /**
      * Contains hints for the transient note hashes to locate corresponding nullifiers.
      */
@@ -52,30 +52,24 @@ export class PrivateKernelResetHints<
     NEW_NH_RR_SETTLED extends number,
     NEW_NLL_RR_PENDING extends number,
     NEW_NLL_RR_SETTLED extends number,
-    NEW_KEY_VALIDATION_REQUESTS extends number,
     NUM_TRANSIENT_DATA_INDEX_HINTS extends number,
   >(
     numNoteHashReadRequestPending: NEW_NH_RR_PENDING,
     numNoteHashReadRequestSettled: NEW_NH_RR_SETTLED,
     numNullifierReadRequestPending: NEW_NLL_RR_PENDING,
     numNullifierReadRequestSettled: NEW_NLL_RR_SETTLED,
-    numKeyValidationRequests: NEW_KEY_VALIDATION_REQUESTS,
     numTransientDataIndexHints: NUM_TRANSIENT_DATA_INDEX_HINTS,
   ): PrivateKernelResetHints<
     NEW_NH_RR_PENDING,
     NEW_NH_RR_SETTLED,
     NEW_NLL_RR_PENDING,
     NEW_NLL_RR_SETTLED,
-    NEW_KEY_VALIDATION_REQUESTS,
     NUM_TRANSIENT_DATA_INDEX_HINTS
   > {
     return new PrivateKernelResetHints(
       this.noteHashReadRequestHints.trimToSizes(numNoteHashReadRequestPending, numNoteHashReadRequestSettled),
       this.nullifierReadRequestHints.trimToSizes(numNullifierReadRequestPending, numNullifierReadRequestSettled),
-      this.keyValidationHints.slice(0, numKeyValidationRequests) as Tuple<
-        KeyValidationHint,
-        NEW_KEY_VALIDATION_REQUESTS
-      >,
+      this.keyValidationHints,
       this.transientDataIndexHints.slice(0, numTransientDataIndexHints) as Tuple<
         TransientDataIndexHint,
         NUM_TRANSIENT_DATA_INDEX_HINTS
@@ -93,7 +87,6 @@ export class PrivateKernelResetHints<
     NH_RR_SETTLED extends number,
     NLL_RR_PENDING extends number,
     NLL_RR_SETTLED extends number,
-    KEY_VALIDATION_REQUESTS extends number,
     NUM_TRANSIENT_DATA_INDEX_HINTS extends number,
   >(
     buffer: Buffer | BufferReader,
@@ -101,14 +94,12 @@ export class PrivateKernelResetHints<
     numNoteHashReadRequestSettled: NH_RR_SETTLED,
     numNullifierReadRequestPending: NLL_RR_PENDING,
     numNullifierReadRequestSettled: NLL_RR_SETTLED,
-    numNullifierKeys: KEY_VALIDATION_REQUESTS,
     numTransientDataIndexHints: NUM_TRANSIENT_DATA_INDEX_HINTS,
   ): PrivateKernelResetHints<
     NH_RR_PENDING,
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
-    KEY_VALIDATION_REQUESTS,
     NUM_TRANSIENT_DATA_INDEX_HINTS
   > {
     const reader = BufferReader.asReader(buffer);
@@ -121,7 +112,7 @@ export class PrivateKernelResetHints<
         fromBuffer: buf =>
           nullifierReadRequestHintsFromBuffer(buf, numNullifierReadRequestPending, numNullifierReadRequestSettled),
       }),
-      reader.readArray(numNullifierKeys, KeyValidationHint),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_TX, KeyValidationHint),
       reader.readArray(numTransientDataIndexHints, TransientDataIndexHint),
       reader.readNumber(),
     );

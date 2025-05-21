@@ -2,7 +2,7 @@ use crate::{
     note_hash_read_request_reset::NoteHashReadRequestHints,
     nullifier_read_request_reset::NullifierReadRequestHints,
     reset::{
-        key_validation_hint::{
+        key_validation_request::{
             get_unverified_key_validation_requests, KeyValidationHint,
             verify_reset_key_validation_requests,
         },
@@ -14,10 +14,10 @@ use dep::types::{
         note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
         validation_requests::PrivateValidationRequests,
     },
-    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
+    constants::{MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
 };
 
-pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
+pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32> {
     pub validation_requests: PrivateValidationRequests,
     pub note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     pub pending_note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
@@ -25,11 +25,12 @@ pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_S
     pub nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
     pub pending_nullifiers: [ScopedNullifier; MAX_NULLIFIERS_PER_TX],
     pub nullifier_tree_root: Field,
-    pub key_validation_hints: [KeyValidationHint; KEY_VALIDATION_REQUESTS],
+    pub key_validation_hints: [KeyValidationHint; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
+    pub num_key_validations: u32,
     pub validation_requests_split_counter: u32,
 }
 
-impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
+impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32> PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED> {
     pub unconstrained fn compose(self) -> PrivateValidationRequests {
         let note_hash_read_requests = get_unverified_read_requests(
             self.validation_requests.note_hash_read_requests,
@@ -43,7 +44,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
         let scoped_key_validation_requests_and_generators = get_unverified_key_validation_requests(
             self.validation_requests.scoped_key_validation_requests_and_generators,
-            self.key_validation_hints,
+            self.num_key_validations,
         );
 
         PrivateValidationRequests {
@@ -85,7 +86,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         );
 
         // key_validation_requests
-        if KEY_VALIDATION_REQUESTS == 0 {
+        if self.num_key_validations == 0 {
             assert_eq(
                 output.scoped_key_validation_requests_and_generators,
                 self.validation_requests.scoped_key_validation_requests_and_generators,
@@ -95,6 +96,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             verify_reset_key_validation_requests(
                 self.validation_requests.scoped_key_validation_requests_and_generators,
                 self.key_validation_hints,
+                self.num_key_validations,
                 output.scoped_key_validation_requests_and_generators,
             );
         }

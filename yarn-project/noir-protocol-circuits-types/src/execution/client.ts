@@ -97,7 +97,6 @@ export function convertPrivateKernelResetInputsToWitnessMapWithAbi<
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
-  KEY_VALIDATION_REQUESTS extends number,
   NUM_TRANSIENT_DATA_HINTS extends number,
 >(
   privateKernelResetCircuitPrivateInputs: PrivateKernelResetCircuitPrivateInputsVariants<
@@ -105,7 +104,6 @@ export function convertPrivateKernelResetInputsToWitnessMapWithAbi<
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
-    KEY_VALIDATION_REQUESTS,
     NUM_TRANSIENT_DATA_HINTS
   >,
   resetAbi: Abi,

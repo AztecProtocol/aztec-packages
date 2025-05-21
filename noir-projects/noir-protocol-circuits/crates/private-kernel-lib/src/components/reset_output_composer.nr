@@ -18,19 +18,19 @@ use dep::types::{
     utils::arrays::sort_by_counter_asc,
 };
 
-pub struct ResetOutputComposer<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
+pub struct ResetOutputComposer<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32> {
     pub previous_kernel: PrivateKernelCircuitPublicInputs,
-    pub validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
+    pub validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED>,
     pub note_hash_siloing_amount: u32,
     pub nullifier_siloing_amount: u32,
     pub private_log_siloing_amount: u32,
     pub hints: ResetOutputHints,
 }
 
-impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> ResetOutputComposer<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
+impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32> ResetOutputComposer<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED> {
     pub unconstrained fn new<let TRANSIENT_DATA_AMOUNT: u32>(
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
+        validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED>,
         transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_AMOUNT],
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,

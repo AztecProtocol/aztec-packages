@@ -74,22 +74,17 @@ function getNullifierMembershipWitnessResolver(oracle: PrivateKernelOracle) {
 
 async function getMasterSecretKeysAndAppKeyGenerators(
   keyValidationRequests: Tuple<ScopedKeyValidationRequestAndGenerator, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+  numRequestsToVerify: number,
   oracle: PrivateKernelOracle,
 ) {
-  const keysHints = [];
-  for (let i = 0; i < keyValidationRequests.length; ++i) {
-    const request = keyValidationRequests[i].request;
-    if (request.isEmpty()) {
-      break;
-    }
-    const secretKeys = await oracle.getMasterSecretKey(request.request.pkM);
-    keysHints.push(new KeyValidationHint(secretKeys, i));
-  }
-  return padArrayEnd(
-    keysHints,
-    KeyValidationHint.nada(MAX_KEY_VALIDATION_REQUESTS_PER_TX),
-    MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  const numRequests = countAccumulatedItems(keyValidationRequests);
+  const keysHints = await Promise.all(
+    keyValidationRequests.slice(0, Math.min(numRequests, numRequestsToVerify)).map(async ({ request }) => {
+      const secretKeys = await oracle.getMasterSecretKey(request.request.pkM);
+      return new KeyValidationHint(secretKeys);
+    }),
   );
+  return padArrayEnd(keysHints, KeyValidationHint.empty(), MAX_KEY_VALIDATION_REQUESTS_PER_TX);
 }
 
 export class PrivateKernelResetPrivateInputsBuilder {
@@ -201,6 +196,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
         ),
         await getMasterSecretKeysAndAppKeyGenerators(
           this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators,
+          dimensions.NULLIFIER_KEYS,
           oracle,
         ),
         this.transientDataIndexHints,

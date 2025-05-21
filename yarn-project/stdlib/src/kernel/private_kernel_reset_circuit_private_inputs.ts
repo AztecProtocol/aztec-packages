@@ -1,5 +1,4 @@
 import type {
-  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
@@ -15,7 +14,6 @@ export class PrivateKernelResetCircuitPrivateInputsVariants<
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
-  KEY_VALIDATION_REQUESTS extends number,
   NUM_TRANSIENT_DATA_INDEX_HINTS extends number,
 > {
   constructor(
@@ -25,7 +23,6 @@ export class PrivateKernelResetCircuitPrivateInputsVariants<
       NH_RR_SETTLED,
       NLL_RR_PENDING,
       NLL_RR_SETTLED,
-      KEY_VALIDATION_REQUESTS,
       NUM_TRANSIENT_DATA_INDEX_HINTS
     >,
   ) {}
@@ -49,7 +46,6 @@ export class PrivateKernelResetCircuitPrivateInputs {
       typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
       typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX,
       typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-      typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX,
       typeof MAX_NULLIFIERS_PER_TX
     >,
     public dimensions: PrivateKernelResetDimensions,
@@ -69,7 +65,6 @@ export class PrivateKernelResetCircuitPrivateInputs {
       this.dimensions.NOTE_HASH_SETTLED_AMOUNT,
       this.dimensions.NULLIFIER_PENDING_AMOUNT,
       this.dimensions.NULLIFIER_SETTLED_AMOUNT,
-      this.dimensions.NULLIFIER_KEYS,
       this.dimensions.TRANSIENT_DATA_AMOUNT,
     );
     return new PrivateKernelResetCircuitPrivateInputsVariants(this.previousKernel, hints);

@@ -37,10 +37,10 @@ fn is_valid_siloed_private_log(out: PrivateLog, prev: Scoped<PrivateLogData>) ->
     is_valid & (out.length == prev.inner.log.length)
 }
 
-pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> {
+pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> {
     output: PrivateKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
+    validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED>,
     transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
     note_hash_siloing_amount: u32,
     nullifier_siloing_amount: u32,
@@ -48,11 +48,11 @@ pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, 
     hints: ResetOutputHints,
 }
 
-impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> ResetOutputValidator<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, NUM_TRANSIENT_DATA_INDEX_HINTS> {
+impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> ResetOutputValidator<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, NUM_TRANSIENT_DATA_INDEX_HINTS> {
     pub fn new(
         output: PrivateKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
+        validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED>,
         transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,

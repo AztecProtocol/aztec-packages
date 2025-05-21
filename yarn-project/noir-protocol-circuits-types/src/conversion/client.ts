@@ -799,7 +799,6 @@ function mapNullifierReadRequestHintsToNoir<PENDING extends number, SETTLED exte
 export function mapKeyValidationHintToNoir(hint: KeyValidationHint): KeyValidationHintNoir {
   return {
     sk_m: mapGrumpkinScalarToNoir(hint.skM),
-    request_index: mapNumberToNoir(hint.requestIndex),
   };
 }
 
@@ -808,7 +807,6 @@ export function mapPrivateKernelResetHintsToNoir<
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
-  KEY_VALIDATION_REQUESTS extends number,
   NUM_TRANSIENT_DATA_HINTS extends number,
 >(
   inputs: PrivateKernelResetHints<
@@ -816,24 +814,13 @@ export function mapPrivateKernelResetHintsToNoir<
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
-    KEY_VALIDATION_REQUESTS,
     NUM_TRANSIENT_DATA_HINTS
   >,
-): PrivateKernelResetHintsNoir<
-  NH_RR_PENDING,
-  NH_RR_SETTLED,
-  NLL_RR_PENDING,
-  NLL_RR_SETTLED,
-  KEY_VALIDATION_REQUESTS,
-  NUM_TRANSIENT_DATA_HINTS
-> {
+): PrivateKernelResetHintsNoir<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, NUM_TRANSIENT_DATA_HINTS> {
   return {
     note_hash_read_request_hints: mapNoteHashReadRequestHintsToNoir(inputs.noteHashReadRequestHints),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
-    key_validation_hints: inputs.keyValidationHints.map(mapKeyValidationHintToNoir) as FixedLengthArray<
-      KeyValidationHintNoir,
-      KEY_VALIDATION_REQUESTS
-    >,
+    key_validation_hints: mapTuple(inputs.keyValidationHints, mapKeyValidationHintToNoir),
     transient_data_index_hints: inputs.transientDataIndexHints.map(mapTransientDataIndexHintToNoir) as FixedLengthArray<
       TransientDataIndexHintNoir,
       NUM_TRANSIENT_DATA_HINTS

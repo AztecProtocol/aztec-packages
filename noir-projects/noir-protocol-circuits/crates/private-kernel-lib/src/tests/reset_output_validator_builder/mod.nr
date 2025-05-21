@@ -14,13 +14,14 @@ use dep::reset_kernel_lib::{
 use dep::types::{
     constants::{MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
     tests::fixture_builder::FixtureBuilder,
+    traits::Empty,
 };
 
 global NOTE_HASH_PENDING_AMOUNT: u32 = 6;
 global NOTE_HASH_SETTLED_AMOUNT: u32 = 3;
 global NULLIFIER_PENDING_AMOUNT: u32 = 5;
 global NULLIFIER_SETTLED_AMOUNT: u32 = 2;
-global NULLIFIER_KEYS: u32 = 2;
+global NUM_KEY_VALIDATIONS: u32 = 2;
 global TRANSIENT_DATA_AMOUNT: u32 = 5;
 
 pub struct ResetOutputValidatorBuilder {
@@ -28,7 +29,7 @@ pub struct ResetOutputValidatorBuilder {
     previous_kernel: FixtureBuilder,
     note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder<NOTE_HASH_PENDING_AMOUNT, NOTE_HASH_SETTLED_AMOUNT>,
     nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder<NULLIFIER_PENDING_AMOUNT, NULLIFIER_SETTLED_AMOUNT>,
-    key_validation_hints: [KeyValidationHint; NULLIFIER_KEYS],
+    key_validation_hints: [KeyValidationHint; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
     transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_AMOUNT],
     note_hash_siloing_amount: u32,
     nullifier_siloing_amount: u32,
@@ -46,8 +47,7 @@ impl ResetOutputValidatorBuilder {
 
         let note_hash_read_request_hints_builder = NoteHashReadRequestHintsBuilder::new();
         let nullifier_read_request_hints_builder = NullifierReadRequestHintsBuilder::new();
-        let key_validation_hints =
-            [KeyValidationHint::nada(MAX_KEY_VALIDATION_REQUESTS_PER_TX); NULLIFIER_KEYS];
+        let key_validation_hints = [KeyValidationHint::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX];
         let transient_data_index_hints = [
             TransientDataIndexHint::nada(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
                  TRANSIENT_DATA_AMOUNT
@@ -68,7 +68,7 @@ impl ResetOutputValidatorBuilder {
 
     pub fn get_validation_request_processor(
         self,
-    ) -> PrivateValidationRequestProcessor<NOTE_HASH_PENDING_AMOUNT, NOTE_HASH_SETTLED_AMOUNT, NULLIFIER_PENDING_AMOUNT, NULLIFIER_SETTLED_AMOUNT, NULLIFIER_KEYS> {
+    ) -> PrivateValidationRequestProcessor<NOTE_HASH_PENDING_AMOUNT, NOTE_HASH_SETTLED_AMOUNT, NULLIFIER_PENDING_AMOUNT, NULLIFIER_SETTLED_AMOUNT> {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         let note_hash_read_request_hints = self.note_hash_read_request_hints_builder.to_hints();
         let nullifier_read_request_hints = self.nullifier_read_request_hints_builder.to_hints();
@@ -82,6 +82,7 @@ impl ResetOutputValidatorBuilder {
             pending_nullifiers: previous_kernel.end.nullifiers,
             nullifier_tree_root: 0,
             key_validation_hints: self.key_validation_hints,
+            num_key_validations: NUM_KEY_VALIDATIONS,
             validation_requests_split_counter: previous_kernel.min_revertible_side_effect_counter,
         }
     }
