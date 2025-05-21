@@ -4,16 +4,14 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
-  Timestamp, Status, ValidatorInfo, Exit, IStakingCore
+  Timestamp, Status, AttesterView, Exit, IStakingCore
 } from "@aztec/core/interfaces/IStaking.sol";
 
 contract InitiateWithdrawTest is StakingBase {
   function test_WhenAttesterIsNotRegistered() external {
     // it revert
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Staking__NotWithdrawer.selector, address(0), address(this))
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NothingToExit.selector, ATTESTER));
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
   }
 
@@ -24,7 +22,7 @@ contract InitiateWithdrawTest is StakingBase {
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: MINIMUM_STAKE
+      _onCanonical: true
     });
     _;
   }
@@ -52,7 +50,7 @@ contract InitiateWithdrawTest is StakingBase {
   {
     // it revert
 
-    assertTrue(staking.getInfo(address(1)).status == Status.NONE);
+    assertTrue(staking.getStatus(address(1)) == Status.NONE);
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NothingToExit.selector, address(1)));
     vm.prank(address(0));
     staking.initiateWithdraw(address(1), address(2));
@@ -60,7 +58,7 @@ contract InitiateWithdrawTest is StakingBase {
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
 
-    assertTrue(staking.getInfo(ATTESTER).status == Status.EXITING);
+    assertTrue(staking.getStatus(ATTESTER) == Status.EXITING);
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NothingToExit.selector, ATTESTER));
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
@@ -91,13 +89,16 @@ contract InitiateWithdrawTest is StakingBase {
     // it updates the operator status to exiting
     // it emits a {WithdrawInitiated} event
 
-    assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(address(staking.getGSE())), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
-    Exit memory exit = staking.getExit(ATTESTER);
-    assertEq(exit.exitableAt, Timestamp.wrap(0));
-    assertEq(exit.recipient, address(0));
-    ValidatorInfo memory info = staking.getInfo(ATTESTER);
-    assertTrue(info.status == Status.VALIDATING);
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    assertTrue(attesterView.status == Status.VALIDATING);
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(0));
+    assertEq(attesterView.exit.exists, false);
+    assertEq(attesterView.exit.isRecipient, false);
+    assertEq(attesterView.exit.amount, 0);
+    assertEq(attesterView.exit.recipientOrWithdrawer, address(0));
+
     assertEq(staking.getActiveAttesterCount(), 1);
 
     vm.expectEmit(true, true, true, true, address(staking));
@@ -108,11 +109,13 @@ contract InitiateWithdrawTest is StakingBase {
 
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
-    exit = staking.getExit(ATTESTER);
-    assertEq(exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
-    assertEq(exit.recipient, RECIPIENT);
-    info = staking.getInfo(ATTESTER);
-    assertTrue(info.status == Status.EXITING);
+
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.exit.exists, true);
+    assertEq(attesterView.exit.isRecipient, true);
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
+    assertEq(attesterView.exit.recipientOrWithdrawer, RECIPIENT);
+    assertTrue(attesterView.status == Status.EXITING);
 
     assertEq(staking.getActiveAttesterCount(), 0);
   }
@@ -122,16 +125,22 @@ contract InitiateWithdrawTest is StakingBase {
     // it updates the operator status to exiting
     // it emits a {WithdrawInitiated} event
 
+    assertEq(stakingAsset.balanceOf(address(staking.getGSE())), MINIMUM_STAKE);
+
     vm.prank(SLASHER);
     staking.slash(ATTESTER, MINIMUM_STAKE / 2);
 
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(address(staking.getGSE())), 0);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
-    Exit memory exit = staking.getExit(ATTESTER);
-    assertEq(exit.exitableAt, Timestamp.wrap(0));
-    assertEq(exit.recipient, address(0));
-    ValidatorInfo memory info = staking.getInfo(ATTESTER);
-    assertTrue(info.status == Status.LIVING);
+
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    assertTrue(attesterView.status == Status.LIVING);
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
+    assertEq(attesterView.exit.exists, true);
+    assertEq(attesterView.exit.isRecipient, false);
+    assertEq(attesterView.exit.amount, MINIMUM_STAKE - MINIMUM_STAKE / 2);
+    assertEq(attesterView.exit.recipientOrWithdrawer, WITHDRAWER);
 
     assertEq(staking.getActiveAttesterCount(), 0);
 
@@ -143,11 +152,13 @@ contract InitiateWithdrawTest is StakingBase {
 
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
-    exit = staking.getExit(ATTESTER);
-    assertEq(exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
-    assertEq(exit.recipient, RECIPIENT);
-    info = staking.getInfo(ATTESTER);
-    assertTrue(info.status == Status.EXITING);
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
+    assertEq(attesterView.exit.exists, true);
+    assertEq(attesterView.exit.isRecipient, true);
+    assertEq(attesterView.exit.amount, MINIMUM_STAKE - MINIMUM_STAKE / 2);
+    assertEq(attesterView.exit.recipientOrWithdrawer, RECIPIENT);
+    assertTrue(attesterView.status == Status.EXITING);
     assertEq(staking.getActiveAttesterCount(), 0);
   }
 }
