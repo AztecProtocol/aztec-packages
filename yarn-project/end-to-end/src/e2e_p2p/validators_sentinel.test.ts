@@ -136,7 +136,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       await retryUntil(
         async () => {
           const slashEvents = await rollupRaw.getEvents.Slashed();
-          return slashEvents.length === 1;
+          return slashEvents.length >= 1;
         },
         'slash event',
         // wait up to 2 full rounds plus 2 ethereum blocks

@@ -166,8 +166,8 @@ export class SlasherClient extends WithTracer {
       return Promise.resolve(this.config.slashOverridePayload);
     }
 
-    const currentTime = this.dateProvider.now();
-    this.filterExpiredPayloads(currentTime, this.config.slashPayloadTtlSeconds);
+    const currentTimeSeconds = this.dateProvider.now() / 1000;
+    this.filterExpiredPayloads(currentTimeSeconds, this.config.slashPayloadTtlSeconds);
 
     if (this.monitoredPayloads.length === 0) {
       this.log.debug('No monitored payloads, returning undefined');
@@ -328,12 +328,12 @@ export class SlasherClient extends WithTracer {
   /**
    * Filter out payloads that have expired
    *
-   * @param currentL1Block
+   * @param currentTimeSeconds
    * @param payloadTtlSeconds
    */
-  private filterExpiredPayloads(currentL1BlockTimestamp: number, payloadTtlSeconds: number) {
+  private filterExpiredPayloads(currentTimeSeconds: number, payloadTtlSeconds: number) {
     this.monitoredPayloads = this.monitoredPayloads.filter(payload => {
-      return payload.observedAtSeconds + payloadTtlSeconds > currentL1BlockTimestamp;
+      return payload.observedAtSeconds + payloadTtlSeconds > currentTimeSeconds;
     });
   }
 
