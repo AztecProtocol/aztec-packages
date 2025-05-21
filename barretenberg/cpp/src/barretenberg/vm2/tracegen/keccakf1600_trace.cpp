@@ -64,65 +64,65 @@ constexpr std::array<std::array<C, 4>, 5> theta_xor_cols = {
             C::keccakf1600_theta_xor_01,
             C::keccakf1600_theta_xor_02,
             C::keccakf1600_theta_xor_03,
-            C::keccakf1600_theta_xor_final_0,
+            C::keccakf1600_theta_xor_row_0,
         },
         {
             C::keccakf1600_theta_xor_11,
             C::keccakf1600_theta_xor_12,
             C::keccakf1600_theta_xor_13,
-            C::keccakf1600_theta_xor_final_1,
+            C::keccakf1600_theta_xor_row_1,
         },
         {
             C::keccakf1600_theta_xor_21,
             C::keccakf1600_theta_xor_22,
             C::keccakf1600_theta_xor_23,
-            C::keccakf1600_theta_xor_final_2,
+            C::keccakf1600_theta_xor_row_2,
         },
         {
             C::keccakf1600_theta_xor_31,
             C::keccakf1600_theta_xor_32,
             C::keccakf1600_theta_xor_33,
-            C::keccakf1600_theta_xor_final_3,
+            C::keccakf1600_theta_xor_row_3,
         },
         {
             C::keccakf1600_theta_xor_41,
             C::keccakf1600_theta_xor_42,
             C::keccakf1600_theta_xor_43,
-            C::keccakf1600_theta_xor_final_4,
+            C::keccakf1600_theta_xor_row_4,
         },
     },
 };
 
-// Mapping indices of theta_xor_final_rotl1 to their columns.
-constexpr std::array<C, 5> theta_xor_final_rotl1_cols = {
+// Mapping indices of theta_xor_row_rotl1 to their columns.
+constexpr std::array<C, 5> theta_xor_row_rotl1_cols = {
     {
-        C::keccakf1600_theta_xor_final_rotl1_0,
-        C::keccakf1600_theta_xor_final_rotl1_1,
-        C::keccakf1600_theta_xor_final_rotl1_2,
-        C::keccakf1600_theta_xor_final_rotl1_3,
-        C::keccakf1600_theta_xor_final_rotl1_4,
+        C::keccakf1600_theta_xor_row_rotl1_0,
+        C::keccakf1600_theta_xor_row_rotl1_1,
+        C::keccakf1600_theta_xor_row_rotl1_2,
+        C::keccakf1600_theta_xor_row_rotl1_3,
+        C::keccakf1600_theta_xor_row_rotl1_4,
     },
 };
 
-// Mapping indices of theta_xor_final_msb to their columns.
-constexpr std::array<C, 5> theta_xor_final_msb_cols = {
+// Mapping indices of theta_xor_row_msb to their columns.
+constexpr std::array<C, 5> theta_xor_row_msb_cols = {
     {
-        C::keccakf1600_theta_xor_final_msb_0,
-        C::keccakf1600_theta_xor_final_msb_1,
-        C::keccakf1600_theta_xor_final_msb_2,
-        C::keccakf1600_theta_xor_final_msb_3,
-        C::keccakf1600_theta_xor_final_msb_4,
+        C::keccakf1600_theta_xor_row_msb_0,
+        C::keccakf1600_theta_xor_row_msb_1,
+        C::keccakf1600_theta_xor_row_msb_2,
+        C::keccakf1600_theta_xor_row_msb_3,
+        C::keccakf1600_theta_xor_row_msb_4,
     },
 };
 
-// Mapping indices of theta_xor_final_low63 to their columns.
-constexpr std::array<C, 5> theta_xor_final_low63_cols = {
+// Mapping indices of theta_xor_row_low63 to their columns.
+constexpr std::array<C, 5> theta_xor_row_low63_cols = {
     {
-        C::keccakf1600_theta_xor_final_low63_0,
-        C::keccakf1600_theta_xor_final_low63_1,
-        C::keccakf1600_theta_xor_final_low63_2,
-        C::keccakf1600_theta_xor_final_low63_3,
-        C::keccakf1600_theta_xor_final_low63_4,
+        C::keccakf1600_theta_xor_row_low63_0,
+        C::keccakf1600_theta_xor_row_low63_1,
+        C::keccakf1600_theta_xor_row_low63_2,
+        C::keccakf1600_theta_xor_row_low63_3,
+        C::keccakf1600_theta_xor_row_low63_4,
     },
 };
 
@@ -153,13 +153,13 @@ void KeccakF1600TraceBuilder::process(
         // Setting theta xor final values left rotated by 1
         // and the msb and low 63 bits values.
         for (size_t i = 0; i < 5; i++) {
-            const auto theta_xor_final_rotl1 = event.theta_xor_final_rotl1[i];
-            const auto theta_xor_final_msb = theta_xor_final_rotl1 & 1;    // lsb of of the rotated value
-            const auto theta_xor_final_low63 = theta_xor_final_rotl1 >> 1; // 63 high bits of the rotated value
+            const auto theta_xor_row_rotl1 = event.theta_xor_row_rotl1[i];
+            const auto theta_xor_row_msb = theta_xor_row_rotl1 & 1;    // lsb of of the rotated value
+            const auto theta_xor_row_low63 = theta_xor_row_rotl1 >> 1; // 63 high bits of the rotated value
 
-            trace.set(theta_xor_final_rotl1_cols[i], row, theta_xor_final_rotl1);
-            trace.set(theta_xor_final_msb_cols[i], row, theta_xor_final_msb);
-            trace.set(theta_xor_final_low63_cols[i], row, theta_xor_final_low63);
+            trace.set(theta_xor_row_rotl1_cols[i], row, theta_xor_row_rotl1);
+            trace.set(theta_xor_row_msb_cols[i], row, theta_xor_row_msb);
+            trace.set(theta_xor_row_low63_cols[i], row, theta_xor_row_low63);
         }
     }
 }
@@ -170,23 +170,23 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> KeccakF1600TraceBuilde
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_01_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_02_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_03_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_final_0_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_0_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_11_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_12_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_13_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_final_1_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_1_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_21_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_22_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_23_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_final_2_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_2_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_31_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_32_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_33_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_final_3_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_3_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_41_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_42_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_43_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_final_4_settings>>());
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_4_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

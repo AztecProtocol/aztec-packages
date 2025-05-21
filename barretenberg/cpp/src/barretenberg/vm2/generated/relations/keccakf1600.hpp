@@ -57,123 +57,123 @@ template <typename FF_> class keccakf1600Impl {
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_MSB_0_BOOLEAN
+        { // THETA_XOR_ROW_MSB_0_BOOLEAN
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::keccakf1600_theta_xor_final_msb_0) * (FF(1) - in.get(C::keccakf1600_theta_xor_final_msb_0));
+                in.get(C::keccakf1600_theta_xor_row_msb_0) * (FF(1) - in.get(C::keccakf1600_theta_xor_row_msb_0));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_0_DECOMPOSITION
+        { // THETA_XOR_ROW_0_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp =
-                (in.get(C::keccakf1600_theta_xor_final_0) -
-                 (FF(uint256_t{ 9223372036854775808UL, 0UL, 0UL, 0UL }) * in.get(C::keccakf1600_theta_xor_final_msb_0) +
-                  in.get(C::keccakf1600_theta_xor_final_low63_0)));
+                (in.get(C::keccakf1600_theta_xor_row_0) -
+                 (FF(uint256_t{ 9223372036854775808UL, 0UL, 0UL, 0UL }) * in.get(C::keccakf1600_theta_xor_row_msb_0) +
+                  in.get(C::keccakf1600_theta_xor_row_low63_0)));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_ROTL1_0
+        { // THETA_XOR_ROW_ROTL1_0
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccakf1600_theta_xor_final_rotl1_0) -
-                        (FF(2) * in.get(C::keccakf1600_theta_xor_final_low63_0) +
-                         in.get(C::keccakf1600_theta_xor_final_msb_0)));
+            auto tmp =
+                (in.get(C::keccakf1600_theta_xor_row_rotl1_0) -
+                 (FF(2) * in.get(C::keccakf1600_theta_xor_row_low63_0) + in.get(C::keccakf1600_theta_xor_row_msb_0)));
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_MSB_1_BOOLEAN
+        { // THETA_XOR_ROW_MSB_1_BOOLEAN
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::keccakf1600_theta_xor_final_msb_1) * (FF(1) - in.get(C::keccakf1600_theta_xor_final_msb_1));
+                in.get(C::keccakf1600_theta_xor_row_msb_1) * (FF(1) - in.get(C::keccakf1600_theta_xor_row_msb_1));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_1_DECOMPOSITION
+        { // THETA_XOR_ROW_1_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp =
-                (in.get(C::keccakf1600_theta_xor_final_1) -
-                 (FF(uint256_t{ 9223372036854775808UL, 0UL, 0UL, 0UL }) * in.get(C::keccakf1600_theta_xor_final_msb_1) +
-                  in.get(C::keccakf1600_theta_xor_final_low63_1)));
+                (in.get(C::keccakf1600_theta_xor_row_1) -
+                 (FF(uint256_t{ 9223372036854775808UL, 0UL, 0UL, 0UL }) * in.get(C::keccakf1600_theta_xor_row_msb_1) +
+                  in.get(C::keccakf1600_theta_xor_row_low63_1)));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_ROTL1_1
+        { // THETA_XOR_ROW_ROTL1_1
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccakf1600_theta_xor_final_rotl1_1) -
-                        (FF(2) * in.get(C::keccakf1600_theta_xor_final_low63_1) +
-                         in.get(C::keccakf1600_theta_xor_final_msb_1)));
+            auto tmp =
+                (in.get(C::keccakf1600_theta_xor_row_rotl1_1) -
+                 (FF(2) * in.get(C::keccakf1600_theta_xor_row_low63_1) + in.get(C::keccakf1600_theta_xor_row_msb_1)));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_MSB_2_BOOLEAN
+        { // THETA_XOR_ROW_MSB_2_BOOLEAN
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::keccakf1600_theta_xor_final_msb_2) * (FF(1) - in.get(C::keccakf1600_theta_xor_final_msb_2));
+                in.get(C::keccakf1600_theta_xor_row_msb_2) * (FF(1) - in.get(C::keccakf1600_theta_xor_row_msb_2));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_2_DECOMPOSITION
+        { // THETA_XOR_ROW_2_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp =
-                (in.get(C::keccakf1600_theta_xor_final_2) -
-                 (FF(uint256_t{ 9223372036854775808UL, 0UL, 0UL, 0UL }) * in.get(C::keccakf1600_theta_xor_final_msb_2) +
-                  in.get(C::keccakf1600_theta_xor_final_low63_2)));
+                (in.get(C::keccakf1600_theta_xor_row_2) -
+                 (FF(uint256_t{ 9223372036854775808UL, 0UL, 0UL, 0UL }) * in.get(C::keccakf1600_theta_xor_row_msb_2) +
+                  in.get(C::keccakf1600_theta_xor_row_low63_2)));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_ROTL1_2
+        { // THETA_XOR_ROW_ROTL1_2
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccakf1600_theta_xor_final_rotl1_2) -
-                        (FF(2) * in.get(C::keccakf1600_theta_xor_final_low63_2) +
-                         in.get(C::keccakf1600_theta_xor_final_msb_2)));
+            auto tmp =
+                (in.get(C::keccakf1600_theta_xor_row_rotl1_2) -
+                 (FF(2) * in.get(C::keccakf1600_theta_xor_row_low63_2) + in.get(C::keccakf1600_theta_xor_row_msb_2)));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_MSB_3_BOOLEAN
+        { // THETA_XOR_ROW_MSB_3_BOOLEAN
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::keccakf1600_theta_xor_final_msb_3) * (FF(1) - in.get(C::keccakf1600_theta_xor_final_msb_3));
+                in.get(C::keccakf1600_theta_xor_row_msb_3) * (FF(1) - in.get(C::keccakf1600_theta_xor_row_msb_3));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_3_DECOMPOSITION
+        { // THETA_XOR_ROW_3_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp =
-                (in.get(C::keccakf1600_theta_xor_final_3) -
-                 (FF(uint256_t{ 9223372036854775808UL, 0UL, 0UL, 0UL }) * in.get(C::keccakf1600_theta_xor_final_msb_3) +
-                  in.get(C::keccakf1600_theta_xor_final_low63_3)));
+                (in.get(C::keccakf1600_theta_xor_row_3) -
+                 (FF(uint256_t{ 9223372036854775808UL, 0UL, 0UL, 0UL }) * in.get(C::keccakf1600_theta_xor_row_msb_3) +
+                  in.get(C::keccakf1600_theta_xor_row_low63_3)));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_ROTL1_3
+        { // THETA_XOR_ROW_ROTL1_3
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccakf1600_theta_xor_final_rotl1_3) -
-                        (FF(2) * in.get(C::keccakf1600_theta_xor_final_low63_3) +
-                         in.get(C::keccakf1600_theta_xor_final_msb_3)));
+            auto tmp =
+                (in.get(C::keccakf1600_theta_xor_row_rotl1_3) -
+                 (FF(2) * in.get(C::keccakf1600_theta_xor_row_low63_3) + in.get(C::keccakf1600_theta_xor_row_msb_3)));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_MSB_4_BOOLEAN
+        { // THETA_XOR_ROW_MSB_4_BOOLEAN
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::keccakf1600_theta_xor_final_msb_4) * (FF(1) - in.get(C::keccakf1600_theta_xor_final_msb_4));
+                in.get(C::keccakf1600_theta_xor_row_msb_4) * (FF(1) - in.get(C::keccakf1600_theta_xor_row_msb_4));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_4_DECOMPOSITION
+        { // THETA_XOR_ROW_4_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp =
-                (in.get(C::keccakf1600_theta_xor_final_4) -
-                 (FF(uint256_t{ 9223372036854775808UL, 0UL, 0UL, 0UL }) * in.get(C::keccakf1600_theta_xor_final_msb_4) +
-                  in.get(C::keccakf1600_theta_xor_final_low63_4)));
+                (in.get(C::keccakf1600_theta_xor_row_4) -
+                 (FF(uint256_t{ 9223372036854775808UL, 0UL, 0UL, 0UL }) * in.get(C::keccakf1600_theta_xor_row_msb_4) +
+                  in.get(C::keccakf1600_theta_xor_row_low63_4)));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
-        { // THETA_XOR_FINAL_ROTL1_4
+        { // THETA_XOR_ROW_ROTL1_4
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccakf1600_theta_xor_final_rotl1_4) -
-                        (FF(2) * in.get(C::keccakf1600_theta_xor_final_low63_4) +
-                         in.get(C::keccakf1600_theta_xor_final_msb_4)));
+            auto tmp =
+                (in.get(C::keccakf1600_theta_xor_row_rotl1_4) -
+                 (FF(2) * in.get(C::keccakf1600_theta_xor_row_low63_4) + in.get(C::keccakf1600_theta_xor_row_msb_4)));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
@@ -188,55 +188,55 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
     {
         switch (index) {
         case 4:
-            return "THETA_XOR_FINAL_MSB_0_BOOLEAN";
+            return "THETA_XOR_ROW_MSB_0_BOOLEAN";
         case 5:
-            return "THETA_XOR_FINAL_0_DECOMPOSITION";
+            return "THETA_XOR_ROW_0_DECOMPOSITION";
         case 6:
-            return "THETA_XOR_FINAL_ROTL1_0";
+            return "THETA_XOR_ROW_ROTL1_0";
         case 7:
-            return "THETA_XOR_FINAL_MSB_1_BOOLEAN";
+            return "THETA_XOR_ROW_MSB_1_BOOLEAN";
         case 8:
-            return "THETA_XOR_FINAL_1_DECOMPOSITION";
+            return "THETA_XOR_ROW_1_DECOMPOSITION";
         case 9:
-            return "THETA_XOR_FINAL_ROTL1_1";
+            return "THETA_XOR_ROW_ROTL1_1";
         case 10:
-            return "THETA_XOR_FINAL_MSB_2_BOOLEAN";
+            return "THETA_XOR_ROW_MSB_2_BOOLEAN";
         case 11:
-            return "THETA_XOR_FINAL_2_DECOMPOSITION";
+            return "THETA_XOR_ROW_2_DECOMPOSITION";
         case 12:
-            return "THETA_XOR_FINAL_ROTL1_2";
+            return "THETA_XOR_ROW_ROTL1_2";
         case 13:
-            return "THETA_XOR_FINAL_MSB_3_BOOLEAN";
+            return "THETA_XOR_ROW_MSB_3_BOOLEAN";
         case 14:
-            return "THETA_XOR_FINAL_3_DECOMPOSITION";
+            return "THETA_XOR_ROW_3_DECOMPOSITION";
         case 15:
-            return "THETA_XOR_FINAL_ROTL1_3";
+            return "THETA_XOR_ROW_ROTL1_3";
         case 16:
-            return "THETA_XOR_FINAL_MSB_4_BOOLEAN";
+            return "THETA_XOR_ROW_MSB_4_BOOLEAN";
         case 17:
-            return "THETA_XOR_FINAL_4_DECOMPOSITION";
+            return "THETA_XOR_ROW_4_DECOMPOSITION";
         case 18:
-            return "THETA_XOR_FINAL_ROTL1_4";
+            return "THETA_XOR_ROW_ROTL1_4";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_THETA_XOR_FINAL_MSB_0_BOOLEAN = 4;
-    static constexpr size_t SR_THETA_XOR_FINAL_0_DECOMPOSITION = 5;
-    static constexpr size_t SR_THETA_XOR_FINAL_ROTL1_0 = 6;
-    static constexpr size_t SR_THETA_XOR_FINAL_MSB_1_BOOLEAN = 7;
-    static constexpr size_t SR_THETA_XOR_FINAL_1_DECOMPOSITION = 8;
-    static constexpr size_t SR_THETA_XOR_FINAL_ROTL1_1 = 9;
-    static constexpr size_t SR_THETA_XOR_FINAL_MSB_2_BOOLEAN = 10;
-    static constexpr size_t SR_THETA_XOR_FINAL_2_DECOMPOSITION = 11;
-    static constexpr size_t SR_THETA_XOR_FINAL_ROTL1_2 = 12;
-    static constexpr size_t SR_THETA_XOR_FINAL_MSB_3_BOOLEAN = 13;
-    static constexpr size_t SR_THETA_XOR_FINAL_3_DECOMPOSITION = 14;
-    static constexpr size_t SR_THETA_XOR_FINAL_ROTL1_3 = 15;
-    static constexpr size_t SR_THETA_XOR_FINAL_MSB_4_BOOLEAN = 16;
-    static constexpr size_t SR_THETA_XOR_FINAL_4_DECOMPOSITION = 17;
-    static constexpr size_t SR_THETA_XOR_FINAL_ROTL1_4 = 18;
+    static constexpr size_t SR_THETA_XOR_ROW_MSB_0_BOOLEAN = 4;
+    static constexpr size_t SR_THETA_XOR_ROW_0_DECOMPOSITION = 5;
+    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_0 = 6;
+    static constexpr size_t SR_THETA_XOR_ROW_MSB_1_BOOLEAN = 7;
+    static constexpr size_t SR_THETA_XOR_ROW_1_DECOMPOSITION = 8;
+    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_1 = 9;
+    static constexpr size_t SR_THETA_XOR_ROW_MSB_2_BOOLEAN = 10;
+    static constexpr size_t SR_THETA_XOR_ROW_2_DECOMPOSITION = 11;
+    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_2 = 12;
+    static constexpr size_t SR_THETA_XOR_ROW_MSB_3_BOOLEAN = 13;
+    static constexpr size_t SR_THETA_XOR_ROW_3_DECOMPOSITION = 14;
+    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_3 = 15;
+    static constexpr size_t SR_THETA_XOR_ROW_MSB_4_BOOLEAN = 16;
+    static constexpr size_t SR_THETA_XOR_ROW_4_DECOMPOSITION = 17;
+    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_4 = 18;
 };
 
 } // namespace bb::avm2

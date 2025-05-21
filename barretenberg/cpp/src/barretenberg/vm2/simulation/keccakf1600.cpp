@@ -71,7 +71,7 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
     perm_events.emit({
         .state = input,
         .theta_xor = two_dim_array_to_uint64(theta_xor_values),
-        .theta_xor_final_rotl1 = array_to_uint64(theta_xor_final_rotl1_values),
+        .theta_xor_row_rotl1 = array_to_uint64(theta_xor_final_rotl1_values),
     });
 
     // TODO: return real keccakf1600 output

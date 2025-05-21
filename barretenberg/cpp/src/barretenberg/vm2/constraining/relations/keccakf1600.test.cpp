@@ -33,23 +33,23 @@ using keccakf1600_relation = bb::avm2::keccakf1600<FF>;
 using lookup_theta_xor_01 = lookup_keccakf1600_theta_xor_01_relation<FF>;
 using lookup_theta_xor_02 = lookup_keccakf1600_theta_xor_02_relation<FF>;
 using lookup_theta_xor_03 = lookup_keccakf1600_theta_xor_03_relation<FF>;
-using lookup_theta_xor_final_0 = lookup_keccakf1600_theta_xor_final_0_relation<FF>;
+using lookup_theta_xor_row_0 = lookup_keccakf1600_theta_xor_row_0_relation<FF>;
 using lookup_theta_xor_11 = lookup_keccakf1600_theta_xor_11_relation<FF>;
 using lookup_theta_xor_12 = lookup_keccakf1600_theta_xor_12_relation<FF>;
 using lookup_theta_xor_13 = lookup_keccakf1600_theta_xor_13_relation<FF>;
-using lookup_theta_xor_final_1 = lookup_keccakf1600_theta_xor_final_1_relation<FF>;
+using lookup_theta_xor_row_1 = lookup_keccakf1600_theta_xor_row_1_relation<FF>;
 using lookup_theta_xor_21 = lookup_keccakf1600_theta_xor_21_relation<FF>;
 using lookup_theta_xor_22 = lookup_keccakf1600_theta_xor_22_relation<FF>;
 using lookup_theta_xor_23 = lookup_keccakf1600_theta_xor_23_relation<FF>;
-using lookup_theta_xor_final_2 = lookup_keccakf1600_theta_xor_final_2_relation<FF>;
+using lookup_theta_xor_row_2 = lookup_keccakf1600_theta_xor_row_2_relation<FF>;
 using lookup_theta_xor_31 = lookup_keccakf1600_theta_xor_31_relation<FF>;
 using lookup_theta_xor_32 = lookup_keccakf1600_theta_xor_32_relation<FF>;
 using lookup_theta_xor_33 = lookup_keccakf1600_theta_xor_33_relation<FF>;
-using lookup_theta_xor_final_3 = lookup_keccakf1600_theta_xor_final_3_relation<FF>;
+using lookup_theta_xor_row_3 = lookup_keccakf1600_theta_xor_row_3_relation<FF>;
 using lookup_theta_xor_41 = lookup_keccakf1600_theta_xor_41_relation<FF>;
 using lookup_theta_xor_42 = lookup_keccakf1600_theta_xor_42_relation<FF>;
 using lookup_theta_xor_43 = lookup_keccakf1600_theta_xor_43_relation<FF>;
-using lookup_theta_xor_final_4 = lookup_keccakf1600_theta_xor_final_4_relation<FF>;
+using lookup_theta_xor_row_4 = lookup_keccakf1600_theta_xor_row_4_relation<FF>;
 
 } // namespace
 
@@ -87,23 +87,23 @@ TEST(KeccakF1600ConstrainingTest, withSimulationAndTraceGenInteractions)
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_01::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_02::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_03::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_final_0::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_row_0::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_11::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_12::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_13::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_final_1::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_row_1::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_21::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_22::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_23::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_final_2::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_row_2::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_31::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_32::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_33::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_final_3::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_row_3::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_41::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_42::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_43::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_final_4::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_row_4::Settings>().process(trace);
 
     check_relation<keccakf1600_relation>(trace);
 }
