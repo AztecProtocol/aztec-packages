@@ -161,7 +161,8 @@ template <typename Curve> class GeminiProver_ {
         void set_to_be_shifted_by_one(RefVector<Polynomial> polynomials) { to_be_shifted_by_one = polynomials; }
         void set_to_be_shifted_by_k(RefVector<Polynomial> polynomials, const size_t shift_magnitude)
         {
-            ASSERT(k_shift_magnitude % 2 == 0); // k must be even for the formulas herein to be valid
+            BB_ASSERT_EQ(
+                k_shift_magnitude % 2, static_cast<size_t>(0), "k must be even for the formulas herein to be valid");
             to_be_shifted_by_k = polynomials;
             k_shift_magnitude = shift_magnitude;
         }

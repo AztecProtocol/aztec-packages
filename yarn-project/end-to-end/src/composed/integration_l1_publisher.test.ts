@@ -231,8 +231,8 @@ describe('L1Publisher integration', () => {
     const ts = (await l1Client.getBlock()).timestamp;
     baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
 
-    // We jump to the next epoch such that the committee can be setup.
-    const timeToJump = await rollup.getEpochDuration();
+    // We jump two epochs such that the committee can be setup.
+    const timeToJump = (await rollup.getEpochDuration()) * 2n;
     await progressTimeBySlot(timeToJump);
   });
 
@@ -251,11 +251,10 @@ describe('L1Publisher integration', () => {
       seed,
     });
 
-  const sendToL2 = (content: Fr, recipient: AztecAddress): Promise<Fr> => {
-    return sendL1ToL2Message({ content, secretHash: Fr.ZERO, recipient }, { l1Client, l1ContractAddresses }).then(
-      ([messageHash, _]) => messageHash,
+  const sendToL2 = (content: Fr, recipient: AztecAddress): Promise<Fr> =>
+    sendL1ToL2Message({ content, secretHash: Fr.ZERO, recipient }, { l1Client, l1ContractAddresses }).then(
+      ({ msgHash }) => msgHash,
     );
-  };
 
   /**
    * Creates a json object that can be used to test the solidity contract.
@@ -290,60 +289,28 @@ describe('L1Publisher integration', () => {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+        blobInputs: Blob.getEthBlobEvaluationInputs(blobs),
+        blockNumber: block.number,
         body: `0x${block.body.toBuffer().toString('hex')}`,
         decodedHeader: {
+          lastArchiveRoot: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
           contentCommitment: {
             blobsHash: `0x${block.header.contentCommitment.blobsHash.toString('hex').padStart(64, '0')}`,
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
             numTxs: Number(block.header.contentCommitment.numTxs),
           },
-          globalVariables: {
-            blockNumber: block.number,
-            slotNumber: `0x${block.header.globalVariables.slotNumber.toBuffer().toString('hex').padStart(64, '0')}`,
-            chainId: Number(block.header.globalVariables.chainId.toBigInt()),
-            timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
-            version: Number(block.header.globalVariables.version.toBigInt()),
-            coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
-            feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
-            gasFees: {
-              feePerDaGas: block.header.globalVariables.gasFees.feePerDaGas.toNumber(),
-              feePerL2Gas: block.header.globalVariables.gasFees.feePerL2Gas.toNumber(),
-            },
+          slotNumber: `0x${block.header.globalVariables.slotNumber.toBuffer().toString('hex').padStart(64, '0')}`,
+          timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
+          coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
+          feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
+          gasFees: {
+            feePerDaGas: block.header.globalVariables.gasFees.feePerDaGas.toNumber(),
+            feePerL2Gas: block.header.globalVariables.gasFees.feePerL2Gas.toNumber(),
           },
-          totalFees: `0x${block.header.totalFees.toBuffer().toString('hex').padStart(64, '0')}`,
           totalManaUsed: `0x${block.header.totalManaUsed.toBuffer().toString('hex').padStart(64, '0')}`,
-          lastArchive: {
-            nextAvailableLeafIndex: block.header.lastArchive.nextAvailableLeafIndex,
-            root: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
-          },
-          stateReference: {
-            l1ToL2MessageTree: {
-              nextAvailableLeafIndex: block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex,
-              root: `0x${block.header.state.l1ToL2MessageTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
-            },
-            partialStateReference: {
-              noteHashTree: {
-                nextAvailableLeafIndex: block.header.state.partial.noteHashTree.nextAvailableLeafIndex,
-                root: `0x${block.header.state.partial.noteHashTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
-              },
-              nullifierTree: {
-                nextAvailableLeafIndex: block.header.state.partial.nullifierTree.nextAvailableLeafIndex,
-                root: `0x${block.header.state.partial.nullifierTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
-              },
-              publicDataTree: {
-                nextAvailableLeafIndex: block.header.state.partial.publicDataTree.nextAvailableLeafIndex,
-                root: `0x${block.header.state.partial.publicDataTree.root
-                  .toBuffer()
-                  .toString('hex')
-                  .padStart(64, '0')}`,
-              },
-            },
-          },
         },
-        header: `0x${block.header.toBuffer().toString('hex')}`,
-        publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
-        blobInputs: Blob.getEthBlobEvaluationInputs(blobs),
+        header: `0x${block.header.toPropose().toBuffer().toString('hex')}`,
         numTxs: block.body.txEffects.length,
       },
     };
@@ -364,7 +331,7 @@ describe('L1Publisher integration', () => {
   };
 
   describe('block building', () => {
-    const buildL2ToL1MsgTreeRoot = async (l2ToL1MsgsArray: Fr[]) => {
+    const buildL2ToL1MsgTreeRoot = (l2ToL1MsgsArray: Fr[]) => {
       const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
       const tree = new StandardTree(
         openTmpStore(true),
@@ -374,7 +341,7 @@ describe('L1Publisher integration', () => {
         0n,
         Fr,
       );
-      await tree.appendLeaves(l2ToL1MsgsArray);
+      tree.appendLeaves(l2ToL1MsgsArray);
       return new Fr(tree.getRoot(true));
     };
 
@@ -476,8 +443,9 @@ describe('L1Publisher integration', () => {
           functionName: 'propose',
           args: [
             {
-              header: `0x${block.header.toBuffer().toString('hex')}`,
+              header: `0x${block.header.toPropose().toBuffer().toString('hex')}`,
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
+              stateReference: `0x${block.header.state.toBuffer().toString('hex')}`,
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },
@@ -494,7 +462,7 @@ describe('L1Publisher integration', () => {
         });
         expect(ethTx.input).toEqual(expectedData);
 
-        const expectedRoot = !numTxs ? Fr.ZERO : await buildL2ToL1MsgTreeRoot(l2ToL1MsgsArray);
+        const expectedRoot = !numTxs ? Fr.ZERO : buildL2ToL1MsgTreeRoot(l2ToL1MsgsArray);
         const [returnedRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
 
         // check that values are inserted into the outbox

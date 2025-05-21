@@ -36,6 +36,7 @@ export const MEMPOOL_TX_COUNT = 'aztec.mempool.tx_count';
 export const MEMPOOL_TX_SIZE = 'aztec.mempool.tx_size';
 export const DB_NUM_ITEMS = 'aztec.db.num_items';
 export const DB_MAP_SIZE = 'aztec.db.map_size';
+export const DB_PHYSICAL_FILE_SIZE = 'aztec.db.physical_file_size';
 export const DB_USED_SIZE = 'aztec.db.used_size';
 
 export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
@@ -177,3 +178,8 @@ export const NODEJS_EVENT_LOOP_DELAY_P99 = 'nodejs.eventloop.delay.p99';
 
 export const NODEJS_EVENT_LOOP_UTILIZATION = 'nodejs.eventloop.utilization';
 export const NODEJS_EVENT_LOOP_TIME = 'nodejs.eventloop.time';
+
+export const NODEJS_MEMORY_HEAP_USAGE = 'nodejs.memory.v8_heap.usage';
+export const NODEJS_MEMORY_HEAP_TOTAL = 'nodejs.memory.v8_heap.total';
+export const NODEJS_MEMORY_NATIVE_USAGE = 'nodejs.memory.native.usage';
+export const NODEJS_MEMORY_BUFFER_USAGE = 'nodejs.memory.array_buffer.usage';

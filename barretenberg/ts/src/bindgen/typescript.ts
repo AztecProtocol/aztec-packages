@@ -46,8 +46,8 @@ export class BarretenbergApi {
         outArgs.length === 0
           ? 'void'
           : outArgs.length === 1
-          ? `${mapType(outArgs[0].type)}`
-          : `[${outArgs.map(a => mapType(a.type)).join(', ')}]`;
+            ? `${mapType(outArgs[0].type)}`
+            : `[${outArgs.map(a => mapType(a.type)).join(', ')}]`;
 
       output += `
   async ${toCamelCase(functionName)}(${parameters}): Promise<${returnType}> {
@@ -93,8 +93,8 @@ export class BarretenbergApiSync {
         outArgs.length === 0
           ? 'void'
           : outArgs.length === 1
-          ? `${mapType(outArgs[0].type)}`
-          : `[${outArgs.map(a => mapType(a.type)).join(', ')}]`;
+            ? `${mapType(outArgs[0].type)}`
+            : `[${outArgs.map(a => mapType(a.type)).join(', ')}]`;
 
       output += `
   ${toCamelCase(functionName)}(${parameters}): ${returnType} {

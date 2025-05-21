@@ -32,14 +32,14 @@ export class BlobSinkServer {
 
   private app: Express;
   private server: Server | null = null;
-  private blobStore: BlobStore;
+  private blobStore!: BlobStore;
   private metrics: BlobSinkMetrics;
   private l1PublicClient: ViemPublicClient | undefined;
   private log: Logger = createLogger('blob-sink:server');
 
   constructor(
     private config: BlobSinkConfig = {},
-    store?: AztecAsyncKVStore,
+    private store?: AztecAsyncKVStore,
     /** Optional client to retrieve blobs from L1 nodes or archive services if not stored locally. */
     private httpClient?: BlobSinkClientInterface,
     l1PublicClient?: ViemPublicClient,
@@ -53,10 +53,13 @@ export class BlobSinkServer {
 
     this.metrics = new BlobSinkMetrics(telemetry);
     this.l1PublicClient = l1PublicClient;
-    this.blobStore = store === undefined ? new MemoryBlobStore() : new DiskBlobStore(store);
 
-    // Setup routes
+    this.setupBlobStore();
     this.setupRoutes();
+  }
+
+  private setupBlobStore() {
+    this.blobStore = this.store === undefined ? new MemoryBlobStore() : new DiskBlobStore(this.store);
   }
 
   private setupRoutes() {
@@ -94,7 +97,6 @@ export class BlobSinkServer {
   }
 
   private async handleGetBlobSidecar(req: Request, res: Response) {
-    // eslint-disable-next-line camelcase
     const { block_id: blockIdParam } = req.params;
     const { indices: indicesQuery } = req.query;
 
@@ -301,5 +303,11 @@ export class BlobSinkServer {
 
   public getApp(): Express {
     return this.app;
+  }
+
+  /** Deletes all blobs in the sink. Used for testing. */
+  public clear(): Promise<void> {
+    this.setupBlobStore();
+    return Promise.resolve();
   }
 }

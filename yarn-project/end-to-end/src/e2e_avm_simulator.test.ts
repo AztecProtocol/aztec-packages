@@ -1,6 +1,6 @@
 import { type AccountWallet, AztecAddress, BatchCall, Fr, TxStatus } from '@aztec/aztec.js';
-import { AvmInitializerTestContract } from '@aztec/noir-contracts.js/AvmInitializerTest';
-import { AvmTestContract } from '@aztec/noir-contracts.js/AvmTest';
+import { AvmInitializerTestContract } from '@aztec/noir-test-contracts.js/AvmInitializerTest';
+import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 
 import { jest } from '@jest/globals';
 
@@ -30,16 +30,30 @@ describe('e2e_avm_simulator', () => {
       secondAvmContract = await AvmTestContract.deploy(wallet).send().deployed();
     });
 
-    describe('Assertions', () => {
+    describe('Assertions & error enriching', () => {
+      /**
+       * Expect an error like:
+       * Assertion failed: This assertion should fail! 'not_true == true'
+       * ...
+       * at not_true == true (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:16)
+       * at inner_helper_with_failed_assertion() (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:228:9)
+       * at quote { $self } (../std/meta/expr.nr:269:9)
+       * at function.name();
+       * let call = quote { $name($args) (/home/aztec-dev/aztec-packages/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:59:20)
+       * at AvmTest.0xc3515746
+       */
       describe('Not nested', () => {
-        it('PXE processes user code assertions and recovers message', async () => {
+        it('PXE processes user code assertions and recovers message (properly enriched)', async () => {
           await expect(avmContract.methods.assertion_failure().simulate()).rejects.toThrow(
-            "Assertion failed: This assertion should fail! 'not_true == true'",
+            expect.objectContaining({
+              message: expect.stringMatching(/Assertion failed: This assertion should fail! 'not_true == true'/),
+              stack: expect.stringMatching(/at inner_helper_with_failed_assertion[\s\S]*at AvmTest\..*/),
+            }),
           );
         });
         it('PXE processes user code assertions and recovers message (complex)', async () => {
           await expect(avmContract.methods.assert_nullifier_exists(123).simulate()).rejects.toThrow(
-            "Assertion failed: Nullifier doesn't exist! 'context.nullifier_exists(nullifier, context.this_address())'",
+            "Assertion failed: Nullifier doesn't exist!",
           );
         });
         it('PXE processes intrinsic assertions and recovers message', async () => {
@@ -49,7 +63,7 @@ describe('e2e_avm_simulator', () => {
       describe('Nested', () => {
         it('PXE processes user code assertions and recovers message', async () => {
           await expect(avmContract.methods.external_call_to_assertion_failure().simulate()).rejects.toThrow(
-            "Assertion failed: This assertion should fail! 'not_true == true'",
+            'Assertion failed: This assertion should fail!',
           );
         });
         it('PXE processes intrinsic assertions and recovers message', async () => {
@@ -158,7 +172,7 @@ describe('e2e_avm_simulator', () => {
     describe('Nested calls', () => {
       it('Nested call to non-existent contract reverts & rethrows by default', async () => {
         // The nested call reverts and by default caller rethrows
-        await expect(avmContract.methods.nested_call_to_nothing().send().wait()).rejects.toThrow(/No bytecode/);
+        await expect(avmContract.methods.nested_call_to_nothing().simulate()).rejects.toThrow(/No bytecode/);
       });
       it('Nested CALL instruction to non-existent contract returns failure, but caller can recover', async () => {
         // The nested call reverts (returns failure), but the caller doesn't HAVE to rethrow.

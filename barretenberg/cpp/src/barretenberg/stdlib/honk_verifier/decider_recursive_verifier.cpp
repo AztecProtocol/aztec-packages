@@ -17,8 +17,7 @@ namespace bb::stdlib::recursion::honk {
  *
  */
 template <typename Flavor>
-DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof)
+DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;

@@ -1,7 +1,7 @@
 name: Bug Report
 description: File a bug report
 title: "[BUG] "
-labels: ["T-bug"]
+labels: ["T-bug", "from-community"]
 body:
   - type: markdown
     attributes:
@@ -51,7 +51,7 @@ body:
     attributes:
       label: Node Version
       description: Your Node.js version
-      placeholder: e.g. 18.19.0
+      placeholder: e.g. 22.15.0
   - type: textarea
     id: additional-context
     attributes:

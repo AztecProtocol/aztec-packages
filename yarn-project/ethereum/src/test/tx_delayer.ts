@@ -7,9 +7,11 @@ import {
   type Client,
   type Hex,
   type PublicClient,
+  type TransactionSerializableEIP4844,
   keccak256,
   parseTransaction,
   publicActions,
+  serializeTransaction,
   walletActions,
 } from 'viem';
 
@@ -59,12 +61,16 @@ export function waitUntilL1Timestamp<T extends Client>(client: T, timestamp: num
 }
 
 export interface Delayer {
-  /** Returns the list of all txs (not just the delayed ones) sent through the attached client. */
-  getTxs(): Hex[];
+  /** Returns the hashes of all effectively sent txs. */
+  getSentTxHashes(): Hex[];
+  /** Returns the raw hex for all cancelled txs. */
+  getCancelledTxs(): Hex[];
   /** Delays the next tx to be sent so it lands on the given L1 block number. */
   pauseNextTxUntilBlock(l1BlockNumber: number | bigint | undefined): void;
   /** Delays the next tx to be sent so it lands on the given timestamp. */
   pauseNextTxUntilTimestamp(l1Timestamp: number | bigint | undefined): void;
+  /** Delays the next tx to be sent indefinitely. */
+  cancelNextTx(): void;
 }
 
 class DelayerImpl implements Delayer {
@@ -73,11 +79,16 @@ class DelayerImpl implements Delayer {
   }
 
   public ethereumSlotDuration: bigint;
-  public nextWait: { l1Timestamp: bigint } | { l1BlockNumber: bigint } | undefined = undefined;
-  public txs: Hex[] = [];
+  public nextWait: { l1Timestamp: bigint } | { l1BlockNumber: bigint } | { indefinitely: true } | undefined = undefined;
+  public sentTxHashes: Hex[] = [];
+  public cancelledTxs: Hex[] = [];
 
-  getTxs() {
-    return this.txs;
+  getSentTxHashes() {
+    return this.sentTxHashes;
+  }
+
+  getCancelledTxs(): Hex[] {
+    return this.cancelledTxs;
   }
 
   pauseNextTxUntilBlock(l1BlockNumber: number | bigint) {
@@ -86,6 +97,10 @@ class DelayerImpl implements Delayer {
 
   pauseNextTxUntilTimestamp(l1Timestamp: number | bigint) {
     this.nextWait = { l1Timestamp: BigInt(l1Timestamp) };
+  }
+
+  cancelNextTx() {
+    this.nextWait = { indefinitely: true };
   }
 }
 
@@ -103,6 +118,7 @@ export function withDelayer<T extends ViemClient>(
   }
   const logger = createLogger('ethereum:tx_delayer');
   const delayer = new DelayerImpl(opts);
+
   const extended = client
     // Tweak sendRawTransaction so it uses the delay defined in the delayer.
     // Note that this will only work with local accounts (ie accounts for which we have the private key).
@@ -114,15 +130,25 @@ export function withDelayer<T extends ViemClient>(
           const waitUntil = delayer.nextWait;
           delayer.nextWait = undefined;
 
+          // Compute the tx hash manually so we emulate sendRawTransaction response
+          const { serializedTransaction } = args[0];
+          const txHash = computeTxHash(serializedTransaction);
+
+          // Cancel tx outright if instructed
+          if ('indefinitely' in waitUntil && waitUntil.indefinitely) {
+            logger.info(`Cancelling tx ${txHash}`);
+            delayer.cancelledTxs.push(serializedTransaction);
+            return Promise.resolve(txHash);
+          }
+
           const publicClient = client as unknown as PublicClient;
           const wait =
             'l1BlockNumber' in waitUntil
               ? waitUntilBlock(publicClient, waitUntil.l1BlockNumber - 1n, logger)
-              : waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayer.ethereumSlotDuration, logger);
+              : 'l1Timestamp' in waitUntil
+                ? waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayer.ethereumSlotDuration, logger)
+                : undefined;
 
-          // Compute the tx hash manually so we emulate sendRawTransaction response
-          const { serializedTransaction } = args[0];
-          const txHash = keccak256(serializedTransaction);
           logger.info(`Delaying tx ${txHash} until ${inspect(waitUntil)}`, {
             argsLen: args.length,
             ...omit(parseTransaction(serializedTransaction), 'data', 'sidecars'),
@@ -131,7 +157,7 @@ export function withDelayer<T extends ViemClient>(
           // Do not await here so we can return the tx hash immediately as if it had been sent on the spot.
           // Instead, delay it so it lands on the desired block number or timestamp, assuming anvil will
           // mine it immediately.
-          void wait
+          void wait!
             .then(async () => {
               const clientTxHash = await client.sendRawTransaction(...args);
               if (clientTxHash !== txHash) {
@@ -141,7 +167,7 @@ export function withDelayer<T extends ViemClient>(
                 });
               }
               logger.info(`Sent previously delayed tx ${clientTxHash} to land on ${inspect(waitUntil)}`);
-              delayer.txs.push(clientTxHash);
+              delayer.sentTxHashes.push(clientTxHash);
             })
             .catch(err => logger.error(`Error sending tx after delay`, err));
 
@@ -149,7 +175,7 @@ export function withDelayer<T extends ViemClient>(
         } else {
           const txHash = await client.sendRawTransaction(...args);
           logger.verbose(`Sent tx immediately ${txHash}`);
-          delayer.txs.push(txHash);
+          delayer.sentTxHashes.push(txHash);
           return txHash;
         }
       },
@@ -163,4 +189,20 @@ export function withDelayer<T extends ViemClient>(
     })) as T;
 
   return { client: extended, delayer };
+}
+
+/**
+ * Compute the tx hash given the serialized tx. Note that if this is a blob tx, we need to
+ * exclude the blobs, commitments, and proofs from the hash.
+ */
+function computeTxHash(serializedTransaction: Hex) {
+  if (serializedTransaction.startsWith('0x03')) {
+    const parsed = parseTransaction(serializedTransaction);
+    if (parsed.blobs || parsed.sidecars) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { blobs, sidecars, ...rest } = parsed;
+      return keccak256(serializeTransaction({ type: 'eip4844', ...rest } as TransactionSerializableEIP4844));
+    }
+  }
+  return keccak256(serializedTransaction);
 }

@@ -10,9 +10,16 @@ export class InMemoryAttestationPool implements AttestationPool {
 
   private attestations: Map</*slot=*/ bigint, Map</*proposalId*/ string, Map</*address=*/ string, BlockAttestation>>>;
 
-  constructor(telemetry: TelemetryClient = getTelemetryClient(), private log = createLogger('p2p:attestation_pool')) {
+  constructor(
+    telemetry: TelemetryClient = getTelemetryClient(),
+    private log = createLogger('p2p:attestation_pool'),
+  ) {
     this.attestations = new Map();
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
+  }
+
+  public isEmpty(): Promise<boolean> {
+    return Promise.resolve(this.attestations.size === 0);
   }
 
   public getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
@@ -37,7 +44,7 @@ export class InMemoryAttestationPool implements AttestationPool {
   public addAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
       // Perf: order and group by slot before insertion
-      const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+      const slotNumber = attestation.payload.header.slotNumber;
 
       const proposalId = attestation.archive.toString();
       const address = attestation.getSender();
@@ -120,7 +127,7 @@ export class InMemoryAttestationPool implements AttestationPool {
 
   public deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
-      const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+      const slotNumber = attestation.payload.header.slotNumber;
       const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
       if (slotAttestationMap) {
         const proposalId = attestation.archive.toString();

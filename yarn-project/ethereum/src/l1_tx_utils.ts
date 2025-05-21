@@ -167,6 +167,7 @@ export interface L1TxRequest {
   to: Address | null;
   data?: Hex;
   value?: bigint;
+  abi?: Abi;
 }
 
 export type L1GasConfig = Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date };
@@ -595,7 +596,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
-      const viemError = formatViemError(err);
+      const viemError = formatViemError(err, request.abi);
       this.logger?.error(`Failed to send L1 transaction`, viemError.message, {
         metaMessages: viemError.metaMessages,
       });

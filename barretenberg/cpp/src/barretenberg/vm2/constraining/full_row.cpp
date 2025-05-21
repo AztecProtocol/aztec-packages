@@ -1,4 +1,6 @@
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2 {
 
@@ -11,9 +13,9 @@ const FF& AvmFullRow::get(ColumnAndShifts col) const
     return get_entity_by_column(*this, col);
 }
 
-AvmFullRowConstRef AvmFullRowConstRef::from_full_row(const AvmFullRow& full_row)
+const FF& AvmFullRowProxy::get(ColumnAndShifts col) const
 {
-    return { AVM2_ALL_ENTITIES_E(full_row.) };
+    return trace.get_column_or_shift(col, row_index);
 }
 
 } // namespace bb::avm2

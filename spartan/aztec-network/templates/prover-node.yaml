@@ -78,7 +78,7 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
-              /scripts/configure-prover-env.sh ${BOOT_NODE_HOST:-}
+              /scripts/configure-prover-env.sh ${BOOT_NODE_HOST:-""} ${FULL_NODE_HOST:-""}
               source /scripts/get-private-key.sh
               source /shared/config/keys.env
               source /shared/contracts/contracts.env

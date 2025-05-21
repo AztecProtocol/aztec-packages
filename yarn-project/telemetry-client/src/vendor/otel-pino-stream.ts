@@ -23,9 +23,6 @@ import { Writable } from 'stream';
 import { registerOtelLoggerProvider } from '../otel_logger_provider.js';
 import { getOtelResource } from '../otel_resource.js';
 
-/* eslint-disable @typescript-eslint/ban-types */
-/* eslint-disable camelcase */
-
 // This block is a copy (modulo code style and TypeScript types) of the Pino
 // code that defines log level value and names. This file is part of
 // *instrumenting* Pino, so we want to avoid a dependency on the library.
@@ -173,7 +170,7 @@ export class OTelPinoStream extends Writable {
         return;
       }
 
-      // Parse, and handle edge cases similar to how `pino-abtract-transport` does:
+      // Parse, and handle edge cases similar to how `pino-abstract-transport` does:
       // https://github.com/pinojs/pino-abstract-transport/blob/v1.2.0/index.js#L28-L45
       // - Emitting an 'unknown' event on parse error mimicks pino-abstract-transport.
       let recObj;

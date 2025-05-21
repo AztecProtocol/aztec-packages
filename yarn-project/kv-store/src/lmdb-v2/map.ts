@@ -11,7 +11,10 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
   private prefix: string;
   private encoder = new Encoder();
 
-  constructor(private store: AztecLMDBStoreV2, name: string) {
+  constructor(
+    private store: AztecLMDBStoreV2,
+    name: string,
+  ) {
     this.prefix = `map:${name}`;
   }
   /**
@@ -65,9 +68,11 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
    */
   async *entriesAsync(range?: Range<K>): AsyncIterableIterator<[K, V]> {
     const reverse = range?.reverse ?? false;
-    const startKey = range?.start ? serializeKey(this.prefix, range.start) : minKey(this.prefix);
 
-    const endKey = range?.end ? serializeKey(this.prefix, range.end) : reverse ? maxKey(this.prefix) : undefined;
+    const startKey = range?.start !== undefined ? serializeKey(this.prefix, range.start) : minKey(this.prefix);
+
+    const endKey =
+      range?.end !== undefined ? serializeKey(this.prefix, range.end) : reverse ? maxKey(this.prefix) : undefined;
 
     let tx: ReadTransaction | undefined = this.store.getCurrentWriteTx();
     const shouldClose = !tx;
@@ -81,7 +86,7 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
         range?.limit,
       )) {
         const deserializedKey = deserializeKey<K>(this.prefix, key);
-        if (!deserializedKey) {
+        if (deserializedKey === false) {
           break;
         }
         yield [deserializedKey, this.encoder.unpack(val)];

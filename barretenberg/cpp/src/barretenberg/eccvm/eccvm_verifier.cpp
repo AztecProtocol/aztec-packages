@@ -25,10 +25,11 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     using ClaimBatch = ClaimBatcher::Batch;
 
     RelationParameters<FF> relation_parameters;
-    transcript = std::make_shared<Transcript>(proof.pre_ipa_proof);
+
     ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
     transcript->enable_manifest();
     ipa_transcript->enable_manifest();
+    transcript->load_proof(proof.pre_ipa_proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -72,11 +73,6 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
-    // If Sumcheck did not verify, return false
-    if (!sumcheck_output.verified) {
-        vinfo("eccvm sumcheck failed");
-        return false;
-    }
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
     bool consistency_checked = true;
@@ -125,6 +121,8 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
     vinfo("eccvm sumcheck verified?: ", sumcheck_output.verified);
     vinfo("batch opening verified?: ", batched_opening_verified);
+    vinfo("eccvm consistency check verified?: ", consistency_checked);
+    vinfo("translation masking consistency checked?: ", translation_masking_consistency_checked);
     return sumcheck_output.verified && batched_opening_verified && consistency_checked &&
            translation_masking_consistency_checked;
 }
@@ -141,8 +139,6 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 void ECCVMVerifier::compute_translation_opening_claims(
     const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments)
 {
-    TranslationEvaluations_<FF> translation_evaluations;
-
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
     using SmallIPA = SmallSubgroupIPAVerifier<ECCVMFlavor::Curve>;
 

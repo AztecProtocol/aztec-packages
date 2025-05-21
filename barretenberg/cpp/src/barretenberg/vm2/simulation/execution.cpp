@@ -22,7 +22,7 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     memory.set(dst_addr, c);
 
     set_inputs({ a, b });
-    set_outputs({ c });
+    set_output(c);
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
@@ -30,7 +30,7 @@ void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t t
 {
     TaggedValue tagged_value = TaggedValue::from_tag(static_cast<ValueTag>(tag), value);
     context.get_memory().set(dst_addr, tagged_value);
-    set_outputs({ tagged_value });
+    set_output(tagged_value);
 }
 
 void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
@@ -40,22 +40,27 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
     memory.set(dst_addr, v);
 
     set_inputs({ v });
-    set_outputs({ v });
+    set_output(v);
 }
 
-void Execution::call(ContextInterface& context, MemoryAddress addr, MemoryAddress cd_offset, MemoryAddress cd_size)
+void Execution::call(ContextInterface& context,
+                     MemoryAddress l2_gas_offset,
+                     MemoryAddress da_gas_offset,
+                     MemoryAddress addr,
+                     MemoryAddress cd_offset,
+                     MemoryAddress cd_size)
 {
     // Emit Snapshot of current context
     emit_context_snapshot(context);
 
     auto& memory = context.get_memory();
 
-    // TODO: Read more stuff from call operands (e.g., calldata, gas)
     // TODO(ilyas): How will we tag check these?
-    FF contract_address = memory.get(addr).as_ff();
+    const auto& allocated_l2_gas_read = memory.get(l2_gas_offset);
+    const auto& allocated_da_gas_read = memory.get(da_gas_offset);
+    const auto& contract_address = memory.get(addr);
 
-    // We could load cd_size here, but to keep symmetry with cd_offset - we will defer the loads to a (possible)
-    // calldatacopy
+    // Cd size and cd offset loads are deferred to (possible) calldatacopy
     auto nested_context = execution_components.make_nested_context(contract_address,
                                                                    /*msg_sender=*/context.get_address(),
                                                                    /*parent_context=*/context,
@@ -75,11 +80,32 @@ void Execution::call(ContextInterface& context, MemoryAddress addr, MemoryAddres
     context.set_last_rd_offset(result.rd_offset);
     context.set_last_rd_size(result.rd_size);
     context.set_last_success(result.success);
+
+    // Set inputs and outputs for the event
+    set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address });
 }
 
-void Execution::ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset)
+void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
 {
-    set_execution_result({ .rd_offset = ret_offset, .rd_size = ret_size_offset, .success = true });
+    auto& memory = context.get_memory();
+    auto get_ret_size = memory.get(ret_size_offset);
+    // TODO(ilyas): check this is a U32
+    auto rd_size = get_ret_size.as<uint32_t>();
+    set_execution_result({ .rd_offset = ret_offset, .rd_size = rd_size, .success = true });
+
+    set_inputs({ get_ret_size });
+    context.halt();
+}
+
+void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset)
+{
+    auto& memory = context.get_memory();
+    auto get_rev_size = memory.get(rev_size_offset);
+    // TODO(ilyas): check this is a U32
+    auto rd_size = get_rev_size.as<uint32_t>();
+    set_execution_result({ .rd_offset = rev_offset, .rd_size = rd_size, .success = false });
+
+    set_inputs({ get_rev_size });
     context.halt();
 }
 
@@ -142,12 +168,13 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             // TODO: think about whether we need to know the success at this point
             auto context_event = context.serialize_context_event();
             ex_event.context_event = context_event;
+            ex_event.next_context_id = execution_components.get_next_context_id();
 
             // Execute the opcode.
             dispatch_opcode(opcode, context, resolved_operands);
             // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
             ex_event.inputs = get_inputs();
-            ex_event.output = get_outputs();
+            ex_event.output = get_output();
 
             // Move on to the next pc.
             context.set_pc(context.get_next_pc());
@@ -155,9 +182,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             info("Error: ", e.what());
             // Bah, we are done (for now).
             // TODO: we eventually want this to just set and handle exceptional halt.
-            return {
-                .success = true,
-            };
+            throw std::runtime_error("Execution loop error: " + std::string(e.what()));
         }
 
         events.emit(std::move(ex_event));
@@ -217,6 +242,8 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
 void Execution::emit_context_snapshot(ContextInterface& context)
 {
     ctx_stack_events.emit({ .id = context.get_context_id(),
+                            .parent_id = context.get_parent_id(),
+                            .entered_context_id = execution_components.get_next_context_id(),
                             .next_pc = context.get_next_pc(),
                             .msg_sender = context.get_msg_sender(),
                             .contract_addr = context.get_address(),

@@ -10,7 +10,7 @@ use dep::aztec::{
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         traits::{FromField, Hash, Serialize, ToField},
     },
-    state_vars::PrivateSet,
+    state_vars::{PrivateSet, storage::Storage},
 };
 use dep::value_note::value_note::ValueNote;
 use std::meta::derive;
@@ -68,6 +68,13 @@ impl CardNote {
 
 pub struct Deck<Context> {
     set: PrivateSet<ValueNote, Context>,
+}
+
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
+impl<Context> Storage<1> for Deck<Context> {
+    fn get_storage_slot(self) -> Field {
+        self.set.get_storage_slot()
+    }
 }
 
 pub fn filter_cards<let N: u32>(

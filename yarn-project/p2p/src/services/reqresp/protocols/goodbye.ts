@@ -34,7 +34,7 @@ export function decodeGoodbyeReason(buffer: Buffer): GoodByeReason {
       throw new Error('Invalid goodbye reason buffer length');
     }
     return buffer[0] as GoodByeReason;
-  } catch (error) {
+  } catch {
     return GoodByeReason.UNKNOWN;
   }
 }

@@ -11,7 +11,6 @@
 
 namespace acir_format {
 
-using namespace bb::plonk;
 using namespace bb;
 
 template <typename Builder> stdlib::field_t<Builder> poly_to_field_ct(const poly_triple poly, Builder& builder)
@@ -90,10 +89,6 @@ void create_block_constraints(MegaCircuitBuilder& builder,
     } break;
     case BlockType::CallData: {
         process_call_data_operations(builder, constraint, has_valid_witness_assignments, init);
-        // The presence of calldata is used to indicate that the present circuit is a kernel. This is needed in the
-        // databus consistency checks to indicate that the corresponding return data belongs to a kernel (else an app).
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1165): is_kernel must be known prior to this stage
-        builder.databus_propagation_data.is_kernel = true;
     } break;
     case BlockType::ReturnData: {
         process_return_data_operations(constraint, init);

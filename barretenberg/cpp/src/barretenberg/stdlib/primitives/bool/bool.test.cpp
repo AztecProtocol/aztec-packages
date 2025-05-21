@@ -21,7 +21,7 @@ auto& engine = numeric::get_debug_randomness();
 STANDARD_TESTING_TAGS
 template <class Builder> class BoolTest : public ::testing::Test {};
 
-using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(BoolTest, CircuitTypes);
 TYPED_TEST(BoolTest, TestBasicOperations)

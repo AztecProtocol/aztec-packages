@@ -136,6 +136,7 @@ describe('prover-node-publisher', () => {
       rollup.getBlock.mockImplementation((blockNumber: bigint) =>
         Promise.resolve({
           archive: blocks[Number(blockNumber) - 1].endArchive.root.toString(),
+          headerHash: '0x', // unused,
           slotNumber: 0n, // unused,
         }),
       );

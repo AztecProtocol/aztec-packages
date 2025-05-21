@@ -1,7 +1,5 @@
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmGadgetsTestContract } from '@aztec/noir-contracts.js/AvmGadgetsTest';
-import { AvmTestContract } from '@aztec/noir-contracts.js/AvmTest';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -91,70 +89,6 @@ export function resolveContractAssertionMessage(
   });
 
   const functionArtifact = getAllFunctionAbis(contractArtifact).find(f => f.name === functionName);
-  if (!functionArtifact || !revertReason.noirCallStack || !isNoirCallStackUnresolved(revertReason.noirCallStack)) {
-    return undefined;
-  }
-
-  return resolveAssertionMessageFromRevertData(output, functionArtifact);
-}
-
-export function getAvmTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
-  return getFunctionSelector(functionName, AvmTestContract.artifactForPublic);
-}
-
-export function getAvmGadgetsTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
-  const artifact = getAllFunctionAbis(AvmGadgetsTestContract.artifactForPublic).find(f => f.name === functionName)!;
-  assert(!!artifact, `Function ${functionName} not found in AvmGadgetsTestContractArtifact`);
-  const params = artifact.parameters;
-  return FunctionSelector.fromNameAndParameters(artifact.name, params);
-}
-
-export function getAvmTestContractArtifact(functionName: string): FunctionArtifact {
-  const artifact = getContractFunctionArtifact(functionName, AvmTestContract.artifactForPublic) as FunctionArtifact;
-  assert(
-    !!artifact?.bytecode,
-    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
-  );
-  return artifact;
-}
-
-export function getAvmGadgetsTestContractArtifact(functionName: string): FunctionArtifact {
-  const artifact = AvmGadgetsTestContract.artifactForPublic.functions.find(f => f.name === functionName)!;
-  assert(
-    !!artifact?.bytecode,
-    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
-  );
-  return artifact;
-}
-
-export function getAvmTestContractBytecode(functionName: string): Buffer {
-  const artifact = getAvmTestContractArtifact(functionName);
-  return artifact.bytecode;
-}
-
-export function getAvmGadgetsTestContractBytecode(functionName: string): Buffer {
-  const artifact = getAvmGadgetsTestContractArtifact(functionName);
-  return artifact.bytecode;
-}
-
-export function resolveAvmTestContractAssertionMessage(
-  functionName: string,
-  revertReason: AvmRevertReason,
-  output: Fr[],
-): string | undefined {
-  return resolveContractAssertionMessage(functionName, revertReason, output, AvmTestContract.artifactForPublic);
-}
-
-export function resolveAvmGadgetsTestContractAssertionMessage(
-  functionName: string,
-  revertReason: AvmRevertReason,
-  output: Fr[],
-): string | undefined {
-  traverseCauseChain(revertReason, cause => {
-    revertReason = cause as AvmRevertReason;
-  });
-
-  const functionArtifact = AvmGadgetsTestContract.artifactForPublic.functions.find(f => f.name === functionName);
   if (!functionArtifact || !revertReason.noirCallStack || !isNoirCallStackUnresolved(revertReason.noirCallStack)) {
     return undefined;
   }

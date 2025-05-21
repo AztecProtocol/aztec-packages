@@ -28,9 +28,14 @@ Emit encrypted events, or encrypted messages from a private smart contract funct
 
 Execute a private function without the world knowing which function you've executed.
 
+**Private bytecode**
+
+The bytecode of private functions does not need to be distributed to the world; much like real-world contracts.
+
 :::danger
 Privacy is not guaranteed without care.
 Although Aztec provides the tools for private smart contracts, information can still be leaked unless the dapp developer is careful.
+Aztec is still under development, so real-world, meaningful, valuable secrets _should not_ be entrusted to the system.
 This page outlines some best practices to aid dapp developers.
 :::
 

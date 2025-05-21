@@ -173,7 +173,6 @@ export class BotFactory {
       deployOpts.skipPublicDeployment = true;
       deployOpts.skipClassRegistration = true;
       deployOpts.skipInitialization = false;
-      deployOpts.skipPublicSimulation = true;
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
@@ -239,9 +238,9 @@ export class BotFactory {
   ): Promise<void> {
     const getPrivateBalances = () =>
       Promise.all([
-        token0.methods.balance_of_private(wallet.getAddress()),
-        token1.methods.balance_of_private(wallet.getAddress()),
-        lpToken.methods.balance_of_private(wallet.getAddress()),
+        token0.methods.balance_of_private(wallet.getAddress()).simulate(),
+        token1.methods.balance_of_private(wallet.getAddress()).simulate(),
+        lpToken.methods.balance_of_private(wallet.getAddress()).simulate(),
       ]);
 
     const nonce = Fr.random();

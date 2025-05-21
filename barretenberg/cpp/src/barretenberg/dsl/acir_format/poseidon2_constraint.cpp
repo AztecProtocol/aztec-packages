@@ -20,8 +20,8 @@ template <typename Builder> void create_poseidon2_permutations(Builder& builder,
     using Poseidon2Params = crypto::Poseidon2Bn254ScalarFieldParams;
     using State = std::array<field_ct, Poseidon2Params::t>;
 
-    ASSERT(constraint.state.size() == constraint.len);
-    ASSERT(constraint.result.size() == constraint.len);
+    BB_ASSERT_EQ(constraint.state.size(), constraint.len);
+    BB_ASSERT_EQ(constraint.result.size(), constraint.len);
     // Get the witness assignment for each witness index
     // Write the witness assignment to the byte_array state
     State state;

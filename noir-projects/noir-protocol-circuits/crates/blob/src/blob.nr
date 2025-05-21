@@ -3,7 +3,7 @@ use crate::{
     config::{D_INV, LOG_FIELDS_PER_BLOB, ROOTS},
 };
 
-use bigint::{BigNumTrait, BLS12_381_Fr as F};
+use bigint::{BigNum, BLS12_381_Fr as F};
 use std::ops::{Mul, Neg};
 use types::{
     abis::sponge_blob::SpongeBlob,
@@ -166,7 +166,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             [fracs[0]], [fracs[1]], [fracs[2]], [fracs[3]], [fracs[4]], [fracs[5]], [fracs[6]],
             [fracs[7]],
         ];
-        F::evaluate_quadratic_expression(
+        bigint::bignum::evaluate_quadratic_expression(
             lhs,
             [[false], [false], [false], [false], [false], [false], [false], [false]],
             rhs,
@@ -199,7 +199,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             // => (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7]) + partial_sums[i-1] - partial_sums[i] == 0
             let linear_terms = [partial_sums[i - 1], partial_sums[i]];
 
-            F::evaluate_quadratic_expression(
+            bigint::bignum::evaluate_quadratic_expression(
                 /* lhs */ [
                     [ROOTS[i * 8 + 0]],
                     [ROOTS[i * 8 + 1]],
@@ -266,7 +266,7 @@ fn compute_factor(z: F) -> F {
     // (z_pow_d - one) * (D_INV) - factor = 0
     // z_pow_d * D_INV - D_INV - factor = 0
     if !std::runtime::is_unconstrained() {
-        F::evaluate_quadratic_expression(
+        bigint::bignum::evaluate_quadratic_expression(
             [[z_pow_d]],
             [[false]],
             [[D_INV]],
@@ -294,7 +294,7 @@ unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_P
     for i in 0..FIELDS_PER_BLOB {
         denoms[i] = z.__sub(ROOTS[i]); // (z - omega^i)
     }
-    let inv_denoms: [F; FIELDS_PER_BLOB] = F::__batch_invert(denoms); // 1 / (z - omega^i), for all i
+    let inv_denoms: [F; FIELDS_PER_BLOB] = bigint::bignum::batch_invert(denoms); // 1 / (z - omega^i), for all i
     // We're now done with `denoms` so we can reuse the allocated array to build `fracs`.
     let mut fracs: [F; FIELDS_PER_BLOB] = denoms; // y_i / (z - omega^i), for all i
     for i in 0..FIELDS_PER_BLOB {
@@ -315,7 +315,7 @@ fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
         for i in 0..FIELDS_PER_BLOB {
             // frac <-- ys[i] / (z + neg_roots[i])
             // frac * (z + neg_roots[i]) - ys[i] = 0
-            F::evaluate_quadratic_expression(
+            bigint::bignum::evaluate_quadratic_expression(
                 [[fracs[i]]],
                 [[false]],
                 [[z, ROOTS[i].neg()]],
@@ -402,10 +402,7 @@ mod tests {
         config::{D, D_INV},
     };
     use super::{__compute_partial_sums, __compute_sum};
-    use bigint::{
-        BigNumTrait, BLS12_381_Fr as F, fields::bls12_381Fr::BLS12_381_Fr_Params,
-        params::BigNumParamsGetter,
-    };
+    use bigint::{BigNum, BLS12_381_Fr as F};
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
@@ -503,9 +500,11 @@ mod tests {
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
 
         // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
-        let expected_y: F = F {
-            limbs: [0xdde7b57ab99b51e4b06e7d827b6c4c, 0x4f0c0ee5e7dd037110686a4639d191, 0x212c],
-        };
+        let expected_y: F = F::from_limbs([
+            0xdde7b57ab99b51e4b06e7d827b6c4c,
+            0x4f0c0ee5e7dd037110686a4639d191,
+            0x212c,
+        ]);
         assert(expected_y == output.y);
     }
 
@@ -533,9 +532,11 @@ mod tests {
         let output = evaluate_blobs(blob, [kzg_commitment_in; BLOBS_PER_BLOCK], sponge_blob);
 
         // y is a BLS field with value 0x52fd4e272015a79f3889cc9ab1d84bee4326de7d8ced52612ecc9ec137bd38ee
-        let expected_y: F = F {
-            limbs: [0x26de7d8ced52612ecc9ec137bd38ee, 0x4e272015a79f3889cc9ab1d84bee43, 0x52fd],
-        };
+        let expected_y: F = F::from_limbs([
+            0x26de7d8ced52612ecc9ec137bd38ee,
+            0x4e272015a79f3889cc9ab1d84bee43,
+            0x52fd,
+        ]);
         for j in 0..BLOBS_PER_BLOCK {
             assert(expected_y == output.inner[j].y);
         }
@@ -584,14 +585,14 @@ mod tests {
 
     #[test]
     unconstrained fn test_barycentric() {
-        let z: F = F { limbs: [2, 0, 0] };
+        let z: F = F::from_limbs([2, 0, 0]);
 
         // many y's form a blob:
         let mut ys: [F; FIELDS_PER_BLOB] = [F::zero(); FIELDS_PER_BLOB];
 
-        ys[0] = F { limbs: [0x1234, 0, 0] };
-        ys[1] = F { limbs: [0xabcd, 0, 0] };
-        ys[2] = F { limbs: [0x69, 0, 0] };
+        ys[0] = F::from_limbs([0x1234, 0, 0]);
+        ys[1] = F::from_limbs([0xabcd, 0, 0]);
+        ys[2] = F::from_limbs([0x69, 0, 0]);
 
         // evaluate the blob at z = 2 to yield y:
         let y = barycentric_evaluate_blob_at_z(z, ys);
@@ -609,7 +610,7 @@ mod tests {
             expected_y =
                 [0xb04cdea4304000053abffffffb203a, 0x0000000002e30785c8afa4496f8e38, 0x000000];
         }
-        assert(y.limbs == expected_y);
+        assert(y.get_limbs() == expected_y);
     }
 
     // Helper function used to populate the hard-coded double_modulus value in the bls12381Fr.nr file in the bignum library.
@@ -629,7 +630,7 @@ mod tests {
 
     #[test]
     unconstrained fn test_compute_double_modulus() {
-        let double_modulus = BLS12_381_Fr_Params::get_params().double_modulus;
+        let double_modulus = F::params().double_modulus;
         assert_eq(double_modulus, compute_double_modulus());
     }
 

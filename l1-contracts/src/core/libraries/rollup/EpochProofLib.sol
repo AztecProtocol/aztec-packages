@@ -116,12 +116,6 @@ library EpochProofLib {
     bytes calldata _blobPublicInputs
   ) internal view returns (bytes32[] memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    // Args are defined as an array because Solidity complains with "stack too deep" otherwise
-    // 0 bytes32 _previousArchive,
-    // 1 bytes32 _endArchive,
-    // 2 bytes32 _endTimestamp,
-    // 3 bytes32 _outHash,
-    // 4 bytes32 _proverId,
 
     // TODO(#7373): Public inputs are not fully verified
 
@@ -154,7 +148,10 @@ library EpochProofLib {
     //   end_timestamp: u64,
     //   end_block_number: Field,
     //   out_hash: Field,
+    //   proposedBlockHeaderHashes: [Field; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
+    //   chain_id: Field,
+    //   version: Field,
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
     //   prover_id: Field,
@@ -185,12 +182,26 @@ library EpochProofLib {
       publicInputs[6] = _args.outHash;
     }
 
-    uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
-    // fees[9 to (9+feesLength-1)]: array of recipient-value pairs
-    for (uint256 i = 0; i < feesLength; i++) {
-      publicInputs[7 + i] = _fees[i];
+    uint256 numBlocks = _end - _start + 1;
+
+    for (uint256 i = 0; i < numBlocks; i++) {
+      publicInputs[7 + i] = rollupStore.blocks[_start + i].headerHash;
     }
-    uint256 offset = 7 + feesLength;
+
+    uint256 offset = 7 + Constants.AZTEC_MAX_EPOCH_DURATION;
+
+    uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
+    // fees[2n to 2n + 1]: a fee element, which contains of a recipient and a value
+    for (uint256 i = 0; i < feesLength; i++) {
+      publicInputs[offset + i] = _fees[i];
+    }
+    offset += feesLength;
+
+    publicInputs[offset] = bytes32(block.chainid);
+    offset += 1;
+
+    publicInputs[offset] = bytes32(rollupStore.config.version);
+    offset += 1;
 
     // vk_tree_root
     publicInputs[offset] = rollupStore.config.vkTreeRoot;
@@ -207,7 +218,7 @@ library EpochProofLib {
     {
       BlobVarsTemp memory tmp = BlobVarsTemp({blobOffset: 0, offset: offset, i: 0});
       // blob_public_inputs
-      for (; tmp.i < _end - _start + 1; tmp.i++) {
+      for (; tmp.i < numBlocks; tmp.i++) {
         uint8 blobsInBlock = uint8(_blobPublicInputs[tmp.blobOffset++]);
         for (uint256 j = 0; j < Constants.BLOBS_PER_BLOCK; j++) {
           if (j < blobsInBlock) {
@@ -285,7 +296,7 @@ library EpochProofLib {
         t.totalBurn += burn;
 
         // Compute the proving fee in the fee asset
-        v.proverFee = Math.min(v.manaUsed * feeHeader.getProvingCost(), fee - burn);
+        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
         $er.rewards += v.proverFee;
 
         v.sequencerFee = fee - burn - v.proverFee;

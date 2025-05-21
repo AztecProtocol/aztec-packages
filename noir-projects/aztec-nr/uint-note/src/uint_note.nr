@@ -7,7 +7,10 @@ use dep::aztec::{
     oracle::random::random,
     protocol_types::{
         address::AztecAddress,
-        constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
+        constants::{
+            GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER,
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        },
         hash::poseidon2_hash_with_separator,
         traits::{Deserialize, Hash, Packable, Serialize, ToField},
         utils::arrays::array_concat,
@@ -145,7 +148,10 @@ impl UintNote {
 
         let encrypted_log =
             note::compute_partial_note_log(private_log_content, storage_slot, recipient, sender);
-        context.emit_private_log(encrypted_log);
+        // Regardless of the original content size, the log is padded with random bytes up to
+        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+        let length = encrypted_log.len();
+        context.emit_private_log(encrypted_log, length);
 
         PartialUintNote { commitment }
     }
@@ -198,12 +204,16 @@ pub struct PartialUintNote {
 }
 
 impl PartialUintNote {
-    pub fn commitment(self) -> Field {
-        self.commitment
+    /// Computes a partial note validity commitment. This commitment is stored in public storage when creating the
+    /// partial note in private and then is used to check that completer and note are valid upon partial note
+    /// completion in public (completer is the entity that can complete the partial note).
+    pub fn compute_validity_commitment(self, completer: AztecAddress) -> Field {
+        poseidon2_hash_with_separator(
+            [self.commitment, completer.to_field()],
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        )
     }
-}
 
-impl PartialUintNote {
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
     pub fn complete(self, value: u128, context: &mut PublicContext) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value

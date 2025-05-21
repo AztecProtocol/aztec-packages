@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
