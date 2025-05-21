@@ -17,3 +17,6 @@
 	path = bb-pilcom/powdr
 	url = https://github.com/AztecProtocol/powdr
 	branch = avm-minimal
+[submodule "l1-contracts/lib/circuits"]
+	path = l1-contracts/lib/circuits
+	url = https://github.com/zkpassport/circuits

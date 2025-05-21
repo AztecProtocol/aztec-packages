@@ -8,9 +8,11 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {StakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {ZKPassportBase} from "./zkpassport/ZKPassportBase.sol";
+
 // solhint-disable comprehensive-interface
 
-contract StakingAssetHandlerBase is TestBase {
+contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
   StakingCheater internal staking;
   TestERC20 internal stakingAsset;
   Registry internal registry;
@@ -22,6 +24,9 @@ contract StakingAssetHandlerBase is TestBase {
   address internal constant ATTESTER = address(bytes20("ATTESTER"));
   address internal constant WITHDRAWER = address(bytes20("WITHDRAWER"));
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));
+
+  bytes internal EMPTY_PROOF = bytes(string(""));
+  bytes32[] internal EMPTY_PUBLIC_INPUTS = new bytes32[](0);
 
   uint256 internal mintInterval = 1;
   uint256 internal depositsPerMint = 1;
@@ -44,8 +49,13 @@ contract StakingAssetHandlerBase is TestBase {
       WITHDRAWER,
       mintInterval,
       depositsPerMint,
+      zkPassportVerifier,
       new address[](0)
     );
     stakingAsset.addMinter(address(stakingAssetHandler));
+  }
+
+  function setMockZKPassportVerifier() internal {
+    stakingAssetHandler.setZKPassportVerifier(address(mockZKPassportVerifier));
   }
 }

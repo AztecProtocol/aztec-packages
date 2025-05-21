@@ -5,14 +5,16 @@ import {IStaking, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 
 import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
-
 /**
  * @title StakingAssetHandler
  * @notice This contract is used as a faucet for creating validators.
  *
- * It allows anyone to add validator to the rollup, as long as the contract has enough balance.
+ * It allows anyone to join the queue to be a validator to the rollup.
+ * Validators get added to the queue, then each day `dripQueue` can be called including
+ * up to `depositsPerMint` validators per day.
  * With the caveat that the contract can mint itself funds to cover adding `depositsPerMint`
  * validators per `mintInterval` unit of time.
  *
@@ -27,6 +29,7 @@ import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
  * @dev Only the owner can grant and revoke the `isUnhinged` role, and perform other administrative tasks
  *      such as setting the REGISTRY address, mint interval, deposits per mint, and withdrawer.
  */
+
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
   event AddedToQueue(address indexed _attester, address _proposer);
@@ -36,19 +39,31 @@ interface IStakingAssetHandler {
   event IntervalUpdated(uint256 _interval);
   event DepositsPerMintUpdated(uint256 _depositsPerMint);
   event WithdrawerUpdated(address indexed _withdrawer);
+  event ZKPassportVerifierUpdated(address indexed _verifier);
+  event ScopeUpdated(string newScope);
+  event SubScopeUpdated(string newSubScope);
 
   event UnhingedAdded(address indexed _address);
   event UnhingedRemoved(address indexed _address);
 
   error CannotMintZeroAmount();
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
+  error InvalidProof();
+  error SybilDetected(bytes32 _nullifier);
 
-  function addValidator(address _attester, address _proposer) external;
+  function addValidator(
+    address _attester,
+    address _proposer,
+    ProofVerificationParams memory _params
+  ) external;
   function setMintInterval(uint256 _interval) external;
   function setDepositsPerMint(uint256 _depositsPerMint) external;
   function setWithdrawer(address _withdrawer) external;
   function addUnhinged(address _address) external;
   function removeUnhinged(address _address) external;
+  function setZKPassportVerifier(address _address) external;
+  function setScope(string memory _scope) external;
+  function setSubscope(string memory _subscope) external;
   function getQueueLength() external returns (uint256);
   function dripQueue() external;
 
@@ -61,7 +76,10 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   IMintableERC20 public immutable STAKING_ASSET;
   IRegistry public immutable REGISTRY;
 
+  ZKPassportVerifier public zkPassportVerifier;
+
   mapping(address => bool) public isUnhinged;
+  mapping(bytes32 => bool) public nullifiers;
 
   uint256 public lastMintTimestamp;
   uint256 public mintInterval;
@@ -71,6 +89,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   Queue private entryQueue;
 
+  string public validScope;
+  string public validSubscope;
+
   constructor(
     address _owner,
     address _stakingAsset,
@@ -78,6 +99,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     address _withdrawer,
     uint256 _mintInterval,
     uint256 _depositsPerMint,
+    ZKPassportVerifier _zkPassportVerifier,
     address[] memory _unhinged
   ) Ownable(_owner) {
     require(_depositsPerMint > 0, CannotMintZeroAmount());
@@ -101,6 +123,12 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     isUnhinged[_owner] = true;
     emit UnhingedAdded(_owner);
 
+    zkPassportVerifier = _zkPassportVerifier;
+    emit ZKPassportVerifierUpdated(address(_zkPassportVerifier));
+
+    validScope = "sequencer.alpha-testnet.aztec.network";
+    validSubscope = "personhood";
+
     entryQueue.init();
   }
 
@@ -110,10 +138,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _attester - the validator's attester address
    * @param _proposer - the validator's proposer address
    */
-  function addValidator(address _attester, address _proposer)
-    external
-    override(IStakingAssetHandler)
-  {
+  function addValidator(
+    address _attester,
+    address _proposer,
+    ProofVerificationParams calldata _params
+  ) external override(IStakingAssetHandler) {
     // If the sender is unhinged, will mint the required amount (to not impact other users).
     // Otherwise we add them to the deposit queue.
     if (isUnhinged[msg.sender]) {
@@ -124,8 +153,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
       _triggerDeposit(rollup, depositAmount, _attester, _proposer);
     } else {
-      entryQueue.enqueue(_attester, _proposer);
-      emit AddedToQueue(_attester, _proposer);
+      _validateNewValidator(_attester, _proposer, _params);
     }
   }
 
@@ -175,6 +203,25 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit DepositsPerMintUpdated(_depositsPerMint);
   }
 
+  function setZKPassportVerifier(address _zkPassportVerifier)
+    external
+    override(IStakingAssetHandler)
+    onlyOwner
+  {
+    zkPassportVerifier = ZKPassportVerifier(_zkPassportVerifier);
+    emit ZKPassportVerifierUpdated(_zkPassportVerifier);
+  }
+
+  function setScope(string memory _scope) external override(IStakingAssetHandler) onlyOwner {
+    validScope = _scope;
+    emit ScopeUpdated(_scope);
+  }
+
+  function setSubscope(string memory _subscope) external override(IStakingAssetHandler) onlyOwner {
+    validSubscope = _subscope;
+    emit SubScopeUpdated(_subscope);
+  }
+
   function setWithdrawer(address _withdrawer) external override(IStakingAssetHandler) onlyOwner {
     withdrawer = _withdrawer;
     emit WithdrawerUpdated(_withdrawer);
@@ -198,6 +245,30 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     return entryQueue.length();
   }
 
+  function _validateNewValidator(
+    address _attester,
+    address _proposer,
+    ProofVerificationParams calldata _params
+  ) internal {
+    // Must NOT be using dev mode
+    require(_params.devMode == false, InvalidProof());
+
+    (bool verified, bytes32 nullifier) = zkPassportVerifier.verifyProof(_params);
+
+    require(verified, InvalidProof());
+    require(!nullifiers[nullifier], SybilDetected(nullifier));
+
+    // Note: below appears to be checked within verifyProof
+    // require(zkPassportVerifier.verifyScopes(params.publicInputs, validScope, validSubscope), InvalidProof());
+
+    // Set nullifier to consumed
+    nullifiers[nullifier] = true;
+
+    // Add validator into the entry queue
+    entryQueue.enqueue(_attester, _proposer);
+    emit AddedToQueue(_attester, _proposer);
+  }
+
   function _triggerDeposit(
     IStaking rollup,
     uint256 depositAmount,
@@ -210,7 +281,10 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
 
     STAKING_ASSET.approve(address(rollup), depositAmount);
-    rollup.deposit(_attester, _proposer, withdrawer, depositAmount);
-    emit ValidatorAdded(address(rollup), _attester, _proposer, withdrawer);
+    try rollup.deposit(_attester, _proposer, withdrawer, depositAmount) {
+      emit ValidatorAdded(address(rollup), _attester, _proposer, withdrawer);
+    } catch {
+      // Allow the deposit call to fail silently e.g. when the attester has already been added
+    }
   }
 }
