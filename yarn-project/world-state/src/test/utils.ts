@@ -12,8 +12,13 @@ import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { NativeWorldStateService } from '../native/native_world_state.js';
 
-export async function mockBlock(blockNum: number, size: number, fork: MerkleTreeWriteOperations) {
-  const l2Block = await L2Block.random(blockNum, size);
+export async function mockBlock(
+  blockNum: number,
+  size: number,
+  fork: MerkleTreeWriteOperations,
+  maxEffects: number | undefined = undefined,
+) {
+  const l2Block = await L2Block.random(blockNum, size, maxEffects);
   const l1ToL2Messages = Array(16).fill(0).map(Fr.random);
 
   // Sync the append only trees
@@ -21,29 +26,32 @@ export async function mockBlock(blockNum: number, size: number, fork: MerkleTree
     const noteHashesPadded = l2Block.body.txEffects.flatMap(txEffect =>
       padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );
-    await fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
 
     const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    await fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+    await Promise.all([
+      fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded),
+      fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded),
+    ]);
   }
 
   // Sync the indexed trees
   {
     // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
     for (const txEffect of l2Block.body.txEffects) {
-      await fork.batchInsert(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        txEffect.publicDataWrites.map(write => write.toBuffer()),
-        0,
-      );
-
       const nullifiersPadded = padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX);
 
-      await fork.batchInsert(
-        MerkleTreeId.NULLIFIER_TREE,
-        nullifiersPadded.map(nullifier => nullifier.toBuffer()),
-        NULLIFIER_SUBTREE_HEIGHT,
-      );
+      await Promise.all([
+        fork.batchInsert(
+          MerkleTreeId.PUBLIC_DATA_TREE,
+          txEffect.publicDataWrites.map(write => write.toBuffer()),
+          0,
+        ),
+        fork.batchInsert(
+          MerkleTreeId.NULLIFIER_TREE,
+          nullifiersPadded.map(nullifier => nullifier.toBuffer()),
+          NULLIFIER_SUBTREE_HEIGHT,
+        ),
+      ]);
     }
   }
 
