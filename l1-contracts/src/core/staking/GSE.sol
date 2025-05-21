@@ -332,7 +332,7 @@ contract GSE is IGSE, Ownable {
       indices[i] = i;
     }
 
-    return _getAddressFromIndecesAtTimestamp(_instance, indices, _timestamp);
+    return _getAddressFromIndicesAtTimestamp(_instance, indices, _timestamp);
   }
 
   function getAttesterFromIndexAtTime(address _instance, uint256 _index, Timestamp _timestamp)
@@ -343,7 +343,7 @@ contract GSE is IGSE, Ownable {
   {
     uint256[] memory indices = new uint256[](1);
     indices[0] = _index;
-    return _getAddressFromIndecesAtTimestamp(_instance, indices, _timestamp)[0];
+    return _getAddressFromIndicesAtTimestamp(_instance, indices, _timestamp)[0];
   }
 
   function getAttestersFromIndicesAtTime(
@@ -351,12 +351,12 @@ contract GSE is IGSE, Ownable {
     Timestamp _timestamp,
     uint256[] memory _indices
   ) public view override(IGSE) returns (address[] memory) {
-    return _getAddressFromIndecesAtTimestamp(_instance, _indices, _timestamp);
+    return _getAddressFromIndicesAtTimestamp(_instance, _indices, _timestamp);
   }
 
   // We are using this only to get a simpler setup and logic to improve velocity of coding.
   // @todo Optimize this.
-  function _getAddressFromIndecesAtTimestamp(
+  function _getAddressFromIndicesAtTimestamp(
     address _instance,
     uint256[] memory _indices,
     Timestamp _timestamp

@@ -149,7 +149,7 @@ describe('e2e_p2p_add_rollup', () => {
       }),
     });
 
-    // Hand over the registry to the governance
+    // Hand over the GSE to the governance
     await l1TxUtils.sendAndMonitorTransaction({
       to: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.gseAddress!.toString()),
       data: encodeFunctionData({
