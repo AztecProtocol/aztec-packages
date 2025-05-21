@@ -139,6 +139,25 @@ async function addLiquidity(
   const liquidityPartialNote = {
     commitment: new Fr(99),
   };
+  const refundToken0PartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    refundToken0PartialNote,
+    amm.address,
+  );
+  const refundToken1PartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    refundToken1PartialNote,
+    amm.address,
+  );
+  const liquidityPartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    liquidityPartialNote,
+    amm.address,
+  );
+
+  // We need to inject the validity commitments into the nullifier tree as that would be performed by the private token
+  // functions that are not invoked in this test.
+  await tester.insertNullifier(token0.address, refundToken0PartialNoteValidityCommitment);
+  await tester.insertNullifier(token1.address, refundToken1PartialNoteValidityCommitment);
+  await tester.insertNullifier(liquidityToken.address, liquidityPartialNoteValidityCommitment);
+
   return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/add_liquidity',
     /*sender=*/ sender,
@@ -194,8 +213,16 @@ async function swapExactTokensForTokens(
   _nonce?: bigint,
 ) {
   const tokenOutPartialNote = {
-    commitment: new Fr(66),
+    commitment: new Fr(166),
   };
+  const tokenOutPartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    tokenOutPartialNote,
+    amm.address,
+  );
+
+  // We need to inject the validity commitment into the nullifier tree as that would be performed by the private token
+  // function that is not invoked in this test.
+  await tester.insertNullifier(tokenOut.address, tokenOutPartialNoteValidityCommitment);
 
   return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/swap_exact_tokens_for_tokens',
@@ -237,6 +264,20 @@ async function removeLiquidity(
   const token1PartialNote = {
     commitment: new Fr(222),
   };
+  const token0PartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    token0PartialNote,
+    amm.address,
+  );
+  const token1PartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
+    token1PartialNote,
+    amm.address,
+  );
+
+  // We need to inject the validity commitments into the nullifier tree as that would be performed by the private token
+  // functions that are not invoked in this test.
+  await tester.insertNullifier(token0.address, token0PartialNoteValidityCommitment);
+  await tester.insertNullifier(token1.address, token1PartialNoteValidityCommitment);
+
   return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/remove_liquidity',
     /*sender=*/ sender,
@@ -269,5 +310,12 @@ async function removeLiquidity(
         address: amm.address,
       },
     ],
+  );
+}
+
+async function computePartialNoteValidityCommitment(partialNote: { commitment: Fr }, completer: AztecAddress) {
+  return await poseidon2HashWithSeparator(
+    [partialNote.commitment, completer],
+    GeneratorIndex.PARTIAL_NOTE_VALIDITY_COMMITMENT,
   );
 }
