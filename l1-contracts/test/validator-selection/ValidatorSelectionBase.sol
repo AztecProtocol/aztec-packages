@@ -94,9 +94,9 @@ contract ValidatorSelectionTestBase is DecoderBase {
     slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
-    if (_validatorCount > 0) {
+    if (initialValidators.length > 0) {
       MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-      testERC20.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
+      testERC20.mint(address(multiAdder), rollup.getMinimumStake() * initialValidators.length);
       multiAdder.addValidators(initialValidators);
     }
 
@@ -124,11 +124,6 @@ contract ValidatorSelectionTestBase is DecoderBase {
     proposerPrivateKeys[proposer] = proposerPrivateKey;
     proposerToAttester[proposer] = attester;
 
-    return CheatDepositArgs({
-      attester: attester,
-      proposer: proposer,
-      withdrawer: address(this),
-      amount: TestConstants.AZTEC_MINIMUM_STAKE
-    });
+    return CheatDepositArgs({attester: attester, proposer: proposer, withdrawer: address(this)});
   }
 }

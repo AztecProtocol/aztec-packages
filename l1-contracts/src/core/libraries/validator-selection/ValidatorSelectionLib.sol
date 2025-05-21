@@ -3,7 +3,6 @@
 pragma solidity >=0.8.27;
 
 import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
-import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
 import {ValidatorSelectionStorage} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {
@@ -16,6 +15,7 @@ import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -50,7 +50,7 @@ library ValidatorSelectionLib {
    *          - Sample the validator set for the epoch
    *          - Set the seed for the epoch after the next
    */
-  function setupEpoch(StakingStorage storage _stakingStore, Epoch _epochNumber) internal {
+  function setupEpoch(Epoch _epochNumber) internal {
     ValidatorSelectionStorage storage store = getStorage();
 
     //################ Seeds ################
@@ -65,7 +65,7 @@ library ValidatorSelectionLib {
     // If the committee is not set for this epoch, we need to sample it
     bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
     if (committeeCommitment == bytes32(0)) {
-      address[] memory committee = sampleValidators(_stakingStore, _epochNumber, sampleSeed);
+      address[] memory committee = sampleValidators(_epochNumber, sampleSeed);
       store.committeeCommitments[_epochNumber] = computeCommitteeCommitment(committee);
     }
   }
@@ -87,15 +87,13 @@ library ValidatorSelectionLib {
    * @param _digest - The digest of the block
    */
   function verify(
-    StakingStorage storage _stakingStore,
     Slot _slot,
     Epoch _epochNumber,
     CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
     BlockHeaderValidationFlags memory _flags
   ) internal {
-    (bytes32 committeeCommitment, uint256 committeeSize) =
-      getCommitteeCommitmentAt(_stakingStore, _epochNumber);
+    (bytes32 committeeCommitment, uint256 committeeSize) = getCommitteeCommitmentAt(_epochNumber);
 
     // @todo Consider getting rid of this option.
     // If the proposer is open, we allow anyone to propose without needing any signatures
@@ -116,7 +114,7 @@ library ValidatorSelectionLib {
     // The user controls this value, however, if a false value is provided, the recalculated committee commitment will
     // be incorrect, and we will revert.
     address attester = _attestations[proposerIndex].addr;
-    address proposer = _stakingStore.info[attester].proposer;
+    address proposer = StakingLib.getProposerForAttester(attester);
 
     require(
       proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
@@ -162,27 +160,21 @@ library ValidatorSelectionLib {
     }
   }
 
-  // Note: this resamples the validator set, Only call this from view functions
-  function getProposerAt(StakingStorage storage _stakingStore, Slot _slot)
-    internal
-    returns (address)
-  {
+  function getProposerAt(Slot _slot, Epoch _epochNumber) internal returns (address) {
     // @note this is deliberately "bad" for the simple reason of code reduction.
     //       it does not need to actually return the full committee and then draw from it
     //       it can just return the proposer directly, but then we duplicate the code
     //       which we just don't have room for right now...
-    Epoch epoch = _slot.epochFromSlot();
-
-    uint224 sampleSeed = getSampleSeed(epoch);
-
-    address[] memory committee = sampleValidators(_stakingStore, epoch, sampleSeed);
+    uint224 sampleSeed = getSampleSeed(_epochNumber);
+    address[] memory committee = sampleValidators(_epochNumber, sampleSeed);
     if (committee.length == 0) {
       return address(0);
     }
 
-    address attester = committee[computeProposerIndex(epoch, _slot, sampleSeed, committee.length)];
+    address attester =
+      committee[computeProposerIndex(_epochNumber, _slot, sampleSeed, committee.length)];
 
-    return _stakingStore.info[attester].proposer;
+    return StakingLib.getProposerForAttester(attester);
   }
 
   /**
@@ -193,61 +185,47 @@ library ValidatorSelectionLib {
    *
    * @return The validators for the given epoch
    */
-  function sampleValidators(StakingStorage storage _stakingStore, Epoch _epoch, uint224 _seed)
-    internal
-    returns (address[] memory)
-  {
+  function sampleValidators(Epoch _epoch, uint224 _seed) internal returns (address[] memory) {
     ValidatorSelectionStorage storage store = getStorage();
     uint32 ts = epochToSampleTime(_epoch);
-    uint256 validatorSetSize = _stakingStore.attesters.lengthAtTimestamp(ts);
+    uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
     uint256 targetCommitteeSize = store.targetCommitteeSize;
 
     bool smallerCommittee = validatorSetSize <= targetCommitteeSize;
-    address[] memory committee =
-      new address[](smallerCommittee ? validatorSetSize : targetCommitteeSize);
 
     // If we have less validators than the target committee size, we just return the full set
     if (smallerCommittee) {
-      committee = _stakingStore.attesters.valuesAtTimestamp(ts);
+      return StakingLib.getAttestersAtTime(Timestamp.wrap(ts));
     } else {
       // Sample the larger committee
       uint256[] memory indices =
         SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed);
 
-      for (uint256 i = 0; i < committee.length; i++) {
-        committee[i] = _stakingStore.attesters.getAddressFromIndexAtTimestamp(indices[i], ts);
-      }
+      return StakingLib.getAttestersFromIndicesAtTime(Timestamp.wrap(ts), indices);
     }
-
-    return committee;
   }
 
   /**
    * @notice  Get the committee for an epoch
    *
-   * @param _stakingStore - The internal staking store
    * @param _epochNumber - The epoch to get the committee for
    *
    * @return - The committee for the epoch
    */
-  function getCommitteeAt(StakingStorage storage _stakingStore, Epoch _epochNumber)
-    internal
-    returns (address[] memory)
-  {
+  function getCommitteeAt(Epoch _epochNumber) internal returns (address[] memory) {
     uint224 seed = getSampleSeed(_epochNumber);
-    return sampleValidators(_stakingStore, _epochNumber, seed);
+    return sampleValidators(_epochNumber, seed);
   }
 
   /**
    * @notice Get the committee commitment for an epoch
-   * @param _stakingStore - The internal staking store
    * @param _epochNumber -
    * @return committeeCommitment - The commitment to the current committee
    * @return committeeSize - The size of the current committee
    *
    * @dev - intended as a view function, do not update state
    */
-  function getCommitteeCommitmentAt(StakingStorage storage _stakingStore, Epoch _epochNumber)
+  function getCommitteeCommitmentAt(Epoch _epochNumber)
     internal
     returns (bytes32 committeeCommitment, uint256 committeeSize)
   {
@@ -256,14 +234,13 @@ library ValidatorSelectionLib {
     committeeCommitment = store.committeeCommitments[_epochNumber];
     if (committeeCommitment == 0) {
       // If no committee has been stored, then we need to setup the epoch
-      committeeCommitment = computeCommitteeCommitment(
-        sampleValidators(_stakingStore, _epochNumber, getSampleSeed(_epochNumber))
-      );
+      committeeCommitment =
+        computeCommitteeCommitment(sampleValidators(_epochNumber, getSampleSeed(_epochNumber)));
     }
 
     // We do not want to recalculate this each time
     uint32 ts = epochToSampleTime(_epochNumber);
-    committeeSize = _stakingStore.attesters.lengthAtTimestamp(ts);
+    committeeSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
     if (committeeSize > store.targetCommitteeSize) {
       committeeSize = store.targetCommitteeSize;
     }
