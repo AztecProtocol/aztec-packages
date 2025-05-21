@@ -13,9 +13,6 @@ void GasTracker::consume_base_gas()
     const ExecInstructionSpec& spec = instruction_info_db.get(exec_opcode);
 
     gas_event.opcode_gas = spec.gas_cost.base_l2;
-
-    std::cout << "indirect: " << instruction.indirect << std::endl;
-
     gas_event.addressing_gas = compute_addressing_gas(instruction.indirect);
 
     gas_event.base_gas = Gas{
@@ -26,9 +23,6 @@ void GasTracker::consume_base_gas()
     Gas gas_limit = context.get_gas_limit();
 
     Gas gas_used = gas_event.prev_gas_used + gas_event.base_gas;
-
-    std::cout << "gas used after base gas: l2=" << gas_used.l2Gas << " da=" << gas_used.daGas << std::endl;
-    std::cout << "gas limit: l2=" << gas_limit.l2Gas << " da=" << gas_limit.daGas << std::endl;
 
     gas_event.oog_l2_base = gas_used.l2Gas > gas_limit.l2Gas;
     gas_event.oog_da_base = gas_used.daGas > gas_limit.daGas;
