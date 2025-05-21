@@ -133,7 +133,7 @@ describe('e2e_p2p_network', () => {
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
     const validatorAddresses = nodes.map(node =>
-      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddress?.toString(),
+      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(a => a.toString()),
     );
     t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
     for (const signer of signers) {

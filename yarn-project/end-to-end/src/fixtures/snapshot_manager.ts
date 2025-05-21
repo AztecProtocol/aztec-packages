@@ -8,6 +8,7 @@ import {
   type CompleteAddress,
   type ContractFunctionInteraction,
   DefaultWaitForProvenOpts,
+  EthAddress,
   type Logger,
   type PXE,
   type Wallet,
@@ -43,7 +44,7 @@ import getPort from 'get-port';
 import { tmpdir } from 'os';
 import path, { join } from 'path';
 import { type Hex, getContract } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
@@ -353,13 +354,17 @@ async function setupFromFresh(
     opts.initialAccountFeeJuice,
   );
 
+  const initialValidators = opts.initialValidatorPrivateKeys?.map(privateKey => {
+    const account = privateKeyToAccount(privateKey);
+    return EthAddress.fromString(account.address);
+  });
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
     genesisArchiveRoot,
     feeJuicePortalInitialBalance: fundingNeeded,
     salt: opts.salt,
     ...deployL1ContractsArgs,
-    initialValidators: opts.initialValidators,
+    initialValidators,
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
