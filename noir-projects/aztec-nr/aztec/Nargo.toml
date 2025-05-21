@@ -5,6 +5,6 @@ compiler_version = ">=0.18.0"
 type = "lib"
 
 [dependencies]
-protocol_types = { path = "../../noir-protocol-circuits/crates/types" }
+protocol_types = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.87.0", directory="noir-projects/noir-protocol-circuits/crates/types" }
 sha256 = { tag = "v0.1.2", git = "https://github.com/noir-lang/sha256" }
 poseidon = { tag = "v0.1.0", git = "https://github.com/noir-lang/poseidon" }
