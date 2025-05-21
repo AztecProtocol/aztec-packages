@@ -297,7 +297,7 @@ program.option('-c, --crs-path <path>', 'set crs path', './crs');
 
 function handleGlobalOptions() {
   if (program.opts().verbose) {
-    logger.settings.minLevel = 0;
+    logger.level = 'trace';
   }
   return { crsPath: program.opts().crsPath };
 }

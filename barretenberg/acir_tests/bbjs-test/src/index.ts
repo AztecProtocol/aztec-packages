@@ -2,13 +2,10 @@ import fs from "fs/promises";
 import path from "path";
 import { Command } from "commander";
 import assert from "assert";
-import { ILogObj, Logger } from "tslog";
+import { pino } from "pino";
 
-const logger = new Logger<ILogObj>({
+const logger = pino({
   name: "bbjs-test",
-  stylePrettyLogs: false,
-  prettyLogTemplate: "{{dateIsoStr}} {{name}} ",
-  hideLogPositionForProduction: true,
 });
 
 const UH_PROOF_FIELDS_LENGTH = 456;

@@ -1,11 +1,8 @@
 import type { ProofData } from "@aztec/bb.js";
-import { ILogObj, Logger } from "tslog";
+import { pino } from "pino";
 
-const logger = new Logger<ILogObj>({
+const logger = pino({
   name: "browser-test-app",
-  stylePrettyLogs: false,
-  prettyLogTemplate: "{{dateIsoStr}} {{name}} ",
-  hideLogPositionForProduction: true,
 });
 
 async function prove(

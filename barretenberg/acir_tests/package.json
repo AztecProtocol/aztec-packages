@@ -9,6 +9,6 @@
     "bbjs-test"
   ],
   "dependencies": {
-    "tslog": "^4.9.3"
+    "pino": "^9.5.0"
   }
 }
