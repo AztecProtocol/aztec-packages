@@ -2,7 +2,7 @@ import React from "react";
 
 export const General = {
   VersionLatestTestnet: () => <code>alpha-testnet</code>,
-  VersionLatestSandbox: () => <code>0.86.0</code>,
+  VersionLatestSandbox: () => <code>0.87.0</code>,
   ViewTransactions: () => (
     <p>
       Transactions and balances can be viewed in block explorers like{" "}
