@@ -53,7 +53,7 @@ class MegaMemoryEstimator {
         }
 
         // variables
-        size_t to_add{ builder.variables.capacity() * sizeof(FF) };
+        size_t to_add{ builder.get_variables().capacity() * sizeof(FF) };
         result += to_add;
         vinfo("variables: ", to_add);
 

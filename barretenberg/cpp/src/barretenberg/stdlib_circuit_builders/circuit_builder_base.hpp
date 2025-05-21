@@ -24,12 +24,15 @@ template <typename FF_> class CircuitBuilderBase {
     using FF = FF_;
     using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
 
+  private:
+    std::vector<FF> variables;
+
+  public:
     size_t num_gates = 0;
     // true if we have dummy witnesses (in the write_vk case)
     bool has_dummy_witnesses = false;
 
     std::vector<uint32_t> public_inputs;
-    std::vector<FF> variables;
     std::unordered_map<uint32_t, std::string> variable_names;
 
     // index of next variable in equivalence class (=REAL_VARIABLE if you're last)
@@ -90,6 +93,8 @@ template <typename FF_> class CircuitBuilderBase {
     virtual void create_bool_gate(const uint32_t a) = 0;
     virtual void create_poly_gate(const poly_triple_<FF>& in) = 0;
     virtual size_t get_num_constant_gates() const = 0;
+
+    const std::vector<FF>& get_variables() const { return variables; }
 
     /**
      * Get the index of the first variable in class.
