@@ -16,7 +16,7 @@ import { BLS12Fq, BLS12Fr } from './bls12_fields.js';
  * TODO(#7386): Clean up this class.
  */
 export class BLS12Point {
-  static ZERO = new BLS12Point(BLS12Fq.ZERO, BLS12Fq.ZERO, false);
+  static ZERO = new BLS12Point(BLS12Fq.ZERO, BLS12Fq.ZERO, true);
   static ONE = new BLS12Point(new BLS12Fq(bls12_381.G1.CURVE.Gx), new BLS12Fq(bls12_381.G1.CURVE.Gy), false);
   static SIZE_IN_BYTES = BLS12Fq.SIZE_IN_BYTES * 2;
   static COMPRESSED_SIZE_IN_BYTES = BLS12Fq.SIZE_IN_BYTES;
@@ -80,7 +80,8 @@ export class BLS12Point {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(BLS12Fq.fromBuffer(reader), BLS12Fq.fromBuffer(reader), false);
+    const [x, y] = [BLS12Fq.fromBuffer(reader), BLS12Fq.fromBuffer(reader)];
+    return new this(x, y, x.isZero() && y.isZero());
   }
 
   /**
@@ -270,9 +271,6 @@ export class BLS12Point {
    * @dev Note that toBuffer does not include the isInfinite flag and other serialization methods do (e.g. toBigInts).
    */
   toBuffer() {
-    if (this.isInfinite) {
-      throw new Error('Cannot serialize infinite point without isInfinite flag');
-    }
     const buf = serializeToBuffer([this.x, this.y]);
     if (buf.length !== BLS12Point.SIZE_IN_BYTES) {
       throw new Error(`Invalid buffer length for Point: ${buf.length}`);
