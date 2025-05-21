@@ -273,16 +273,16 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reductio
 {
     // N.B. k could be modulus.get_msb() + 1 if we have strong bounds on the max value of (*self)
     //      (a smaller k would allow us to fit `redc_parameter` into `base_uint` and not `uintx`)
-    size_t k = base_uint::length() - 1;
+    constexpr size_t k = base_uint::length() - 1;
     // N.B. computation of redc_parameter requires division operation - if this cannot be precomputed (or amortized over
     // multiple reductions over the same modulus), barrett_reduction is much slower than divmod
-    uintx redc_parameter = ((uintx(1) << (k * 2)).divmod_base(uintx(modulus))).first;
+    static const uintx redc_parameter = ((uintx(1) << (k * 2)).divmod_base(uintx(modulus))).first;
 
     const auto x = *this;
 
     // compute x * redc_parameter
     const auto mul_result = x.mul_extended(redc_parameter);
-    size_t shift = 2 * k;
+    constexpr size_t shift = 2 * k;
 
     // compute (x * redc_parameter) >> 2k
     // This is equivalent to (x * (2^{2k} / modulus) / 2^{2k})
