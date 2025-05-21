@@ -80,6 +80,10 @@ template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
+    // super inefficient
+    typename Flavor::VerificationKey vkey(proving_key->proving_key);
+
+    transcript->add_to_hash_buffer(domain_separator + "vkey_hash", vkey.hash());
     const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
     const auto num_public_inputs = static_cast<uint32_t>(proving_key->proving_key.num_public_inputs);
     const auto pub_inputs_offset = static_cast<uint32_t>(proving_key->proving_key.pub_inputs_offset);
