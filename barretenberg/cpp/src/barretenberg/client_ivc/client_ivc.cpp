@@ -188,7 +188,22 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 {
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
-
+    {
+        vinfo("Checking that circuit is valid.");
+        MegaProver mega_prover(proving_key);
+        auto verification_key = std::make_shared<MegaVerificationKey>(proving_key->proving_key);
+        {
+            if (precomputed_vk) {
+                vinfo("Checking precomputed vk matches computed vk");
+                BB_ASSERT_EQ(*precomputed_vk, *verification_key, "Precomputed vk doesn't match computed vk.");
+                vinfo("Precomputed vk matches computed vk.");
+            }
+        }
+        MegaVerifier mega_verifier(verification_key);
+        auto proof = mega_prover.construct_proof();
+        BB_ASSERT_EQ(mega_verifier.verify_proof(proof), 1, "Circuit failed to prove and verify.");
+        vinfo("Circuit successfully proven and verified.");
+    }
     // Construct merge proof for the present circuit
     MergeProof merge_proof = goblin.prove_merge();
 
