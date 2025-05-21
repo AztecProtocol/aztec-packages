@@ -452,14 +452,14 @@ pub contract Token {
         // a different one) once this information is hidden in the partial note commitment. We also want to verify that
         // only the caller of this function can complete the partial note.
         //
-        // We achieve the above by storing a flag in public storage under a slot index equal to its
-        // `validity_commitment`. This commitment contains all the necessary information to verify the completer and
-        // to validate the partial note.
+        // We achieve this by storing a `validity_commitment` in the nullifier tree. This commitment contains all
+        // the necessary information to verify the completer and the partial note. Later, if we successfully
+        // read this commitment from the nullifier tree, we know that the partial note is valid.
         let validity_commitment = partial_note.compute_validity_commitment(context.msg_sender());
 
-        Token::at(context.this_address())
-            ._set_uint_partial_note_validity(validity_commitment)
-            .enqueue(context);
+        // The validity commitment can be safely pushed to the nullifier tree since it uses its own separator,
+        // making collisions with actual note nullifiers practically impossible.
+        context.push_nullifier(validity_commitment);
 
         partial_note
     }
@@ -530,8 +530,9 @@ pub contract Token {
         // make the transaction be more expensive. We don't worry about the validity commitment being checked against
         // multiple times because it is up to the caller to ensure that a partial note is used only once (see function
         // docs of `finalize_transfer_to_private`).
+        let validity_commitment = partial_note.compute_validity_commitment(from_and_completer);
         assert(
-            context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
+            context.nullifier_exists(validity_commitment, context.this_address()),
             "Invalid partial note or completer",
         );
         partial_note.complete(amount, context);
@@ -625,21 +626,12 @@ pub contract Token {
         // slot, and it is internally consistent). We *could* clear the storage since each partial note should only be
         // used once, but since the AVM offers no gas refunds for doing so this would just make the transaction be more
         // expensive.
+        let validity_commitment = partial_note.compute_validity_commitment(completer);
         assert(
-            context.storage_read(partial_note.compute_validity_commitment(completer)),
+            context.nullifier_exists(validity_commitment, context.this_address()),
             "Invalid partial note or completer",
         );
         partial_note.complete(amount, context);
-    }
-
-    #[public]
-    #[internal]
-    fn _set_uint_partial_note_validity(validity_commitment: Field) {
-        // We store the partial note validity flag in a slot equal to its validity commitment. This is safe because
-        // the commitment is computed using a generator different from the one used to compute storage slots, so there
-        // can be no collisions. We could consider storing all pending partial notes in e.g. some array, but ultimately
-        // this is pointless: all we need to verify is that the note is valid.
-        context.storage_write(validity_commitment, true);
     }
 
     /// Internal ///
