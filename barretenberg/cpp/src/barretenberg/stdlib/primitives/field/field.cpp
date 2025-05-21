@@ -1232,7 +1232,6 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
     return result;
 }
 
-template class field_t<bb::StandardCircuitBuilder>;
 template class field_t<bb::UltraCircuitBuilder>;
 template class field_t<bb::MegaCircuitBuilder>;
 

@@ -1,6 +1,5 @@
 use crate::{NFT, test::utils, types::nft_note::PartialNFTNote};
 use dep::aztec::{oracle::random::random, prelude::AztecAddress};
-use std::test::OracleMock;
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the NFT contract itself.
@@ -28,11 +27,6 @@ unconstrained fn transfer_to_private_external_orchestration() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, _, recipient, token_id) =
         utils::setup_and_mint(/* with_account_contracts */ false);
-
-    let note_randomness = random();
-
-    // We mock the Oracle to return the note randomness such that later on we can manually add the note
-    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We prepare the transfer
     let partial_note = NFT::at(nft_contract_address)

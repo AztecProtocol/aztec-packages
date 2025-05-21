@@ -36,10 +36,7 @@ import { ExpectedFailureError } from '../util/expected_failure_error.js';
 export class TXEService {
   public oraclesEnabled = true;
 
-  constructor(
-    private logger: Logger,
-    private typedOracle: TypedOracle,
-  ) {}
+  constructor(private logger: Logger, private typedOracle: TypedOracle) {}
 
   static async init(logger: Logger, protocolContracts: ProtocolContract[]) {
     logger.debug(`TXE service initialized`);
@@ -366,12 +363,14 @@ export class TXEService {
     }
 
     // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
-    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note]
+    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note].
 
     const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, nonce, index, note }) => {
       // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
       const noteIsTransient = index === undefined;
       const nonzeroNoteHashCounter = noteIsTransient ? true : false;
+      // If you change the array on the next line you have to change the `unpack_retrieved_note` function in
+      // `aztec/src/note/retrieved_note.nr`
       return [contractAddress, nonce, nonzeroNoteHashCounter, ...note.items];
     });
 
