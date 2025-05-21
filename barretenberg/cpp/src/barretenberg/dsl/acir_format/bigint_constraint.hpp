@@ -126,11 +126,11 @@ template <typename Builder> class DSLBigInts {
     void set_value(uint256_t value, const std::array<uint32_t, 5> limbs_idx)
     {
         uint256_t limb_modulus = uint256_t(1) << big_bn254_fq::NUM_LIMB_BITS;
-        builder->variables[limbs_idx[4]] = value;
+        builder->assert_equal(builder->add_variable(value), limbs_idx[4]);
         for (uint32_t i = 0; i < 4; i++) {
             uint256_t limb = value % limb_modulus;
             value = (value - limb) / limb_modulus;
-            builder->variables[limbs_idx[i]] = limb;
+            builder->assert_equal(builder->add_variable(limb), limbs_idx[i]);
         }
     }
 
