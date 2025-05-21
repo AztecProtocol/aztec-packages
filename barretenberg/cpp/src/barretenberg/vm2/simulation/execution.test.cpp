@@ -71,6 +71,8 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
+    EXPECT_CALL(context, get_parent_gas_used);
+    EXPECT_CALL(context, get_parent_gas_limit);
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));

@@ -62,6 +62,8 @@ void Execution::call(ContextInterface& context,
     const auto& allocated_da_gas_read = memory.get(da_gas_offset);
     const auto& contract_address = memory.get(addr);
 
+    // TODO limit the gas limits based on available gas
+
     // Cd size and cd offset loads are deferred to (possible) calldatacopy
     auto nested_context = execution_components.make_nested_context(
         contract_address,
@@ -76,6 +78,7 @@ void Execution::call(ContextInterface& context,
     // That event will be out of order, but it will have the right order id. It should be sorted in tracegen.
     auto result = execute_internal(*nested_context);
 
+    // TODO: Update gas in context based on the gas consumed by the nested context.
     // TODO: do more things based on the result. This happens in the parent context
     // 1) Accept / Reject side effects (e.g. tree state, newly emitted nullifiers, notes, public writes)
     // 2) Set return data information
