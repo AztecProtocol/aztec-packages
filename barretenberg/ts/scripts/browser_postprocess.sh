@@ -15,7 +15,7 @@ done
 # Provide default wasm files as gziped base64 strings
 for file in barretenberg barretenberg-threads; do
     GZIP_FILE=${DIR}/barretenberg_wasm/$file.wasm.gz
-    BB_THREADS_BASE64=$(cat ${GZIP_FILE} | base64 -w0)
-    printf "const barretenberg = \"data:application/gzip;base64,$BB_THREADS_BASE64\"; \\nexport default barretenberg;" > $DIR/barretenberg_wasm/fetch_code/browser/$file.js
+    BB_BASE64=$(cat ${GZIP_FILE} | base64 -w0)
+    printf "const barretenberg = \"data:application/gzip;base64,$BB_BASE64\"; \\nexport default barretenberg;" > $DIR/barretenberg_wasm/fetch_code/browser/$file.js
     rm $GZIP_FILE
 done
