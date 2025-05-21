@@ -54,6 +54,7 @@ namespace bb::avm2 {
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -113,6 +114,12 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_ALL_ENTITIES = 2529;
 >>>>>>> 2360fdf1ee (Finish theta function)
 >>>>>>> 8413122a5d (Finish theta function)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2292;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2507;
+>>>>>>> dfbb7caa4f (Generate pil after rebase on next branch)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
