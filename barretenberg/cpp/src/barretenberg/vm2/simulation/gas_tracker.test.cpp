@@ -80,18 +80,6 @@ TEST_F(GasTrackerTest, DynamicGasConsumption)
     tracker.consume_dynamic_gas(Gas{ 10, 0 });
 }
 
-TEST_F(GasTrackerTest, DynamicDaGasConsumption)
-{
-    instruction.opcode = WireOpCode::SSTORE;
-    GasTracker tracker(instruction_info_db, context, instruction);
-
-    EXPECT_CALL(context, get_gas_used());
-    EXPECT_CALL(context, get_gas_limit()).WillOnce(testing::Return(Gas{ 1000, 5000 }));
-    EXPECT_CALL(context, set_gas_used(Gas{ 0, AVM_SSTORE_DYN_DA_GAS * 1 }));
-
-    tracker.consume_dynamic_gas(Gas{ 1, 1 });
-}
-
 TEST_F(GasTrackerTest, OutOfGasDynamicPhase)
 {
     instruction.opcode = WireOpCode::CALLDATACOPY;

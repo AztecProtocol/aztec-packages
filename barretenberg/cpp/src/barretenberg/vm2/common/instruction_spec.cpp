@@ -382,13 +382,21 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
 };
 
 const std::unordered_map<WireOpCode, ExecutionOpCode> OPCODE_MAP = {
-    { WireOpCode::ADD_8, ExecutionOpCode::ADD },    { WireOpCode::ADD_16, ExecutionOpCode::ADD },
-    { WireOpCode::CALL, ExecutionOpCode::CALL },    { WireOpCode::RETURN, ExecutionOpCode::RETURN },
-    { WireOpCode::JUMP_32, ExecutionOpCode::JUMP }, { WireOpCode::JUMPI_32, ExecutionOpCode::JUMPI },
-    { WireOpCode::SET_8, ExecutionOpCode::SET },    { WireOpCode::SET_16, ExecutionOpCode::SET },
-    { WireOpCode::SET_32, ExecutionOpCode::SET },   { WireOpCode::SET_64, ExecutionOpCode::SET },
-    { WireOpCode::SET_128, ExecutionOpCode::SET },  { WireOpCode::SET_FF, ExecutionOpCode::SET },
-    { WireOpCode::MOV_8, ExecutionOpCode::MOV },    { WireOpCode::MOV_16, ExecutionOpCode::MOV },
+    { WireOpCode::ADD_8, ExecutionOpCode::ADD },
+    { WireOpCode::ADD_16, ExecutionOpCode::ADD },
+    { WireOpCode::CALL, ExecutionOpCode::CALL },
+    { WireOpCode::RETURN, ExecutionOpCode::RETURN },
+    { WireOpCode::JUMP_32, ExecutionOpCode::JUMP },
+    { WireOpCode::JUMPI_32, ExecutionOpCode::JUMPI },
+    { WireOpCode::SET_8, ExecutionOpCode::SET },
+    { WireOpCode::SET_16, ExecutionOpCode::SET },
+    { WireOpCode::SET_32, ExecutionOpCode::SET },
+    { WireOpCode::SET_64, ExecutionOpCode::SET },
+    { WireOpCode::SET_128, ExecutionOpCode::SET },
+    { WireOpCode::SET_FF, ExecutionOpCode::SET },
+    { WireOpCode::MOV_8, ExecutionOpCode::MOV },
+    { WireOpCode::MOV_16, ExecutionOpCode::MOV },
+    { WireOpCode::CALLDATACOPY, ExecutionOpCode::CALLDATACOPY },
 };
 
 const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_SPEC = {
@@ -414,12 +422,6 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                       .base_da = 0,
                       .dyn_l2 = AVM_CALLDATACOPY_DYN_L2_GAS,
                       .dyn_da = 0 } } },
-    { ExecutionOpCode::SSTORE,
-      { .num_addresses = 2,
-        .gas_cost = { .base_l2 = AVM_SSTORE_BASE_L2_GAS,
-                      .base_da = 0,
-                      .dyn_l2 = 0,
-                      .dyn_da = AVM_SSTORE_DYN_DA_GAS } } },
 };
 
 } // namespace bb::avm2
