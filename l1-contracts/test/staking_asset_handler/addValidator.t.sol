@@ -3,8 +3,7 @@ pragma solidity >=0.8.27;
 
 import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
-import {Fakerollup} from "../governance/governance-proposer/mocks/Fakerollup.sol";
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {ValidatorInfo, Exit, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
@@ -148,6 +147,59 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, _proposer, WITHDRAWER);
+    vm.prank(_caller);
+    stakingAssetHandler.dripQueue();
+
+    ValidatorInfo memory info = staking.getInfo(_attester);
+    assertEq(info.proposer, _proposer);
+    assertEq(info.withdrawer, WITHDRAWER);
+    assertEq(info.stake, MINIMUM_STAKE);
+    assertTrue(info.status == Status.VALIDATING);
+
+    assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
+  }
+
+  function test_GivenTheDepositCallFails(address _caller, address _attester, address _proposer)
+    external
+    whenCallerIsNotUnhinged(_caller)
+  {
+    // it deposits into the rollup
+    // it does not revert if the deposit call fails
+    // it emits a {ValidatorAdded} event
+
+    vm.assume(_attester != address(0) && _proposer != address(0));
+    uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval + mintInterval;
+    vm.warp(revertTimestamp);
+
+    // Allow more than one deposit per mint
+    uint256 _depositsPerMint = 5;
+    stakingAssetHandler.setDepositsPerMint(_depositsPerMint);
+
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.AddedToQueue(_attester, _proposer);
+    vm.prank(_caller);
+    stakingAssetHandler.addValidator(_attester, _proposer);
+
+    // later we will mock that this deposit call fails, with a swapped attester and proposer
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.AddedToQueue(_proposer, _attester);
+    vm.prank(_caller);
+    stakingAssetHandler.addValidator(_proposer, _attester);
+
+    // Expected successful events
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * _depositsPerMint);
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, _proposer, WITHDRAWER);
+
+    // Mock that the second add validator call will fail
+    vm.mockCallRevert(
+      address(stakingAssetHandler),
+      abi.encodeWithSelector(
+        IStakingCore.deposit.selector, _proposer, _attester, WITHDRAWER, MINIMUM_STAKE
+      ),
+      bytes(string(""))
+    );
     vm.prank(_caller);
     stakingAssetHandler.dripQueue();
 

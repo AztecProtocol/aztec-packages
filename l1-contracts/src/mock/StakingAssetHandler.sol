@@ -12,7 +12,9 @@ import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
  * @title StakingAssetHandler
  * @notice This contract is used as a faucet for creating validators.
  *
- * It allows anyone to add validator to the rollup, as long as the contract has enough balance.
+ * It allows anyone to join the queue to be a validator to the rollup.
+ * Validators get added to the queue, then each day `dripQueue` can be called including
+ * up to `depositsPerMint` validators per day.
  * With the caveat that the contract can mint itself funds to cover adding `depositsPerMint`
  * validators per `mintInterval` unit of time.
  *
@@ -210,7 +212,10 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
 
     STAKING_ASSET.approve(address(rollup), depositAmount);
-    rollup.deposit(_attester, _proposer, withdrawer, depositAmount);
-    emit ValidatorAdded(address(rollup), _attester, _proposer, withdrawer);
+    try rollup.deposit(_attester, _proposer, withdrawer, depositAmount) {
+      emit ValidatorAdded(address(rollup), _attester, _proposer, withdrawer);
+    } catch {
+      // Allow the deposit call to fail silently e.g. when the attester has already been added
+    }
   }
 }

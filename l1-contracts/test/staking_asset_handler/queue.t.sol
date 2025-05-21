@@ -42,13 +42,23 @@ contract QueueTest is Test {
     assertEq(queue.length(), 0);
   }
 
+  function test_WhenIncludingAlreadySeenAttesterProposerPair(address _attester, address _proposer)
+    external
+  {
+    // it reverts
+    queue.enqueue(_attester, _proposer);
+
+    vm.expectRevert(abi.encodeWithSelector(QueueLib.AlreadySeen.selector, _attester, _proposer));
+    queue.enqueue(_attester, _proposer);
+  }
+
   function test_WhenEnqueuingValidators(uint8 _validatorsToAdd) external {
     // it updates length correctly
     // it can dequeue
 
     // Add them all
     for (uint256 i = 1; i < _validatorsToAdd; ++i) {
-      queue.enqueue(address(uint160(i)), address(uint160(i)));
+      queue.enqueue(address(uint160(i)), address(uint160(i + 1)));
       assertEq(queue.length(), i);
     }
 
@@ -57,7 +67,7 @@ contract QueueTest is Test {
       (address attester, address proposer) = queue.dequeue();
       // First come first served
       assertEq(attester, address(uint160(i)));
-      assertEq(proposer, address(uint160(i)));
+      assertEq(proposer, address(uint160(i + 1)));
 
       assertEq(queue.length(), _validatorsToAdd - i - 1);
     }
