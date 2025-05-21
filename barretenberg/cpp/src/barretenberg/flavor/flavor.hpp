@@ -75,7 +75,7 @@
 #include "barretenberg/common/std_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
-#include "barretenberg/crypto/sha256/sha256.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
@@ -160,13 +160,10 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
  * @tparam FF_, the type that we will represent our VK metadata (circuit_size, log_circuit_size, num_public_inputs,
  * pub_inputs_offset). It will either be uint64_t or a stdlib field type.
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
- * @tparam VerifierCommitmentKey The PCS verification key
  */
-template <typename FF_, typename PrecomputedCommitments, typename VerifierCommitmentKey>
-class VerificationKey_ : public PrecomputedCommitments {
+template <typename FF_, typename PrecomputedCommitments> class VerificationKey_ : public PrecomputedCommitments {
   public:
-    using FF = typename VerifierCommitmentKey::Curve::ScalarField;
-    using Commitment = typename VerifierCommitmentKey::Commitment;
+    using Commitment = typename PrecomputedCommitments::DataType;
     FF_ circuit_size;
     FF_ log_circuit_size;
     FF_ num_public_inputs;
@@ -187,16 +184,16 @@ class VerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    std::vector<FF> to_field_elements() const
+    std::vector<fr> to_field_elements() const
     {
         using namespace bb::field_conversion;
 
-        auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
-            std::vector<FF> input_fields = convert_to_bn254_frs(input);
+        auto serialize_to_field_buffer = [](const auto& input, std::vector<fr>& buffer) {
+            std::vector<fr> input_fields = convert_to_bn254_frs(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 
-        std::vector<FF> elements;
+        std::vector<fr> elements;
 
         serialize_to_field_buffer(this->circuit_size, elements);
         serialize_to_field_buffer(this->num_public_inputs, elements);
@@ -210,20 +207,7 @@ class VerificationKey_ : public PrecomputedCommitments {
         return elements;
     }
 
-    uint256_t hash()
-    {
-        std::vector<FF> field_elements = to_field_elements();
-        std::vector<uint8_t> to_hash(field_elements.size() * sizeof(FF));
-
-        const auto convert_and_insert = [&to_hash](auto& vector) {
-            std::vector<uint8_t> buffer = to_buffer(vector);
-            to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
-        };
-
-        convert_and_insert(field_elements);
-
-        return from_buffer<uint256_t>(crypto::sha256(to_hash));
-    }
+    fr hash() { return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(to_field_elements()); }
 };
 
 // Because of how Gemini is written, it is important to put the polynomials out in this order.

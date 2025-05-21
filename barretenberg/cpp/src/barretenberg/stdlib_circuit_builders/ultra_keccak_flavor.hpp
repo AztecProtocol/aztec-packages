@@ -42,7 +42,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Add aggregation to the verifier contract so the
     // VerificationKey from UltraFlavor can be used
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>> {
       public:
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)

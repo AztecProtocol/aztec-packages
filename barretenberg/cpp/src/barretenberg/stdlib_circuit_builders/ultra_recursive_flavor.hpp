@@ -114,8 +114,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey
-        : public VerificationKey_<FF, UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<FF, UltraFlavor::PrecomputedEntities<Commitment>> {
       public:
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key

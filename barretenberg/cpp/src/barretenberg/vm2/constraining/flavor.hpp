@@ -123,9 +123,10 @@ class AvmFlavor {
     //               "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
     //               "in constants.nr accordingly.");
 
-    template <typename DataType> class PrecomputedEntities {
+    template <typename DataType_> class PrecomputedEntities {
       public:
-        DEFINE_FLAVOR_MEMBERS(DataType, AVM2_PRECOMPUTED_ENTITIES)
+        using DataType = DataType_;
+        DEFINE_FLAVOR_MEMBERS(DataType_, AVM2_PRECOMPUTED_ENTITIES)
     };
 
   private:
@@ -218,9 +219,8 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>> {
       public:
-        using FF = VerificationKey_::FF;
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
         VerificationKey() = default;

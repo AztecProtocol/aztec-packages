@@ -56,8 +56,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey
-        : public VerificationKey_<FF, UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<FF, UltraFlavor::PrecomputedEntities<Commitment>> {
       public:
         PublicComponentKey ipa_claim_public_input_key; // needs to be a circuit constant
 

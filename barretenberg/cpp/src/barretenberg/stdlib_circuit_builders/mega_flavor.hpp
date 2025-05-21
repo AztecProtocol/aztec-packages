@@ -440,10 +440,8 @@ class MegaFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
-     * TODO(// TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Clean up the constructors here and
-     * ensure the pcs_verification_key is initialized everywhere it needs to be.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>> {
       public:
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
         DatabusPropagationData databus_propagation_data;
