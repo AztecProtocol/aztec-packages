@@ -27,7 +27,8 @@
     "@aztec/bb.js": "../../ts",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen",
-    "@aztec/noir-noir_js": "file:../../noir/packages/noir_js"
+    "@aztec/noir-noir_js": "file:../../noir/packages/noir_js",
+    "tslog": "^4.9.3"
   },
   "devDependencies": {
     "@aztec/bb-prover": "workspace:^",
