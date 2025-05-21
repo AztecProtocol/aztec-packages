@@ -1169,7 +1169,9 @@ bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent)
     for (size_t i = 0; i < exponent_bits.size(); ++i) {
         uint256_t value_bit = exponent_value & 1;
         bool_t<Builder> bit;
+
         bit = bool_t<Builder>(witness_t<Builder>(ctx, value_bit.data[0]));
+        bit.set_origin_tag(OriginTag(exponent.get_origin_tag()));
         exponent_bits[31 - i] = (bit);
         exponent_value >>= 1;
     }
@@ -1251,11 +1253,16 @@ bigfield<Builder, T> bigfield<Builder, T>::madd(const bigfield& to_mul, const st
         quotient = create_from_u512_as_witness(ctx, quotient_value, false, num_quotient_bits);
         remainder = create_from_u512_as_witness(ctx, remainder_value);
     };
-    unsafe_evaluate_multiply_add(*this, to_mul, to_add, quotient, { remainder });
+
+    // We need to manually propagate the origin tag
     OriginTag new_tag = OriginTag(get_origin_tag(), to_mul.get_origin_tag());
     for (auto& element : to_add) {
         new_tag = OriginTag(new_tag, element.get_origin_tag());
     }
+    remainder.set_origin_tag(new_tag);
+    quotient.set_origin_tag(new_tag);
+    unsafe_evaluate_multiply_add(*this, to_mul, to_add, quotient, { remainder });
+
     return remainder;
 }
 
@@ -1579,9 +1586,12 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
         remainder = create_from_u512_as_witness(ctx, remainder_value);
     }
 
+    // We need to manually propagate the origin tag
+    quotient.set_origin_tag(new_tag);
+    remainder.set_origin_tag(new_tag);
+
     unsafe_evaluate_multiple_multiply_add(new_input_left, new_input_right, new_to_add, quotient, { remainder });
 
-    remainder.set_origin_tag(new_tag);
     return remainder;
 }
 
@@ -1714,6 +1724,9 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
     // Create the result witness
     bigfield result = create_from_u512_as_witness(ctx, result_value.lo);
 
+    // We need to manually propagate the origin tag
+    result.set_origin_tag(new_tag);
+
     std::vector<bigfield> eval_left{ result };
     std::vector<bigfield> eval_right{ divisor };
     for (const auto& in : mul_left) {
@@ -1725,7 +1738,6 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
 
     mult_madd(eval_left, eval_right, to_sub, true);
 
-    result.set_origin_tag(new_tag);
     return result;
 }
 
@@ -1911,6 +1923,9 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     }
     bool_t<Builder> is_equal = witness_t<Builder>(ctx, is_equal_raw);
 
+    // We need to manually propagate the origin tag
+    is_equal.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+
     bigfield diff = (*this) - other;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/999): get native values efficiently (i.e. if u512
@@ -1919,6 +1934,9 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     native inverse_native = is_equal_raw ? 0 : diff_native.invert();
 
     bigfield inverse = bigfield::from_witness(ctx, inverse_native);
+
+    // We need to manually propagate the origin tag
+    inverse.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
 
     bigfield multiplicand = bigfield::conditional_assign(is_equal, one(), inverse);
 

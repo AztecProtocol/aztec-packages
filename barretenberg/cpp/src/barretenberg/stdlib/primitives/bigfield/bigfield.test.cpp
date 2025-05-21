@@ -309,6 +309,10 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                 expected += to_add_values[j];
                 to_add.emplace_back(
                     fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(to_add_values[j]))));
+
+                mul_left[j].unset_free_witness_tag();
+                mul_right[j].unset_free_witness_tag();
+                to_add[j].unset_free_witness_tag();
             }
             mul_left[number_of_madds - 1].set_origin_tag(submitted_value_origin_tag);
             mul_right[number_of_madds - 1].set_origin_tag(challenge_origin_tag);
@@ -652,6 +656,11 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             mul_r1_ct.set_origin_tag(challenge_origin_tag);
             divisor1_ct.set_origin_tag(next_submitted_value_origin_tag);
             to_sub1_ct.set_origin_tag(next_challenge_tag);
+
+            mul_r2_ct.unset_free_witness_tag();
+            divisor2_ct.unset_free_witness_tag();
+            to_sub2_ct.unset_free_witness_tag();
+
             fq_ct result_ct = fq_ct::msub_div(
                 { mul_l_ct }, { mul_r1_ct - mul_r2_ct }, divisor1_ct - divisor2_ct, { to_sub1_ct, to_sub2_ct });
             EXPECT_EQ(result_ct.get_origin_tag(), first_to_fourth_merged_tag);

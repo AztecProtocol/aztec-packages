@@ -125,6 +125,7 @@ struct OriginTag {
     OriginTag(const OriginTag& tag, const T&... rest)
         : parent_tag(tag.parent_tag)
         , child_tag(tag.child_tag)
+        , instant_death(tag.instant_death)
     {
 
         OriginTag merged_tag = *this;

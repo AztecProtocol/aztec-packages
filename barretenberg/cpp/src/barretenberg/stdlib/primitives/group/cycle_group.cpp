@@ -684,6 +684,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     } else {
         lambda =
             field_t::from_witness(this->get_context(other), (y2.get_value() - y1.get_value()) / x_diff.get_value());
+        // We need to manually propagate the origin tag
+        lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
         field_t::evaluate_polynomial_identity(x_diff, lambda, -y2, y1);
     }
 
@@ -753,6 +755,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     } else {
         lambda =
             field_t::from_witness(this->get_context(other), (-y2.get_value() - y1.get_value()) / x_diff.get_value());
+        // We need to manually propagate the origin tag
+        lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
         field_t::evaluate_polynomial_identity(x_diff, lambda, y2, y1);
     }
 
@@ -1082,6 +1086,8 @@ template <typename Builder> void cycle_group<Builder>::cycle_scalar::validate_sc
 
         // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
         if (!lo.is_constant()) {
+            // We need to manually propagate the origin tag
+            borrow.set_origin_tag(lo.get_origin_tag());
             if constexpr (IS_ULTRA) {
                 get_context()->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
             } else {
