@@ -51,45 +51,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2292;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2315;
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2212;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2429;
->>>>>>> 06c527d238 (keccakf1600: firs pil relations for theta xoring)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2315;
->>>>>>> 434948a93a (Theta xor operations with simulation, tracegen, unit test)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2222;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2439;
->>>>>>> 79b3f35b1a (Theta left rotated by 1 values)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2237;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2454;
->>>>>>> dda4dca536 (Theta xor combined values)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2312;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2529;
->>>>>>> 2360fdf1ee (Finish theta function)
+    static constexpr size_t NUM_ALL_ENTITIES = 2507;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
