@@ -266,7 +266,6 @@ template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
     if (!has_dummy_witnesses) {
         // We have a builder failure when we have real witnesses which is a mistake.
         info("(Experimental) WARNING: Builder failure when we have real witnesses!"); // not a catch-all error
-        // ASSERT(false);
     }
     _failed = true;
     set_err(std::move(msg));

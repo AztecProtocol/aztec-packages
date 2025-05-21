@@ -20,5 +20,6 @@ TYPED_TEST(PairingPointsTests, ConstructDefault)
     info("Num gates after add_default_to_public_inputs: ", builder.num_gates);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
     info("Num gates: ", builder.num_gates);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 } // namespace bb::stdlib::recursion

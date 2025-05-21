@@ -518,7 +518,7 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
 TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
 {
     std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
-                             "ecdsar1+transfer_0_recursions+private_fpc/ivc-inputs.msgpack";
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));

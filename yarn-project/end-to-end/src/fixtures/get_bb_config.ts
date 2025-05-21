@@ -39,8 +39,7 @@ export const getBBConfig = async (
     const cleanup = async () => {
       if (directoryToCleanup && !bbSkipCleanup) {
         try {
-          // await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
-          await Promise.resolve();
+          await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
         } catch (err) {
           logger.warn(`Failed to delete bb working directory at ${directoryToCleanup}: ${err}`);
         }

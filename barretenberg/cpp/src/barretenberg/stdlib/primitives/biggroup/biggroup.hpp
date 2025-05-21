@@ -50,7 +50,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
 
     static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
     {
-        const typename NativeGroup::affine_element& native_val = NativeGroup::affine_element::random_element();
+        const typename NativeGroup::affine_element& native_val = NativeGroup::affine_element::one();
         element val(native_val);
         size_t idx = 0;
         std::array<fr, PUBLIC_INPUTS_SIZE> limb_vals;
