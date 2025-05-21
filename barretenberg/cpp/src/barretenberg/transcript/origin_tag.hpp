@@ -110,52 +110,7 @@ struct OriginTag {
      * @param tag_a
      * @param tag_b
      */
-    OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
-    {
-        // Elements with instant death should not be touched
-        if (tag_a.instant_death || tag_b.instant_death) {
-            throw_or_abort("Touched an element that should not have been touched");
-        }
-        // If one of the tags is a constant, just use the other tag
-        if (tag_a.parent_tag == CONSTANT) {
-            *this = tag_b;
-            return;
-        }
-        if (tag_b.parent_tag == CONSTANT) {
-            *this = tag_a;
-            return;
-        }
-
-        // A free witness element should not interact with an element that has an origin
-        if (tag_a.is_free_witness()) {
-            if (!tag_b.is_free_witness() && !tag_b.is_empty()) {
-                throw_or_abort("A free witness element should not interact with an element that has an origin");
-            } else {
-                // If both are free witnesses or one of them is empty, just use tag_a
-                *this = tag_a;
-                return;
-            }
-        }
-        if (tag_b.is_free_witness()) {
-            if (!tag_a.is_free_witness() && !tag_a.is_empty()) {
-                throw_or_abort("A free witness element should not interact with an element that has an origin");
-            } else {
-                // If both are free witnesses or one of them is empty, just use tag_b
-                *this = tag_b;
-                return;
-            }
-        }
-        // Elements from different transcripts shouldn't interact
-        if (tag_a.parent_tag != tag_b.parent_tag) {
-            throw_or_abort("Tags from different transcripts were involved in the same computation");
-        }
-
-#ifdef ENABLE_CHILD_TAG_CHECKS
-        check_child_tags(tag_a.child_tag, tag_b.child_tag);
-#endif
-        parent_tag = tag_a.parent_tag;
-        child_tag = tag_a.child_tag | tag_b.child_tag;
-    }
+    OriginTag(const OriginTag& tag_a, const OriginTag& tag_b);
 
     /**
      * @brief Construct a new Origin Tag from merging several origin tags
@@ -172,47 +127,11 @@ struct OriginTag {
         , child_tag(tag.child_tag)
     {
 
-        if (tag.instant_death) {
-            throw_or_abort("Touched an element that should not have been touched");
-        }
+        OriginTag merged_tag = *this;
         for (const auto& next_tag : { rest... }) {
-            if (next_tag.instant_death) {
-                throw_or_abort("Touched an element that should not have been touched");
-            }
-            if (parent_tag == CONSTANT) {
-                *this = next_tag;
-                continue;
-            }
-            if (next_tag.parent_tag == CONSTANT) {
-                continue;
-            }
-            // A free witness element should not interact with an element that has an origin
-            if (is_free_witness()) {
-                if (!next_tag.is_free_witness() && !next_tag.is_empty()) {
-                    throw_or_abort("A free witness element should not interact with an element that has an origin");
-                } else {
-                    // If both are free witnesses or one of them is empty, just use the free one
-                    continue;
-                }
-            }
-            if (next_tag.is_free_witness()) {
-                if (!is_free_witness() && !is_empty()) {
-                    throw_or_abort("A free witness element should not interact with an element that has an origin");
-                } else {
-                    // If both are free witnesses or one of them is empty, just use the free one
-                    *this = next_tag;
-                    continue;
-                }
-            }
-            if (parent_tag != next_tag.parent_tag) {
-                throw_or_abort("Tags from different transcripts were involved in the same computation");
-            }
-
-#ifdef ENABLE_CHILD_TAG_CHECKS
-            check_child_tags(child_tag, next_tag.child_tag);
-#endif
-            child_tag |= next_tag.child_tag;
+            merged_tag = OriginTag(merged_tag, next_tag);
         }
+        *this = merged_tag;
     }
     ~OriginTag() = default;
     bool operator==(const OriginTag& other) const;
