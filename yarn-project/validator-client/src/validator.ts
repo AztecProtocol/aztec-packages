@@ -61,7 +61,7 @@ export interface Validator {
     txs: Tx[],
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined>;
-  attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined>;
+  attestToProposal(proposal: BlockProposal): Promise<BlockAttestation[] | undefined>;
 
   broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
   collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
