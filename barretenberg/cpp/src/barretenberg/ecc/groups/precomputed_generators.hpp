@@ -3,6 +3,7 @@
 #include "barretenberg/common/zip_view.hpp"
 #include "group.hpp"
 #include <cstddef>
+#include <cxxabi.h>
 #include <span>
 #include <sstream>
 namespace bb::detail {
