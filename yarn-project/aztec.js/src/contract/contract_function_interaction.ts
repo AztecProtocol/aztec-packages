@@ -53,7 +53,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   ) {
     super(wallet, authWitnesses, capsules);
     if (args.some(arg => arg === undefined || arg === null)) {
-      throw new Error('All function interaction arguments must be defined and not null. Received: ' + args);
+      throw new Error(`All function interaction arguments must be defined and not null. Received: ${args}`);
     }
   }
 

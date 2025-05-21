@@ -1,7 +1,6 @@
 import { type Logger, retryUntil } from '@aztec/aztec.js';
 import type { ChainMonitor } from '@aztec/ethereum/test';
 
-// eslint-disable-next-line no-restricted-imports
 import { jest } from '@jest/globals';
 
 import { EpochsTestContext } from './epochs_test.js';

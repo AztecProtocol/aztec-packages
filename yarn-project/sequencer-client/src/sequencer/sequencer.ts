@@ -693,7 +693,7 @@ export class Sequencer {
     }
 
     this.log.debug('Broadcasting block proposal to validators');
-    this.validatorClient.broadcastBlockProposal(proposal);
+    await this.validatorClient.broadcastBlockProposal(proposal);
 
     const attestationTimeAllowed = this.enforceTimeTable
       ? this.timetable.getMaxAllowedTime(SequencerState.PUBLISHING_BLOCK)!

@@ -33,6 +33,7 @@ describe('sentinel-store', () => {
     const histories = await store.getHistories();
     expect(Object.keys(histories)).toHaveLength(validators.length);
 
+    // eslint-disable-next-line @typescript-eslint/no-for-in-array
     for (const index in validators) {
       const validator = validators[index];
       const history = histories[validator];

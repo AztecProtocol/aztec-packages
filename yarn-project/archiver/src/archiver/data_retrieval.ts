@@ -260,7 +260,7 @@ function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): H
       if (rollupFunctionName === 'propose') {
         return callData;
       }
-    } catch (err) {
+    } catch {
       // Skip invalid function data
       continue;
     }
