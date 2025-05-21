@@ -4,7 +4,10 @@ import { FieldReader } from './field_reader.js';
 const FIELDS = [new Fr(0), new Fr(1), new Fr(23), new Fr(45), new Fr(6789)];
 
 class Something {
-  constructor(public id: Fr, public value: number) {}
+  constructor(
+    public id: Fr,
+    public value: number,
+  ) {}
 
   static fromFields(reader: FieldReader): Something {
     return new Something(reader.readField(), reader.readU32());

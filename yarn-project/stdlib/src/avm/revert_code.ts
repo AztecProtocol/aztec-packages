@@ -13,10 +13,10 @@ export enum RevertCodeEnum {
 
 function isRevertCodeEnum(value: number): value is RevertCodeEnum {
   return (
-    value === RevertCodeEnum.OK ||
-    value === RevertCodeEnum.APP_LOGIC_REVERTED ||
-    value === RevertCodeEnum.TEARDOWN_REVERTED ||
-    value === RevertCodeEnum.BOTH_REVERTED
+    (value as RevertCodeEnum) === RevertCodeEnum.OK ||
+    (value as RevertCodeEnum) === RevertCodeEnum.APP_LOGIC_REVERTED ||
+    (value as RevertCodeEnum) === RevertCodeEnum.TEARDOWN_REVERTED ||
+    (value as RevertCodeEnum) === RevertCodeEnum.BOTH_REVERTED
   );
 }
 
@@ -46,7 +46,7 @@ export class RevertCode {
   }
 
   public getDescription() {
-    switch (this.code) {
+    switch (this.code as RevertCodeEnum) {
       case RevertCodeEnum.OK:
         return 'OK';
       case RevertCodeEnum.APP_LOGIC_REVERTED:

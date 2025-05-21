@@ -23,9 +23,9 @@
     "tslib": "^2.4.0"
   },
   "devDependencies": {
-    "@types/node": "^18.7.23",
+    "@types/node": "^22.15.17",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",
