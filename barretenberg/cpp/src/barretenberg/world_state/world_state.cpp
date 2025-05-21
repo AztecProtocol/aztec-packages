@@ -729,6 +729,8 @@ WorldStateStatusFull WorldState::unwind_blocks(const index_t& toBlockNumber)
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
+
+    // Get the set of unfinalised block numbers and unwind to the target block
     std::array<block_number_t, NUM_TREES> unfinalisedBlockNumbers{
         responses[NULLIFIER_TREE].unfinalisedBlockHeight,
         responses[NOTE_HASH_TREE].unfinalisedBlockHeight,
@@ -761,6 +763,8 @@ WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlock
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
+
+    // Get the set of historic block numbers and remove to the target block
     std::array<block_number_t, NUM_TREES> historicalBlockNumbers{ responses[NULLIFIER_TREE].oldestHistoricBlock,
                                                                   responses[NOTE_HASH_TREE].oldestHistoricBlock,
                                                                   responses[PUBLIC_DATA_TREE].oldestHistoricBlock,
@@ -1145,11 +1149,15 @@ WorldStateStatusFull WorldState::attempt_tree_resync()
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
+
+    // Get all historic block numbers
     std::array<block_number_t, NUM_TREES> historicalBlockNumbers{ responses[NULLIFIER_TREE].oldestHistoricBlock,
                                                                   responses[NOTE_HASH_TREE].oldestHistoricBlock,
                                                                   responses[PUBLIC_DATA_TREE].oldestHistoricBlock,
                                                                   responses[L1_TO_L2_MESSAGE_TREE].oldestHistoricBlock,
                                                                   responses[ARCHIVE].oldestHistoricBlock };
+
+    // Get all unfinalised block numbers
     std::array<block_number_t, NUM_TREES> unfinalisedBlockNumbers{
         responses[NULLIFIER_TREE].unfinalisedBlockHeight,
         responses[NOTE_HASH_TREE].unfinalisedBlockHeight,
@@ -1157,12 +1165,15 @@ WorldStateStatusFull WorldState::attempt_tree_resync()
         responses[L1_TO_L2_MESSAGE_TREE].unfinalisedBlockHeight,
         responses[ARCHIVE].unfinalisedBlockHeight
     };
+
+    // Get all finalised block numbers
     std::array<block_number_t, NUM_TREES> finalisedBlockNumbers{ responses[NULLIFIER_TREE].finalisedBlockHeight,
                                                                  responses[NOTE_HASH_TREE].finalisedBlockHeight,
                                                                  responses[PUBLIC_DATA_TREE].finalisedBlockHeight,
                                                                  responses[L1_TO_L2_MESSAGE_TREE].finalisedBlockHeight,
                                                                  responses[ARCHIVE].finalisedBlockHeight };
 
+    // Get the min and max of each set of block numbers
     auto historicBlockRange = std::minmax_element(std::begin(historicalBlockNumbers), std::end(historicalBlockNumbers));
 
     auto unfinalisedBlockRange =
