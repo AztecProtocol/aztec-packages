@@ -12,24 +12,25 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
-      - name: Checkout next branch
-        run: |
-          git fetch origin next
-          git checkout next
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       - name: Merge master into next
         id: merge
         run: |
+          set -eu
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
           git fetch origin master
-          if git merge origin/master; then
-            git push origin next
-          else
-            echo "conflict=true" >> $GITHUB_OUTPUT
+          git fetch origin next
+          git checkout next
+          if ! git merge origin/master; then
+            exit 1
           fi
+          git push origin next
 
       - name: Send Notification
-        if: steps.merge.outputs.conflict == 'true'
+        if: failure()
         uses: slackapi/slack-github-action@v1.25.0
         with:
           payload: |
