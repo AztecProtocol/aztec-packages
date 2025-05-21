@@ -17,14 +17,12 @@ class KeccakF1600Interface {
 
 class KeccakF1600 : public KeccakF1600Interface {
   public:
-    using State = std::array<std::array<uint64_t, 5>, 5>;
-
     KeccakF1600(EventEmitterInterface<KeccakF1600Event>& keccakf1600_emitter, BitwiseInterface& bitwise)
         : perm_events(keccakf1600_emitter)
         , bitwise(bitwise)
     {}
 
-    State permutation(const State& input) override;
+    KeccakF1600State permutation(const KeccakF1600State& input) override;
 
   private:
     EventEmitterInterface<KeccakF1600Event>& perm_events;

@@ -70,7 +70,7 @@ TEST(KeccakF1600ConstrainingTest, withSimulationAndTraceGenInteractions)
     BitwiseSimulator bitwise_simulator(bitwise_event_emitter);
     KeccakSimulator keccak_simulator(keccak_event_emitter, bitwise_simulator);
 
-    simulation::KeccakF1600::State input_state;
+    simulation::KeccakF1600State input_state;
 
     // Fill input_state with arbitrarily chosen test vector: state[i][j] = 2^32 * i + j
     for (size_t i = 0; i < 5; ++i) {

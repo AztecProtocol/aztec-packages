@@ -57,7 +57,10 @@ struct AvmFlavorVariables {
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 25317e64b6 (Theta xor operations with simulation, tracegen, unit test)
+=======
+>>>>>>> bb70cfc5b8 (Theta left rotated by 1 values)
     static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -76,7 +79,16 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = 2315;
 >>>>>>> 434948a93a (Theta xor operations with simulation, tracegen, unit test)
+<<<<<<< HEAD
 >>>>>>> 25317e64b6 (Theta xor operations with simulation, tracegen, unit test)
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2222;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2439;
+>>>>>>> 79b3f35b1a (Theta left rotated by 1 values)
+>>>>>>> bb70cfc5b8 (Theta left rotated by 1 values)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
