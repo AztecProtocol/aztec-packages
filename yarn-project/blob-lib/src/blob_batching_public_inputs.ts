@@ -1,6 +1,8 @@
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { inspect } from 'util';
+
 import { Blob } from './blob.js';
 import { BatchedBlob, BatchedBlobAccumulator, FinalBlobBatchingChallenges } from './blob_batching.js';
 
@@ -155,9 +157,18 @@ export class FinalBlobAccumulatorPublicInputs {
     );
   }
 
-  /** Creates a random instance. Used for testing only - will not prove/verify. */
+  // Creates a random instance. Used for testing only - will not prove/verify.
   static random() {
     return new FinalBlobAccumulatorPublicInputs(Fr.random(), Fr.random(), BLS12Fr.random(), BLS12Point.random());
+  }
+
+  [inspect.custom]() {
+    return `FinalBlobAccumulatorPublicInputs {
+      blobCommitmentsHash: ${inspect(this.blobCommitmentsHash)},
+      z: ${inspect(this.z)},
+      y: ${inspect(this.y)},
+      c: ${inspect(this.c)},
+    }`;
   }
 }
 

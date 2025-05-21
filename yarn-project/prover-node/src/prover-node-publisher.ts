@@ -15,6 +15,7 @@ import type { FeeRecipient, RootRollupPublicInputs } from '@aztec/stdlib/rollup'
 import type { L1PublishProofStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
+import { inspect } from 'util';
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
 // TODO(MW): prover-node does not use blob-lib, probably for a good reason, so not importing it for now
@@ -186,7 +187,9 @@ export class ProverNodePublisher {
     // Check the batched blob inputs from the root rollup against the batched blob computed in ts
     // TODO(MW): There is probably a way to add the opening proof Q to publicInputs, but it's not needed in the circuit => may be confusing
     if (!publicInputs.blobPublicInputs.equals(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))) {
-      throw new Error(`Batched blob mismatch: ${publicInputs.blobPublicInputs} !== ${batchedBlobInputs}`);
+      throw new Error(
+        `Batched blob mismatch: ${inspect(publicInputs.blobPublicInputs)} !== ${inspect(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))}`,
+      );
     }
 
     // Compare the public inputs computed by the contract with the ones injected

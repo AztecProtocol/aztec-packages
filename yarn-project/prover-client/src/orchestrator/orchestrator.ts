@@ -389,7 +389,6 @@ export class ProvingOrchestrator implements EpochProver {
     pushTestData('epochProofResult', {
       proof: epochProofResult.proof.toString(),
       publicInputs: epochProofResult.publicInputs.toString(),
-      batchedBlobInputs: epochProofResult.batchedBlobInputs.toString(),
     });
 
     return epochProofResult;
