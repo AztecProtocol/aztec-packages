@@ -399,6 +399,7 @@ case "$cmd" in
     ;;
   "ci-nightly")
     export CI=1
+    export USE_TEST_CACHE=1
     export CI_NIGHTLY=1
     build
     test
@@ -407,6 +408,7 @@ case "$cmd" in
     ;;
   "ci-release")
     export CI=1
+    export USE_TEST_CACHE=1
     if ! semver check $REF_NAME; then
       exit 1
     fi

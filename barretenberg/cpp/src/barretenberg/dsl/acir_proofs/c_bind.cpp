@@ -380,12 +380,7 @@ WASM_EXPORT void acir_gates_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
         // Create an acir program from the constraint system
         acir_format::AcirProgram program{ constraint_system };
 
-        // Extract ivc recursion constraints and define metadata
-        const auto& ivc_constraints = constraint_system.ivc_recursion_constraints;
-        const acir_format::ProgramMetadata metadata{
-            .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
-        };
-        auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+        auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
         totals.push_back(static_cast<uint32_t>(builder.num_gates));
     }

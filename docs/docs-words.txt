@@ -68,6 +68,7 @@ dagasleft
 DAGASLEFT
 danksharding
 Danksharding
+databus
 defiexit
 defn
 delegatecall
@@ -187,6 +188,7 @@ moreso
 msgexists
 MSGEXISTS
 multiscalar
+multisends
 neighbours
 Neighbours
 Nethermind
@@ -212,6 +214,7 @@ outweight
 Ovpkm
 ovskapp
 ovskm
+PCKD
 PCSTORE
 pederson
 peerings
