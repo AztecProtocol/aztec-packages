@@ -5,6 +5,7 @@ export const logger = new Logger<ILogObj>({
   stylePrettyLogs: false,
   prettyLogTemplate: '{{dateIsoStr}} {{name}} ',
   hideLogPositionForProduction: true,
+  minLevel: 3,
 });
 
 export function createChildLogger(name: string) {
@@ -12,6 +13,6 @@ export function createChildLogger(name: string) {
     name,
   });
   return (msg: string) => {
-    sublogger.trace(msg);
+    sublogger.debug(msg);
   };
 }
