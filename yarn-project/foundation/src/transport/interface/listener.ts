@@ -7,10 +7,9 @@ import type { Socket } from './socket.js';
  * Possible implementations could include MessageChannels or WebSockets.
  */
 export interface Listener extends EventEmitter {
-  // eslint-disable-next-line jsdoc/require-jsdoc
   open(): void;
-  // eslint-disable-next-line jsdoc/require-jsdoc
+
   close(): void;
-  // eslint-disable-next-line jsdoc/require-jsdoc
+
   on(name: 'new_socket', cb: (client: Socket) => void): this;
 }

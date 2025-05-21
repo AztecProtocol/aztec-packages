@@ -44,7 +44,7 @@ describe('StandardTree_batchAppend', () => {
     const leaves = Array.from({ length: 5 }, _ => Fr.random().toBuffer());
 
     pedersen.resetCounter();
-    await tree.appendLeaves(leaves);
+    tree.appendLeaves(leaves);
 
     // We append 5 leaves so to update values we do the following hashing on each level:
     //              level2Node0           level2Node1           level2Node2
@@ -79,7 +79,7 @@ describe('StandardTree_batchAppend', () => {
     const tree = await createDb(db, pedersen, 'test', 3);
     const values = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
 
-    await tree.appendLeaves([values[0]]);
+    tree.appendLeaves([values[0]]);
 
     expect(tree.findLeafIndex(values[0], true)).toBeDefined();
     expect(tree.findLeafIndex(values[0], false)).toBe(undefined);

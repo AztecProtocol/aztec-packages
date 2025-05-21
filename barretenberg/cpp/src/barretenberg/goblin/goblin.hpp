@@ -30,7 +30,7 @@ class Goblin {
     using OpQueue = ECCOpQueue;
     using ECCVMBuilder = ECCVMFlavor::CircuitBuilder;
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
-    using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
+    using TranslationEvaluations = TranslationEvaluations_<ECCVMFlavor::FF>;
     using TranslatorBuilder = TranslatorCircuitBuilder;
     using MergeProof = MergeProver::MergeProof;
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
@@ -52,7 +52,8 @@ class Goblin {
             std::make_shared<TranslatorVerificationKey>();
     };
 
-    Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr);
+    Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr,
+           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
      * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
@@ -60,6 +61,12 @@ class Goblin {
      * @param circuit_builder
      */
     MergeProof prove_merge();
+
+    /**
+     * @brief Construct the final merge proof, where the prover shares a transcript with ECCVM and Translator.
+     *
+     */
+    MergeProof prove_final_merge();
 
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
@@ -88,7 +95,7 @@ class Goblin {
      * @return true
      * @return false
      */
-    static bool verify(const GoblinProof& proof);
+    static bool verify(const GoblinProof& proof, const std::shared_ptr<Transcript>& transcript);
 };
 
 } // namespace bb

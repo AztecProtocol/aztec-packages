@@ -182,7 +182,7 @@ describe('e2e_cheat_codes', () => {
       const mintAmount = 100n;
 
       await mintTokensToPrivate(token, wallet, admin, mintAmount);
-      await token.methods.sync_notes().simulate();
+      await token.methods.sync_private_state().simulate();
 
       const balancesAdminSlot = await cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, admin);
 

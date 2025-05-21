@@ -9,6 +9,7 @@ using namespace bb;
 
 using Flavor = ECCVMFlavor;
 using Builder = ECCVMCircuitBuilder;
+using Transcript = ECCVMFlavor::Transcript;
 
 namespace {
 
@@ -48,7 +49,8 @@ void eccvm_generate_prover(State& state) noexcept
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     for (auto _ : state) {
         Builder builder = generate_trace(target_num_gates);
-        ECCVMProver prover(builder);
+        std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+        ECCVMProver prover(builder, prover_transcript);
     };
 }
 
@@ -57,7 +59,8 @@ void eccvm_prove(State& state) noexcept
 
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     Builder builder = generate_trace(target_num_gates);
-    ECCVMProver prover(builder);
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
     for (auto _ : state) {
         ECCVMProof proof = prover.construct_proof();
     };

@@ -23,7 +23,7 @@ namespace bb::group_elements {
  * See https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
  *
  * Note: Currently subgroup checks are NOT IMPLEMENTED
- * Our current Plonk implementation uses G1 points that have a cofactor of 1.
+ * Our current implementation uses G1 points that have a cofactor of 1.
  * All G2 points are precomputed (generator [1]_2 and trusted setup point [x]_2).
  * Explicitly assume precomputed points are valid members of the prime-order subgroup for G2.
  * @tparam Fq prime field the curve is defined over

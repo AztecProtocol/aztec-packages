@@ -138,7 +138,7 @@ export class ProvingAgent implements Traceable {
     let inputs: ProvingJobInputs;
     try {
       inputs = await this.proofStore.getProofInput(job.inputsUri);
-    } catch (err) {
+    } catch {
       const maybeJob = await this.broker.reportProvingJobError(job.id, 'Failed to load proof inputs', true, {
         allowList: this.proofAllowList,
       });

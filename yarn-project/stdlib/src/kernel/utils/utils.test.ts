@@ -13,7 +13,11 @@ import {
 } from './order_and_comparison.js';
 
 class TestItem {
-  constructor(public value: number, public counter = 0, public position = Fr.ZERO) {}
+  constructor(
+    public value: number,
+    public counter = 0,
+    public position = Fr.ZERO,
+  ) {}
 
   static empty() {
     return new TestItem(0);

@@ -9,7 +9,12 @@ import { z } from 'zod';
 export const NUM_BYTES_PER_SHA256 = 32;
 
 export class ContentCommitment {
-  constructor(public numTxs: Fr, public blobsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
+  constructor(
+    public numTxs: Fr,
+    public blobsHash: Buffer,
+    public inHash: Buffer,
+    public outHash: Buffer,
+  ) {
     // NB: we do not calculate blobHash in the circuit, but we still truncate it so it fits in a field
     if (blobsHash.length !== NUM_BYTES_PER_SHA256) {
       throw new Error(`blobsHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);

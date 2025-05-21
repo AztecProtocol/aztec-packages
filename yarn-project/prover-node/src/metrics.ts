@@ -242,7 +242,7 @@ export class ProverNodePublisherMetrics {
 
     try {
       this.gasPrice.record(parseInt(formatEther(stats.gasPrice, 'gwei'), 10));
-    } catch (e) {
+    } catch {
       // ignore
     }
 
@@ -252,7 +252,7 @@ export class ProverNodePublisherMetrics {
 
     try {
       this.txTotalFee.record(parseFloat(formatEther(totalFee)));
-    } catch (e) {
+    } catch {
       // ignore
     }
   }

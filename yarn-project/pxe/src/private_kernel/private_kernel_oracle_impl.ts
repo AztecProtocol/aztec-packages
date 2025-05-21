@@ -99,9 +99,8 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
   }
 
   public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
-    const { sharedMutableSlot, sharedMutableHashSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(
-      contractAddress,
-    );
+    const { sharedMutableSlot, sharedMutableHashSlot } =
+      await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
 
     const hashLeafSlot = await computePublicDataTreeLeafSlot(
       ProtocolContractAddress.ContractInstanceDeployer,

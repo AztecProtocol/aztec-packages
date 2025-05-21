@@ -125,7 +125,7 @@ export async function startProverNode(
     await setupUpdateMonitor(
       proverConfig.autoUpdate,
       new URL(proverConfig.autoUpdateUrl),
-      followsCanonicalRollup ? 'canonical' : proverConfig.rollupVersion,
+      followsCanonicalRollup,
       getPublicClient(proverConfig),
       proverConfig.l1Contracts.registryAddress,
       signalHandlers,

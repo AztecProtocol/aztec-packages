@@ -79,7 +79,7 @@ export class TxReceipt {
     } else if (revertCode.equals(RevertCode.BOTH_REVERTED)) {
       return TxStatus.BOTH_REVERTED;
     } else {
-      throw new Error(`Unknown revert code: ${revertCode}`);
+      throw new Error(`Unknown revert code: ${revertCode.getCode()}`);
     }
   }
 }

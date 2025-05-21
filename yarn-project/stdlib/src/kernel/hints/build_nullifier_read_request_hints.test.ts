@@ -14,7 +14,7 @@ describe('buildNullifierReadRequestHints', () => {
   let contractAddress: AztecAddress;
   const settledNullifierInnerValue = 99999;
   const oracle = {
-    getNullifierMembershipWitness: () => ({ membershipWitness: {}, leafPreimage: {} } as any),
+    getNullifierMembershipWitness: () => ({ membershipWitness: {}, leafPreimage: {} }) as any,
   };
   let nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>;
   let nullifiers: Tuple<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>;

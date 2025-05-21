@@ -556,7 +556,7 @@ export const deployRollup = async (
     try {
       const retrievedRollupAddress = await registryContract.read.getRollup([version]);
       logger.verbose(`Rollup ${retrievedRollupAddress} already exists in registry`);
-    } catch (e) {
+    } catch {
       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
         to: addresses.registryAddress.toString(),
         data: encodeFunctionData({

@@ -4,7 +4,11 @@ import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/founda
 import type { TopicType } from './topic_type.js';
 
 export class P2PMessage {
-  constructor(public readonly publishTime: Date, public readonly id: Buffer32, public readonly payload: Buffer) {}
+  constructor(
+    public readonly publishTime: Date,
+    public readonly id: Buffer32,
+    public readonly payload: Buffer,
+  ) {}
 
   static async fromGossipable(message: Gossipable): Promise<P2PMessage> {
     return new P2PMessage(new Date(), await message.p2pMessageIdentifier(), message.toBuffer());

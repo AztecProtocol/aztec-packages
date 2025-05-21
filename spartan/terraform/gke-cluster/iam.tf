@@ -39,3 +39,13 @@ resource "google_project_iam_member" "helm_sa_roles" {
   role    = each.key
   member  = "serviceAccount:${google_service_account.helm_sa.email}"
 }
+
+data "google_iam_policy" "all_users_storage_read" {
+  binding {
+    role = "roles/storage.objectViewer"
+    members = [
+      "allUsers",
+    ]
+  }
+}
+

@@ -22,7 +22,11 @@ export class BatchConnectionSampler {
   private readonly batch: PeerId[] = [];
   private readonly requestsPerPeer: number;
 
-  constructor(private readonly connectionSampler: ConnectionSampler, batchSize: number, maxPeers: number) {
+  constructor(
+    private readonly connectionSampler: ConnectionSampler,
+    batchSize: number,
+    maxPeers: number,
+  ) {
     if (maxPeers <= 0) {
       throw new Error('Max peers cannot be 0');
     }

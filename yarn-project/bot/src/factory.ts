@@ -238,9 +238,9 @@ export class BotFactory {
   ): Promise<void> {
     const getPrivateBalances = () =>
       Promise.all([
-        token0.methods.balance_of_private(wallet.getAddress()),
-        token1.methods.balance_of_private(wallet.getAddress()),
-        lpToken.methods.balance_of_private(wallet.getAddress()),
+        token0.methods.balance_of_private(wallet.getAddress()).simulate(),
+        token1.methods.balance_of_private(wallet.getAddress()).simulate(),
+        lpToken.methods.balance_of_private(wallet.getAddress()).simulate(),
       ]);
 
     const nonce = Fr.random();

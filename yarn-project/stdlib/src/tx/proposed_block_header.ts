@@ -154,6 +154,7 @@ export class ProposedBlockHeader {
   }
 
   [inspect.custom]() {
+    const gasfees = `da:${this.gasFees.feePerDaGas.toBigInt()}, l2:${this.gasFees.feePerL2Gas.toBigInt()}`;
     return `Header {
   lastArchiveRoot: ${this.lastArchiveRoot.toString()},
   contentCommitment: ${inspect(this.contentCommitment)},
@@ -161,7 +162,7 @@ export class ProposedBlockHeader {
   timestamp: ${this.timestamp},
   coinbase: ${this.coinbase.toString()},
   feeRecipient: ${this.feeRecipient.toString()},
-  gasFees: ${this.gasFees.toInspect()},
+  gasFees: ${gasfees},
   totalManaUsed: ${this.totalManaUsed.toBigInt()},
 }`;
   }

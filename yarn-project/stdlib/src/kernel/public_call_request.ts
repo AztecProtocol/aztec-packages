@@ -124,7 +124,10 @@ export class PublicCallRequest {
 }
 
 export class CountedPublicCallRequest {
-  constructor(public inner: PublicCallRequest, public counter: UInt32) {}
+  constructor(
+    public inner: PublicCallRequest,
+    public counter: UInt32,
+  ) {}
 
   getSize() {
     return this.isEmpty() ? 0 : this.toBuffer().length;

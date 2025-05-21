@@ -109,28 +109,6 @@
       "not started": 15
     }
   },
-  "plonk": {
-    "internal": {
-      "not started": 48
-    },
-    "external_1": {
-      "not started": 48
-    },
-    "external_2": {
-      "not started": 48
-    }
-  },
-  "plonk_honk_shared": {
-    "internal": {
-      "not started": 17
-    },
-    "external_1": {
-      "not started": 17
-    },
-    "external_2": {
-      "not started": 17
-    }
-  },
   "polynomials": {
     "internal": {
       "not started": 24

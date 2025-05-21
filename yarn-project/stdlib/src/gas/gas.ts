@@ -14,7 +14,10 @@ export type GasDimensions = (typeof GasDimensions)[number];
 
 /** Gas amounts in each dimension. */
 export class Gas {
-  constructor(public readonly daGas: UInt32, public readonly l2Gas: UInt32) {}
+  constructor(
+    public readonly daGas: UInt32,
+    public readonly l2Gas: UInt32,
+  ) {}
 
   static get schema() {
     return z

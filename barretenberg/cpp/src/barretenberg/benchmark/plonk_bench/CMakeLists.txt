@@ -1,1 +1,0 @@
-barretenberg_module(plonk_bench plonk stdlib_primitives)

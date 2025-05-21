@@ -4,3 +4,4 @@ type = "bin"
 authors = [""]
 
 [dependencies]
+bb_proof_verification = { path = "../../../noir/bb_proof_verification" }

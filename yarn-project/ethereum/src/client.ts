@@ -54,7 +54,7 @@ async function waitForRpc(client: ViemPublicClient, config: Config, logger?: Log
       let chainId = 0;
       try {
         chainId = await client.getChainId();
-      } catch (err) {
+      } catch {
         logger?.warn(`Failed to connect to Ethereum node at ${config.l1RpcUrls.join(', ')}. Retrying...`);
       }
       return chainId;
@@ -73,7 +73,7 @@ async function waitForRpc(client: ViemPublicClient, config: Config, logger?: Log
 
 export function createExtendedL1Client(
   rpcUrls: string[],
-  mnemonicOrPrivateKeyOrHdAccount: string | `0x${string}` | HDAccount | PrivateKeyAccount | LocalAccount,
+  mnemonicOrPrivateKeyOrHdAccount: string | HDAccount | PrivateKeyAccount | LocalAccount,
   chain: Chain = foundry,
   pollingIntervalMS?: number,
   addressIndex?: number,

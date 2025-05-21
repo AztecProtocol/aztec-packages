@@ -20,7 +20,7 @@ export const Glossary = {
     aztec_up: () => (
       <p>
         This tool updates the local aztec executables to the latest version
-        (default behaviour) or to a specified version.
+        (default behavior) or to a specified version.
       </p>
     ),
     aztec_wallet: () => (

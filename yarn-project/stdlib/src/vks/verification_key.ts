@@ -88,7 +88,10 @@ export const CIRCUIT_RECURSIVE_INDEX = 3;
  * Provides a 'fields' representation of a circuit's verification key
  */
 export class VerificationKeyAsFields {
-  constructor(public key: Fr[], public hash: Fr) {}
+  constructor(
+    public key: Fr[],
+    public hash: Fr,
+  ) {}
 
   public get numPublicInputs() {
     return Number(this.key[CIRCUIT_PUBLIC_INPUTS_INDEX]);
@@ -252,7 +255,10 @@ export class VerificationKey {
 }
 
 export class VerificationKeyData {
-  constructor(public readonly keyAsFields: VerificationKeyAsFields, public readonly keyAsBytes: Buffer) {}
+  constructor(
+    public readonly keyAsFields: VerificationKeyAsFields,
+    public readonly keyAsBytes: Buffer,
+  ) {}
 
   public get numPublicInputs() {
     return this.keyAsFields.numPublicInputs;

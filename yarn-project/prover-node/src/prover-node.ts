@@ -7,7 +7,6 @@ import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { Maybe } from '@aztec/foundation/types';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
@@ -70,11 +69,11 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   constructor(
     protected readonly prover: EpochProverManager,
     protected readonly publisher: ProverNodePublisher,
-    protected readonly l2BlockSource: L2BlockSource & Maybe<Service>,
+    protected readonly l2BlockSource: L2BlockSource & Partial<Service>,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly worldState: WorldStateSynchronizer,
-    protected readonly coordination: ProverCoordination,
+    protected readonly coordination: ProverCoordination & Partial<Service>,
     protected readonly epochsMonitor: EpochMonitor,
     config: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),

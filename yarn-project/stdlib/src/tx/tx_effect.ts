@@ -504,16 +504,23 @@ export class TxEffect {
 
   [inspect.custom]() {
     return `TxEffect {
-      revertCode: ${this.revertCode},
+      revertCode: ${this.revertCode.getCode()},
       txHash: ${this.txHash},
       transactionFee: ${this.transactionFee},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],
       nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],
       l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],
       publicDataWrites: [${this.publicDataWrites.map(h => h.toString()).join(', ')}],
-      privateLogs: [${this.privateLogs.map(l => l.toString()).join(', ')}],
-      publicLogs: [${this.publicLogs.map(l => l.toString()).join(', ')}],
-      contractClassLogs: [${this.contractClassLogs.map(l => l.toString()).join(', ')}],
+      privateLogs: [${this.privateLogs.map(l => l.fields.map(f => f.toString()).join(',')).join(', ')}],
+      publicLogs: [${this.publicLogs.map(l => l.fields.map(f => f.toString()).join(',')).join(', ')}],
+      contractClassLogs: [${this.contractClassLogs
+        .map(l =>
+          l
+            .toFields()
+            .map(f => f.toString())
+            .join(','),
+        )
+        .join(', ')}],
      }`;
   }
 

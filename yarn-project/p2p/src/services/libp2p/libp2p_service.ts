@@ -220,7 +220,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         tcp({
           maxConnections: config.maxPeerCount,
           // socket option: the maximum length of the queue of pending connections
-          // https://nodejs.org/dist/latest-v18.x/docs/api/net.html#serverlisten
+          // https://nodejs.org/dist/latest-v22.x/docs/api/net.html#serverlisten
           // it's not safe if we increase this number
           backlog: 5,
           closeServerOnMaxConnections: {

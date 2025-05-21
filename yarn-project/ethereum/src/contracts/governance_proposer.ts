@@ -12,7 +12,10 @@ import { extractProposalIdFromLogs } from './governance.js';
 export class GovernanceProposerContract implements IEmpireBase {
   private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, ViemClient>;
 
-  constructor(public readonly client: ViemClient, address: Hex) {
+  constructor(
+    public readonly client: ViemClient,
+    address: Hex,
+  ) {
     this.proposer = getContract({ address, abi: GovernanceProposerAbi, client });
   }
 

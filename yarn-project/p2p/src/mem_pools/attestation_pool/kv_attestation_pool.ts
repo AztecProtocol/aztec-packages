@@ -40,8 +40,8 @@ export class KvAttestationPool implements AttestationPool {
       typeof proposalId === 'string'
         ? proposalId
         : Buffer.isBuffer(proposalId)
-        ? Fr.fromBuffer(proposalId).toString()
-        : proposalId.toString();
+          ? Fr.fromBuffer(proposalId).toString()
+          : proposalId.toString();
 
     return `${slotStr}-${proposalIdStr}`;
   }

@@ -28,7 +28,10 @@ export class ArchiverInstrumentation {
 
   private log = createLogger('archiver:instrumentation');
 
-  private constructor(private telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
+  private constructor(
+    private telemetry: TelemetryClient,
+    lmdbStats?: LmdbStatsCallback,
+  ) {
     this.tracer = telemetry.getTracer('Archiver');
     const meter = telemetry.getMeter('Archiver');
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT, {

@@ -1,7 +1,6 @@
 use crate::{test::utils, Token};
 use dep::aztec::oracle::random::random;
 use dep::uint_note::uint_note::PartialUintNote;
-use std::test::OracleMock;
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the TOKEN contract itself.
@@ -27,11 +26,6 @@ unconstrained fn transfer_to_private_external_orchestration() {
     let (env, token_contract_address, owner, recipient, amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
-    let note_randomness = random();
-
-    // We mock the Oracle to return the note randomness such that later on we can manually add the note
-    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
-
     // We prepare the transfer
     let partial_uint_note = Token::at(token_contract_address)
         .prepare_private_balance_increase(recipient, owner)
@@ -48,7 +42,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
     utils::check_private_balance(token_contract_address, recipient, amount);
 }
 
-#[test(should_fail_with = "Invalid partial note")]
+#[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, _, amount) =
@@ -78,6 +72,31 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
 
     // Try transferring someone else's token balance
     env.impersonate(not_owner);
+    Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note).call(
+        &mut env.public(),
+    );
+}
+
+#[test(should_fail_with = "Invalid partial note or completer")]
+unconstrained fn incorrect_completer_cannot_complete_partial_note() {
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
+    // We mint to the incorrect completer to avoid the test failing due to the NFT owner check (we want to fail on
+    // the partial note validity check).
+    let (env, token_contract_address, incorrect_completer, recipient, amount) =
+        utils::setup_and_mint_to_public(/* with_account_contracts */ false);
+
+    // We set up the completer
+    let completer = env.create_account(3);
+    let arbitrary_sender = env.create_account(4);
+
+    // We prepare the partial note as a completer
+    env.impersonate(completer);
+    let partial_uint_note = Token::at(token_contract_address)
+        .prepare_private_balance_increase(recipient, arbitrary_sender)
+        .call(&mut env.private());
+
+    // We impersonate the incorrect completer and try to finalize the transfer
+    env.impersonate(incorrect_completer);
     Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note).call(
         &mut env.public(),
     );

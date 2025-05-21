@@ -113,19 +113,19 @@ const sortNotes = (a: Fr[], b: Fr[], sorts: Sort[], level = 0): number => {
   }
 
   const { selector, order } = sorts[level];
-  if (order === 0) {
+  if (order === (0 as SortOrder)) {
     return 0;
   }
 
   const aValue = selectPropertyFromPackedNoteContent(a, selector);
   const bValue = selectPropertyFromPackedNoteContent(b, selector);
 
-  const dir = order === 1 ? [-1, 1] : [1, -1];
+  const dir = order === (1 as SortOrder) ? [-1, 1] : [1, -1];
   return aValue.toBigInt() === bValue.toBigInt()
     ? sortNotes(a, b, sorts, level + 1)
     : aValue.toBigInt() > bValue.toBigInt()
-    ? dir[0]
-    : dir[1];
+      ? dir[0]
+      : dir[1];
 };
 
 /**

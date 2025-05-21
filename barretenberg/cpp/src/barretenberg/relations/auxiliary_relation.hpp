@@ -63,8 +63,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
 
     /**
      * @brief Expression for the generalized permutation sort gate.
-     * @details The following explanation is reproduced from the Plonk analog 'plookup_auxiliary_widget':
-     * Adds contributions for identities associated with several custom gates:
+     * @details Adds contributions for identities associated with several custom gates:
      *  * RAM/ROM read-write consistency check
      *  * RAM timestamp difference consistency check
      *  * RAM/ROM index difference consistency check

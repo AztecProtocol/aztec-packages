@@ -85,6 +85,7 @@ export async function makeTestP2PClient(
     proofVerifier,
     mockWorldState,
     mockEpochCache,
+    'test-p2p-client',
     undefined,
     deps,
   );
@@ -108,7 +109,7 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
     try {
       ports = await getPorts(numberOfPeers);
       break;
-    } catch (err) {
+    } catch {
       await sleep(1000);
     }
   }

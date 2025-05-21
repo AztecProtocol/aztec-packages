@@ -548,6 +548,7 @@ export function makeTxRequest(seed = 1): TxRequest {
     functionData: new FunctionData(makeSelector(seed + 0x100), /*isPrivate=*/ true),
     argsHash: fr(seed + 0x200),
     txContext: makeTxContext(seed + 0x400),
+    salt: fr(seed + 0x500),
   });
 }
 

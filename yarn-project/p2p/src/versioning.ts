@@ -12,7 +12,7 @@ import {
 import type { SignableENR } from '@chainsafe/enr';
 import xxhashFactory from 'xxhash-wasm';
 
-import { AZTEC_ENR_KEY } from './types/index.js';
+import { AZTEC_ENR_CLIENT_VERSION_KEY, AZTEC_ENR_KEY } from './types/index.js';
 
 const USE_XX_HASH = false; // Enable to reduce the size of the ENR record for production
 const XX_HASH_LEN = 8;
@@ -29,6 +29,13 @@ export function setAztecEnrKey(enr: SignableENR, config: ChainConfig, useXxHash 
   const value = versionsToEnrValue(versions, useXxHash);
   enr.set(AZTEC_ENR_KEY, value);
   return versions;
+}
+
+/** Sets the Aztec client version on ENR record **/
+export function setAztecClientVersionEnrKey(enr: SignableENR, clientVersion: string) {
+  if (clientVersion) {
+    enr.set(AZTEC_ENR_CLIENT_VERSION_KEY, Buffer.from(clientVersion));
+  }
 }
 
 /** Checks the given value from an ENR record against the expected versions. */

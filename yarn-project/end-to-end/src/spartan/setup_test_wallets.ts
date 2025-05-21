@@ -170,9 +170,12 @@ export async function performTransfers({
   for (let i = 0; i < rounds; i++) {
     const interactions = await Promise.all(
       testWallets.wallets.map(async w =>
-        (
-          await TokenContract.at(testWallets.tokenAddress, w)
-        ).methods.transfer_in_public(w.getAddress(), recipient, transferAmount, 0),
+        (await TokenContract.at(testWallets.tokenAddress, w)).methods.transfer_in_public(
+          w.getAddress(),
+          recipient,
+          transferAmount,
+          0,
+        ),
       ),
     );
 

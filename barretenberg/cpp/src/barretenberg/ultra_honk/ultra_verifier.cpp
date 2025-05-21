@@ -21,7 +21,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 {
     using FF = typename Flavor::FF;
 
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
     transcript->enable_manifest(); // Enable manifest for the verifier.
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
@@ -75,15 +75,24 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 
     DeciderVerifier decider_verifier{ verification_key, transcript };
     auto decider_output = decider_verifier.verify();
+    if (!decider_output.sumcheck_verified) {
+        info("Sumcheck failed!");
+        return false;
+    }
+    if (!decider_output.libra_evals_verified) {
+        info("Libra evals failed!");
+        return false;
+    }
 
     // Extract nested pairing points from the proof
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Handle pairing points in keccak flavors.
     if constexpr (!std::is_same_v<Flavor, UltraKeccakFlavor> && !std::is_same_v<Flavor, UltraKeccakZKFlavor>) {
-        std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{
-            verification_key->public_inputs.data() +
-                verification_key->verification_key->pairing_inputs_public_input_key.start_idx,
-            PAIRING_POINTS_SIZE
-        };
+        const size_t limb_offset = verification_key->verification_key->pairing_inputs_public_input_key.start_idx;
+        BB_ASSERT_GTE(verification_key->public_inputs.size(),
+                      limb_offset + PAIRING_POINTS_SIZE,
+                      "Not enough public inputs to extract pairing points");
+        std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{ verification_key->public_inputs.data() + limb_offset,
+                                                                 PAIRING_POINTS_SIZE };
         PairingPoints nested_pairing_points = PairingPoints::reconstruct_from_public(pairing_points_limbs);
         decider_output.pairing_points.aggregate(nested_pairing_points);
     }

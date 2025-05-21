@@ -9,7 +9,7 @@ export const waitForNode = async (node: AztecNode, logger?: Logger) => {
       await node.getNodeInfo();
       logger?.verbose('Contacted Aztec node');
       return true;
-    } catch (error) {
+    } catch {
       logger?.verbose('Failed to contact Aztec Node');
     }
     return undefined;

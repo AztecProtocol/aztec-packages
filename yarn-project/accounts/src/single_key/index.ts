@@ -13,7 +13,7 @@ import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveMasterIncomingViewingSecretKey } from '@aztec/stdlib/keys';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import SchnorrSingleKeyAccountContractJson from '../../artifacts/SchnorrSingleKeyAccount.json' assert { type: 'json' };
+import SchnorrSingleKeyAccountContractJson from '../../artifacts/SchnorrSingleKeyAccount.json' with { type: 'json' };
 import { SingleKeyBaseAccountContract } from './account_contract.js';
 
 export const SchnorrSingleKeyAccountContractArtifact = loadContractArtifact(

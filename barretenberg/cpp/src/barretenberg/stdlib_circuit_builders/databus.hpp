@@ -7,14 +7,15 @@
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <cstdint>
 namespace bb {
 
 // We assume all kernels have space for two return data commitments on their public inputs
+constexpr uint32_t NUM_DATABUS_COMMITMENTS = 2;
 constexpr uint32_t PROPAGATED_DATABUS_COMMITMENT_SIZE = 8;
-constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = PROPAGATED_DATABUS_COMMITMENT_SIZE * 2; // Two databus comms
+constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = PROPAGATED_DATABUS_COMMITMENT_SIZE * NUM_DATABUS_COMMITMENTS;
 
 /**
  * @brief A DataBus column

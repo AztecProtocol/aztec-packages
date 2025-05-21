@@ -182,6 +182,23 @@ const PIL_GENERATORS: string[] = [
   'PUBLIC_LEAF_INDEX',
 ];
 
+const SOLIDITY_CONSTANTS = [
+  'MAX_FIELD_VALUE',
+  'MAX_L2_TO_L1_MSGS_PER_TX',
+  'L1_TO_L2_MSG_SUBTREE_HEIGHT',
+  'NUM_MSGS_PER_BASE_PARITY',
+  'NUM_BASE_PARITY_PER_ROOT_PARITY',
+  'PROPOSED_BLOCK_HEADER_LENGTH_BYTES',
+  'ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH',
+  'BLOBS_PER_BLOCK',
+  'BLOB_PUBLIC_INPUTS',
+  'BLOB_PUBLIC_INPUTS_BYTES',
+  'INITIAL_L2_BLOCK_NUM',
+  'GENESIS_ARCHIVE_ROOT',
+  'FEE_JUICE_ADDRESS',
+  'AZTEC_MAX_EPOCH_DURATION',
+];
+
 /**
  * Parsed content.
  */
@@ -292,7 +309,7 @@ function processEnumTS(enumName: string, enumValues: { [key: string]: number }):
 function processConstantsSolidity(constants: { [key: string]: string }, prefix = ''): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    if (!key.startsWith('AVM_')) {
+    if (SOLIDITY_CONSTANTS.includes(key)) {
       code.push(`  uint256 internal constant ${prefix}${key} = ${value};`);
     }
   });

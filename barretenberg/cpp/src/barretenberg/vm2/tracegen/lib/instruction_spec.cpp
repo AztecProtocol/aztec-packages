@@ -90,7 +90,8 @@ const std::unordered_map<ExecutionOpCode, RegisterMemInfo> REGISTER_INFO_MAP = {
     { ExecutionOpCode::SET, RegisterMemInfo().has_inputs(0).has_outputs(1) },
     { ExecutionOpCode::MOV, RegisterMemInfo().has_inputs(1).has_outputs(1) },
     { ExecutionOpCode::CALL, RegisterMemInfo().has_inputs(3) },
-    { ExecutionOpCode::RETURN, RegisterMemInfo().has_inputs(0) },
+    { ExecutionOpCode::RETURN, RegisterMemInfo().has_inputs(1) },
+    { ExecutionOpCode::REVERT, RegisterMemInfo().has_inputs(1) },
     { ExecutionOpCode::JUMP, RegisterMemInfo() },
     { ExecutionOpCode::JUMPI, RegisterMemInfo().has_inputs(1) },
 } };

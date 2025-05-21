@@ -419,8 +419,8 @@ export class PrivateKernelResetPrivateInputsBuilder {
         const overflownData = noteHashWillOverflow
           ? 'note hashes'
           : nullifierWillOverflow
-          ? 'nullifiers'
-          : 'private logs';
+            ? 'nullifiers'
+            : 'private logs';
         throw new Error(`Number of ${overflownData} exceeds the limit.`);
       }
       // Clearing the read requests might not be enough to squash the overflown data.

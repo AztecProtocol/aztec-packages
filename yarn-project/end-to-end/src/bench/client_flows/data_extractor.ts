@@ -19,7 +19,7 @@ type Log = {
   timestamp: number;
   prefix: string;
   message: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   data: any;
 };
 
@@ -180,8 +180,8 @@ async function main() {
       },
     }));
     let stats: { duration: number; eventName: string; proofSize: number } | undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let error: any | undefined;
+
+    let error: any;
     let currentLogs: Log[] = [];
     let provingTime;
     try {

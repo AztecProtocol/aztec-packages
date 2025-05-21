@@ -388,10 +388,10 @@ class MockPXE implements PXE {
   async simulateTx(
     txRequest: TxExecutionRequest,
     _simulatePublic: boolean,
-    msgSender?: AztecAddress | undefined,
-    _skipTxValidation?: boolean | undefined,
-    _enforceFeePayment?: boolean | undefined,
-    scopes?: AztecAddress[] | undefined,
+    msgSender?: AztecAddress,
+    _skipTxValidation?: boolean,
+    _enforceFeePayment?: boolean,
+    scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
     if (msgSender) {
@@ -455,8 +455,8 @@ class MockPXE implements PXE {
     _args: any[],
     to: AztecAddress,
     authwits?: AuthWitness[],
-    from?: AztecAddress | undefined,
-    scopes?: AztecAddress[] | undefined,
+    from?: AztecAddress,
+    scopes?: AztecAddress[],
   ): Promise<UtilitySimulationResult> {
     expect(to).toEqual(this.address);
     expect(from).toEqual(this.address);

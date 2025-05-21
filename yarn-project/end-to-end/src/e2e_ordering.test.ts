@@ -80,8 +80,8 @@ describe('e2e_ordering', () => {
             ),
           );
 
-          // The enqueued public calls are in the expected order based on the argument they set (stack is reversed!)
-          expect(enqueuedPublicCalls.map(c => c.args[0].toBigInt())).toEqual([...expectedOrder].reverse());
+          // The enqueued public calls are in the expected order based on the argument they set.
+          expect(enqueuedPublicCalls.map(c => c.args[0].toBigInt())).toEqual(expectedOrder);
 
           // Logs are emitted in the expected order
           await expectLogsFromLastBlockToBe(expectedOrder);

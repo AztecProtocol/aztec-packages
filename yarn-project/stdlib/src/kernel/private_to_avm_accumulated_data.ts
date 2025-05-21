@@ -122,7 +122,11 @@ export class PrivateToAvmAccumulatedData {
 }
 
 export class PrivateToAvmAccumulatedDataArrayLengths {
-  constructor(public noteHashes: UInt32, public nullifiers: UInt32, public l2ToL1Msgs: UInt32) {}
+  constructor(
+    public noteHashes: UInt32,
+    public nullifiers: UInt32,
+    public l2ToL1Msgs: UInt32,
+  ) {}
 
   static get schema() {
     return z

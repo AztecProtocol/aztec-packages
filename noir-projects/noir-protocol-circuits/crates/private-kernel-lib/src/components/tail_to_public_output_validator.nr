@@ -15,8 +15,7 @@ use dep::types::{
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::{
-        assert_split_sorted_transformed_value_arrays_asc,
-        assert_split_sorted_transformed_value_arrays_desc, assert_split_transformed_value_arrays,
+        assert_split_sorted_transformed_value_arrays_asc, assert_split_transformed_value_arrays,
     },
 };
 use tail_to_public_output_hints::{generate_tail_to_public_output_hints, TailToPublicOutputHints};
@@ -126,7 +125,7 @@ impl TailToPublicOutputValidator {
         );
 
         // public_call_requests
-        assert_split_sorted_transformed_value_arrays_desc(
+        assert_split_sorted_transformed_value_arrays_asc(
             prev_data.public_call_requests,
             prev_data.public_call_requests.map(|cr: Counted<PublicCallRequest>| cr.inner),
             split_counter,

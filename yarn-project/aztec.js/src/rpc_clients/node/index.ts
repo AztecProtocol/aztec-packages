@@ -35,6 +35,7 @@ async function axiosFetch(host: string, body: unknown) {
   if (isOK) {
     const headers = {
       get: (header: string) =>
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         typeof resp.headers.get === 'function' ? resp.headers.get(header)?.toString() : undefined,
     };
     return { response: resp.data, headers };

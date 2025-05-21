@@ -46,7 +46,6 @@ cycle_group<C> pedersen_commitment<C>::commit(const std::vector<std::pair<field_
     return cycle_group::batch_mul(points, scalars);
 }
 
-template class pedersen_commitment<bb::StandardCircuitBuilder>;
 template class pedersen_commitment<bb::UltraCircuitBuilder>;
 template class pedersen_commitment<bb::MegaCircuitBuilder>;
 

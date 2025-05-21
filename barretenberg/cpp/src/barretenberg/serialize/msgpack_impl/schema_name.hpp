@@ -13,7 +13,8 @@
  */
 template <typename T> std::string msgpack_schema_name(T const&)
 {
-    std::string result = abi::__cxa_demangle(typeid(T).name(), NULL, NULL, NULL);
+    char* result_cstr = abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr);
+    std::string result = result_cstr;
     if (result.find("basic_string") != std::string::npos) {
         return "string";
     }
@@ -21,11 +22,12 @@ template <typename T> std::string msgpack_schema_name(T const&)
         return "int";
     }
 
-    if (result.find('<') != size_t(-1)) {
+    if (result.find('<') != static_cast<size_t>(-1)) {
         result = result.substr(0, result.find('<'));
     }
-    if (result.rfind(':') != size_t(-1)) {
+    if (result.rfind(':') != static_cast<size_t>(-1)) {
         result = result.substr(result.rfind(':') + 1, result.size());
     }
+    std::free(result_cstr); // NOLINT
     return result;
 }

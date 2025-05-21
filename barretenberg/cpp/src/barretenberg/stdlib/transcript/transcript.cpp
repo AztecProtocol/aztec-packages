@@ -5,3 +5,5 @@
 // =====================
 
 #include "transcript.hpp"
+
+void __make_not_empty_cpp_appease_mac_clang() {}

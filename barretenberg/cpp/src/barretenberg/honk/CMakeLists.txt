@@ -1,1 +1,1 @@
-barretenberg_module(honk polynomials)
+barretenberg_module(honk polynomials ultra_honk)

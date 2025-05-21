@@ -26,8 +26,8 @@ if ! command -v node &> /dev/null; then
 fi
 
 NODE_VERSION=$(node --version | grep -oP 'v\K[0-9]+')
-if ! [ "$NODE_VERSION" = 18 ] ; then
-    echo "Expected node.js version at 18.x.x. You have version $(node --version)."
+if ! [ "$NODE_VERSION" = 22 ] ; then
+    echo "Expected node.js version at 22.x.x. You have version $(node --version)."
     exit 1
 fi
 

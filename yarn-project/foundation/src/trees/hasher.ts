@@ -8,14 +8,14 @@ export interface Hasher {
    * @param rhs - The second array.
    * @returns The new 32-byte hash.
    */
-  hash(lhs: Uint8Array, rhs: Uint8Array): Buffer;
+  hash(lhs: Uint8Array, rhs: Uint8Array): Buffer<ArrayBuffer>;
 
   /**
    * Hashes an array of buffers.
    * @param inputs - The array of buffers to hash.
    * @returns The resulting 32-byte hash.
    */
-  hashInputs(inputs: Buffer[]): Buffer;
+  hashInputs(inputs: Buffer[]): Buffer<ArrayBuffer>;
 }
 
 /**
@@ -28,12 +28,12 @@ export interface AsyncHasher {
    * @param rhs - The second array.
    * @returns The new 32-byte hash.
    */
-  hash(lhs: Uint8Array, rhs: Uint8Array): Promise<Buffer>;
+  hash(lhs: Uint8Array, rhs: Uint8Array): Promise<Buffer<ArrayBuffer>>;
 
   /**
    * Hashes an array of buffers.
    * @param inputs - The array of buffers to hash.
    * @returns The resulting 32-byte hash.
    */
-  hashInputs(inputs: Buffer[]): Promise<Buffer>;
+  hashInputs(inputs: Buffer[]): Promise<Buffer<ArrayBuffer>>;
 }

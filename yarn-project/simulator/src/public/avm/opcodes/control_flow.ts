@@ -38,7 +38,11 @@ export class JumpI extends Instruction {
     OperandType.UINT32,
   ];
 
-  constructor(private indirect: number, private condOffset: number, private loc: number) {
+  constructor(
+    private indirect: number,
+    private condOffset: number,
+    private loc: number,
+  ) {
     super();
   }
 

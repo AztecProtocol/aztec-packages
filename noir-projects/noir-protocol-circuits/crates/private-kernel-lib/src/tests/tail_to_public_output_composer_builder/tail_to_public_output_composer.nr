@@ -125,11 +125,11 @@ fn tail_to_public_output_composer_succeeds() {
     let public_call_requests = data.public_call_requests;
     assert_array_eq(
         output.non_revertible_accumulated_data.public_call_requests,
-        [public_call_requests[1], public_call_requests[0]],
+        [public_call_requests[0], public_call_requests[1]],
     );
     assert_array_eq(
         output.revertible_accumulated_data.public_call_requests,
-        [public_call_requests[4], public_call_requests[3], public_call_requests[2]],
+        [public_call_requests[2], public_call_requests[3], public_call_requests[4]],
     );
 
     // Compute gas.

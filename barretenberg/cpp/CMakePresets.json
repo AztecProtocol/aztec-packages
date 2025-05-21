@@ -264,6 +264,18 @@
       }
     },
     {
+      "name": "asan-fast",
+      "displayName": "Debugging build with address sanitizer on Clang-16 in optimized debug mode",
+      "description": "Build with address sanitizer on clang16 in optimized debug mode",
+      "inherits": "clang16-dbg-fast",
+      "binaryDir": "build-asan-fast",
+      "cacheVariables": {
+        "ENABLE_ASAN": "ON",
+        "DISABLE_AZTEC_VM": "ON",
+        "DISABLE_ASM": "ON"
+      }
+    },
+    {
       "name": "asan",
       "displayName": "Debugging build with address sanitizer on Clang-16",
       "description": "Build with address sanitizer on clang16 with debugging information",
@@ -652,6 +664,11 @@
       "name": "clang16-assert",
       "inherits": "default",
       "configurePreset": "clang16-assert"
+    },
+    {
+      "name": "asan-fast",
+      "inherits": "default",
+      "configurePreset": "asan-fast"
     },
     {
       "name": "asan",

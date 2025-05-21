@@ -77,13 +77,6 @@ template <class Curve> class CommitmentKey {
         , dyadic_size(get_num_needed_srs_points(num_points))
     {}
 
-    // Note: This constructor is to be used only by Plonk; For Honk the srs lives in the CommitmentKey
-    CommitmentKey(const size_t num_points, std::shared_ptr<srs::factories::Crs<Curve>> prover_crs)
-        : pippenger_runtime_state(num_points)
-        , srs(prover_crs)
-        , dyadic_size(get_num_needed_srs_points(num_points))
-    {}
-
     /**
      * @brief Uses the ProverSRS to create a commitment to p(X)
      *

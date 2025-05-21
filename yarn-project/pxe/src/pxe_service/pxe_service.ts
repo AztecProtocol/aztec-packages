@@ -1011,8 +1011,8 @@ export class PXEService implements PXE {
 
     this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + numBlocks}`);
 
-    // TODO(#13113): This is a temporary hack to ensure that the notes are synced before getting the events.
-    await this.simulateUtility('sync_notes', [], contractAddress);
+    // We need to manually trigger private state sync to have a guarantee that all the events are available.
+    await this.simulateUtility('sync_private_state', [], contractAddress);
 
     const events = await this.privateEventDataProvider.getPrivateEvents(
       contractAddress,

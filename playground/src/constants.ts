@@ -7,7 +7,7 @@ export const PREDEFINED_CONTRACTS = {
   CUSTOM_UPLOAD: 'custom_upload',
 };
 
-export const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
+export const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_private_state', 'public_dispatch'];
 
 export const TX_TIMEOUT = 180;
 

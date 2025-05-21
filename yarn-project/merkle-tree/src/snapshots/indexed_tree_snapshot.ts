@@ -14,7 +14,11 @@ export class IndexedTreeSnapshotBuilder
   implements TreeSnapshotBuilder<IndexedTreeSnapshot>
 {
   leaves: AztecMap<string, Buffer>;
-  constructor(store: AztecKVStore, tree: IndexedTree & TreeBase<Buffer>, private leafPreimageBuilder: PreimageFactory) {
+  constructor(
+    store: AztecKVStore,
+    tree: IndexedTree & TreeBase<Buffer>,
+    private leafPreimageBuilder: PreimageFactory,
+  ) {
     super(store, tree);
     this.leaves = store.openMap('indexed_tree_snapshot:' + tree.getName());
   }

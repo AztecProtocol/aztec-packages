@@ -40,7 +40,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
    *
    * @param proposal - the block proposal
    */
-  broadcastProposal(proposal: BlockProposal): void;
+  broadcastProposal(proposal: BlockProposal): Promise<void>;
 
   /**
    * Registers a callback from the validator client that determines how to behave when

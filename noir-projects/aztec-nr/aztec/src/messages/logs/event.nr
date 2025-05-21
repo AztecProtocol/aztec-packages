@@ -17,7 +17,7 @@ fn compute_log<Event, let N: u32>(
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Event: EventInterface<N>,
+    Event: EventInterface + Serialize<N>,
 {
     // TODO(#11571): with decryption happening in Noir we can now use the Packable trait instead.
     let plaintext = encode_message(
@@ -39,7 +39,7 @@ fn compute_log_unconstrained<Event, let N: u32>(
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Event: EventInterface<N>,
+    Event: EventInterface + Serialize<N>,
 {
     compute_log(event, recipient, sender)
 }
@@ -52,7 +52,7 @@ pub fn encode_and_encrypt_event<Event, let N: u32>(
     sender: AztecAddress,
 ) -> fn[(AztecAddress, AztecAddress, &mut PrivateContext)](Event) -> ()
 where
-    Event: EventInterface<N>,
+    Event: EventInterface + Serialize<N>,
 {
     |e: Event| {
         let encrypted_log = compute_log(e, recipient, sender);
@@ -74,7 +74,7 @@ pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
     sender: AztecAddress,
 ) -> fn[(AztecAddress, AztecAddress, &mut PrivateContext)](Event) -> ()
 where
-    Event: EventInterface<N>,
+    Event: EventInterface + Serialize<N>,
 {
     |e: Event| {
         // Safety: this function does not constrain the encryption of the log, as explained on its description.

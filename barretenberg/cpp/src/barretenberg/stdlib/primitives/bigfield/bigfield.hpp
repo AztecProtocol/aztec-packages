@@ -62,7 +62,7 @@ template <typename Builder, typename T> class bigfield {
     static constexpr size_t NUM_LIMBS = 4;
 
     Builder* context;
-    mutable Limb binary_basis_limbs[NUM_LIMBS];
+    mutable std::array<Limb, NUM_LIMBS> binary_basis_limbs;
     mutable field_t<Builder> prime_basis_limb;
 
     bigfield(const field_t<Builder>& low_bits,

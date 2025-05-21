@@ -1,7 +1,6 @@
 import { type Logger, retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { EthAddress } from '@aztec/foundation/eth-address';
-// eslint-disable-next-line no-restricted-imports
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';

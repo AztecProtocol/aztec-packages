@@ -7,7 +7,10 @@ import { PrivateBaseRollupHints } from './base_rollup_hints.js';
 import { PrivateTubeData } from './private_tube_data.js';
 
 export class PrivateBaseRollupInputs {
-  constructor(public tubeData: PrivateTubeData, public hints: PrivateBaseRollupHints) {}
+  constructor(
+    public tubeData: PrivateTubeData,
+    public hints: PrivateBaseRollupHints,
+  ) {}
 
   static from(fields: FieldsOf<PrivateBaseRollupInputs>): PrivateBaseRollupInputs {
     return new PrivateBaseRollupInputs(...PrivateBaseRollupInputs.getFields(fields));

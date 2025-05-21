@@ -20,7 +20,7 @@ export async function registerContract(
   publicKeys?: PublicKeys,
   rawArgs?: any[],
   salt?: Fr,
-  deployer?: AztecAddress | undefined,
+  deployer?: AztecAddress,
 ) {
   const contractArtifact = await getContractArtifact(artifactPath, log);
   const hasInitializer = getAllFunctionAbis(contractArtifact).some(fn => fn.isInitializer);

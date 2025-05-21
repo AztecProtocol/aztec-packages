@@ -60,7 +60,7 @@ Create a new file `src/deploy.mjs`. We import the contract artifacts we have gen
 ```js
 // src/deploy.mjs
 #include_code deploy-imports yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw
-import TokenContractJson from "../contracts/token/target/token-Token.json" assert { type: "json" };
+import TokenContractJson from "../contracts/token/target/token-Token.json" with { type: "json" };
 import { writeFileSync } from 'fs';
 
 const TokenContractArtifact = loadContractArtifact(TokenContractJson);

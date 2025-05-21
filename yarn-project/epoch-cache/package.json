@@ -41,10 +41,10 @@
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
-    "@types/node": "^18.14.6",
+    "@types/node": "^22.15.17",
     "jest": "^29.5.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",
@@ -86,6 +86,6 @@
     ]
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

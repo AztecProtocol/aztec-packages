@@ -103,5 +103,6 @@
       "path": "../world-state"
     }
   ],
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["*.mjs"]
 }

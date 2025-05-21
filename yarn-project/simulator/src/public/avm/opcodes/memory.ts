@@ -95,7 +95,12 @@ export class Cast extends Instruction {
     OperandType.TAG,
   ];
 
-  constructor(private indirect: number, private srcOffset: number, private dstOffset: number, private dstTag: number) {
+  constructor(
+    private indirect: number,
+    private srcOffset: number,
+    private dstOffset: number,
+    private dstTag: number,
+  ) {
     super();
   }
 
@@ -134,7 +139,11 @@ export class Mov extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private srcOffset: number, private dstOffset: number) {
+  constructor(
+    private indirect: number,
+    private srcOffset: number,
+    private dstOffset: number,
+  ) {
     super();
   }
 
@@ -199,7 +208,10 @@ export class ReturndataSize extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
-  constructor(private indirect: number, private dstOffset: number) {
+  constructor(
+    private indirect: number,
+    private dstOffset: number,
+  ) {
     super();
   }
 

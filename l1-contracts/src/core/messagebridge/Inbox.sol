@@ -5,7 +5,6 @@ pragma solidity >=0.8.27;
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {FrontierLib} from "@aztec/core/libraries/crypto/FrontierLib.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";

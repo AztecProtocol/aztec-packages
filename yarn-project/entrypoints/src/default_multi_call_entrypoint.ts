@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -45,6 +46,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
       argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs, ...feeExtraHashedArgs],
       authWitnesses: [...feeAuthwitnesses, ...authWitnesses],
       capsules,
+      salt: Fr.random(),
     });
 
     return Promise.resolve(txRequest);

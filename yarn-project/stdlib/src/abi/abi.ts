@@ -498,11 +498,11 @@ export function getDefaultInitializer(contractArtifact: ContractArtifact): Funct
   const functionAbis = getAllFunctionAbis(contractArtifact);
   const initializers = functionAbis.filter(f => f.isInitializer);
   return initializers.length > 1
-    ? initializers.find(f => f.name === 'constructor') ??
+    ? (initializers.find(f => f.name === 'constructor') ??
         initializers.find(f => f.name === 'initializer') ??
         initializers.find(f => f.parameters?.length === 0) ??
         initializers.find(f => f.functionType === FunctionType.PRIVATE) ??
-        initializers[0]
+        initializers[0])
     : initializers[0];
 }
 

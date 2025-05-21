@@ -1,5 +1,4 @@
 import { type Logger, sleep } from '@aztec/aztec.js';
-// eslint-disable-next-line no-restricted-imports
 import { ChainMonitor } from '@aztec/ethereum/test';
 
 import { jest } from '@jest/globals';

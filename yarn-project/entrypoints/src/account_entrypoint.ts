@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
@@ -64,6 +65,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       ],
       authWitnesses: [...authWitnesses, ...feeAuthwitnesses, combinedPayloadAuthWitness],
       capsules,
+      salt: Fr.random(),
     });
 
     return txRequest;

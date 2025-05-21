@@ -8,7 +8,7 @@
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 
@@ -78,6 +78,11 @@ class PairingPoints {
      */
     void aggregate(const PairingPoints& other)
     {
+        if (P0 == Point::infinity() || P1 == Point::infinity() || other.P0 == Point::infinity() ||
+            other.P1 == Point::infinity()) {
+            throw_or_abort("WARNING: Shouldn't be aggregating with Point at infinity! The pairing points are probably "
+                           "uninitialized.");
+        }
         Fr aggregation_separator = Fr::random_element();
         P0 = P0 + other.P0 * aggregation_separator;
         P1 = P1 + other.P1 * aggregation_separator;

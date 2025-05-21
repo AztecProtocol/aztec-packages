@@ -246,7 +246,7 @@ describe('Wonky tree', () => {
       leaves = res.leaves;
       stdTree = new StandardTree(openTmpStore(true), hasher, `temp`, 5, 0n, noopDeserializer);
       // We have set the last leaf to be H(1, 2), so we can fill a 32 size tree with:
-      await stdTree.appendLeaves([...res.leaves.slice(0, 30), new Fr(1).toBuffer(), new Fr(2).toBuffer()]);
+      stdTree.appendLeaves([...res.leaves.slice(0, 30), new Fr(1).toBuffer(), new Fr(2).toBuffer()]);
     });
 
     it('Correctly computes tree information', () => {

@@ -97,7 +97,7 @@ describe('ServerWorldStateSynchronizer', () => {
       type: 'blocks-added',
       blocks: await timesParallel(
         to - from + 1,
-        async i => ({ block: await L2Block.random(i + from, 4, 3, 1, inHash) } as PublishedL2Block),
+        async i => ({ block: await L2Block.random(i + from, 4, 3, 1, inHash) }) as PublishedL2Block,
       ),
     });
     server.latest.number = to;

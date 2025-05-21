@@ -38,7 +38,9 @@ export class DummyP2PService implements P2PService {
    * Called to have the given message propagated through the P2P network.
    * @param _ - The message to be propagated.
    */
-  public propagate<T extends Gossipable>(_: T) {}
+  public propagate<T extends Gossipable>(_: T) {
+    return Promise.resolve();
+  }
 
   /**
    * Called upon receipt of settled transactions.
