@@ -107,8 +107,8 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-      # We only want to sanity check that we haven't broken wasm ecc ops in merge queue.
+    if [ "$(arch)" == "amd64" ] && [ "$CI_NIGHTLY" -eq 1 ]; then
+      # We only want to sanity check that we haven't broken wasm ecc ops nightly.
       build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
     else
       build_preset wasm-threads
