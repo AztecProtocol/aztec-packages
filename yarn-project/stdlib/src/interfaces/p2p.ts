@@ -54,9 +54,6 @@ export interface P2PClient extends P2PApiWithoutAttestations {
    */
   getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]>;
 
-  /** Manually adds an attestation to the p2p client attestation pool. */
-  addAttestation(attestation: BlockAttestation): Promise<void>;
-
   /** Manually adds attestations to the p2p client attestation pool. */
   addAttestations(attestations: BlockAttestation[]): Promise<void>;
 }
@@ -74,6 +71,5 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getPendingTxCount: z.function().returns(schemas.Integer),
   getEncodedEnr: z.function().returns(z.string().optional()),
   getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),
-  addAttestation: z.function().args(BlockAttestation.schema).returns(z.void()),
   addAttestations: z.function().args(z.array(BlockAttestation.schema)).returns(z.void()),
 };

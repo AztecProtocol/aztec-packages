@@ -29,7 +29,9 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "broadcastProposal"');
   }
 
-  public registerBlockProposalHandler(_handler: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>): void {
+  public registerBlockProposalHandler(
+    _handler: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>,
+  ): void {
     throw new Error('DummyP2P does not implement "registerBlockProposalHandler"');
   }
 
@@ -105,8 +107,8 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getAttestationForSlot"');
   }
 
-  public addAttestation(_attestation: BlockAttestation): Promise<void> {
-    throw new Error('DummyP2P does not implement "addAttestation"');
+  public addAttestations(_attestations: BlockAttestation[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "addAttestations"');
   }
 
   public getL2BlockHash(_number: number): Promise<string | undefined> {
