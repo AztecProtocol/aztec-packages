@@ -1,5 +1,5 @@
 import { jsonParseWithSchema, jsonStringify } from '../json-rpc/convert.js';
-// import { updateInlineTestData } from '../testing/files/index.js';
+import { updateInlineTestData } from '../testing/files/index.js';
 import { BLS12Fq, BLS12Fr } from './bls12_fields.js';
 import { BLS12Point } from './bls12_point.js';
 
@@ -148,27 +148,51 @@ describe('BLS12Point', () => {
     });
   });
 
-  // TODO(MW): Add fixture
-  // it('compressed point with + sign matches Noir', () => {
-  //   const p = new Point(
-  //     new Fr(0x1af41f5de96446dc3776a1eb2d98bb956b7acd9979a67854bec6fa7c2973bd73n),
-  //     new Fr(0x07fc22c7f2c7057571f137fe46ea9c95114282bc95d37d71ec4bfb88de457d4an),
-  //     false,
-  //   );
-  //   expect(p.toXAndSign()[1]).toBe(true);
+  it('compressed point with greater sign matches Noir', () => {
+    const p = new BLS12Point(
+      new BLS12Fq(0x0f2f5f62cc6c3ab4c1ac1abcb9da9677e12796a76064f68c0d4f659f25a046a6d42616100269935afcb1b98c85d5e93en),
+      new BLS12Fq(0x0f0f2d3e3f3b48eae5fb8b8b1efb31c70b9e60e8fb551976c560b98e9554ab95ce3a9f24892593bdff45e837976d7857n),
+      false,
+    );
+    expect(p.toXAndSign()[1]).toBe(false);
 
-  //   const compressed = p.toCompressedBuffer().toString('hex');
-  //   expect(compressed).toMatchInlineSnapshot(`"9af41f5de96446dc3776a1eb2d98bb956b7acd9979a67854bec6fa7c2973bd73"`);
+    const compressed = p.compress().toString('hex');
+    expect(compressed).toMatchInlineSnapshot(
+      `"af2f5f62cc6c3ab4c1ac1abcb9da9677e12796a76064f68c0d4f659f25a046a6d42616100269935afcb1b98c85d5e93e"`,
+    );
 
-  //   const byteArrayString = `[${compressed.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
+    const byteArrayString = `[${compressed.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
 
-  //   // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-  //   updateInlineTestData(
-  //     'noir-projects/aztec-nr/aztec/src/utils/point.nr',
-  //     'expected_compressed_point_positive_sign',
-  //     byteArrayString,
-  //   );
-  // });
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching_public_inputs.nr',
+      'expected_compressed_point_greater',
+      byteArrayString,
+    );
+  });
+
+  it('compressed point with not greater sign matches Noir', () => {
+    const p = new BLS12Point(
+      new BLS12Fq(0x0f2f5f62cc6c3ab4c1ac1abcb9da9677e12796a76064f68c0d4f659f25a046a6d42616100269935afcb1b98c85d5e93en),
+      new BLS12Fq(0x0af1e4abfa449daf65201c2b24507b1058d8ea9bf82ff948a1d01912615c4a8e507160da282e6c41bab917c868923254n),
+      false,
+    );
+    expect(p.toXAndSign()[1]).toBe(true);
+
+    const compressed = p.compress().toString('hex');
+    expect(compressed).toMatchInlineSnapshot(
+      `"8f2f5f62cc6c3ab4c1ac1abcb9da9677e12796a76064f68c0d4f659f25a046a6d42616100269935afcb1b98c85d5e93e"`,
+    );
+
+    const byteArrayString = `[${compressed.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
+
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching_public_inputs.nr',
+      'expected_compressed_point_not_greater',
+      byteArrayString,
+    );
+  });
 
   describe('Serialization', () => {
     it('serializes to and from buffer', () => {
