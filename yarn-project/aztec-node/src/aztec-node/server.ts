@@ -755,7 +755,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         0n,
         Fr,
       );
-      await subtree.appendLeaves(txMessages);
+      subtree.appendLeaves(txMessages);
       messagePathInSubtree = await subtree.getSiblingPath(BigInt(messageIndexInTx), true);
       await subtreeStore.delete();
     }
@@ -785,7 +785,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           0n,
           Fr,
         );
-        await txTree.appendLeaves(messages);
+        txTree.appendLeaves(messages);
         const root = Fr.fromBuffer(txTree.getRoot(true));
         await txStore.delete();
         return root;
