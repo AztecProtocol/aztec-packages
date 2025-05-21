@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.87.2](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.1...v0.87.2) (2025-05-21)
+
+
+### Miscellaneous
+
+* improved readability AztecNodeService.getL2ToL1MessageMembershipWitness ([#14273](https://github.com/AztecProtocol/aztec-packages/issues/14273)) ([038a518](https://github.com/AztecProtocol/aztec-packages/commit/038a5185a8a80d2d60d2a08f910d2a8dcb238e3c))
+* rename invalid block num to invalid max block num ([#13894](https://github.com/AztecProtocol/aztec-packages/issues/13894)) ([0db31ce](https://github.com/AztecProtocol/aztec-packages/commit/0db31ce8157af343af62cd51bcf46170ade77744))
+* syncNotes --&gt; syncPrivateState ([#14438](https://github.com/AztecProtocol/aztec-packages/issues/14438)) ([845830a](https://github.com/AztecProtocol/aztec-packages/commit/845830a294bf98294f188c64092f7bfadf899e85)), closes [#13113](https://github.com/AztecProtocol/aztec-packages/issues/13113)
+
 ## [0.87.1](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.0...v0.87.1) (2025-05-21)
 
 
