@@ -454,11 +454,4 @@ export class RollupContract {
   getStakingAsset() {
     return this.rollup.read.getStakingAsset();
   }
-
-  getProposerForAttester(attester: Hex | EthAddress) {
-    if (attester instanceof EthAddress) {
-      attester = attester.toString();
-    }
-    return this.rollup.read.getProposerForAttester([attester]);
-  }
 }

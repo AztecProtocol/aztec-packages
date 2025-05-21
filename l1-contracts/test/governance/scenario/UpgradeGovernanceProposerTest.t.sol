@@ -65,8 +65,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       validators[i - 1] = validator;
-      initialValidators[i - 1] =
-        CheatDepositArgs({attester: validator, proposer: validator, withdrawer: validator});
+      initialValidators[i - 1] = CheatDepositArgs({attester: validator, withdrawer: validator});
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));

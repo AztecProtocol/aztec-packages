@@ -692,9 +692,8 @@ export const handoverToGovernance = async (
 };
 
 export type Operator = {
-  attester: Hex | EthAddress;
-  proposerEOA: Hex | EthAddress;
-  withdrawer: Hex | EthAddress;
+  attester: EthAddress;
+  withdrawer: EthAddress;
 };
 
 /*
@@ -748,12 +747,6 @@ export const addMultipleValidators = async (
 
       const validatorsTuples = validators.map(v => ({
         attester: getAddress(v.attester.toString()),
-        proposer: getExpectedAddress(
-          ForwarderAbi,
-          ForwarderBytecode,
-          [getAddress(v.proposerEOA.toString())],
-          getAddress(v.proposerEOA.toString()),
-        ).address,
         withdrawer: getAddress(v.withdrawer.toString()),
       }));
 
@@ -772,16 +765,16 @@ export const addMultipleValidators = async (
         ].map(tx => extendedClient.waitForTransactionReceipt({ hash: tx.txHash })),
       );
 
-      const initiateValidatorSetTxHash = await deployer.client.writeContract({
+      const addValidatorsTxHash = await deployer.client.writeContract({
         address: multiAdder.toString(),
         abi: l1Artifacts.multiAdder.contractAbi,
         functionName: 'addValidators',
         args: [validatorsTuples],
       });
-      await extendedClient.waitForTransactionReceipt({ hash: initiateValidatorSetTxHash });
+      await extendedClient.waitForTransactionReceipt({ hash: addValidatorsTxHash });
       logger.info(`Initialized validator set`, {
         validators,
-        txHash: initiateValidatorSetTxHash,
+        txHash: addValidatorsTxHash,
       });
     }
   }

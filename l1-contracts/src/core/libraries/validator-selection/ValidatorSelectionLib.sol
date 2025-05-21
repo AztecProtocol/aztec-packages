@@ -93,37 +93,31 @@ library ValidatorSelectionLib {
     // Same logic as we got in getProposerAt
     // Done do avoid duplicate computing the committee
     address[] memory committee = getCommitteeAt(_epochNumber);
-    address attester = committee.length == 0
-      ? address(0)
-      : committee[computeProposerIndex(
-        _epochNumber, _slot, getSampleSeed(_epochNumber), committee.length
-      )];
-    address proposer = StakingLib.getProposerForAttester(attester);
 
-    // @todo Consider getting rid of this option.
-    // If the proposer is open, we allow anyone to propose without needing any signatures
-    if (proposer == address(0)) {
+    if (committee.length == 0) {
       return;
     }
 
-    require(
-      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
-    );
+    uint256 proposerIndex =
+      computeProposerIndex(_epochNumber, _slot, getSampleSeed(_epochNumber), committee.length);
+    address proposer = committee[proposerIndex];
+
+    // @todo Optimise the verification accounting so we don't need to verify twice
+    bytes32 digest = _digest.toEthSignedMessageHash();
+
+    // If the proposer is not the sender, we will verify a signature and throw if invalid.
+    if (proposer != msg.sender) {
+      _signatures[proposerIndex].verify(proposer, digest);
+    }
 
     if (_flags.ignoreSignatures) {
       return;
     }
 
     uint256 needed = committee.length * 2 / 3 + 1;
-    require(
-      _signatures.length >= needed,
-      Errors.ValidatorSelection__InsufficientAttestationsProvided(needed, _signatures.length)
-    );
 
     // Validate the attestations
     uint256 validAttestations = 0;
-
-    bytes32 digest = _digest.toEthSignedMessageHash();
     for (uint256 i = 0; i < _signatures.length; i++) {
       // To avoid stack too deep errors
       Signature memory signature = _signatures[i];
@@ -152,11 +146,9 @@ library ValidatorSelectionLib {
       return address(0);
     }
 
-    address attester = committee[computeProposerIndex(
+    return committee[computeProposerIndex(
       _epochNumber, _slot, getSampleSeed(_epochNumber), committee.length
     )];
-
-    return StakingLib.getProposerForAttester(attester);
   }
 
   /**

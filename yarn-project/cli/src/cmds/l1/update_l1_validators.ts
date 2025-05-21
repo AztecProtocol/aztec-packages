@@ -54,11 +54,10 @@ export async function addL1Validator({
   privateKey,
   mnemonic,
   attesterAddress,
-  proposerEOAAddress,
   stakingAssetHandlerAddress,
   log,
   debugLogger,
-}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress; proposerEOAAddress: EthAddress }) {
+}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress }) {
   const dualLog = makeDualLog(log, debugLogger);
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
@@ -71,17 +70,7 @@ export async function addL1Validator({
   });
 
   const rollup = await stakingAssetHandler.read.getRollup();
-
-  const forwarderAddress = getExpectedAddress(
-    ForwarderAbi,
-    ForwarderBytecode,
-    [proposerEOAAddress.toString()],
-    proposerEOAAddress.toString(),
-  ).address;
-
-  dualLog(
-    `Adding validator (${attesterAddress}, ${proposerEOAAddress} [forwarder: ${forwarderAddress}]) to rollup ${rollup.toString()}`,
-  );
+  dualLog(`Adding validator (${attesterAddress} to rollup ${rollup.toString()}`);
 
   const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
 
@@ -90,7 +79,7 @@ export async function addL1Validator({
     data: encodeFunctionData({
       abi: StakingAssetHandlerAbi,
       functionName: 'addValidator',
-      args: [attesterAddress.toString(), forwarderAddress],
+      args: [attesterAddress.toString()],
     }),
     abi: StakingAssetHandlerAbi,
   });
@@ -99,10 +88,10 @@ export async function addL1Validator({
   if (isAnvilTestChain(chainId)) {
     dualLog(`Funding validator on L1`);
     const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
-    await cheatCodes.setBalance(proposerEOAAddress, 10n ** 20n);
+    await cheatCodes.setBalance(attesterAddress, 10n ** 20n);
   } else {
-    const balance = await l1Client.getBalance({ address: proposerEOAAddress.toString() });
-    dualLog(`Proposer balance: ${formatEther(balance)} ETH`);
+    const balance = await l1Client.getBalance({ address: attesterAddress.toString() });
+    dualLog(`Validator balance: ${formatEther(balance)} ETH`);
     if (balance === 0n) {
       dualLog(`WARNING: Proposer has no balance. Remember to fund it!`);
     }

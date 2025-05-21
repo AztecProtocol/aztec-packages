@@ -18,12 +18,7 @@ contract InitiateWithdrawTest is StakingBase {
   modifier whenAttesterIsRegistered() {
     stakingAsset.mint(address(this), MINIMUM_STAKE);
     stakingAsset.approve(address(staking), MINIMUM_STAKE);
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _onCanonical: true
-    });
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
     _;
   }
 

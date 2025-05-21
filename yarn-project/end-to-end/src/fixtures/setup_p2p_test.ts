@@ -106,12 +106,9 @@ export async function createValidatorConfig(
   const attesterPrivateKey: `0x${string}` = `0x${getPrivateKeyFromIndex(
     ATTESTER_PRIVATE_KEYS_START_INDEX + accountIndex,
   )!.toString('hex')}`;
-  const proposerPrivateKey: `0x${string}` = `0x${getPrivateKeyFromIndex(
-    PROPOSER_PRIVATE_KEYS_START_INDEX + accountIndex,
-  )!.toString('hex')}`;
 
   config.validatorPrivateKey = attesterPrivateKey;
-  config.publisherPrivateKey = proposerPrivateKey;
+  config.publisherPrivateKey = attesterPrivateKey;
 
   const nodeConfig: AztecNodeConfig = {
     ...config,

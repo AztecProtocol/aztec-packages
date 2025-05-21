@@ -66,9 +66,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-      emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], validators[i], WITHDRAWER);
+      emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], WITHDRAWER);
       vm.prank(caller);
-      stakingAssetHandler.addValidator(validators[i], validators[i]);
+      stakingAssetHandler.addValidator(validators[i]);
     }
 
     uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
@@ -82,7 +82,7 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
       )
     );
     vm.prank(caller);
-    stakingAssetHandler.addValidator(address(0xbeefdeef), address(0xbeefdeef));
+    stakingAssetHandler.addValidator(address(0xbeefdeef));
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
   }
