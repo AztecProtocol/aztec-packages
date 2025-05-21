@@ -173,8 +173,11 @@ function build {
     build_wasm
     build_wasm_threads
   )
+  if [ "$(arch)" == "amd64" ] && [ "$CI_NIGHTLY" -eq 1 ]; then
+    builds+=(build_gcc_syntax_check_only build_asan_fast)
+  fi
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
+    builds+=(build_fuzzing_syntax_check_only)
   fi
   if [ "$CI_FULL" -eq 1 ]; then
     builds+=(build_darwin)
@@ -204,7 +207,7 @@ function test_cmds {
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
-  if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
+  if [ "$(arch)" == "amd64" ] && [ "$CI_NIGHTLY" -eq 1 ]; then
     # We only want to sanity check that we haven't broken wasm ecc in merge queue.
     echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
     # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
