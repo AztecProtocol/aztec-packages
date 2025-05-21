@@ -55,6 +55,7 @@ struct AvmFlavorVariables {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -83,6 +84,12 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = 2454;
 >>>>>>> dda4dca536 (Theta xor combined values)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2312;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2529;
+>>>>>>> 2360fdf1ee (Finish theta function)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -151,6 +158,31 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+        lookup_keccakf1600_state_theta_00_relation<FF_>,
+        lookup_keccakf1600_state_theta_01_relation<FF_>,
+        lookup_keccakf1600_state_theta_02_relation<FF_>,
+        lookup_keccakf1600_state_theta_03_relation<FF_>,
+        lookup_keccakf1600_state_theta_04_relation<FF_>,
+        lookup_keccakf1600_state_theta_10_relation<FF_>,
+        lookup_keccakf1600_state_theta_11_relation<FF_>,
+        lookup_keccakf1600_state_theta_12_relation<FF_>,
+        lookup_keccakf1600_state_theta_13_relation<FF_>,
+        lookup_keccakf1600_state_theta_14_relation<FF_>,
+        lookup_keccakf1600_state_theta_20_relation<FF_>,
+        lookup_keccakf1600_state_theta_21_relation<FF_>,
+        lookup_keccakf1600_state_theta_22_relation<FF_>,
+        lookup_keccakf1600_state_theta_23_relation<FF_>,
+        lookup_keccakf1600_state_theta_24_relation<FF_>,
+        lookup_keccakf1600_state_theta_30_relation<FF_>,
+        lookup_keccakf1600_state_theta_31_relation<FF_>,
+        lookup_keccakf1600_state_theta_32_relation<FF_>,
+        lookup_keccakf1600_state_theta_33_relation<FF_>,
+        lookup_keccakf1600_state_theta_34_relation<FF_>,
+        lookup_keccakf1600_state_theta_40_relation<FF_>,
+        lookup_keccakf1600_state_theta_41_relation<FF_>,
+        lookup_keccakf1600_state_theta_42_relation<FF_>,
+        lookup_keccakf1600_state_theta_43_relation<FF_>,
+        lookup_keccakf1600_state_theta_44_relation<FF_>,
         lookup_keccakf1600_theta_combined_xor_0_relation<FF_>,
         lookup_keccakf1600_theta_combined_xor_1_relation<FF_>,
         lookup_keccakf1600_theta_combined_xor_2_relation<FF_>,

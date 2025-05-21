@@ -295,4 +295,114 @@ bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 //#############################################################################
 // The state after theta is obtained by XORing each state word with the corresponding
 // theta_combined_xor value.
-// state_rho_ij = state_in_ij ^ theta_combined_xor_i
+// state_theta_ij = state_in_ij ^ theta_combined_xor_i
+pol commit state_theta_00, state_theta_01, state_theta_02, state_theta_03, state_theta_04,
+           state_theta_10, state_theta_11, state_theta_12, state_theta_13, state_theta_14,
+           state_theta_20, state_theta_21, state_theta_22, state_theta_23, state_theta_24,
+           state_theta_30, state_theta_31, state_theta_32, state_theta_33, state_theta_34,
+           state_theta_40, state_theta_41, state_theta_42, state_theta_43, state_theta_44;
+
+// ##################### STATE_THETA Row 0 ##############################
+#[STATE_THETA_00]
+sel {bitwise_xor_op_id, state_in_00, theta_combined_xor_0, state_theta_00} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_01]
+sel {bitwise_xor_op_id, state_in_01, theta_combined_xor_0, state_theta_01} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_02]
+sel {bitwise_xor_op_id, state_in_02, theta_combined_xor_0, state_theta_02} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_03]
+sel {bitwise_xor_op_id, state_in_03, theta_combined_xor_0, state_theta_03} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_04]
+sel {bitwise_xor_op_id, state_in_04, theta_combined_xor_0, state_theta_04} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// ##################### STATE_THETA Row 1 ##############################
+#[STATE_THETA_10]
+sel {bitwise_xor_op_id, state_in_10, theta_combined_xor_1, state_theta_10} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_11]
+sel {bitwise_xor_op_id, state_in_11, theta_combined_xor_1, state_theta_11} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_12]
+sel {bitwise_xor_op_id, state_in_12, theta_combined_xor_1, state_theta_12} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_13]
+sel {bitwise_xor_op_id, state_in_13, theta_combined_xor_1, state_theta_13} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_14]
+sel {bitwise_xor_op_id, state_in_14, theta_combined_xor_1, state_theta_14} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// ##################### STATE_THETA Row 2 ##############################
+#[STATE_THETA_20]
+sel {bitwise_xor_op_id, state_in_20, theta_combined_xor_2, state_theta_20} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_21]
+sel {bitwise_xor_op_id, state_in_21, theta_combined_xor_2, state_theta_21} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_22]
+sel {bitwise_xor_op_id, state_in_22, theta_combined_xor_2, state_theta_22} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_23]
+sel {bitwise_xor_op_id, state_in_23, theta_combined_xor_2, state_theta_23} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_24]
+sel {bitwise_xor_op_id, state_in_24, theta_combined_xor_2, state_theta_24} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// ##################### STATE_THETA Row 3 ##############################
+#[STATE_THETA_30]
+sel {bitwise_xor_op_id, state_in_30, theta_combined_xor_3, state_theta_30} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_31]
+sel {bitwise_xor_op_id, state_in_31, theta_combined_xor_3, state_theta_31} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_32]
+sel {bitwise_xor_op_id, state_in_32, theta_combined_xor_3, state_theta_32} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_33]
+sel {bitwise_xor_op_id, state_in_33, theta_combined_xor_3, state_theta_33} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_34]
+sel {bitwise_xor_op_id, state_in_34, theta_combined_xor_3, state_theta_34} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// ##################### STATE_THETA Row 4 ##############################
+#[STATE_THETA_40]
+sel {bitwise_xor_op_id, state_in_40, theta_combined_xor_4, state_theta_40} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_41]
+sel {bitwise_xor_op_id, state_in_41, theta_combined_xor_4, state_theta_41} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_42]
+sel {bitwise_xor_op_id, state_in_42, theta_combined_xor_4, state_theta_42} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_43]
+sel {bitwise_xor_op_id, state_in_43, theta_combined_xor_4, state_theta_43} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+#[STATE_THETA_44]
+sel {bitwise_xor_op_id, state_in_44, theta_combined_xor_4, state_theta_44} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
