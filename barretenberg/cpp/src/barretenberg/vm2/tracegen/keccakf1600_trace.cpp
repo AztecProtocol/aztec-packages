@@ -137,6 +137,47 @@ constexpr std::array<C, 5> theta_combined_xor_cols = {
     },
 };
 
+// Mapping indices of state_theta to their columns.
+constexpr std::array<std::array<C, 5>, 5> state_theta_cols = {
+    {
+        {
+            C::keccakf1600_state_theta_00,
+            C::keccakf1600_state_theta_01,
+            C::keccakf1600_state_theta_02,
+            C::keccakf1600_state_theta_03,
+            C::keccakf1600_state_theta_04,
+        },
+        {
+            C::keccakf1600_state_theta_10,
+            C::keccakf1600_state_theta_11,
+            C::keccakf1600_state_theta_12,
+            C::keccakf1600_state_theta_13,
+            C::keccakf1600_state_theta_14,
+        },
+        {
+            C::keccakf1600_state_theta_20,
+            C::keccakf1600_state_theta_21,
+            C::keccakf1600_state_theta_22,
+            C::keccakf1600_state_theta_23,
+            C::keccakf1600_state_theta_24,
+        },
+        {
+            C::keccakf1600_state_theta_30,
+            C::keccakf1600_state_theta_31,
+            C::keccakf1600_state_theta_32,
+            C::keccakf1600_state_theta_33,
+            C::keccakf1600_state_theta_34,
+        },
+        {
+            C::keccakf1600_state_theta_40,
+            C::keccakf1600_state_theta_41,
+            C::keccakf1600_state_theta_42,
+            C::keccakf1600_state_theta_43,
+            C::keccakf1600_state_theta_44,
+        },
+    },
+};
+
 void KeccakF1600TraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
@@ -178,6 +219,13 @@ void KeccakF1600TraceBuilder::process(
             trace.set(theta_combined_xor_cols[i], row, event.theta_combined_xor[i]);
         }
 
+        // Setting state_theta values
+        for (size_t i = 0; i < 5; i++) {
+            for (size_t j = 0; j < 5; j++) {
+                trace.set(state_theta_cols[i][j], row, event.state_theta[i][j]);
+            }
+        }
+
         row++;
     }
 }
@@ -206,12 +254,38 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> KeccakF1600TraceBuilde
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_42_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_43_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_4_settings>>(),
-        // Theta XOR combined and final values
+        // Theta XOR combined values
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_0_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_1_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_2_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_3_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_4_settings>>());
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_4_settings>>(),
+        // State Theta final values
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_00_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_01_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_02_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_03_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_04_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_10_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_11_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_12_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_13_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_14_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_20_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_21_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_22_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_23_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_24_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_30_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_31_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_32_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_33_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_34_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_40_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_41_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_42_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_43_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_44_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

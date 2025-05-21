@@ -44,10 +44,10 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
         return output;
     };
 
-    std::array<std::array<MemoryValue, 5>, 5> input_memory_values;
+    std::array<std::array<MemoryValue, 5>, 5> state_input_values;
     for (size_t i = 0; i < 5; i++) {
         for (size_t j = 0; j < 5; j++) {
-            input_memory_values[i][j] = MemoryValue::from(input[i][j]);
+            state_input_values[i][j] = MemoryValue::from(input[i][j]);
         }
     }
 
@@ -55,9 +55,9 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
 
     // Theta xor computations
     for (size_t i = 0; i < 5; ++i) {
-        MemoryValue xor_accumulator = input_memory_values[i][0];
+        MemoryValue xor_accumulator = state_input_values[i][0];
         for (size_t j = 0; j < 4; ++j) {
-            xor_accumulator = bitwise.xor_op(xor_accumulator, input_memory_values[i][j + 1]);
+            xor_accumulator = bitwise.xor_op(xor_accumulator, state_input_values[i][j + 1]);
             theta_xor_values[i][j] = xor_accumulator;
         }
     }
@@ -75,11 +75,20 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
             bitwise.xor_op(theta_xor_values[(i + 4) % 5][3], theta_xor_row_rotl1_values[(i + 1) % 5]);
     }
 
+    // State theta values
+    std::array<std::array<MemoryValue, 5>, 5> state_theta_values;
+    for (size_t i = 0; i < 5; ++i) {
+        for (size_t j = 0; j < 5; ++j) {
+            state_theta_values[i][j] = bitwise.xor_op(state_input_values[i][j], theta_combined_xor_values[i]);
+        }
+    }
+
     perm_events.emit({
         .state = input,
         .theta_xor = two_dim_array_to_uint64(theta_xor_values),
         .theta_xor_row_rotl1 = array_to_uint64(theta_xor_row_rotl1_values),
         .theta_combined_xor = array_to_uint64(theta_combined_xor_values),
+        .state_theta = two_dim_array_to_uint64(state_theta_values),
     });
 
     // TODO: return real keccakf1600 output
