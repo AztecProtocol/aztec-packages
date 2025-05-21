@@ -2877,164 +2877,20 @@ void bigfield<Builder, T>::unsafe_evaluate_square_add(const bigfield& left,
 {
     ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
 
-    if (HasPlookup<Builder>) {
-        unsafe_evaluate_multiply_add(left, left, to_add, quotient, { remainder });
-        return;
-    }
-
-    // Sanity checks
-    left.sanity_check();
-    remainder.sanity_check();
-    quotient.sanity_check();
-    for (auto& el : to_add) {
-        el.sanity_check();
-    }
-
-    Builder* ctx = left.context == nullptr ? quotient.context : left.context;
-
-    uint512_t max_b0 = (left.binary_basis_limbs[1].maximum_value * left.binary_basis_limbs[0].maximum_value);
-    max_b0 += (neg_modulus_limbs_u256[1] << NUM_LIMB_BITS);
-    max_b0 += max_b0;
-    uint512_t max_c0 = (left.binary_basis_limbs[1].maximum_value * left.binary_basis_limbs[1].maximum_value);
-    max_c0 += (neg_modulus_limbs_u256[1] << NUM_LIMB_BITS);
-    uint512_t max_c1 = (left.binary_basis_limbs[2].maximum_value * left.binary_basis_limbs[0].maximum_value);
-    max_c1 += (neg_modulus_limbs_u256[2] << NUM_LIMB_BITS);
-    max_c1 += max_c1;
-    uint512_t max_d0 = (left.binary_basis_limbs[3].maximum_value * left.binary_basis_limbs[0].maximum_value);
-    max_d0 += (neg_modulus_limbs_u256[3] << NUM_LIMB_BITS);
-    max_d0 += max_d0;
-    uint512_t max_d1 = (left.binary_basis_limbs[2].maximum_value * left.binary_basis_limbs[1].maximum_value);
-    max_d1 += (neg_modulus_limbs_u256[2] << NUM_LIMB_BITS);
-    max_d1 += max_d1;
-
-    uint512_t max_r0 = left.binary_basis_limbs[0].maximum_value * left.binary_basis_limbs[0].maximum_value;
-    max_r0 += (neg_modulus_limbs_u256[0] << NUM_LIMB_BITS);
-
-    const uint512_t max_r1 = max_b0;
-    const uint512_t max_r2 = max_c0 + max_c1;
-    const uint512_t max_r3 = max_d0 + max_d1;
-
-    uint512_t max_a0(0);
-    uint512_t max_a1(1);
-    for (size_t i = 0; i < to_add.size(); ++i) {
-        max_a0 += to_add[i].binary_basis_limbs[0].maximum_value +
-                  (to_add[i].binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS);
-        max_a1 += to_add[i].binary_basis_limbs[2].maximum_value +
-                  (to_add[i].binary_basis_limbs[3].maximum_value << NUM_LIMB_BITS);
-    }
-    const uint512_t max_lo = max_r0 + (max_r1 << NUM_LIMB_BITS) + max_a0;
-    const uint512_t max_hi = max_r2 + (max_r3 << NUM_LIMB_BITS) + max_a1;
-
-    uint64_t max_lo_bits = max_lo.get_msb() + 1;
-    uint64_t max_hi_bits = max_hi.get_msb() + 1;
-    if ((max_lo_bits & 1ULL) == 1ULL) {
-        ++max_lo_bits;
-    }
-    if ((max_hi_bits & 1ULL) == 1ULL) {
-        ++max_hi_bits;
-    }
-
-    field_t half(ctx, bb::fr(2).invert());
-    field_t two(ctx, bb::fr(2));
-    field_t b_quotient_0 = (quotient.binary_basis_limbs[1].element * neg_modulus_limbs[0]);
-    field_t b_quotient_1 = (quotient.binary_basis_limbs[0].element * neg_modulus_limbs[1]);
-
-    field_t c_quotient_0 = (quotient.binary_basis_limbs[2].element * neg_modulus_limbs[0]);
-    field_t c_quotient_1 = (quotient.binary_basis_limbs[0].element * neg_modulus_limbs[2]);
-
-    field_t d_quotient_0 = (quotient.binary_basis_limbs[3].element * neg_modulus_limbs[0]);
-    field_t d_quotient_1 = (quotient.binary_basis_limbs[1].element * neg_modulus_limbs[2]);
-    field_t d_quotient_2 = (quotient.binary_basis_limbs[0].element * neg_modulus_limbs[3]);
-    field_t d_quotient_3 = (quotient.binary_basis_limbs[2].element * neg_modulus_limbs[1]);
-
-    const field_t b0 =
-        two * left.binary_basis_limbs[1].element.madd(left.binary_basis_limbs[0].element, b_quotient_0 * half);
-
-    const field_t c0 = left.binary_basis_limbs[1].element.madd(
-        left.binary_basis_limbs[1].element, quotient.binary_basis_limbs[1].element * neg_modulus_limbs[1]);
-    const field_t c1 =
-        two * left.binary_basis_limbs[2].element.madd(left.binary_basis_limbs[0].element, c_quotient_0 * half);
-
-    const field_t d0 =
-        two * left.binary_basis_limbs[3].element.madd(left.binary_basis_limbs[0].element, d_quotient_0 * half);
-
-    const field_t d1 =
-        two * left.binary_basis_limbs[2].element.madd(left.binary_basis_limbs[1].element, d_quotient_1 * half);
-
-    const field_t r0 = left.binary_basis_limbs[0].element.madd(
-        left.binary_basis_limbs[0].element, quotient.binary_basis_limbs[0].element * neg_modulus_limbs[0]);
-
-    const field_t r1 = b0.add_two(b_quotient_1, -remainder.binary_basis_limbs[1].element);
-    const field_t r2 = c0.add_two(c_quotient_1, c1);
-    const field_t r3 = d0.add_two(d_quotient_2, d1) + d_quotient_3;
-
-    field_t carry_lo_0 = r0 * shift_right_2;
-    field_t carry_lo_1 = r1 * (shift_1 * shift_right_2);
-    field_t carry_lo_2 = -(remainder.binary_basis_limbs[0].element * shift_right_2);
-    field_t carry_lo = carry_lo_0.add_two(carry_lo_1, carry_lo_2);
-
-    for (const auto& add_element : to_add) {
-        carry_lo = carry_lo.add_two(add_element.binary_basis_limbs[0].element * shift_right_2,
-                                    add_element.binary_basis_limbs[1].element * (shift_1 * shift_right_2));
-    }
-
-    field_t t1 = carry_lo.add_two(-remainder.binary_basis_limbs[2].element,
-                                  -(remainder.binary_basis_limbs[3].element * shift_1));
-    field_t carry_hi_0 = r2 * shift_right_2;
-    field_t carry_hi_1 = r3 * (shift_1 * shift_right_2);
-    field_t carry_hi_2 = t1 * shift_right_2;
-    field_t carry_hi = carry_hi_0.add_two(carry_hi_1, carry_hi_2);
-
-    for (const auto& add_element : to_add) {
-        carry_hi = carry_hi.add_two(add_element.binary_basis_limbs[2].element * shift_right_2,
-                                    add_element.binary_basis_limbs[3].element * (shift_1 * shift_right_2));
-    }
-
-    bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
-    field_t<Builder> linear_terms = -remainder.prime_basis_limb;
-    if (to_add.size() >= 2) {
-        for (size_t i = 0; i < to_add.size() / 2; i += 1) {
-            linear_terms = linear_terms.add_two(to_add[2 * i].prime_basis_limb, to_add[2 * i + 1].prime_basis_limb);
-        }
-    }
-    if ((to_add.size() & 1UL) == 1UL) {
-        linear_terms += to_add[to_add.size() - 1].prime_basis_limb;
-    }
-    field_t<Builder>::evaluate_polynomial_identity(
-        left.prime_basis_limb, left.prime_basis_limb, quotient.prime_basis_limb * neg_prime, linear_terms);
-
-    const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
-    const uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
-
-    const bb::fr carry_lo_shift(uint256_t(uint256_t(1) << carry_lo_msb));
-    if constexpr (HasPlookup<Builder>) {
-        carry_lo = carry_lo.normalize();
-        carry_hi = carry_hi.normalize();
-        ctx->decompose_into_default_range(carry_lo.get_normalized_witness_index(), static_cast<size_t>(carry_lo_msb));
-        ctx->decompose_into_default_range(carry_hi.get_normalized_witness_index(), static_cast<size_t>(carry_hi_msb));
-
-    } else {
-        if ((carry_hi_msb + carry_lo_msb) < field_t<Builder>::modulus.get_msb()) {
-            field_t carry_combined = carry_lo + (carry_hi * carry_lo_shift);
-            carry_combined = carry_combined.normalize();
-            const auto accumulators = ctx->decompose_into_base4_accumulators(
-                carry_combined.get_normalized_witness_index(),
-                static_cast<size_t>(carry_lo_msb + carry_hi_msb),
-                "bigfield: carry_combined too large in unsafe_evaluate_square_add.");
-            field_t<Builder> accumulator_midpoint =
-                field_t<Builder>::from_witness_index(ctx, accumulators[static_cast<size_t>((carry_hi_msb / 2) - 1)]);
-            carry_hi.assert_equal(accumulator_midpoint, "bigfield multiply range check failed");
-        } else {
-            carry_lo = carry_lo.normalize();
-            carry_hi = carry_hi.normalize();
-            ctx->decompose_into_base4_accumulators(carry_lo.get_normalized_witness_index(),
-                                                   static_cast<size_t>(carry_lo_msb),
-                                                   "bigfield: carry_lo too large in unsafe_evaluate_square_add.");
-            ctx->decompose_into_base4_accumulators(carry_hi.get_normalized_witness_index(),
-                                                   static_cast<size_t>(carry_hi_msb),
-                                                   "bigfield: carry_hi too large in unsafe_evaluate_square_add");
-        }
-    }
+    // Suppose input is:
+    // x = (x3 || x2 || x1 || x0)
+    //
+    // x * x = (x0 * x0) +
+    //         (2 • x0 * x1) • 2^b +
+    //         (2 • x0 * x2 + x1 * x1) • 2^{2b} +
+    //         (2 • x0 * x3 + 2 • x1 * x2) • 2^{3b}.
+    //
+    // We need 6 multiplications to compute the above, which can be computed using two custom multiplication gates.
+    // Since each custom bigfield gate can compute 3, we can compute the above using 2 custom multiplication gates
+    // (as against 3 gates if we used the current bigfield multiplication gate).
+    // We however avoid this optimization for now and end up using the existing bigfield multiplication gate.
+    //
+    unsafe_evaluate_multiply_add(left, left, to_add, quotient, { remainder });
 }
 
 template <typename Builder, typename T>
