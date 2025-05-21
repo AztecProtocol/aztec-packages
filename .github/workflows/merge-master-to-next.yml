@@ -1,0 +1,41 @@
+name: Merge master into next
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  merge-to-next:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Checkout next branch
+        run: |
+          git fetch origin next
+          git checkout next
+
+      - name: Merge master into next
+        id: merge
+        run: |
+          git fetch origin master
+          if git merge origin/master; then
+            git push origin next
+          else
+            echo "conflict=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Notification
+        if: steps.merge.outputs.conflict == 'true'
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "Merge conflict merging master into next",
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}
