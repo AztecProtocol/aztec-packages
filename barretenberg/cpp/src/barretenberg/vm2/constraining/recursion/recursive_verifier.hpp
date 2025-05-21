@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 
