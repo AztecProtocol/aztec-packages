@@ -117,7 +117,7 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     );
   }
 
-  public async executeRound(txUtils: L1TxUtils, round: bigint | number) {
+  public async executeRound(txUtils: L1TxUtils, round: bigint | number): Promise<void> {
     if (typeof round === 'number') {
       round = BigInt(round);
     }
@@ -128,10 +128,16 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     };
     const data = encodeFunctionData(args);
     const response = await txUtils
-      .sendAndMonitorTransaction({
-        to: this.address.toString(),
-        data,
-      })
+      .sendAndMonitorTransaction(
+        {
+          to: this.address.toString(),
+          data,
+        },
+        {
+          // Gas estimation is more than 20% off for this tx.
+          gasLimitBufferPercentage: 100,
+        },
+      )
       .catch(err => {
         if (err instanceof FormattedViemError && err.message.includes('ProposalAlreadyExecuted')) {
           throw new ProposalAlreadyExecutedError(round);

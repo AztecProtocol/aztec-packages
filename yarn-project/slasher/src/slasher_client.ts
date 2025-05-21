@@ -10,7 +10,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
-import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import {
   type GetContractEventsReturnType,
@@ -62,7 +61,7 @@ type MonitoredSlashPayload = {
  * A few improvements:
  * - TODO(#14421): Only vote on the proposal if it is possible to reach quorum, e.g., if 6 votes are needed and only 4 slots are left don't vote.
  */
-export class SlasherClient extends WithTracer {
+export class SlasherClient {
   private monitoredPayloads: MonitoredSlashPayload[] = [];
   private unwatchCallbacks: (() => void)[] = [];
 
@@ -72,7 +71,6 @@ export class SlasherClient extends WithTracer {
     l1TxUtils: L1TxUtils,
     watchers: Watcher[],
     dateProvider: DateProvider,
-    telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     if (!l1Contracts.rollupAddress) {
       throw new Error('Cannot initialize SlasherClient without a rollup address');
@@ -88,15 +86,7 @@ export class SlasherClient extends WithTracer {
       abi: SlashFactoryAbi,
       client: l1TxUtils.client,
     });
-    return new SlasherClient(
-      config,
-      slashFactoryContract,
-      slashingProposer,
-      l1TxUtils,
-      watchers,
-      dateProvider,
-      telemetry,
-    );
+    return new SlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
   }
 
   constructor(
@@ -106,11 +96,8 @@ export class SlasherClient extends WithTracer {
     private l1TxUtils: L1TxUtils,
     private watchers: Watcher[],
     private dateProvider: DateProvider,
-    telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('slasher'),
-  ) {
-    super(telemetry, 'slasher');
-  }
+  ) {}
 
   //////////////////// Public methods ////////////////////
 

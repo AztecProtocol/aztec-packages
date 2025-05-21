@@ -233,7 +233,5 @@ describe('e2e_p2p_slashing', () => {
 
     const attestersNextEpoch = await rollup.getAttesters();
     expect(attestersNextEpoch.length).toBe(0);
-
-    // Committee should only update in the next epoch
   }, 1_000_000);
 });

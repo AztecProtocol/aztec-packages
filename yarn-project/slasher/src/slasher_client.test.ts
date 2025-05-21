@@ -33,7 +33,6 @@ import { SlasherClient } from './slasher_client.js';
 
 const originalVersionSalt = 42;
 const aztecSlotDuration = 4;
-const minimumStake = 100n;
 
 describe('SlasherClient', () => {
   let anvil: Anvil;
@@ -50,6 +49,7 @@ describe('SlasherClient', () => {
   let slashingProposer: SlashingProposerContract;
   let l1TxUtils: L1TxUtils;
   let forwarder: ForwarderContract;
+  let depositAmount: bigint;
 
   beforeAll(async () => {
     logger = createLogger('slasher:test:slasher_client');
@@ -72,9 +72,14 @@ describe('SlasherClient', () => {
       slashingRoundSize: 10,
       ethereumSlotDuration: 2,
       aztecSlotDuration,
-      minimumStake,
       aztecEpochDuration: 4,
-      initialValidators: [EthAddress.fromString(l1Client.account.address)],
+      initialValidators: [
+        {
+          attester: EthAddress.fromString(l1Client.account.address),
+          proposerEOA: EthAddress.fromString(l1Client.account.address),
+          withdrawer: EthAddress.fromString(l1Client.account.address),
+        },
+      ],
     };
 
     const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, config);
@@ -102,6 +107,8 @@ describe('SlasherClient', () => {
 
     rollup = new RollupContract(l1TxUtils.client, deployed.l1ContractAddresses.rollupAddress);
     slashingProposer = await rollup.getSlashingProposer();
+
+    depositAmount = await rollup.getMinimumStake();
 
     await rollup.setupEpoch(l1TxUtils);
 
@@ -176,13 +183,14 @@ describe('SlasherClient', () => {
         logger.info(`Leader votes: ${leaderVotes}`);
 
         // Vote for the payload
-        await forwarder.forward(
-          [slashingProposer.createVoteRequest(payload!.toString())],
-          l1TxUtils,
-          undefined,
-          undefined,
-          logger,
-        );
+        await forwarder
+          .forward([slashingProposer.createVoteRequest(payload!.toString())], l1TxUtils, undefined, undefined, logger)
+          .catch(err => {
+            if (err.message.includes('GovernanceProposer__OnlyProposerCanVote')) {
+              return;
+            }
+            throw err;
+          });
         // const l1Time = await cheatCodes.timestamp();
         // await cheatCodes.warp(l1Time + aztecSlotDuration);
 
@@ -196,9 +204,10 @@ describe('SlasherClient', () => {
       0.5,
     );
 
-    const info = await rollup.getInfo(l1TxUtils.client.account.address);
+    const info = await rollup.getAttesterView(l1TxUtils.client.account.address);
 
-    expect(info.stake).toBe(minimumStake - slashAmount);
+    expect(info.effectiveBalance).toBe(0n);
+    expect(info.exit.amount).toBe(depositAmount - slashAmount);
   });
 });
 

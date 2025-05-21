@@ -188,7 +188,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const publicClient = createPublicClient({
       chain: ethereumChain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map((url: any) => http(url))),
+      transport: fallback(config.l1RpcUrls.map((url: string) => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -266,14 +266,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const epochPruneWatcher = new EpochPruneWatcher(archiver, epochCache, config.slashPrunePenalty);
     watchers.push(epochPruneWatcher);
 
-    const slasherClient = await SlasherClient.new(
-      config,
-      config.l1Contracts,
-      l1TxUtils,
-      watchers,
-      dateProvider,
-      telemetry,
-    );
+    const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
     await slasherClient.start();
 
     const validatorClient = createValidatorClient(config, {
