@@ -93,6 +93,39 @@ constexpr std::array<std::array<C, 4>, 5> theta_xor_cols = {
     },
 };
 
+// Mapping indices of theta_xor_final_rotl1 to their columns.
+constexpr std::array<C, 5> theta_xor_final_rotl1_cols = {
+    {
+        C::keccakf1600_theta_xor_final_rotl1_0,
+        C::keccakf1600_theta_xor_final_rotl1_1,
+        C::keccakf1600_theta_xor_final_rotl1_2,
+        C::keccakf1600_theta_xor_final_rotl1_3,
+        C::keccakf1600_theta_xor_final_rotl1_4,
+    },
+};
+
+// Mapping indices of theta_xor_final_msb to their columns.
+constexpr std::array<C, 5> theta_xor_final_msb_cols = {
+    {
+        C::keccakf1600_theta_xor_final_msb_0,
+        C::keccakf1600_theta_xor_final_msb_1,
+        C::keccakf1600_theta_xor_final_msb_2,
+        C::keccakf1600_theta_xor_final_msb_3,
+        C::keccakf1600_theta_xor_final_msb_4,
+    },
+};
+
+// Mapping indices of theta_xor_final_low63 to their columns.
+constexpr std::array<C, 5> theta_xor_final_low63_cols = {
+    {
+        C::keccakf1600_theta_xor_final_low63_0,
+        C::keccakf1600_theta_xor_final_low63_1,
+        C::keccakf1600_theta_xor_final_low63_2,
+        C::keccakf1600_theta_xor_final_low63_3,
+        C::keccakf1600_theta_xor_final_low63_4,
+    },
+};
+
 void KeccakF1600TraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
@@ -104,17 +137,29 @@ void KeccakF1600TraceBuilder::process(
         trace.set(C::keccakf1600_bitwise_xor_op_id, row, static_cast<uint8_t>(BitwiseOperation::XOR));
 
         // Setting state inputs in their corresponding colums
-        for (size_t i = 0; i < 5; ++i) {
-            for (size_t j = 0; j < 5; ++j) {
+        for (size_t i = 0; i < 5; i++) {
+            for (size_t j = 0; j < 5; j++) {
                 trace.set(state_in_cols[i][j], row, event.state[i][j]);
             }
         }
 
-        // Setting Theta xor values to their corresponding columns
-        for (size_t i = 0; i < 5; ++i) {
-            for (size_t j = 0; j < 4; ++j) {
-                trace.set(theta_xor_cols[i][j], row, event.theta_xor_values[i][j]);
+        // Setting theta xor values to their corresponding columns
+        for (size_t i = 0; i < 5; i++) {
+            for (size_t j = 0; j < 4; j++) {
+                trace.set(theta_xor_cols[i][j], row, event.theta_xor[i][j]);
             }
+        }
+
+        // Setting theta xor final values left rotated by 1
+        // and the msb and low 63 bits values.
+        for (size_t i = 0; i < 5; i++) {
+            const auto theta_xor_final_rotl1 = event.theta_xor_final_rotl1[i];
+            const auto theta_xor_final_msb = theta_xor_final_rotl1 & 1;    // lsb of of the rotated value
+            const auto theta_xor_final_low63 = theta_xor_final_rotl1 >> 1; // 63 high bits of the rotated value
+
+            trace.set(theta_xor_final_rotl1_cols[i], row, theta_xor_final_rotl1);
+            trace.set(theta_xor_final_msb_cols[i], row, theta_xor_final_msb);
+            trace.set(theta_xor_final_low63_cols[i], row, theta_xor_final_low63);
         }
     }
 }
