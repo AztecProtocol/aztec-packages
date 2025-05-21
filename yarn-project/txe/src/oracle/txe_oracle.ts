@@ -125,6 +125,7 @@ import {
   CallContext,
   GlobalVariables,
   HashedValues,
+  PrivateCallExecutionResult,
   PrivateExecutionResult,
   PublicCallRequestWithCalldata,
   Tx,
@@ -1406,9 +1407,10 @@ export class TXE implements TypedOracle {
     context.storeInExecutionCache(args, argsHash);
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
-    let result;
+    let result: PrivateExecutionResult;
+    let executionResult: PrivateCallExecutionResult;
     try {
-      const executionResult = await executePrivateFunction(
+      executionResult = await executePrivateFunction(
         this.simulationProvider,
         context,
         artifact,
@@ -1434,11 +1436,21 @@ export class TXE implements TypedOracle {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
 
+    if (executionResult.returnValues !== undefined) {
+      const { returnValues } = executionResult;
+      // This is a bit of a hack to not deal with returning a slice in nr which is what normally happens.
+      // Investigate whether it is faster to do this or return from the oracle directly.
+      const returnValuesHash = await computeVarArgsHash(returnValues);
+      this.storeInExecutionCache(returnValues, returnValuesHash);
+    }
+
     const uniqueNoteHashes: Fr[] = [];
     const taggedPrivateLogs: PrivateLog[] = [];
-    const nullifiers: Fr[] = result.firstNullifier.equals(Fr.ZERO)
-      ? [this.getTxRequestHash()]
-      : noteCache.getAllNullifiers();
+    const nullifiers: Fr[] = isStaticCall
+      ? []
+      : result.firstNullifier.equals(Fr.ZERO)
+        ? [this.getTxRequestHash()]
+        : noteCache.getAllNullifiers();
     const l2ToL1Messages: ScopedL2ToL1Message[] = [];
     const contractClassLogsHashes: ScopedLogHash[] = [];
     const publicCallRequests: PublicCallRequest[] = [];
@@ -1560,6 +1572,11 @@ export class TXE implements TypedOracle {
 
     const tx = new Tx(txData, ClientIvcProof.empty(), [], result.publicFunctionCalldata);
 
+    let checkpoint;
+    if (isStaticCall) {
+      checkpoint = await ForkCheckpoint.new(this.baseFork);
+    }
+
     const results = await processor.process([tx]);
 
     const processedTxs = results[0];
@@ -1567,6 +1584,17 @@ export class TXE implements TypedOracle {
 
     if (failedTxs.length !== 0) {
       throw new Error('Public execution has failed');
+    }
+
+    if (isStaticCall) {
+      await checkpoint!.revert();
+      const txRequestHash = this.getTxRequestHash();
+
+      return {
+        endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
+        returnsHash: result.entrypoint.publicInputs.returnsHash,
+        txHash: txRequestHash,
+      };
     }
 
     const fork = this.baseFork;
@@ -1647,7 +1675,7 @@ export class TXE implements TypedOracle {
 
     const uniqueNoteHashes: Fr[] = [];
     const taggedPrivateLogs: PrivateLog[] = [];
-    const nullifiers: Fr[] = [this.getTxRequestHash()];
+    const nullifiers: Fr[] = !isStaticCall ? [this.getTxRequestHash()] : [];
     const l2ToL1Messages: ScopedL2ToL1Message[] = [];
     const contractClassLogsHashes: ScopedLogHash[] = [];
 
@@ -1697,6 +1725,11 @@ export class TXE implements TypedOracle {
 
     const tx = new Tx(txData, ClientIvcProof.empty(), [], [calldataHashedValues]);
 
+    let checkpoint;
+    if (isStaticCall) {
+      checkpoint = await ForkCheckpoint.new(this.baseFork);
+    }
+
     const results = await processor.process([tx]);
 
     const processedTxs = results[0];
@@ -1714,6 +1747,16 @@ export class TXE implements TypedOracle {
       // Investigate whether it is faster to do this or return from the oracle directly.
       returnValuesHash = await computeVarArgsHash(returnValues);
       this.storeInExecutionCache(returnValues, returnValuesHash);
+    }
+
+    if (isStaticCall) {
+      await checkpoint!.revert();
+      const txRequestHash = this.getTxRequestHash();
+
+      return {
+        returnsHash: returnValuesHash ?? Fr.ZERO,
+        txHash: txRequestHash,
+      };
     }
 
     const fork = this.baseFork;
