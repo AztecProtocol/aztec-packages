@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.87.1](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.0...v0.87.1) (2025-05-21)
+
+
+### Features
+
+* always inline serialisation methods ([#14369](https://github.com/AztecProtocol/aztec-packages/issues/14369)) ([87bfae6](https://github.com/AztecProtocol/aztec-packages/commit/87bfae686da1b844abe323013f2a7911b442c2a1))
+
+
+### Bug Fixes
+
+* **bb:** stdlib mac fix ([#14429](https://github.com/AztecProtocol/aztec-packages/issues/14429)) ([f09b2c1](https://github.com/AztecProtocol/aztec-packages/commit/f09b2c1ca4780c9dc8d2dd62d20ba260638888d0))
+
+
+### Miscellaneous
+
+* **ci:** ensure build_asan_fast doesn't have bloated cache ([#14426](https://github.com/AztecProtocol/aztec-packages/issues/14426)) ([0117141](https://github.com/AztecProtocol/aztec-packages/commit/011714177ae34ebef72b34162470741a1158917f))
+* replace relative paths to noir-protocol-circuits ([82ec065](https://github.com/AztecProtocol/aztec-packages/commit/82ec0654bd3e5e4c027aa543cbf248c598b2147f))
+
 ## [0.87.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.86.0...v0.87.0) (2025-05-20)
 
 
