@@ -5,6 +5,9 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
+export { Signature };
+export { EthAddress };
+
 export class CommitteeAttestation {
   constructor(
     public readonly address: EthAddress,
