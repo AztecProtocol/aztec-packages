@@ -12,6 +12,6 @@ export function createChildLogger(name: string) {
     name,
   });
   return (msg: string) => {
-    sublogger.debug(msg);
+    sublogger.trace(msg);
   };
 }

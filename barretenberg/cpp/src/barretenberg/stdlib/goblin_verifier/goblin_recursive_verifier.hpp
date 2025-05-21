@@ -28,6 +28,7 @@ class GoblinRecursiveVerifier {
     // Goblin Recursive Verifier circuit is using Ultra arithmetisation
     using Builder = UltraCircuitBuilder;
     using MergeVerifier = goblin::MergeRecursiveVerifier_<Builder>;
+    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
     using TranslatorFlavor = TranslatorRecursiveFlavor_<Builder>;
     using TranslatorVerifier = TranslatorRecursiveVerifier_<TranslatorFlavor>;
@@ -40,9 +41,12 @@ class GoblinRecursiveVerifier {
     // ECCVM and Translator verification keys
     using VerificationKey = Goblin::VerificationKey;
 
-    GoblinRecursiveVerifier(Builder* builder, const VerificationKey& verification_keys)
+    GoblinRecursiveVerifier(Builder* builder,
+                            const VerificationKey& verification_keys,
+                            const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : builder(builder)
-        , verification_keys(verification_keys){};
+        , verification_keys(verification_keys)
+        , transcript(transcript){};
 
     /**
      * @brief Construct a Goblin recursive verifier circuit
@@ -56,6 +60,7 @@ class GoblinRecursiveVerifier {
   private:
     Builder* builder;
     VerificationKey verification_keys; // ECCVM and Translator verification keys
+    std::shared_ptr<Transcript> transcript;
 };
 
 } // namespace bb::stdlib::recursion::honk

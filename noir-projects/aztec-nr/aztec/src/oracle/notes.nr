@@ -1,16 +1,10 @@
-use crate::{
-    note::{
-        note_interface::NoteType,
-        note_metadata::NoteMetadata,
-        retrieved_note::{RETRIEVED_NOTE_OVERHEAD, RetrievedNote},
-    },
-    utils::array,
+use crate::note::{
+    note_interface::NoteType,
+    retrieved_note::{RETRIEVED_NOTE_OVERHEAD, RetrievedNote, unpack_retrieved_note},
 };
 
 use dep::protocol_types::{
-    address::AztecAddress,
-    indexed_tagging_secret::IndexedTaggingSecret,
-    traits::{FromField, Packable},
+    address::AztecAddress, indexed_tagging_secret::IndexedTaggingSecret, traits::Packable,
 };
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
@@ -152,21 +146,7 @@ where
 
     let mut notes = BoundedVec::<_, MAX_NOTES>::new();
     for i in 0..packed_retrieved_notes.len() {
-        let packed_retrieved_note = packed_retrieved_notes.get(i);
-
-        let contract_address = AztecAddress::from_field(packed_retrieved_note[0]);
-        let nonce = packed_retrieved_note[1];
-        let nonzero_note_hash_counter = packed_retrieved_note[2] as bool;
-
-        let packed_note = array::subarray(packed_retrieved_note, RETRIEVED_NOTE_OVERHEAD);
-        let note = Note::unpack(packed_note);
-
-        let retrieved_note = RetrievedNote {
-            note,
-            contract_address,
-            metadata: NoteMetadata::from_raw_data(nonzero_note_hash_counter, nonce),
-        };
-
+        let retrieved_note = unpack_retrieved_note(packed_retrieved_notes.get(i));
         notes.push(retrieved_note);
     }
 
