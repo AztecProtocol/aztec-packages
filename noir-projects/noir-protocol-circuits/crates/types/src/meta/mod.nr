@@ -433,6 +433,7 @@ pub(crate) comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let serialized_len = fields.len();
     quote {
         impl Serialize<$serialized_len> for $typ {
+            #[inline_always]
             fn serialize(self) -> [Field; $serialized_len] {
                 $aux_vars_for_serialization
                 [ $field_serializations ]
@@ -449,6 +450,7 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
         generate_deserialize_from_fields(quote { self }, typ, quote { serialized }, 0, false);
     quote {
         impl Deserialize<$serialized_len> for $typ {
+            #[inline_always]
             fn deserialize(serialized: [Field; $serialized_len]) -> Self {
                 $deserialized
             }
