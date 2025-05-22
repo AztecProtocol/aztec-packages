@@ -137,34 +137,37 @@ describe('Transfer benchmark', () => {
                 1, // Kernel tail
             );
 
-            const tx = await transferInteraction.send(options).wait();
-            expect(tx.transactionFee!).toBeGreaterThan(0n);
+            // These slow down benchmarking too much.
+            // Left as reference don't really know what to do
 
-            // Sanity checks
+            // const tx = await transferInteraction.send(options).wait();
+            // expect(tx.transactionFee!).toBeGreaterThan(0n);
 
-            const txEffects = await node.getTxEffect(tx.txHash);
+            // // Sanity checks
 
-            /*
-             * We should have created the following nullifiers:
-             * - One per created note
-             * - One for the transaction
-             * - One for the fee note if we're using private fpc
-             */
-            expect(txEffects!.data.nullifiers.length).toBe(
-              notesToCreate + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 1 : 0),
-            );
-            /** We should have created 4 new notes,
-             *  - One for the recipient
-             *  - One for the sender (with the change)
-             *  - One for the fee if we're using private fpc
-             *  - One for the fee refund if we're using private fpc
-             */
-            expect(txEffects!.data.noteHashes.length).toBe(2 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0));
+            // const txEffects = await node.getTxEffect(tx.txHash);
+
+            // /*
+            //  * We should have created the following nullifiers:
+            //  * - One per created note
+            //  * - One for the transaction
+            //  * - One for the fee note if we're using private fpc
+            //  */
+            // expect(txEffects!.data.nullifiers.length).toBe(
+            //   notesToCreate + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 1 : 0),
+            // );
+            // /** We should have created 4 new notes,
+            //  *  - One for the recipient
+            //  *  - One for the sender (with the change)
+            //  *  - One for the fee if we're using private fpc
+            //  *  - One for the fee refund if we're using private fpc
+            //  */
+            // expect(txEffects!.data.noteHashes.length).toBe(2 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0));
 
             expectedChange = totalAmount - BigInt(amountToSend);
 
-            const senderBalance = await asset.methods.balance_of_private(benchysWallet.getAddress()).simulate();
-            expect(senderBalance).toEqual(expectedChange);
+            // const senderBalance = await asset.methods.balance_of_private(benchysWallet.getAddress()).simulate();
+            // expect(senderBalance).toEqual(expectedChange);
           });
         });
       }

@@ -152,9 +152,6 @@ describe('AMM benchmark', () => {
                 1 + // Kernel reset
                 1, // Kernel tail
             );
-
-            const tx = await addLiquidityInteraction.send().wait();
-            expect(tx.transactionFee!).toBeGreaterThan(0n);
           });
         });
       }

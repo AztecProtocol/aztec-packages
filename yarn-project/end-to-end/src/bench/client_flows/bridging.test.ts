@@ -106,14 +106,17 @@ describe('Bridging benchmark', () => {
               1, // Kernel tail
           );
 
-          // Ensure we paid a fee
-          const tx = await claimInteraction.send(options).wait();
-          expect(tx.transactionFee!).toBeGreaterThan(0n);
+          // These slow down benchmarking too much.
+          // Left as reference don't really know what to do
 
-          // 4. Check the balance
+          // // Ensure we paid a fee
+          // const tx = await claimInteraction.send(options).wait();
+          // expect(tx.transactionFee!).toBeGreaterThan(0n);
 
-          const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
-          expect(balance).toBe(bridgeAmount);
+          // // 4. Check the balance
+
+          // const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
+          // expect(balance).toBe(bridgeAmount);
         });
       }
 

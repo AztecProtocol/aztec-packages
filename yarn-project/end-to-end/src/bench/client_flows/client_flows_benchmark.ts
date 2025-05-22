@@ -93,6 +93,8 @@ export class ClientFlowsBenchmark {
   // PXE used by the benchmarking user. It can be set up with client-side proving enabled
   public userPXE!: PXE;
 
+  public realProofs = ['true', '1'].includes(process.env.REAL_PROOFS ?? '');
+
   public paymentMethods: Record<BenchmarkingFeePaymentMethod, { forWallet: FeePaymentMethodGetter; circuits: number }> =
     {
       // eslint-disable-next-line camelcase
@@ -218,7 +220,7 @@ export class ClientFlowsBenchmark {
         const l1Contracts = await aztecNode.getL1ContractAddresses();
         const userPXEConfigWithContracts = {
           ...userPXEConfig,
-          proverEnabled: ['true', '1'].includes(process.env.REAL_PROOFS ?? ''),
+          proverEnabled: this.realProofs,
           l1Contracts,
         } as PXEServiceConfig;
 

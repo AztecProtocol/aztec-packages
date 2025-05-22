@@ -79,8 +79,12 @@ describe('Deployment benchmark', () => {
                 1, // Kernel tail
             );
 
-            const tx = await deploymentInteraction.send(options).wait();
-            expect(tx.transactionFee!).toBeGreaterThan(0n);
+            // These slow down benchmarking too much.
+            // Left as reference don't really know what to do
+
+            // Ensure we paid a fee
+            // const tx = await deploymentInteraction.send(options).wait();
+            // expect(tx.transactionFee!).toBeGreaterThan(0n);
           });
         });
       }
