@@ -2001,7 +2001,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/
     throw_or_abort("Implementation under construction...");
 }
 
-template class cycle_group<bb::StandardCircuitBuilder>;
+// TODO(suyash): disabling standard circuit builder for now, as we've removed it from bigfield and biggroup classes.
+// template class cycle_group<bb::StandardCircuitBuilder>;
 template class cycle_group<bb::UltraCircuitBuilder>;
 template class cycle_group<bb::MegaCircuitBuilder>;
 
