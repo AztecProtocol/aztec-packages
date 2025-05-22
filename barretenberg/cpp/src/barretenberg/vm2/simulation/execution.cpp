@@ -18,10 +18,10 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     auto& memory = context.get_memory();
     MemoryValue a = memory.get(a_addr);
     MemoryValue b = memory.get(b_addr);
+    set_inputs({ a, b });
+
     MemoryValue c = alu.add(a, b);
     memory.set(dst_addr, c);
-
-    set_inputs({ a, b });
     set_output(c);
 }
 
@@ -50,15 +50,16 @@ void Execution::call(ContextInterface& context,
                      MemoryAddress cd_offset,
                      MemoryAddress cd_size)
 {
-    // Emit Snapshot of current context
-    emit_context_snapshot(context);
-
     auto& memory = context.get_memory();
 
-    // TODO(ilyas): How will we tag check these?
+    // TODO(ilyas): Consider temporality groups.
+    // NOTE: these reads cannot fail due to addressing guarantees.
     const auto& allocated_l2_gas_read = memory.get(l2_gas_offset);
     const auto& allocated_da_gas_read = memory.get(da_gas_offset);
     const auto& contract_address = memory.get(addr);
+    set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address });
+
+    // TODO(ilyas): How will we tag check these?
 
     // Cd size and cd offset loads are deferred to (possible) calldatacopy
     auto nested_context = execution_components.make_nested_context(contract_address,
@@ -68,32 +69,19 @@ void Execution::call(ContextInterface& context,
                                                                    /*cd_size_addr=*/cd_size,
                                                                    /*is_static=*/false);
 
-    // We recurse. When we return, we'll continue with the current loop and emit the execution event.
-    // That event will be out of order, but it will have the right order id. It should be sorted in tracegen.
-    auto result = execute_internal(*nested_context);
-
-    // TODO: do more things based on the result. This happens in the parent context
-    // 1) Accept / Reject side effects (e.g. tree state, newly emitted nullifiers, notes, public writes)
-    // 2) Set return data information
-    context.set_child_context(std::move(nested_context));
-    // TODO(ilyas): Look into just having a setter using ExecutionResult, but this gives us more flexibility
-    context.set_last_rd_offset(result.rd_offset);
-    context.set_last_rd_size(result.rd_size);
-    context.set_last_success(result.success);
-
-    // Set inputs and outputs for the event
-    set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address });
+    // We do not recurse. This context will be use on the next cycle of execution.
+    handle_enter_call(context, std::move(nested_context));
 }
 
 void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
 {
     auto& memory = context.get_memory();
     auto get_ret_size = memory.get(ret_size_offset);
+    set_inputs({ get_ret_size });
     // TODO(ilyas): check this is a U32
     auto rd_size = get_ret_size.as<uint32_t>();
     set_execution_result({ .rd_offset = ret_offset, .rd_size = rd_size, .success = true });
 
-    set_inputs({ get_ret_size });
     context.halt();
 }
 
@@ -101,11 +89,11 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
 {
     auto& memory = context.get_memory();
     auto get_rev_size = memory.get(rev_size_offset);
+    set_inputs({ get_rev_size });
     // TODO(ilyas): check this is a U32
     auto rd_size = get_rev_size.as<uint32_t>();
     set_execution_result({ .rd_offset = rev_offset, .rd_size = rd_size, .success = false });
 
-    set_inputs({ get_rev_size });
     context.halt();
 }
 
@@ -118,37 +106,37 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
 {
     auto& memory = context.get_memory();
 
-    // TODO: in gadget.
     auto resolved_cond = memory.get(cond_addr);
+    set_inputs({ resolved_cond });
     if (!resolved_cond.as_ff().is_zero()) {
         context.set_next_pc(loc);
     }
-
-    set_inputs({ resolved_cond });
 }
 
-// This context interface is an top-level enqueued one
-ExecutionResult Execution::execute(ContextInterface& context)
+// This context interface is a top-level enqueued one.
+// NOTE: For the moment this trace is not returning the context back.
+ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
 {
-    auto result = execute_internal(context);
-    return result;
-}
+    external_call_stack.push(std::move(enqueued_call_context));
 
-ExecutionResult Execution::execute_internal(ContextInterface& context)
-{
-    while (!context.halted()) {
-        // This allocates an order id for the event.
-        auto ex_event = ExecutionEvent::allocate();
+    while (!external_call_stack.empty()) {
+        // We fix the context at this point. Even if the opcode changes the stack
+        // we'll always use this in the loop.
+        auto& context = *external_call_stack.top();
 
         // We'll be filling in the event as we go. And we always emit at the end.
+        ExecutionEvent ex_event;
+
         try {
+            // State before doing anything.
+            ex_event.before_context_event = context.serialize_context_event();
+            ex_event.next_context_id = execution_components.get_next_context_id();
+
             // Basic pc and bytecode setup.
             auto pc = context.get_pc();
             ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
 
             // We try to fetch an instruction.
-            // WARNING: the bytecode has already been fetched in make_context. Maybe it is wrong and should be here.
-            // But then we have no way to know the bytecode id when constructing the manager.
             Instruction instruction = context.get_bytecode_manager().read_instruction(pc);
             ex_event.wire_instruction = instruction;
 
@@ -164,38 +152,75 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
             ex_event.resolved_operands = resolved_operands;
 
-            // "Emit" the context event
-            // TODO: think about whether we need to know the success at this point
-            auto context_event = context.serialize_context_event();
-            ex_event.context_event = context_event;
-            ex_event.next_context_id = execution_components.get_next_context_id();
-
             // Execute the opcode.
             dispatch_opcode(opcode, context, resolved_operands);
-            // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
-            ex_event.inputs = get_inputs();
-            ex_event.output = get_output();
-
-            // Move on to the next pc.
-            context.set_pc(context.get_next_pc());
         } catch (const std::exception& e) {
-            info("Error: ", e.what());
-            // Bah, we are done (for now).
-            // TODO: we eventually want this to just set and handle exceptional halt.
-            throw std::runtime_error("Execution loop error: " + std::string(e.what()));
+            info("Exceptional halt: ", e.what());
+            context.halt();
+            set_execution_result({ .success = false });
         }
 
+        // We always do what follows. "Finally".
+        // Move on to the next pc.
+        context.set_pc(context.get_next_pc());
+
+        // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
+        ex_event.inputs = get_inputs();
+        ex_event.output = get_output();
+
+        // State after the opcode.
+        ex_event.after_context_event = context.serialize_context_event();
         events.emit(std::move(ex_event));
+
+        // If the context has halted, we need to exit the external call.
+        // The external call stack is expected to be popped.
+        if (context.halted()) {
+            handle_exit_call();
+        }
     }
 
-    // FIXME: Should return an ExecutionResult.
     return get_execution_result();
+}
+
+void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context)
+{
+    ctx_stack_events.emit({ .id = parent_context.get_context_id(),
+                            .parent_id = parent_context.get_parent_id(),
+                            .entered_context_id = execution_components.get_next_context_id(),
+                            .next_pc = parent_context.get_next_pc(),
+                            .msg_sender = parent_context.get_msg_sender(),
+                            .contract_addr = parent_context.get_address(),
+                            .is_static = parent_context.get_is_static() });
+
+    external_call_stack.push(std::move(child_context));
+}
+
+void Execution::handle_exit_call()
+{
+    // NOTE: the current (child) context should not be modified here, since it was already emitted.
+    std::unique_ptr<ContextInterface> child_context = std::move(external_call_stack.top());
+    external_call_stack.pop();
+    ExecutionResult result = get_execution_result();
+
+    if (!external_call_stack.empty()) {
+        auto& parent_context = *external_call_stack.top();
+        // was not top level, communicate with parent
+        parent_context.set_last_rd_offset(result.rd_offset);
+        parent_context.set_last_rd_size(result.rd_size);
+        parent_context.set_last_success(result.success);
+        parent_context.set_child_context(std::move(child_context));
+    }
+    // Else: was top level. ExecutionResult is already set and that will be returned.
 }
 
 void Execution::dispatch_opcode(ExecutionOpCode opcode,
                                 ContextInterface& context,
                                 const std::vector<Operand>& resolved_operands)
 {
+    // TODO: consider doing this even before the dispatch.
+    inputs = {};
+    output = TaggedValue::from<FF>(0);
+
     switch (opcode) {
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
@@ -238,16 +263,5 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
         (this->*f)(context, static_cast<Ts>(resolved_operands.at(Is).as_ff())...);
     }(operand_indices);
 }
-
-void Execution::emit_context_snapshot(ContextInterface& context)
-{
-    ctx_stack_events.emit({ .id = context.get_context_id(),
-                            .parent_id = context.get_parent_id(),
-                            .entered_context_id = execution_components.get_next_context_id(),
-                            .next_pc = context.get_next_pc(),
-                            .msg_sender = context.get_msg_sender(),
-                            .contract_addr = context.get_address(),
-                            .is_static = context.get_is_static() });
-};
 
 } // namespace bb::avm2::simulation
