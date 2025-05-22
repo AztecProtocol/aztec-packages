@@ -6,12 +6,12 @@ use dep::protocol_types::{
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
 /// them available for later processing in Noir by storing them in a capsule array.
-pub unconstrained fn sync_private_state(pending_tagged_log_array_base_slot: Field) {
-    sync_private_state_oracle(pending_tagged_log_array_base_slot);
+pub unconstrained fn fetch_tagged_logs(pending_tagged_log_array_base_slot: Field) {
+    fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot);
 }
 
-#[oracle(syncPrivateState)]
-unconstrained fn sync_private_state_oracle(pending_tagged_log_array_base_slot: Field) {}
+#[oracle(fetchTaggedLogs)]
+unconstrained fn fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot: Field) {}
 
 /// Informs PXE of a note's existence so that it can later be retrieved by the `getNotes` oracle. The note will be
 /// scoped to `contract_address`, meaning other contracts will not be able to access it unless authorized.
