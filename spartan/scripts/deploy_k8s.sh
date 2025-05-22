@@ -33,6 +33,8 @@ install_timeout=${INSTALL_TIMEOUT:-30m}
 overrides="${OVERRIDES:-}"
 resources_file="${RESOURCES_FILE:-default.yaml}"
 repository="${REPOSITORY:-aztecprotocol/aztec}"
+monitor_deployment="${MONITOR_DEPLOYMENT:-true}"
+wait="${WAIT_FOR_DEPLOYMENT:-true}"
 
 if [ "$target" = "kind" ] ; then
   if ! docker_has_image "$repository:$aztec_docker_tag"; then
@@ -58,14 +60,19 @@ else
   exit 1
 fi
 
+status_monitor_pid=""
 
-# Start the deployment monitor in background
-./monitor_k8s_deployment.sh "$namespace" "$helm_instance" "app!=setup-l2-contracts" &
-status_monitor_pid=$!
+if [ "$monitor_deployment" = "true" ]; then
+  # Start the deployment monitor in background
+  ./monitor_k8s_deployment.sh "$namespace" "$helm_instance" "app!=setup-l2-contracts" &
+  status_monitor_pid=$!
+fi
 
 function cleanup {
   trap - SIGTERM
-  kill $status_monitor_pid 2>/dev/null || true
+  if [ -n "$status_monitor_pid" ]; then
+    kill $status_monitor_pid 2>/dev/null || true
+  fi
   kill $(jobs -p) 2>/dev/null || true
   rm "$mnemonic_file" || true
 }
@@ -148,12 +155,9 @@ helm upgrade --install "$helm_instance" ../aztec-network \
   $(generate_overrides "$overrides") \
   -f "../aztec-network/resources/$resources_file" \
   -f "../aztec-network/values/$values_file" \
-  --wait \
-  --wait-for-jobs=true \
+  --wait=$wait \
+  --wait-for-jobs=$wait \
   --timeout="$install_timeout"
-
-# Wait for PXE pods to be ready
-kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=10m
 
 # Configure network chaos if enabled
 if [ -n "$chaos_values" ]; then

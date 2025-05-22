@@ -3,6 +3,8 @@ aztec:
   epochDuration: 32
   proofSubmissionWindow: 32
   realProofs: false
+  testAccounts: true
+  sponsoredFPC: true
 
 ethereum:
   acceleratedTestDeployments: true
