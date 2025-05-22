@@ -31,7 +31,7 @@ Contracts created using aztec-nr will try to discover newly created events by se
 
 ## Public Events
 
-You can emit public events by calling the `emit_in_public_log` function on the event type that you would like to emit. For example:
+You can emit public events by calling the `emit_event_in_public_log` function with the event that you would like to emit. For example:
 
 #include_code emit_public /noir-projects/noir-contracts/contracts/test/test_log_contract/src/main.nr rust
 

@@ -9,7 +9,7 @@ pub contract Crowdfunding {
     // docs:start:all-deps
     use crate::config::Config;
     use dep::aztec::{
-        event::event_interface::EventInterface,
+        event::event_interface::emit_event_in_public_log,
         macros::{
             events::event,
             functions::{initializer, internal, private, public},
@@ -17,7 +17,7 @@ pub contract Crowdfunding {
         },
         messages::logs::note::encode_and_encrypt_note,
         prelude::{AztecAddress, PrivateSet, PublicImmutable},
-        protocol_types::traits::{Serialize, ToField},
+        protocol_types::traits::Serialize,
         utils::comparison::Comparator,
     };
     use dep::uint_note::uint_note::UintNote;
@@ -109,7 +109,7 @@ pub contract Crowdfunding {
     #[public]
     #[internal]
     fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
-        WithdrawalProcessed { amount, who: to }.emit_in_public_log(&mut context);
+        emit_event_in_public_log(WithdrawalProcessed { amount, who: to }, &mut context);
     }
     // docs:end:operator-withdrawals
 }

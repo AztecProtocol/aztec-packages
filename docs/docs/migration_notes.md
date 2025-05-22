@@ -11,11 +11,13 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## [Aztec.nr] Event API refactorings
 
-Public events are now emitted by calling the `emit_in_public_log` trait method:
+Public events are now emitted by calling the `emit_event_in_public_log` function:
 
 ```diff
++ use aztec::event::event_interface::emit_event_in_public_log;
+
 - event.emit(encode_event(&mut context));
-+ event.emit_in_public_log(&mut context);
++ event.emit_event_in_public_log(&mut context);
 ```
 
 ## [Aztec.js/TS libraries]

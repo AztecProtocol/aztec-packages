@@ -7,7 +7,7 @@ pub contract TestLog {
     use dep::aztec::prelude::PrivateSet;
     use dep::aztec::protocol_types::{address::AztecAddress, traits::Serialize};
     use dep::value_note::value_note::ValueNote;
-    use aztec::event::event_interface::EventInterface;
+    use aztec::event::event_interface::{emit_event_in_public_log, EventInterface};
     use aztec::protocol_types::traits::FromField;
     use std::meta::derive;
 
@@ -50,12 +50,18 @@ pub contract TestLog {
     #[public]
     fn emit_unencrypted_events(preimages: [Field; 4]) {
         // docs:start:emit_public
-        ExampleEvent0 { value0: preimages[0], value1: preimages[1] }.emit_in_public_log(
+        emit_event_in_public_log(
+            ExampleEvent0 { value0: preimages[0], value1: preimages[1] },
             &mut context,
         );
         // docs:end:emit_public
 
-        ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 }
-            .emit_in_public_log(&mut context);
+        emit_event_in_public_log(
+            ExampleEvent1 {
+                value2: AztecAddress::from_field(preimages[2]),
+                value3: preimages[3] as u8,
+            },
+            &mut context,
+        );
     }
 }
