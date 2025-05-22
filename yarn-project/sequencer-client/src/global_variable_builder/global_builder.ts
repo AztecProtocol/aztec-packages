@@ -46,6 +46,10 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     this.rollupContract = new RollupContract(this.publicClient, l1Contracts.rollupAddress);
   }
 
+  /**
+   * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
+   * @returns Base fees for the requested block
+   */
   private async computeCurrentBaseFees(blockNumber: bigint): Promise<GasFees> {
     // Since this might be called in the middle of a slot where a block might have been published,
     // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
@@ -59,10 +63,6 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.getManaBaseFeeAt(timestamp, true)));
   }
 
-  /**
-   * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
-   * @returns Base fees for the expected next block
-   */
   public async getCurrentBaseFees(): Promise<GasFees> {
     // Get the current block number
     const blockNumber = await this.rollupContract.getBlockNumber();
