@@ -11,7 +11,7 @@ import type { ProvingTimings, SimulationTimings } from '@aztec/stdlib/tx';
 
 import assert from 'node:assert';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import type { GithubActionBenchmarkResult } from '../utils.js';
 
@@ -252,13 +252,12 @@ export async function captureProfile(
     logger.info(`Wrote private execution steps to ${resultsDirectory}`);
   }
 
-  const benchOutputFolder = process.env.BENCH_OUTPUT_FOLDER;
-  if (benchOutputFolder) {
-    const benchOutputPath = join(benchOutputFolder, 'bench.json');
-    await mkdir(benchOutputFolder, { recursive: true });
+  const benchOutput = process.env.BENCH_OUTPUT;
+  if (benchOutput) {
+    await mkdir(dirname(benchOutput), { recursive: true });
     const ghBenchmark = convertProfileToGHBenchmark(benchmark);
-    await writeFile(benchOutputPath, JSON.stringify(ghBenchmark));
-    logger.info(`Wrote benchmark to ${benchOutputPath}`);
+    await writeFile(benchOutput, JSON.stringify(ghBenchmark));
+    logger.info(`Wrote benchmark to ${benchOutput}`);
   }
 
   return result;
