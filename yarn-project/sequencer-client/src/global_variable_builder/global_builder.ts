@@ -48,7 +48,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
 
   /**
    * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
-   * @returns Base fees for the requested block
+   * @returns Base fees for the next block
    */
   private async computeCurrentBaseFees(): Promise<GasFees> {
     // Since this might be called in the middle of a slot where a block might have been published,
