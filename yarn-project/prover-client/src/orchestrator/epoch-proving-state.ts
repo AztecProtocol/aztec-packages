@@ -1,3 +1,4 @@
+import { BatchedBlob, type FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -48,6 +49,7 @@ export class EpochProvingState {
     | PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
     | undefined;
   private rootRollupProvingOutput: PublicInputsAndRecursiveProof<RootRollupPublicInputs> | undefined;
+  private finalBatchedBlob: BatchedBlob | undefined;
   private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
 
   // Map from tx hash to tube proof promise. Used when kickstarting tube proofs before tx processing.
@@ -59,6 +61,7 @@ export class EpochProvingState {
     public readonly epochNumber: number,
     public readonly firstBlockNumber: number,
     public readonly totalNumBlocks: number,
+    public readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
   ) {
@@ -143,6 +146,10 @@ export class EpochProvingState {
     this.paddingBlockRootProvingOutput = proof;
   }
 
+  public setFinalBatchedBlob(batchedBlob: BatchedBlob) {
+    this.finalBatchedBlob = batchedBlob;
+  }
+
   public getParentLocation(location: TreeNodeLocation) {
     return this.blockRootOrMergeProvingOutputs.getParentLocation(location);
   }
@@ -181,14 +188,15 @@ export class EpochProvingState {
     return this.blocks.find(block => block?.blockNumber === blockNumber);
   }
 
-  public getEpochProofResult(): { proof: Proof; publicInputs: RootRollupPublicInputs } {
-    if (!this.rootRollupProvingOutput) {
+  public getEpochProofResult(): { proof: Proof; publicInputs: RootRollupPublicInputs; batchedBlobInputs: BatchedBlob } {
+    if (!this.rootRollupProvingOutput || !this.finalBatchedBlob) {
       throw new Error('Unable to get epoch proof result. Root rollup is not ready.');
     }
 
     return {
       proof: this.rootRollupProvingOutput.proof.binaryProof,
       publicInputs: this.rootRollupProvingOutput.inputs,
+      batchedBlobInputs: this.finalBatchedBlob, // TODO(MW): rename? Inputs for batched blob verification on L1 ()
     };
   }
 
