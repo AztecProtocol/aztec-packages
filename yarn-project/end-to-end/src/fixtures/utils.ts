@@ -453,7 +453,8 @@ export async function setup(
           feeJuicePortalInitialBalance: fundingNeeded,
           initialValidators,
           initialValidatorsProposer: opts.usePublisherAsProposer
-            ? EthAddress.fromString(publisherHdAccount!.address)
+            ? // Proposer for all validators is the publisher's forwarder address
+              EthAddress.fromString(ForwarderContract.expectedAddress(publisherHdAccount!.address))
             : undefined,
         },
         chain,
