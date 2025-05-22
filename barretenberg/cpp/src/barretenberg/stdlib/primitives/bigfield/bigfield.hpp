@@ -514,6 +514,7 @@ template <typename Builder, typename T> class bigfield {
     {
         uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
         uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
+        // TODO(suyash): is this related anyway to prohibited limb size?
         const size_t arbitrary_secure_margin = 20;
         return (uint512_t(1) << ((maximum_product_bits >> 1) + arbitrary_secure_margin)) - uint512_t(1);
     }
