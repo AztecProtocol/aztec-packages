@@ -449,59 +449,91 @@ pub contract Token {
 
         // We can't simply return the partial note because we won't be able to later on verify that it was created
         // correctly (e.g. that the storage slot corresponds to the owner, and that we're using the balance set and not
-        // another state variable) once this information is hidden in the partial note commitment. We therefore store
-        // the partial note in our own public storage, so that we can later check that we're only completing correctly
-        // created partial notes.
-        Token::at(context.this_address())._store_balances_set_partial_note(partial_note).enqueue(
-            context,
-        );
+        // a different one) once this information is hidden in the partial note commitment. We also want to verify that
+        // only the caller of this function can complete the partial note.
+        //
+        // We achieve the above by storing a flag in public storage under a slot index equal to its
+        // `validity_commitment`. This commitment contains all the necessary information to verify the completer and
+        // to validate the partial note.
+        let validity_commitment = partial_note.compute_validity_commitment(context.msg_sender());
+
+        Token::at(context.this_address())
+            ._set_uint_partial_note_validity(validity_commitment)
+            .enqueue(context);
 
         partial_note
     }
 
     // docs:start:finalize_transfer_to_private
-    /// Finalizes a transfer of token `amount` from public balance of `from` to a private balance of `to`.
-    /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
-    /// `partial_note` must be passed as an argument to this function.
+    /// Finalizes a transfer of token `amount` from public balance of `msg_sender` to a private balance of `to`.
+    /// The transfer must be prepared by calling `prepare_private_balance_increase` from `msg_sender` account and
+    /// the resulting `partial_note` must be passed as an argument to this function.
+    ///
+    /// Note that this contract does not protect against a `partial_note` being used multiple times and it is up to
+    /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
+    /// times, the token `amount` would most likely get lost (the partial note log processing functionality would fail
+    /// to find the pending partial note when trying to complete it).
     #[public]
     fn finalize_transfer_to_private(amount: u128, partial_note: PartialUintNote) {
-        let from = context.msg_sender();
-        _finalize_transfer_to_private(from, amount, partial_note, &mut context, storage);
+        // Completer is the entity that can complete the partial note. In this case, it's the same as the account
+        // `from` from whose balance we're subtracting the `amount`.
+        let from_and_completer = context.msg_sender();
+        _finalize_transfer_to_private(
+            from_and_completer,
+            amount,
+            partial_note,
+            &mut context,
+            storage,
+        );
     }
     // docs:end:finalize_transfer_to_private
 
     // docs:start:finalize_transfer_to_private_unsafe
     /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
-    /// to `_finalize_transfer_to_private` can be enqueued. Called unsafe as it does not check `from` (this has to be
-    /// done in the calling function).
+    /// to `_finalize_transfer_to_private` can be enqueued. Called unsafe as it does not check `from_and_completer`
+    /// (this has to be done in the calling function).
     #[public]
     #[internal]
     fn _finalize_transfer_to_private_unsafe(
-        from: AztecAddress,
+        from_and_completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
     ) {
-        _finalize_transfer_to_private(from, amount, partial_note, &mut context, storage);
+        _finalize_transfer_to_private(
+            from_and_completer,
+            amount,
+            partial_note,
+            &mut context,
+            storage,
+        );
     }
     // docs:end:finalize_transfer_to_private_unsafe
 
+    // In all the flows in this contract, `from` (the account from which we're subtracting the `amount`) and
+    // `completer` (the entity that can complete the partial note) are the same so we represent them with a single
+    // argument.
     #[contract_library_method]
     fn _finalize_transfer_to_private(
-        from: AztecAddress,
+        from_and_completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
         context: &mut PublicContext,
         storage: Storage<&mut PublicContext>,
     ) {
-        // First we subtract the `amount` from the public balance of `from`
-        let from_balance = storage.public_balances.at(from).read().sub(amount);
-        storage.public_balances.at(from).write(from_balance);
+        // First we subtract the `amount` from the public balance of `from_and_completer`
+        let from_balance = storage.public_balances.at(from_and_completer).read().sub(amount);
+        storage.public_balances.at(from_and_completer).write(from_balance);
 
-        // We verify that the partial note we're completing is valid (i.e. it uses the correct state variable's storage
-        // slot, and it is internally consistent). We *could* clear the storage since each partial note should only be
-        // used once, but since the AVM offers no gas refunds for doing so this would just make the transaction be more
-        // expensive.
-        assert(context.storage_read(partial_note.commitment()), "Invalid partial note");
+        // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
+        // state variable's storage slot, and it is internally consistent). We *could* clear the storage since each
+        // partial note should only be used once, but since the AVM offers no gas refunds for doing so this would just
+        // make the transaction be more expensive. We don't worry about the validity commitment being checked against
+        // multiple times because it is up to the caller to ensure that a partial note is used only once (see function
+        // docs of `finalize_transfer_to_private`).
+        assert(
+            context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
+            "Invalid partial note or completer",
+        );
         partial_note.complete(amount, context);
     }
 
@@ -510,6 +542,7 @@ pub contract Token {
     /// in the enqueued call).
     #[private]
     fn mint_to_private(
+        // TODO(benesjan): This allows minter to set arbitrary `from`. That seems undesirable. Will nuke it in a followup PR.
         from: AztecAddress, // sender of the tag
         to: AztecAddress,
         amount: u128,
@@ -519,9 +552,9 @@ pub contract Token {
         // We prepare the partial note to which we'll "send" the minted amount.
         let partial_note = _prepare_private_balance_increase(from, to, &mut context, storage);
 
-        // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set the `from`
-        // function argument to a message sender, guaranteeing that only a message sender with minter permissions
-        // can successfully execute the function.
+        // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set
+        // the `minter_and_completer` function argument to a message sender, guaranteeing that only a message sender
+        // with minter permissions can successfully execute the function.
         token._finalize_mint_to_private_unsafe(context.msg_sender(), amount, partial_note).enqueue(
             &mut context,
         );
@@ -538,28 +571,47 @@ pub contract Token {
     /// (e.g. used during token bridging, in AMM liquidity token etc.).
     #[public]
     fn finalize_mint_to_private(amount: u128, partial_note: PartialUintNote) {
-        assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
+        // Completer is the entity that can complete the partial note. In this case, it's the same as the minter
+        // account.
+        let minter_and_completer = context.msg_sender();
+        assert(storage.minters.at(minter_and_completer).read(), "caller is not minter");
 
-        _finalize_mint_to_private(amount, partial_note, &mut context, storage);
+        _finalize_mint_to_private(
+            minter_and_completer,
+            amount,
+            partial_note,
+            &mut context,
+            storage,
+        );
     }
     // docs:end:finalize_mint_to_private
 
     // docs:start:finalize_mint_to_private_unsafe
+    /// This is a wrapper around `_finalize_mint_to_private` placed here so that a call
+    /// to `_finalize_mint_to_private` can be enqueued. Called unsafe as it does not check `minter_and_completer` (this
+    /// has to be done in the calling function).
     #[public]
     #[internal]
     fn _finalize_mint_to_private_unsafe(
-        from: AztecAddress,
+        minter_and_completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
     ) {
         // We check the minter permissions as it was not done in `mint_to_private` function.
-        assert(storage.minters.at(from).read(), "caller is not minter");
-        _finalize_mint_to_private(amount, partial_note, &mut context, storage);
+        assert(storage.minters.at(minter_and_completer).read(), "caller is not minter");
+        _finalize_mint_to_private(
+            minter_and_completer,
+            amount,
+            partial_note,
+            &mut context,
+            storage,
+        );
     }
     // docs:end:finalize_mint_to_private_unsafe
 
     #[contract_library_method]
     fn _finalize_mint_to_private(
+        completer: AztecAddress, // entity that can complete the partial note
         amount: u128,
         partial_note: PartialUintNote,
         context: &mut PublicContext,
@@ -573,18 +625,21 @@ pub contract Token {
         // slot, and it is internally consistent). We *could* clear the storage since each partial note should only be
         // used once, but since the AVM offers no gas refunds for doing so this would just make the transaction be more
         // expensive.
-        assert(context.storage_read(partial_note.commitment()), "Invalid partial note");
+        assert(
+            context.storage_read(partial_note.compute_validity_commitment(completer)),
+            "Invalid partial note or completer",
+        );
         partial_note.complete(amount, context);
     }
 
     #[public]
     #[internal]
-    fn _store_balances_set_partial_note(partial_note: PartialUintNote) {
-        // We store the partial note in a slot equal to its commitment. This is safe because the commitment is computed
-        // using a generator different from the one used to compute storage slots, so there can be no collisions.
-        // We could consider storing all pending partial notes in e.g. some array, but ultimately this is pointless: all
-        // we need to verify is that the note is valid.
-        context.storage_write(partial_note.commitment(), true);
+    fn _set_uint_partial_note_validity(validity_commitment: Field) {
+        // We store the partial note validity flag in a slot equal to its validity commitment. This is safe because
+        // the commitment is computed using a generator different from the one used to compute storage slots, so there
+        // can be no collisions. We could consider storing all pending partial notes in e.g. some array, but ultimately
+        // this is pointless: all we need to verify is that the note is valid.
+        context.storage_write(validity_commitment, true);
     }
 
     /// Internal ///

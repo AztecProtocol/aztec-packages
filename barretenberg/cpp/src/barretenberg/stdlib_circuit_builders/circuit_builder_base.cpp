@@ -10,7 +10,6 @@
 
 namespace bb {
 
-// Standard honk/ plonk instantiation
 template class CircuitBuilderBase<bb::fr>;
 template class CircuitBuilderBase<grumpkin::fr>;
 } // namespace bb

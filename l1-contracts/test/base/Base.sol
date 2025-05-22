@@ -4,6 +4,9 @@ pragma solidity >=0.8.27;
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Test} from "forge-std/Test.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {
+  AttesterView, Exit, Status, AttesterConfig
+} from "@aztec/core/libraries/staking/StakingLib.sol";
 
 contract TestBase is Test {
   using SlotLib for Slot;
@@ -220,6 +223,44 @@ contract TestBase is Test {
       emit log_named_string("Error", err);
       assertEq(a, b);
     }
+  }
+
+  function logStatus(Status status) internal {
+    string memory statusString;
+    if (status == Status.LIVING) {
+      statusString = "LIVING";
+    } else if (status == Status.VALIDATING) {
+      statusString = "VALIDATING";
+    } else if (status == Status.EXITING) {
+      statusString = "EXITING";
+    } else {
+      statusString = "NONE";
+    }
+
+    emit log_named_string("status", statusString);
+  }
+
+  function logAttesterConfig(AttesterConfig memory config) internal {
+    emit log("attester config");
+    emit log_named_address("\tproposer  ", config.proposer);
+    emit log_named_address("\twithdrawer", config.withdrawer);
+  }
+
+  function logExit(Exit memory exit) internal {
+    emit log("exit");
+    emit log_named_decimal_uint("\tamount", exit.amount, 18);
+    emit log_named_uint("\texitableAt", Timestamp.unwrap(exit.exitableAt));
+    emit log_named_address("\trecipientOrWithdrawer", exit.recipientOrWithdrawer);
+    emit log_named_string("\tisRecipient", exit.isRecipient ? "true" : "false");
+  }
+
+  function logAttesterView(AttesterView memory s) internal {
+    logStatus(s.status);
+    logAttesterConfig(s.config);
+    if (s.exit.exists) {
+      logExit(s.exit);
+    }
+    emit log_named_decimal_uint("\tEffective balance", s.effectiveBalance, 18);
   }
 
   // Blobs
