@@ -14,22 +14,18 @@ pub contract SimpleToken {
 
     use dep::aztec::{
         context::{PrivateCallInterface, PrivateContext},
-        event::event_interface::EventInterface,
+        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility, view},
             storage::storage,
         },
-        messages::logs::{
-            event::encode_and_encrypt_event_unconstrained,
-            note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
-        },
+        messages::logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
         protocol_types::traits::Serialize,
     };
 
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};
-    use aztec::protocol_types::traits::ToField;
 
     use dep::authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
@@ -181,11 +177,13 @@ pub contract SimpleToken {
             from,
         ));
 
-        Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
+        emit_event_in_private_log(
+            Transfer { from, to, amount },
             &mut context,
             to,
             from,
-        ));
+            PrivateLogContent.NO_CONSTRAINTS,
+        );
     }
 
     #[private]
