@@ -12,6 +12,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
+import {DelegationLib, DelegationData} from "@aztec/core/libraries/staking/DelegationLib.sol";
 
 struct AttesterConfig {
   address withdrawer;
@@ -21,8 +22,7 @@ struct AttesterConfig {
 struct InstanceStaking {
   SnapshottedAddressSet attesters;
   mapping(address attester => AttesterConfig) configOf;
-  mapping(address attester => uint256) balanceOf;
-  uint256 supply;
+  DelegationData delegation;
   bool exists;
 }
 
@@ -81,11 +81,14 @@ contract GSE is IGSE, Ownable {
   using SafeCast for uint256;
   using SafeCast for uint224;
   using Checkpoints for Checkpoints.Trace224;
+  using DelegationLib for DelegationData;
 
   uint256 public constant MINIMUM_DEPOSIT = 100e18;
   // @todo https://github.com/AztecProtocol/aztec-packages/issues/14304
   uint256 public constant MINIMUM_BALANCE = 100e18;
 
+  address public constant ROLLUP_DELEGATION_MAGIC_ADDRESS =
+    address(uint160(uint256(keccak256("rollup_delegation"))));
   address public constant CANONICAL_MAGIC_ADDRESS =
     address(uint160(uint256(keccak256("canonical"))));
 
@@ -145,10 +148,8 @@ contract GSE is IGSE, Ownable {
     require(instanceStaking.attesters.add(_attester), Errors.Staking__AlreadyRegistered(_attester));
     instanceStaking.configOf[_attester] =
       AttesterConfig({withdrawer: _withdrawer, proposer: _proposer});
-    instanceStaking.balanceOf[_attester] += MINIMUM_DEPOSIT;
-    instanceStaking.supply += MINIMUM_DEPOSIT;
+    instanceStaking.delegation.increaseBalance(_attester, MINIMUM_DEPOSIT);
     totalSupply += MINIMUM_DEPOSIT;
-
     STAKING_ASSET.transferFrom(msg.sender, address(this), MINIMUM_DEPOSIT);
 
     emit Deposit(
@@ -184,7 +185,7 @@ contract GSE is IGSE, Ownable {
 
     require(attesterExists, Errors.Staking__NothingToExit(_attester));
 
-    uint256 balance = instanceStaking.balanceOf[_attester];
+    uint256 balance = instanceStaking.delegation.balanceOf[_attester];
     require(balance >= _amount, Errors.Staking__InsufficientStake(balance, _amount));
 
     uint256 amountWithdrawn = _amount;
@@ -199,8 +200,7 @@ contract GSE is IGSE, Ownable {
       amountWithdrawn = balance;
     }
 
-    instanceStaking.balanceOf[_attester] -= amountWithdrawn;
-    instanceStaking.supply -= amountWithdrawn;
+    instanceStaking.delegation.decreaseBalance(_attester, amountWithdrawn);
     totalSupply -= amountWithdrawn;
 
     STAKING_ASSET.transfer(msg.sender, amountWithdrawn);
@@ -280,15 +280,15 @@ contract GSE is IGSE, Ownable {
   {
     (InstanceStaking storage store, bool attesterExists,) =
       _getInstanceStoreWithAttester(_instance, _attester);
-    return attesterExists ? store.balanceOf[_attester] : 0;
+    return attesterExists ? store.delegation.balanceOf[_attester] : 0;
   }
 
   function supplyOf(address _instance) external view override(IGSE) returns (uint256) {
     InstanceStaking storage store = instances[_instance];
 
-    uint256 supply = store.supply;
+    uint256 supply = store.delegation.getSupply();
     if (getCanonical() == _instance) {
-      supply += instances[CANONICAL_MAGIC_ADDRESS].supply;
+      supply += instances[CANONICAL_MAGIC_ADDRESS].delegation.getSupply();
     }
 
     return supply;
