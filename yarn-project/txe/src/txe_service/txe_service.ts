@@ -36,10 +36,7 @@ import { ExpectedFailureError } from '../util/expected_failure_error.js';
 export class TXEService {
   public oraclesEnabled = true;
 
-  constructor(
-    private logger: Logger,
-    private typedOracle: TypedOracle,
-  ) {}
+  constructor(private logger: Logger, private typedOracle: TypedOracle) {}
 
   static async init(logger: Logger, protocolContracts: ProtocolContract[]) {
     logger.debug(`TXE service initialized`);
