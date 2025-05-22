@@ -211,7 +211,7 @@ template <typename Builder> class field_t {
     /**
      * @brief Unset the free witness flag for the field element's tag
      */
-    void unset_free_witness_tag() { tag.unset_free_witness(); }
+    void unset_free_witness_tag() const { tag.unset_free_witness(); }
 
     field_t conditional_negate(const bool_t<Builder>& predicate) const;
 

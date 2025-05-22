@@ -375,6 +375,10 @@ typename byte_array<Builder>::byte_slice byte_array<Builder>::split_byte(const s
     field_t<Builder> high = witness_t<Builder>(context, high_value);
     bool_t<Builder> bit = witness_t<Builder>(context, static_cast<bool>(bit_value));
 
+    low.set_origin_tag(values[byte_index].get_origin_tag());
+    high.set_origin_tag(values[byte_index].get_origin_tag());
+    bit.set_origin_tag(values[byte_index].get_origin_tag());
+
     if (num_low_bits > 0) {
         low.create_range_constraint(static_cast<size_t>(num_low_bits), "byte_array: low bits split off incorrectly.");
     } else {
