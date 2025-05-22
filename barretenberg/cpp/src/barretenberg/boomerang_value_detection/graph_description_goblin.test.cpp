@@ -7,6 +7,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -62,9 +63,11 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput output = verifier.verify(proof);
     output.points_accumulator.set_public();
-    auto translator_pairing_points = output.translator_pairing_points;
-    translator_pairing_points.P0.fix_witness();
-    translator_pairing_points.P1.fix_witness();
+    [[maybe_unused]] auto translator_pairing_points = output.points_accumulator;
+    translator_pairing_points.P0.x.fix_witness();
+    translator_pairing_points.P0.y.fix_witness();
+    translator_pairing_points.P1.x.fix_witness();
+    translator_pairing_points.P1.y.fix_witness();
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);

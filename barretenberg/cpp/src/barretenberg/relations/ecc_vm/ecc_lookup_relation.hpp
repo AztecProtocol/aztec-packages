@@ -12,6 +12,8 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include <type_traits>
 namespace bb {
 
 template <typename FF_> class ECCVMLookupRelationImpl {
@@ -161,16 +163,35 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         // | 6 |  3[P].x |  3[P].y
         // | 7 |  1[P].x |  1[P].y | 7, -[P].x, -[P].y | 8 , [P].x, [P].y |
 
-        const auto negative_term = precompute_pc + gamma + precompute_round * beta + tx * beta_sqr - ty * beta_cube;
-        const auto positive_slice_value = -(precompute_round) + 15;
-        const auto positive_term = precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube;
+        /*      const auto negative_term = precompute_pc + gamma + precompute_round * beta + tx * beta_sqr - ty *
+           beta_cube; const auto positive_slice_value = -(precompute_round) + 15; const auto positive_term =
+           precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube; */
 
-        // todo optimize this?
+        /*      using NegativeTermT = decltype(negative_term);
+                using PositiveTermT = decltype(positive_term); */
+        // In this function Prover and Verifier use field<Bn254FqParams> and bigfield<Ultra<UltraExecutionTracle,
+        // Bn254FqParams> respectively. If this function returns positive_term, negative_term won't be used in the
+        // circuit, and its 2nd binary basis limb will be only in one gate So we can remove this variable from the
+        // static analyzer's scope. N.B. can we calculate positive and negative terms in constexpr if below? Because we
+        // create unnecessary bigfield elements => create more unnecessary gates....
+        //  todo optimize this?
         if constexpr (write_index == 0) {
-            return positive_term; // degree 1
+            /*             if constexpr
+               (std::is_same_v<stdlib::bigfield<bb::UltraCircuitBuilder_<bb::UltraExecutionTraceBlocks>,
+               bb::Bn254FqParams>, std::decay_t<NegativeTermT>>) {
+                            negative_term.get_context()->update_used_witnesses(negative_term.binary_basis_limbs[2].element.witness_index);
+                        }
+                        return positive_term; // degree 1 */
+            const auto positive_slice_value = -(precompute_round) + 15;
+            return precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube;
         }
         if constexpr (write_index == 1) {
-            return negative_term; // degree 1
+            return precompute_pc + gamma + precompute_round * beta + tx * beta_sqr - ty * beta_cube;
+            /*             if constexpr
+               (std::is_same_v<stdlib::bigfield<bb::UltraCircuitBuilder_<bb::UltraExecutionTraceBlocks>,
+               bb::Bn254FqParams>, std::decay_t<PositiveTermT>>) {
+                            positive_term.get_context()->update_used_witnesses(negative_term.binary_basis_limbs[2].element.witness_index);
+                        } */
         }
         return Accumulator(1);
     }
