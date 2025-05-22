@@ -13,7 +13,6 @@ import {
   defaultL1TxUtilsConfig,
   deployL1Contract,
   deployRollupForUpgrade,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import {
@@ -150,6 +149,16 @@ describe('e2e_p2p_add_rollup', () => {
       }),
     });
 
+    // Hand over the GSE to the governance
+    await l1TxUtils.sendAndMonitorTransaction({
+      to: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.gseAddress!.toString()),
+      data: encodeFunctionData({
+        abi: RegistryAbi,
+        functionName: 'transferOwnership',
+        args: [governance.address],
+      }),
+    });
+
     // Now that we have passed on the registry, we can deploy the new rollup.
     const initialTestAccounts = await getInitialTestAccounts();
     const { genesisArchiveRoot, fundingNeeded, prefilledPublicData } = await getGenesisValues(
@@ -167,7 +176,6 @@ describe('e2e_p2p_add_rollup', () => {
         aztecEpochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
         aztecTargetCommitteeSize: t.ctx.aztecNodeConfig.aztecTargetCommitteeSize,
         aztecProofSubmissionWindow: t.ctx.aztecNodeConfig.aztecProofSubmissionWindow,
-        minimumStake: t.ctx.aztecNodeConfig.minimumStake,
         slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
         slashingRoundSize: t.ctx.aztecNodeConfig.slashingRoundSize,
         manaTarget: t.ctx.aztecNodeConfig.manaTarget,
@@ -178,56 +186,6 @@ describe('e2e_p2p_add_rollup', () => {
       t.logger,
       defaultL1TxUtilsConfig,
     );
-
-    // Adding the attesters to the new rollup with a little cheating.
-    {
-      const attestersOnOld = await rollup.getAttesters();
-      const oldContract = rollup.getContract();
-
-      const attesterInfos = await Promise.all(
-        attestersOnOld.map(async a => {
-          const info = await oldContract.read.getInfo([a]);
-          return { attester: a, proposer: info.proposer, withdrawer: info.withdrawer, amount: info.stake };
-        }),
-      );
-
-      const stakingAsset = getContract({
-        address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
-        abi: TestERC20Abi,
-        client: t.ctx.deployL1ContractsValues.l1Client,
-      });
-
-      const stakeNeeded = attesterInfos.reduce((acc, curr) => acc + curr.amount, 0n);
-
-      const { address: multiAdderAddress } = await deployL1Contract(
-        t.ctx.deployL1ContractsValues.l1Client,
-        l1Artifacts.multiAdder.contractAbi,
-        l1Artifacts.multiAdder.contractBytecode,
-        [newRollup.address, t.ctx.deployL1ContractsValues.l1Client.account.address],
-      );
-
-      // I **LOVE** wrapping things like this to avoid underpaying.
-      await Promise.all([
-        await l1TxUtils.sendAndMonitorTransaction({
-          to: stakingAsset.address,
-          data: encodeFunctionData({
-            abi: TestERC20Abi,
-            functionName: 'mint',
-            args: [multiAdderAddress.toString(), stakeNeeded],
-          }),
-        }),
-      ]);
-
-      // Works fine because only 4 nodes.
-      await l1TxUtils.sendAndMonitorTransaction({
-        to: multiAdderAddress.toString(),
-        data: encodeFunctionData({
-          abi: l1Artifacts.multiAdder.contractAbi,
-          functionName: 'addValidators',
-          args: [attesterInfos],
-        }),
-      });
-    }
 
     const { address: newPayloadAddress } = await deployL1Contract(
       t.ctx.deployL1ContractsValues.l1Client,
@@ -523,6 +481,8 @@ describe('e2e_p2p_add_rollup', () => {
     t.logger.info(`Canonical rollup is correct`);
     const numberOfVersionsBefore = await registry.read.numberOfVersions();
     t.logger.info(`Number of versions listed: ${numberOfVersionsBefore}`);
+    const attestersBeforeOld = await rollup.getAttesters();
+    const attestersBeforeNew = await newRollup.getAttesters();
 
     t.logger.info(`Executing proposal`);
     await l1TxUtils.sendAndMonitorTransaction({
@@ -543,6 +503,15 @@ describe('e2e_p2p_add_rollup', () => {
     t.logger.info(`Number of versions listed: ${numberOfVersionsAfter}`);
     t.logger.info(`Old rollup: ${rollup.address}. New Rollup: ${newRollup.address}`);
 
+    const attestersAfterOld = await rollup.getAttesters();
+    const attestersAfterNew = await newRollup.getAttesters();
+    t.logger.info(
+      `Attesters old before: ${attestersBeforeOld.length}. Attesters old after: ${attestersAfterOld.length}`,
+    );
+    t.logger.info(
+      `Attesters new before: ${attestersBeforeNew.length}. Attesters new after: ${attestersAfterNew.length}`,
+    );
+
     // stop all nodes
     for (let i = 0; i < NUM_NODES; i++) {
       const node = nodes[i];
@@ -555,6 +524,15 @@ describe('e2e_p2p_add_rollup', () => {
     // Need to clear the bootnode, since it will otherwise provide stale data to the peers
     await t.bootstrapNode?.stop();
     await sleep(2500);
+
+    // With all down, we make a time jump such that we ensure that we will be at a point where epochs are non-empty
+    // This is to avoid conflicts when the checkpoints are looking further back.
+    const futureEpoch = 500n + (await newRollup.getEpochNumber());
+    const time = await newRollup.getTimestampForSlot(futureEpoch * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration));
+    if (time > BigInt(await t.ctx.cheatCodes.eth.timestamp())) {
+      await t.ctx.cheatCodes.eth.warp(Number(time));
+      await waitL1Block();
+    }
 
     await t.addBootstrapNode();
     await sleep(2500);
