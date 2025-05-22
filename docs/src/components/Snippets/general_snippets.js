@@ -2,7 +2,7 @@ import React from "react";
 
 export const General = {
   VersionLatestTestnet: () => <code>alpha-testnet</code>,
-  VersionLatestSandbox: () => <code>0.87.0</code>,
+  VersionLatestSandbox: () => <code>0.87.2</code>,
   ViewTransactions: () => (
     <p>
       Transactions and balances can be viewed in block explorers like{" "}
@@ -27,7 +27,7 @@ export const General = {
 
   node_ver: () => (
     <p>
-      Aztec libraries use Node.js version v22.17.x (lts/jod), and backwards
+      Aztec libraries use Node.js version v22.15.x (lts/jod), and backwards
       compatible from version 20. You can use{" "}
       <a href="https://github.com/nvm-sh/nvm">nvm</a> to help manage node
       versions.
