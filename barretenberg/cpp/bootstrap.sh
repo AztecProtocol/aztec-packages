@@ -8,13 +8,6 @@ export native_preset=${NATIVE_PRESET:-clang16-assert}
 export pic_preset=${PIC_PRESET:-clang16-pic-assert}
 export hash=$(cache_content_hash .rebuild_patterns)
 
-# Mostly arbitrary set that touches lots of the code.
-declare -A asan_tests=(
-  ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-  ["client_ivc_tests"]="ClientIVCTests.BasicStructured"
-  ["ultra_honk_tests"]="MegaHonkTests/0.BasicStructured"
-  ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
-)
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
@@ -61,9 +54,10 @@ function build_asan_fast {
   set -eu
   if ! cache_download barretenberg-asan-fast-$hash.zst; then
     # Pass the keys from asan_tests to the build_preset function.
-    build_preset asan-fast --target "${!asan_tests[@]}"
+    local bins="commitment_schemes_recursion_tests client_ivc_tests ultra_honk_tests dsl_tests"
+    build_preset asan-fast --target $bins
     # We upload only the binaries specified in --target in build-asan-fast/bin
-    echo cache_upload barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " "${!asan_tests[@]}")
+    cache_upload barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " $bins)
   fi
 }
 
@@ -204,9 +198,17 @@ function test_cmds {
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
-  if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
+
+  if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     # We only want to sanity check that we haven't broken wasm ecc in merge queue.
     echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+    # Mostly arbitrary set that touches lots of the code.
+    declare -A asan_tests=(
+      ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
+      ["client_ivc_tests"]="ClientIVCTests.BasicStructured"
+      ["ultra_honk_tests"]="MegaHonkTests/0.BasicStructured"
+      ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+    )
     # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
     for bin_name in "${!asan_tests[@]}"; do
       local filter=${asan_tests[$bin_name]}
