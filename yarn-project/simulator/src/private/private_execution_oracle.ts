@@ -500,7 +500,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     await this.executionDataProvider.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
-  public override async syncNotes(pendingTaggedLogArrayBaseSlot: Fr) {
+  public override async syncPrivateState(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);

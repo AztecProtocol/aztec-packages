@@ -356,7 +356,7 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
             //
             // We also limit computation on limbs of op, z_1 and z_2, since we know that op has only the lowest
             // limb and z_1 and z_2 have only the two lowest limbs
-            const std::array<Fr, 5> NEGATIVE_MODULUS_LIMBS = Builder::NEGATIVE_MODULUS_LIMBS;
+            constexpr std::array<Fr, 5> NEGATIVE_MODULUS_LIMBS = Builder::NEGATIVE_MODULUS_LIMBS;
             const uint256_t SHIFT_1 = Builder::SHIFT_1;
             const uint256_t SHIFT_2 = Builder::SHIFT_2;
             const uint256_t SHIFT_3 = Builder::SHIFT_3;
