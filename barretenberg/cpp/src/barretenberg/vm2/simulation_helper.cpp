@@ -136,7 +136,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     Execution execution(alu, execution_components, instruction_info_db, execution_emitter, context_stack_emitter);
     TxExecution tx_execution(execution, merkle_db);
     Sha256 sha256(sha256_compression_emitter);
-    KeccakF1600 keccakf1600(keccakf1600_emitter, bitwise);
+    KeccakF1600 keccakf1600(keccakf1600_emitter, bitwise, range_check);
 
     tx_execution.simulate(hints.tx);
 

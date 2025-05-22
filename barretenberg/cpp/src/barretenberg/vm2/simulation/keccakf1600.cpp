@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -87,12 +88,36 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
         }
     }
 
+    // State rho values
+    std::array<std::array<MemoryValue, 5>, 5> state_rho_values;
+
+    // Handle range checks related to Rho round function.
+    // For i,j, such that 0 < rotation_len[i][j] <= 32, we range check
+    // the highest rotation_len[i][j] number of bits of state_theta_values[i][j].
+    // Otherwise, we range check the lowest 64 - rotation_len[i][j] bits.
+    for (size_t i = 0; i < 5; ++i) {
+        for (size_t j = 0; j < 5; ++j) {
+            const uint8_t& len = rotation_len[i][j];
+            // Compute state values after Rho function.
+            state_rho_values[i][j] = unconstrained_rotate_left(state_theta_values[i][j], len);
+            if (len > 0 && len <= 32) {
+                range_check.assert_range(state_theta_values[i][j].as<uint64_t>() >> (64 - len), len);
+            } else if (len > 32) {
+                range_check.assert_range(state_theta_values[i][j].as<uint64_t>() & ((1 << (64 - len)) - 1), 64 - len);
+            }
+        }
+    }
+
+    // TODO: Add Pi and Chi rounds
+    // TODO: Add Iota round
+
     perm_events.emit({
         .state = input,
         .theta_xor = two_dim_array_to_uint64(theta_xor_values),
         .theta_xor_row_rotl1 = array_to_uint64(theta_xor_row_rotl1_values),
         .theta_combined_xor = array_to_uint64(theta_combined_xor_values),
         .state_theta = two_dim_array_to_uint64(state_theta_values),
+        .state_rho = two_dim_array_to_uint64(state_rho_values),
     });
 
     // TODO: return real keccakf1600 output

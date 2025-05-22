@@ -255,7 +255,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_01_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_01) -
-                        (keccakf1600_POW_ROT_LEN_01 * in.get(C::keccakf1600_state_theta_hi_01) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_01 * in.get(C::keccakf1600_state_theta_hi_01) +
                          in.get(C::keccakf1600_state_theta_low_01)));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
@@ -263,7 +263,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_01
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_01) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_01 * in.get(C::keccakf1600_state_theta_low_01) +
+                        (keccakf1600_POW_ROT_LEN_01 * in.get(C::keccakf1600_state_theta_low_01) +
                          in.get(C::keccakf1600_state_theta_hi_01)));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
@@ -271,7 +271,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_02_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_02) -
-                        (keccakf1600_POW_ROT_LEN_02 * in.get(C::keccakf1600_state_theta_hi_02) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_02 * in.get(C::keccakf1600_state_theta_hi_02) +
                          in.get(C::keccakf1600_state_theta_low_02)));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
@@ -279,7 +279,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_02
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_02) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_02 * in.get(C::keccakf1600_state_theta_low_02) +
+                        (keccakf1600_POW_ROT_LEN_02 * in.get(C::keccakf1600_state_theta_low_02) +
                          in.get(C::keccakf1600_state_theta_hi_02)));
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
@@ -287,7 +287,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_03_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_03) -
-                        (keccakf1600_POW_ROT_LEN_03 * in.get(C::keccakf1600_state_theta_hi_03) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_03 * in.get(C::keccakf1600_state_theta_hi_03) +
                          in.get(C::keccakf1600_state_theta_low_03)));
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
@@ -295,7 +295,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_03
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_03) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_03 * in.get(C::keccakf1600_state_theta_low_03) +
+                        (keccakf1600_POW_ROT_LEN_03 * in.get(C::keccakf1600_state_theta_low_03) +
                          in.get(C::keccakf1600_state_theta_hi_03)));
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
@@ -303,7 +303,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_04_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_04) -
-                        (keccakf1600_POW_ROT_LEN_04 * in.get(C::keccakf1600_state_theta_hi_04) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_04 * in.get(C::keccakf1600_state_theta_hi_04) +
                          in.get(C::keccakf1600_state_theta_low_04)));
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
@@ -311,7 +311,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_04
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_04) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_04 * in.get(C::keccakf1600_state_theta_low_04) +
+                        (keccakf1600_POW_ROT_LEN_04 * in.get(C::keccakf1600_state_theta_low_04) +
                          in.get(C::keccakf1600_state_theta_hi_04)));
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
@@ -319,7 +319,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_10_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_10) -
-                        (keccakf1600_POW_ROT_LEN_10 * in.get(C::keccakf1600_state_theta_hi_10) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_10 * in.get(C::keccakf1600_state_theta_hi_10) +
                          in.get(C::keccakf1600_state_theta_low_10)));
             tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
@@ -327,7 +327,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_10
             using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_10) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_10 * in.get(C::keccakf1600_state_theta_low_10) +
+                        (keccakf1600_POW_ROT_LEN_10 * in.get(C::keccakf1600_state_theta_low_10) +
                          in.get(C::keccakf1600_state_theta_hi_10)));
             tmp *= scaling_factor;
             std::get<28>(evals) += typename Accumulator::View(tmp);
@@ -335,7 +335,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_11_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_11) -
-                        (keccakf1600_POW_ROT_LEN_11 * in.get(C::keccakf1600_state_theta_hi_11) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_11 * in.get(C::keccakf1600_state_theta_hi_11) +
                          in.get(C::keccakf1600_state_theta_low_11)));
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
@@ -343,7 +343,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_11
             using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_11) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_11 * in.get(C::keccakf1600_state_theta_low_11) +
+                        (keccakf1600_POW_ROT_LEN_11 * in.get(C::keccakf1600_state_theta_low_11) +
                          in.get(C::keccakf1600_state_theta_hi_11)));
             tmp *= scaling_factor;
             std::get<30>(evals) += typename Accumulator::View(tmp);
@@ -351,7 +351,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_12_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_12) -
-                        (keccakf1600_POW_ROT_LEN_12 * in.get(C::keccakf1600_state_theta_hi_12) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_12 * in.get(C::keccakf1600_state_theta_hi_12) +
                          in.get(C::keccakf1600_state_theta_low_12)));
             tmp *= scaling_factor;
             std::get<31>(evals) += typename Accumulator::View(tmp);
@@ -359,7 +359,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_12
             using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_12) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_12 * in.get(C::keccakf1600_state_theta_low_12) +
+                        (keccakf1600_POW_ROT_LEN_12 * in.get(C::keccakf1600_state_theta_low_12) +
                          in.get(C::keccakf1600_state_theta_hi_12)));
             tmp *= scaling_factor;
             std::get<32>(evals) += typename Accumulator::View(tmp);
@@ -367,7 +367,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_13_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_13) -
-                        (keccakf1600_POW_ROT_LEN_13 * in.get(C::keccakf1600_state_theta_hi_13) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_13 * in.get(C::keccakf1600_state_theta_hi_13) +
                          in.get(C::keccakf1600_state_theta_low_13)));
             tmp *= scaling_factor;
             std::get<33>(evals) += typename Accumulator::View(tmp);
@@ -375,7 +375,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_13
             using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_13) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_13 * in.get(C::keccakf1600_state_theta_low_13) +
+                        (keccakf1600_POW_ROT_LEN_13 * in.get(C::keccakf1600_state_theta_low_13) +
                          in.get(C::keccakf1600_state_theta_hi_13)));
             tmp *= scaling_factor;
             std::get<34>(evals) += typename Accumulator::View(tmp);
@@ -383,7 +383,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_14_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_14) -
-                        (keccakf1600_POW_ROT_LEN_14 * in.get(C::keccakf1600_state_theta_hi_14) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_14 * in.get(C::keccakf1600_state_theta_hi_14) +
                          in.get(C::keccakf1600_state_theta_low_14)));
             tmp *= scaling_factor;
             std::get<35>(evals) += typename Accumulator::View(tmp);
@@ -391,7 +391,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_14
             using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_14) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_14 * in.get(C::keccakf1600_state_theta_low_14) +
+                        (keccakf1600_POW_ROT_LEN_14 * in.get(C::keccakf1600_state_theta_low_14) +
                          in.get(C::keccakf1600_state_theta_hi_14)));
             tmp *= scaling_factor;
             std::get<36>(evals) += typename Accumulator::View(tmp);
@@ -399,7 +399,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_20_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_20) -
-                        (keccakf1600_POW_ROT_LEN_20 * in.get(C::keccakf1600_state_theta_hi_20) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_20 * in.get(C::keccakf1600_state_theta_hi_20) +
                          in.get(C::keccakf1600_state_theta_low_20)));
             tmp *= scaling_factor;
             std::get<37>(evals) += typename Accumulator::View(tmp);
@@ -407,7 +407,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_20
             using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_20) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_20 * in.get(C::keccakf1600_state_theta_low_20) +
+                        (keccakf1600_POW_ROT_LEN_20 * in.get(C::keccakf1600_state_theta_low_20) +
                          in.get(C::keccakf1600_state_theta_hi_20)));
             tmp *= scaling_factor;
             std::get<38>(evals) += typename Accumulator::View(tmp);
@@ -415,7 +415,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_21_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_21) -
-                        (keccakf1600_POW_ROT_LEN_21 * in.get(C::keccakf1600_state_theta_hi_21) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_21 * in.get(C::keccakf1600_state_theta_hi_21) +
                          in.get(C::keccakf1600_state_theta_low_21)));
             tmp *= scaling_factor;
             std::get<39>(evals) += typename Accumulator::View(tmp);
@@ -423,7 +423,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_21
             using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_21) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_21 * in.get(C::keccakf1600_state_theta_low_21) +
+                        (keccakf1600_POW_ROT_LEN_21 * in.get(C::keccakf1600_state_theta_low_21) +
                          in.get(C::keccakf1600_state_theta_hi_21)));
             tmp *= scaling_factor;
             std::get<40>(evals) += typename Accumulator::View(tmp);
@@ -431,7 +431,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_22_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_22) -
-                        (keccakf1600_POW_ROT_LEN_22 * in.get(C::keccakf1600_state_theta_hi_22) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_22 * in.get(C::keccakf1600_state_theta_hi_22) +
                          in.get(C::keccakf1600_state_theta_low_22)));
             tmp *= scaling_factor;
             std::get<41>(evals) += typename Accumulator::View(tmp);
@@ -439,7 +439,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_22
             using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_22) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_22 * in.get(C::keccakf1600_state_theta_low_22) +
+                        (keccakf1600_POW_ROT_LEN_22 * in.get(C::keccakf1600_state_theta_low_22) +
                          in.get(C::keccakf1600_state_theta_hi_22)));
             tmp *= scaling_factor;
             std::get<42>(evals) += typename Accumulator::View(tmp);
@@ -447,7 +447,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_23_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_23) -
-                        (keccakf1600_POW_ROT_LEN_23 * in.get(C::keccakf1600_state_theta_hi_23) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_23 * in.get(C::keccakf1600_state_theta_hi_23) +
                          in.get(C::keccakf1600_state_theta_low_23)));
             tmp *= scaling_factor;
             std::get<43>(evals) += typename Accumulator::View(tmp);
@@ -455,7 +455,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_23
             using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_23) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_23 * in.get(C::keccakf1600_state_theta_low_23) +
+                        (keccakf1600_POW_ROT_LEN_23 * in.get(C::keccakf1600_state_theta_low_23) +
                          in.get(C::keccakf1600_state_theta_hi_23)));
             tmp *= scaling_factor;
             std::get<44>(evals) += typename Accumulator::View(tmp);
@@ -463,7 +463,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_24_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_24) -
-                        (keccakf1600_POW_ROT_LEN_24 * in.get(C::keccakf1600_state_theta_hi_24) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_24 * in.get(C::keccakf1600_state_theta_hi_24) +
                          in.get(C::keccakf1600_state_theta_low_24)));
             tmp *= scaling_factor;
             std::get<45>(evals) += typename Accumulator::View(tmp);
@@ -471,7 +471,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_24
             using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_24) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_24 * in.get(C::keccakf1600_state_theta_low_24) +
+                        (keccakf1600_POW_ROT_LEN_24 * in.get(C::keccakf1600_state_theta_low_24) +
                          in.get(C::keccakf1600_state_theta_hi_24)));
             tmp *= scaling_factor;
             std::get<46>(evals) += typename Accumulator::View(tmp);
@@ -479,7 +479,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_30_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_30) -
-                        (keccakf1600_POW_ROT_LEN_30 * in.get(C::keccakf1600_state_theta_hi_30) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_30 * in.get(C::keccakf1600_state_theta_hi_30) +
                          in.get(C::keccakf1600_state_theta_low_30)));
             tmp *= scaling_factor;
             std::get<47>(evals) += typename Accumulator::View(tmp);
@@ -487,7 +487,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_30
             using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_30) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_30 * in.get(C::keccakf1600_state_theta_low_30) +
+                        (keccakf1600_POW_ROT_LEN_30 * in.get(C::keccakf1600_state_theta_low_30) +
                          in.get(C::keccakf1600_state_theta_hi_30)));
             tmp *= scaling_factor;
             std::get<48>(evals) += typename Accumulator::View(tmp);
@@ -495,7 +495,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_31_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_31) -
-                        (keccakf1600_POW_ROT_LEN_31 * in.get(C::keccakf1600_state_theta_hi_31) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_31 * in.get(C::keccakf1600_state_theta_hi_31) +
                          in.get(C::keccakf1600_state_theta_low_31)));
             tmp *= scaling_factor;
             std::get<49>(evals) += typename Accumulator::View(tmp);
@@ -503,7 +503,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_31
             using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_31) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_31 * in.get(C::keccakf1600_state_theta_low_31) +
+                        (keccakf1600_POW_ROT_LEN_31 * in.get(C::keccakf1600_state_theta_low_31) +
                          in.get(C::keccakf1600_state_theta_hi_31)));
             tmp *= scaling_factor;
             std::get<50>(evals) += typename Accumulator::View(tmp);
@@ -511,7 +511,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_32_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_32) -
-                        (keccakf1600_POW_ROT_LEN_32 * in.get(C::keccakf1600_state_theta_hi_32) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_32 * in.get(C::keccakf1600_state_theta_hi_32) +
                          in.get(C::keccakf1600_state_theta_low_32)));
             tmp *= scaling_factor;
             std::get<51>(evals) += typename Accumulator::View(tmp);
@@ -519,7 +519,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_32
             using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_32) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_32 * in.get(C::keccakf1600_state_theta_low_32) +
+                        (keccakf1600_POW_ROT_LEN_32 * in.get(C::keccakf1600_state_theta_low_32) +
                          in.get(C::keccakf1600_state_theta_hi_32)));
             tmp *= scaling_factor;
             std::get<52>(evals) += typename Accumulator::View(tmp);
@@ -527,7 +527,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_33_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_33) -
-                        (keccakf1600_POW_ROT_LEN_33 * in.get(C::keccakf1600_state_theta_hi_33) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_33 * in.get(C::keccakf1600_state_theta_hi_33) +
                          in.get(C::keccakf1600_state_theta_low_33)));
             tmp *= scaling_factor;
             std::get<53>(evals) += typename Accumulator::View(tmp);
@@ -535,7 +535,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_33
             using Accumulator = typename std::tuple_element_t<54, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_33) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_33 * in.get(C::keccakf1600_state_theta_low_33) +
+                        (keccakf1600_POW_ROT_LEN_33 * in.get(C::keccakf1600_state_theta_low_33) +
                          in.get(C::keccakf1600_state_theta_hi_33)));
             tmp *= scaling_factor;
             std::get<54>(evals) += typename Accumulator::View(tmp);
@@ -543,7 +543,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_34_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<55, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_34) -
-                        (keccakf1600_POW_ROT_LEN_34 * in.get(C::keccakf1600_state_theta_hi_34) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_34 * in.get(C::keccakf1600_state_theta_hi_34) +
                          in.get(C::keccakf1600_state_theta_low_34)));
             tmp *= scaling_factor;
             std::get<55>(evals) += typename Accumulator::View(tmp);
@@ -551,7 +551,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_34
             using Accumulator = typename std::tuple_element_t<56, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_34) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_34 * in.get(C::keccakf1600_state_theta_low_34) +
+                        (keccakf1600_POW_ROT_LEN_34 * in.get(C::keccakf1600_state_theta_low_34) +
                          in.get(C::keccakf1600_state_theta_hi_34)));
             tmp *= scaling_factor;
             std::get<56>(evals) += typename Accumulator::View(tmp);
@@ -559,7 +559,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_40_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<57, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_40) -
-                        (keccakf1600_POW_ROT_LEN_40 * in.get(C::keccakf1600_state_theta_hi_40) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_40 * in.get(C::keccakf1600_state_theta_hi_40) +
                          in.get(C::keccakf1600_state_theta_low_40)));
             tmp *= scaling_factor;
             std::get<57>(evals) += typename Accumulator::View(tmp);
@@ -567,7 +567,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_40
             using Accumulator = typename std::tuple_element_t<58, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_40) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_40 * in.get(C::keccakf1600_state_theta_low_40) +
+                        (keccakf1600_POW_ROT_LEN_40 * in.get(C::keccakf1600_state_theta_low_40) +
                          in.get(C::keccakf1600_state_theta_hi_40)));
             tmp *= scaling_factor;
             std::get<58>(evals) += typename Accumulator::View(tmp);
@@ -575,7 +575,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_41_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<59, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_41) -
-                        (keccakf1600_POW_ROT_LEN_41 * in.get(C::keccakf1600_state_theta_hi_41) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_41 * in.get(C::keccakf1600_state_theta_hi_41) +
                          in.get(C::keccakf1600_state_theta_low_41)));
             tmp *= scaling_factor;
             std::get<59>(evals) += typename Accumulator::View(tmp);
@@ -583,7 +583,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_41
             using Accumulator = typename std::tuple_element_t<60, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_41) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_41 * in.get(C::keccakf1600_state_theta_low_41) +
+                        (keccakf1600_POW_ROT_LEN_41 * in.get(C::keccakf1600_state_theta_low_41) +
                          in.get(C::keccakf1600_state_theta_hi_41)));
             tmp *= scaling_factor;
             std::get<60>(evals) += typename Accumulator::View(tmp);
@@ -591,7 +591,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_42_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<61, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_42) -
-                        (keccakf1600_POW_ROT_LEN_42 * in.get(C::keccakf1600_state_theta_hi_42) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_42 * in.get(C::keccakf1600_state_theta_hi_42) +
                          in.get(C::keccakf1600_state_theta_low_42)));
             tmp *= scaling_factor;
             std::get<61>(evals) += typename Accumulator::View(tmp);
@@ -599,7 +599,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_42
             using Accumulator = typename std::tuple_element_t<62, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_42) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_42 * in.get(C::keccakf1600_state_theta_low_42) +
+                        (keccakf1600_POW_ROT_LEN_42 * in.get(C::keccakf1600_state_theta_low_42) +
                          in.get(C::keccakf1600_state_theta_hi_42)));
             tmp *= scaling_factor;
             std::get<62>(evals) += typename Accumulator::View(tmp);
@@ -607,7 +607,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_43_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<63, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_43) -
-                        (keccakf1600_POW_ROT_LEN_43 * in.get(C::keccakf1600_state_theta_hi_43) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_43 * in.get(C::keccakf1600_state_theta_hi_43) +
                          in.get(C::keccakf1600_state_theta_low_43)));
             tmp *= scaling_factor;
             std::get<63>(evals) += typename Accumulator::View(tmp);
@@ -615,7 +615,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_43
             using Accumulator = typename std::tuple_element_t<64, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_43) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_43 * in.get(C::keccakf1600_state_theta_low_43) +
+                        (keccakf1600_POW_ROT_LEN_43 * in.get(C::keccakf1600_state_theta_low_43) +
                          in.get(C::keccakf1600_state_theta_hi_43)));
             tmp *= scaling_factor;
             std::get<64>(evals) += typename Accumulator::View(tmp);
@@ -623,7 +623,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_THETA_44_DECOMPOSE
             using Accumulator = typename std::tuple_element_t<65, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_theta_44) -
-                        (keccakf1600_POW_ROT_LEN_44 * in.get(C::keccakf1600_state_theta_hi_44) +
+                        (keccakf1600_POW_ROT_64_MIN_LEN_44 * in.get(C::keccakf1600_state_theta_hi_44) +
                          in.get(C::keccakf1600_state_theta_low_44)));
             tmp *= scaling_factor;
             std::get<65>(evals) += typename Accumulator::View(tmp);
@@ -631,7 +631,7 @@ template <typename FF_> class keccakf1600Impl {
         { // STATE_RHO_44
             using Accumulator = typename std::tuple_element_t<66, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_state_rho_44) -
-                        (keccakf1600_POW_ROT_64_MIN_LEN_44 * in.get(C::keccakf1600_state_theta_low_44) +
+                        (keccakf1600_POW_ROT_LEN_44 * in.get(C::keccakf1600_state_theta_low_44) +
                          in.get(C::keccakf1600_state_theta_hi_44)));
             tmp *= scaling_factor;
             std::get<66>(evals) += typename Accumulator::View(tmp);

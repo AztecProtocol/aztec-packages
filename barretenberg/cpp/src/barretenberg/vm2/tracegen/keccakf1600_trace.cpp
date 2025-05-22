@@ -3,12 +3,14 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
+#include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
@@ -178,6 +180,66 @@ constexpr std::array<std::array<C, 5>, 5> state_theta_cols = {
     },
 };
 
+// Mapping indices of state_theta_hi to their columns.
+// As index 00 is not used here, we flatten the list and start with 01.
+constexpr std::array<C, 24> state_theta_hi_cols = {
+    {
+        C::keccakf1600_state_theta_hi_01, C::keccakf1600_state_theta_hi_02, C::keccakf1600_state_theta_hi_03,
+        C::keccakf1600_state_theta_hi_04, C::keccakf1600_state_theta_hi_10, C::keccakf1600_state_theta_hi_11,
+        C::keccakf1600_state_theta_hi_12, C::keccakf1600_state_theta_hi_13, C::keccakf1600_state_theta_hi_14,
+        C::keccakf1600_state_theta_hi_20, C::keccakf1600_state_theta_hi_21, C::keccakf1600_state_theta_hi_22,
+        C::keccakf1600_state_theta_hi_23, C::keccakf1600_state_theta_hi_24, C::keccakf1600_state_theta_hi_30,
+        C::keccakf1600_state_theta_hi_31, C::keccakf1600_state_theta_hi_32, C::keccakf1600_state_theta_hi_33,
+        C::keccakf1600_state_theta_hi_34, C::keccakf1600_state_theta_hi_40, C::keccakf1600_state_theta_hi_41,
+        C::keccakf1600_state_theta_hi_42, C::keccakf1600_state_theta_hi_43, C::keccakf1600_state_theta_hi_44,
+    },
+};
+
+// Mapping indices of state_theta_low to their columns.
+// As index 00 is not used here, we flatten the list and start with 01.
+constexpr std::array<C, 24> state_theta_low_cols = {
+    {
+        C::keccakf1600_state_theta_low_01, C::keccakf1600_state_theta_low_02, C::keccakf1600_state_theta_low_03,
+        C::keccakf1600_state_theta_low_04, C::keccakf1600_state_theta_low_10, C::keccakf1600_state_theta_low_11,
+        C::keccakf1600_state_theta_low_12, C::keccakf1600_state_theta_low_13, C::keccakf1600_state_theta_low_14,
+        C::keccakf1600_state_theta_low_20, C::keccakf1600_state_theta_low_21, C::keccakf1600_state_theta_low_22,
+        C::keccakf1600_state_theta_low_23, C::keccakf1600_state_theta_low_24, C::keccakf1600_state_theta_low_30,
+        C::keccakf1600_state_theta_low_31, C::keccakf1600_state_theta_low_32, C::keccakf1600_state_theta_low_33,
+        C::keccakf1600_state_theta_low_34, C::keccakf1600_state_theta_low_40, C::keccakf1600_state_theta_low_41,
+        C::keccakf1600_state_theta_low_42, C::keccakf1600_state_theta_low_43, C::keccakf1600_state_theta_low_44,
+    },
+};
+
+// Mapping indices of state_rho to their columns.
+// As index 00 is not used here, we flatten the list and start with 01.
+constexpr std::array<C, 24> state_rho_cols = {
+    {
+        C::keccakf1600_state_rho_01, C::keccakf1600_state_rho_02, C::keccakf1600_state_rho_03,
+        C::keccakf1600_state_rho_04, C::keccakf1600_state_rho_10, C::keccakf1600_state_rho_11,
+        C::keccakf1600_state_rho_12, C::keccakf1600_state_rho_13, C::keccakf1600_state_rho_14,
+        C::keccakf1600_state_rho_20, C::keccakf1600_state_rho_21, C::keccakf1600_state_rho_22,
+        C::keccakf1600_state_rho_23, C::keccakf1600_state_rho_24, C::keccakf1600_state_rho_30,
+        C::keccakf1600_state_rho_31, C::keccakf1600_state_rho_32, C::keccakf1600_state_rho_33,
+        C::keccakf1600_state_rho_34, C::keccakf1600_state_rho_40, C::keccakf1600_state_rho_41,
+        C::keccakf1600_state_rho_42, C::keccakf1600_state_rho_43, C::keccakf1600_state_rho_44,
+    },
+};
+
+// Mapping indices of rho rotation constants and the corresponding constant columns.
+// As index 00 is not used here, we flatten the list and start with 01.
+constexpr std::array<C, 24> rho_rotation_len_cols = {
+    {
+        C::keccakf1600_rot_64_min_len_01, C::keccakf1600_rot_len_02,        C::keccakf1600_rot_64_min_len_03,
+        C::keccakf1600_rot_len_04,        C::keccakf1600_rot_len_10,        C::keccakf1600_rot_64_min_len_11,
+        C::keccakf1600_rot_len_12,        C::keccakf1600_rot_64_min_len_13, C::keccakf1600_rot_len_14,
+        C::keccakf1600_rot_64_min_len_20, C::keccakf1600_rot_len_21,        C::keccakf1600_rot_64_min_len_22,
+        C::keccakf1600_rot_len_23,        C::keccakf1600_rot_64_min_len_24, C::keccakf1600_rot_len_30,
+        C::keccakf1600_rot_64_min_len_31, C::keccakf1600_rot_len_32,        C::keccakf1600_rot_len_33,
+        C::keccakf1600_rot_64_min_len_34, C::keccakf1600_rot_len_40,        C::keccakf1600_rot_len_41,
+        C::keccakf1600_rot_64_min_len_42, C::keccakf1600_rot_len_43,        C::keccakf1600_rot_len_44,
+    },
+};
+
 void KeccakF1600TraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
@@ -224,6 +286,39 @@ void KeccakF1600TraceBuilder::process(
             for (size_t j = 0; j < 5; j++) {
                 trace.set(state_theta_cols[i][j], row, event.state_theta[i][j]);
             }
+        }
+
+        // Setting state_theta_hi and state_theta_low values.
+        // We loop the flatten index k from 1 to 25 and compute
+        // 2-dimensional indices i = k/5 and j = k%5
+        for (size_t k = 1; k < 25; k++) {
+            const size_t i = k / 5;
+            const size_t j = k % 5;
+            const size_t low_num_bits = 64 - simulation::rotation_len[i][j];
+            const auto state_theta_val = event.state_theta[i][j];
+            const auto state_theta_hi = state_theta_val >> low_num_bits;
+            const auto state_theta_low = state_theta_val & ((1ULL << low_num_bits) - 1);
+
+            trace.set(state_theta_hi_cols[k - 1], row, state_theta_hi);
+            trace.set(state_theta_low_cols[k - 1], row, state_theta_low);
+        }
+
+        // Setting the rotation length constants
+        // If the constant is <= 32, we set it in the column.
+        // Otherwise, we set 64 - constant.
+        for (size_t k = 1; k < 25; k++) {
+            const size_t i = k / 5;
+            const size_t j = k % 5;
+            const auto rotation_len = simulation::rotation_len[i][j];
+            const auto value = rotation_len <= 32 ? rotation_len : 64 - rotation_len;
+            trace.set(rho_rotation_len_cols[k - 1], row, value);
+        }
+
+        // Setting state_rho values
+        for (size_t k = 1; k < 25; k++) {
+            const size_t i = k / 5;
+            const size_t j = k % 5;
+            trace.set(state_rho_cols[k - 1], row, event.state_rho[i][j]);
         }
 
         row++;
@@ -285,7 +380,32 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> KeccakF1600TraceBuilde
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_41_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_42_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_43_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_44_settings>>());
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_44_settings>>(),
+        // Range check on some state theta limbs
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_01_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_02_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_03_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_04_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_10_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_11_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_12_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_13_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_14_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_20_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_21_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_22_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_23_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_24_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_30_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_31_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_32_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_33_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_34_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_40_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_41_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_42_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_43_range_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_44_range_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

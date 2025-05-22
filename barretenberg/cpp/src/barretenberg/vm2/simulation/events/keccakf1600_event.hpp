@@ -13,6 +13,7 @@ struct KeccakF1600Event {
     std::array<uint64_t, 5> theta_xor_row_rotl1;
     std::array<uint64_t, 5> theta_combined_xor;
     KeccakF1600State state_theta;
+    KeccakF1600State state_rho;
 };
 
 } // namespace bb::avm2::simulation

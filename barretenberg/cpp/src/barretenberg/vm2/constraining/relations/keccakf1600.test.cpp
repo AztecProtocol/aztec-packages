@@ -7,12 +7,14 @@
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
+#include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 #include <gtest/gtest.h>
@@ -22,9 +24,11 @@ namespace {
 
 using KeccakSimulator = simulation::KeccakF1600;
 using BitwiseSimulator = simulation::Bitwise;
-
+using RangeCheckSimulator = simulation::RangeCheck;
+using simulation::EventEmitter;
 using tracegen::BitwiseTraceBuilder;
 using tracegen::KeccakF1600TraceBuilder;
+using tracegen::RangeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -84,6 +88,29 @@ using lookup_state_theta_42 = lookup_keccakf1600_state_theta_42_relation<FF>;
 using lookup_state_theta_43 = lookup_keccakf1600_state_theta_43_relation<FF>;
 using lookup_state_theta_44 = lookup_keccakf1600_state_theta_44_relation<FF>;
 
+// Range check on some state theta limbs
+using lookup_theta_limb_range_01 = lookup_keccakf1600_theta_limb_01_range_relation<FF>;
+using lookup_theta_limb_range_02 = lookup_keccakf1600_theta_limb_02_range_relation<FF>;
+using lookup_theta_limb_range_03 = lookup_keccakf1600_theta_limb_03_range_relation<FF>;
+using lookup_theta_limb_range_04 = lookup_keccakf1600_theta_limb_04_range_relation<FF>;
+using lookup_theta_limb_range_10 = lookup_keccakf1600_theta_limb_10_range_relation<FF>;
+using lookup_theta_limb_range_11 = lookup_keccakf1600_theta_limb_11_range_relation<FF>;
+using lookup_theta_limb_range_12 = lookup_keccakf1600_theta_limb_12_range_relation<FF>;
+using lookup_theta_limb_range_13 = lookup_keccakf1600_theta_limb_13_range_relation<FF>;
+using lookup_theta_limb_range_14 = lookup_keccakf1600_theta_limb_14_range_relation<FF>;
+using lookup_theta_limb_range_20 = lookup_keccakf1600_theta_limb_20_range_relation<FF>;
+using lookup_theta_limb_range_21 = lookup_keccakf1600_theta_limb_21_range_relation<FF>;
+using lookup_theta_limb_range_22 = lookup_keccakf1600_theta_limb_22_range_relation<FF>;
+using lookup_theta_limb_range_23 = lookup_keccakf1600_theta_limb_23_range_relation<FF>;
+using lookup_theta_limb_range_24 = lookup_keccakf1600_theta_limb_24_range_relation<FF>;
+using lookup_theta_limb_range_30 = lookup_keccakf1600_theta_limb_30_range_relation<FF>;
+using lookup_theta_limb_range_34 = lookup_keccakf1600_theta_limb_34_range_relation<FF>;
+using lookup_theta_limb_range_40 = lookup_keccakf1600_theta_limb_40_range_relation<FF>;
+using lookup_theta_limb_range_41 = lookup_keccakf1600_theta_limb_41_range_relation<FF>;
+using lookup_theta_limb_range_42 = lookup_keccakf1600_theta_limb_42_range_relation<FF>;
+using lookup_theta_limb_range_43 = lookup_keccakf1600_theta_limb_43_range_relation<FF>;
+using lookup_theta_limb_range_44 = lookup_keccakf1600_theta_limb_44_range_relation<FF>;
+
 } // namespace
 
 TEST(KeccakF1600ConstrainingTest, EmptyRow)
@@ -96,12 +123,15 @@ TEST(KeccakF1600ConstrainingTest, withSimulationAndTraceGenInteractions)
 {
     KeccakF1600TraceBuilder keccak_builder;
     BitwiseTraceBuilder bitwise_builder;
+    RangeCheckTraceBuilder range_check_builder;
     TestTraceContainer trace;
 
-    simulation::EventEmitter<simulation::BitwiseEvent> bitwise_event_emitter;
-    simulation::EventEmitter<simulation::KeccakF1600Event> keccak_event_emitter;
+    EventEmitter<simulation::BitwiseEvent> bitwise_event_emitter;
+    EventEmitter<simulation::KeccakF1600Event> keccak_event_emitter;
+    EventEmitter<simulation::RangeCheckEvent> range_check_event_emitter;
+    RangeCheckSimulator range_check_simulator(range_check_event_emitter);
     BitwiseSimulator bitwise_simulator(bitwise_event_emitter);
-    KeccakSimulator keccak_simulator(keccak_event_emitter, bitwise_simulator);
+    KeccakSimulator keccak_simulator(keccak_event_emitter, bitwise_simulator, range_check_simulator);
 
     simulation::KeccakF1600State input_state;
 
@@ -116,6 +146,7 @@ TEST(KeccakF1600ConstrainingTest, withSimulationAndTraceGenInteractions)
 
     keccak_builder.process(keccak_event_emitter.dump_events(), trace);
     bitwise_builder.process(bitwise_event_emitter.dump_events(), trace);
+    range_check_builder.process(range_check_event_emitter.dump_events(), trace);
 
     // Theta XOR values
     tracegen::LookupIntoDynamicTableSequential<lookup_theta_xor_01::Settings>().process(trace);
@@ -170,7 +201,30 @@ TEST(KeccakF1600ConstrainingTest, withSimulationAndTraceGenInteractions)
     tracegen::LookupIntoDynamicTableSequential<lookup_state_theta_42::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_state_theta_43::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<lookup_state_theta_44::Settings>().process(trace);
+    // Range check on some state theta limbs
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_01::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_02::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_03::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_04::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_10::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_11::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_12::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_13::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_14::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_20::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_21::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_22::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_23::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_24::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_30::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_34::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_40::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_41::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_42::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_43::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableSequential<lookup_theta_limb_range_44::Settings>().process(trace);
 
+    // Check relations
     check_relation<keccakf1600_relation>(trace);
 }
 
