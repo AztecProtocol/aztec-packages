@@ -87,7 +87,10 @@ class TranslatorFlavor {
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
 
     // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one
-    static constexpr auto NEGATIVE_MODULUS_LIMBS = CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
+    static constexpr const std::array<FF, 5>& negative_modulus_limbs()
+    {
+        return CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
+    }
 
     // Number of bits in a binary limb
     // This is not a configurable value. Relations are sepcifically designed for it to be 68
