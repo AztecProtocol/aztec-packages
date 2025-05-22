@@ -231,8 +231,7 @@ pub contract SimpleToken {
             from,
         );
 
-        let validity_commitment = partial_note.compute_validity_commitment(context.msg_sender());
-        context.push_nullifier(validity_commitment);
+        partial_note.insert_validity_commitment(context, from);
 
         partial_note
     }
@@ -276,12 +275,7 @@ pub contract SimpleToken {
         let from_balance = storage.public_balances.at(from_and_completer).read().sub(amount);
         storage.public_balances.at(from_and_completer).write(from_balance);
 
-        let validity_commitment = partial_note.compute_validity_commitment(from_and_completer);
-        assert(
-            context.nullifier_exists(validity_commitment, context.this_address()),
-            "Invalid partial note or completer",
-        );
-        partial_note.complete(amount, context);
+        partial_note.complete(context, from_and_completer, amount);
     }
 
     #[private]
@@ -331,12 +325,7 @@ pub contract SimpleToken {
         let supply = storage.total_supply.read().add(amount);
         storage.total_supply.write(supply);
 
-        let validity_commitment = partial_note.compute_validity_commitment(completer);
-        assert(
-            context.nullifier_exists(validity_commitment, context.this_address()),
-            "Invalid partial note or completer",
-        );
-        partial_note.complete(amount, context);
+        partial_note.complete(context, completer, amount);
     }
 
     #[public]

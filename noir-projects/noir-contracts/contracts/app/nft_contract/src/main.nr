@@ -208,19 +208,10 @@ pub contract NFT {
             sender_and_completer,
         );
 
-        // We can't simply return the partial note because we won't be able to later on verify that it was created
-        // correctly (e.g. that the storage slot corresponds to the owner, and that we're using the `private_nfts`
-        // state variable and not a different one) once this information is hidden in the partial note commitment.
-        // We also want to verify that only the caller of this function can complete the partial note.
-        //
-        // We achieve this by storing a `validity_commitment` in the nullifier tree. This commitment contains all
-        // the necessary information to verify the completer and the partial note. Later, if we successfully
-        // read this commitment from the nullifier tree, we know that the partial note is valid.
-        let validity_commitment = partial_note.compute_validity_commitment(sender_and_completer);
-
-        // The validity commitment can be safely pushed to the nullifier tree since it uses its own separator,
-        // making collisions with actual note nullifiers practically impossible.
-        context.push_nullifier(validity_commitment);
+        // We insert the partial note validity commitment into the nullifier tree to be later on able to verify that
+        // the partial note and completer are legitimate. See function docs of `insert_validity_commitment` for more
+        // details.
+        partial_note.insert_validity_commitment(context, sender_and_completer);
 
         partial_note
     }
@@ -287,18 +278,8 @@ pub contract NFT {
         // Set the public NFT owner to zero
         public_owners_storage.write(AztecAddress::zero());
 
-        // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
-        // state variable's storage slot, and it is internally consistent). We *could* clear the storage since each
-        // partial note should only be used once, but since the AVM offers no gas refunds for doing so this would just
-        // make the transaction be more expensive. We don't worry about the validity commitment being checked against
-        // multiple times because it is up to the caller to ensure that a partial note is used only once (see function
-        // docs of `finalize_transfer_to_private`).
-        let validity_commitment = partial_note.compute_validity_commitment(from_and_completer);
-        assert(
-            context.nullifier_exists(validity_commitment, context.this_address()),
-            "Invalid partial note or completer",
-        );
-        partial_note.complete(token_id, context);
+        // We finalize the transfer by completing the partial note.
+        partial_note.complete(context, from_and_completer, token_id);
     }
 
     /**
