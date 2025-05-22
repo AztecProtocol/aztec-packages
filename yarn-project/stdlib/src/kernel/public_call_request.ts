@@ -123,6 +123,72 @@ export class PublicCallRequest {
   }
 }
 
+/**
+ * Represents lengths of arrays of public call requests.
+ */
+export class PublicCallRequestArrayLengths {
+  constructor(
+    /**
+     * Number of setup call requests
+     */
+    public setupCalls: number,
+    /**
+     * Number of app logic call requests
+     */
+    public appLogicCalls: number,
+    /**
+     * Whether there is a teardown call request
+     */
+    public teardownCall: boolean,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        setupCalls: z.number(),
+        appLogicCalls: z.number(),
+        teardownCall: z.boolean(),
+      })
+      .transform(({ setupCalls, appLogicCalls, teardownCall }) => {
+        return new PublicCallRequestArrayLengths(setupCalls, appLogicCalls, teardownCall);
+      });
+  }
+
+  static getFields(fields: FieldsOf<PublicCallRequestArrayLengths>) {
+    return [fields.setupCalls, fields.appLogicCalls, fields.teardownCall] as const;
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): PublicCallRequestArrayLengths {
+    const reader = FieldReader.asReader(fields);
+    return new PublicCallRequestArrayLengths(reader.readU32(), reader.readU32(), reader.readBoolean());
+  }
+
+  toFields(): Fr[] {
+    return serializeToFields(...PublicCallRequestArrayLengths.getFields(this));
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new PublicCallRequestArrayLengths(reader.readNumber(), reader.readNumber(), reader.readBoolean());
+  }
+
+  toBuffer() {
+    return serializeToBuffer(...PublicCallRequestArrayLengths.getFields(this));
+  }
+
+  static empty() {
+    return new PublicCallRequestArrayLengths(0, 0, false);
+  }
+
+  [inspect.custom]() {
+    return `PublicCallRequestArrayLengths {
+      setupCalls: ${this.setupCalls}
+      appLogicCalls: ${this.appLogicCalls}
+      teardownCall: ${this.teardownCall}
+    }`;
+  }
+}
+
 export class CountedPublicCallRequest {
   constructor(
     public inner: PublicCallRequest,
