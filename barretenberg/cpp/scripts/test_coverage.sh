@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
+source $(git rev-parse --show-toplevel)/ci3/source
 set -eu
 
 cd $(dirname $0)/..
-NATIVE_PRESET=clang16-coverage ./bootstrap.sh
+# Affects meaning of 'native' in bootstrap and run_test.sh
+export NATIVE_PRESET=clang16-coverage
+./bootstrap.sh build_native
 rm -rf build-coverage/profdata
 mkdir -p build-coverage/profdata
 export LLVM_PROFILE_FILE="$(pwd)/build-coverage/profdata/%m.%p.profraw"
-NATIVE_PRESET=clang16-coverage ./bootstrap.sh test
+# Run all direct C++ tests with coverage
+./bootstrap.sh test_cmds | grep run_test.sh | parallelise
 # Run llvm-profdata to merge raw profiles
 llvm-profdata-16 merge -sparse build-coverage/profdata/*.profraw -o build-coverage/coverage.profdata
 
