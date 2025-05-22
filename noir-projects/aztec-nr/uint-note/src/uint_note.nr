@@ -204,24 +204,33 @@ pub struct PartialUintNote {
 }
 
 impl PartialUintNote {
-    /// Computes a partial note validity commitment. This commitment is stored in public storage when creating the
-    /// partial note in private and then is used to check that completer and note are valid upon partial note
-    /// completion in public (completer is the entity that can complete the partial note).
-    pub fn compute_validity_commitment(self, completer: AztecAddress) -> Field {
-        poseidon2_hash_with_separator(
-            [self.commitment, completer.to_field()],
-            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
-        )
+    /// Computes and records a validity commitment for this partial note in the nullifier tree. The commitment
+    /// cryptographically binds the note's private data with the designated completer address. When the note is later
+    /// completed in public execution, this commitment allows verification that both the partial note (e.g. that the
+    /// storage slot corresponds to the correct owner, and that we're using the correct state variable) and completer
+    /// are legitimate. This function should be invoked during private note creation, before the note is completed.
+    pub fn insert_validity_commitment(self, context: &mut PrivateContext, completer: AztecAddress) {
+        // The validity commitment can be safely pushed to the nullifier tree since it uses its own separator,
+        // making collisions with actual note nullifiers practically impossible.
+        context.push_nullifier(self.compute_validity_commitment(completer));
     }
 
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
-    pub fn complete(self, value: u128, context: &mut PublicContext) {
+    pub fn complete(self, context: &mut PublicContext, completer: AztecAddress, value: u128) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value
         // because this will result in the completion log having its last field set to 0. Public logs currently do not
         // track their length, and so trailing zeros are simply trimmed. This results in the completion log missing its
         // last field (the value), and note discovery failing.
         // TODO(#11636): remove this
         assert(value != 0, "Cannot complete a PartialUintNote with a value of 0");
+
+        // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
+        // state variable's storage slot, and it is internally consistent).
+        let validity_commitment = self.compute_validity_commitment(completer);
+        assert(
+            context.nullifier_exists(validity_commitment, context.this_address()),
+            "Invalid partial note or completer",
+        );
 
         // We need to do two things:
         //  - emit a public log containing the public fields (the value). The contract will later find it by searching
@@ -231,6 +240,13 @@ impl PartialUintNote {
         //  inserted in public as the public values are provided and the note hash computed.
         context.emit_public_log(self.compute_note_completion_log(value));
         context.push_note_hash(self.compute_complete_note_hash(value));
+    }
+
+    fn compute_validity_commitment(self, completer: AztecAddress) -> Field {
+        poseidon2_hash_with_separator(
+            [self.commitment, completer.to_field()],
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        )
     }
 
     fn compute_note_completion_log(self, value: u128) -> [Field; 2] {
