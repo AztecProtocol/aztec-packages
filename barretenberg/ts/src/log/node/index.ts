@@ -1,5 +1,5 @@
 import { pino } from 'pino';
-import { LogOptions } from '../types.js';
+import { LogLevels, LogOptions } from '../types.js';
 
 const defaultOptions = {
   name: 'bb.js',
@@ -8,7 +8,11 @@ const defaultOptions = {
   browser: { asObject: false },
 };
 
-export function initLogger({ level = 'info', useStdErr = false }: LogOptions = { level: 'info', useStdErr: false }) {
+const defaultLevel = (process.env.LOG_LEVEL || 'info') as LogLevels;
+
+export function initLogger(
+  { level = defaultLevel, useStdErr = false }: LogOptions = { level: defaultLevel, useStdErr: false },
+) {
   const transport = pino.transport({
     target: 'pino/file',
     options: { destination: useStdErr ? 2 : 1 },
