@@ -169,7 +169,6 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
 
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
 
-            // Change this to use the execution components as provider for DI.
             auto gas_tracker = execution_components.make_gas_tracker(context, instruction);
 
             gas_tracker->consume_base_gas();

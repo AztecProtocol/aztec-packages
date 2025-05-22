@@ -60,20 +60,20 @@ struct OutOfGasException : public std::runtime_error {
 };
 
 struct GasEvent {
-    Gas prev_gas_used;
+    Gas prev_gas_used = { 0, 0 };
 
-    uint32_t opcode_gas;
-    uint32_t addressing_gas;
-    Gas base_gas;
+    uint32_t opcode_gas = 0;
+    uint32_t addressing_gas = 0;
+    Gas base_gas = { 0, 0 };
 
-    Gas dynamic_gas_factor;
-    Gas dynamic_gas;
+    Gas dynamic_gas_factor = { 0, 0 };
+    Gas dynamic_gas = { 0, 0 };
 
-    bool oog_l2_base;
-    bool oog_da_base;
+    bool oog_l2_base = false;
+    bool oog_da_base = false;
 
-    bool oog_l2_dynamic;
-    bool oog_da_dynamic;
+    bool oog_l2_dynamic = false;
+    bool oog_da_dynamic = false;
 
     bool operator==(const GasEvent& other) const = default;
 };
