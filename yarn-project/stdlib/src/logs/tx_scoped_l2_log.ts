@@ -6,6 +6,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { PrivateLog } from './private_log.js';
 import { PublicLog } from './public_log.js';
 
+// TODO(#14460): Split to private and public versions instead of having this weird mix.
 export class TxScopedL2Log {
   constructor(
     /*
