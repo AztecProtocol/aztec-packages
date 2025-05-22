@@ -379,8 +379,8 @@ export class Oracle {
     return [];
   }
 
-  async syncNotes([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.syncNotes(Fr.fromString(pendingTaggedLogArrayBaseSlot));
+  async syncPrivateState([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.syncPrivateState(Fr.fromString(pendingTaggedLogArrayBaseSlot));
     return [];
   }
 
