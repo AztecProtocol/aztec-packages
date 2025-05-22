@@ -173,16 +173,16 @@ describe('Native World State: benchmarks', () => {
   };
 
   it.each([
-    [36, 1],
-    [36, 8],
-    [36, 64],
-    [360, 8],
-  ])('Syncs a %s tx block where txs have %s leaves', async (numTxs: number, numLeaves: number) => {
+    [36, 1, 2],
+    [36, 8, 2],
+    [36, 64, 2],
+    [360, 8, 1],
+  ])('Syncs a %s tx block where txs have %s leaves', async (numTxs: number, numLeaves: number, numBlocks: number) => {
     // We insert a block so we don't obtain any 'first block' advantage
     await runBlockSyncTest(1, 4, 1, worldState);
 
     // Now run the test
-    const duration = await runBlockSyncTest(4, numTxs, numLeaves, worldState);
+    const duration = await runBlockSyncTest(numBlocks, numTxs, numLeaves, worldState);
     metrics.addBlockSyncMetric(numTxs, numLeaves, duration);
   });
 
