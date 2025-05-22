@@ -1,7 +1,7 @@
 import { AVM_AND_BASE_L2_GAS, AVM_BITWISE_DYN_L2_GAS, AVM_OR_BASE_L2_GAS, AVM_XOR_BASE_L2_GAS } from '@aztec/constants';
 
 import type { AvmContext } from '../avm_context.js';
-import { getGasCostMultiplierFromTypeTag } from '../avm_gas.js';
+import { getBitwiseDynamicGasMultiplier } from '../avm_gas.js';
 import { TypeTag, Uint8, Uint16, Uint32 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
@@ -50,7 +50,7 @@ describe('Bitwise instructions', () => {
       await new And(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       expect(context.machineState.l2GasLeft).toEqual(
-        gasBefore - AVM_AND_BASE_L2_GAS - AVM_BITWISE_DYN_L2_GAS * getGasCostMultiplierFromTypeTag(TypeTag.UINT32),
+        gasBefore - AVM_AND_BASE_L2_GAS - AVM_BITWISE_DYN_L2_GAS * getBitwiseDynamicGasMultiplier(TypeTag.UINT32),
       );
     });
   });
@@ -98,7 +98,7 @@ describe('Bitwise instructions', () => {
       await new Or(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       expect(context.machineState.l2GasLeft).toEqual(
-        gasBefore - AVM_OR_BASE_L2_GAS - AVM_BITWISE_DYN_L2_GAS * getGasCostMultiplierFromTypeTag(TypeTag.UINT32),
+        gasBefore - AVM_OR_BASE_L2_GAS - AVM_BITWISE_DYN_L2_GAS * getBitwiseDynamicGasMultiplier(TypeTag.UINT32),
       );
     });
   });
@@ -146,7 +146,7 @@ describe('Bitwise instructions', () => {
       await new Xor(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       expect(context.machineState.l2GasLeft).toEqual(
-        gasBefore - AVM_XOR_BASE_L2_GAS - AVM_BITWISE_DYN_L2_GAS * getGasCostMultiplierFromTypeTag(TypeTag.UINT32),
+        gasBefore - AVM_XOR_BASE_L2_GAS - AVM_BITWISE_DYN_L2_GAS * getBitwiseDynamicGasMultiplier(TypeTag.UINT32),
       );
     });
   });

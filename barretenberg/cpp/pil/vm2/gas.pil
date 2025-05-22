@@ -1,7 +1,8 @@
 include "precomputed.pil";
 
 // This is a virtual gadget, which is part of the execution trace.
-// TODO: Overflow checks: might be needed? especially for dynamic gas
+// https://excalidraw.com/#json=-fkwtFjYVOq2Z69Q351AE,O3SbjwK5eHX7-Oz2OH8RqQ
+// TODO(sirasistant): Overflow checks: might be needed? especially for dynamic gas
 namespace execution;
 
     // ==== BASE GAS ====

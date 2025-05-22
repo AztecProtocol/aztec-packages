@@ -159,7 +159,7 @@ export function getDynamicGasCost(opcode: Opcode): Gas {
 
 /** Returns a multiplier based on the byte size of the type represented by the integer tag.
  * Used to account for necessary rows in the bitwise trace. Throws on invalid. */
-export function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
+export function getBitwiseDynamicGasMultiplier(tag: TypeTag) {
   switch (tag) {
     case TypeTag.UINT1: // same as u8
       return 1;
@@ -174,7 +174,7 @@ export function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
     case TypeTag.UINT128:
       return 16;
     case TypeTag.FIELD:
-      return 0;
+      return 0; // Field is not allowed for bitwise operations. However we don't fail in gas, since we'll fail in bitwise.
     case TypeTag.INVALID:
       throw new InstructionExecutionError(`Invalid tag type for gas cost multiplier: ${TypeTag[tag]}`);
   }

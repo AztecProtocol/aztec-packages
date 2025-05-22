@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { getGasCostMultiplierFromTypeTag } from '../avm_gas.js';
+import { getBitwiseDynamicGasMultiplier } from '../avm_gas.js';
 import { type IntegralValue, TaggedMemory, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -49,7 +49,7 @@ export class And extends ThreeOperandBitwiseInstruction {
   }
 
   protected override getDynamicMultiplier(lhsTag: TypeTag): number {
-    return getGasCostMultiplierFromTypeTag(lhsTag);
+    return getBitwiseDynamicGasMultiplier(lhsTag);
   }
 }
 
@@ -62,7 +62,7 @@ export class Or extends ThreeOperandBitwiseInstruction {
   }
 
   protected override getDynamicMultiplier(lhsTag: TypeTag): number {
-    return getGasCostMultiplierFromTypeTag(lhsTag);
+    return getBitwiseDynamicGasMultiplier(lhsTag);
   }
 }
 
@@ -75,7 +75,7 @@ export class Xor extends ThreeOperandBitwiseInstruction {
   }
 
   protected override getDynamicMultiplier(lhsTag: TypeTag): number {
-    return getGasCostMultiplierFromTypeTag(lhsTag);
+    return getBitwiseDynamicGasMultiplier(lhsTag);
   }
 }
 
