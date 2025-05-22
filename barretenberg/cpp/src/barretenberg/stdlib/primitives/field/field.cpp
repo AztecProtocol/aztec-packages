@@ -102,43 +102,53 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
+    // Ensure that non-constant circuit elements can not be added without context
     ASSERT(ctx || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
 
-    if (witness_index == other.witness_index && witness_index != IS_CONSTANT) {
+    if (witness_index == other.witness_index && !this->is_constant()) {
+        // If summands represent the same circuit variable, i.e. their witness indices coincide, we just need to update
+        // the scaling factors of this variable.
         result.additive_constant = additive_constant + other.additive_constant;
         result.multiplicative_constant = multiplicative_constant + other.multiplicative_constant;
         result.witness_index = witness_index;
-    } else if (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT) {
+    } else if (this->is_constant() && other.is_constant()) {
         // both inputs are constant - don't add a gate
         result.additive_constant = additive_constant + other.additive_constant;
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
+    } else if (!this->is_constant() && other.is_constant()) {
         // one input is constant - don't add a gate, but update scaling factors
         result.additive_constant = additive_constant + other.additive_constant;
         result.multiplicative_constant = multiplicative_constant;
         result.witness_index = witness_index;
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
+    } else if (this->is_constant() && !other.is_constant()) {
         result.additive_constant = additive_constant + other.additive_constant;
         result.multiplicative_constant = other.multiplicative_constant;
         result.witness_index = other.witness_index;
     } else {
-        bb::fr T0;
-        bb::fr left = ctx->get_variable(witness_index);
-        bb::fr right = ctx->get_variable(other.witness_index);
-        bb::fr out;
-        out = left * multiplicative_constant;
-        T0 = right * other.multiplicative_constant;
-        out += T0;
-        out += additive_constant;
-        out += other.additive_constant;
-        result.witness_index = ctx->add_variable(out);
+        /*
+         * The summands are distinct circuit variables, the result needs to be constrained.
+         *       a + b = a.v * a.mul + b.v * b.mul + (a.add + b.add)
+         * which leads to the constraint
+         *       a.v * q_l + b.v * q_r + result.v * q_o + q_c = 0,
+         * where q_l, q_r, q_0, and q_c are the selectors storing corresponding scaling factors.
+         */
+        bb::fr a = ctx->get_variable(witness_index);
+        bb::fr b = ctx->get_variable(other.witness_index);
+        bb::fr result_value;
+        result_value = a * multiplicative_constant;
+        // Multiply witness `b` by its multiplicative constant, this does not create extra gates.
+        bb::fr T0 = b * other.multiplicative_constant;
+        result_value += T0;
+        result_value += additive_constant;
+        result_value += other.additive_constant;
+        result.witness_index = ctx->add_variable(result_value);
 
-        ctx->create_add_gate({ witness_index,
-                               other.witness_index,
-                               result.witness_index,
-                               multiplicative_constant,
-                               other.multiplicative_constant,
-                               bb::fr::neg_one(),
-                               (additive_constant + other.additive_constant) });
+        ctx->create_add_gate({ .a = witness_index,
+                               .b = other.witness_index,
+                               .c = result.witness_index,
+                               .a_scaling = multiplicative_constant,
+                               .b_scaling = other.multiplicative_constant,
+                               .c_scaling = bb::fr::neg_one(),
+                               .const_scaling = (additive_constant + other.additive_constant) });
     }
     result.tag = OriginTag(tag, other.tag);
     return result;
@@ -158,60 +168,53 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
-    ASSERT(ctx || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
+    // Ensure that non-constant circuit elements can not be multiplied without context
+    ASSERT(ctx || (this->is_constant() && other.is_constant()));
 
-    if (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT) {
+    if (this->is_constant() && other.is_constant()) {
         // Both inputs are constant - don't add a gate.
         // The value of a constant is tracked in `.additive_constant`.
         result.additive_constant = additive_constant * other.additive_constant;
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
-        // One input is constant: don't add a gate, but update scaling factors.
-
+    } else if (!this->is_constant() && other.is_constant()) {
         /**
-         * Let:
+         *  Here and in the next case, only one input is not constant: don't add a gate, but update scaling factors.
+         * More concretely, let:
          *   a := this;
          *   b := other;
-         *   a.v := ctx->variables[this.witness_index];
-         *   b.v := ctx->variables[other.witness_index];
+         *   a.v := ctx->variables[a.witness_index], the value of a;
+         *   b.v := ctx->variables[b.witness_index], the value of b;
          *   .mul = .multiplicative_constant
          *   .add = .additive_constant
-         */
-
-        /**
+         *
          * Value of this   = a.v * a.mul + a.add;
          * Value of other  = b.add
          * Value of result = a * b = a.v * [a.mul * b.add] + [a.add * b.add]
-         *                             ^   ^result.mul       ^result.add
-         *                             ^result.v
+         *                            ^           ^result.mul      ^result.add
+         *                            ^result.v
          */
 
         result.additive_constant = additive_constant * other.additive_constant;
         result.multiplicative_constant = multiplicative_constant * other.additive_constant;
+        // We simply updated the scaling factors of `*this`, so `witness_index` of `result` must be equal to
+        // `this->witness_index`.
         result.witness_index = witness_index;
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
-        // One input is constant: don't add a gate, but update scaling factors.
-
-        /**
-         * Value of this   = a.add;
-         * Value of other  = b.v * b.mul + b.add
-         * Value of result = a * b = b.v * [a.add * b.mul] + [a.add * b.add]
-         *                             ^   ^result.mul       ^result.add
-         *                             ^result.v
-         */
-
+    } else if (this->is_constant() && other.is_constant()) {
+        // Only one input is not constant: don't add a gate, but update scaling factors
         result.additive_constant = additive_constant * other.additive_constant;
         result.multiplicative_constant = other.multiplicative_constant * additive_constant;
+        // We simply updated the scaling factors of `other`, so `witness_index` of `result` must be equal to
+        // `other->witness_index`.
         result.witness_index = other.witness_index;
     } else {
-        // Both inputs map to circuit varaibles: create a `*` constraint.
-
         /**
-         * Value of this   = a.v * a.mul + a.add;
-         * Value of other  = b.v * b.mul + b.add;
+         * Both inputs are circuit variables: create a * b constraint.
+         *
+         * Value of this   = a.value * a.mul + a.add;
+         * Value of other  = b.value * b.mul + b.add;
          * Value of result = a * b
          *            = [a.v * b.v] * [a.mul * b.mul] + a.v * [a.mul * b.add] + b.v * [a.add * b.mul] + [a.ac * b.add]
          *            = [a.v * b.v] * [     q_m     ] + a.v * [     q_l     ] + b.v * [     q_r     ] + [    q_c     ]
-         *            ^               ^Notice the add/mul_constants form selectors when a gate is created.
+         *            ^               ^Notice the add/mul_constants are placed into selectors when a gate is created.
          *            |                Only the witnesses (pointed-to by the witness_indexes) form the wires in/out of
          *            |                the gate.
          *            ^This entire value is pushed to ctx->variables as a new witness. The
@@ -227,23 +230,28 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         bb::fr q_r;
         bb::fr q_c;
 
+        // Compute selector values
         q_c = additive_constant * other.additive_constant;
         q_r = additive_constant * other.multiplicative_constant;
         q_l = multiplicative_constant * other.additive_constant;
         q_m = multiplicative_constant * other.multiplicative_constant;
 
-        bb::fr left = context->get_variable(witness_index);
-        bb::fr right = context->get_variable(other.witness_index);
-        bb::fr out;
+        bb::fr a = context->get_variable(witness_index);
+        bb::fr b = context->get_variable(other.witness_index);
+        bb::fr result_value;
 
-        out = left * right;
-        out *= q_m;
-        T0 = left * q_l;
-        out += T0;
-        T0 = right * q_r;
-        out += T0;
-        out += q_c;
-        result.witness_index = ctx->add_variable(out);
+        result_value = a * b;
+        result_value *= q_m;
+        // Scale witness `b` by constant `a_mul * b_add`
+        T0 = b * q_l;
+        result_value += T0;
+        // Scale witness `a` by constant `a_add * b_mul`
+        T0 = a * q_r;
+        result_value += T0;
+        result_value += q_c;
+        result.witness_index = ctx->add_variable(result_value);
+        // Constrain
+        //    a.v * b.v * q_m + a.v * q_l + b_v * q_r + q_c + result.v * q_o = 0
         ctx->create_poly_gate({ .a = witness_index,
                                 .b = other.witness_index,
                                 .c = result.witness_index,
@@ -505,7 +513,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     ctx->create_big_mul_gate({
         .a = this->is_constant() ? ctx->zero_idx : witness_index,
         .b = add_a.is_constant() ? ctx->zero_idx : add_a.witness_index,
-        .c = add_b.is_constant() == IS_CONSTANT ? ctx->zero_idx : add_b.witness_index,
+        .c = add_b.is_constant() ? ctx->zero_idx : add_b.witness_index,
         .d = result.witness_index,
         .mul_scaling = bb::fr(0),
         .a_scaling = q_1,

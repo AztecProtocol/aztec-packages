@@ -29,15 +29,22 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct a(public_witness_ct(&builder, fr::one())); // a is a legit wire value in our circuit
         field_ct b(&builder,
                    (fr::one())); // b is just a constant, and should not turn up as a wire value in our circuit
+        const size_t num_gates = builder.get_estimated_num_finalized_gates();
 
-        // this shouldn't create a constraint - we just need to scale the addition/multiplication gates that `a` is
-        // involved in c should point to the same wire value as a
+        // This shouldn't create a constraint - we just need to scale the addition/multiplication gates that `a` is
+        // involved in, `c` should have the same witness index as `a`, i.e. point to the same wire value
         field_ct c = a + b;
+        EXPECT_TRUE(c.witness_index == a.witness_index);
+        EXPECT_TRUE(builder.get_estimated_num_finalized_gates() == num_gates);
         field_ct d(&builder, fr::coset_generator(0)); // like b, d is just a constant and not a wire value
 
         // by this point, we shouldn't have added any constraints in our circuit
         for (size_t i = 0; i < 17; ++i) {
+            auto c_add_constant = c.additive_constant;
+            auto c_mul_constant = c.multiplicative_constant;
             c = c * d; // shouldn't create a constraint - just scales up c (which points to same wire value as a)
+            EXPECT_TRUE(c_add_constant == c.additive_constant);
+            EXPECT_TRUE(c.multiplicative_constant == c_mul_constant * d.multiplicative_constant);
             c = c - d; // shouldn't create a constraint - just adds a constant term into c's gates
             c = c * a; // will create a constraint - both c and a are wires in our circuit (the same wire actually, so
                        // this is a square-ish gate)
@@ -81,7 +88,39 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // Ensure that the context is not missing
         EXPECT_FALSE(elt.is_constant());
     }
+    static void test_add()
+    {
+        Builder builder = Builder();
+        // Case 1: both summands are witnesses
+        field_ct a(witness_ct(&builder, fr::random_element()));
+        field_ct b(witness_ct(&builder, fr::random_element()));
+        field_ct sum = a + b;
+        EXPECT_TRUE(sum.get_value() == a.get_value() + b.get_value());
+        EXPECT_FALSE(sum.is_constant());
 
+        // Case 2: second summand is a constant
+        field_ct c(fr::random_element());
+        field_ct sum_with_constant = sum + c;
+        EXPECT_TRUE(sum_with_constant.get_value() == sum.get_value() + c.get_value());
+        EXPECT_TRUE(sum.witness_index == sum_with_constant.witness_index);
+
+        // Case 3: first summand is a constant
+        sum_with_constant = c + sum;
+        EXPECT_TRUE(sum_with_constant.get_value() == sum.get_value() + c.get_value());
+        EXPECT_TRUE(sum.witness_index == sum_with_constant.witness_index);
+
+        // Case 4: both summands are witnesses with matching indices
+        field_ct sum_with_same_witness_index = sum_with_constant + sum;
+        EXPECT_TRUE(sum_with_same_witness_index.get_value() == sum.get_value() + sum_with_constant.get_value());
+        EXPECT_TRUE((sum_with_same_witness_index.witness_index == sum_with_constant.witness_index) &&
+                    (sum_with_same_witness_index.witness_index == sum.witness_index));
+
+        // Case 5: both summands are constant
+        field_ct d(fr::random_element());
+        field_ct constant_sum = c + d;
+        EXPECT_TRUE(constant_sum.is_constant());
+        EXPECT_TRUE(constant_sum.get_value() == d.get_value() + c.get_value());
+    }
     static void create_range_constraint()
     {
         auto run_test = [&](fr elt, size_t num_bits, bool expect_verified) {
@@ -366,7 +405,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(x, fr(1));
 
         // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
+        // This gate is implemented in standard by creating 2 actual gates, while in ultra there are 2
         if (std::same_as<Builder, UltraCircuitBuilder>) {
             EXPECT_EQ(gates_after - gates_before, 3UL);
         }
@@ -392,7 +431,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(x, fr(0));
 
         // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
+        // This gate is implemented in standard by creating 2 actual gates, while in ultra there are 2
         if (std::same_as<Builder, UltraCircuitBuilder>) {
             EXPECT_EQ(gates_after - gates_before, 3UL);
         }
@@ -415,11 +454,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         auto gates_after = builder.get_estimated_num_finalized_gates();
 
-        fr x = r.get_value();
-        EXPECT_EQ(x, fr(1));
-
         // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
+        // This gate is implemented in standard by creating 2 actual gates, while in ultra there are 2
         if (std::same_as<Builder, UltraCircuitBuilder>) {
             EXPECT_EQ(gates_after - gates_before, 5UL);
         }
@@ -1125,6 +1161,11 @@ TYPED_TEST(stdlib_field, test_constructor_from_witness)
 {
     TestFixture::test_constructor_from_witness();
 }
+
+TYPED_TEST(stdlib_field, test_add)
+{
+    TestFixture::test_add();
+}
 TYPED_TEST(stdlib_field, test_create_range_constraint)
 {
     TestFixture::create_range_constraint();
@@ -1268,4 +1309,9 @@ TYPED_TEST(stdlib_field, test_origin_tag_consistency)
 TYPED_TEST(stdlib_field, test_add_two)
 {
     TestFixture::test_add_two();
+}
+
+TYPED_TEST(stdlib_field, test_add_mul_with_constants)
+{
+    TestFixture::test_add_mul_with_constants();
 }
