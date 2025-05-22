@@ -1641,8 +1641,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 };
 
 enum UseBigfield { No, Yes };
-using TestTypes = testing::Types<TestType<stdlib::bn254<bb::StandardCircuitBuilder>, UseBigfield::No>,
-                                 TestType<stdlib::bn254<bb::UltraCircuitBuilder>, UseBigfield::Yes>,
+using TestTypes = testing::Types<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, UseBigfield::Yes>,
                                  TestType<stdlib::bn254<bb::MegaCircuitBuilder>, UseBigfield::No>>;
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
@@ -1801,37 +1800,28 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
 /* These tests only work for Ultra Circuit Constructor */
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul)
 {
-    if constexpr (HasPlookup<typename TypeParam::Curve::Builder>) {
-        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP();
-        } else {
-            TestFixture::test_compute_wnaf();
-        };
-    } else {
+    if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
-    }
+    } else {
+        TestFixture::test_compute_wnaf();
+    };
 }
 
 /* These tests only work for Ultra Circuit Constructor */
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_edge_cases)
 {
-    if constexpr (HasPlookup<typename TypeParam::Curve::Builder>) {
-        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP();
-        } else {
-            TestFixture::test_compute_wnaf();
-        };
-    } else {
+    if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
-    }
+    } else {
+        TestFixture::test_compute_wnaf();
+    };
 }
 
 /* the following test was only developed as a test of Ultra Circuit Constructor. It fails for Standard in the
    case where Fr is a bigfield. */
 HEAVY_TYPED_TEST(stdlib_biggroup, compute_wnaf)
 {
-    if constexpr ((!HasPlookup<typename TypeParam::Curve::Builder> && TypeParam::use_bigfield) ||
-                  (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>)) {
+    if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
     } else {
         TestFixture::test_compute_wnaf();
