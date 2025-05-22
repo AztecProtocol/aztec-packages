@@ -249,15 +249,9 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
         // Compute and constrain skews
         field_t<C> negative_skew = witness_t<C>(ctx, is_negative ? 0 : skew);
         field_t<C> positive_skew = witness_t<C>(ctx, is_negative ? skew : 0);
-        if constexpr (HasPlookup<C>) {
-            ctx->create_new_range_constraint(negative_skew.witness_index, 1, "biggroup_nafs");
-            ctx->create_new_range_constraint(positive_skew.witness_index, 1, "biggroup_nafs");
-            ctx->create_new_range_constraint((negative_skew + positive_skew).witness_index, 1, "biggroup_nafs");
-        } else {
-            ctx->create_range_constraint(negative_skew.witness_index, 1, "biggroup_nafs");
-            ctx->create_range_constraint(positive_skew.witness_index, 1, "biggroup_nafs");
-            ctx->create_range_constraint((negative_skew + positive_skew).witness_index, 1, "biggroup_nafs");
-        }
+        ctx->create_new_range_constraint(negative_skew.witness_index, 1, "biggroup_nafs");
+        ctx->create_new_range_constraint(positive_skew.witness_index, 1, "biggroup_nafs");
+        ctx->create_new_range_constraint((negative_skew + positive_skew).witness_index, 1, "biggroup_nafs");
 
         const auto reconstruct_bigfield_from_wnaf = [ctx](const std::vector<field_t<C>>& wnaf,
                                                           const field_t<C>& positive_skew,
