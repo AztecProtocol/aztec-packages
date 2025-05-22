@@ -2,7 +2,6 @@ import { BBNativePrivateKernelProver } from '@aztec/bb-prover/client/native';
 import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/client/wasm/bundle';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 import { SimulationProviderRecorderWrapper } from '@aztec/simulator/testing';

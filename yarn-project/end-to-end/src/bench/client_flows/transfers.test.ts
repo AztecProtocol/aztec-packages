@@ -26,8 +26,6 @@ describe('Transfer benchmark', () => {
   let bananaCoin: TokenContract;
   // CandyBarCoin Token contract, which we want to transfer
   let candyBarCoin: TokenContract;
-  // Aztec node to answer queries
-  let node: AztecNode;
   // Sponsored FPC contract
   let sponsoredFPC: SponsoredFPCContract;
   // Benchmarking configuration
@@ -40,7 +38,7 @@ describe('Transfer benchmark', () => {
     await t.applyDeployCandyBarTokenSnapshot();
     await t.applyDeploySponsoredFPCSnapshot();
 
-    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, aztecNode: node, sponsoredFPC } = await t.setup());
+    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, sponsoredFPC } = await t.setup());
   });
 
   afterAll(async () => {
