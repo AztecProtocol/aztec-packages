@@ -25,9 +25,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
 
     const auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
 
-    std::vector<four_bit_table_plookup<>> point_tables;
+    std::vector<four_bit_table_plookup> point_tables;
     for (const auto& point : points) {
-        point_tables.emplace_back(four_bit_table_plookup<>(point));
+        point_tables.emplace_back(four_bit_table_plookup(point));
     }
 
     std::vector<std::vector<field_t<C>>> wnaf_entries;
