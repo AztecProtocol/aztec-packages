@@ -131,7 +131,7 @@ where
 // They dont necessarily need to be empty outside of this range, those values will simply be ignored.
 // But triggering an error if they are not can help avoiding any confusion or bugs where the array is not configured
 // correctly by mistake.
-pub fn validate_padded_items<T, let N: u32>(
+pub unconstrained fn validate_padded_items<T, let N: u32>(
     padded_items: [T; N],
     num_original_items: u32,
     capped_size: u32,
@@ -600,7 +600,10 @@ mod tests {
         }
 
         pub fn execute(self) {
-            validate_padded_items(self.padded_items, self.num_original_items, self.capped_size);
+            // Safety: `validate_padded_items` is supposed to be called only in unconstrained functions.
+            unsafe {
+                validate_padded_items(self.padded_items, self.num_original_items, self.capped_size);
+            }
         }
     }
 

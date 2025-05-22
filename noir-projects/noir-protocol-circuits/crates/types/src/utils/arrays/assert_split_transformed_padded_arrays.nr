@@ -5,7 +5,7 @@ use crate::{
     utils::arrays::find_index_hint,
 };
 
-pub fn assert_split_transformed_padded_arrays_with_hint<T, S, let N: u32, Env>(
+pub(crate) fn assert_split_transformed_padded_arrays_with_hint<T, S, let N: u32, Env>(
     sorted_array: [T; N],
     transformed_value_array_lt: [S; N], // Values whose counters are less than the split counter.
     transformed_value_array_gte: [S; N], // Values whose counters are greater than or equal to the split counter.
@@ -20,7 +20,7 @@ where
     T: Ordered + Empty + Eq,
     S: Empty + Eq,
 {
-    // Validate the hints
+    // --- Validate the hints ---
     //
     // Validate first_after_split_index
     if first_after_split_index != 0 {
@@ -58,6 +58,28 @@ where
         assert((counter == 0) | (counter == MAX_U32_VALUE), "incorrect first_padded_gte_index");
     }
 
+    // --- Initialize state tracking for the iteration ---
+    //
+    // There are 4 phases in the iteration:
+    // 1. Processing items that belong to the `_lt` array and are not padded: `non_padded_lt`
+    // 2. Processing items that belong to the `_lt` array and are padded: `padded_lt`
+    // 3. Processing items that belong to the `_gte` array and are not padded: `non_padded_gte`
+    // 4. Processing items that belong to the `_gte` array and are padded: `padded_gte`
+    //
+    // Note that the empty items padded to the `sorted_array` will be processed in:
+    // - Phase 2 if there are no padded items for the `_gte` array: first_padded_gte_index == N
+    // - Phase 4 otherwise.
+    //
+    // We can use the following statements to determine the phase:
+    // if is_non_padded_lt {
+    //     Phase 1
+    // } else if is_padded_gte {
+    //     Phase 4
+    // } else if is_padded {
+    //     Phase 2
+    // } else {
+    //     Phase 3
+    // }
     let mut is_lt = true;
     let mut is_non_padded_lt = true;
     let mut is_padded = false;
@@ -65,48 +87,69 @@ where
     let num_non_padded_lt = first_after_split_index;
     let num_non_padded_gte = first_padded_index - first_after_split_index;
     let num_lt = num_non_padded_lt + num_padded_lt;
+    // --- Main loop to validate each mapping and padding ---
     for i in 0..N {
         is_non_padded_lt &= i != first_after_split_index;
         is_padded |= i == first_padded_index;
         is_padded_gte |= i == first_padded_gte_index;
+
+        // Determine if the item should belong to the `_lt` array.
         is_lt = is_non_padded_lt | (is_padded & !is_padded_gte);
 
+        // Check that an item is copied and transformed correctly from `sorted_array` to the destination array.
+        // From:
+        // sorted_array: [...Phase_1, ...Phase_2, ...Phase_3, ...Phase_4]
+        // To:
+        // _lt: [...Phase_1, ...Phase_2, ...empty_items]
+        // _gte: [...Phase_3, ...Phase_4, ...empty_items]
         let from = sorted_array[i];
+        // Determine target index in the destination arrays based on phase,
         let to_index = if is_non_padded_lt {
-            i
+            i // Phase 1
         } else if is_padded_gte {
-            i - num_lt
+            i - num_lt // Phase 4
         } else if is_padded {
-            i - num_non_padded_gte
+            i - num_non_padded_gte // Phase 2
         } else {
-            i - num_non_padded_lt
+            i - num_non_padded_lt // Phase 3
         };
+        // Get the value from the correct destination array.
         let to = if is_lt {
             transformed_value_array_lt[to_index]
         } else {
             transformed_value_array_gte[to_index]
         };
+        // Assert the value is transformed correctly.
         assert(is_transformed(from, to), "invalid transformed value");
 
         // For every item added to the lt array, there is an empty item padded to the gte array. And vice versa.
+        // _lt: [...Phase_1, ...Phase_2, ...padded_from_Phase_3, ...padded_from_Phase_4]
+        // _gte: [...Phase_3, ...Phase_4, ...padded_from_Phase_2, ...padded_from_Phase_1]
         let empty_index = if is_non_padded_lt {
-            N - i - 1
+            N - i - 1 // Phase 1
         } else if is_padded_gte {
-            i
+            i // Phase 4
         } else if is_padded {
-            N - to_index - 1
+            N - to_index - 1 // Phase 2
         } else {
-            i + num_padded_lt
+            i + num_padded_lt // Phase 3
         };
+        // Get the value from the correct destination array.
         let padded_empty = if is_lt {
             transformed_value_array_gte[empty_index]
         } else {
             transformed_value_array_lt[empty_index]
         };
+        // Assert an empty item is padded.
         assert(is_empty(padded_empty), "array should be padded with empty items");
     }
 }
 
+// Validates that the `sorted_array` has been split and transformed correctly into two separate arrays:
+// - `transformed_value_array_lt`: for items with counters `< split_counter`, followed by `num_padded_lt` padded items.
+// - `transformed_value_array_gte`: for items with counters `>= split_counter`, followed by the rest of the padded items.
+//
+// Both result arrays must be padded with empty items to preserve length `N`.
 pub fn assert_split_transformed_padded_arrays<T, S, let N: u32, Env>(
     sorted_array: [T; N],
     transformed_value_array_lt: [S; N], // Values whose counters are less than the split counter.
