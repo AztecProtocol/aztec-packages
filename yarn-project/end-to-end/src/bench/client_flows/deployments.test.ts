@@ -5,8 +5,8 @@ import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
-import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
+import { ProxyLogger, captureProfile } from './utils.js';
 
 jest.setTimeout(1_600_000);
 
@@ -51,6 +51,8 @@ describe('Deployment benchmark', () => {
             isClassRegistered = !!(await node.getContractClass(
               (await getContractClassFromArtifact(EasyPrivateVotingContract.artifact)).id,
             ));
+            // Make sure the proxy logger starts from a clean slate
+            ProxyLogger.getInstance().flushLogs();
           });
 
           it(`${accountType} contract deploys a TokenContract, pays using ${benchmarkingPaymentMethod}`, async () => {
@@ -61,7 +63,7 @@ describe('Deployment benchmark', () => {
 
             const deploymentInteraction = EasyPrivateVotingContract.deploy(benchysWallet, benchysWallet.getAddress());
 
-            await capturePrivateExecutionStepsIfEnvSet(
+            await captureProfile(
               `${accountType}+deploy_tokenContract_${
                 isClassRegistered ? 'no_registration' : 'with_registration'
               }+${benchmarkingPaymentMethod}`,

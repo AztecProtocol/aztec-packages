@@ -8,8 +8,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
-import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
+import { ProxyLogger, captureProfile } from './utils.js';
 
 jest.setTimeout(900_000);
 
@@ -96,6 +96,8 @@ describe('AMM benchmark', () => {
               bananaCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
             );
+            // Make sure the proxy logger starts from a clean slate
+            ProxyLogger.getInstance().flushLogs();
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
@@ -132,7 +134,7 @@ describe('AMM benchmark', () => {
               .methods.add_liquidity(amountToSend, amountToSend, amountToSend, amountToSend, nonceForAuthwits)
               .with({ authWitnesses: [token0Authwit, token1Authwit] });
 
-            await capturePrivateExecutionStepsIfEnvSet(
+            await captureProfile(
               `${accountType}+amm_add_liquidity_1_recursions+${benchmarkingPaymentMethod}`,
               addLiquidityInteraction,
               options,

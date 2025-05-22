@@ -229,7 +229,6 @@ function build {
     release-image/bootstrap.sh
     spartan/bootstrap.sh
     aztec-up/bootstrap.sh
-    build_bench
   )
 
   for project in "${serial_projects[@]}"; do

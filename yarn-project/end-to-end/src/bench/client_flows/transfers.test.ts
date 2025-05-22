@@ -7,8 +7,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
-import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
+import { ProxyLogger, captureProfile } from './utils.js';
 
 jest.setTimeout(1_600_000);
 
@@ -90,6 +90,8 @@ describe('Transfer benchmark', () => {
               candyBarCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
             );
+            // Make sure the proxy logger starts from a clean slate
+            ProxyLogger.getInstance().flushLogs();
           });
 
           afterEach(async () => {
@@ -122,7 +124,7 @@ describe('Transfer benchmark', () => {
 
             const transferInteraction = asset.methods.transfer(adminWallet.getAddress(), amountToSend);
 
-            await capturePrivateExecutionStepsIfEnvSet(
+            await captureProfile(
               `${accountType}+transfer_${recursions}_recursions+${benchmarkingPaymentMethod}`,
               transferInteraction,
               options,

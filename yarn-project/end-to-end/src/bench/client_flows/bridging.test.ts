@@ -6,9 +6,9 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
 import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
+import { ProxyLogger, captureProfile } from './utils.js';
 
 jest.setTimeout(300_000);
 
@@ -62,6 +62,8 @@ describe('Bridging benchmark', () => {
         await benchysWallet.registerContract(bananaCoin);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
         await benchysWallet.registerContract(sponsoredFPC);
+        // Make sure the proxy logger starts from a clean slate
+        ProxyLogger.getInstance().flushLogs();
       });
 
       function privateClaimTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
@@ -91,7 +93,7 @@ describe('Bridging benchmark', () => {
             messageLeafIndex,
           );
 
-          await capturePrivateExecutionStepsIfEnvSet(
+          await captureProfile(
             `${accountType}+token_bridge_claim_private+${benchmarkingPaymentMethod}`,
             claimInteraction,
             options,
