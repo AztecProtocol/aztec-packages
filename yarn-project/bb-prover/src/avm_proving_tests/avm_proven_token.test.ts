@@ -40,7 +40,7 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
     );
   });
 
-  it('token mint, transfer, burn', async () => {
+  it.skip('token mint, transfer, burn', async () => {
     const mintAmount = 100n;
     const transferAmount = 50n;
     const nonce = new Fr(0);

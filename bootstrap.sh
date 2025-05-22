@@ -150,7 +150,7 @@ function sort_by_cpus {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
+    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir docs
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
@@ -399,6 +399,7 @@ case "$cmd" in
     ;;
   "ci-nightly")
     export CI=1
+    export USE_TEST_CACHE=1
     export CI_NIGHTLY=1
     build
     test
@@ -407,6 +408,7 @@ case "$cmd" in
     ;;
   "ci-release")
     export CI=1
+    export USE_TEST_CACHE=1
     if ! semver check $REF_NAME; then
       exit 1
     fi

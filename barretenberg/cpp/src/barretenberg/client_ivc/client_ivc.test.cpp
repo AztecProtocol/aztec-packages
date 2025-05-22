@@ -45,6 +45,17 @@ class ClientIVCTests : public ::testing::Test {
             }
         }
     }
+
+    static std::pair<ClientIVC::Proof, ClientIVC::VerificationKey> generate_ivc_proof(size_t num_circuits)
+    {
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+        ClientIVCMockCircuitProducer circuit_producer;
+        for (size_t j = 0; j < num_circuits; ++j) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
+            ivc.accumulate(circuit);
+        }
+        return { ivc.prove(), ivc.get_vk() };
+    };
 };
 
 /**
@@ -288,6 +299,61 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
+ * @brief Produce 2 valid CIVC proofs. Ensure that replacing a proof component with a component from a different proof
+ * leads to a verification failure.
+ *
+ */
+TEST_F(ClientIVCTests, WrongProofComponentFailure)
+{
+    // Produce two valid proofs
+    auto [civc_proof_1, civc_vk_1] = generate_ivc_proof(/*num_circuits=*/2);
+    {
+        EXPECT_TRUE(ClientIVC::verify(civc_proof_1, civc_vk_1));
+    }
+
+    auto [civc_proof_2, civc_vk_2] = generate_ivc_proof(/*num_circuits=*/2);
+    {
+        EXPECT_TRUE(ClientIVC::verify(civc_proof_2, civc_vk_2));
+    }
+
+    {
+        // Replace Merge proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.goblin_proof.merge_proof = civc_proof_2.goblin_proof.merge_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+
+    {
+        // Replace hiding circuit proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.mega_proof = civc_proof_2.mega_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+
+    {
+        // Replace ECCVM proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.goblin_proof.eccvm_proof = civc_proof_2.goblin_proof.eccvm_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+
+    {
+        // Replace Translator proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.goblin_proof.translator_proof = civc_proof_2.goblin_proof.translator_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
 };
 
 /**
