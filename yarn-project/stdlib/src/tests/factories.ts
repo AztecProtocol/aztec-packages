@@ -881,13 +881,10 @@ export function makeRootParityInputs(seed = 0): RootParityInputs {
  */
 export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
-    makeAppendOnlyTreeSnapshot(seed + 0x100),
-    makeAppendOnlyTreeSnapshot(seed + 0x200),
-    fr(seed + 0x300),
-    fr(seed + 0x400),
-    fr(seed + 0x500),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x650),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x600),
+    fr(seed + 0x100),
+    fr(seed + 0x200),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     fr(seed + 0x700),
     fr(seed + 0x701),
     fr(seed + 0x702),

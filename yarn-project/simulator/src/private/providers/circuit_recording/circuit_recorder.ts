@@ -51,7 +51,7 @@ import { Oracle } from '../../acvm/oracle/oracle.js';
  *       ]
  *     },
  *     {
- *       "name": "syncPrivateState",
+ *       "name": "fetchTaggedLogs",
  *       "inputs": []
  *     }
  *   ]

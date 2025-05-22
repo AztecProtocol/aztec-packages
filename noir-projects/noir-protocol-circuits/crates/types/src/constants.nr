@@ -444,11 +444,8 @@ pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     + 1 /* protocol_contract_tree_root */
     + 1 /* prover_id */
     + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
-pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* previous_archive */
-    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* end_archive */
-    + 1 /* end_timestamp */
-    + 1 /* end_block_number */
-    + 1 /* out_hash */
+pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
+    + 1 /* end_archive_root */
     + 1 /* chain_id */
     + 1 /* version */
     + 1 /* vk_tree_root */
