@@ -62,7 +62,8 @@ function build_asan_fast {
   if ! cache_download barretenberg-asan-fast-$hash.zst; then
     # Pass the keys from asan_tests to the build_preset function.
     build_preset asan-fast --target "${!asan_tests[@]}"
-    cache_upload barretenberg-asan-fast-$hash.zst build-asan-fast/bin
+    # We upload only the binaries specified in --target in build-asan-fast/bin
+    echo cache_upload barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " "${!asan_tests[@]}")
   fi
 }
 
@@ -106,7 +107,12 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    build_preset wasm-threads
+    if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
+      # We only want to sanity check that we haven't broken wasm ecc ops in merge queue.
+      build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
+    else
+      build_preset wasm-threads
+    fi
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
   fi
 }
@@ -198,7 +204,9 @@ function test_cmds {
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
-  if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
+  if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
+    # We only want to sanity check that we haven't broken wasm ecc in merge queue.
+    echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
     # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
     for bin_name in "${!asan_tests[@]}"; do
       local filter=${asan_tests[$bin_name]}
@@ -295,8 +303,8 @@ case "$cmd" in
     fi
 
     # Recreation of logic from bench.
-    ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
-    ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/../../yarn-project/end-to-end/example-app-ivc-inputs-out $(pwd)/bench-out
+    ../../yarn-project/end-to-end/bootstrap.sh build_bench
+    ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh | STRICT_SCHEDULING=1 parallelise
     ;;
   "hash")
     echo $hash
