@@ -146,7 +146,7 @@ describe('PXEOracleInterface', () => {
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
 
-      // Set up the getTaggedLogs mock
+      // Set up the getPrivateLogsByTags mock
       aztecNode.getPrivateLogsByTags.mockImplementation(tags => {
         return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
       });
