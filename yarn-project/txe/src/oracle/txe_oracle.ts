@@ -1393,7 +1393,7 @@ export class TXE implements TypedOracle {
       /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
       blockHeader,
       /** List of transient auth witnesses to be used during this simulation */
-      [],
+      [...this.authwits].map(([_, authwit]) => authwit),
       /** List of transient auth witnesses to be used during this simulation */
       [],
       HashedValuesCache.create(),
@@ -1582,8 +1582,13 @@ export class TXE implements TypedOracle {
     const processedTxs = results[0];
     const failedTxs = results[1];
 
-    if (failedTxs.length !== 0) {
-      throw new Error('Public execution has failed');
+    if (failedTxs.length !== 0 || !processedTxs[0].revertCode.isOK()) {
+      if (processedTxs[0]?.revertReason && processedTxs[0]?.revertReason instanceof SimulationError) {
+        await enrichPublicSimulationError(processedTxs[0]?.revertReason, this.getContractDataProvider(), this.logger);
+        throw new Error(processedTxs[0]?.revertReason.message);
+      }
+
+      throw new Error(`Public function call reverted: ${processedTxs[0]?.revertReason}`);
     }
 
     if (isStaticCall) {
@@ -1736,7 +1741,12 @@ export class TXE implements TypedOracle {
     const failedTxs = results[1];
 
     if (failedTxs.length !== 0 || !processedTxs[0].revertCode.isOK()) {
-      throw new Error('Public execution has failed');
+      if (processedTxs[0]?.revertReason && processedTxs[0]?.revertReason instanceof SimulationError) {
+        await enrichPublicSimulationError(processedTxs[0]?.revertReason, this.getContractDataProvider(), this.logger);
+        throw new Error(processedTxs[0]?.revertReason.message);
+      }
+
+      throw new Error(`Public function call reverted: ${processedTxs[0]?.revertReason}`);
     }
 
     const returnValues = results[3][0].values;

@@ -375,6 +375,17 @@ impl TestEnvironment {
         CallResult { return_value: (), tx_hash }
     }
 
+    pub unconstrained fn read_storage<T, let N: u32>(
+        self: Self,
+        address: AztecAddress,
+        storage_slot: Field,
+    ) -> T
+    where
+        T: Packable<N>,
+    {
+        crate::oracle::storage::storage_read(address, storage_slot, self.block_number())
+    }
+
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
     /// not having an encrypted log emitted.
     pub unconstrained fn add_note<Note, let N: u32>(
