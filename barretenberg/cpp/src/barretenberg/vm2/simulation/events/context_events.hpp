@@ -12,7 +12,6 @@ struct ContextEvent {
 
     // State
     uint32_t pc;
-    uint32_t next_pc;
     AztecAddress msg_sender;
     AztecAddress contract_addr;
     bool is_static;
@@ -21,10 +20,9 @@ struct ContextEvent {
     uint32_t parent_cd_addr;
     uint32_t parent_cd_size_addr;
 
-    // Returndata info from child context
+    // Return data info from child context
     uint32_t last_child_rd_addr;
     uint32_t last_child_rd_size_addr;
-    // Success
     bool last_child_success;
 
     // Gas
