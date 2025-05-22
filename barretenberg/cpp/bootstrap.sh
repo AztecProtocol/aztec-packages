@@ -181,7 +181,8 @@ function build {
 # Paths are relative to repo root.
 # We prefix the hash. This ensures the test harness and cache and skip future runs.
 function test_cmds {
-  cd build
+  # Enter build directory. We resolve this in case native_preset is non-standard e.g. clang16-coverage
+  cd $(scripts/cmake/preset-build-dir $native_preset)
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
 
