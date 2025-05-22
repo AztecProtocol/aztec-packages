@@ -136,6 +136,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             field_ct alpha = x.madd(y, -z);
             field_ct beta(3);
             field_ct zeta = field_ct::conditional_assign(predicate, alpha, beta);
+
             EXPECT_TRUE(zeta.is_constant());
         };
 

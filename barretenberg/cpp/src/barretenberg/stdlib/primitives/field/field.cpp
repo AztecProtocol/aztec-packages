@@ -773,7 +773,7 @@ field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& pre
  * @brief If predicate == true then return lhs, else return rhs
 
  * @details Conditional assign x = (predicate) ? lhs : rhs can be expressed arithmetically as follows
- *      x = predciate * lhs + (1 -predicate) * rhs
+ *      x = predciate * lhs + (1 - predicate) * rhs
  * which is equivalent to
  *      x = (lhs - rhs) * predicate + rhs = (lhs - rhs)*madd(predicate, rhs)
  * where take advantage of `madd()` to create less gates.
