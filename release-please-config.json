@@ -24,6 +24,7 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "prerelease": true,
+      "prerelease-type": "next",
       "group-pull-request-title-pattern": "chore(next): Release ${version}",
       "pull-request-header": ":robot: I have created a new Aztec Packages next release",
       "versioning": "default",
