@@ -5,7 +5,6 @@ const defaultOptions = {
   name: 'bb.js',
   useOnlyCustomLevels: false,
   customLevels: { verbose: 25 },
-  browser: { asObject: false },
 };
 
 const defaultLevel = (process.env.LOG_LEVEL || 'info') as LogLevels;
