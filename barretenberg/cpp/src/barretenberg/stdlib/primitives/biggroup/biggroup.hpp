@@ -522,11 +522,11 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         std::array<uint256_t, 8> limb_max;
     };
 
-    using twin_lookup_table = typename lookup_table_plookup<2>::type;
+    using twin_lookup_table = lookup_table_plookup<2>;
 
-    using triple_lookup_table = typename lookup_table_plookup<3>::type;
+    using triple_lookup_table = lookup_table_plookup<3>;
 
-    using quad_lookup_table = typename lookup_table_plookup<4>::type;
+    using quad_lookup_table = lookup_table_plookup<4>;
 
     /**
      * Creates a pair of 4-bit lookup tables, the former corresponding to 4 input points,
@@ -1001,7 +1001,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         bool has_singleton;
     };
 
-    using batch_lookup_table = typename batch_lookup_table_plookup::type;
+    using batch_lookup_table = batch_lookup_table_plookup;
 };
 
 template <typename C, typename Fq, typename Fr, typename G>
