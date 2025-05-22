@@ -25,6 +25,9 @@ export async function prepareForFeePayment(
   sponsoredFPCVersion?: string,
 ): Promise<SponsoredFeePaymentMethod> {
   try {
+    console.log('sponsoredFPCAddress', sponsoredFPCAddress);
+    console.log('sponsoredFPCVersion', sponsoredFPCVersion);
+
     const contractArtifact = await getSponsoredFPCArtifact(sponsoredFPCVersion);
 
     const instance = await getContractInstanceFromDeployParams(contractArtifact, {
