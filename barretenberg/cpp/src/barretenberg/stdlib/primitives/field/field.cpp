@@ -505,7 +505,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     ctx->create_big_mul_gate({
         .a = this->is_constant() ? ctx->zero_idx : witness_index,
         .b = add_a.is_constant() ? ctx->zero_idx : add_a.witness_index,
-        .c = add_b.is_constant() == IS_CONSTANT ? ctx->zero_idx : add_b.witness_index,
+        .c = add_b.is_constant() ? ctx->zero_idx : add_b.witness_index,
         .d = result.witness_index,
         .mul_scaling = bb::fr(0),
         .a_scaling = q_1,
