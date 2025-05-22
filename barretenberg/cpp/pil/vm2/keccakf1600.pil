@@ -447,6 +447,7 @@ bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 //#############################################################################
 // Rho function consists in some left circular bit rotation of each state. The rotation
 // length is a constant depending on the state indices.
+// Reference: https://keccak.team/keccak_specs_summary.html#rotationOffsets
 //    j  0  1   2   3   4
 // i  ####################
 // 0  #  0  36   3  41  18
@@ -677,6 +678,7 @@ pol commit rot_len_23;
 sel * (rot_len_23 - ROT_LEN_23) = 0; // TODO: Remove once we support constants in lookups
 #[STATE_THETA_LOW_23_RANGE_CHECK]
 sel {state_theta_low_23, rot_len_23} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
 pol commit rot_len_30;
 sel * (rot_len_30 - ROT_LEN_30) = 0; // TODO: Remove once we support constants in lookups
 #[STATE_THETA_LOW_30_RANGE_CHECK]

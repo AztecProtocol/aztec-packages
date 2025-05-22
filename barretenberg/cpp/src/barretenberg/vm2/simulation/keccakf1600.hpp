@@ -9,6 +9,16 @@
 
 namespace bb::avm2::simulation {
 
+// This table needs to match with the one in pil
+// Reference: https://keccak.team/keccak_specs_summary.html#rotationOffsets
+constexpr std::array<std::array<uint8_t, 5>, 5> rotation_len = { {
+    { 0, 36, 3, 41, 18 },
+    { 1, 44, 10, 45, 2 },
+    { 62, 6, 43, 15, 61 },
+    { 28, 55, 25, 21, 56 },
+    { 27, 20, 39, 8, 14 },
+} };
+
 class KeccakF1600Interface {
   public:
     virtual ~KeccakF1600Interface() = default;
