@@ -5,6 +5,33 @@ namespace keccakf1600;
 
 // TODO: Documentation and explanations of some tricks like for the bit circular rotation which requires
 //       a single range check.
+//######################## Constraining Bit rotations over 64-bit values ############################
+// Let a,b <= 64 be two positive integers such that a + b = 64.
+// Let X a 64-bit integers which will undergo a circular left bit rotation by a bits.
+// We denote by p the modulus of the underlying field on which we perform computations.
+// We decompose X in two limbs hi and low where hi < 2^b and low < 2^a, i.e.,
+// [DECOMPOSE]: X = hi * 2^a + low mod.p
+// The resulting rotated value is
+// [ROTATED]: Y = low * 2^b + hi mod.p
+// In what follows, we show that it is sufficient to constrain X < 2^64, Y < 2^64, and low < 2^a, 
+// therefore we can relax the condition hi < 2^b.
+// Claim: low < 2^a and hi < 2^b
+// Proof: From low < 2^a < 2^64, we get that low * 2^b < 2^128 over the integers. For hi, to satisfy
+//        [ROTATED], we have over the integers two possibilities (One can only overflow p once.):
+//        1) Y = low * 2^b + hi
+//        2) Y = low * 2^b + hi - p
+//        If 1) holds and Y < 2^64, then hi < 2^64. Therefore, right hand side of [DECOMPOSE] does not
+                overflow p and since X < 2^64, we must have hi < 2^b as a+b=64.
+//        If 2) holds, we reformulate into: hi = p - (low * 2^b - Y) over the integers and since low < 2^a
+//              and a+b=64, we have hi > p - (2^64 - Y) > p - 2^64. So, hi might take values only in
+//              integer range [p-1, p-2^64]. If we multiply the whole range by 2^a modulo p, we obtain
+//              the values p - 2^a, p - 2*2^a, p - 3 * 2^a .. p - 2^{64 + a}. Therefore, it is
+//              impossible for X = hi * 2^a + low mod.p to be < 2^64 because low < 2^a.
+//
+// Important: Based on the relations [DECOMPOSE] and [ROTATED] being symmetric with respect to low and hi,
+//            instead of showing low < 2^a and relaxing hi < 2^b, we can constrain hi < 2^b and relax the
+//            constraint low < 2^a. This has the effect that we can only chose to range check the smaller
+//            value between a and b.
 
 // TODO: Remove the dummy values below
 
