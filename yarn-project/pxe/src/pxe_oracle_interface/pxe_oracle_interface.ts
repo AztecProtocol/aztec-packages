@@ -19,9 +19,9 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
 import {
   IndexedTaggingSecret,
-  LogWithTxData,
   PendingTaggedLog,
   PublicLog,
+  PublicLogWithTxData,
   TxScopedL2Log,
   deriveEcdhSharedSecret,
 } from '@aztec/stdlib/logs';
@@ -392,7 +392,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       });
 
       // We fetch the logs for the tags
-      const possibleLogs = await this.aztecNode.getLogsByTags(currentTags);
+      const possibleLogs = await this.aztecNode.getPrivateLogsByTags(currentTags);
 
       // We find the index of the last log in the window that is not empty
       const indexOfLastLog = possibleLogs.findLastIndex(possibleLog => possibleLog.length !== 0);
@@ -490,20 +490,14 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         // a new set of secrets and windows to fetch logs for.
         const newLargestIndexMapForIteration: { [k: string]: number } = {};
 
-        // Fetch the logs for the tags and iterate over them
-        const logsByTags = await this.aztecNode.getLogsByTags(tagsForTheWholeWindow);
+        // Fetch the private logs for the tags and iterate over them
+        const logsByTags = await this.aztecNode.getPrivateLogsByTags(tagsForTheWholeWindow);
 
         for (let logIndex = 0; logIndex < logsByTags.length; logIndex++) {
           const logsByTag = logsByTags[logIndex];
           if (logsByTag.length > 0) {
-            // Discard public logs
-            const filteredLogsByTag = logsByTag.filter(l => !l.isFromPublic);
-            if (filteredLogsByTag.length < logsByTag.length) {
-              this.log.warn(`Discarded ${logsByTag.filter(l => l.isFromPublic).length} public logs with matching tags`);
-            }
-
             // We filter out the logs that are newer than the historical block number of the tx currently being constructed
-            const filteredLogsByBlockNumber = filteredLogsByTag.filter(l => l.blockNumber <= maxBlockNumber);
+            const filteredLogsByBlockNumber = logsByTag.filter(l => l.blockNumber <= maxBlockNumber);
 
             // We store the logs in capsules (to later be obtained in Noir)
             await this.#storePendingTaggedLogs(
@@ -518,7 +512,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
             const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
 
-            this.log.debug(`Found ${filteredLogsByTag.length} logs as recipient ${recipient}`, {
+            this.log.debug(`Found ${logsByTags.length} logs as recipient ${recipient}`, {
               recipient,
               secret: secretCorrespondingToLog.appTaggingSecret,
               contractName,
@@ -700,8 +694,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
   }
 
-  public async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
-    const logs = await this.aztecNode.getLogsByTags([tag]);
+  public async getPublicLogByTag(tag: Fr): Promise<PublicLogWithTxData | null> {
+    const logs = await this.aztecNode.getPublicLogsByTags([tag]);
     const logsForTag = logs[0];
 
     this.log.debug(`Got ${logsForTag.length} logs for tag ${tag}`);
@@ -711,7 +705,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     } else if (logsForTag.length > 1) {
       // TODO(#11627): handle this case
       throw new Error(
-        `Got ${logsForTag.length} logs for tag ${tag}. getLogByTag currently only supports a single log per tag`,
+        `Got ${logsForTag.length} logs for tag ${tag}. getPublicLogByTag currently only supports a single log per tag`,
       );
     }
 
@@ -729,7 +723,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       scopedLog.log.getEmittedFields(),
     );
 
-    return new LogWithTxData(logContent, scopedLog.txHash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
+    return new PublicLogWithTxData(logContent, scopedLog.txHash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
   }
 
   public async removeNullifiedNotes(contractAddress: AztecAddress) {

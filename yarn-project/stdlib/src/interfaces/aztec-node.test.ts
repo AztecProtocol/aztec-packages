@@ -582,6 +582,16 @@ class MockAztecNode implements AztecNode {
     expect(tags[0]).toBeInstanceOf(Fr);
     return [[await TxScopedL2Log.random()]];
   }
+  async getPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+    expect(tags).toHaveLength(1);
+    expect(tags[0]).toBeInstanceOf(Fr);
+    return [[await TxScopedL2Log.random(false)]];
+  }
+  async getPublicLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+    expect(tags).toHaveLength(1);
+    expect(tags[0]).toBeInstanceOf(Fr);
+    return [[await TxScopedL2Log.random(true)]];
+  }
   sendTx(tx: Tx): Promise<void> {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve();

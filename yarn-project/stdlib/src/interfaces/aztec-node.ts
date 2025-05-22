@@ -311,6 +311,9 @@ export interface AztecNode
    */
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
+  getPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
+  getPublicLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
+
   /**
    * Method to submit a transaction to the p2p pool.
    * @param tx - The transaction to be submitted.
@@ -507,6 +510,16 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
 
   getLogsByTags: z
+    .function()
+    .args(z.array(schemas.Fr))
+    .returns(z.array(z.array(TxScopedL2Log.schema))),
+
+  getPrivateLogsByTags: z
+    .function()
+    .args(z.array(schemas.Fr))
+    .returns(z.array(z.array(TxScopedL2Log.schema))),
+
+  getPublicLogsByTags: z
     .function()
     .args(z.array(schemas.Fr))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
