@@ -413,11 +413,8 @@ export function mapRootRollupPublicInputsFromNoir(
   rootRollupPublicInputs: RootRollupPublicInputsNoir,
 ): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
-    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.previous_archive),
-    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_archive),
-    mapFieldFromNoir(rootRollupPublicInputs.end_timestamp),
-    mapFieldFromNoir(rootRollupPublicInputs.end_block_number),
-    mapFieldFromNoir(rootRollupPublicInputs.out_hash),
+    mapFieldFromNoir(rootRollupPublicInputs.previous_archive_root),
+    mapFieldFromNoir(rootRollupPublicInputs.end_archive_root),
     mapTupleFromNoir(rootRollupPublicInputs.proposed_block_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
     mapTupleFromNoir(rootRollupPublicInputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
     mapFieldFromNoir(rootRollupPublicInputs.chain_id),
