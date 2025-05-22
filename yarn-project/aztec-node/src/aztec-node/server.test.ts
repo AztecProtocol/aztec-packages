@@ -24,7 +24,7 @@ import {
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
-  TX_ERROR_INVALID_BLOCK_NUMBER,
+  TX_ERROR_INVALID_MAX_BLOCK_NUMBER,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
@@ -224,7 +224,7 @@ describe('aztec node', () => {
       // Tx with max block number < current block number should be invalid
       expect(await node.isValidTx(invalidMaxBlockNumberMetadata)).toEqual({
         result: 'invalid',
-        reason: [TX_ERROR_INVALID_BLOCK_NUMBER],
+        reason: [TX_ERROR_INVALID_MAX_BLOCK_NUMBER],
       });
       // Tx with max block number >= current block number should be valid
       expect(await node.isValidTx(validMaxBlockNumberMetadata)).toEqual({ result: 'valid' });

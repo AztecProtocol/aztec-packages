@@ -7,9 +7,12 @@ use dep::aztec::{
     oracle::random::random,
     protocol_types::{
         address::AztecAddress,
-        constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
+        constants::{
+            GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER,
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        },
         hash::poseidon2_hash_with_separator,
-        traits::{Deserialize, Hash, Packable, Serialize},
+        traits::{Deserialize, Hash, Packable, Serialize, ToField},
         utils::arrays::array_concat,
     },
 };
@@ -202,12 +205,16 @@ pub struct PartialNFTNote {
 }
 
 impl PartialNFTNote {
-    pub fn commitment(self) -> Field {
-        self.commitment
+    /// Computes a partial note validity commitment. This commitment is stored in public storage when creating the
+    /// partial note in private and then is used to check that completer and note are valid upon partial note completion
+    /// in public (completer is the entity that can complete the partial note).
+    pub fn compute_validity_commitment(self, completer: AztecAddress) -> Field {
+        poseidon2_hash_with_separator(
+            [self.commitment, completer.to_field()],
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        )
     }
-}
 
-impl PartialNFTNote {
     /// Completes the partial note, creating a new note that can be used like any other NFTNote.
     pub fn complete(self, token_id: Field, context: &mut PublicContext) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value

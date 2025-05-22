@@ -36,10 +36,7 @@ import { ExpectedFailureError } from '../util/expected_failure_error.js';
 export class TXEService {
   public oraclesEnabled = true;
 
-  constructor(
-    private logger: Logger,
-    private typedOracle: TypedOracle,
-  ) {}
+  constructor(private logger: Logger, private typedOracle: TypedOracle) {}
 
   static async init(logger: Logger, protocolContracts: ProtocolContract[]) {
     logger.debug(`TXE service initialized`);
@@ -689,14 +686,14 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  async syncNotes(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
+  async syncPrivateState(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    await this.typedOracle.syncNotes(fromSingle(pendingTaggedLogArrayBaseSlot));
+    await this.typedOracle.syncPrivateState(fromSingle(pendingTaggedLogArrayBaseSlot));
     return toForeignCallResult([]);
   }
 

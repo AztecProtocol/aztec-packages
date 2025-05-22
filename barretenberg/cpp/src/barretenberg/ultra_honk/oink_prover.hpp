@@ -25,7 +25,7 @@
 // clang-format on
 #include <utility>
 
-#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 namespace bb {

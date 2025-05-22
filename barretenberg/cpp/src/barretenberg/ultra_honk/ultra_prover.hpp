@@ -48,7 +48,7 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
     explicit UltraProver_(const std::shared_ptr<DeciderPK>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    explicit UltraProver_(Builder&);
+    explicit UltraProver_(Builder&, const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     explicit UltraProver_(Builder&&);
 
