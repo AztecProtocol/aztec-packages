@@ -2,6 +2,7 @@ use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
+pub global MAX_U32_VALUE: u32 = 4294967295;
 pub global ARGS_LENGTH: u32 = 16;
 // WARNING: do not change without consulting AVM which this constant affects
 pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
