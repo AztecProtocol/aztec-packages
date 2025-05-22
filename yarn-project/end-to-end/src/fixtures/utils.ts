@@ -281,6 +281,8 @@ export type SetupOptions = {
   salt?: number;
   /** An initial set of validators */
   initialValidatorPrivateKeys?: `0x${string}`[];
+  /** Option to use the publisher as the proposer for the initial validator set. */
+  usePublisherAsProposer?: boolean;
   /** Anvil Start time */
   l1StartTime?: number;
   /** The anvil time where we should at the earliest be seeing L2 blocks */
@@ -354,6 +356,7 @@ export async function setup(
     const config = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
     config.validatorPrivateKeys = opts.initialValidatorPrivateKeys;
+    // use the same publisher as the 'proposer' for the validators, if provided
 
     const initialValidators = opts.initialValidatorPrivateKeys?.map(privateKey => {
       const account = privateKeyToAccount(privateKey);
@@ -444,7 +447,15 @@ export async function setup(
         config.l1RpcUrls,
         publisherHdAccount!,
         logger,
-        { ...opts, genesisArchiveRoot, feeJuicePortalInitialBalance: fundingNeeded, initialValidators },
+        {
+          ...opts,
+          genesisArchiveRoot,
+          feeJuicePortalInitialBalance: fundingNeeded,
+          initialValidators,
+          initialValidatorsProposer: opts.usePublisherAsProposer
+            ? EthAddress.fromString(publisherHdAccount!.address)
+            : undefined,
+        },
         chain,
       ));
 

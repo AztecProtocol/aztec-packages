@@ -212,6 +212,8 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   salt: number | undefined;
   /** The initial validators for the rollup contract. */
   initialValidators?: EthAddress[];
+  /** The proposer for the initial validator set. If not provided, the forwarder will be calculated for each validator. */
+  initialValidatorsProposer?: EthAddress;
   /** Configuration for the L1 tx utils module. */
   l1TxConfig?: Partial<L1TxUtilsConfig>;
   /** Enable fast mode for deployments (fire and forget transactions) */
@@ -519,6 +521,7 @@ export const deployRollup = async (
       args.initialValidators.map(v => v.toString()),
       args.acceleratedTestDeployments,
       logger,
+      args.initialValidatorsProposer?.toString(),
     );
   }
 
@@ -645,6 +648,7 @@ export const cheat_initializeValidatorSet = async (
   validators: Hex[],
   acceleratedTestDeployments: boolean | undefined,
   logger: Logger,
+  proposer?: Hex,
 ) => {
   const rollup = new RollupContract(extendedClient, rollupAddress);
   const minimumStake = await rollup.getMinimumStake();
@@ -677,7 +681,7 @@ export const cheat_initializeValidatorSet = async (
 
       const validatorsTuples = validators.map(v => ({
         attester: v,
-        proposer: getExpectedAddress(ForwarderAbi, ForwarderBytecode, [v], v).address,
+        proposer: proposer ?? getExpectedAddress(ForwarderAbi, ForwarderBytecode, [v], v).address,
         withdrawer: v,
         amount: minimumStake,
       }));

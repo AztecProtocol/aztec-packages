@@ -12,6 +12,7 @@ import {
 import {
   type DeployL1ContractsReturnType,
   type ExtendedViemWalletClient,
+  ForwarderContract,
   RollupContract,
   createExtendedL1Client,
   getL1ContractsConfigEnvVars,
@@ -71,6 +72,7 @@ describe('e2e_multi_validator_node', () => {
       deployL1ContractsValues,
     } = await setup(1, {
       initialValidatorPrivateKeys,
+      usePublisherAsProposer: true,
       minTxsPerBlock: 1,
       archiverPollingIntervalMS: 200,
       transactionPollingIntervalMS: 200,
@@ -129,16 +131,22 @@ describe('e2e_multi_validator_node', () => {
     const rollupContract1 = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
-      client: deployL1ContractsValues.l1Client,
+      client: createExtendedL1Client(config.l1RpcUrls, initialValidatorPrivateKeys[VALIDATOR_COUNT - 1]),
     });
-    await rollupContract1.write.initiateWithdraw([validatorAddresses[0], validatorAddresses[0]]);
+    await rollupContract1.write.initiateWithdraw([
+      validatorAddresses[VALIDATOR_COUNT - 1],
+      validatorAddresses[VALIDATOR_COUNT - 1],
+    ]);
 
     const rollupContract2 = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
-      client: createExtendedL1Client(config.l1RpcUrls, initialValidatorPrivateKeys[1]),
+      client: createExtendedL1Client(config.l1RpcUrls, initialValidatorPrivateKeys[VALIDATOR_COUNT - 2]),
     });
-    await rollupContract2.write.initiateWithdraw([validatorAddresses[1], validatorAddresses[1]]);
+    await rollupContract2.write.initiateWithdraw([
+      validatorAddresses[VALIDATOR_COUNT - 2],
+      validatorAddresses[VALIDATOR_COUNT - 2],
+    ]);
 
     const timeToJump = (await rollup.getEpochDuration()) * 2n;
     await progressTimeBySlot(timeToJump);
@@ -150,6 +158,7 @@ describe('e2e_multi_validator_node', () => {
     // new aztec transaction
     const ownerAddress = owner.getCompleteAddress().address;
     const sender = ownerAddress;
+
     logger.info(`Deploying contract from ${sender}`);
     const deployer = new ContractDeployer(artifact, owner);
     const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
@@ -174,6 +183,6 @@ describe('e2e_multi_validator_node', () => {
 
     const signers = attestations.map(att => att.getSender().toString());
 
-    expect(signers).toEqual(expect.arrayContaining(validatorAddresses.slice(2)));
+    expect(signers).toEqual(expect.arrayContaining(validatorAddresses.slice(0, VALIDATOR_COUNT - 2)));
   });
 });
