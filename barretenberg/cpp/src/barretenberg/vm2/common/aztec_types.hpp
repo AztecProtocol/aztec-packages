@@ -152,6 +152,18 @@ struct PublicCallRequestArrayLengths {
     MSGPACK_FIELDS(setupCalls, appLogicCalls, teardownCall);
 };
 
+struct AvmAccumulatedDataArrayLengths {
+    uint32_t noteHashes;
+    uint32_t nullifiers;
+    uint32_t l2ToL1Msgs;
+    uint32_t publicLogs;
+    uint32_t publicDataWrites;
+
+    bool operator==(const AvmAccumulatedDataArrayLengths& other) const = default;
+
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites);
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Accumulated Data Types
 ////////////////////////////////////////////////////////////////////////////

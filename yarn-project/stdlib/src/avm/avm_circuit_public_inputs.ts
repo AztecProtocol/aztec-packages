@@ -17,7 +17,7 @@ import {
 import { PublicCallRequest, PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
-import { AvmAccumulatedData } from './avm_accumulated_data.js';
+import { AvmAccumulatedData, AvmAccumulatedDataArrayLengths } from './avm_accumulated_data.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
 // Note: the {from,to}{Buffer,Fields,String} methods are needed by AvmProofData and PublicBaseRollupInputs.
@@ -43,6 +43,7 @@ export class AvmCircuitPublicInputs {
     // Outputs.
     public endTreeSnapshots: TreeSnapshots,
     public endGasUsed: Gas,
+    public accumulatedDataArrayLengths: AvmAccumulatedDataArrayLengths,
     public accumulatedData: AvmAccumulatedData,
     public transactionFee: Fr,
     public reverted: boolean,
@@ -66,6 +67,7 @@ export class AvmCircuitPublicInputs {
         previousRevertibleAccumulatedData: PrivateToAvmAccumulatedData.schema,
         endTreeSnapshots: TreeSnapshots.schema,
         endGasUsed: Gas.schema,
+        accumulatedDataArrayLengths: AvmAccumulatedDataArrayLengths.schema,
         accumulatedData: AvmAccumulatedData.schema,
         transactionFee: schemas.Fr,
         reverted: z.boolean(),
@@ -87,6 +89,7 @@ export class AvmCircuitPublicInputs {
           previousRevertibleAccumulatedData,
           endTreeSnapshots,
           endGasUsed,
+          accumulatedDataArrayLengths,
           accumulatedData,
           transactionFee,
           reverted,
@@ -107,6 +110,7 @@ export class AvmCircuitPublicInputs {
             previousRevertibleAccumulatedData,
             endTreeSnapshots,
             endGasUsed,
+            accumulatedDataArrayLengths,
             accumulatedData,
             transactionFee,
             reverted,
@@ -132,6 +136,7 @@ export class AvmCircuitPublicInputs {
       reader.readObject(PrivateToAvmAccumulatedData),
       reader.readObject(TreeSnapshots),
       reader.readObject(Gas),
+      reader.readObject(AvmAccumulatedDataArrayLengths),
       reader.readObject(AvmAccumulatedData),
       reader.readObject(Fr),
       reader.readBoolean(),
@@ -155,6 +160,7 @@ export class AvmCircuitPublicInputs {
       this.previousRevertibleAccumulatedData,
       this.endTreeSnapshots,
       this.endGasUsed,
+      this.accumulatedDataArrayLengths,
       this.accumulatedData,
       this.transactionFee,
       this.reverted,
@@ -187,6 +193,7 @@ export class AvmCircuitPublicInputs {
       PrivateToAvmAccumulatedData.fromFields(reader),
       TreeSnapshots.fromFields(reader),
       Gas.fromFields(reader),
+      AvmAccumulatedDataArrayLengths.fromFields(reader),
       AvmAccumulatedData.fromFields(reader),
       reader.readField(),
       reader.readBoolean(),
@@ -210,6 +217,7 @@ export class AvmCircuitPublicInputs {
       ...this.previousRevertibleAccumulatedData.toFields(),
       ...this.endTreeSnapshots.toFields(),
       ...this.endGasUsed.toFields(),
+      ...this.accumulatedDataArrayLengths.toFields(),
       ...this.accumulatedData.toFields(),
       this.transactionFee,
       this.reverted,
@@ -233,6 +241,7 @@ export class AvmCircuitPublicInputs {
       PrivateToAvmAccumulatedData.empty(),
       TreeSnapshots.empty(),
       Gas.empty(),
+      AvmAccumulatedDataArrayLengths.empty(),
       AvmAccumulatedData.empty(),
       Fr.zero(),
       false,
@@ -268,6 +277,7 @@ export class AvmCircuitPublicInputs {
       previousRevertibleAccumulatedData: ${inspect(this.previousRevertibleAccumulatedData)},
       endTreeSnapshots: ${inspect(this.endTreeSnapshots)},
       endGasUsed: ${inspect(this.endGasUsed)},
+      accumulatedDataArrayLengths: ${inspect(this.accumulatedDataArrayLengths)},
       accumulatedData: ${inspect(this.accumulatedData)},
       transactionFee: ${inspect(this.transactionFee)},
       reverted: ${this.reverted},

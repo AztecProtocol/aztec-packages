@@ -55,6 +55,7 @@ import { ContractStorageRead } from '../avm/contract_storage_read.js';
 import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_request.js';
 import {
   AvmAccumulatedData,
+  AvmAccumulatedDataArrayLengths,
   AvmAppendLeavesHint,
   AvmBytecodeCommitmentHint,
   AvmCircuitInputs,
@@ -372,6 +373,10 @@ function makeAvmAccumulatedData(seed = 1) {
   );
 }
 
+function makeAvmAccumulatedDataArrayLengths(seed = 1) {
+  return new AvmAccumulatedDataArrayLengths(seed, seed + 1, seed + 2, seed + 3, seed + 4);
+}
+
 export function makeGas(seed = 1) {
   return new Gas(seed, seed + 1);
 }
@@ -467,6 +472,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
     makePrivateToAvmAccumulatedData(seed + 0x600),
     makeTreeSnapshots(seed + 0x700),
     makeGas(seed + 0x750),
+    makeAvmAccumulatedDataArrayLengths(seed + 0x800),
     makeAvmAccumulatedData(seed + 0x800),
     fr(seed + 0x900),
     false,
