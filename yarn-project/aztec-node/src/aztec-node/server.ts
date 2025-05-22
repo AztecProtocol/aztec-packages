@@ -13,6 +13,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import {
   type L1ContractAddresses,
   RegistryContract,
+  RollupContract,
   createEthereumChain,
   createExtendedL1Client,
 } from '@aztec/ethereum';
@@ -27,12 +28,12 @@ import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { type P2P, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
+  BlockBuilder,
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
@@ -96,7 +97,7 @@ import {
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { createPublicClient, fallback, getContract, http } from 'viem';
+import { createPublicClient, fallback, http } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
@@ -203,17 +204,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
     const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
 
-    const rollup = getContract({
-      address: l1ContractsAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: publicClient,
-    });
+    const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
+    const [l1GenesisTime, slotDuration, rollupVersionFromRollup] = await Promise.all([
+      rollupContract.getL1GenesisTime(),
+      rollupContract.getSlotDuration(),
+      rollupContract.getVersion(),
+    ] as const);
 
-    const rollupVersionFromRollup = Number(await rollup.read.getVersion());
+    config.rollupVersion ??= Number(rollupVersionFromRollup);
 
-    config.rollupVersion ??= rollupVersionFromRollup;
-
-    if (config.rollupVersion !== rollupVersionFromRollup) {
+    if (config.rollupVersion !== Number(rollupVersionFromRollup)) {
       log.warn(
         `Registry looked up and returned a rollup with version (${config.rollupVersion}), but this does not match with version detected from the rollup directly: (${rollupVersionFromRollup}).`,
       );
@@ -268,14 +268,28 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
     await slasherClient.start();
 
+    const blockBuilder = new BlockBuilder(
+      {
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+        rollupVersion: config.rollupVersion,
+        l1ChainId: config.l1ChainId,
+      },
+      archiver,
+      worldStateSynchronizer,
+      archiver,
+      dateProvider,
+      telemetry,
+    );
+
     const validatorClient = createValidatorClient(config, {
       p2pClient,
       telemetry,
       dateProvider,
       epochCache,
+      blockBuilder,
       blockSource: archiver,
     });
-
     log.verbose(`All Aztec Node subsystems synced`);
 
     // now create the sequencer
@@ -291,7 +305,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           p2pClient,
           worldStateSynchronizer,
           slasherClient,
-          contractDataSource: archiver,
+          blockBuilder,
           l2BlockSource: archiver,
           l1ToL2MessageSource: archiver,
           telemetry,
