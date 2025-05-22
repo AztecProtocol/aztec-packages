@@ -60,10 +60,8 @@ pub struct PublicLogWithTxData {
     pub first_nullifier_in_tx: Field,
 }
 
-/// Fetches a log from the node that has the corresponding `tag`. The log can be either a public or a private log, and
-/// the tag is the first field in the log's content. Returns `Option::none` if no such log exists. Throws if more than
-/// one log with that tag exists.
-/// Public logs have an extra field included at the beginning with the address of the contract that emitted them.
+/// Fetches a public log from the node that has the corresponding `tag`. The tag is the first field in the log's content.
+/// Returns `Option::none` if no such log exists. Throws if more than one log with that tag exists.
 // TODO(#11627): handle multiple logs with the same tag.
 // TODO(#10273): improve contract siloing of logs, don't introduce an extra field.
 pub unconstrained fn get_public_log_by_tag(tag: Field) -> Option<PublicLogWithTxData> {

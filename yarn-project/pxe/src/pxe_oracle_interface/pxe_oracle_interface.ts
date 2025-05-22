@@ -429,8 +429,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   /**
-   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Stores the found logs
-   * in CapsuleArray ready for a later retrieval in Aztec.nr.
+   * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found
+   * logs in CapsuleArray ready for a later retrieval in Aztec.nr.
    * @param contractAddress - The address of the contract that the logs are tagged for.
    * @param pendingTaggedLogArrayBaseSlot - The base slot of the pending tagged logs capsule array in which
    * found logs will be stored.
