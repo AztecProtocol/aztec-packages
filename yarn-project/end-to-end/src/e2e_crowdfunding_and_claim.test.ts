@@ -161,7 +161,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         .wait();
 
       // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
-      await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
+      await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_private_state().simulate();
       const notes = await pxe.getNotes({ txHash: donateTxReceipt.txHash });
       const filteredNotes = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
       expect(filteredNotes!.length).toEqual(1);
@@ -225,7 +225,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       .wait();
 
     // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
-    await crowdfundingContract.withWallet(unrelatedWallet).methods.sync_notes().simulate();
+    await crowdfundingContract.withWallet(unrelatedWallet).methods.sync_private_state().simulate();
     const notes = await pxe.getNotes({ txHash: donateTxReceipt.txHash });
     const filtered = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
     expect(filtered!.length).toEqual(1);
@@ -272,7 +272,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         .call_create_note(arbitraryValue, owner, sender, arbitraryStorageSlot)
         .send()
         .wait();
-      await testContract.methods.sync_notes().simulate();
+      await testContract.methods.sync_private_state().simulate();
       const notes = await pxe.getNotes({ txHash: receipt.txHash });
       expect(notes.length).toEqual(1);
       note = processUniqueNote(notes[0]);

@@ -27,7 +27,14 @@ template <typename Flavor> class DeciderVerifier_ {
         bool libra_evals_verified;
         PairingPoints pairing_points;
 
-        bool check() { return sumcheck_verified && libra_evals_verified && pairing_points.check(); }
+        bool check()
+        {
+            bool pairing_check_verified = pairing_points.check();
+            vinfo("sumcheck_verified: ", sumcheck_verified);
+            vinfo("libra_evals_verified: ", libra_evals_verified);
+            vinfo("pairing_check_verified: ", pairing_check_verified);
+            return sumcheck_verified && libra_evals_verified && pairing_check_verified;
+        }
     };
 
   public:
@@ -39,9 +46,7 @@ template <typename Flavor> class DeciderVerifier_ {
      *
      */
     explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& verification_key,
-                              const std::shared_ptr<Transcript>& transcript);
-
-    explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& verification_key);
+                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     Output verify_proof(const DeciderProof&); // used when a decider proof is known explicitly
     Output verify();                          // used with a transcript that has been initialized with a proof
