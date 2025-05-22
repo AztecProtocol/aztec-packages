@@ -408,7 +408,7 @@ aztec codegen target -o src/artifacts
 
 ### Token Bridge Contract
 
-The [token bridge tutorial](./token_bridge) is a great follow up to this one.
+The [token bridge tutorial](../js_tutorials/token_bridge) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.
 

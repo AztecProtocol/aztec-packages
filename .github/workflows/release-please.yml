@@ -1,10 +1,11 @@
 name: release-please
 
-# Trigger on merges to 'master' branch
+# Trigger on merges to 'master' branch and 'next' branch
 on:
   push:
     branches:
       - master
+      - next
 
 permissions:
   contents: write

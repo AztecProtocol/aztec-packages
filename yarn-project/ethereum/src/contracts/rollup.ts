@@ -32,8 +32,6 @@ export type L1RollupContractAddresses = Pick<
 export type EpochProofPublicInputArgs = {
   previousArchive: `0x${string}`;
   endArchive: `0x${string}`;
-  endTimestamp: bigint;
-  outHash: `0x${string}`;
   proverId: `0x${string}`;
 };
 
