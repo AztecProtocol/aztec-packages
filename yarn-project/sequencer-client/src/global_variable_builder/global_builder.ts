@@ -20,6 +20,8 @@ import { createPublicClient, fallback, http } from 'viem';
  */
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createLogger('sequencer:global_variable_builder');
+  private currentBaseFees: Promise<GasFees> = Promise.resolve(new GasFees(Fr.ZERO, Fr.ZERO));
+  private currentBlockNumber: bigint | undefined = undefined;
 
   private readonly rollupContract: RollupContract;
   private readonly publicClient: ViemPublicClient;
@@ -44,21 +46,33 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     this.rollupContract = new RollupContract(this.publicClient, l1Contracts.rollupAddress);
   }
 
-  /**
-   * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
-   * @returns Base fees for the expected next block
-   */
-  public async getCurrentBaseFees(): Promise<GasFees> {
+  private async computeCurrentBaseFees(blockNumber: bigint): Promise<GasFees> {
     // Since this might be called in the middle of a slot where a block might have been published,
     // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
     // The timestamp of that last block will act as a lower bound for the next block.
 
-    const lastBlock = await this.rollupContract.getBlock(await this.rollupContract.getBlockNumber());
+    const lastBlock = await this.rollupContract.getBlock(blockNumber);
     const earliestTimestamp = await this.rollupContract.getTimestampForSlot(lastBlock.slotNumber + 1n);
     const nextEthTimestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
     const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
 
     return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.getManaBaseFeeAt(timestamp, true)));
+  }
+
+  /**
+   * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
+   * @returns Base fees for the expected next block
+   */
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    // Get the current block number
+    const blockNumber = await this.rollupContract.getBlockNumber();
+
+    // If it has moved to a new block then get the latest values
+    if (this.currentBlockNumber === undefined || blockNumber > this.currentBlockNumber) {
+      this.currentBlockNumber = blockNumber;
+      this.currentBaseFees = this.currentBaseFees.then(() => this.computeCurrentBaseFees(blockNumber));
+    }
+    return this.currentBaseFees;
   }
 
   public async getGlobalConstantVariables(): Promise<Pick<GlobalVariables, 'chainId' | 'version'>> {
