@@ -96,7 +96,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks
-          benchmark-data-dir-path: "bench/master"
+          benchmark-data-dir-path: "bench/${{ github.event.merge_group.pull_requests[0].pull_request.base_ref }}"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}

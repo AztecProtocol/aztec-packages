@@ -48,7 +48,7 @@ function build {
       --optimizer-runs 1 \
       --no-metadata
 
-    cache_upload $artifact out
+    cache_upload $artifact out generated
   fi
 }
 
