@@ -170,7 +170,6 @@ export class ValidatorClient extends WithTracer implements Validator {
     // Sync the committee from the smart contract
     // https://github.com/AztecProtocol/aztec-packages/issues/7962
 
-    // const me = this.keyStore.getAddress();
     const myAddresses = this.keyStore.getAddresses();
 
     const inCommittee = await this.epochCache.filterInCommittee(myAddresses);
@@ -221,7 +220,6 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Check that I have any address in current committee
     const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
-    // if (!(await this.epochCache.isInCommittee(this.keyStore.getAddress()))) {
     if (inCommittee.length === 0) {
       this.log.verbose(`No validator in the committee, skipping attestation`);
       return undefined;
@@ -231,7 +229,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const invalidProposal = await this.blockProposalValidator.validate(proposal);
     if (invalidProposal) {
       this.log.verbose(`Proposal is not valid, skipping attestation`);
-      this.metrics.incFailedAttestations(inCommittee.length, 'invalid_proposal');
+      this.metrics.incFailedAttestations(1, 'invalid_proposal');
       return undefined;
     }
 
@@ -244,7 +242,7 @@ export class ValidatorClient extends WithTracer implements Validator {
       const parentBlock = await this.blockSource.getBlock(blockNumber - 1);
       if (parentBlock === undefined) {
         this.log.verbose(`Parent block for ${blockNumber} not found, skipping attestation`);
-        this.metrics.incFailedAttestations(inCommittee.length, 'parent_block_not_found');
+        this.metrics.incFailedAttestations(1, 'parent_block_not_found');
         return undefined;
       }
       if (!proposal.payload.header.lastArchiveRoot.equals(parentBlock.archive.root)) {
@@ -253,7 +251,7 @@ export class ValidatorClient extends WithTracer implements Validator {
           parentBlockArchiveRoot: parentBlock.archive.root.toString(),
           ...proposalInfo,
         });
-        this.metrics.incFailedAttestations(inCommittee.length, 'parent_block_does_not_match');
+        this.metrics.incFailedAttestations(1, 'parent_block_does_not_match');
         return undefined;
       }
     }
@@ -268,7 +266,7 @@ export class ValidatorClient extends WithTracer implements Validator {
         await this.reExecuteTransactions(proposal, txs);
       }
     } catch (error: any) {
-      this.metrics.incFailedAttestations(inCommittee.length, error instanceof Error ? error.name : 'unknown');
+      this.metrics.incFailedAttestations(1, error instanceof Error ? error.name : 'unknown');
 
       // If the transactions are not available, then we should not attempt to attest
       if (error instanceof TransactionsNotAvailableError) {

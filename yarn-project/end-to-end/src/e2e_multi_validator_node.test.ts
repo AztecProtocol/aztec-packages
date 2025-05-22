@@ -12,7 +12,6 @@ import {
 import {
   type DeployL1ContractsReturnType,
   type ExtendedViemWalletClient,
-  ForwarderContract,
   RollupContract,
   createExtendedL1Client,
   getL1ContractsConfigEnvVars,
@@ -127,7 +126,7 @@ describe('e2e_multi_validator_node', () => {
 
     expect(signers).toEqual(expect.arrayContaining(validatorAddresses));
   });
-  it.only('should attest ONLY with the correct validator keys', async () => {
+  it('should attest ONLY with the correct validator keys', async () => {
     const rollupContract1 = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
