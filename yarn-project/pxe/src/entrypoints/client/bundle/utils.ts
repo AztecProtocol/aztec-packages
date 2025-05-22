@@ -1,11 +1,10 @@
 import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/client/wasm/bundle';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-
-import { randomBytes } from 'crypto';
 
 import type { PXEServiceConfig } from '../../../config/index.js';
 import { PXEService } from '../../../pxe_service/pxe_service.js';
