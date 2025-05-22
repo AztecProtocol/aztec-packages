@@ -40,7 +40,7 @@ static auto schnorr_generate_challenge(const std::string& message,
                                        const typename G1::affine_element& pubkey,
                                        const typename G1::affine_element& R)
 {
-    using Fq = typename G1::coordinate_field;
+    using Fq = typename G1::Fq;
     // create challenge message pedersen_commitment(R.x, pubkey)
     Fq compressed_keys = crypto::pedersen_hash::hash({ R.x, pubkey.x, pubkey.y });
     std::vector<uint8_t> e_buffer;
