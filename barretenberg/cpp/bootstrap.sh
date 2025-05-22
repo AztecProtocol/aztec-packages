@@ -304,7 +304,7 @@ case "$cmd" in
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
-    ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh | STRICT_SCHEDULING=1 parallelise
+    # ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh | STRICT_SCHEDULING=1 parallelise
     ;;
   "hash")
     echo $hash
