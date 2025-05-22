@@ -12,7 +12,7 @@ namespace bb::avm2::simulation {
 class KeccakF1600Interface {
   public:
     virtual ~KeccakF1600Interface() = default;
-    virtual std::array<std::array<uint64_t, 5>, 5> permutation(const std::array<std::array<uint64_t, 5>, 5>& input) = 0;
+    virtual KeccakF1600State permutation(const KeccakF1600State& input) = 0;
 };
 
 class KeccakF1600 : public KeccakF1600Interface {

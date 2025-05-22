@@ -1,10 +1,15 @@
 include "bitwise.pil";
 include "constants_gen.pil";
+include "range_check.pil";
 
 namespace keccakf1600;
 
-// TODO: Documentation and explanations of some tricks like for the bit circular rotation which requires
-//       a single range check.
+// Reference document: https://keccak.team/files/Keccak-reference-3.0.pdf
+// Overview: https://keccak.team/keccak_specs_summary.html
+// TODO: Overview over the round functions, how many rounds, ....etc...
+
+
+
 //######################## Constraining Bit rotations over 64-bit values ############################
 // Let a,b <= 64 be two positive integers such that a + b = 64.
 // Let X a 64-bit integers which will undergo a circular left bit rotation by a bits.
@@ -21,7 +26,7 @@ namespace keccakf1600;
 //        1) Y = low * 2^b + hi
 //        2) Y = low * 2^b + hi - p
 //        If 1) holds and Y < 2^64, then hi < 2^64. Therefore, right hand side of [DECOMPOSE] does not
-                overflow p and since X < 2^64, we must have hi < 2^b as a+b=64.
+//              overflow p and since X < 2^64, we must have hi < 2^b as a+b=64.
 //        If 2) holds, we reformulate into: hi = p - (low * 2^b - Y) over the integers and since low < 2^a
 //              and a+b=64, we have hi > p - (2^64 - Y) > p - 2^64. So, hi might take values only in
 //              integer range [p-1, p-2^64]. If we multiply the whole range by 2^a modulo p, we obtain
@@ -449,3 +454,319 @@ bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 // 2  # 62   6  43  15  61
 // 3  # 28  55  25  21  56
 // 4  # 27  20  39   8  14
+
+// #################### ROTATION RELATED CONSTANTS ######################################
+pol ROT_LEN_01 = 36;    pol POW_ROT_LEN_01 = 2**36;   pol POW_ROT_64_MIN_LEN_01 = 2**28;
+pol ROT_LEN_02 = 3;     pol POW_ROT_LEN_02 = 2**3;    pol POW_ROT_64_MIN_LEN_02 = 2**61;
+pol ROT_LEN_03 = 41;    pol POW_ROT_LEN_03 = 2**41;   pol POW_ROT_64_MIN_LEN_03 = 2**23;
+pol ROT_LEN_04 = 18;    pol POW_ROT_LEN_04 = 2**18;   pol POW_ROT_64_MIN_LEN_04 = 2**46;
+
+pol ROT_LEN_10 = 1;     pol POW_ROT_LEN_10 = 2**1;    pol POW_ROT_64_MIN_LEN_10 = 2**63;
+pol ROT_LEN_11 = 44;    pol POW_ROT_LEN_11 = 2**44;   pol POW_ROT_64_MIN_LEN_11 = 2**20;
+pol ROT_LEN_12 = 10;    pol POW_ROT_LEN_12 = 2**10;   pol POW_ROT_64_MIN_LEN_12 = 2**54;
+pol ROT_LEN_13 = 45;    pol POW_ROT_LEN_13 = 2**45;   pol POW_ROT_64_MIN_LEN_13 = 2**19;
+pol ROT_LEN_14 = 2;     pol POW_ROT_LEN_14 = 2**2;    pol POW_ROT_64_MIN_LEN_14 = 2**62;
+
+pol ROT_LEN_20 = 62;    pol POW_ROT_LEN_20 = 2**62;   pol POW_ROT_64_MIN_LEN_20 = 2**2;
+pol ROT_LEN_21 = 6;     pol POW_ROT_LEN_21 = 2**6;    pol POW_ROT_64_MIN_LEN_21 = 2**58;
+pol ROT_LEN_22 = 43;    pol POW_ROT_LEN_22 = 2**43;   pol POW_ROT_64_MIN_LEN_22 = 2**21;
+pol ROT_LEN_23 = 15;    pol POW_ROT_LEN_23 = 2**15;   pol POW_ROT_64_MIN_LEN_23 = 2**49;
+pol ROT_LEN_24 = 61;    pol POW_ROT_LEN_24 = 2**61;   pol POW_ROT_64_MIN_LEN_24 = 2**3;
+
+pol ROT_LEN_30 = 28;    pol POW_ROT_LEN_30 = 2**28;   pol POW_ROT_64_MIN_LEN_30 = 2**36;
+pol ROT_LEN_31 = 55;    pol POW_ROT_LEN_31 = 2**55;   pol POW_ROT_64_MIN_LEN_31 = 2**9;
+pol ROT_LEN_32 = 25;    pol POW_ROT_LEN_32 = 2**25;   pol POW_ROT_64_MIN_LEN_32 = 2**39;
+pol ROT_LEN_33 = 21;    pol POW_ROT_LEN_33 = 2**21;   pol POW_ROT_64_MIN_LEN_33 = 2**43;
+pol ROT_LEN_34 = 56;    pol POW_ROT_LEN_34 = 2**56;   pol POW_ROT_64_MIN_LEN_34 = 2**8;
+
+pol ROT_LEN_40 = 27;    pol POW_ROT_LEN_40 = 2**27;   pol POW_ROT_64_MIN_LEN_40 = 2**37;
+pol ROT_LEN_41 = 20;    pol POW_ROT_LEN_41 = 2**20;   pol POW_ROT_64_MIN_LEN_41 = 2**44;
+pol ROT_LEN_42 = 39;    pol POW_ROT_LEN_42 = 2**39;   pol POW_ROT_64_MIN_LEN_42 = 2**25;
+pol ROT_LEN_43 = 8;     pol POW_ROT_LEN_43 = 2**8;    pol POW_ROT_64_MIN_LEN_43 = 2**56;
+pol ROT_LEN_44 = 14;    pol POW_ROT_LEN_44 = 2**14;   pol POW_ROT_64_MIN_LEN_44 = 2**50;
+
+// #################### STATE AFTER RHO #################################################
+pol commit               state_rho_01, state_rho_02, state_rho_03, state_rho_04,
+           state_rho_10, state_rho_11, state_rho_12, state_rho_13, state_rho_14,
+           state_rho_20, state_rho_21, state_rho_22, state_rho_23, state_rho_24,
+           state_rho_30, state_rho_31, state_rho_32, state_rho_33, state_rho_34,
+           state_rho_40, state_rho_41, state_rho_42, state_rho_43, state_rho_44;
+
+// state_rho_00 is state_theta_00 rotated by 0, so state_rho_00 = state_theta_00
+pol STATE_RHO_00 = state_theta_00;
+
+// We decompose state_theta_ij = state_theta_hi_ij * 2^{ROT_LEN_ij} + state_theta_low_ij
+// and the resulting rotation is:
+// state_rho_ij = state_theta_low_ij * 2^{64 - ROT_LEN_ij} + state_theta_hi_ij
+
+pol commit                    state_theta_hi_01, state_theta_hi_02, state_theta_hi_03, state_theta_hi_04,
+           state_theta_hi_10, state_theta_hi_11, state_theta_hi_12, state_theta_hi_13, state_theta_hi_14,
+           state_theta_hi_20, state_theta_hi_21, state_theta_hi_22, state_theta_hi_23, state_theta_hi_24,
+           state_theta_hi_30, state_theta_hi_31, state_theta_hi_32, state_theta_hi_33, state_theta_hi_34,
+           state_theta_hi_40, state_theta_hi_41, state_theta_hi_42, state_theta_hi_43, state_theta_hi_44;
+
+pol commit                     state_theta_low_01, state_theta_low_02, state_theta_low_03, state_theta_low_04,
+           state_theta_low_10, state_theta_low_11, state_theta_low_12, state_theta_low_13, state_theta_low_14,
+           state_theta_low_20, state_theta_low_21, state_theta_low_22, state_theta_low_23, state_theta_low_24,
+           state_theta_low_30, state_theta_low_31, state_theta_low_32, state_theta_low_33, state_theta_low_34,
+           state_theta_low_40, state_theta_low_41, state_theta_low_42, state_theta_low_43, state_theta_low_44;
+
+
+#[STATE_THETA_01_DECOMPOSE]
+state_theta_01 = POW_ROT_LEN_01 * state_theta_hi_01 + state_theta_low_01;
+#[STATE_RHO_01]
+state_rho_01 = POW_ROT_64_MIN_LEN_01 * state_theta_low_01 + state_theta_hi_01;
+
+#[STATE_THETA_02_DECOMPOSE]
+state_theta_02 = POW_ROT_LEN_02 * state_theta_hi_02 + state_theta_low_02;
+#[STATE_RHO_02]
+state_rho_02 = POW_ROT_64_MIN_LEN_02 * state_theta_low_02 + state_theta_hi_02;
+
+#[STATE_THETA_03_DECOMPOSE]
+state_theta_03 = POW_ROT_LEN_03 * state_theta_hi_03 + state_theta_low_03;
+#[STATE_RHO_03]
+state_rho_03 = POW_ROT_64_MIN_LEN_03 * state_theta_low_03 + state_theta_hi_03;
+
+#[STATE_THETA_04_DECOMPOSE]
+state_theta_04 = POW_ROT_LEN_04 * state_theta_hi_04 + state_theta_low_04;
+#[STATE_RHO_04]
+state_rho_04 = POW_ROT_64_MIN_LEN_04 * state_theta_low_04 + state_theta_hi_04;
+
+#[STATE_THETA_10_DECOMPOSE]
+state_theta_10 = POW_ROT_LEN_10 * state_theta_hi_10 + state_theta_low_10;
+#[STATE_RHO_10]
+state_rho_10 = POW_ROT_64_MIN_LEN_10 * state_theta_low_10 + state_theta_hi_10;
+
+#[STATE_THETA_11_DECOMPOSE]
+state_theta_11 = POW_ROT_LEN_11 * state_theta_hi_11 + state_theta_low_11;
+#[STATE_RHO_11]
+state_rho_11 = POW_ROT_64_MIN_LEN_11 * state_theta_low_11 + state_theta_hi_11;
+
+#[STATE_THETA_12_DECOMPOSE]
+state_theta_12 = POW_ROT_LEN_12 * state_theta_hi_12 + state_theta_low_12;
+#[STATE_RHO_12]
+state_rho_12 = POW_ROT_64_MIN_LEN_12 * state_theta_low_12 + state_theta_hi_12;
+
+#[STATE_THETA_13_DECOMPOSE]
+state_theta_13 = POW_ROT_LEN_13 * state_theta_hi_13 + state_theta_low_13;
+#[STATE_RHO_13]
+state_rho_13 = POW_ROT_64_MIN_LEN_13 * state_theta_low_13 + state_theta_hi_13;
+
+#[STATE_THETA_14_DECOMPOSE]
+state_theta_14 = POW_ROT_LEN_14 * state_theta_hi_14 + state_theta_low_14;
+#[STATE_RHO_14]
+state_rho_14 = POW_ROT_64_MIN_LEN_14 * state_theta_low_14 + state_theta_hi_14;
+
+#[STATE_THETA_20_DECOMPOSE]
+state_theta_20 = POW_ROT_LEN_20 * state_theta_hi_20 + state_theta_low_20;
+#[STATE_RHO_20]
+state_rho_20 = POW_ROT_64_MIN_LEN_20 * state_theta_low_20 + state_theta_hi_20;
+
+#[STATE_THETA_21_DECOMPOSE]
+state_theta_21 = POW_ROT_LEN_21 * state_theta_hi_21 + state_theta_low_21;
+#[STATE_RHO_21]
+state_rho_21 = POW_ROT_64_MIN_LEN_21 * state_theta_low_21 + state_theta_hi_21;
+
+#[STATE_THETA_22_DECOMPOSE]
+state_theta_22 = POW_ROT_LEN_22 * state_theta_hi_22 + state_theta_low_22;
+#[STATE_RHO_22]
+state_rho_22 = POW_ROT_64_MIN_LEN_22 * state_theta_low_22 + state_theta_hi_22;
+
+#[STATE_THETA_23_DECOMPOSE]
+state_theta_23 = POW_ROT_LEN_23 * state_theta_hi_23 + state_theta_low_23;
+#[STATE_RHO_23]
+state_rho_23 = POW_ROT_64_MIN_LEN_23 * state_theta_low_23 + state_theta_hi_23;
+
+#[STATE_THETA_24_DECOMPOSE]
+state_theta_24 = POW_ROT_LEN_24 * state_theta_hi_24 + state_theta_low_24;
+#[STATE_RHO_24]
+state_rho_24 = POW_ROT_64_MIN_LEN_24 * state_theta_low_24 + state_theta_hi_24;
+
+#[STATE_THETA_30_DECOMPOSE]
+state_theta_30 = POW_ROT_LEN_30 * state_theta_hi_30 + state_theta_low_30;
+#[STATE_RHO_30]
+state_rho_30 = POW_ROT_64_MIN_LEN_30 * state_theta_low_30 + state_theta_hi_30;
+
+#[STATE_THETA_31_DECOMPOSE]
+state_theta_31 = POW_ROT_LEN_31 * state_theta_hi_31 + state_theta_low_31;
+#[STATE_RHO_31]
+state_rho_31 = POW_ROT_64_MIN_LEN_31 * state_theta_low_31 + state_theta_hi_31;
+
+#[STATE_THETA_32_DECOMPOSE]
+state_theta_32 = POW_ROT_LEN_32 * state_theta_hi_32 + state_theta_low_32;
+#[STATE_RHO_32]
+state_rho_32 = POW_ROT_64_MIN_LEN_32 * state_theta_low_32 + state_theta_hi_32;
+
+#[STATE_THETA_33_DECOMPOSE]
+state_theta_33 = POW_ROT_LEN_33 * state_theta_hi_33 + state_theta_low_33;
+#[STATE_RHO_33]
+state_rho_33 = POW_ROT_64_MIN_LEN_33 * state_theta_low_33 + state_theta_hi_33;
+
+#[STATE_THETA_34_DECOMPOSE]
+state_theta_34 = POW_ROT_LEN_34 * state_theta_hi_34 + state_theta_low_34;
+#[STATE_RHO_34]
+state_rho_34 = POW_ROT_64_MIN_LEN_34 * state_theta_low_34 + state_theta_hi_34;
+
+#[STATE_THETA_40_DECOMPOSE]
+state_theta_40 = POW_ROT_LEN_40 * state_theta_hi_40 + state_theta_low_40;
+#[STATE_RHO_40]
+state_rho_40 = POW_ROT_64_MIN_LEN_40 * state_theta_low_40 + state_theta_hi_40;
+
+#[STATE_THETA_41_DECOMPOSE]
+state_theta_41 = POW_ROT_LEN_41 * state_theta_hi_41 + state_theta_low_41;
+#[STATE_RHO_41]
+state_rho_41 = POW_ROT_64_MIN_LEN_41 * state_theta_low_41 + state_theta_hi_41;
+
+#[STATE_THETA_42_DECOMPOSE]
+state_theta_42 = POW_ROT_LEN_42 * state_theta_hi_42 + state_theta_low_42;
+#[STATE_RHO_42]
+state_rho_42 = POW_ROT_64_MIN_LEN_42 * state_theta_low_42 + state_theta_hi_42;
+
+#[STATE_THETA_43_DECOMPOSE]
+state_theta_43 = POW_ROT_LEN_43 * state_theta_hi_43 + state_theta_low_43;
+#[STATE_RHO_43]
+state_rho_43 = POW_ROT_64_MIN_LEN_43 * state_theta_low_43 + state_theta_hi_43;
+
+#[STATE_THETA_44_DECOMPOSE]
+state_theta_44 = POW_ROT_LEN_44 * state_theta_hi_44 + state_theta_low_44;
+#[STATE_RHO_44]
+state_rho_44 = POW_ROT_64_MIN_LEN_44 * state_theta_low_44 + state_theta_hi_44;
+
+// Range check constraints for the low bits of the decomposition.
+// We only need to range check the smaller part of the decomposition.
+// For a rotation of length a, we decompose X = hi * 2^a + low.
+// If a <= 32, we range check low < 2^a.
+// Otherwise, we range check hi < 2^(64-a).
+
+// Rotations with length <= 32:
+// Indices:  02, 04, 10, 12, 14, 21, 23, 30, 32, 33, 40, 41, 43, 44
+// Length:    3, 18   1, 10,  2,  6, 15, 28, 25, 21, 27, 20,  8, 14
+// Range check state_theta_low_ij < 2^{ROT_LEN_ij}
+
+pol commit rot_len_02;
+sel * (rot_len_02 - ROT_LEN_02) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_02_RANGE_CHECK]
+sel {state_theta_low_02, rot_len_02} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_04;
+sel * (rot_len_04 - ROT_LEN_04) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_04_RANGE_CHECK]
+sel {state_theta_low_04, rot_len_04} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_10;
+sel * (rot_len_10 - ROT_LEN_10) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_10_RANGE_CHECK]
+sel {state_theta_low_10, rot_len_10} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_12;
+sel * (rot_len_12 - ROT_LEN_12) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_12_RANGE_CHECK]
+sel {state_theta_low_12, rot_len_12} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_14;
+sel * (rot_len_14 - ROT_LEN_14) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_14_RANGE_CHECK]
+sel {state_theta_low_14, rot_len_14} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_21;
+sel * (rot_len_21 - ROT_LEN_21) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_21_RANGE_CHECK]
+sel {state_theta_low_21, rot_len_21} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_23;
+sel * (rot_len_23 - ROT_LEN_23) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_23_RANGE_CHECK]
+sel {state_theta_low_23, rot_len_23} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+pol commit rot_len_30;
+sel * (rot_len_30 - ROT_LEN_30) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_30_RANGE_CHECK]
+sel {state_theta_low_30, rot_len_30} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_32;
+sel * (rot_len_32 - ROT_LEN_32) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_32_RANGE_CHECK]
+sel {state_theta_low_32, rot_len_32} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_33;
+sel * (rot_len_33 - ROT_LEN_33) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_33_RANGE_CHECK]
+sel {state_theta_low_33, rot_len_33} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_40;
+sel * (rot_len_40 - ROT_LEN_40) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_40_RANGE_CHECK]
+sel {state_theta_low_40, rot_len_40} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_41;
+sel * (rot_len_41 - ROT_LEN_41) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_41_RANGE_CHECK]
+sel {state_theta_low_41, rot_len_41} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_43;
+sel * (rot_len_43 - ROT_LEN_43) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_43_RANGE_CHECK]
+sel {state_theta_low_43, rot_len_43} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_len_44;
+sel * (rot_len_44 - ROT_LEN_44) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_LOW_44_RANGE_CHECK]
+sel {state_theta_low_44, rot_len_44} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+// Rotations with length > 32:
+// Indices:  01, 03, 11, 13, 20, 22, 24, 31, 34, 42
+// Length:   36, 41, 44, 45, 62, 43, 61, 55, 56, 39
+// Range check state_theta_hi_ij < 2^{64 - ROT_LEN_ij}
+
+pol commit rot_64_min_len_01;
+sel * (rot_64_min_len_01 - (64 - ROT_LEN_01)) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_HI_01_RANGE_CHECK]
+sel {state_theta_hi_01, rot_64_min_len_01} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_03;
+sel * (rot_64_min_len_03 - (64 - ROT_LEN_03)) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_HI_03_RANGE_CHECK]
+sel {state_theta_hi_03, rot_64_min_len_03} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_11;
+sel * (rot_64_min_len_11 - (64 - ROT_LEN_11)) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_HI_11_RANGE_CHECK]
+sel {state_theta_hi_11, rot_64_min_len_11} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_13;
+sel * (rot_64_min_len_13 - (64 - ROT_LEN_13)) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_HI_13_RANGE_CHECK]
+sel {state_theta_hi_13, rot_64_min_len_13} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_20;
+sel * (rot_64_min_len_20 - (64 - ROT_LEN_20)) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_HI_20_RANGE_CHECK]
+sel {state_theta_hi_20, rot_64_min_len_20} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_22;
+sel * (rot_64_min_len_22 - (64 - ROT_LEN_22)) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_HI_22_RANGE_CHECK]
+sel {state_theta_hi_22, rot_64_min_len_22} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_24;
+sel * (rot_64_min_len_24 - (64 - ROT_LEN_24)) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_HI_24_RANGE_CHECK]
+sel {state_theta_hi_24, rot_64_min_len_24} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_31;
+sel * (rot_64_min_len_31 - (64 - ROT_LEN_31)) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_HI_31_RANGE_CHECK]
+sel {state_theta_hi_31, rot_64_min_len_31} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_34;
+sel * (rot_64_min_len_34 - (64 - ROT_LEN_34)) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_HI_34_RANGE_CHECK]
+sel {state_theta_hi_34, rot_64_min_len_34} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+pol commit rot_64_min_len_42;
+sel * (rot_64_min_len_42 - (64 - ROT_LEN_42)) = 0; // TODO: Remove once we support constants in lookups
+#[STATE_THETA_HI_42_RANGE_CHECK]
+sel {state_theta_hi_42, rot_64_min_len_42} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+//#############################################################################
+//                      Pi round function
+//#############################################################################

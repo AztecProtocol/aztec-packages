@@ -55,6 +55,7 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -120,6 +121,12 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = 2507;
 >>>>>>> dfbb7caa4f (Generate pil after rebase on next branch)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2436;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2651;
+>>>>>>> 8e04d84b73 (Pil relations for rho function and addressing review comments)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -217,6 +224,30 @@ struct AvmFlavorVariables {
         lookup_keccakf1600_state_theta_42_relation<FF_>,
         lookup_keccakf1600_state_theta_43_relation<FF_>,
         lookup_keccakf1600_state_theta_44_relation<FF_>,
+        lookup_keccakf1600_state_theta_hi_01_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_hi_03_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_hi_11_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_hi_13_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_hi_20_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_hi_22_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_hi_24_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_hi_31_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_hi_34_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_hi_42_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_02_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_04_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_10_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_12_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_14_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_21_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_23_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_30_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_32_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_33_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_40_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_41_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_43_range_check_relation<FF_>,
+        lookup_keccakf1600_state_theta_low_44_range_check_relation<FF_>,
         lookup_keccakf1600_theta_combined_xor_0_relation<FF_>,
         lookup_keccakf1600_theta_combined_xor_1_relation<FF_>,
         lookup_keccakf1600_theta_combined_xor_2_relation<FF_>,

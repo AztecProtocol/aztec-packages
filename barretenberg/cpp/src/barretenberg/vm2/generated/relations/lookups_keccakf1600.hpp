@@ -1351,4 +1351,580 @@ template <typename FF_>
 using lookup_keccakf1600_state_theta_44_relation =
     lookup_relation_base<FF_, lookup_keccakf1600_state_theta_44_settings>;
 
+/////////////////// lookup_keccakf1600_state_theta_low_02_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_02_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_02_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_02_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_02_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_02, ColumnAndShifts::keccakf1600_rot_len_02
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_02_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_02_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_02_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_02_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_04_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_04_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_04_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_04_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_04_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_04, ColumnAndShifts::keccakf1600_rot_len_04
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_04_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_04_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_04_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_04_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_10_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_10_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_10_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_10_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_10_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_10, ColumnAndShifts::keccakf1600_rot_len_10
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_10_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_10_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_10_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_10_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_12_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_12_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_12_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_12_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_12_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_12, ColumnAndShifts::keccakf1600_rot_len_12
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_12_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_12_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_12_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_12_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_14_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_14_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_14_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_14_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_14_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_14, ColumnAndShifts::keccakf1600_rot_len_14
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_14_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_14_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_14_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_14_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_21_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_21_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_21_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_21_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_21_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_21, ColumnAndShifts::keccakf1600_rot_len_21
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_21_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_21_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_21_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_21_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_23_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_23_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_23_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_23_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_23_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_23, ColumnAndShifts::keccakf1600_rot_len_23
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_23_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_23_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_23_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_23_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_30_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_30_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_30_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_30_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_30_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_30, ColumnAndShifts::keccakf1600_rot_len_30
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_30_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_30_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_30_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_30_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_32_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_32_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_32_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_32_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_32_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_32, ColumnAndShifts::keccakf1600_rot_len_32
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_32_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_32_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_32_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_32_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_33_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_33_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_33_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_33_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_33_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_33, ColumnAndShifts::keccakf1600_rot_len_33
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_33_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_33_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_33_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_33_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_40_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_40_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_40_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_40_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_40_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_40, ColumnAndShifts::keccakf1600_rot_len_40
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_40_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_40_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_40_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_40_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_41_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_41_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_41_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_41_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_41_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_41, ColumnAndShifts::keccakf1600_rot_len_41
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_41_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_41_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_41_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_41_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_43_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_43_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_43_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_43_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_43_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_43, ColumnAndShifts::keccakf1600_rot_len_43
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_43_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_43_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_43_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_43_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_low_44_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_low_44_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_LOW_44_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_low_44_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_low_44_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_low_44, ColumnAndShifts::keccakf1600_rot_len_44
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_low_44_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_low_44_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_low_44_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_low_44_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_hi_01_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_hi_01_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_HI_01_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_hi_01_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_hi_01_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_hi_01, ColumnAndShifts::keccakf1600_rot_64_min_len_01
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_hi_01_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_hi_01_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_hi_01_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_hi_01_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_hi_03_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_hi_03_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_HI_03_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_hi_03_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_hi_03_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_hi_03, ColumnAndShifts::keccakf1600_rot_64_min_len_03
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_hi_03_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_hi_03_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_hi_03_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_hi_03_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_hi_11_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_hi_11_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_HI_11_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_hi_11_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_hi_11_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_hi_11, ColumnAndShifts::keccakf1600_rot_64_min_len_11
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_hi_11_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_hi_11_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_hi_11_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_hi_11_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_hi_13_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_hi_13_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_HI_13_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_hi_13_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_hi_13_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_hi_13, ColumnAndShifts::keccakf1600_rot_64_min_len_13
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_hi_13_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_hi_13_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_hi_13_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_hi_13_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_hi_20_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_hi_20_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_HI_20_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_hi_20_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_hi_20_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_hi_20, ColumnAndShifts::keccakf1600_rot_64_min_len_20
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_hi_20_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_hi_20_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_hi_20_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_hi_20_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_hi_22_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_hi_22_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_HI_22_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_hi_22_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_hi_22_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_hi_22, ColumnAndShifts::keccakf1600_rot_64_min_len_22
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_hi_22_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_hi_22_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_hi_22_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_hi_22_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_hi_24_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_hi_24_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_HI_24_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_hi_24_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_hi_24_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_hi_24, ColumnAndShifts::keccakf1600_rot_64_min_len_24
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_hi_24_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_hi_24_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_hi_24_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_hi_24_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_hi_31_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_hi_31_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_HI_31_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_hi_31_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_hi_31_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_hi_31, ColumnAndShifts::keccakf1600_rot_64_min_len_31
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_hi_31_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_hi_31_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_hi_31_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_hi_31_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_hi_34_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_hi_34_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_HI_34_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_hi_34_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_hi_34_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_hi_34, ColumnAndShifts::keccakf1600_rot_64_min_len_34
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_hi_34_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_hi_34_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_hi_34_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_hi_34_range_check_settings>;
+
+/////////////////// lookup_keccakf1600_state_theta_hi_42_range_check ///////////////////
+
+struct lookup_keccakf1600_state_theta_hi_42_range_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_HI_42_RANGE_CHECK";
+    static constexpr std::string_view RELATION_NAME = "keccakf1600";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_hi_42_range_check_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_hi_42_range_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_theta_hi_42, ColumnAndShifts::keccakf1600_rot_64_min_len_42
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_keccakf1600_state_theta_hi_42_range_check_settings =
+    lookup_settings<lookup_keccakf1600_state_theta_hi_42_range_check_settings_>;
+template <typename FF_>
+using lookup_keccakf1600_state_theta_hi_42_range_check_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_state_theta_hi_42_range_check_settings>;
+
 } // namespace bb::avm2
