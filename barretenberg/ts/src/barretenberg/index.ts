@@ -9,7 +9,7 @@ import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 
 export { BarretenbergVerifier } from './verifier.js';
-export { UltraPlonkBackend, UltraHonkBackend, AztecClientBackend } from './backend.js';
+export { UltraHonkBackend, AztecClientBackend } from './backend.js';
 
 export type BackendOptions = {
   /** @description Number of threads to run the backend worker on */
@@ -40,7 +40,11 @@ export type CircuitOptions = {
 export class Barretenberg extends BarretenbergApi {
   private options: BackendOptions;
 
-  private constructor(private worker: any, wasm: BarretenbergWasmMainWorker, options: BackendOptions) {
+  private constructor(
+    private worker: any,
+    wasm: BarretenbergWasmMainWorker,
+    options: BackendOptions,
+  ) {
     super(wasm);
     this.options = options;
   }
@@ -103,7 +107,7 @@ export class Barretenberg extends BarretenbergApi {
   }
 }
 
-let barrentenbergSyncSingletonPromise: Promise<BarretenbergSync>;
+let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
 
 export class BarretenbergSync extends BarretenbergApiSync {
@@ -119,11 +123,11 @@ export class BarretenbergSync extends BarretenbergApiSync {
   }
 
   static async initSingleton(wasmPath?: string, logger: (msg: string) => void = createDebug('bb.js:bb_wasm_sync')) {
-    if (!barrentenbergSyncSingletonPromise) {
-      barrentenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath, logger);
+    if (!barretenbergSyncSingletonPromise) {
+      barretenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath, logger);
     }
 
-    barretenbergSyncSingleton = await barrentenbergSyncSingletonPromise;
+    barretenbergSyncSingleton = await barretenbergSyncSingletonPromise;
     return barretenbergSyncSingleton;
   }
 

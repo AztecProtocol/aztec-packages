@@ -17,6 +17,7 @@ namespace bb::avm2::simulation {
 struct ExecutionEvent {
     // For sorting in tracegen.
     uint32_t order;
+    bool error = false;
 
     BytecodeId bytecode_id;
     Instruction wire_instruction;
@@ -25,8 +26,7 @@ struct ExecutionEvent {
 
     // Inputs and Outputs for a gadget/subtrace used when allocating registers in the execution trace.
     std::vector<TaggedValue> inputs;
-    // todo(ilyas): this is a vector because GETCONTRACTINSTANCE has 2 outputs, we should change this to 1
-    std::vector<TaggedValue> output;
+    TaggedValue output;
 
     // Context Id for the next context.
     uint32_t next_context_id;

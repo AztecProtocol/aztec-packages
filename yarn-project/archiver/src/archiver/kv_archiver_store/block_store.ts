@@ -8,6 +8,7 @@ import { Body, L2Block, L2BlockHash } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
+import { BlockNumberNotSequentialError, InitialBlockNumberNotSequentialError } from '../errors.js';
 import type { L1PublishedData, PublishedL2Block } from '../structs/published.js';
 
 export { TxReceipt, type TxEffect, type TxHash } from '@aztec/stdlib/tx';
@@ -37,9 +38,6 @@ export class BlockStore {
   /** Stores l2 block number of the last proven block */
   #lastProvenL2Block: AztecAsyncSingleton<number>;
 
-  /** Stores l2 epoch number of the last proven epoch */
-  #lastProvenL2Epoch: AztecAsyncSingleton<number>;
-
   /** Index mapping transaction hash (as a string) to its location in a block */
   #txIndex: AztecAsyncMap<string, BlockIndexValue>;
 
@@ -55,7 +53,6 @@ export class BlockStore {
     this.#contractIndex = db.openMap('archiver_contract_index');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_synched_l1_block');
     this.#lastProvenL2Block = db.openSingleton('archiver_last_proven_l2_block');
-    this.#lastProvenL2Epoch = db.openSingleton('archiver_last_proven_l2_epoch');
   }
 
   /**
@@ -63,13 +60,32 @@ export class BlockStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
+  async addBlocks(blocks: PublishedL2Block[], opts: { force?: boolean } = {}): Promise<boolean> {
     if (blocks.length === 0) {
       return true;
     }
 
     return await this.db.transactionAsync(async () => {
+      // Check that the block immediately before the first block to be added is present in the store.
+      const firstBlockNumber = blocks[0].block.number;
+      const [previousBlockNumber] = await toArray(
+        this.#blocks.keysAsync({ reverse: true, limit: 1, end: firstBlockNumber - 1 }),
+      );
+      const hasPreviousBlock =
+        firstBlockNumber === INITIAL_L2_BLOCK_NUM ||
+        (previousBlockNumber !== undefined && previousBlockNumber === firstBlockNumber - 1);
+      if (!opts.force && !hasPreviousBlock) {
+        throw new InitialBlockNumberNotSequentialError(firstBlockNumber, previousBlockNumber);
+      }
+
+      // Iterate over blocks array and insert them, checking that the block numbers are sequential.
+      let previousBlock: PublishedL2Block | undefined = undefined;
       for (const block of blocks) {
+        if (!opts.force && previousBlock && previousBlock.block.number + 1 !== block.block.number) {
+          throw new BlockNumberNotSequentialError(block.block.number, previousBlock.block.number);
+        }
+        previousBlock = block;
+
         await this.#blocks.set(block.block.number, {
           header: block.block.header.toBuffer(),
           archive: block.block.archive.toBuffer(),
@@ -104,6 +120,11 @@ export class BlockStore {
         throw new Error(`Can only unwind blocks from the tip (requested ${from} but current tip is ${last})`);
       }
 
+      const proven = await this.getProvenL2BlockNumber();
+      if (from - blocksToUnwind < proven) {
+        await this.setProvenL2BlockNumber(from - blocksToUnwind);
+      }
+
       for (let i = 0; i < blocksToUnwind; i++) {
         const blockNumber = from - i;
         const block = await this.getBlock(blockNumber);
@@ -130,7 +151,7 @@ export class BlockStore {
    * @returns The requested L2 blocks
    */
   async *getBlocks(start: number, limit: number): AsyncIterableIterator<PublishedL2Block> {
-    for await (const [blockNumber, blockStorage] of this.#blocks.entriesAsync(this.#computeBlockRange(start, limit))) {
+    for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
       const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
       if (block) {
         yield block;
@@ -158,7 +179,7 @@ export class BlockStore {
    * @returns The requested L2 block headers
    */
   async *getBlockHeaders(start: number, limit: number): AsyncIterableIterator<BlockHeader> {
-    for await (const [blockNumber, blockStorage] of this.#blocks.entriesAsync(this.#computeBlockRange(start, limit))) {
+    for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
       const header = BlockHeader.fromBuffer(blockStorage.header);
       if (header.getBlockNumber() !== blockNumber) {
         throw new Error(
@@ -166,6 +187,19 @@ export class BlockStore {
         );
       }
       yield header;
+    }
+  }
+
+  private async *getBlockStorages(start: number, limit: number) {
+    let expectedBlockNumber = start;
+    for await (const [blockNumber, blockStorage] of this.#blocks.entriesAsync(this.#computeBlockRange(start, limit))) {
+      if (blockNumber !== expectedBlockNumber) {
+        throw new Error(
+          `Block number mismatch when iterating blocks from archive (expected ${expectedBlockNumber} but got ${blockNumber})`,
+        );
+      }
+      expectedBlockNumber++;
+      yield [blockNumber, blockStorage] as const;
     }
   }
 
@@ -283,7 +317,11 @@ export class BlockStore {
   }
 
   async getProvenL2BlockNumber(): Promise<number> {
-    return (await this.#lastProvenL2Block.getAsync()) ?? 0;
+    const [latestBlockNumber, provenBlockNumber] = await Promise.all([
+      this.getSynchedL2BlockNumber(),
+      this.#lastProvenL2Block.getAsync(),
+    ]);
+    return (provenBlockNumber ?? 0) > latestBlockNumber ? latestBlockNumber : (provenBlockNumber ?? 0);
   }
 
   setProvenL2BlockNumber(blockNumber: number) {

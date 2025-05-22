@@ -16,7 +16,6 @@ import {
   type ContractMethod,
   type Logger,
   type PXE,
-  SignerlessWallet,
   type Wallet,
   createAztecNodeClient,
   createLogger,
@@ -25,17 +24,16 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
   ForwarderContract,
   NULL_KEY,
+  type Operator,
   createExtendedL1Client,
   deployL1Contracts,
   getL1ContractsConfigEnvVars,
@@ -283,7 +281,7 @@ export type SetupOptions = {
   /** Salt to use in L1 contract deployment */
   salt?: number;
   /** An initial set of validators */
-  initialValidators?: EthAddress[];
+  initialValidators?: Operator[];
   /** Anvil Start time */
   l1StartTime?: number;
   /** The anvil time where we should at the earliest be seeing L2 blocks */
@@ -752,22 +750,13 @@ export async function getSponsoredFPCAddress() {
  * Deploy a sponsored FPC contract to a running instance.
  */
 export async function setupSponsoredFPC(pxe: PXE) {
-  const { l1ChainId: chainId, rollupVersion } = await pxe.getNodeInfo();
-  const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, rollupVersion));
+  const instance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+    salt: new Fr(SPONSORED_FPC_SALT),
+  });
 
-  // Make the contract pay for the deployment fee itself
-  const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-
-  const deployed = await SponsoredFPCContract.deploy(deployer)
-    .send({
-      contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
-      universalDeploy: true,
-      fee: { paymentMethod },
-    })
-    .deployed();
-
-  getLogger().info(`SponsoredFPC: ${deployed.address}`);
-  return deployed;
+  await pxe.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
+  getLogger().info(`SponsoredFPC: ${instance.address}`);
+  return instance;
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {

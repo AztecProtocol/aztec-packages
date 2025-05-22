@@ -27,14 +27,21 @@ export class KvAttestationPool implements AttestationPool {
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
   }
 
+  public async isEmpty(): Promise<boolean> {
+    for await (const _ of this.attestations.entriesAsync()) {
+      return false;
+    }
+    return true;
+  }
+
   private getProposalKey(slot: number | bigint | Fr | string, proposalId: Fr | string | Buffer): string {
     const slotStr = typeof slot === 'string' ? slot : new Fr(slot).toString();
     const proposalIdStr =
       typeof proposalId === 'string'
         ? proposalId
         : Buffer.isBuffer(proposalId)
-        ? Fr.fromBuffer(proposalId).toString()
-        : proposalId.toString();
+          ? Fr.fromBuffer(proposalId).toString()
+          : proposalId.toString();
 
     return `${slotStr}-${proposalIdStr}`;
   }

@@ -5,9 +5,11 @@
 #include <memory>
 
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -49,7 +51,7 @@ Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std
 
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt, PairingPoints points_accumulator)
+    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt)
 {
     StdlibProof<Builder> stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
 
@@ -65,15 +67,14 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
         public_inputs_ct.push_back(vec_ct);
     }
 
-    return verify_proof(stdlib_proof, public_inputs_ct, points_accumulator);
+    return verify_proof(stdlib_proof, public_inputs_ct);
 }
 
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
+// TODO(#14234)[Unconditional PIs validation]: rename stdlib_proof_with_pi_flag to stdlib_proof
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& stdlib_proof,
-    const std::vector<std::vector<FF>>& public_inputs,
-    PairingPoints points_accumulator)
+    const StdlibProof<Builder>& stdlib_proof_with_pi_flag, const std::vector<std::vector<FF>>& public_inputs)
 {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
@@ -83,6 +84,16 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     using Shplemini = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
+    using stdlib::bool_t;
+
+    // TODO(#14234)[Unconditional PIs validation]: Remove the next 3 lines
+    StdlibProof<Builder> stdlib_proof = stdlib_proof_with_pi_flag;
+    bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof.at(0));
+    stdlib_proof.erase(stdlib_proof.begin());
+
+    if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
+        throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
+    }
 
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
@@ -131,11 +142,20 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     std::vector<FF> mle_challenge(output.challenge.begin(),
                                   output.challenge.begin() + static_cast<int>(log_circuit_size));
 
-    // Simplified public input with a single column
-    // TODO: Extend to multiple columns once public inputs are finalized
-    FF execution_input_evaluation = evaluate_public_input_column(public_inputs[0], mle_challenge);
-    execution_input_evaluation.assert_equal(output.claimed_evaluations.execution_input,
-                                            "execution_input_evaluation failed");
+    std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
+        output.claimed_evaluations.public_inputs_cols_0_,
+        output.claimed_evaluations.public_inputs_cols_1_,
+        output.claimed_evaluations.public_inputs_cols_2_,
+        output.claimed_evaluations.public_inputs_cols_3_,
+    };
+
+    // TODO(#14234)[Unconditional PIs validation]: Inside of loop, replace pi_validation.must_imply() by
+    // public_input_evaluation.assert_equal(claimed_evaluations[i]
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
+        vinfo("public_input_evaluation failed, public inputs col ", i);
+        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i], "public_input_evaluation failed");
+    }
 
     // Execute Shplemini rounds.
     ClaimBatcher claim_batcher{
@@ -146,11 +166,7 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
         padding_indicator_array, claim_batcher, output.challenge, Commitment::one(&builder), transcript);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-
-    pairing_points[0] = pairing_points[0].normalize();
-    pairing_points[1] = pairing_points[1].normalize();
-    points_accumulator.aggregate(pairing_points);
-    return points_accumulator;
+    return pairing_points;
 }
 
 // TODO: Once Goblinized version is mature, we can remove this one and we only to template

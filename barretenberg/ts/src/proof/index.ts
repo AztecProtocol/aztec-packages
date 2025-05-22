@@ -1,5 +1,3 @@
-import { numToUInt32BE } from '../serialize/serialize.js';
-
 /**
  * @description
  * The representation of a proof
@@ -31,16 +29,6 @@ export function splitHonkProof(
 
 export function reconstructHonkProof(publicInputs: Uint8Array, proof: Uint8Array): Uint8Array {
   const proofWithPublicInputs = Uint8Array.from([...publicInputs, ...proof]);
-  return proofWithPublicInputs;
-}
-
-export function reconstructUltraPlonkProof(proofData: ProofData): Uint8Array {
-  // Flatten publicInputs
-  const publicInputsConcatenated = flattenFieldsAsArray(proofData.publicInputs);
-
-  // Concatenate publicInputs and proof
-  const proofWithPublicInputs = Uint8Array.from([...publicInputsConcatenated, ...proofData.proof]);
-
   return proofWithPublicInputs;
 }
 

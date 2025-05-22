@@ -1,5 +1,6 @@
 import { EthAddress } from '@aztec/aztec.js';
 import type { EnvVar } from '@aztec/foundation/config';
+import type { SharedNodeConfig } from '@aztec/node-lib/config';
 
 import path from 'path';
 
@@ -22,6 +23,8 @@ export type L2ChainConfig = {
   seqMaxTxsPerBlock: number;
   realProofs: boolean;
   snapshotsUrl: string;
+  autoUpdate: SharedNodeConfig['autoUpdate'];
+  autoUpdateUrl?: string;
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -41,6 +44,8 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   seqMaxTxsPerBlock: 0,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
+  autoUpdate: 'disabled',
+  autoUpdateUrl: undefined,
 };
 
 export const alphaTestnetL2ChainConfig: L2ChainConfig = {
@@ -57,9 +62,11 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   slashFactoryAddress: '0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be',
   feeAssetHandlerAddress: '0x80d848dc9f52df56789e2d62ce66f19555ff1019',
   seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 4,
+  seqMaxTxsPerBlock: 20,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -125,6 +132,14 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
+
+  if (config.autoUpdate) {
+    enrichVar('AUTO_UPDATE', config.autoUpdate?.toString());
+  }
+
+  if (config.autoUpdateUrl) {
+    enrichVar('AUTO_UPDATE_URL', config.autoUpdateUrl);
+  }
 
   enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
   enrichEthAddressVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);

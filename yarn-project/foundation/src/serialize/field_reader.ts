@@ -11,11 +11,15 @@ import type { Tuple } from './types.js';
  */
 export class FieldReader {
   private index: number;
-  private length: number;
-  constructor(private fields: Fr[], offset = 0) {
+  private readonly length: number;
+
+  constructor(
+    private fields: Fr[],
+    offset = 0,
+  ) {
     this.index = offset;
     this.length = fields.length;
-    if (offset >= this.length) {
+    if (offset > this.length) {
       throw new Error('Offset out of bounds.');
     }
   }
@@ -41,6 +45,10 @@ export class FieldReader {
    */
   public get cursor() {
     return this.index;
+  }
+
+  public remainingFields(): number {
+    return this.length - this.index;
   }
 
   /**

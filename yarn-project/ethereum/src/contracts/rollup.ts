@@ -14,6 +14,7 @@ import type { L1ReaderConfig } from '../l1_reader.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
+import { checkBlockTag } from './utils.js';
 
 export type L1RollupContractAddresses = Pick<
   L1ContractAddresses,
@@ -25,6 +26,7 @@ export type L1RollupContractAddresses = Pick<
   | 'stakingAssetAddress'
   | 'rewardDistributorAddress'
   | 'slashFactoryAddress'
+  | 'gseAddress'
 >;
 
 export type EpochProofPublicInputArgs = {
@@ -58,7 +60,10 @@ export class RollupContract {
     return new RollupContract(client, address);
   }
 
-  constructor(public readonly client: ViemClient, address: Hex | EthAddress) {
+  constructor(
+    public readonly client: ViemClient,
+    address: Hex | EthAddress,
+  ) {
     if (address instanceof EthAddress) {
       address = address.toString();
     }
@@ -173,6 +178,14 @@ export class RollupContract {
     return this.rollup.read.getCurrentSlot();
   }
 
+  getL1FeesAt(timestamp: bigint) {
+    return this.rollup.read.getL1FeesAt([timestamp]);
+  }
+
+  getFeeAssetPerEth() {
+    return this.rollup.read.getFeeAssetPerEth();
+  }
+
   async getCommitteeAt(timestamp: bigint) {
     const { result } = await this.client.simulateContract({
       address: this.address,
@@ -265,6 +278,7 @@ export class RollupContract {
       rewardDistributorAddress,
       feeJuiceAddress,
       stakingAssetAddress,
+      gseAddress,
     ] = (
       await Promise.all([
         this.rollup.read.getInbox(),
@@ -273,6 +287,7 @@ export class RollupContract {
         this.rollup.read.getRewardDistributor(),
         this.rollup.read.getFeeAsset(),
         this.rollup.read.getStakingAsset(),
+        this.rollup.read.getGSE(),
       ] as const)
     ).map(EthAddress.fromString);
 
@@ -284,6 +299,7 @@ export class RollupContract {
       feeJuiceAddress,
       stakingAssetAddress,
       rewardDistributorAddress,
+      gseAddress,
     };
   }
 
@@ -379,11 +395,13 @@ export class RollupContract {
     return this.rollup.read.getSlotAt([timestamp]);
   }
 
-  status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+  async status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+    await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.status([blockNumber], options);
   }
 
-  canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+  async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+    await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.canPruneAtTime([timestamp], options);
   }
 
@@ -413,11 +431,18 @@ export class RollupContract {
     return this.rollup.read.getAttesters();
   }
 
-  getInfo(address: Hex | EthAddress) {
+  getAttesterView(address: Hex | EthAddress) {
     if (address instanceof EthAddress) {
       address = address.toString();
     }
-    return this.rollup.read.getInfo([address]);
+    return this.rollup.read.getAttesterView([address]);
+  }
+
+  getStatus(address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
+    return this.rollup.read.getStatus([address]);
   }
 
   getBlobPublicInputsHash(blockNumber: bigint) {

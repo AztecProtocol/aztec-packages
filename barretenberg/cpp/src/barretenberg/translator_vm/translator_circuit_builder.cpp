@@ -17,7 +17,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/plonk/proof_system/constants.hpp"
+
 #include <cstddef>
 namespace bb {
 
@@ -27,26 +27,14 @@ namespace bb {
  *
  * @tparam Fq
  * @tparam Fr
- * @param op_code Opcode value
- * @param p_x_lo Low 136 bits of P.x
- * @param p_x_hi High 118 bits of P.x
- * @param p_y_lo Low 136 bits of P.y
- * @param p_y_hi High 118 bits of P.y
- * @param z1 z1 scalar
- * @param z2 z2 scalar
+ * @param ultra_op The ultra op used to produce the wire data
  * @param previous_accumulator The value of the previous accumulator (we assume standard decomposition into limbs)
  * @param batching_challenge_v The value of the challenge for batching polynomial evaluations
  * @param evaluation_input_x The value at which we evaluate the polynomials
  * @return TranslatorCircuitBuilder::AccumulationInput
  */
 TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_witness_values(
-    const Fr& op_code,
-    const Fr& p_x_lo,
-    const Fr& p_x_hi,
-    const Fr& p_y_lo,
-    const Fr& p_y_hi,
-    const Fr& z1,
-    const Fr& z2,
+    const UltraOp& ultra_op,
     const Fq& previous_accumulator,
     const Fq& batching_challenge_v,
     const Fq& evaluation_input_x)
@@ -159,13 +147,14 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
 
     // To calculate the quotient, we need to evaluate the expression in integers. So we need uint512_t versions of all
     // elements involved
+    size_t op_code = ultra_op.op_code.value();
     auto uint_previous_accumulator = uint512_t(previous_accumulator);
     auto uint_x = uint512_t(evaluation_input_x);
     auto uint_op = uint512_t(op_code);
-    auto uint_p_x = uint512_t(uint256_t(p_x_lo) + (uint256_t(p_x_hi) << (NUM_LIMB_BITS << 1)));
-    auto uint_p_y = uint512_t(uint256_t(p_y_lo) + (uint256_t(p_y_hi) << (NUM_LIMB_BITS << 1)));
-    auto uint_z1 = uint512_t(z1);
-    auto uint_z2 = uint512_t(z2);
+    auto uint_p_x = uint512_t(uint256_t(ultra_op.x_lo) + (uint256_t(ultra_op.x_hi) << (NUM_LIMB_BITS << 1)));
+    auto uint_p_y = uint512_t(uint256_t(ultra_op.y_lo) + (uint256_t(ultra_op.y_hi) << (NUM_LIMB_BITS << 1)));
+    auto uint_z1 = uint512_t(ultra_op.z_1);
+    auto uint_z2 = uint512_t(ultra_op.z_2);
     auto uint_v = uint512_t(batching_challenge_v);
     auto uint_v_squared = uint512_t(v_squared);
     auto uint_v_cubed = uint512_t(v_cubed);
@@ -173,22 +162,22 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
 
     // Construct Fq for op, P.x, P.y, z_1, z_2 for use in witness computation
     Fq base_op = Fq(uint256_t(op_code));
-    Fq base_p_x = Fq(uint256_t(p_x_lo) + (uint256_t(p_x_hi) << (NUM_LIMB_BITS << 1)));
-    Fq base_p_y = Fq(uint256_t(p_y_lo) + (uint256_t(p_y_hi) << (NUM_LIMB_BITS << 1)));
-    Fq base_z_1 = Fq(uint256_t(z1));
-    Fq base_z_2 = Fq(uint256_t(z2));
+    Fq base_p_x = Fq(uint256_t(ultra_op.x_lo) + (uint256_t(ultra_op.x_hi) << (NUM_LIMB_BITS << 1)));
+    Fq base_p_y = Fq(uint256_t(ultra_op.y_lo) + (uint256_t(ultra_op.y_hi) << (NUM_LIMB_BITS << 1)));
+    Fq base_z_1 = Fq(uint256_t(ultra_op.z_1));
+    Fq base_z_2 = Fq(uint256_t(ultra_op.z_2));
 
     // Construct bigfield representations of P.x and P.y
-    auto [p_x_0, p_x_1] = split_wide_limb_into_2_limbs(p_x_lo);
-    auto [p_x_2, p_x_3] = split_wide_limb_into_2_limbs(p_x_hi);
+    auto [p_x_0, p_x_1] = split_wide_limb_into_2_limbs(ultra_op.x_lo);
+    auto [p_x_2, p_x_3] = split_wide_limb_into_2_limbs(ultra_op.x_hi);
     std::array<Fr, NUM_BINARY_LIMBS> p_x_limbs = { p_x_0, p_x_1, p_x_2, p_x_3 };
-    auto [p_y_0, p_y_1] = split_wide_limb_into_2_limbs(p_y_lo);
-    auto [p_y_2, p_y_3] = split_wide_limb_into_2_limbs(p_y_hi);
+    auto [p_y_0, p_y_1] = split_wide_limb_into_2_limbs(ultra_op.y_lo);
+    auto [p_y_2, p_y_3] = split_wide_limb_into_2_limbs(ultra_op.y_hi);
     std::array<Fr, NUM_BINARY_LIMBS> p_y_limbs = { p_y_0, p_y_1, p_y_2, p_y_3 };
 
-    // Construct bigfield representations of z1 and z2 only using 2 limbs each
-    auto z_1_limbs = split_wide_limb_into_2_limbs(z1);
-    auto z_2_limbs = split_wide_limb_into_2_limbs(z2);
+    // Construct bigfield representations of ultra_op.z_1 and ultra_op.z_2 only using 2 limbs each
+    auto z_1_limbs = split_wide_limb_into_2_limbs(ultra_op.z_1);
+    auto z_2_limbs = split_wide_limb_into_2_limbs(ultra_op.z_2);
 
     // The formula is `accumulator = accumulator⋅x + (op + v⋅p.x + v²⋅p.y + v³⋅z₁ + v⁴z₂)`. We need to compute the
     // remainder (new accumulator value)
@@ -311,19 +300,13 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
 
     // Start filling the witness container
     AccumulationInput input{
-        .op_code = op_code,
-        .P_x_lo = p_x_lo,
-        .P_x_hi = p_x_hi,
+        .ultra_op = ultra_op,
         .P_x_limbs = p_x_limbs,
         .P_x_microlimbs = P_x_microlimbs,
-        .P_y_lo = p_y_lo,
-        .P_y_hi = p_y_hi,
         .P_y_limbs = p_y_limbs,
         .P_y_microlimbs = P_y_microlimbs,
-        .z_1 = z1,
         .z_1_limbs = z_1_limbs,
         .z_1_microlimbs = z_1_microlimbs,
-        .z_2 = z2,
         .z_2_limbs = z_2_limbs,
         .z_2_microlimbs = z_2_microlimbs,
         .previous_accumulator = previous_accumulator_limbs,
@@ -334,44 +317,43 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
         .relation_wide_limbs = { low_wide_relation_limb_divided, high_wide_relation_limb_divided },
         .relation_wide_microlimbs = { split_relation_limb_into_micro_limbs(low_wide_relation_limb_divided),
                                       split_relation_limb_into_micro_limbs(high_wide_relation_limb_divided) },
-        .x_limbs = x_witnesses,
-        .v_limbs = v_witnesses,
-        .v_squared_limbs = v_squared_witnesses,
-        .v_cubed_limbs = v_cubed_witnesses,
-        .v_quarted_limbs = v_quarted_witnesses,
 
     };
 
     return input;
 }
 
+void TranslatorCircuitBuilder::assert_well_formed_ultra_op(const UltraOp& ultra_op)
+{
+    // Opcode should be {0,3,4,8}
+    size_t op_code = ultra_op.op_code.value();
+    ASSERT(op_code == 0 || op_code == 3 || op_code == 4 || op_code == 8);
+
+    // Check and insert x_lo and y_hi into wire 1
+    ASSERT(uint256_t(ultra_op.x_lo) <= MAX_LOW_WIDE_LIMB_SIZE);
+    ASSERT(uint256_t(ultra_op.y_hi) <= MAX_HIGH_WIDE_LIMB_SIZE);
+
+    // Check and insert x_hi and z_1 into wire 2
+    ASSERT(uint256_t(ultra_op.x_hi) <= MAX_HIGH_WIDE_LIMB_SIZE);
+    ASSERT(uint256_t(ultra_op.z_1) <= MAX_LOW_WIDE_LIMB_SIZE);
+
+    // Check and insert y_lo and z_2 into wire 3
+    ASSERT(uint256_t(ultra_op.y_lo) <= MAX_LOW_WIDE_LIMB_SIZE);
+    ASSERT(uint256_t(ultra_op.z_2) <= MAX_LOW_WIDE_LIMB_SIZE);
+}
+
 void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const AccumulationInput& acc_step)
 {
     // The first wires OpQueue/Transcript wires
-    // Opcode should be {0,1,2,3,4,8}
-    ASSERT(acc_step.op_code == 0 || acc_step.op_code == 1 || acc_step.op_code == 2 || acc_step.op_code == 3 ||
-           acc_step.op_code == 4 || acc_step.op_code == 8);
-
-    // Check and insert P_x_lo and P_y_hi into wire 1
-    ASSERT(uint256_t(acc_step.P_x_lo) <= MAX_LOW_WIDE_LIMB_SIZE);
-    ASSERT(uint256_t(acc_step.P_y_hi) <= MAX_HIGH_WIDE_LIMB_SIZE);
-
-    // Check and insert P_x_hi and z_1 into wire 2
-    ASSERT(uint256_t(acc_step.P_x_hi) <= MAX_HIGH_WIDE_LIMB_SIZE);
-    ASSERT(uint256_t(acc_step.z_1) <= MAX_LOW_WIDE_LIMB_SIZE);
-
-    // Check and insert P_y_lo and z_2 into wire 3
-    ASSERT(uint256_t(acc_step.P_y_lo) <= MAX_LOW_WIDE_LIMB_SIZE);
-    ASSERT(uint256_t(acc_step.z_2) <= MAX_LOW_WIDE_LIMB_SIZE);
+    assert_well_formed_ultra_op(acc_step.ultra_op);
 
     // Check decomposition of values from the Queue into limbs used in bigfield evaluations
-    ASSERT(acc_step.P_x_lo == (acc_step.P_x_limbs[0] + acc_step.P_x_limbs[1] * SHIFT_1));
-    ASSERT(acc_step.P_x_hi == (acc_step.P_x_limbs[2] + acc_step.P_x_limbs[3] * SHIFT_1));
-    ASSERT(acc_step.P_y_lo == (acc_step.P_y_limbs[0] + acc_step.P_y_limbs[1] * SHIFT_1));
-    ASSERT(acc_step.P_y_hi == (acc_step.P_y_limbs[2] + acc_step.P_y_limbs[3] * SHIFT_1));
-    ASSERT(acc_step.z_1 == (acc_step.z_1_limbs[0] + acc_step.z_1_limbs[1] * SHIFT_1));
-    ASSERT(acc_step.z_2 == (acc_step.z_2_limbs[0] + acc_step.z_2_limbs[1] * SHIFT_1));
-
+    ASSERT(acc_step.ultra_op.x_lo == (acc_step.P_x_limbs[0] + acc_step.P_x_limbs[1] * SHIFT_1));
+    ASSERT(acc_step.ultra_op.x_hi == (acc_step.P_x_limbs[2] + acc_step.P_x_limbs[3] * SHIFT_1));
+    ASSERT(acc_step.ultra_op.y_lo == (acc_step.P_y_limbs[0] + acc_step.P_y_limbs[1] * SHIFT_1));
+    ASSERT(acc_step.ultra_op.y_hi == (acc_step.P_y_limbs[2] + acc_step.P_y_limbs[3] * SHIFT_1));
+    ASSERT(acc_step.ultra_op.z_1 == (acc_step.z_1_limbs[0] + acc_step.z_1_limbs[1] * SHIFT_1));
+    ASSERT(acc_step.ultra_op.z_2 == (acc_step.z_2_limbs[0] + acc_step.z_2_limbs[1] * SHIFT_1));
     /**
      * @brief Check correctness of limbs values
      *
@@ -416,6 +398,21 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
     ASSERT(uint256_t(acc_step.relation_wide_limbs[0]) < MAX_RELATION_WIDE_LIMB_SIZE);
     ASSERT(uint256_t(acc_step.relation_wide_limbs[1]) < MAX_RELATION_WIDE_LIMB_SIZE);
 }
+
+void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra_op)
+{
+    auto& op_wire = std::get<WireIds::OP>(wires);
+    op_wire.push_back(add_variable(ultra_op.op_code.value()));
+    // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index
+    op_wire.push_back(zero_idx);
+
+    insert_pair_into_wire(WireIds::X_LOW_Y_HI, ultra_op.x_lo, ultra_op.y_hi);
+
+    insert_pair_into_wire(WireIds::X_HIGH_Z_1, ultra_op.x_hi, ultra_op.z_1);
+
+    insert_pair_into_wire(WireIds::Y_LOW_Z_2, ultra_op.y_lo, ultra_op.z_2);
+}
+
 /**
  * @brief Create a single accumulation gate
  *
@@ -425,26 +422,7 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
 {
     assert_well_formed_accumulation_input(acc_step);
 
-    auto& op_wire = std::get<WireIds::OP>(wires);
-    op_wire.push_back(add_variable(acc_step.op_code));
-    // Every second op value in the transcript (indices 3, 5, etc) are not defined so let's just put zero there
-    op_wire.push_back(zero_idx);
-
-    /**
-     * @brief Insert two values into the same wire sequentially
-     *
-     */
-    auto insert_pair_into_wire = [this](WireIds wire_index, Fr first, Fr second) {
-        auto& current_wire = wires[wire_index];
-        current_wire.push_back(add_variable(first));
-        current_wire.push_back(add_variable(second));
-    };
-
-    insert_pair_into_wire(WireIds::X_LOW_Y_HI, acc_step.P_x_lo, acc_step.P_y_hi);
-
-    insert_pair_into_wire(WireIds::X_HIGH_Z_1, acc_step.P_x_hi, acc_step.z_1);
-
-    insert_pair_into_wire(WireIds::Y_LOW_Z_2, acc_step.P_y_lo, acc_step.z_2);
+    populate_wires_from_ultra_op(acc_step.ultra_op);
 
     // Insert limbs used in bigfield evaluations
     insert_pair_into_wire(P_X_LOW_LIMBS, acc_step.P_x_limbs[0], acc_step.P_x_limbs[1]);
@@ -543,10 +521,25 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         return;
     }
 
+    // Process the first UltraOp - a no-op - and populate with zeros the beginning of all other wires to ensure all wire
+    // polynomials in translator start with 0 (required for shifted polynomials in the proving system). Technically,
+    // we'd need only first index to be a zero but, given each "real" UltraOp populates two indices in a polynomial we
+    // add two zeros for consistency.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
+    // data in the merge protocol (added for zero knowledge)/
+    populate_wires_from_ultra_op(ultra_ops[0]);
+    for (auto& wire : wires) {
+        if (wire.empty()) {
+            wire.push_back(zero_idx);
+            wire.push_back(zero_idx);
+        }
+    }
+    num_gates += 2;
+
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 0; i < ultra_ops.size(); i++) {
-        const auto& ultra_op = ultra_ops[ultra_ops.size() - 1 - i];
+    for (size_t i = 1; i < ultra_ops.size(); i++) {
+        const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
         current_accumulator *= evaluation_input_x;
         const auto [x_256, y_256] = ultra_op.get_base_point_standard_form();
         current_accumulator +=
@@ -561,7 +554,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // We don't care about the last value since we'll recompute it during witness generation anyway
     accumulator_trace.pop_back();
 
-    for (const auto& ultra_op : ultra_ops) {
+    // Generate witness values from all the UltraOps
+    for (size_t i = 1; i < ultra_ops.size(); i++) {
+        const auto& ultra_op = ultra_ops[i];
         Fq previous_accumulator = 0;
         // Pop the last value from accumulator trace and use it as previous accumulator
         if (!accumulator_trace.empty()) {
@@ -569,16 +564,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             accumulator_trace.pop_back();
         }
         // Compute witness values
-        AccumulationInput one_accumulation_step = generate_witness_values(ultra_op.op_code.value(),
-                                                                          ultra_op.x_lo,
-                                                                          ultra_op.x_hi,
-                                                                          ultra_op.y_lo,
-                                                                          ultra_op.y_hi,
-                                                                          ultra_op.z_1,
-                                                                          ultra_op.z_2,
-                                                                          previous_accumulator,
-                                                                          batching_challenge_v,
-                                                                          evaluation_input_x);
+        AccumulationInput one_accumulation_step =
+            generate_witness_values(ultra_op, previous_accumulator, batching_challenge_v, evaluation_input_x);
 
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);

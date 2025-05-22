@@ -13,7 +13,6 @@ import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {ValidatorSelectionLib} from
   "@aztec/core/libraries/validator-selection/ValidatorSelectionLib.sol";
@@ -99,10 +98,10 @@ library ProposeLib {
       BlobLib.validateBlobs(_blobInput, _checkBlob);
 
     Header memory header = HeaderLib.decode(_args.header);
-
     v.headerHash = HeaderLib.hash(_args.header);
 
-    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage());
+    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    ValidatorSelectionLib.setupEpoch(currentEpoch);
 
     ManaBaseFeeComponents memory components =
       getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
@@ -138,7 +137,7 @@ library ProposeLib {
       _args.oracleInput.feeAssetPriceModifier,
       header.totalManaUsed,
       components.congestionCost,
-      components.provingCost
+      components.proverCost
     );
 
     rollupStore.blobPublicInputsHashes[blockNumber] = v.blobPublicInputsHash;
@@ -204,12 +203,7 @@ library ProposeLib {
     );
 
     ValidatorSelectionLib.verify(
-      StakingLib.getStorage(),
-      slot,
-      slot.epochFromSlot(),
-      _args.attestations,
-      _args.digest,
-      _args.flags
+      slot, slot.epochFromSlot(), _args.attestations, _args.digest, _args.flags
     );
   }
 

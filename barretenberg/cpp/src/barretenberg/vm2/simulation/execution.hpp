@@ -70,14 +70,15 @@ class Execution : public ExecutionInterface {
               MemoryAddress addr,
               MemoryAddress cd_offset,
               MemoryAddress cd_size);
-    void ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset);
+    void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
+    void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
 
     // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
-    // Setters for inputs and outputs for gadgets/subtraces. These are used for register allocation.
+    // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
     void set_inputs(std::vector<TaggedValue> inputs) { this->inputs = std::move(inputs); }
-    void set_outputs(std::vector<TaggedValue> outputs) { this->outputs = std::move(outputs); }
+    void set_output(TaggedValue output) { this->output = std::move(output); }
     const std::vector<TaggedValue>& get_inputs() const { return inputs; }
-    const std::vector<TaggedValue>& get_outputs() const { return outputs; }
+    const TaggedValue& get_output() const { return output; }
 
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
@@ -104,7 +105,7 @@ class Execution : public ExecutionInterface {
     ExecutionResult exec_result;
 
     std::vector<TaggedValue> inputs;
-    std::vector<TaggedValue> outputs;
+    TaggedValue output;
 };
 
 } // namespace bb::avm2::simulation

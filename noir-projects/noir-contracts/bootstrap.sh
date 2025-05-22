@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Some notes if you have to work on this script.
-# - First of all, I'm sorry. It's a beautiful script but it's no fun to debug. I got carried away.
+# - First of all, I'm sorry (edit: not sorry). It's a beautiful script but it's no fun to debug. I got carried away.
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
 # - This flag however, isn't carried into exported functions. You need to do "set -x" in those functions manually.
 # - You can call ./bootstrap.sh compile <contract names> to compile and process select contracts.
@@ -55,6 +55,7 @@ function process_function {
   # Read the function json.
   func="$(cat)"
   name=$(echo "$func" | jq -r '.name')
+  echo_stderr "Processing function: $name..."
 
   # Check if the function is neither public nor unconstrained.
   # TODO: Why do we need to gen keys for functions that are not marked private?
@@ -75,7 +76,7 @@ function process_function {
     bytecode_b64=$(echo "$func" | jq -r '.bytecode')
     hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
 
-    if ! cache_download vk-$hash.tar.gz &> /dev/null; then
+    if ! cache_download vk-$hash.tar.gz >&2; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
 
@@ -90,6 +91,7 @@ function process_function {
     vk=$(cat $tmp_dir/$hash | base64 -w 0)
     echo "$func" | jq -c --arg vk "$vk" '. + {verification_key: $vk}'
   else
+    echo_stderr "Function $name is neither public nor unconstrained, skipping."
     # Not a private function. Return the original function json.
     echo "$func"
   fi
@@ -152,7 +154,7 @@ function compile {
     if [ "${VERBOSE:-0}" -eq 0 ]; then
       local args="--silence-warnings"
     fi
-    $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0
+    $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0 --pedantic-solving
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
@@ -214,6 +216,10 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function format {
+  $NARGO fmt
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -236,7 +242,7 @@ case "$cmd" in
     shift
     VERBOSE=${VERBOSE:-1} build "$@"
     ;;
-  test|test_cmds)
+  test|test_cmds|format)
     $cmd
     ;;
   *)

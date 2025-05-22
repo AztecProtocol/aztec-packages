@@ -10,8 +10,9 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -103,20 +104,18 @@ class UltraFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // Proof length formula:
-    // 1. PAIRING_POINTS_SIZE public inputs for pairing point accumulator
-    // 2. NUM_WITNESS_ENTITIES commitments
-    // 3. CONST_PROOF_SIZE_LOG_N sumcheck univariates
-    // 4. NUM_ALL_ENTITIES sumcheck evaluations
-    // 5. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
-    // 6. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
-    // 7. KZG W commitment
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        NUM_WITNESS_ENTITIES * num_frs_comm + CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr +
-        NUM_ALL_ENTITIES * num_frs_fr + CONST_PROOF_SIZE_LOG_N * num_frs_comm + CONST_PROOF_SIZE_LOG_N * num_frs_fr +
-        num_frs_comm;
+        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
+        /* 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates */
+        (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
+        /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_frs_fr) +
+        /* 4. CONST_PROOF_SIZE_LOG_N - 1 Gemini Fold commitments */ ((CONST_PROOF_SIZE_LOG_N - 1) * num_frs_comm) +
+        /* 5. CONST_PROOF_SIZE_LOG_N Gemini a evaluations */ (CONST_PROOF_SIZE_LOG_N * num_frs_fr) +
+        /* 6. Shplonk Q commitment */ (num_frs_comm) +
+        /* 7. KZG W commitment */ (num_frs_comm);
 
     template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =

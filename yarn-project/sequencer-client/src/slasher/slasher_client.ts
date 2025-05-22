@@ -154,7 +154,7 @@ export class SlasherClient extends WithTracer {
 
   public handleBlockStreamEvent(event: L2BlockSourceEvent): Promise<void> {
     this.log.debug(`Handling block stream event ${event.type}`);
-    switch (event.type) {
+    switch (event.type as L2BlockSourceEvents) {
       case L2BlockSourceEvents.L2PruneDetected:
         this.handlePruneL2Blocks(event);
         break;

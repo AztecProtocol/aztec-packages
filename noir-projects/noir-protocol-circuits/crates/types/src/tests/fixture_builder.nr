@@ -19,7 +19,7 @@ use crate::{
             PrivateToRollupKernelCircuitPublicInputs,
         },
         log::Log,
-        log_hash::{LogHash, ScopedLogHash},
+        log_hash::LogHash,
         max_block_number::MaxBlockNumber,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
@@ -27,7 +27,7 @@ use crate::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::{PrivateCallData, PrivateVerificationKeyHints},
         private_kernel_data::PrivateKernelData,
-        private_log::PrivateLogData,
+        private_log::{PrivateLog, PrivateLogData},
         protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
         public_call_request::PublicCallRequest,
         public_data_write::PublicDataWrite,
@@ -53,8 +53,7 @@ use crate::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH,
         PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
-        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_DATA_SIZE_IN_FIELDS, UPDATED_CLASS_IDS_SLOT,
-        VK_TREE_HEIGHT,
+        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_SIZE_IN_FIELDS, UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -133,7 +132,7 @@ pub struct FixtureBuilder {
     pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
     pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
     pub public_logs: BoundedVec<PublicLog, MAX_PUBLIC_LOGS_PER_TX>,
-    pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    pub contract_class_logs_hashes: BoundedVec<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub public_data_writes: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
@@ -272,8 +271,8 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn use_protocol_contract(&mut self) -> Self {
-        let contract_index = 1;
+    // contract_index should be the same as contract address.
+    pub fn use_protocol_contract(&mut self, contract_index: u32) -> Self {
         let (tree, protocol_contract_leaves) =
             fixtures::protocol_contract_tree::get_protocol_contract_tree();
         self.protocol_contract_tree_root = tree.get_root();
@@ -360,6 +359,7 @@ impl FixtureBuilder {
             args_hash: self.args_hash,
             tx_context: self.tx_context,
             function_data: self.function_data,
+            salt: 54321,
         }
     }
 
@@ -422,7 +422,7 @@ impl FixtureBuilder {
             contract_class_logs_hashes: subarray(self
                 .contract_class_logs_hashes
                 .storage()
-                .map(|l: ScopedLogHash| l.log_hash)),
+                .map(|l: Scoped<Counted<LogHash>>| l.inner)),
             historical_header: self.historical_header,
             tx_context: self.tx_context,
         }
@@ -554,11 +554,13 @@ impl FixtureBuilder {
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
                 m.expose_to_public()
             }),
-            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
+            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
+                l.expose_to_public()
+            }),
             contract_class_logs_hashes: self
                 .contract_class_logs_hashes
                 .storage()
-                .map(|l: ScopedLogHash| l.expose_to_public()),
+                .map(|l: Scoped<Counted<LogHash>>| l.expose_to_public()),
             public_call_requests: self
                 .public_call_requests
                 .storage()
@@ -573,11 +575,13 @@ impl FixtureBuilder {
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
                 m.expose_to_public()
             }),
-            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
+            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
+                l.expose_to_public()
+            }),
             contract_class_logs_hashes: self
                 .contract_class_logs_hashes
                 .storage()
-                .map(|l: ScopedLogHash| l.expose_to_public()),
+                .map(|l: Scoped<Counted<LogHash>>| l.expose_to_public()),
         }
     }
 
@@ -947,9 +951,10 @@ impl FixtureBuilder {
     pub fn add_private_log(
         &mut self,
         fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
+        length: u32,
         note_hash_counter: u32,
     ) {
-        let log = Log { fields };
+        let log = PrivateLog { fields, length };
         let logData = PrivateLogData { log, note_hash_counter, counter: self.next_counter() }.scope(
             self.contract_address,
         );
@@ -961,31 +966,36 @@ impl FixtureBuilder {
         for i in 0..self.private_logs.max_len() {
             if i < num_logs {
                 let fields = self.mock_private_log_fields(index_offset + i);
-                self.add_private_log(fields, note_hash_counter);
+                self.add_private_log(fields, fields.len(), note_hash_counter);
             }
         }
     }
 
     pub fn append_private_logs(&mut self, num_logs: u32) {
+        self.append_private_logs_for_note(num_logs, 0 /* note_hash_counter */);
+    }
+
+    pub fn append_private_logs_with_lengths<let N: u32>(&mut self, lengths: [u32; N]) {
         let index_offset = self.private_logs.len();
-        for i in 0..self.private_logs.max_len() {
-            if i < num_logs {
-                let fields = self.mock_private_log_fields(index_offset + i);
-                self.add_private_log(fields, 0 /* note_hash_counter */);
-            }
+        for i in 0..lengths.len() {
+            let fields = self.mock_private_log_fields_with_length(index_offset + i, lengths[i]);
+            self.add_private_log(fields, lengths[i], 0 /* note_hash_counter */);
         }
     }
 
     pub fn add_siloed_private_log(
         &mut self,
         fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
+        length: u32,
         note_hash_counter: u32,
     ) {
-        let log = Log { fields };
-        let logData = PrivateLogData { log, note_hash_counter, counter: self.next_counter() }.scope(
-            AztecAddress::zero(),
-        );
-        self.private_logs.push(logData);
+        let log = PrivateLogData {
+            log: PrivateLog { fields, length },
+            note_hash_counter,
+            counter: self.next_counter(),
+        }
+            .scope(AztecAddress::zero()); // When siloed, the address is set to zero by the reset kernel.
+        self.private_logs.push(log);
     }
 
     pub fn append_siloed_private_logs_for_note(&mut self, num_logs: u32, note_hash_counter: u32) {
@@ -994,13 +1004,27 @@ impl FixtureBuilder {
             if i < num_logs {
                 let mut fields = self.mock_private_log_fields(index_offset + i);
                 fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
-                self.add_siloed_private_log(fields, note_hash_counter);
+                self.add_siloed_private_log(fields, fields.len(), note_hash_counter);
             }
         }
     }
 
-    pub fn add_public_log(&mut self, fields: [Field; PUBLIC_LOG_DATA_SIZE_IN_FIELDS]) {
-        let inner = Log { fields };
+    pub fn append_siloed_private_logs_for_note_with_lengths<let N: u32>(
+        &mut self,
+        lengths: [u32; N],
+        note_hash_counter: u32,
+    ) {
+        let index_offset = self.private_logs.len();
+        for i in 0..lengths.len() {
+            let length = lengths[i];
+            let mut fields = self.mock_private_log_fields_with_length(index_offset + i, length);
+            fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
+            self.add_siloed_private_log(fields, length, note_hash_counter);
+        }
+    }
+
+    pub fn add_public_log(&mut self, fields: [Field; PUBLIC_LOG_SIZE_IN_FIELDS], length: u32) {
+        let inner = Log { fields, length };
         let log = PublicLog { log: inner, contract_address: self.contract_address };
         let _ = self.next_counter();
         self.public_logs.push(log);
@@ -1011,14 +1035,24 @@ impl FixtureBuilder {
         for i in 0..self.public_logs.max_len() {
             if i < num_logs {
                 let fields = self.mock_public_log_fields(index_offset + i);
-                self.add_public_log(fields);
+                self.add_public_log(fields, fields.len());
             }
         }
     }
 
+    pub fn append_public_logs_with_lengths<let N: u32>(&mut self, lengths: [u32; N]) {
+        let index_offset = self.public_logs.len();
+        for i in 0..lengths.len() {
+            let length = lengths[i];
+            let fields = self.mock_public_log_fields_with_length(index_offset + i, length);
+            self.add_public_log(fields, length);
+        }
+    }
+
     pub fn add_contract_class_log_hash(&mut self, hash: Field, length: u32) {
-        let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
-        self.contract_class_logs_hashes.push(log_hash.scope(self.contract_address));
+        let log_hash =
+            LogHash { value: hash, length }.count(self.next_counter()).scope(self.contract_address);
+        self.contract_class_logs_hashes.push(log_hash);
     }
 
     pub fn add_private_call_request_for_private_call(&mut self, private_call: PrivateCallData) {
@@ -1156,21 +1190,41 @@ impl FixtureBuilder {
     }
 
     fn mock_private_log_fields(self, index: u32) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
+        self.mock_private_log_fields_with_length(index, PRIVATE_LOG_SIZE_IN_FIELDS)
+    }
+
+    fn mock_private_log_fields_with_length(
+        self,
+        index: u32,
+        length: u32,
+    ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
         let value_offset =
             328732 + self.value_offset + (index * PRIVATE_LOG_SIZE_IN_FIELDS) as Field;
         let mut fields = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
         for i in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
-            fields[i] = value_offset + i as Field;
+            if i < length {
+                fields[i] = value_offset + i as Field;
+            }
         }
         fields
     }
 
-    fn mock_public_log_fields(self, index: u32) -> [Field; PUBLIC_LOG_DATA_SIZE_IN_FIELDS] {
+    fn mock_public_log_fields(self, index: u32) -> [Field; PUBLIC_LOG_SIZE_IN_FIELDS] {
+        self.mock_public_log_fields_with_length(index, PUBLIC_LOG_SIZE_IN_FIELDS)
+    }
+
+    fn mock_public_log_fields_with_length(
+        self,
+        index: u32,
+        length: u32,
+    ) -> [Field; PUBLIC_LOG_SIZE_IN_FIELDS] {
         let value_offset =
-            199199 + self.value_offset + (index * PUBLIC_LOG_DATA_SIZE_IN_FIELDS) as Field;
-        let mut fields = [0; PUBLIC_LOG_DATA_SIZE_IN_FIELDS];
-        for i in 0..PUBLIC_LOG_DATA_SIZE_IN_FIELDS {
-            fields[i] = value_offset + i as Field;
+            199199 + self.value_offset + (index * PUBLIC_LOG_SIZE_IN_FIELDS) as Field;
+        let mut fields = [0; PUBLIC_LOG_SIZE_IN_FIELDS];
+        for i in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
+            if i < length {
+                fields[i] = value_offset + i as Field;
+            }
         }
         fields
     }

@@ -52,7 +52,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
     using InnerFoldingVerifier = ProtogalaxyVerifier_<InnerDeciderVerificationKeys>;
     using InnerFoldingProver = ProtogalaxyProver_<InnerDeciderProvingKeys>;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
      *
@@ -314,7 +314,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
-        // manifestsproduced by each agree.
+        // manifests produced by each agree.
         auto recursive_folding_manifest = verifier.transcript->get_manifest();
         auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
@@ -338,7 +338,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         // Perform native verification then perform the pairing on the outputs of the recursive decider verifier and
         // check that the result agrees.
         InnerDeciderVerifier native_decider_verifier(verifier_accumulator);
-        auto native_result = native_decider_verifier.verify_proof(decider_proof);
+        auto native_decider_output = native_decider_verifier.verify_proof(decider_proof);
+        auto native_result = native_decider_output.check();
         NativeVerifierCommitmentKey pcs_vkey{};
         auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(native_result, recursive_result);
@@ -370,7 +371,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         // Create a decider verifier circuit for recursively verifying the decider proof
         OuterBuilder decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &decider_circuit, verifier_accumulator };
-        decider_verifier.verify_proof(decider_proof);
+        [[maybe_unused]] auto output = decider_verifier.verify_proof(decider_proof);
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
 
         // We expect the decider circuit check to fail due to the bad proof

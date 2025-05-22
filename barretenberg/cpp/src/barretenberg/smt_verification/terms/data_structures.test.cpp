@@ -168,9 +168,11 @@ TEST(SymbolicSet, Contains)
     STerm z = FFConst(3, &slv);
     set.not_contains(z);
 
+    set.insert(-x);
     STerm q = 2 * x;
     set.contains(q);
 
+    slv.print_assertions();
     ASSERT_TRUE(slv.check());
 }
 

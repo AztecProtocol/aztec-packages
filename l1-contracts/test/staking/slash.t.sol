@@ -4,12 +4,17 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
-  IStakingCore, Status, ValidatorInfo, Exit, Timestamp
+  IStakingCore, Status, AttesterView, Exit, Timestamp
 } from "@aztec/core/interfaces/IStaking.sol";
 
 contract SlashTest is StakingBase {
-  uint256 internal constant DEPOSIT_AMOUNT = MINIMUM_STAKE + 2;
+  uint256 internal DEPOSIT_AMOUNT;
   uint256 internal slashingAmount = 1;
+
+  function setUp() public override {
+    super.setUp();
+    DEPOSIT_AMOUNT = MINIMUM_STAKE;
+  }
 
   function test_WhenCallerIsNotTheSlasher() external {
     // it reverts
@@ -39,11 +44,8 @@ contract SlashTest is StakingBase {
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: DEPOSIT_AMOUNT
+      _onCanonical: true
     });
-
-    // Progress into the next epoch
-    staking.cheat__progressEpoch();
     _;
   }
 
@@ -81,55 +83,57 @@ contract SlashTest is StakingBase {
     // it reduce stake by amount
     // it emits {Slashed} event
 
-    ValidatorInfo memory info = staking.getInfo(ATTESTER);
-    assertEq(info.stake, DEPOSIT_AMOUNT);
-    assertTrue(info.status == Status.EXITING);
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.effectiveBalance, 0);
+    assertEq(attesterView.exit.amount, DEPOSIT_AMOUNT, "Invalid exit amount");
+    assertTrue(attesterView.status == Status.EXITING);
 
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.Slashed(ATTESTER, 1);
     vm.prank(SLASHER);
     staking.slash(ATTESTER, 1);
 
-    info = staking.getInfo(ATTESTER);
-    assertEq(info.stake, DEPOSIT_AMOUNT - 1);
-    assertTrue(info.status == Status.EXITING);
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.effectiveBalance, 0);
+    assertEq(attesterView.exit.amount, DEPOSIT_AMOUNT - 1, "Invalid exit amount 2");
+    assertTrue(attesterView.status == Status.EXITING);
   }
 
   function test_WhenAttesterIsNotExiting() external whenCallerIsTheSlasher whenAttesterIsRegistered {
     // it reduce stake by amount
     // it emits {Slashed} event
 
-    Status[] memory cases = new Status[](2);
-    cases[0] = Status.VALIDATING;
-    cases[1] = Status.LIVING;
+    for (uint256 i = 0; i < 2; i++) {
+      bool isValidating = i == 0;
 
-    for (uint256 i = 0; i < cases.length; i++) {
       // Prepare the status and state
-      staking.cheat__SetStatus(ATTESTER, cases[i]);
-      if (cases[i] == Status.LIVING) {
-        staking.cheat__RemoveAttester(ATTESTER);
-      }
-
-      ValidatorInfo memory info = staking.getInfo(ATTESTER);
-      assertTrue(info.status == cases[i]);
-      uint256 activeAttesterCount = staking.getActiveAttesterCount();
-      uint256 balance = info.stake;
+      AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+      assertTrue(
+        attesterView.status == (isValidating ? Status.VALIDATING : Status.LIVING), "Invalid status"
+      );
+      assertEq(
+        staking.getActiveAttesterCount(), isValidating ? 1 : 0, "Invalid active attester count"
+      );
+      uint256 balance = isValidating ? attesterView.effectiveBalance : attesterView.exit.amount;
 
       vm.expectEmit(true, true, true, true, address(staking));
-      emit IStakingCore.Slashed(ATTESTER, 1);
+      emit IStakingCore.Slashed(ATTESTER, 2);
       vm.prank(SLASHER);
-      staking.slash(ATTESTER, 1);
+      staking.slash(ATTESTER, 2);
 
-      info = staking.getInfo(ATTESTER);
-      assertEq(info.stake, balance - 1);
-      assertTrue(info.status == cases[i]);
-      assertEq(staking.getActiveAttesterCount(), activeAttesterCount);
+      attesterView = staking.getAttesterView(ATTESTER);
+
+      assertEq(attesterView.effectiveBalance, 0, "Invalid effective balance");
+      assertEq(attesterView.exit.amount, balance - 2, "Invalid exit amount");
+
+      assertTrue(attesterView.status == Status.LIVING, "Invalid status after slash");
+      assertEq(staking.getActiveAttesterCount(), 0, "Invalid active attester count");
     }
   }
 
   modifier whenAttesterIsValidatingAndStakeIsBelowMinimumStake() {
-    ValidatorInfo memory info = staking.getInfo(ATTESTER);
-    slashingAmount = info.stake - MINIMUM_STAKE + 1;
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    slashingAmount = attesterView.effectiveBalance - MINIMUM_STAKE + 1;
     _;
   }
 
@@ -143,10 +147,6 @@ contract SlashTest is StakingBase {
 
     // This should be impossible to trigger in practice as the only case where attester is removed already
     // is if the status is none.
-    staking.cheat__RemoveAttester(ATTESTER);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__FailedToRemove.selector, ATTESTER));
-    vm.prank(SLASHER);
-    staking.slash(ATTESTER, slashingAmount);
   }
 
   function test_GivenAttesterIsActive()
@@ -160,25 +160,21 @@ contract SlashTest is StakingBase {
     // it set status to living
     // it emits {Slashed} event
 
-    ValidatorInfo memory info = staking.getInfo(ATTESTER);
-    assertTrue(info.status == Status.VALIDATING);
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    assertTrue(attesterView.status == Status.VALIDATING);
     uint256 activeAttesterCount = staking.getActiveAttesterCount();
-    uint256 balance = info.stake;
+    uint256 balance = attesterView.effectiveBalance;
 
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.Slashed(ATTESTER, slashingAmount);
     vm.prank(SLASHER);
     staking.slash(ATTESTER, slashingAmount);
 
-    info = staking.getInfo(ATTESTER);
-    assertEq(info.stake, balance - slashingAmount);
-    assertTrue(info.status == Status.LIVING);
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.effectiveBalance, 0);
+    assertEq(attesterView.exit.amount, balance - slashingAmount);
+    assertTrue(attesterView.status == Status.LIVING);
 
-    // The active attester count should not change until we reach the next epoch
-    assertEq(staking.getActiveAttesterCount(), activeAttesterCount);
-
-    // Move to next epoch for changes to take effect
-    staking.cheat__progressEpoch();
     assertEq(staking.getActiveAttesterCount(), activeAttesterCount - 1);
   }
 }

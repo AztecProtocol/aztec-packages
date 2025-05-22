@@ -3,7 +3,7 @@ use crate::test::helpers::utils::TestAccount;
 use dep::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress,
     constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance,
-    public_keys::PublicKeys, traits::Deserialize,
+    public_keys::PublicKeys, traits::Deserialize, utils::reader::Reader,
 };
 
 pub unconstrained fn reset() {
@@ -12,6 +12,10 @@ pub unconstrained fn reset() {
 
 pub unconstrained fn get_side_effects_counter() -> u32 {
     oracle_get_side_effects_counter()
+}
+
+pub unconstrained fn get_contract_address() -> AztecAddress {
+    oracle_get_contract_address()
 }
 
 pub unconstrained fn set_contract_address(address: AztecAddress) {
@@ -87,11 +91,47 @@ pub unconstrained fn assert_private_call_fails(
     )
 }
 
+pub unconstrained fn private_call_new_flow(
+    from: AztecAddress,
+    contract_address: AztecAddress,
+    function_selector: FunctionSelector,
+    args: [Field],
+    args_hash: Field,
+    is_static_call: bool,
+) -> (u32, Field, Field) {
+    let fields = oracle_private_call_new_flow(
+        from,
+        contract_address,
+        function_selector,
+        args,
+        args_hash,
+        is_static_call,
+    );
+
+    let mut reader = Reader::new(fields);
+    let end_side_effect_counter = reader.read_u32();
+    let returns_hash = reader.read();
+    let tx_hash = reader.read();
+
+    (end_side_effect_counter, returns_hash, tx_hash)
+}
+
+pub unconstrained fn disable_oracles() {
+    oracle_disable_oracles();
+}
+
+pub unconstrained fn enable_oracles() {
+    oracle_enable_oracles();
+}
+
 #[oracle(reset)]
 unconstrained fn oracle_reset() {}
 
 #[oracle(setContractAddress)]
 unconstrained fn oracle_set_contract_address(address: AztecAddress) {}
+
+#[oracle(getContractAddress)]
+unconstrained fn oracle_get_contract_address() -> AztecAddress {}
 
 #[oracle(getSideEffectsCounter)]
 unconstrained fn oracle_get_side_effects_counter() -> u32 {}
@@ -147,3 +187,19 @@ unconstrained fn oracle_assert_private_call_fails(
     sideEffectsCounter: Field,
     isStaticCall: bool,
 ) {}
+
+#[oracle(privateCallNewFlow)]
+unconstrained fn oracle_private_call_new_flow(
+    _from: AztecAddress,
+    _contract_address: AztecAddress,
+    _function_selector: FunctionSelector,
+    _args: [Field],
+    _args_hash: Field,
+    _is_static_call: bool,
+) -> [Field; 3] {}
+
+#[oracle(enableOracles)]
+unconstrained fn oracle_disable_oracles() {}
+
+#[oracle(disableOracles)]
+unconstrained fn oracle_enable_oracles() {}

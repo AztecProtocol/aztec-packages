@@ -9,7 +9,7 @@ import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
-import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
+import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
@@ -25,7 +25,7 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 contract Governance is IGovernance {
   using SafeERC20 for IERC20;
   using ProposalLib for DataStructures.Proposal;
-  using UserLib for DataStructures.User;
+  using UserLib for User;
   using ConfigurationLib for DataStructures.Configuration;
 
   IERC20 public immutable ASSET;
@@ -34,11 +34,11 @@ contract Governance is IGovernance {
 
   mapping(uint256 proposalId => DataStructures.Proposal) internal proposals;
   mapping(uint256 proposalId => mapping(address user => DataStructures.Ballot)) public ballots;
-  mapping(address => DataStructures.User) internal users;
+  mapping(address => User) internal users;
   mapping(uint256 withdrawalId => DataStructures.Withdrawal) internal withdrawals;
 
   DataStructures.Configuration internal configuration;
-  DataStructures.User internal total;
+  User internal total;
   uint256 public proposalCount;
   uint256 public withdrawalCount;
 
@@ -123,7 +123,7 @@ contract Governance is IGovernance {
       msg.sender == governanceProposer,
       Errors.Governance__CallerNotGovernanceProposer(msg.sender, governanceProposer)
     );
-    return _propose(_proposal);
+    return _propose(_proposal, governanceProposer);
   }
 
   /**
@@ -154,7 +154,7 @@ contract Governance is IGovernance {
     );
 
     _initiateWithdraw(_to, amount, configuration.proposeConfig.lockDelay);
-    return _propose(_proposal);
+    return _propose(_proposal, address(this));
   }
 
   function vote(uint256 _proposalId, uint256 _amount, bool _support)
@@ -295,8 +295,8 @@ contract Governance is IGovernance {
       return self.state;
     }
 
-    // If the governanceProposer have changed we mark is as dropped
-    if (governanceProposer != self.governanceProposer) {
+    // If the governanceProposer have changed we mark is as dropped unless it was proposed using the lock.
+    if (governanceProposer != self.proposer && address(this) != self.proposer) {
       return DataStructures.ProposalState.Dropped;
     }
 
@@ -348,14 +348,14 @@ contract Governance is IGovernance {
     return withdrawalId;
   }
 
-  function _propose(IPayload _proposal) internal returns (bool) {
+  function _propose(IPayload _proposal, address _proposer) internal returns (bool) {
     uint256 proposalId = proposalCount++;
 
     proposals[proposalId] = DataStructures.Proposal({
       config: configuration,
       state: DataStructures.ProposalState.Pending,
       payload: _proposal,
-      governanceProposer: governanceProposer,
+      proposer: _proposer,
       creation: Timestamp.wrap(block.timestamp),
       summedBallot: DataStructures.Ballot({yea: 0, nea: 0})
     });

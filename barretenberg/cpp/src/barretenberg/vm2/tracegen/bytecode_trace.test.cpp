@@ -41,13 +41,14 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
             },
         },
         trace);
+    auto rows = trace.as_rows();
 
     // One extra empty row is prepended. Note that precomputed_first_row is not set through process_decomposition()
     // because it pertains to another subtrace.
-    EXPECT_EQ(trace.as_rows().size(), 4 + 1);
+    ASSERT_EQ(rows.size(), 4 + 1);
 
     // We do not inspect row at index 0 as it is completely empty.
-    EXPECT_THAT(trace.as_rows()[1],
+    EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(R, bc_decomposition_sel, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_id, 43),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes, 12),
@@ -62,7 +63,7 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, 4),
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
 
-    EXPECT_THAT(trace.as_rows()[2],
+    EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(R, bc_decomposition_sel, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_id, 43),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes, 31),
@@ -76,7 +77,7 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, 3),
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
 
-    EXPECT_THAT(trace.as_rows()[3],
+    EXPECT_THAT(rows.at(3),
                 AllOf(ROW_FIELD_EQ(R, bc_decomposition_sel, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_id, 43),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes, 5),
@@ -89,7 +90,7 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, 2),
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
 
-    EXPECT_THAT(trace.as_rows()[4],
+    EXPECT_THAT(rows.at(4),
                 AllOf(ROW_FIELD_EQ(R, bc_decomposition_sel, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_id, 43),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes, 2),
@@ -124,13 +125,14 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
             },
         },
         trace);
+    auto rows = trace.as_rows();
 
     // One extra empty row is prepended. Note that precomputed_first_row is not set through process_decomposition()
     // because it pertains to another subtrace.
-    EXPECT_EQ(trace.as_rows().size(), bytecode_size + 1);
+    ASSERT_EQ(rows.size(), bytecode_size + 1);
 
     // We do not inspect row at index 0 as it is completely empty.
-    EXPECT_THAT(trace.as_rows()[1],
+    EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(R, bc_decomposition_sel, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_id, 7),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes, first_byte),
@@ -143,7 +145,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
 
     // We are interested to inspect the boundary aroud bytes_remaining == windows size
 
-    EXPECT_THAT(trace.as_rows()[9],
+    EXPECT_THAT(rows.at(9),
                 AllOf(ROW_FIELD_EQ(R, bc_decomposition_sel, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_id, 7),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes, first_byte + 8),
@@ -154,7 +156,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE),
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
 
-    EXPECT_THAT(trace.as_rows()[10],
+    EXPECT_THAT(rows.at(10),
                 AllOf(ROW_FIELD_EQ(R, bc_decomposition_sel, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_id, 7),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes, first_byte + 9),
@@ -166,7 +168,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
 
     // Last row
-    EXPECT_THAT(trace.as_rows()[bytecode_size],
+    EXPECT_THAT(rows.at(bytecode_size),
                 AllOf(ROW_FIELD_EQ(R, bc_decomposition_sel, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_id, 7),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes, first_byte + bytecode_size - 1),
@@ -215,11 +217,11 @@ TEST(BytecodeTraceGenTest, MultipleEvents)
             },
         },
         trace);
+    auto rows = trace.as_rows();
 
     // One extra empty row is prepended.
-    EXPECT_EQ(trace.as_rows().size(), 2 * DECOMPOSE_WINDOW_SIZE + 20 + 1);
+    ASSERT_EQ(rows.size(), 2 * DECOMPOSE_WINDOW_SIZE + 20 + 1);
 
-    const auto rows = trace.as_rows();
     size_t row_pos = 1;
     for (uint32_t i = 0; i < 4; i++) {
         for (uint32_t j = 0; j < bc_sizes[i]; j++) {
@@ -258,9 +260,9 @@ TEST(BytecodeTraceGenTest, BasicHashing)
             },
         },
         trace);
+    const auto rows = trace.as_rows();
 
     // One extra empty row is prepended.
-    const auto rows = trace.as_rows();
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(R, bc_hashing_sel, 1),
                       ROW_FIELD_EQ(R, bc_hashing_start, 1),
@@ -566,7 +568,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
 
     // One extra empty row is prepended.
     const auto rows = trace.as_rows();
-    EXPECT_EQ(rows.size(), 3 + 1);
+    ASSERT_EQ(rows.size(), 3 + 1);
 
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
@@ -657,7 +659,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
 
     // One extra empty row is prepended.
     const auto rows = trace.as_rows();
-    EXPECT_EQ(rows.size(), 2 + 1);
+    ASSERT_EQ(rows.size(), 2 + 1);
 
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),

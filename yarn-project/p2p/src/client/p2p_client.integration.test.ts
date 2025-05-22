@@ -12,7 +12,7 @@ import { type MakeConsensusPayloadOptions, makeBlockProposal, makeHeader, mockTx
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
-import type { Message, PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { P2PClient } from '../client/p2p_client.js';
@@ -45,6 +45,7 @@ describe('p2p client integration', () => {
 
     p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
+    txPool.hasTxs.mockResolvedValue([]);
     txPool.getAllTxs.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
@@ -70,9 +71,9 @@ describe('p2p client integration', () => {
     const oldTxHandler = p2pService.handleGossipedTx.bind(p2pService);
 
     // Mock the function to just call the old one
-    const handleGossipedTxSpy = jest.fn(async (msg: Message, msgId: string, source: PeerId) => {
-      promise.resolve(Tx.fromBuffer(Buffer.from(msg.data)));
-      await oldTxHandler(msg, msgId, source);
+    const handleGossipedTxSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
+      promise.resolve(Tx.fromBuffer(payload));
+      await oldTxHandler(payload, msgId, source);
     });
     // @ts-expect-error - replace with our own handler
     p2pService.handleGossipedTx = handleGossipedTxSpy;
@@ -87,9 +88,9 @@ describe('p2p client integration', () => {
     const oldProposalHandler = p2pService.processBlockFromPeer.bind(p2pService);
 
     // Mock the function to just call the old one
-    const handleGossipedProposalSpy = jest.fn(async (msg: Message, msgId: string, source: PeerId) => {
-      promise.resolve(BlockProposal.fromBuffer(Buffer.from(msg.data)));
-      await oldProposalHandler(msg, msgId, source);
+    const handleGossipedProposalSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
+      promise.resolve(BlockProposal.fromBuffer(payload));
+      await oldProposalHandler(payload, msgId, source);
     });
     // @ts-expect-error - replace with our own handler
     p2pService.processBlockFromPeer = handleGossipedProposalSpy;
@@ -104,9 +105,9 @@ describe('p2p client integration', () => {
     const oldAttestationHandler = p2pService.processAttestationFromPeer.bind(p2pService);
 
     // Mock the function to just call the old one
-    const handleGossipedAttestationSpy = jest.fn(async (msg: Message, msgId: string, source: PeerId) => {
-      promise.resolve(BlockAttestation.fromBuffer(Buffer.from(msg.data)));
-      await oldAttestationHandler(msg, msgId, source);
+    const handleGossipedAttestationSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
+      promise.resolve(BlockAttestation.fromBuffer(payload));
+      await oldAttestationHandler(payload, msgId, source);
     });
     // @ts-expect-error - replace with our own handler
     p2pService.processAttestationFromPeer = handleGossipedAttestationSpy;
@@ -326,7 +327,7 @@ describe('p2p client integration', () => {
             txHashes: [TxHash.random()],
           };
           const blockProposal = makeBlockProposal(dummyPayload);
-          client1.client.broadcastProposal(blockProposal);
+          await client1.client.broadcastProposal(blockProposal);
 
           // client 1 sends an attestation
           const attestation = mockAttestation(
@@ -428,7 +429,7 @@ describe('p2p client integration', () => {
             txHashes: [TxHash.random()],
           };
           const blockProposal = makeBlockProposal(dummyPayload);
-          client1.client.broadcastProposal(blockProposal);
+          await client1.client.broadcastProposal(blockProposal);
 
           // client 1 sends an attestation
           const attestation = mockAttestation(
