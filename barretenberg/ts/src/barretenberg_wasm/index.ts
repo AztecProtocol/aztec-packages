@@ -1,6 +1,6 @@
 import { getSharedMemoryAvailable, getAvailableThreads } from './helpers/node/index.js';
 import { fetchCode } from './fetch_code/index.js';
-import { createDebugLogger } from '../log.js';
+import { createDebugLogger } from '../log/index.js';
 
 export async function fetchModuleAndThreads(
   desiredThreads = 32,

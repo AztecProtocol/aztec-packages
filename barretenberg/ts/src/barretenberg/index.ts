@@ -6,7 +6,7 @@ import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js
 import { Crs, GrumpkinCrs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
-import { createDebugLogger } from '../log.js';
+import { createDebugLogger } from '../log/index.js';
 
 export { BarretenbergVerifier } from './verifier.js';
 export { UltraHonkBackend, AztecClientBackend } from './backend.js';

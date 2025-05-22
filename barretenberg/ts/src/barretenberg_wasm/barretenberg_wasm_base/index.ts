@@ -1,4 +1,4 @@
-import { createDebugLogger } from '../../log.js';
+import { createDebugLogger } from '../../log/index.js';
 import { randomBytes } from '../../random/index.js';
 
 /**

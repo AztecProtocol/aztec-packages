@@ -4,7 +4,7 @@ import { stat } from 'fs/promises';
 import { Readable } from 'stream';
 import { homedir } from 'os';
 import { finished } from 'stream/promises';
-import { createDebugLogger } from '../../log.js';
+import { createDebugLogger } from '../../log/index.js';
 
 /**
  * Generic CRS finder utility class.

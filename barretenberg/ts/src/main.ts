@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import 'source-map-support/register.js';
-import { Crs, GrumpkinCrs, Barretenberg, RawBuffer } from './index.js';
-import { createDebugLogger, logger } from './log.js';
+import { Crs, Barretenberg, RawBuffer } from './index.js';
+import { createDebugLogger, initLogger } from './log/index.js';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { Command } from 'commander';
@@ -282,9 +282,7 @@ program.option('-v, --verbose', 'enable verbose logging', false);
 program.option('-c, --crs-path <path>', 'set crs path', './crs');
 
 function handleGlobalOptions() {
-  if (program.opts().verbose) {
-    logger.level = 'trace';
-  }
+  initLogger({ useStdErr: true, level: program.opts().verbose ? 'debug' : 'info' });
   debug = createDebugLogger('bb');
   return { crsPath: program.opts().crsPath };
 }
@@ -367,8 +365,8 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-o, --output-path <path>', 'Specify the path to write the contract', './target/contract.sol')
   .requiredOption('-k, --vk-path <path>', 'Path to a verification key.')
-  .action(async ({ bytecodePath, outputPath, vkPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, outputPath, vkPath }) => {
+    const { crsPath } = handleGlobalOptions();
     await contractUltraHonk(bytecodePath, vkPath, crsPath, outputPath);
   });
 
@@ -413,6 +411,7 @@ program
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
   .action(async ({ bytecodePath, witnessPath, outputPath }) => {
     const { crsPath } = handleGlobalOptions();
+    debug(`Creating UltraHonk proof bytecode=${bytecodePath}`);
     await proveUltraHonk(bytecodePath, witnessPath, crsPath, outputPath);
   });
 
@@ -446,6 +445,7 @@ program
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
   .action(async ({ bytecodePath, outputPath }) => {
     const { crsPath } = handleGlobalOptions();
+    debug(`Writing verification key to ${outputPath}`);
     await writeVkUltraHonk(bytecodePath, crsPath, outputPath);
   });
 
