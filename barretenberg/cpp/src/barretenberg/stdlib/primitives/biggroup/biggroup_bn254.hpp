@@ -82,9 +82,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
     const std::vector<field_t<C>> generator_wnaf = compute_wnaf<128, 8>(generator_k1);
     const std::vector<field_t<C>> generator_endo_wnaf = compute_wnaf<128, 8>(generator_k2);
     const auto generator_table =
-        element::eight_bit_fixed_base_table<>(element::eight_bit_fixed_base_table<>::CurveType::BN254, false);
+        element::eight_bit_fixed_base_table(element::eight_bit_fixed_base_table::CurveType::BN254, false);
     const auto generator_endo_table =
-        element::eight_bit_fixed_base_table<>(element::eight_bit_fixed_base_table<>::CurveType::BN254, true);
+        element::eight_bit_fixed_base_table(element::eight_bit_fixed_base_table::CurveType::BN254, true);
 
     for (size_t i = 0; i < small_points.size(); ++i) {
         small_naf_entries.emplace_back(compute_naf(small_scalars[i], max_num_small_bits));
