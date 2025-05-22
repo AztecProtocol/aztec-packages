@@ -466,23 +466,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.logsSource.getPrivateLogs(from, limit);
   }
 
-  /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
-   * that tag.
-   */
-  public getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.logsSource.getLogsByTags(tags);
-  }
-
   public async getPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     const allLogs = await this.logsSource.getLogsByTags(tags);
+    // TODO(#14460): Have logSource implement getPrivateLogsByTags and skip the filter here.
     return allLogs.map(logs => logs.filter(log => !log.isFromPublic));
   }
 
   public async getPublicLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     const allLogs = await this.logsSource.getLogsByTags(tags);
+    // TODO(#14460): Have logSource implement getPrivateLogsByTags and skip the filter here.
     return allLogs.map(logs => logs.filter(log => log.isFromPublic));
   }
 
