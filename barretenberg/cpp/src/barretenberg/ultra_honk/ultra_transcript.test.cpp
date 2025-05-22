@@ -52,6 +52,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
 
         size_t round = 0;
+        manifest_expected.add_entry(round, "vkey_hash", frs_per_Fr);
         manifest_expected.add_entry(round, "circuit_size", frs_per_uint32);
         manifest_expected.add_entry(round, "public_input_size", frs_per_uint32);
         manifest_expected.add_entry(round, "pub_inputs_offset", frs_per_uint32);
