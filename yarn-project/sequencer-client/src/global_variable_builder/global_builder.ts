@@ -21,7 +21,7 @@ import { createPublicClient, fallback, http } from 'viem';
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createLogger('sequencer:global_variable_builder');
   private currentBaseFees: Promise<GasFees> = Promise.resolve(new GasFees(Fr.ZERO, Fr.ZERO));
-  private currentBlockNumber: bigint | undefined = undefined;
+  private currentL1BlockNumber: bigint | undefined = undefined;
 
   private readonly rollupContract: RollupContract;
   private readonly publicClient: ViemPublicClient;
@@ -50,12 +50,12 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
    * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
    * @returns Base fees for the requested block
    */
-  private async computeCurrentBaseFees(blockNumber: bigint): Promise<GasFees> {
+  private async computeCurrentBaseFees(): Promise<GasFees> {
     // Since this might be called in the middle of a slot where a block might have been published,
     // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
     // The timestamp of that last block will act as a lower bound for the next block.
 
-    const lastBlock = await this.rollupContract.getBlock(blockNumber);
+    const lastBlock = await this.rollupContract.getBlock(await this.rollupContract.getBlockNumber());
     const earliestTimestamp = await this.rollupContract.getTimestampForSlot(lastBlock.slotNumber + 1n);
     const nextEthTimestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
     const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
@@ -65,12 +65,12 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
 
   public async getCurrentBaseFees(): Promise<GasFees> {
     // Get the current block number
-    const blockNumber = await this.rollupContract.getBlockNumber();
+    const blockNumber = await this.publicClient.getBlockNumber();
 
-    // If it has moved to a new block then get the latest values
-    if (this.currentBlockNumber === undefined || blockNumber > this.currentBlockNumber) {
-      this.currentBlockNumber = blockNumber;
-      this.currentBaseFees = this.currentBaseFees.then(() => this.computeCurrentBaseFees(blockNumber));
+    // If the L1 block number has changed then chain a new promise to get the current base fees
+    if (this.currentL1BlockNumber === undefined || blockNumber > this.currentL1BlockNumber) {
+      this.currentL1BlockNumber = blockNumber;
+      this.currentBaseFees = this.currentBaseFees.then(() => this.computeCurrentBaseFees());
     }
     return this.currentBaseFees;
   }
