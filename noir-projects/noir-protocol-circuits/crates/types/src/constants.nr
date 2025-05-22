@@ -946,4 +946,16 @@ mod test {
     unconstrained fn test_constants() {
         assert(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL <= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
     }
+
+    #[test]
+    unconstrained fn test_grumpkin_point() {
+        assert_eq(
+            super::GRUMPKIN_ONE_X,
+            std::embedded_curve_ops::EmbeddedCurvePoint::generator().x,
+        );
+        assert_eq(
+            super::GRUMPKIN_ONE_Y,
+            std::embedded_curve_ops::EmbeddedCurvePoint::generator().y,
+        );
+    }
 }
