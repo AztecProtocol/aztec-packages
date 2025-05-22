@@ -119,9 +119,9 @@ where
     }
 }
 
-impl<T, let INITIAL_DELAY: u32, let N: u32> Hash for SharedMutableValues<T, INITIAL_DELAY>
+impl<T, let INITIAL_DELAY: u32> Hash for SharedMutableValues<T, INITIAL_DELAY>
 where
-    T: Packable<N>,
+    T: Packable<_>,
 {
     fn hash(self) -> Field {
         poseidon2_hash(self.pack())

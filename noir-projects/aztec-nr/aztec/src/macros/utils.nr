@@ -164,7 +164,7 @@ pub(crate) trait AsStrQuote {
     fn as_str_quote(self) -> (Self, u32);
 }
 
-impl<let N: u32, Env> AsStrQuote for Quoted {
+impl AsStrQuote for Quoted {
     // Used to convert an arbitrary quoted type into a quoted string, removing whitespace between tokens
     comptime fn as_str_quote(self) -> (Quoted, u32) {
         let tokens = self.tokens();

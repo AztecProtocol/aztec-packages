@@ -42,10 +42,7 @@ pub struct PublicImmutable<T, Context> {
 
 /// `WithHash<T>` stores both the packed value (using N fields) and its hash (1 field), requiring N = M + 1 total
 /// fields.
-impl<T, Context, let M: u32, let N: u32> Storage<N> for PublicImmutable<T, Context>
-where
-    WithHash<T, M>: Packable<N>,
-{
+impl<T, Context, let N: u32> Storage<N> for PublicImmutable<T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
