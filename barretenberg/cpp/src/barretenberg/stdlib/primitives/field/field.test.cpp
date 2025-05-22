@@ -173,7 +173,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
     /**
      * @brief Demonstrate current behavior of assert_equal.
-     * // Add assert_equal with a constant
      */
     static void test_assert_equal()
     {

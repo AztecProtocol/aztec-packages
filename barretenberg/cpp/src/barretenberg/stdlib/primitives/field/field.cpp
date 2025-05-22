@@ -42,7 +42,6 @@ template <typename Builder>
 field_t<Builder>::field_t(const bool_t<Builder>& other)
     : context(other.context)
 {
-    // Explain
     if (other.witness_index == IS_CONSTANT) {
         additive_constant = (other.witness_bool ^ other.witness_inverted) ? bb::fr::one() : bb::fr::zero();
         multiplicative_constant = bb::fr::one();
@@ -54,7 +53,7 @@ field_t<Builder>::field_t(const bool_t<Builder>& other)
     }
     tag = other.tag;
 }
-// Docs + explain the usage
+
 template <typename Builder>
 field_t<Builder> field_t<Builder>::from_witness_index(Builder* ctx, const uint32_t witness_index)
 {
@@ -62,7 +61,7 @@ field_t<Builder> field_t<Builder>::from_witness_index(Builder* ctx, const uint32
     result.witness_index = witness_index;
     return result;
 }
-// Convert non-native field to non-native bool. Docs
+
 template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
 {
     if (witness_index == IS_CONSTANT) {
@@ -98,7 +97,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     result.set_origin_tag(tag);
     return result;
 }
-// Docs
+
 template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const field_t& other) const
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
@@ -358,7 +357,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
 }
 /**
  * @brief raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
- * implicitly(???) range constrained.
+ * implicitly range constrained.
  *
  * @returns this ** (exponent)
  */
@@ -374,7 +373,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
     for (size_t i = 0; i < exponent_bits.size(); ++i) {
         uint256_t value_bit = exponent_value & 1;
         bool_t<Builder> bit;
-        // Just a witness in the non-constant case?
         bit = exponent_constant ? bool_t<Builder>(ctx, value_bit.data[0]) : witness_t<Builder>(ctx, value_bit.data[0]);
         exponent_bits[31 - i] = (bit);
         exponent_value >>= 1;
@@ -386,8 +384,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
             exponent_accumulator += exponent_accumulator;
             exponent_accumulator += bit;
         }
-        // if exponent is not constant, I don't see anything constraining bits to be **bits**. looks unsafe. prob we
-        // don't need the branch with non-constant exponent
         exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
     }
     field_t accumulator(ctx, 1);
@@ -411,8 +407,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const size_t exponent) const
 {
     auto* ctx = get_context();
-    // well exponent is size_t, we are creating a non-constant witness which is going to a single assert_equal that is
-    // seemingly unsafe.
     auto exponent_field_elt = field_t::from_witness(ctx, exponent);
     return pow(exponent_field_elt);
 }
@@ -424,8 +418,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
 {
     Builder* ctx = first_non_null<Builder>(context, to_mul.context, to_add.context);
 
-    if ((to_mul.witness_index == IS_CONSTANT) && (to_add.witness_index == IS_CONSTANT) &&
-        (witness_index == IS_CONSTANT)) {
+    if (to_mul.is_constant() && to_add.is_constant() && this->is_constant()) {
         return ((*this) * to_mul + to_add);
     }
 
@@ -495,12 +488,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     if ((add_a.is_constant()) && (add_b.is_constant()) && (this->is_constant())) {
         return ((*this) + add_a + add_b).normalize();
     }
-    // Extract multiplicative constants of inputs
     bb::fr q_1 = multiplicative_constant;
     bb::fr q_2 = add_a.multiplicative_constant;
     bb::fr q_3 = add_b.multiplicative_constant;
-
-    // Define the multiplicative constant of the result
     bb::fr q_c = additive_constant + add_a.additive_constant + add_b.additive_constant;
 
     bb::fr a = this->is_constant() ? bb::fr(0) : ctx->get_variable(witness_index);
@@ -513,9 +503,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     result.witness_index = ctx->add_variable(out);
 
     ctx->create_big_mul_gate({
-        .a = witness_index == IS_CONSTANT ? ctx->zero_idx : witness_index,
-        .b = add_a.witness_index == IS_CONSTANT ? ctx->zero_idx : add_a.witness_index,
-        .c = add_b.witness_index == IS_CONSTANT ? ctx->zero_idx : add_b.witness_index,
+        .a = this->is_constant() ? ctx->zero_idx : witness_index,
+        .b = add_a.is_constant() ? ctx->zero_idx : add_a.witness_index,
+        .c = add_b.is_constant() == IS_CONSTANT ? ctx->zero_idx : add_b.witness_index,
         .d = result.witness_index,
         .mul_scaling = bb::fr(0),
         .a_scaling = q_1,
@@ -534,7 +524,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
  *
  * @details If the element is a constant or it is already normalized, just return the element itself
  *
- *@todo We need to add a mechanism into the circuit builders for caching normalized variants for fields and bigfields.
+ * @todo We need to add a mechanism into the circuit builders for caching normalized variants for fields and bigfields.
  *It should make the circuits smaller. https://github.com/AztecProtocol/barretenberg/issues/1052
  *
  * @tparam Builder
@@ -725,7 +715,7 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
     // A constant field_t's value is tracked wholly by its additive_constant member.
     return additive_constant;
 }
-// Recent changes, review, add docs
+
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const field_t& other) const
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
@@ -766,7 +756,6 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::operator!=(const f
     return !operator==(other);
 }
 
-// Do we really need it?
 template <typename Builder>
 field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& predicate) const
 {
@@ -783,16 +772,12 @@ field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& pre
 /**
  * @brief If predicate == true then return lhs, else return rhs
 
- * @details Conditional assign x = (predicate) ? lhs : rhs can be expressed arithmetically as
- * x = predciate * lhs + (1 -predicate) * rhs
+ * @details Conditional assign x = (predicate) ? lhs : rhs can be expressed arithmetically as follows
+ *      x = predciate * lhs + (1 -predicate) * rhs
  * which is equivalent to
- * x = (lhs - rhs) * predicate + rhs = (lhs - rhs)*madd(predicate, rhs)
+ *      x = (lhs - rhs) * predicate + rhs = (lhs - rhs)*madd(predicate, rhs)
  * where take advantage of `madd()` to create less gates.
  *
- * @tparam Builder
- * @param predicate
- * @param lhs
- * @param rhs
  * @return field_t<Builder>
  */
 template <typename Builder>
@@ -800,12 +785,13 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
                                                       const field_t& lhs,
                                                       const field_t& rhs)
 {
+    // If the predicate is constant, the conditional assignment can be done out of circuit
     if (predicate.is_constant()) {
         auto result = field_t(predicate.get_value() ? lhs : rhs);
         result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
         return result;
     }
-    // if lhs and rhs are the same witness, just return it
+    // If lhs and rhs are the same witness, just return it
     if (lhs.get_witness_index() == rhs.get_witness_index() && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
         return lhs;
@@ -817,7 +803,6 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
 template <typename Builder>
 void field_t<Builder>::create_range_constraint(const size_t num_bits, std::string const& msg) const
 {
-    // should be more careful about num bits?
     if (num_bits == 0) {
         assert_is_zero("0-bit range_constraint on non-zero field_t.");
     } else {
@@ -845,7 +830,6 @@ void field_t<Builder>::create_range_constraint(const size_t num_bits, std::strin
  */
 template <typename Builder> void field_t<Builder>::assert_equal(const field_t& rhs, std::string const& msg) const
 {
-    // Expand docs?
     const field_t lhs = *this;
     Builder* ctx = lhs.get_context() ? lhs.get_context() : rhs.get_context();
 
@@ -881,7 +865,7 @@ void field_t<Builder>::assert_is_in_set(const std::vector<field_t>& set, std::st
     }
     product.assert_is_zero(msg);
 }
-// Will be gone with plookups?
+
 template <typename Builder>
 std::array<field_t<Builder>, 4> field_t<Builder>::preprocess_two_bit_table(const field_t& T0,
                                                                            const field_t& T1,
@@ -960,13 +944,7 @@ field_t<Builder> field_t<Builder>::select_from_three_bit_table(const std::array<
 }
 
 /**
- * @brief Constrain a + b + c + d = 0
- *
- * @tparam Builder
- * @param a
- * @param b
- * @param c
- * @param d
+ * @brief Constrain a + b + c + d to be equal to 0
  */
 template <typename Builder>
 void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d)
@@ -1038,7 +1016,6 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const std::vector<field_t>& input)
 {
-    // Usage?
     if (input.empty()) {
         return field_t<Builder>(nullptr, 0);
     }
@@ -1081,7 +1058,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
             }
             ctx = (element.get_context() ? element.get_context() : ctx);
         }
-        if (accumulator.size() == 0) {
+        if (accumulator.empty()) {
             return constant_term;
         } else if (accumulator.size() != input.size()) {
             accumulator[0] += constant_term;
@@ -1203,8 +1180,8 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
     const std::function<witness_t<Builder>(Builder*, uint64_t, uint256_t)> get_bit) const
 {
     static constexpr size_t num_bits = 256;
-    static constexpr size_t midpoint = 127;
-
+    ASSERT(num_bits == 256);
+    static constexpr size_t midpoint = num_bits / 2 - 1;
     std::vector<bool_t<Builder>> result(num_bits);
 
     const uint256_t val_u256 = static_cast<uint256_t>(get_value());

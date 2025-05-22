@@ -74,7 +74,7 @@ template <typename Builder> class field_t {
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
     {}
-    // is it safe?
+
     field_t(const uint256_t& value)
         : context(nullptr)
         , additive_constant(value)
@@ -106,7 +106,7 @@ template <typename Builder> class field_t {
 
     static constexpr bool is_composite = false;
     static constexpr uint256_t modulus = bb::fr::modulus;
-    // Not tested?
+
     static field_t from_witness_index(Builder* parent_context, uint32_t witness_index);
 
     explicit operator bool_t<Builder>() const;
@@ -177,7 +177,6 @@ template <typename Builder> class field_t {
         return *this;
     }
 
-    // Do we really need it? In arrays?
     // Prefix increment (++x)
     field_t& operator++()
     {
@@ -212,23 +211,21 @@ template <typename Builder> class field_t {
     field_t conditional_negate(const bool_t<Builder>& predicate) const;
 
     void assert_equal(const field_t& rhs, std::string const& msg = "field_t::assert_equal") const;
-    // Tests
+
     void assert_not_equal(const field_t& rhs, std::string const& msg = "field_t::assert_not_equal") const;
 
     void assert_is_in_set(const std::vector<field_t>& set, std::string const& msg = "field_t::assert_not_in_set") const;
 
     static field_t conditional_assign(const bool_t<Builder>& predicate, const field_t& lhs, const field_t& rhs);
 
-    // Nuke?
     static std::array<field_t, 4> preprocess_two_bit_table(const field_t& T0,
                                                            const field_t& T1,
                                                            const field_t& T2,
                                                            const field_t& T3);
-    // Nuke?
     static field_t select_from_two_bit_table(const std::array<field_t, 4>& table,
                                              const bool_t<Builder>& t1,
                                              const bool_t<Builder>& t0);
-    // Nuke?
+
     static std::array<field_t, 8> preprocess_three_bit_table(const field_t& T0,
                                                              const field_t& T1,
                                                              const field_t& T2,
@@ -237,14 +234,12 @@ template <typename Builder> class field_t {
                                                              const field_t& T5,
                                                              const field_t& T6,
                                                              const field_t& T7);
-    // Nuke?
     static field_t select_from_three_bit_table(const std::array<field_t, 8>& table,
                                                const bool_t<Builder>& t2,
                                                const bool_t<Builder>& t1,
                                                const bool_t<Builder>& t0);
 
     static void evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
-    // do we need it?
     static void evaluate_polynomial_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
 
     static field_t accumulate(const std::vector<field_t>& to_add);
@@ -296,17 +291,16 @@ template <typename Builder> class field_t {
     void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
     void assert_is_zero(std::string const& msg = "field_t::assert_is_zero") const;
     bool is_constant() const { return witness_index == IS_CONSTANT; }
-    // Not tested explicitly
     uint32_t set_public() const { return context->set_public_input(normalize().witness_index); }
 
-    // Test this
     /**
      * Create a witness from a constant. This way the value of the witness is fixed and public (public, because the
      * value becomes hard-coded as an element of the q_c selector vector).
      */
-    void convert_constant_to_fixed_witness(Builder* context)
+    void convert_constant_to_fixed_witness(Builder* ctx)
     {
         ASSERT(witness_index == IS_CONSTANT);
+        context = ctx;
         (*this) = field_t<Builder>(witness_t<Builder>(context, get_value()));
         context->fix_witness(witness_index, get_value());
     }
@@ -344,7 +338,6 @@ template <typename Builder> class field_t {
      */
     uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
 
-    // remove num bits
     std::vector<bool_t<Builder>> decompose_into_bits(
         std::function<witness_t<Builder>(Builder* ctx, uint64_t, uint256_t)> get_bit =
             [](Builder* ctx, uint64_t j, const uint256_t& val) {
@@ -371,12 +364,11 @@ template <typename Builder> class field_t {
             return uint256_t(a.get_value()) < uint256_t(b.get_value());
         }
 
-        // a < b
-        // both a and b are < K where K = 2^{input_bits} - 1
         // Let q = (a < b)
-        // if q == 1, this implies b - a - 1 < K
-        // if q == 0, this implies b - a + K - 1 < K
-        // i.e. for any value of q:
+        // Assume both a and b are < K where K = 2^{num_bits} - 1
+        // if q == 1, then  0 < b - a - 1 < K
+        // if q == 0, then  0 < b - a + K - 1 < K
+        // i.e. for any bool value of q:
         // (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
         // q.(b - a - b + a) + b - a + K - 1 - (K - 1).q - q = r
         // b - a + (K - 1) - (K).q = r
