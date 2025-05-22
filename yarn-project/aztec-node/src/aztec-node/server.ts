@@ -476,6 +476,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.logsSource.getLogsByTags(tags);
   }
 
+  public async getPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+    const allLogs = await this.logsSource.getLogsByTags(tags);
+    return allLogs.map(logs => logs.filter(log => !log.isFromPublic));
+  }
+
+  public async getPublicLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+    const allLogs = await this.logsSource.getLogsByTags(tags);
+    return allLogs.map(logs => logs.filter(log => log.isFromPublic));
+  }
+
   /**
    * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.

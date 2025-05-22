@@ -1,7 +1,7 @@
 import { Fr, Point } from '@aztec/foundation/fields';
 import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ContractClassLog, ContractClassLogFields, LogWithTxData } from '@aztec/stdlib/logs';
+import { ContractClassLog, ContractClassLogFields, PublicLogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -412,11 +412,11 @@ export class Oracle {
     return [toACVMField(true)];
   }
 
-  async getLogByTag([tag]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
-    const log = await this.typedOracle.getLogByTag(Fr.fromString(tag));
+  async getPublicLogByTag([tag]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
+    const log = await this.typedOracle.getPublicLogByTag(Fr.fromString(tag));
 
     if (log == null) {
-      return [toACVMField(0), ...LogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
+      return [toACVMField(0), ...PublicLogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
     } else {
       return [toACVMField(1), ...log.toNoirSerialization().map(toACVMFieldSingleOrArray)];
     }

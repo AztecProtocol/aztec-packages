@@ -635,7 +635,7 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('getLogByTag', () => {
+  describe('getPublicLogByTag', () => {
     const tag = Fr.random();
 
     beforeEach(() => {
@@ -646,7 +646,7 @@ describe('PXEOracleInterface', () => {
     it('returns null if no logs found for tag', async () => {
       aztecNode.getLogsByTags.mockResolvedValue([[]]);
 
-      const result = await pxeOracleInterface.getLogByTag(tag);
+      const result = await pxeOracleInterface.getPublicLogByTag(tag);
       expect(result).toBeNull();
     });
 
@@ -662,7 +662,7 @@ describe('PXEOracleInterface', () => {
         txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
       );
 
-      const result = (await pxeOracleInterface.getLogByTag(tag))!;
+      const result = (await pxeOracleInterface.getPublicLogByTag(tag))!;
 
       if (isFromPublic) {
         expect(result.logContent).toEqual(
@@ -683,7 +683,7 @@ describe('PXEOracleInterface', () => {
       const scopedLog = await TxScopedL2Log.random();
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLog, scopedLog]]);
 
-      await expect(pxeOracleInterface.getLogByTag(tag)).rejects.toThrow(/Got 2 logs for tag/);
+      await expect(pxeOracleInterface.getPublicLogByTag(tag)).rejects.toThrow(/Got 2 logs for tag/);
     });
 
     it('throws if tx effect not found', async () => {
@@ -691,7 +691,7 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
       aztecNode.getTxEffect.mockResolvedValue(undefined);
 
-      await expect(pxeOracleInterface.getLogByTag(tag)).rejects.toThrow(/failed to retrieve tx effects/);
+      await expect(pxeOracleInterface.getPublicLogByTag(tag)).rejects.toThrow(/failed to retrieve tx effects/);
     });
 
     it('returns log fields that are actually emitted', async () => {
@@ -709,7 +709,7 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLogWithPadding]]);
       aztecNode.getTxEffect.mockResolvedValue(await randomIndexedTxEffect());
 
-      const result = await pxeOracleInterface.getLogByTag(tag);
+      const result = await pxeOracleInterface.getPublicLogByTag(tag);
 
       expect(result?.logContent).toEqual(logContent);
     });

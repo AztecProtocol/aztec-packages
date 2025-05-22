@@ -4,7 +4,7 @@ import type { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdli
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import type { ContractClassLog, IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
+import type { ContractClassLog, IndexedTaggingSecret, PublicLogWithTxData } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
@@ -231,8 +231,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('deliverNote'));
   }
 
-  getLogByTag(_tag: Fr): Promise<LogWithTxData | null> {
-    throw new OracleMethodNotAvailableError('getLogByTag');
+  getPublicLogByTag(_tag: Fr): Promise<PublicLogWithTxData | null> {
+    throw new OracleMethodNotAvailableError('getPublicLogByTag');
   }
 
   storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
