@@ -169,6 +169,14 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     // Fee payer
     cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = feePayer;
 
+    // Public Call Request Array Lengths
+    cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX] =
+        publicCallRequestArrayLengths.setupCalls;
+    cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX] =
+        publicCallRequestArrayLengths.appLogicCalls;
+    cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX] =
+        static_cast<uint8_t>(publicCallRequestArrayLengths.teardownCall);
+
     // Setup, app logic, and teardown call requests
     set_public_call_request_array_in_cols(
         publicSetupCallRequests, cols, AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX);
@@ -228,17 +236,29 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     // End gas used
     set_gas_in_cols(endGasUsed, cols, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX);
 
-    // End accumulated data
+    // Accumulated Data Array Lengths
+    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+        accumulatedDataArrayLengths.noteHashes;
+    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+        accumulatedDataArrayLengths.nullifiers;
+    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+        accumulatedDataArrayLengths.l2ToL1Msgs;
+    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX] =
+        accumulatedDataArrayLengths.publicLogs;
+    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX] =
+        accumulatedDataArrayLengths.publicDataWrites;
+
+    // Accumulated data
     set_field_array_in_cols(
-        accumulatedData.noteHashes, cols, AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX);
+        accumulatedData.noteHashes, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX);
     set_field_array_in_cols(
-        accumulatedData.nullifiers, cols, AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX);
+        accumulatedData.nullifiers, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX);
     set_l2_to_l1_msg_array_in_cols(
-        accumulatedData.l2ToL1Msgs, cols, AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX);
+        accumulatedData.l2ToL1Msgs, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX);
     set_public_logs_in_cols(
-        accumulatedData.publicLogs, cols, AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX);
+        accumulatedData.publicLogs, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX);
     set_public_data_writes_in_cols(
-        accumulatedData.publicDataWrites, cols, AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX);
+        accumulatedData.publicDataWrites, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX);
 
     // Transaction fee
     cols[0][AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX] = transactionFee;

@@ -1,6 +1,5 @@
 import { BackendOptions, Barretenberg, CircuitOptions } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
-import { decompressSync as gunzip } from 'fflate';
 import {
   deflattenFields,
   flattenFieldsAsArray,
@@ -10,6 +9,7 @@ import {
   PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
 import { Encoder } from 'msgpackr/pack';
+import { ungzip } from 'pako';
 
 export class AztecClientBackendError extends Error {
   constructor(message: string) {
@@ -102,7 +102,7 @@ export class UltraHonkBackend {
             ? this.api.acirProveUltraStarknetZkHonk.bind(this.api)
             : this.api.acirProveUltraHonk.bind(this.api);
 
-    const proofWithPublicInputs = await proveUltraHonk(this.acirUncompressedBytecode, gunzip(compressedWitness));
+    const proofWithPublicInputs = await proveUltraHonk(this.acirUncompressedBytecode, ungzip(compressedWitness));
 
     // Write VK to get the number of public inputs
     const writeVKUltraHonk = options?.keccak
@@ -313,7 +313,7 @@ export class AztecClientBackend {
 // Converts bytecode from a base64 string to a Uint8Array
 function acirToUint8Array(base64EncodedBytecode: string): Uint8Array {
   const compressedByteCode = base64Decode(base64EncodedBytecode);
-  return gunzip(compressedByteCode);
+  return ungzip(compressedByteCode);
 }
 
 // Since this is a simple function, we can use feature detection to

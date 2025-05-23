@@ -43,11 +43,18 @@ mkdir src
 yarn add @aztec/aztec.js@0.87.0 @aztec/accounts@0.87.0 @aztec/noir-contracts.js@0.87.0 typescript @types/node
 ```
 
+:::note Match tool and dependency versions
+The version returned from `aztec -V` should match the `@aztec/...` dependencies in package.json
+
+:::
+
 and yarn config:
 
 ```sh
 echo "nodeLinker: node-modules" > .yarnrc.yml
 ```
+
+Then run: `yarn install`
 
 4. Add a `tsconfig.json` file into the project root and paste this:
 
@@ -201,7 +208,7 @@ Great! The Sandbox is running and we are able to interact with it.
 
 The sandbox is preloaded with multiple accounts so you don't have to sit and create them. Let's load these accounts. Add this code to the `main()` function in `index.ts` below the code that's there:
 
-```typescript title="load_accounts" showLineNumbers 
+```typescript title="load_accounts" showLineNumbers
 ////////////// LOAD SOME ACCOUNTS FROM THE SANDBOX //////////////
 // The sandbox comes with a set of created accounts. Load them
 const accounts = await getDeployedTestAccountsWallets(pxe);
@@ -221,7 +228,7 @@ An explanation on accounts on Aztec can be found [here](../../../../aztec/concep
 
 Now that we have our accounts loaded, let's move on to deploy our pre-compiled token smart contract. You can find the full code for the contract [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/app/token_contract/src). Add this to `index.ts` below the code you added earlier:
 
-```typescript title="Deployment" showLineNumbers 
+```typescript title="Deployment" showLineNumbers
 ////////////// DEPLOY OUR TOKEN CONTRACT //////////////
 
 const initialSupply = 1_000_000n;
@@ -256,7 +263,7 @@ A token contract wouldn't be very useful if you aren't able to query the balance
 
 Call the `balance_of_private` function using the following code (paste this):
 
-```typescript title="Balance" showLineNumbers 
+```typescript title="Balance" showLineNumbers
 
 ////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////
 
@@ -306,7 +313,7 @@ Now lets transfer some funds from Alice to Bob by calling the `transfer` functio
 
 Here is the Typescript code to call the `transfer` function, add this to your `index.ts` at the bottom of the `main` function:
 
-```typescript title="Transfer" showLineNumbers 
+```typescript title="Transfer" showLineNumbers
 ////////////// TRANSFER FUNDS FROM ALICE TO BOB //////////////
 
 // We will now transfer tokens from ALice to Bob
@@ -349,7 +356,7 @@ This function starts as private to set up the creation of a [partial note](../..
 
 Let's now use these functions to mint some tokens to Bob's account using Typescript, add this to `index.ts`:
 
-```typescript title="Mint" showLineNumbers 
+```typescript title="Mint" showLineNumbers
 ////////////// MINT SOME MORE TOKENS TO BOB'S ACCOUNT //////////////
 
 // Now mint some further funds for Bob

@@ -32,6 +32,7 @@ struct PublicInputs {
     Gas startGasUsed;
     GasSettings gasSettings;
     AztecAddress feePayer;
+    PublicCallRequestArrayLengths publicCallRequestArrayLengths;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests;
     PublicCallRequest publicTeardownCallRequest;
@@ -43,6 +44,7 @@ struct PublicInputs {
     // Outputs
     TreeSnapshots endTreeSnapshots;
     Gas endGasUsed;
+    AvmAccumulatedDataArrayLengths accumulatedDataArrayLengths;
     AvmAccumulatedData accumulatedData;
     FF transactionFee;
     bool reverted;
@@ -87,6 +89,7 @@ struct PublicInputs {
                    startGasUsed,
                    gasSettings,
                    feePayer,
+                   publicCallRequestArrayLengths,
                    publicSetupCallRequests,
                    publicAppLogicCallRequests,
                    publicTeardownCallRequest,
@@ -96,6 +99,7 @@ struct PublicInputs {
                    previousRevertibleAccumulatedData,
                    endTreeSnapshots,
                    endGasUsed,
+                   accumulatedDataArrayLengths,
                    accumulatedData,
                    transactionFee,
                    reverted);
