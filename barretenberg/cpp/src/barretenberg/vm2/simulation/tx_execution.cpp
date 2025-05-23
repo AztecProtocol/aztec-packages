@@ -8,29 +8,37 @@
 
 namespace bb::avm2::simulation {
 
-void TxExecution::emit_public_call_request(ContextInterface& context, ExecutionResult& result, TransactionPhase phase)
+void TxExecution::emit_public_call_request(ContextInterface& context,
+                                           const ExecutionResult& result,
+                                           TreeStates&& prev_tree_state,
+                                           TransactionPhase phase)
 {
-    events.emit(PhaseEvent{
-        .phase = phase,
-        .msg_sender = context.get_msg_sender(),
-        .contract_address = context.get_address(),
-        .is_static = context.get_is_static(),
-        .calldata_hash = FF(0), // TODO: This should be the hash of the calldata
-        .success = result.success,
-        .tree_state = merkle_db.get_tree_state(),
-        // We need more things here
-        // Gas
-        // PublicLogs counter
-    });
+    events.emit(TxEvent{ .phase = phase,
+                         .prev_tree_state = std::move(prev_tree_state),
+                         .next_tree_state = merkle_db.get_tree_state(),
+                         .event = PhaseEvent{
+                             .msg_sender = context.get_msg_sender(),
+                             .contract_address = context.get_address(),
+                             .is_static = context.get_is_static(),
+                             .calldata_hash = FF(0), // TODO: This should be the hash of the calldata
+                             .success = result.success,
+                             // We need more things here
+                             // Gas
+                             // PublicLogs counter
+                         } });
 }
 
 void TxExecution::emit_private_append_tree(const FF& leaf_value, uint64_t size, TransactionPhase phase)
 {
-    events.emit(PrivateAppendTreeEvent{
+    events.emit(TxEvent{
         .phase = phase,
-        .tree_state = merkle_db.get_tree_state(),
-        .leaf_value = leaf_value,
-        .size = size,
+        .prev_tree_state = merkle_db.get_tree_state(),
+        .next_tree_state = merkle_db.get_tree_state(),
+        .event =
+            PrivateAppendTreeEvent{
+                .leaf_value = leaf_value,
+                .size = size,
+            },
     });
 }
 
@@ -62,11 +70,12 @@ void TxExecution::simulate(const Tx& tx)
         // Setup.
         for (const auto& call : tx.setupEnqueuedCalls) {
             info("[SETUP] Executing enqueued call to ", call.contractAddress);
+            TreeStates prev_tree_state = merkle_db.get_tree_state();
             auto context = context_provider.make_enqueued_context(
                 call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
             ExecutionResult result = call_execution.execute(std::move(context));
             gas_used = result.gas_used;
-            emit_public_call_request(*context, result, TransactionPhase::SETUP);
+            emit_public_call_request(*context, result, std::move(prev_tree_state), TransactionPhase::SETUP);
         }
 
         try {
@@ -78,11 +87,12 @@ void TxExecution::simulate(const Tx& tx)
             // App logic.
             for (const auto& call : tx.appLogicEnqueuedCalls) {
                 info("[APP_LOGIC] Executing enqueued call to ", call.contractAddress);
+                TreeStates prev_tree_state = merkle_db.get_tree_state();
                 auto context = context_provider.make_enqueued_context(
                     call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
                 ExecutionResult result = call_execution.execute(std::move(context));
                 gas_used = result.gas_used;
-                emit_public_call_request(*context, result, TransactionPhase::APP_LOGIC);
+                emit_public_call_request(*context, result, std::move(prev_tree_state), TransactionPhase::APP_LOGIC);
             }
         } catch (const std::exception& e) {
             // TODO: revert the checkpoint.
@@ -93,6 +103,7 @@ void TxExecution::simulate(const Tx& tx)
         if (tx.teardownEnqueuedCall) {
             try {
                 info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->contractAddress);
+                TreeStates prev_tree_state = merkle_db.get_tree_state();
                 auto context = context_provider.make_enqueued_context(tx.teardownEnqueuedCall->contractAddress,
                                                                       tx.teardownEnqueuedCall->msgSender,
                                                                       tx.teardownEnqueuedCall->calldata,
@@ -100,7 +111,7 @@ void TxExecution::simulate(const Tx& tx)
                                                                       tx.gasSettings.teardownGasLimits,
                                                                       Gas{ 0, 0 });
                 ExecutionResult result = call_execution.execute(std::move(context));
-                emit_public_call_request(*context, result, TransactionPhase::TEARDOWN);
+                emit_public_call_request(*context, result, std::move(prev_tree_state), TransactionPhase::TEARDOWN);
             } catch (const std::exception& e) {
                 info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
             }
@@ -117,65 +128,75 @@ void TxExecution::simulate(const Tx& tx)
 // TODO: How to increment the context id here?
 void TxExecution::insert_non_revertibles(const Tx& tx)
 {
+    auto prev_tree_state = merkle_db.get_tree_state();
     // 1. Write the already siloed nullifiers.
     for (const auto& nullifier : tx.nonRevertibleAccumulatedData.nullifiers) {
         merkle_db.nullifier_write(nullifier);
 
-        events.emit(PrivateAppendTreeEvent{
-            .phase = TransactionPhase::NR_NULLIFIER_INSERTION,
-            .tree_state = merkle_db.get_tree_state(),
-            .leaf_value = nullifier,
-        });
+        auto next_tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::NR_NULLIFIER_INSERTION,
+                             .prev_tree_state = prev_tree_state,
+                             .next_tree_state = next_tree_state,
+                             .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
+        prev_tree_state = next_tree_state;
     }
 
     // 2. Write already unique note hashes.
     for (const auto& note_hash : tx.nonRevertibleAccumulatedData.noteHashes) {
         merkle_db.note_hash_write(note_hash);
 
-        events.emit(PrivateAppendTreeEvent{
-            .phase = TransactionPhase::NR_NOTE_INSERTION,
-            .tree_state = merkle_db.get_tree_state(),
-            .leaf_value = note_hash,
-        });
+        auto next_tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::NR_NOTE_INSERTION,
+                             .prev_tree_state = prev_tree_state,
+                             .next_tree_state = next_tree_state,
+                             .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
+        prev_tree_state = next_tree_state;
     }
     // 3. Write l2_l1 messages
     for (const auto& l2_to_l1_msg : tx.nonRevertibleAccumulatedData.l2ToL1Messages) {
-        events.emit(PrivateEmitL2L1MessageEvent{
-            .phase = TransactionPhase::NR_L2_TO_L1_MESSAGE,
-            .scoped_msg = l2_to_l1_msg,
-        });
+        // Tree state does not change when writing L2 to L1 messages.
+        auto tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::NR_L2_TO_L1_MESSAGE,
+                             .prev_tree_state = tree_state,
+                             .next_tree_state = tree_state,
+                             .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_msg } });
     }
 }
 
 // TODO: Error Handling
 void TxExecution::insert_revertibles(const Tx& tx)
 {
+    auto prev_tree_state = merkle_db.get_tree_state();
     // 1. Write the nullifiers.
     for (const auto& nullifier : tx.revertibleAccumulatedData.nullifiers) {
         merkle_db.nullifier_write(nullifier);
 
-        events.emit(PrivateAppendTreeEvent{
-            .phase = TransactionPhase::R_NULLIFIER_INSERTION,
-            .tree_state = merkle_db.get_tree_state(),
-            .leaf_value = nullifier,
-        });
+        auto next_tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::R_NULLIFIER_INSERTION,
+                             .prev_tree_state = prev_tree_state,
+                             .next_tree_state = next_tree_state,
+                             .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
+        prev_tree_state = next_tree_state;
     }
     // 2. Write the note hashes.
     for (const auto& note_hash : tx.revertibleAccumulatedData.noteHashes) {
         merkle_db.note_hash_write(note_hash);
 
-        events.emit(PrivateAppendTreeEvent{
-            .phase = TransactionPhase::R_NOTE_INSERTION,
-            .tree_state = merkle_db.get_tree_state(),
-            .leaf_value = note_hash,
-        });
+        auto next_tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::R_NOTE_INSERTION,
+                             .prev_tree_state = prev_tree_state,
+                             .next_tree_state = next_tree_state,
+                             .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
+        prev_tree_state = next_tree_state;
     }
     // 3. Write L2 to L1 messages.
     for (const auto& l2_to_l1_msg : tx.revertibleAccumulatedData.l2ToL1Messages) {
-        events.emit(PrivateEmitL2L1MessageEvent{
-            .phase = TransactionPhase::R_L2_TO_L1_MESSAGE,
-            .scoped_msg = l2_to_l1_msg,
-        });
+        // Tree state does not change when writing L2 to L1 messages.
+        auto tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::R_L2_TO_L1_MESSAGE,
+                             .prev_tree_state = tree_state,
+                             .next_tree_state = tree_state,
+                             .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_msg } });
     }
 }
 
