@@ -1,15 +1,7 @@
+import type { L2Block } from '@aztec/aztec.js';
+import { Blob } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import {
-  ConsensusPayload,
-  type EpochProofQuote,
-  type L2Block,
-  SignatureDomainSeparator,
-  type TxHash,
-  getHashedSignaturePayload,
-} from '@aztec/circuit-types';
-import type { L1PublishBlockStats, L1PublishStats } from '@aztec/circuit-types/stats';
-import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import {
   FormattedViemError,
   type ForwarderContract,
@@ -20,24 +12,27 @@ import {
   type L1ContractsConfig,
   type L1GasConfig,
   type L1TxRequest,
-  type L1TxUtilsWithBlobs,
   RollupContract,
   type SlashingProposerContract,
   type TransactionStats,
   formatViemError,
 } from '@aztec/ethereum';
-import { toHex } from '@aztec/foundation/bigint-buffer';
-import { Blob } from '@aztec/foundation/blob';
-import { type Signature } from '@aztec/foundation/eth-signature';
+import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
+import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
+import { type ProposedBlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, encodeFunctionData } from 'viem';
+import { type TransactionReceipt, encodeFunctionData, toHex } from 'viem';
 
-import { type PublisherConfig, type TxSenderConfig } from './config.js';
+import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 
 /** Arguments to the process method of the rollup contract */
@@ -46,10 +41,8 @@ type L1ProcessArgs = {
   header: Buffer;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
-  /** The L2 block's leaf in the archive tree. */
-  blockHash: Buffer;
-  /** L2 block body. TODO(#9101): Remove block body once we can extract blobs. */
-  body: Buffer;
+  /** State reference after the L2 block is applied. */
+  stateReference: Buffer;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** L2 block tx hashes */
@@ -65,7 +58,7 @@ export enum VoteType {
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-type Action = 'propose' | 'claim' | 'governance-vote' | 'slashing-vote';
+type Action = 'propose' | 'governance-vote' | 'slashing-vote';
 interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
@@ -105,7 +98,6 @@ export class SequencerPublisher {
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
-  public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
   public l1TxUtils: L1TxUtilsWithBlobs;
   public rollupContract: RollupContract;
@@ -130,7 +122,8 @@ export class SequencerPublisher {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
 
-    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
+    this.blobSinkClient =
+      deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
@@ -141,6 +134,10 @@ export class SequencerPublisher {
 
     this.govProposerContract = deps.governanceProposerContract;
     this.slashingProposerContract = deps.slashingProposerContract;
+  }
+
+  public getRollupContract(): RollupContract {
+    return this.rollupContract;
   }
 
   public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
@@ -187,6 +184,10 @@ export class SequencerPublisher {
     const currentL2Slot = this.getCurrentL2Slot();
     this.log.debug(`Current L2 slot: ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
+    const validActions = validRequests.map(x => x.action);
+    const expiredActions = requestsToProcess
+      .filter(request => request.lastValidL2Slot < currentL2Slot)
+      .map(x => x.action);
 
     if (validRequests.length !== requestsToProcess.length) {
       this.log.warn(`Some requests were expired for slot ${currentL2Slot}`, {
@@ -231,11 +232,17 @@ export class SequencerPublisher {
         this.log,
       );
       this.callbackBundledTransactions(validRequests, result);
-      return result;
+      return { result, expiredActions, validActions };
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
       return undefined;
+    } finally {
+      try {
+        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+      } catch (err) {
+        this.log.warn(`Failed to record balance after sending tx: ${err}`);
+      }
     }
   }
 
@@ -271,40 +278,6 @@ export class SequencerPublisher {
   }
 
   /**
-   * @returns The epoch that is currently claimable, undefined otherwise
-   */
-  public getClaimableEpoch() {
-    const acceptedErrors = ['Rollup__NoEpochToProve', 'Rollup__ProofRightAlreadyClaimed'] as const;
-    return this.rollupContract.getClaimableEpoch().catch(err => {
-      if (acceptedErrors.find(e => err.message.includes(e))) {
-        return undefined;
-      }
-      throw err;
-    });
-  }
-
-  /**
-   * @notice  Will filter out invalid quotes according to L1
-   * @param quotes - The quotes to filter
-   * @returns The filtered quotes
-   */
-  public filterValidQuotes(quotes: EpochProofQuote[]): Promise<EpochProofQuote[]> {
-    return Promise.all(
-      quotes.map(x =>
-        this.rollupContract
-          // validate throws if the quote is not valid
-          // else returns void
-          .validateProofQuote(x.toViemArgs(), this.getForwarderAddress().toString(), this.ethereumSlotDuration)
-          .then(() => x)
-          .catch(err => {
-            this.log.error(`Failed to validate proof quote`, err, { quote: x.toInspect() });
-            return undefined;
-          }),
-      ),
-    ).then(quotes => quotes.filter((q): q is EpochProofQuote => !!q));
-  }
-
-  /**
    * @notice  Will call `validateHeader` to make sure that it is possible to propose
    *
    * @dev     Throws if unable to propose
@@ -314,7 +287,7 @@ export class SequencerPublisher {
    *
    */
   public async validateBlockForSubmission(
-    header: BlockHeader,
+    header: ProposedBlockHeader,
     attestationData: { digest: Buffer; signatures: Signature[] } = {
       digest: Buffer.alloc(32),
       signatures: [],
@@ -326,11 +299,11 @@ export class SequencerPublisher {
     const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };
 
     const args = [
-      `0x${header.toBuffer().toString('hex')}`,
+      toHex(header.toBuffer()),
       formattedSignatures,
-      `0x${attestationData.digest.toString('hex')}`,
+      toHex(attestationData.digest),
       ts,
-      `0x${header.contentCommitment.blobsHash.toString('hex')}`,
+      toHex(header.contentCommitment.blobsHash),
       flags,
     ] as const;
 
@@ -372,15 +345,17 @@ export class SequencerPublisher {
     const cachedLastVote = this.myLastVotes[voteType];
     this.myLastVotes[voteType] = slotNumber;
 
+    const action = voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote';
+
     this.addRequest({
-      action: voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote',
+      action,
       request: base.createVoteRequest(payload.toString()),
       lastValidL2Slot: slotNumber,
       onResult: (_request, result) => {
         if (!result || result.receipt.status !== 'success') {
           this.myLastVotes[voteType] = cachedLastVote;
         } else {
-          this.log.info(`Cast [${voteType}] vote for slot ${slotNumber}`);
+          this.log.info(`Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round}`);
         }
       },
     });
@@ -434,15 +409,16 @@ export class SequencerPublisher {
     txHashes?: TxHash[],
     opts: { txTimeoutAt?: Date } = {},
   ): Promise<boolean> {
-    const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
+    const proposedBlockHeader = block.header.toPropose();
 
-    const digest = await getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
+    const consensusPayload = ConsensusPayload.fromBlock(block);
+    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
     const blobs = await Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
-      header: block.header.toBuffer(),
+      header: proposedBlockHeader.toBuffer(),
       archive: block.archive.root.toBuffer(),
-      blockHash: (await block.header.hash()).toBuffer(),
+      stateReference: block.header.state.toBuffer(),
       body: block.body.toBuffer(),
       blobs,
       attestations,
@@ -453,59 +429,13 @@ export class SequencerPublisher {
     //        This means that we can avoid the simulation issues in later checks.
     //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
     //        make time consistency checks break.
-    const ts = await this.validateBlockForSubmission(block.header, {
+    const ts = await this.validateBlockForSubmission(proposedBlockHeader, {
       digest: digest.toBuffer(),
       signatures: attestations ?? [],
     });
 
     this.log.debug(`Submitting propose transaction`);
     await this.addProposeTx(block, proposeTxArgs, opts, ts);
-    return true;
-  }
-
-  /** Enqueues a claimEpochProofRight transaction to submit a chosen prover quote for the previous epoch. */
-  public enqueueClaimEpochProofRight(proofQuote: EpochProofQuote): boolean {
-    const timer = new Timer();
-    this.addRequest({
-      action: 'claim',
-      request: {
-        to: this.rollupContract.address,
-        data: encodeFunctionData({
-          abi: RollupAbi,
-          functionName: 'claimEpochProofRight',
-          args: [proofQuote.toViemArgs()],
-        }),
-      },
-      lastValidL2Slot: this.getCurrentL2Slot(),
-      onResult: (_request, result) => {
-        if (!result) {
-          return;
-        }
-        const { receipt, stats } = result;
-        if (receipt.status === 'success') {
-          const publishStats: L1PublishStats = {
-            gasPrice: receipt.effectiveGasPrice,
-            gasUsed: receipt.gasUsed,
-            transactionHash: receipt.transactionHash,
-            blobDataGas: 0n,
-            blobGasUsed: 0n,
-            ...pick(stats!, 'calldataGas', 'calldataSize', 'sender'),
-          };
-          this.log.verbose(`Submitted claim epoch proof right to L1 rollup contract`, {
-            ...publishStats,
-            ...proofQuote.toInspect(),
-          });
-          this.metrics.recordClaimEpochProofRightTx(timer.ms(), publishStats);
-        } else {
-          this.metrics.recordFailedTx('claimEpochProofRight');
-          // TODO: Get the error message from the reverted tx
-          this.log.error(`Claim epoch proof right tx reverted`, {
-            txHash: receipt.transactionHash,
-            ...proofQuote.toInspect(),
-          });
-        }
-      },
-    });
     return true;
   }
 
@@ -527,12 +457,15 @@ export class SequencerPublisher {
   }
 
   private async prepareProposeTx(encodedData: L1ProcessArgs, timestamp: bigint) {
+    if (!this.l1TxUtils.client.account) {
+      throw new Error('L1 TX utils needs to be initialized with an account wallet.');
+    }
     const kzg = Blob.getViemKzgInstance();
     const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(
-        this.l1TxUtils.walletClient.account,
+        this.l1TxUtils.client.account,
         {
           to: this.rollupContract.address,
           data: encodeFunctionData({
@@ -559,19 +492,16 @@ export class SequencerPublisher {
     const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
     const args = [
       {
-        header: `0x${encodedData.header.toString('hex')}`,
-        archive: `0x${encodedData.archive.toString('hex')}`,
+        header: toHex(encodedData.header),
+        archive: toHex(encodedData.archive),
+        stateReference: toHex(encodedData.stateReference),
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
-          provingCostModifier: 0n,
         },
-        blockHash: `0x${encodedData.blockHash.toString('hex')}`,
         txHashes,
       },
       attestations,
-      // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob and body input can be removed
-      `0x${encodedData.body.toString('hex')}`,
       blobInput,
     ] as const;
 
@@ -606,8 +536,8 @@ export class SequencerPublisher {
             // @note we override checkBlob to false since blobs are not part simulate()
             stateDiff: [
               {
-                slot: toHex(RollupContract.checkBlobStorageSlot, true),
-                value: toHex(0n, true),
+                slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true),
+                value: toPaddedHex(0n, true),
               },
             ],
           },
@@ -636,7 +566,6 @@ export class SequencerPublisher {
     const kzg = Blob.getViemKzgInstance();
     const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, timestamp);
     const startBlock = await this.l1TxUtils.getBlockNumber();
-    const blockHash = await block.hash();
 
     return this.addRequest({
       action: 'propose',
@@ -688,7 +617,6 @@ export class SequencerPublisher {
           this.log.error(`Rollup process tx reverted. ${errorMsg ?? 'No error message'}`, undefined, {
             ...block.getStats(),
             txHash: receipt.transactionHash,
-            blockHash,
             slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
           });
         }

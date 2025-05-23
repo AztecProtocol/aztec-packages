@@ -4,22 +4,24 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/to_radix.hpp"
+#include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
 
 namespace bb::avm2::tracegen {
 
-void PrecomputedTraceBuilder::process_misc(TraceContainer& trace)
+void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t num_rows)
 {
     using C = Column;
 
     // First row.
     trace.set(C::precomputed_first_row, 0, 1);
 
-    // Clk.
+    // Clk
     // TODO: What a waste of 64MB. Can we elegantly have a flag for this?
-    trace.reserve_column(C::precomputed_clk, CIRCUIT_SUBGROUP_SIZE);
-    for (uint32_t i = 0; i < CIRCUIT_SUBGROUP_SIZE; i++) {
+    trace.reserve_column(C::precomputed_clk, num_rows);
+    for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_clk, i, i);
     }
 }
@@ -126,20 +128,6 @@ void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)
     }
 }
 
-void PrecomputedTraceBuilder::process_unary(TraceContainer& trace)
-{
-    using C = Column;
-
-    constexpr auto num_rows = 64;
-    trace.reserve_column(C::precomputed_sel_unary, num_rows);
-    trace.reserve_column(C::precomputed_as_unary, num_rows);
-    for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_sel_unary, i, 1);
-        uint64_t value = (static_cast<uint64_t>(1) << i) - 1;
-        trace.set(C::precomputed_as_unary, i, value);
-    }
-}
-
 void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& trace)
 {
     using C = Column;
@@ -156,8 +144,11 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
     };
     constexpr auto num_rows = round_constants.size();
     trace.reserve_column(C::precomputed_sha256_compression_round_constant, num_rows);
+    trace.reserve_column(C::precomputed_sel_sha256_compression, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_sha256_compression_round_constant, i, round_constants[i]);
+        trace.set(i,
+                  { { { C::precomputed_sel_sha256_compression, 1 },
+                      { C::precomputed_sha256_compression_round_constant, round_constants[i] } } });
     }
 }
 
@@ -174,6 +165,149 @@ void PrecomputedTraceBuilder::process_integral_tag_length(TraceContainer& trace)
         trace.set(static_cast<uint32_t>(tag),
                   { { { C::precomputed_sel_integral_tag, 1 },
                       { C::precomputed_integral_tag_length, integral_tag_length(tag) } } });
+    }
+}
+
+void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trace)
+{
+    using C = Column;
+    const std::array<Column, NUM_OP_DC_SELECTORS> sel_op_dc_columns = {
+        C::precomputed_sel_op_dc_0,  C::precomputed_sel_op_dc_1,  C::precomputed_sel_op_dc_2,
+        C::precomputed_sel_op_dc_3,  C::precomputed_sel_op_dc_4,  C::precomputed_sel_op_dc_5,
+        C::precomputed_sel_op_dc_6,  C::precomputed_sel_op_dc_7,  C::precomputed_sel_op_dc_8,
+        C::precomputed_sel_op_dc_9,  C::precomputed_sel_op_dc_10, C::precomputed_sel_op_dc_11,
+        C::precomputed_sel_op_dc_12, C::precomputed_sel_op_dc_13, C::precomputed_sel_op_dc_14,
+        C::precomputed_sel_op_dc_15, C::precomputed_sel_op_dc_16, C::precomputed_sel_op_dc_17,
+    };
+
+    // First set the selector for this table lookup.
+    constexpr uint32_t num_rows = 1 << 8; // 256
+    constexpr uint32_t num_opcodes = static_cast<uint32_t>(WireOpCode::LAST_OPCODE_SENTINEL);
+    trace.reserve_column(C::precomputed_opcode_out_of_range, num_rows - num_opcodes);
+    for (uint32_t i = num_opcodes; i < num_rows; i++) {
+        trace.set(C::precomputed_opcode_out_of_range, i, 1);
+    }
+
+    for (size_t i = 0; i < NUM_OP_DC_SELECTORS; i++) {
+        trace.reserve_column(sel_op_dc_columns.at(i), num_opcodes);
+    }
+    trace.reserve_column(C::precomputed_exec_opcode, num_opcodes);
+    trace.reserve_column(C::precomputed_instr_size, num_opcodes);
+
+    // Fill the lookup tables with the operand decomposition selectors.
+    for (const auto& [wire_opcode, wire_instruction_spec] : WIRE_INSTRUCTION_SPEC) {
+        for (size_t i = 0; i < NUM_OP_DC_SELECTORS; i++) {
+            trace.set(sel_op_dc_columns.at(i),
+                      static_cast<uint32_t>(wire_opcode),
+                      wire_instruction_spec.op_dc_selectors.at(i));
+        }
+        trace.set(C::precomputed_exec_opcode,
+                  static_cast<uint32_t>(wire_opcode),
+                  static_cast<uint32_t>(wire_instruction_spec.exec_opcode));
+        trace.set(C::precomputed_instr_size, static_cast<uint32_t>(wire_opcode), wire_instruction_spec.size_in_bytes);
+
+        if (wire_instruction_spec.tag_operand_idx.has_value()) {
+            trace.set(C::precomputed_sel_has_tag, static_cast<uint32_t>(wire_opcode), 1);
+
+            if (wire_instruction_spec.tag_operand_idx.value() == 2) {
+                trace.set(C::precomputed_sel_tag_is_op2, static_cast<uint32_t>(wire_opcode), 1);
+            }
+        }
+    }
+}
+
+void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trace)
+{
+    using C = Column;
+
+    uint32_t row = 0;
+    for (const auto& [exec_opcode, exec_instruction_spec] : EXEC_INSTRUCTION_SPEC) {
+        auto dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
+        uint8_t alu_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0;
+        uint8_t bitwise_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0;
+        uint8_t poseidon_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0;
+        uint8_t to_radix_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0;
+        uint8_t ecc_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0;
+
+        auto register_info = REGISTER_INFO_MAP.at(exec_opcode);
+
+        trace.set(row,
+                  { { { C::precomputed_exec_opcode_value, static_cast<uint32_t>(exec_opcode) },
+                      { C::precomputed_exec_opcode_base_l2_gas, exec_instruction_spec.gas_cost.base_l2 },
+                      { C::precomputed_exec_opcode_base_da_gas, exec_instruction_spec.gas_cost.base_da },
+                      { C::precomputed_exec_opcode_dynamic_l2_gas, exec_instruction_spec.gas_cost.dyn_l2 },
+                      { C::precomputed_exec_opcode_dynamic_da_gas, exec_instruction_spec.gas_cost.dyn_da },
+                      // Memory Access for registers
+                      { C::precomputed_mem_op_reg1, register_info.is_active(0) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg2, register_info.is_active(1) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg3, register_info.is_active(2) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg4, register_info.is_active(3) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg5, register_info.is_active(4) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg6, register_info.is_active(5) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg7, register_info.is_active(6) ? 1 : 0 },
+                      { C::precomputed_rw_1, register_info.is_write(0) ? 1 : 0 },
+                      { C::precomputed_rw_2, register_info.is_write(1) ? 1 : 0 },
+                      { C::precomputed_rw_3, register_info.is_write(2) ? 1 : 0 },
+                      { C::precomputed_rw_4, register_info.is_write(3) ? 1 : 0 },
+                      { C::precomputed_rw_5, register_info.is_write(4) ? 1 : 0 },
+                      { C::precomputed_rw_6, register_info.is_write(5) ? 1 : 0 },
+                      { C::precomputed_rw_7, register_info.is_write(6) ? 1 : 0 },
+                      // Gadget / Subtrace Selectors
+                      { C::precomputed_sel_dispatch_alu, alu_sel },
+                      { C::precomputed_sel_dispatch_bitwise, bitwise_sel },
+                      { C::precomputed_sel_dispatch_poseidon_perm, poseidon_sel },
+                      { C::precomputed_sel_dispatch_to_radix, to_radix_sel },
+                      { C::precomputed_sel_dispatch_ecc, ecc_sel },
+                      { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id } } });
+        row++;
+    }
+}
+
+void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
+{
+    using C = Column;
+
+    auto p_limbs_per_radix = get_p_limbs_per_radix();
+
+    trace.reserve_column(C::precomputed_sel_to_radix_safe_limbs, p_limbs_per_radix.size());
+    trace.reserve_column(C::precomputed_to_radix_safe_limbs, p_limbs_per_radix.size());
+
+    for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
+        size_t decomposition_len = p_limbs_per_radix[i].size();
+        if (decomposition_len > 0) {
+            trace.set(C::precomputed_sel_to_radix_safe_limbs, static_cast<uint32_t>(i), 1);
+            trace.set(C::precomputed_to_radix_safe_limbs, static_cast<uint32_t>(i), decomposition_len - 1);
+        }
+    }
+}
+
+void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& trace)
+{
+    using C = Column;
+
+    auto p_limbs_per_radix = get_p_limbs_per_radix();
+
+    uint32_t row = 0;
+    for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
+        size_t decomposition_len = p_limbs_per_radix[i].size();
+        for (size_t j = 0; j < decomposition_len; ++j) {
+            trace.set(C::precomputed_sel_p_decomposition, row, 1);
+            trace.set(C::precomputed_p_decomposition_radix, row, i);
+            trace.set(C::precomputed_p_decomposition_limb_index, row, j);
+            trace.set(C::precomputed_p_decomposition_limb, row, p_limbs_per_radix[i][j]);
+            row++;
+        }
+    }
+}
+
+void PrecomputedTraceBuilder::process_memory_tag_range(TraceContainer& trace)
+{
+    using C = Column;
+
+    constexpr uint32_t num_rows = 1 << 8; // 256
+
+    for (uint32_t i = static_cast<uint32_t>(MemoryTag::MAX) + 1; i < num_rows; i++) {
+        trace.set(C::precomputed_sel_mem_tag_out_of_range, i, 1);
     }
 }
 

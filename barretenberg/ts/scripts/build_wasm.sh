@@ -5,16 +5,8 @@ set -e
 
 cd $(dirname $0)/..
 
-if [ -z "$SKIP_CPP_BUILD" ]; then
-  # Build the wasms and strip debug symbols.
-  cd ../cpp
-  cmake --preset wasm-threads -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm-threads
-  if [ -z "$SKIP_ST_BUILD" ]; then
-    cmake --preset wasm -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm
-  fi
-  [ -z "$NO_STRIP" ] && ./scripts/strip-wasm.sh
-  ./scripts/gzip-wasm.sh
-  cd ../ts
+if [ -z "$SKIP_CPP_BUILD" ] && [ "${CI:-0}" -eq 0 ]; then
+  parallel --line-buffered --tag 'denoise "../cpp/bootstrap.sh {}"' ::: build_wasm build_wasm_threads
 fi
 
 # Copy the wasm to its home in the bb.js dest folder.
@@ -24,5 +16,9 @@ fi
 # When building the browser bundle, both wasms are inlined directly.
 mkdir -p ./dest/node/barretenberg_wasm
 mkdir -p ./dest/node-cjs/barretenberg_wasm
+mkdir -p ./dest/browser/barretenberg_wasm
+
 cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
 cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm.gz
+cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg-threads.wasm.gz
+cp ../cpp/build-wasm/bin/barretenberg.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg.wasm.gz

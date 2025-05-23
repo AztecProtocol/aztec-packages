@@ -1,6 +1,5 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { type AztecAddress, BatchCall, type Logger, type Wallet } from '@aztec/aztec.js';
-import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import chunk from 'lodash.chunk';
 
@@ -97,10 +96,10 @@ export class TokenSimulator {
 
   async checkPublic() {
     // public calls
-    const calls = [await this.token.methods.total_supply().request()];
-    for (const address of this.accounts) {
-      calls.push(await this.token.methods.balance_of_public(address).request());
-    }
+    const calls = [
+      this.token.methods.total_supply(),
+      ...this.accounts.map(address => this.token.methods.balance_of_public(address)),
+    ];
 
     const results = (
       await Promise.all(chunk(calls, 4).map(batch => new BatchCall(this.defaultWallet, batch).simulate()))
@@ -126,10 +125,7 @@ export class TokenSimulator {
       }
     }
 
-    const defaultCalls = [];
-    for (const address of defaultLookups) {
-      defaultCalls.push(await this.token.methods.balance_of_private(address).request());
-    }
+    const defaultCalls = defaultLookups.map(address => this.token.methods.balance_of_private(address));
     const results = (
       await Promise.all(chunk(defaultCalls, 4).map(batch => new BatchCall(this.defaultWallet, batch).simulate()))
     ).flat();

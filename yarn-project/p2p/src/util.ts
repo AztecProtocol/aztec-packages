@@ -1,15 +1,20 @@
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { Logger } from '@aztec/foundation/log';
+import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 
 import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
 import { generateKeyPair, marshalPrivateKey, unmarshalPrivateKey } from '@libp2p/crypto/keys';
-import { type PeerId, type PrivateKey } from '@libp2p/interface';
-import { type ConnectionManager } from '@libp2p/interface-internal';
+import type { PeerId, PrivateKey } from '@libp2p/interface';
+import type { ConnectionManager } from '@libp2p/interface-internal';
 import { createFromPrivKey } from '@libp2p/peer-id-factory';
 import { resolve } from 'dns/promises';
+import { promises as fs } from 'fs';
 import type { Libp2p } from 'libp2p';
+import path from 'path';
 
-import { type P2PConfig } from './config.js';
+import type { P2PConfig } from './config.js';
+
+const PEER_ID_DATA_DIR_FILE = 'p2p-private-key';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -28,41 +33,13 @@ export interface PubSubLibp2p extends Libp2p {
  * @param address - The address string to convert. Has to be in the format <addr>:<port>.
  * @param protocol - The protocol to use in the multiaddr string.
  * @returns A multiaddr compliant string.  */
-export function convertToMultiaddr(address: string, protocol: 'tcp' | 'udp'): string {
-  const [addr, port] = splitAddressPort(address, false);
-
-  const multiaddrPrefix = addressToMultiAddressType(addr);
+export function convertToMultiaddr(address: string, port: number, protocol: 'tcp' | 'udp'): string {
+  const multiaddrPrefix = addressToMultiAddressType(address);
   if (multiaddrPrefix === 'dns') {
     throw new Error('Invalid address format. Expected an IPv4 or IPv6 address.');
   }
 
-  return `/${multiaddrPrefix}/${addr}/${protocol}/${port}`;
-}
-
-/**
- * Splits an <address>:<port> string into its components.
- * @returns The ip6 or ip4 address & port separately
- */
-export function splitAddressPort(address: string, allowEmptyAddress: boolean): [string, string] {
-  let addr: string;
-  let port: string;
-
-  if (address.startsWith('[')) {
-    // IPv6 address enclosed in square brackets
-    const match = address.match(/^\[([^\]]+)\]:(\d+)$/);
-    if (!match) {
-      throw new Error(`Invalid IPv6 address format:${address}. Expected format: [<addr>]:<port>`);
-    }
-    [, addr, port] = match;
-  } else {
-    // IPv4 address
-    [addr, port] = address.split(':');
-    if ((!addr && !allowEmptyAddress) || !port) {
-      throw new Error(`Invalid address format: ${address}. Expected format: <addr>:<port>`);
-    }
-  }
-
-  return [addr, port];
+  return `/${multiaddrPrefix}/${address}/${protocol}/${port}`;
 }
 
 /**
@@ -74,13 +51,12 @@ export async function getPublicIp(): Promise<string> {
   return text.trim();
 }
 
-export async function resolveAddressIfNecessary(address: string): Promise<string> {
-  const [addr, port] = splitAddressPort(address, false);
-  const multiaddrPrefix = addressToMultiAddressType(addr);
+export async function resolveAddressIfNecessary(address: string, port: string): Promise<string> {
+  const multiaddrPrefix = addressToMultiAddressType(address);
   if (multiaddrPrefix === 'dns') {
-    const resolvedAddresses = await resolve(addr);
+    const resolvedAddresses = await resolve(address);
     if (resolvedAddresses.length === 0) {
-      throw new Error(`Could not resolve address: ${addr}`);
+      throw new Error(`Could not resolve address: ${address}`);
     }
     return `${resolvedAddresses[0]}:${port}`;
   } else {
@@ -104,47 +80,21 @@ export async function configureP2PClientAddresses(
   _config: P2PConfig & DataStoreConfig,
 ): Promise<P2PConfig & DataStoreConfig> {
   const config = { ..._config };
-  const {
-    tcpAnnounceAddress: configTcpAnnounceAddress,
-    udpAnnounceAddress: configUdpAnnounceAddress,
-    queryForIp,
-  } = config;
+  const { p2pIp, queryForIp, p2pBroadcastPort, p2pPort } = config;
 
-  config.tcpAnnounceAddress = configTcpAnnounceAddress
-    ? await resolveAddressIfNecessary(configTcpAnnounceAddress)
-    : undefined;
-  config.udpAnnounceAddress = configUdpAnnounceAddress
-    ? await resolveAddressIfNecessary(configUdpAnnounceAddress)
-    : undefined;
-
-  // create variable for re-use if needed
-  let publicIp;
+  // If no broadcast port is provided, use the given p2p port as the broadcast port
+  if (!p2pBroadcastPort) {
+    config.p2pBroadcastPort = p2pPort;
+  }
 
   // check if no announce IP was provided
-  const splitTcpAnnounceAddress = splitAddressPort(configTcpAnnounceAddress || '', true);
-  if (splitTcpAnnounceAddress.length == 2 && splitTcpAnnounceAddress[0] === '') {
+  if (!p2pIp) {
     if (queryForIp) {
-      publicIp = await getPublicIp();
-      const tcpAnnounceAddress = `${publicIp}:${splitTcpAnnounceAddress[1]}`;
-      config.tcpAnnounceAddress = tcpAnnounceAddress;
-    } else {
-      throw new Error(
-        `Invalid announceTcpAddress provided: ${configTcpAnnounceAddress}. Expected format: <addr>:<port>`,
-      );
+      const publicIp = await getPublicIp();
+      config.p2pIp = publicIp;
     }
   }
-
-  const splitUdpAnnounceAddress = splitAddressPort(configUdpAnnounceAddress || '', true);
-  if (splitUdpAnnounceAddress.length == 2 && splitUdpAnnounceAddress[0] === '') {
-    // If announceUdpAddress is not provided, use announceTcpAddress
-    if (!queryForIp && config.tcpAnnounceAddress) {
-      config.udpAnnounceAddress = config.tcpAnnounceAddress;
-    } else if (queryForIp) {
-      const udpPublicIp = publicIp || (await getPublicIp());
-      const udpAnnounceAddress = `${udpPublicIp}:${splitUdpAnnounceAddress[1]}`;
-      config.udpAnnounceAddress = udpAnnounceAddress;
-    }
-  }
+  // TODO(md): guard against setting a local ip address as the announce ip
 
   return config;
 }
@@ -153,29 +103,73 @@ export async function configureP2PClientAddresses(
  * Get the peer id private key
  *
  * 1. Check if we have a peer id private key in the config
- * 2. If not, check we have a peer id private key persisted in the node
- * 3. If not, create a new one, then persist it in the node
+ * 2. If not, check if we have a peer id private key persisted in a file
+ * 3. If no file path or data directory is provided, check if we have a peer id private key in the node's store
+ * 4. If not, create a new one, then persist it in a file if a file path or data directory is provided or in the node's store otherwise
  *
  */
 export async function getPeerIdPrivateKey(
-  config: { peerIdPrivateKey?: string },
+  config: { peerIdPrivateKey?: string; peerIdPrivateKeyPath?: string; dataDirectory?: string },
   store: AztecAsyncKVStore,
+  logger: Logger,
 ): Promise<string> {
-  const peerIdPrivateKeySingleton = store.openSingleton<string>('peerIdPrivateKey');
+  const peerIdPrivateKeyFilePath =
+    config.peerIdPrivateKeyPath ??
+    (config.dataDirectory ? path.join(config.dataDirectory, PEER_ID_DATA_DIR_FILE) : undefined);
+  let peerIdPrivateKeySingleton: AztecAsyncSingleton<string> | undefined;
+
+  const writePrivateKeyToFile = async (filePath: string, privateKey: string) => {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, privateKey);
+  };
+
+  // If the peerIdPrivateKey is provided in the config, we use it and persist it in either a file or the node's store
   if (config.peerIdPrivateKey) {
-    await peerIdPrivateKeySingleton.set(config.peerIdPrivateKey);
+    if (peerIdPrivateKeyFilePath) {
+      await writePrivateKeyToFile(peerIdPrivateKeyFilePath, config.peerIdPrivateKey);
+    } else {
+      peerIdPrivateKeySingleton = store.openSingleton<string>('peerIdPrivateKey');
+      await peerIdPrivateKeySingleton.set(config.peerIdPrivateKey);
+    }
     return config.peerIdPrivateKey;
   }
 
-  const storedPeerIdPrivateKey = await peerIdPrivateKeySingleton.getAsync();
+  // Check to see if we have a peer id private key stored in a file or the node's store
+  let storedPeerIdPrivateKey: string | undefined;
+  const privateKeyFileExists =
+    peerIdPrivateKeyFilePath &&
+    (await fs
+      .access(peerIdPrivateKeyFilePath)
+      .then(() => true)
+      .catch(() => false));
+  if (peerIdPrivateKeyFilePath && privateKeyFileExists) {
+    await fs.access(peerIdPrivateKeyFilePath);
+    storedPeerIdPrivateKey = await fs.readFile(peerIdPrivateKeyFilePath, 'utf8');
+  } else {
+    peerIdPrivateKeySingleton = store.openSingleton<string>('peerIdPrivateKey');
+    storedPeerIdPrivateKey = await peerIdPrivateKeySingleton.getAsync();
+  }
   if (storedPeerIdPrivateKey) {
+    if (peerIdPrivateKeyFilePath && !privateKeyFileExists) {
+      logger.verbose(`Peer ID private key found in the node's store, persisting it to ${peerIdPrivateKeyFilePath}`);
+      await writePrivateKeyToFile(peerIdPrivateKeyFilePath, storedPeerIdPrivateKey);
+    }
     return storedPeerIdPrivateKey;
   }
 
+  // Generate and persist a new private key
   const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
   const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+  if (peerIdPrivateKeyFilePath) {
+    logger.verbose(`Creating new peer ID private key and persisting it to ${peerIdPrivateKeyFilePath}`);
+    await writePrivateKeyToFile(peerIdPrivateKeyFilePath, privateKeyString);
+  } else {
+    logger.warn(
+      'Creating new peer ID private key and persisting it to the lmdb store. Key will be lost on rollup upgrade, specify the peer id private key path and restart the node to persist the peer id private key to a file',
+    );
+    await peerIdPrivateKeySingleton!.set(privateKeyString);
+  }
 
-  await peerIdPrivateKeySingleton.set(privateKeyString);
   return privateKeyString;
 }
 

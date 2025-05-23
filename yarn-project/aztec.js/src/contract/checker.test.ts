@@ -139,6 +139,7 @@ describe('abiChecker', () => {
               },
             },
           ],
+          isInitializer: true,
         },
       ],
     };
@@ -170,6 +171,7 @@ describe('abiChecker', () => {
               },
             },
           ],
+          isInitializer: true,
         },
       ],
     };

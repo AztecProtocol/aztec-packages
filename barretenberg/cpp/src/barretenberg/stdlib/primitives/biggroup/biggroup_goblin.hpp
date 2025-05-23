@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "../bigfield/bigfield.hpp"
@@ -29,11 +35,15 @@ namespace bb::stdlib::element_goblin {
  * @tparam Fr
  * @tparam NativeGroup
  */
-template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_element {
+template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_element {
   public:
+    using Builder = Builder_;
     using BaseField = Fq;
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = goblin_element; // Facilitates a constexpr check IsBigGroup
+
+    // Number of bb::fr field elements used to represent a goblin element in the public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = Fq::PUBLIC_INPUTS_SIZE * 2;
 
     goblin_element() = default;
     goblin_element(const typename NativeGroup::affine_element& input)
@@ -51,6 +61,15 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     goblin_element& operator=(const goblin_element& other) = default;
     goblin_element& operator=(goblin_element&& other) noexcept = default;
     ~goblin_element() = default;
+
+    void assert_equal(const goblin_element& other) const
+    {
+        if (this->get_value() != other.get_value()) {
+            info("WARNING: goblin_element::assert_equal value check failed!");
+        }
+        x.assert_equal(other.x);
+        y.assert_equal(other.y);
+    }
 
     static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
@@ -214,7 +233,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
 
     goblin_element dbl() const { return batch_mul({ *this }, { 2 }); }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) max_num_bits is unused; could implement and
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1291) max_num_bits is unused; could implement and
     // use this to optimize other operations. interface compatible with biggroup.hpp, the final parameter
     // handle_edge_cases is not needed as this is always done in the eccvm
     static goblin_element batch_mul(const std::vector<goblin_element>& points,
@@ -295,12 +314,51 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         _is_infinity.set_origin_tag(tag);
     }
 
+    /**
+     * @brief Set the witness indices representing the goblin element to public
+     * @details Even though the coordinates of a goblin element are goblin field elements which may be represented using
+     * two native field elements, we store them in the public inputs as if they were bigfield elements, each of which is
+     * represented by four native field elements. This uniformity is imposed for simplicity but could be reconsidered if
+     * desired.
+     *
+     * @return uint32_t The index into the public inputs array at which the representation of the goblin element starts
+     */
+    uint32_t set_public() const
+    {
+        const uint32_t start_idx = x.set_public();
+        y.set_public();
+
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct a goblin element from its representation as limbs stored in the public inputs
+     * @details For consistency with biggroup, a goblin element is represented in the public inputs using eight field
+     * elements (even though it could be represented using only four).
+     *
+     * @param limbs
+     * @return goblin_element
+     */
+    static goblin_element reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        const size_t FRS_PER_FQ = Fq::PUBLIC_INPUTS_SIZE;
+        std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
+        std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
+
+        return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
+    }
+
     Fq x;
     Fq y;
 
   private:
     bool_ct _is_infinity;
 };
+
+using BiggroupGoblin = goblin_element<bb::MegaCircuitBuilder,
+                                      bb::stdlib::goblin_field<MegaCircuitBuilder>,
+                                      stdlib::field_t<MegaCircuitBuilder>,
+                                      bb::g1>;
 
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, goblin_element<C, Fq, Fr, G> const& v)

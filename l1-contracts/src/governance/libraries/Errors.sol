@@ -61,7 +61,8 @@ library Errors {
   error CoinIssuer__InsufficientMintAvailable(uint256 available, uint256 needed); // 0xa1cc8799
 
   error Registry__RollupAlreadyRegistered(address rollup); // 0x3c34eabf
-  error Registry__RollupNotRegistered(address rollup); // 0xa1fee4cf
+  error Registry__RollupNotRegistered(uint256 version);
+  error Registry__NoRollupsRegistered();
 
   error RewardDistributor__InvalidCaller(address caller, address canonical); // 0xb95e39f6
 }

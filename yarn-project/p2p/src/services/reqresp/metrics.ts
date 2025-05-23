@@ -1,6 +1,6 @@
 // Request response metrics
 import { Attributes, Metrics, ValueType } from '@aztec/telemetry-client';
-import { type TelemetryClient, type Tracer, type UpDownCounter } from '@aztec/telemetry-client';
+import type { TelemetryClient, Tracer, UpDownCounter } from '@aztec/telemetry-client';
 
 export class ReqRespMetrics {
   public readonly tracer: Tracer;
@@ -11,7 +11,10 @@ export class ReqRespMetrics {
   private readonly failedOutboundRequests: UpDownCounter;
   private readonly failedInboundRequests: UpDownCounter;
 
-  constructor(readonly telemetryClient: TelemetryClient, name = 'ReqResp') {
+  constructor(
+    readonly telemetryClient: TelemetryClient,
+    name = 'ReqResp',
+  ) {
     this.tracer = telemetryClient.getTracer(name);
 
     const meter = telemetryClient.getMeter(name);

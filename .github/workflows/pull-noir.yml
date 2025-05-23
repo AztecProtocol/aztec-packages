@@ -1,4 +1,4 @@
-# Create a pull request from current Noir master.
+# Create a pull request from current Noir nightly.
 name: Pull from noir repo
 
 # Don't allow multiple of these running at once:
@@ -18,30 +18,31 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
+      - name: Enable Corepack
+        run: corepack enable
+
+      # Determine if there is already a PR to overwrite, and the current plus latest tags.
       - name: Check for existing PR
         run: |
           set -xue # print commands
           # Enable gh executable. We spread out the API requests between the github actions bot token, and aztecbot
           export GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
           # Do we have a PR active?
-          PR_URL=$(gh pr list --repo AztecProtocol/aztec-packages --head sync-noir --json url --jq ".[0].url")
+          PR_URL=$(gh pr list --repo AztecProtocol/aztec-packages --head bump-noir --json url --jq ".[0].url")
           echo "PR_URL=$PR_URL" >> $GITHUB_ENV
-          # What was our last merge on noir side?
-          # Detect our last sync commit (written by this action before pushing) with a fallback for the first time we ever do this
-          BASE_NOIR_COMMIT=$(curl https://raw.githubusercontent.com/AztecProtocol/aztec-packages/master/.noir-sync-commit)
-          if [ "$BASE_NOIR_COMMIT" = "404: Not Found" ] ; then
-            BASE_NOIR_COMMIT="50d2735825454a8638a308156d4ea23b3c4420d8"
-          fi
-          echo "BASE_NOIR_COMMIT=$BASE_NOIR_COMMIT" >> $GITHUB_ENV
-          # What was our last sync on aztec side?
-          BASE_AZTEC_COMMIT=`curl https://raw.githubusercontent.com/noir-lang/noir/master/.aztec-sync-commit`
-          echo "BASE_AZTEC_COMMIT=$BASE_AZTEC_COMMIT" >> $GITHUB_ENV
+          # Get the current Noir target
+          CURRENT_NOIR_REF=$(noir/scripts/sync.sh read-noir-repo-ref)
+          echo "CURRENT_NOIR_REF=$CURRENT_NOIR_REF" >> $GITHUB_ENV
+          # Get the latest nightly tag we can point to in Noir
+          LATEST_NOIR_NIGHTLY=$(noir/scripts/sync.sh latest-nightly)
+          echo "LATEST_NOIR_NIGHTLY=$LATEST_NOIR_NIGHTLY" >> $GITHUB_ENV
 
+      # Set PR body to be the concatenation of every message that happened in Noir since the last sync.
       - name: Generate PR body
         run: |
           # clone noir repo for manipulations, we use aztec bot token for writeability
@@ -52,7 +53,7 @@ jobs:
           function compute_commit_message() {
             cd noir-repo
             # Create a filtered git log for release-please changelog / metadata
-            RAW_MESSAGE=$(git log --pretty=format:"%s" $BASE_NOIR_COMMIT..HEAD || true)
+            RAW_MESSAGE=$(git log --pretty=format:"%s" $CURRENT_NOIR_REF..$LATEST_NOIR_NIGHTLY || true)
             # Fix Noir PR links and output message
             echo "$RAW_MESSAGE" | sed -E 's/\(#([0-9]+)\)/(https:\/\/github.com\/noir-lang\/noir\/pull\/\1)/g'
             cd ..
@@ -65,85 +66,30 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      # We push using git subrepo (https://github.com/ingydotnet/git-subrepo)
-      # and push all Aztec commits as a single commit with metadata.
+      # Push a commit to the `bump-noir` branch that overrides the Noir ref.
       - name: Push to branch
         run: |
           set -xue # print commands
-          SUBREPO_PATH=noir/noir-repo
-          BRANCH=sync-noir
-          if [[ "$PR_URL" == "" ]]; then
-            # if no staging branch, we can overwrite
-            STAGING_BRANCH=$BRANCH
-          else
-            # otherwise we first reset our staging branch
-            STAGING_BRANCH=$BRANCH-staging
-          fi
+          BRANCH=bump-noir
+          cd noir
+          ./bootstrap.sh bump-noir-repo-ref $BRANCH $LATEST_NOIR_NIGHTLY
 
-          # Get the last sync PR's last commit state
-          COMMIT_MESSAGE=$(cat .PR_BODY_MESSAGE)
-          LINES=$(echo $COMMIT_MESSAGE | wc -l)
-
-          function force_sync_staging() {
-            # reset to last noir merge
-            git checkout $STAGING_BRANCH || git checkout -b $STAGING_BRANCH
-            git reset --hard "$BASE_AZTEC_COMMIT"
-            # Reset our branch to our expected target
-            git push origin $STAGING_BRANCH --force
-            # force gitrepo to point to the right HEAD (we ignore .gitrepo contents otherwise)
-            git config --file="$SUBREPO_PATH/.gitrepo" subrepo.commit "$BASE_NOIR_COMMIT"
-            # we need to commit for git-subrepo
-            git commit -am "[$LINES changes] $COMMIT_MESSAGE"
-            if ./scripts/git-subrepo/lib/git-subrepo pull --force $SUBREPO_PATH --branch=master; then
-              # Read our actual commit sync from git subrepo, stash to file for next time
-              COMMIT=$(git config --file="$SUBREPO_PATH/.gitrepo" subrepo.commit)
-              echo "$COMMIT" > .noir-sync-commit && git add .noir-sync-commit
-              git reset --soft "$BASE_AZTEC_COMMIT"
-              # We don't really need the sync commit on our side, and don't need .gitrepo at all except just in time for the command.
-              git checkout origin/master -- noir/noir-repo/.aztec-sync-commit noir/noir-repo/.gitrepo
-              git commit -am "[$LINES changes] $COMMIT_MESSAGE"
-
-              # There's various changes which we need to make to account for CI differences so we run this script to apply them.
-              git checkout origin/master -- noir/scripts/sync-in-fixup.sh
-              noir/scripts/sync-in-fixup.sh
-              git commit -am "chore: apply sync fixes"
-
-              git push origin $STAGING_BRANCH --force
-            else
-              echo "Problems syncing noir. Needs manual attention, might be a merge conflict."
-              exit 1
-            fi
-          }
-          # merge_staging_branch: Merge our staging branch into aztec-packages.
-          function merge_staging_branch() {
-            # Fix PR branch
-            git fetch # see recent change
-            git checkout $BRANCH || git checkout -b $BRANCH
-            if ! git merge -Xtheirs origin/$STAGING_BRANCH -m "$COMMIT_MESSAGE" ; then
-              # resolve modify/delete conflicts
-              git diff --name-only --diff-filter=U | xargs git rm
-              git commit -m "$COMMIT_MESSAGE"
-            fi
-            git push origin $BRANCH
-          }
-          force_sync_staging
-          if [[ "$PR_URL" != "" ]]; then
-            merge_staging_branch
-          fi
-
+      # Update the PR from `bump-noir` to `master` with the latest message body.
       - name: Update PR
+        env:
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
           set -xue # print commands
           # Formatted for updating the PR, overrides for release-please commit message parsing
           PR_BODY="""
-          Automated pull of development from the [noir](https://github.com/noir-lang/noir) programming language, a dependency of Aztec.
+          Automated pull of nightly from the [noir](https://github.com/noir-lang/noir) programming language, a dependency of Aztec.
           BEGIN_COMMIT_OVERRIDE
           $(cat .PR_BODY_MESSAGE)
           END_COMMIT_OVERRIDE"""
           # for cross-opening PR in noir repo, we use aztecbot's token
           export GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           if [[ "$PR_URL" == "" ]]; then
-            gh pr create --repo AztecProtocol/aztec-packages --title "feat: Sync from noir" --body "$PR_BODY" --base master --head sync-noir
+            gh pr create --repo AztecProtocol/aztec-packages --title "chore: Bump Noir reference" --body "$PR_BODY" --base $BRANCH_NAME --head bump-noir
           else
             echo "Updating existing PR."
             gh pr edit "$PR_URL" --body "$PR_BODY"

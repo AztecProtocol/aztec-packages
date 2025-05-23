@@ -1,5 +1,5 @@
-import { type L2Block } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
+import type { L2Block } from '@aztec/stdlib/block';
 import {
   Attributes,
   type Gauge,
@@ -20,6 +20,7 @@ export class ArchiverInstrumentation {
   private txCount: UpDownCounter;
   private syncDuration: Histogram;
   private l1BlocksSynced: UpDownCounter;
+  private l1BlockHeight: Gauge;
   private proofsSubmittedDelay: Histogram;
   private proofsSubmittedCount: UpDownCounter;
   private dbMetrics: LmdbMetrics;
@@ -27,7 +28,10 @@ export class ArchiverInstrumentation {
 
   private log = createLogger('archiver:instrumentation');
 
-  private constructor(private telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
+  private constructor(
+    private telemetry: TelemetryClient,
+    lmdbStats?: LmdbStatsCallback,
+  ) {
     this.tracer = telemetry.getTracer('Archiver');
     const meter = telemetry.getMeter('Archiver');
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT, {
@@ -59,6 +63,11 @@ export class ArchiverInstrumentation {
 
     this.l1BlocksSynced = meter.createUpDownCounter(Metrics.ARCHIVER_L1_BLOCKS_SYNCED, {
       description: 'Number of blocks synced from L1',
+      valueType: ValueType.INT,
+    });
+
+    this.l1BlockHeight = meter.createGauge(Metrics.ARCHIVER_L1_BLOCK_HEIGHT, {
+      description: 'The height of the latest L1 block processed by the archiver',
       valueType: ValueType.INT,
     });
 
@@ -118,5 +127,9 @@ export class ArchiverInstrumentation {
         [Attributes.ROLLUP_PROVER_ID]: log.proverId,
       });
     }
+  }
+
+  public updateL1BlockHeight(blockNumber: bigint) {
+    this.l1BlockHeight.record(Number(blockNumber));
   }
 }

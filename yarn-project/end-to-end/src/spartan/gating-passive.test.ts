@@ -1,11 +1,12 @@
 import { createCompatibleClient, sleep } from '@aztec/aztec.js';
+import { RollupCheatCodes } from '@aztec/aztec.js/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 
 import { expect, jest } from '@jest/globals';
+import type { ChildProcess } from 'child_process';
 
-import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
-import { type AlertConfig } from '../quality_of_service/alert_checker.js';
+import type { AlertConfig } from '../quality_of_service/alert_checker.js';
 import {
   applyBootNodeFailure,
   applyNetworkShaping,
@@ -41,49 +42,40 @@ const config = setupEnvironment(process.env);
 if (!isK8sConfig(config)) {
   throw new Error('This test must be run in a k8s environment');
 }
-const {
-  NAMESPACE,
-  HOST_PXE_PORT,
-  HOST_ETHEREUM_PORT,
-  CONTAINER_PXE_PORT,
-  CONTAINER_ETHEREUM_PORT,
-  SPARTAN_DIR,
-  INSTANCE_NAME,
-} = config;
+const { NAMESPACE, CONTAINER_PXE_PORT, CONTAINER_ETHEREUM_PORT, SPARTAN_DIR, INSTANCE_NAME } = config;
 const debugLogger = createLogger('e2e:spartan-test:gating-passive');
 
 describe('a test that passively observes the network in the presence of network chaos', () => {
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
 
-  const ETHEREUM_HOST = `http://127.0.0.1:${HOST_ETHEREUM_PORT}`;
-  const PXE_URL = `http://127.0.0.1:${HOST_PXE_PORT}`;
+  let ETHEREUM_HOST: string;
+  let PXE_URL: string;
+  const forwardProcesses: ChildProcess[] = [];
 
   afterAll(async () => {
-    await startPortForward({
-      resource: `svc/metrics-grafana`,
-      namespace: 'metrics',
-      containerPort: config.CONTAINER_METRICS_PORT,
-      hostPort: config.HOST_METRICS_PORT,
-    });
     await runAlertCheck(config, qosAlerts, debugLogger);
+    forwardProcesses.forEach(p => p.kill());
   });
 
   it('survives network chaos', async () => {
-    await startPortForward({
+    const { process: pxeProcess, port: pxePort } = await startPortForward({
       resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
       namespace: NAMESPACE,
       containerPort: CONTAINER_PXE_PORT,
-      hostPort: HOST_PXE_PORT,
     });
-    await startPortForward({
+    forwardProcesses.push(pxeProcess);
+    PXE_URL = `http://127.0.0.1:${pxePort}`;
+
+    const { process: ethProcess, port: ethPort } = await startPortForward({
       resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
       namespace: NAMESPACE,
       containerPort: CONTAINER_ETHEREUM_PORT,
-      hostPort: HOST_ETHEREUM_PORT,
     });
+    forwardProcesses.push(ethProcess);
+    ETHEREUM_HOST = `http://127.0.0.1:${ethPort}`;
 
     const client = await createCompatibleClient(PXE_URL, debugLogger);
-    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOST);
+    const ethCheatCodes = new EthCheatCodesWithState([ETHEREUM_HOST]);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await client.getNodeInfo().then(n => n.l1ContractAddresses),

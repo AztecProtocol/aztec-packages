@@ -1,6 +1,6 @@
 import { sha256 } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
-import { type Hasher } from '@aztec/types/interfaces';
+import type { Hasher } from '@aztec/foundation/trees';
 
 /**
  * A helper class encapsulating SHA256 hash functionality.
@@ -12,16 +12,16 @@ export class SHA256 implements Hasher {
    * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
    * purposes.
    */
-  public hash(lhs: Uint8Array, rhs: Uint8Array): Buffer {
-    return sha256(Buffer.concat([Buffer.from(lhs), Buffer.from(rhs)]));
+  public hash(lhs: Uint8Array, rhs: Uint8Array) {
+    return sha256(Buffer.concat([Buffer.from(lhs), Buffer.from(rhs)])) as Buffer<ArrayBuffer>;
   }
 
   /*
    * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
    * purposes.
    */
-  public hashInputs(inputs: Buffer[]): Buffer {
-    return sha256(Buffer.concat(inputs));
+  public hashInputs(inputs: Buffer[]) {
+    return sha256(Buffer.concat(inputs)) as Buffer<ArrayBuffer>;
   }
 }
 
@@ -35,15 +35,15 @@ export class SHA256Trunc implements Hasher {
    * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
    * purposes.
    */
-  public hash(lhs: Uint8Array, rhs: Uint8Array): Buffer {
-    return truncateAndPad(sha256(Buffer.concat([Buffer.from(lhs), Buffer.from(rhs)])));
+  public hash(lhs: Uint8Array, rhs: Uint8Array) {
+    return truncateAndPad(sha256(Buffer.concat([Buffer.from(lhs), Buffer.from(rhs)]))) as Buffer<ArrayBuffer>;
   }
 
   /*
    * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
    * purposes.
    */
-  public hashInputs(inputs: Buffer[]): Buffer {
-    return truncateAndPad(sha256(Buffer.concat(inputs)));
+  public hashInputs(inputs: Buffer[]) {
+    return truncateAndPad(sha256(Buffer.concat(inputs))) as Buffer<ArrayBuffer>;
   }
 }

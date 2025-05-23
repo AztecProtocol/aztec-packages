@@ -4,8 +4,16 @@ export type LogFilters = [string, LogLevel][];
 
 export function getLogLevelFromFilters(filters: LogFilters, module: string): LogLevel | undefined {
   for (const [filterModule, level] of filters) {
-    if (module.startsWith(filterModule)) {
-      return level as LogLevel;
+    try {
+      const regex = new RegExp(filterModule);
+      if (regex.test(module)) {
+        return level as LogLevel;
+      }
+    } catch {
+      // If regex is invalid, fall back to startsWith check
+      if (module.startsWith(filterModule)) {
+        return level as LogLevel;
+      }
     }
   }
   return undefined;

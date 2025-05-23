@@ -3,12 +3,12 @@
  * Rationale is that if it was good enough for them, then it should be good enough for us.
  * https://github.com/ChainSafe/lodestar
  */
-import { PeerErrorSeverity } from '@aztec/circuit-types';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 
-import { type PeerScoring } from '../../peer-manager/peer_scoring.js';
-import { type ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
+import type { PeerScoring } from '../../peer-manager/peer_scoring.js';
+import type { ReqRespSubProtocol, ReqRespSubProtocolRateLimits } from '../interface.js';
 import { DEFAULT_RATE_LIMITS } from './rate_limits.js';
 
 // Check for disconnected peers every 10 minutes
@@ -72,10 +72,21 @@ interface PeerRateLimiter {
   lastAccess: number;
 }
 
-enum RateLimitStatus {
-  Allowed,
+export enum RateLimitStatus {
   DeniedGlobal,
   DeniedPeer,
+  Allowed, // Note: allowed last to prevent enum evaluating to 0 for success
+}
+
+export function prettyPrintRateLimitStatus(status: RateLimitStatus) {
+  switch (status) {
+    case RateLimitStatus.DeniedGlobal:
+      return 'DeniedGlobal';
+    case RateLimitStatus.DeniedPeer:
+      return 'DeniedPeer';
+    case RateLimitStatus.Allowed:
+      return 'Allowed';
+  }
 }
 
 /**
@@ -169,7 +180,10 @@ export class RequestResponseRateLimiter {
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
-  constructor(private peerScoring: PeerScoring, rateLimits: ReqRespSubProtocolRateLimits = DEFAULT_RATE_LIMITS) {
+  constructor(
+    private peerScoring: PeerScoring,
+    rateLimits: ReqRespSubProtocolRateLimits = DEFAULT_RATE_LIMITS,
+  ) {
     this.subProtocolRateLimiters = new Map();
 
     for (const [subProtocol, protocolLimits] of Object.entries(rateLimits)) {
@@ -191,22 +205,17 @@ export class RequestResponseRateLimiter {
     }, CHECK_DISCONNECTED_PEERS_INTERVAL_MS);
   }
 
-  allow(subProtocol: ReqRespSubProtocol, peerId: PeerId): boolean {
+  allow(subProtocol: ReqRespSubProtocol, peerId: PeerId): RateLimitStatus {
     const limiter = this.subProtocolRateLimiters.get(subProtocol);
     if (!limiter) {
-      return true;
+      return RateLimitStatus.Allowed;
     }
     const rateLimitStatus = limiter.allow(peerId);
 
-    switch (rateLimitStatus) {
-      case RateLimitStatus.DeniedPeer:
-        this.peerScoring.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
-        return false;
-      case RateLimitStatus.DeniedGlobal:
-        return false;
-      default:
-        return true;
+    if (rateLimitStatus === RateLimitStatus.DeniedPeer) {
+      this.peerScoring.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
     }
+    return rateLimitStatus;
   }
 
   cleanupInactivePeers() {

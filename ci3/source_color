@@ -1,7 +1,41 @@
-yellow="\033[93m"
-blue="\033[34m"
-green="\033[32m"
-red="\033[31m"
-purple="\033[35m"
-bold="\033[1m"
-reset="\033[0m"
+# Color codes for output.
+
+# Whatever the terminal defines.
+# export yellow="\033[93m"
+# export blue="\033[34m"
+# export green="\033[32m"
+# export red="\033[31m"
+# export purple="\033[35m"
+
+# Quite nice colors guessed by GPT.
+export yellow="\033[38;2;250;217;121m"
+export blue="\033[38;2;95;167;241m"
+export green="\033[38;2;97;214;104m"
+export red="\033[38;2;230;69;83m"
+export purple="\033[38;2;188;109;208m"
+
+# Copied from iTerm2 Pastel Dark Background
+# export yellow="\033[38;2;255;253;201m"
+# export blue="\033[38;2;175;212;250m"
+# export green="\033[38;2;195;249;133m"
+# export red="\033[38;2;239;138;121m"
+# export purple="\033[38;2;240;150;248m"
+
+export bold="\033[1m"
+export reset="\033[0m"
+
+# OSC 8 support for links.
+export link_open='\033]8;;'
+export link_close='\x07'
+
+function term_link {
+  echo -e "${link_open}$1${link_close}$2${link_open}${link_close}"
+}
+
+function ci_term_link {
+  term_link "http://ci.aztec-labs.com/$1" "$1"
+}
+export -f term_link ci_term_link
+
+# We always want color.
+export FORCE_COLOR=true

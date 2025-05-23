@@ -1,7 +1,0 @@
-[package]
-name = "underconstrained_value_detector_5425"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.36.0"
-
-[dependencies]

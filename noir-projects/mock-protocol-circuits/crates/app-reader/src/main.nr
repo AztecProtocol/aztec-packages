@@ -9,4 +9,3 @@ fn main(
     result.read_requests = commitments_to_read;
     result
 }
-

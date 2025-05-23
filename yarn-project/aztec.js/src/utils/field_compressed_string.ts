@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * The representation of a FieldCompressedString in aztec.nr

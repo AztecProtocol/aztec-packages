@@ -12,7 +12,7 @@ Then just build with `smt-verification` preset.
 
 - ```set_variable_name(u32 index, str name)``` - assignes a name to a variable. Specifically, binds a name with the first index of an equivalence class.
 
-**!Note that you don't have to name a zero or one(in standard). It has the name `zero` by default.**
+**!NOTE that somtimes you may encounter variables that are set to be `assert_equal` to `zero`. Their name will be erased no matter what first variable in class says.**
 
 - ```update_variable_names(u32 idx)``` - in case you've called ```assert_equal``` and ```update_real_variable_indices``` somewhere and you know that two or more variables from the equivalence class have separate names, call this method. Idx is the index of one of the variables of this class. The name of the first variable in class will remain.
 
@@ -24,7 +24,7 @@ To store it on the disk just do the following
 
 ```c++
     msgpack::sbuffer buffer = circuit.export_circuit();
-    
+
     std::fstream myfile;
     myfile.open("fname.pack", std::ios::out | std::ios::trunc | std::ios::binary);
 
@@ -44,7 +44,7 @@ To store it on the disk just do the following
 2. Initialize the Solver:
 
     There's an `smt_solver::SolverConfiguration` structure:
-    
+
     ```cpp
     struct SolverConfiguration {
         bool produce_models;
@@ -90,7 +90,7 @@ To store it on the disk just do the following
 
     All the tables are exoported directly from circuit, but if you want to create your own table, there're two methods for this:
 
-    - `Solver::create_table(vector<cvc5::Term>& table)` - creates a set of values. 
+    - `Solver::create_table(vector<cvc5::Term>& table)` - creates a set of values.
     - `Solver::create_lookup_table(vector<vector<cvc5::Term>>& table)` - creates a table with three columns.
 
     ```c++
@@ -101,13 +101,13 @@ To store it on the disk just do the following
 
     There is more on `FFConst` in the following sections.
 
-3. Initialize the Circuit 
+3. Initialize the Circuit
 
-	From now on we will use `smt_terms::STerm` and `smt_terms::Bool` types to operate inside the solver. 
+	From now on we will use `smt_terms::STerm` and `smt_terms::Bool` types to operate inside the solver.
 
     You can choose the behaviour of symbolic variables by providing the specific type to `STerm` or `Circuit` constructor:
 
-    - `smt_terms::TermType::FFTerm` - symbolic variables that simulate finite field arithmetic. 
+    - `smt_terms::TermType::FFTerm` - symbolic variables that simulate finite field arithmetic.
     - `smt_terms::TermType::FFITerm` - symbolic variables that simulate integer elements which behave like finite field ones. Useful, when you want to create range constraints. Bad, when you try multiplication.
     - `smt_terms::TermType::ITerm` - symbolic variables that simulate ordinary integer elements. Useful, when you want to create range constraints and operate with signed values that are not shrinked modulo smth.
     - `smt_terms::TermType::BVTerm` - symbolic variables that simulate $\pmod{2^n}$ arithmetic. Useful, when you test uint circuits. Supports range constraints and bitwise operations. Doesn't behave like finite field element.
@@ -117,13 +117,13 @@ To store it on the disk just do the following
     `Bool` - simulates the boolean values and mostly will be useful to simulate complex `if` statements if needed.
 
     Now we can create symbolic circuit
-	
+
     - ```smt_circuit::StandardCircuit circuit(CircuitSchema c_info, Solver* s, TermType type, str tag="", bool optimizations=true)```
     - ```smt_circuit::UltraCircuit circuit(CircuitSchema c_info, Solver* s, TermType type, str tag="", bool optimizations=true)```
-	
+
 	It will generate all the symbolic values of the circuit wires, add all the gate constrains, create a map `term_name->STerm` and the inverse of it. Where `term_name` is the name you provided earlier.
 
-    In case you want to create two similar circuits with the same `solver` and `schema`, then you should specify the `tag`(name) of a circuit. 
+    In case you want to create two similar circuits with the same `solver` and `schema`, then you should specify the `tag`(name) of a circuit.
 
     **Advanced** If you don't want the circuit optimizations to be applied then you should set `optimizations` to `false`. Optimizations interchange the complex circuits like bitwise XOR with simple XOR operation. More on optimizations can be found [standard_circuit.cpp](circuit/standard_circuit.cpp)
 
@@ -133,6 +133,8 @@ To store it on the disk just do the following
     There is a method `Circuit::simulate_circuit_eval(vector<fr> w)`. It checks that the evaluation process is correct for this particular witness. (Only in Standard for now).
 
 4. Terms creation
+
+    ### Arithmetic Variables
 
     You can initialize symbolic variable via `STerm::Var(str name, &solver, TermType type)` or `STerm::Const(str val, &solver, TermType type, u32 base=16)`
 
@@ -145,15 +147,15 @@ To store it on the disk just do the following
 	You can add, subtract and multiply these variables(including `+=`, `-=`, etc);
 	Also there are two functions:
 	- `batch_add(std::vector<STerm>& terms)`
-	- `batch_mul(std::vector<STerm>& terms)` 
+	- `batch_mul(std::vector<STerm>& terms)`
 
 	to create an addition/multiplication Term in one call
 
     `FFITerm` also can be used to create range constraints. e.g. `x <= bb::fr(2).pow(10) - 1;`
 
-    `BVTerm` can be used to create bitwise constraints. e.g. `STerm y = x^z` or `STerm y = x.rotr(10)`. And range constraints too.
+    `BVTerm` can be used to create bitwise constraints. e.g. `STerm y = x^z` or `STerm y = x.rotr(10)`. And range constraints too. Also there are `truncate` and `extract_bit` methods, e.g. `x.truncate(9)` will truncate to last 10 bits (starting from 0th bit), `x.extract_bit(10)` will extract 10th bit.
 
-	You can create a constraint `==` or `!=` that will be included directly into solver. e.g. `x == y;` 
+	You can create a constraint `==` or `!=` that will be included directly into solver. e.g. `x == y;`
 
     **!Note: In this case these are not comparison operators**
 
@@ -162,27 +164,113 @@ To store it on the disk just do the following
     - `STerm::in(cvc5::Term table&)` - simple set inclusion.
     - `static STerm::in_table(std::vector<STerm> entry, cvc5::Term& table)` - lookup table inclusion.
 
-    ---
+    --- 
+
+    ### Boolean Variables
 
 	There is a Bool type:
-	- `Bool Bool(STerm t)` or `Bool Bool(bool b, Solver* s)`
+	- `Bool Bool(STerm t)`, `Bool Bool(bool b, Solver* s)` or `Bool(str name, Solver* s)`
 
 	You can `|, &, ==, !=, !` these variables and also `batch_or`, `batch_and` them.
 	To create a constraint you should call `Bool::assert_term()` method.
-	
+
 	The way I see the use of Bool types is to create terms like `(a == b && c == 1) || (a != b && c == 0)`, `(a!=1)||(b!=2)|(c!=3)` and of course more sophisticated ones.
 
     **!Note that constraint like `(Bool(STerm a) == Bool(STerm b)).assert_term()`, where a has `FFTerm` type and b has `FFITerm` type, won't work, since their types differ.**
     **!Note `Bool(a == b)` won't work since `a==b` will create an equality constraint as I mentioned earlier and the return type of this operation is `void`.**
 
+    --- 
+
+    ### Data Structures
+
+    There're three extra data structures:
+
+    #### STuple
+
+    Symbolic Tuple type. 
+    You can group several items in one term. 
+    **!Note Only compatible with `STerm` class**
+
+    `STuple STuple(vec<STerm>, Solver* slv)`
+
+    **!Note that you can not access the element of the tuple by its index after creation**
+
+    #### SymArray
+
+    Symbolic Array type. 
+    You can store symbolic values. And access them by symbolic index.
+
+    Both index and entry can be any of the symbolic types: `STerm`, `Bool`, `STuple`, `SymArray`, `SymSet`
+
+    Create an empty array:
+    `SymArray SymArray<sym_index, sym_entry>(cvc5:Sort idx_sort, TermType idx_type, cvc5::Sort entry_sort, TermType entry_type, Solver* s, str name = "")`
+
+    ***!Note passing cvc5 native types directly is a little bit advanced compared to the ordinary usage of this module. See the tests***
+
+    Create an array from indicies and entrys:
+    `SymArray SymArray<sym_index, sym_entry>(vector<sym_index> indicies, vec<sym_entry> entries, str name = "")`
+
+    Create an integer indexed array from entries:
+    `SymArray SymArray<sym_index, sym_entry>(vec<sym_entry> entries, STerm index_base, str name = "")`
+
+    **!Note you need to provide an example for the integer like index entry. Most of the time you'll be fine using: `index_base` = `FFConst(1, &slv)`| `FFIConst(1, &slv)`| `IConst(1, &slv)`| `BVConst(1, &slv)`**
+
+    After you've created an array you can put/overwrite elements in it by:
+
+    `arr.put(sym_idx, sym_entry)`
+
+    And access them:
+
+    `arr.get(sym_idx)`
+    `arr[sym_idx]`
+
+
+    For debugging purposes there's a `print_trace` method, that will print all the `put` operations
+
+    #### SymSet
+
+    Symbolic Set type. 
+    You can store symbolic values. You can check wheter an element belong to the set or not.
+
+    Entries can be any of the symbolic types: `STerm`, `Bool`, `STuple`, `SymArray`, `SymSet`
+
+    Create an empty set:
+    `SymSet SymSet<sym_entry>(cvc5::Sort entry_sort, TermType entry_type, Solver* s, str name = "")`
+
+    ***!Note passing cvc5 native types directly is a little bit advanced compared to the ordinary usage of this module. See the tests***
+
+    Create a set from vector of values:
+    `SymSet SymSet<sym_entry>(vec<sym_entry> entries, str name = "")`
+
+    After you've created a set you can put elements in it by:
+
+    `set.insert(sym_entry)`
+
+    And add inclusion constraints:
+
+    `set.contains(entry)`
+    `set.not_contains(entry)`
+
+    For debugging purposes there's a `print_trace` method, that will print all the `insert` operations
+
+    ---
+
+    All the types support printing their name in variable case and value in constant case
+
 ## 3. Post model checking
 After generating all the constrains you should call `bool res = solver.check()` and depending on your goal it could be `true` or `false`.
 
 In case you expected `false` but `true` was returned you can then check what went wrong.
-You should generate an unordered map with `str->term` values and ask the solver to obtain `unoredered_map<str, str> res = solver.model(unordered_map<str, FFTerm> terms)`.
-   Or you can provide a vector of terms that you want to check and the return map will contain their symbolic names that are given during initialization. Specifically either it's the name that you set or `var_{i}`.
-   
-Now you have the values of the specified terms, which resulted into `true` result. 
+You have three choices:
+- You can access each of the terms directly by calling `solver[term]`, or `solver.get(term)`
+- You can generate an unordered map with `str->term` values and ask the solver to obtain `unordered_map<str, str> res = solver.model(unordered_map<str, FFTerm> terms)`.
+- You can generate a vector of terms and pass them to `unordered_map<str, str> res = solver.model(vector<FFTerm> terms)`. In this case the mapping name will be taken directly from solver. Specifically either it's the name that you have set or `var_{i}`.
+
+**!Note that the resulting values are strings and you can't use them to generate further constraints.**
+In case you want such a behavior use `sym_val = solver.get_value(term)`
+You can then create `STerm(sym_val, &solver, Type)` and use it in operations as a constant
+
+Now you have the values of the specified terms, which resulted into `true` result.
 **!Note that the return values are decimal strings/binary strings**, so if you want to use them later you should use `FFConst` with base 10, etc.
 
 Also, there is a header file "barretenberg/smt_verification/utl/smt_util.hpp" that contains two useful functions:
@@ -191,22 +279,22 @@ Also, there is a header file "barretenberg/smt_verification/utl/smt_util.hpp" th
 
 These functions will write witness variables in c-like array format into file named `fname`.
 The vector of `special_names` is the values that you want ot see in stdout.
-`pack` argument tells this function to save an `msgpack` buffer of the witness on disk. Name of the file will be `fname`.pack 
+`pack` argument tells this function to save an `msgpack` buffer of the witness on disk. Name of the file will be `fname`.pack
 
 You can then import the saved witness using one of the following functions:
 
 - `vec<vec<fr>> import_witness(str fname)`
 - `vec<fr> import_witness_single(str fname)`
- 
+
 ## 4. Automated verification of a unique witness
-There's a static member of `StandardCircuit` and `UltraCircuit` 
+There's a static member of `StandardCircuit` and `UltraCircuit`
 
 - `pair<StandardCircuit, StandardCircuit> StandardCircuit::unique_wintes(CircuitSchema circuit_info, Solver*, TermType type, vector<str> equal, bool optimizations)`
 - `pair<UltraCircuit, UltraCircuit> UltraCircuit::unique_wintes(CircuitSchema circuit_info, Solver*, TermType type, vector<str> equal, bool optimizations)`
 
 They will create two separate circuits, constrain variables with names from `equal` to be equal acrosss the circuits, and set all the other variables to be not equal at the same time.
 
-Another one is 
+Another one is
 
 - `pair<StandardCircuit, StandardCircuit> StandardCircuit::unique_witness_ext(CircuitSchema circuit_info, Solver* s, TermType type, vector<str> equal_variables, vector<str> nequal_variables, vector<str> at_least_one_equal_variable, vector<str> at_least_one_nequal_variable)` that does the same but provides you with more flexible settings.
 - Same in `UltraCircuit`
@@ -246,7 +334,32 @@ Besides already mentioned `smt_timer`, `default_model` and `default_model_single
 ```
 Where `add_unique_output` is a witness obtained by the solver.
 
-## 6. Simple examples
+## 6. Tests
+
+Avalaible test suits in `smt_verification_tests`:
+
+- `Solver*`
+---
+
+- `FFTerm*`
+- `FFITerm*`
+- `ITerm*`
+- `BVTerm*`
+- `SymbolicBool*`
+- `SymbolicTuple*`
+- `SymbolicArray*`
+- `SymbolicSet*`
+---
+
+- `Subcircuits*`
+- `Standard_circuit*`
+- `Ultra_circuit*`
+---
+
+- `SMT_Example*`
+- `Polynomial_evaluation*`
+
+## 7. Simple examples
 
 ### Function Equality
 ```cpp
@@ -372,9 +485,11 @@ void model_variables(SymCircuit& c, Solver* s, FFTerm& evaluation)
 ```
 
 
-More examples can be found in 
+More examples can be found in
 
 - [terms/ffterm.test.cpp](terms/ffterm.test.cpp), [terms/ffiterm.test.cpp](terms/ffiterm.test.cpp), [terms/bvterm.test.cpp](terms/bvterm.test.cpp), [terms/iterm.test.cpp](terms/iterm.test.cpp)
-- [circuit/standard_circuit.test.cpp](circuit/standard_circuit.test.cpp), [circuit/ultra_circuit](circuit/ultra_circuit.test.cpp) 
+- [terms/bool.test.cpp](terms/bool.test.cpp)
+- [terms/data_types.test.cpp]
+- [circuit/standard_circuit.test.cpp](circuit/standard_circuit.test.cpp), [circuit/ultra_circuit](circuit/ultra_circuit.test.cpp)
 - [smt_polynomials.test.cpp](smt_polynomials.test.cpp), [smt_examples.test.cpp](smt_examples.test.cpp)
 - [bb_tests](bb_tests)

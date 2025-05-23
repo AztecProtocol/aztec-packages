@@ -1,11 +1,17 @@
+use std::collections::BTreeMap;
+
 use acvm::FieldElement;
 use base64::Engine;
 use log::info;
 use serde::{Deserialize, Serialize};
 
 use acvm::acir::circuit::Program;
-use noirc_errors::debug_info::ProgramDebugInfo;
+use noirc_abi::{Abi, AbiErrorType, AbiParameter, AbiType};
+use noirc_errors::debug_info::{DebugInfo, ProgramDebugInfo};
+use noirc_evaluator::ErrorType;
 
+use crate::instructions::{AvmInstruction, AvmOperand, AvmTypeTag};
+use crate::opcodes::AvmOpcode;
 use crate::transpile::{brillig_to_avm, patch_debug_info_pcs};
 use crate::utils::extract_brillig_from_acir_program;
 
@@ -40,7 +46,7 @@ pub struct AvmContractFunctionArtifact {
     pub name: String,
     pub is_unconstrained: bool,
     pub custom_attributes: Vec<String>,
-    pub abi: serde_json::Value,
+    pub abi: Abi,
     pub bytecode: String, // base64
     #[serde(
         serialize_with = "ProgramDebugInfo::serialize_compressed_base64_json",
@@ -57,7 +63,7 @@ pub struct AcirContractFunctionArtifact {
     pub name: String,
     pub is_unconstrained: bool,
     pub custom_attributes: Vec<String>,
-    pub abi: serde_json::Value,
+    pub abi: Abi,
     #[serde(
         serialize_with = "Program::serialize_program_base64",
         deserialize_with = "Program::deserialize_program_base64"
@@ -85,10 +91,13 @@ pub enum AvmOrAcirContractFunctionArtifact {
 impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
     fn from(contract: CompiledAcirContractArtifact) -> Self {
         let mut functions: Vec<AvmOrAcirContractFunctionArtifact> = Vec::new();
+        let mut has_public_dispatch = false;
 
         for function in contract.functions {
             if function.custom_attributes.contains(&"public".to_string()) {
-                // if function.name == "public_dispatch" {
+                if function.name == "public_dispatch" {
+                    has_public_dispatch = true;
+                }
                 info!("Transpiling AVM function {} on contract {}", function.name, contract.name);
                 // Extract Brillig Opcodes from acir
                 let acir_program = function.bytecode;
@@ -128,6 +137,14 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
                 functions.push(AvmOrAcirContractFunctionArtifact::Acir(function));
             }
         }
+
+        // The AVM currently does not allow executing empty bytecode. In order to avoid this,
+        // we have disabled registering classes with empty bytecode. This makes it so private only
+        // contracts need to have public bytecode to be registrable. We inject revert() in those.
+        if !has_public_dispatch {
+            functions.push(create_revert_dispatch_fn());
+        }
+
         TranspiledContractArtifact {
             transpiled: true,
             noir_version: contract.noir_version,
@@ -137,4 +154,64 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
             file_map: contract.file_map,
         }
     }
+}
+
+fn create_revert_dispatch_fn() -> AvmOrAcirContractFunctionArtifact {
+    let error_string = "No public functions".to_string();
+    let error_selector = ErrorType::String(error_string.clone()).selector();
+
+    let revert_bytecode: Vec<u8> = vec![
+        // Set revert data len
+        AvmInstruction {
+            opcode: AvmOpcode::SET_8,
+            indirect: Some(AvmOperand::U8 { value: 0 }), // All direct
+            tag: Some(AvmTypeTag::UINT32),
+            operands: vec![AvmOperand::U8 { value: 0 }], // Address 0
+            immediates: vec![AvmOperand::U8 { value: 1 }], // Value 1
+        },
+        // Set error selector
+        AvmInstruction {
+            opcode: AvmOpcode::SET_64,
+            indirect: Some(AvmOperand::U8 { value: 0 }), // All direct
+            tag: Some(AvmTypeTag::UINT64),
+            operands: vec![AvmOperand::U16 { value: 1 }], // Address 1
+            immediates: vec![AvmOperand::U64 { value: error_selector.as_u64() }], // Value selector
+        },
+        // Revert
+        AvmInstruction {
+            opcode: AvmOpcode::REVERT_8,
+            indirect: Some(AvmOperand::U8 { value: 0 }), // All direct
+            operands: vec![
+                AvmOperand::U8 { value: 0 }, // Revert data size address
+                AvmOperand::U8 { value: 1 }, // Revert data start address
+            ],
+            ..Default::default()
+        },
+    ]
+    .into_iter()
+    .flat_map(|instruction| instruction.to_bytes())
+    .collect();
+
+    let empty_dispatch_fn = AvmContractFunctionArtifact {
+        name: "public_dispatch".to_string(),
+        is_unconstrained: true,
+        custom_attributes: vec!["public".to_string()],
+        abi: Abi {
+            parameters: vec![AbiParameter {
+                name: "selector".to_string(),
+                typ: AbiType::Field,
+                visibility: noirc_abi::AbiVisibility::Private,
+            }],
+            return_type: None,
+            error_types: BTreeMap::from([(
+                error_selector,
+                AbiErrorType::String { string: error_string },
+            )]),
+        },
+        bytecode: base64::prelude::BASE64_STANDARD.encode(revert_bytecode),
+        debug_symbols: ProgramDebugInfo { debug_infos: vec![DebugInfo::default()] },
+        brillig_names: vec!["public_dispatch".to_string()],
+    };
+
+    AvmOrAcirContractFunctionArtifact::Avm(empty_dispatch_fn)
 }

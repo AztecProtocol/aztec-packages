@@ -1,5 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "ecc_msm_relation.hpp"
 
 namespace bb {
@@ -211,7 +218,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
                          auto& relation,
                          auto& collision_relation) {
         // N.B. this is brittle - should be curve agnostic but we don't propagate the curve parameter into relations!
-        constexpr auto offset_generator = bb::g1::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
+        constexpr auto offset_generator = get_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1>()[0];
         constexpr uint256_t oxu = offset_generator.x;
         constexpr uint256_t oyu = offset_generator.y;
         const Accumulator xo(oxu);

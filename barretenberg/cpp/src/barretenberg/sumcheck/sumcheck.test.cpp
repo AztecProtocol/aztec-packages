@@ -1,13 +1,8 @@
 #include "sumcheck.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
-#include "barretenberg/relations/delta_range_constraint_relation.hpp"
-#include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/permutation_relation.hpp"
-#include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -24,7 +19,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     using ZKData = ZKSumcheckData<Flavor>;
 
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     Polynomial<FF> random_poly(size_t size)
     {
@@ -211,17 +206,22 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             auto r = FF::random_element();
 
             std::array<FF, multivariate_n> z_perm = { 0, 0, 0, 0, 0, 0, z_1, z_2 };
-            std::array<FF, multivariate_n> lookup_inverses = { 0, 0, 0, 0, 0, 0, r * r, r };
-
+            std::array<FF, multivariate_n> lookup_inverses = { 0, 0, 0, 0, 0, r, r * r, r * r * r };
+            // To avoid triggering the skipping mechanism in LogDerivativeRelation, we have to ensure
+            // that the condition (in.q_lookup.is_zero() && in.lookup_read_counts.is_zero()) is not satisfied in the
+            // blinded rows
+            std::array<FF, multivariate_n> skipping_disabler = { 0, 0, 0, 0, 0, 1, 1, 1 };
             full_polynomials.z_perm = bb::Polynomial<FF>(z_perm);
             full_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
-
+            full_polynomials.lookup_read_counts = bb::Polynomial<FF>(skipping_disabler);
             if constexpr (std::is_same<Flavor, MegaZKFlavor>::value) {
-                std::array<FF, multivariate_n> ecc_op_wire = { 0, 0, 0, 0, 0, 0, r * r * r, w_4[6] };
-                std::array<FF, multivariate_n> return_data_inverses = { 0, 0, 0, 0, 0, 0, FF(7) * r * r, -r };
-
-                full_polynomials.ecc_op_wire_1 = bb::Polynomial<FF>(ecc_op_wire);
+                std::array<FF, multivariate_n> return_data_inverses = { 0, 0, 0, 0, 0, 0, r * r, -r };
                 full_polynomials.return_data_inverses = bb::Polynomial<FF>(return_data_inverses);
+
+                // To avoid triggering the skipping mechanism in DatabusLookupRelation, we have to ensure that the
+                // condition (in.calldata_read_counts.is_zero() && in.secondary_calldata_read_counts.is_zero() &&
+                //  in.return_data_read_counts.is_zero()) is not satisfied in the blinded rows
+                full_polynomials.calldata_read_counts = bb::Polynomial<FF>(skipping_disabler);
             }
         }
         full_polynomials.w_l = bb::Polynomial<FF>(w_l);
@@ -242,7 +242,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             .public_input_delta = FF::one(),
         };
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
-        auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
+        auto sumcheck_prover = SumcheckProver<Flavor, multivariate_d>(multivariate_n, prover_transcript);
 
         RelationSeparator prover_alpha;
         for (size_t idx = 0; idx < prover_alpha.size(); idx++) {
@@ -264,7 +264,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
-        auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_d, verifier_transcript);
+        auto sumcheck_verifier = SumcheckVerifier<Flavor, multivariate_d>(verifier_transcript);
         RelationSeparator verifier_alpha;
         for (size_t idx = 0; idx < verifier_alpha.size(); idx++) {
             verifier_alpha[idx] =
@@ -275,7 +275,10 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             verifier_gate_challenges[idx] =
                 verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
-        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_gate_challenges);
+        std::array<FF, multivariate_d> padding_indicator_array;
+        std::ranges::fill(padding_indicator_array, FF{ 1 });
+        auto verifier_output = sumcheck_verifier.verify(
+            relation_parameters, verifier_alpha, verifier_gate_challenges, padding_indicator_array);
 
         auto verified = verifier_output.verified;
 
@@ -331,7 +334,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             .public_input_delta = FF::one(),
         };
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
-        auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
+        auto sumcheck_prover = SumcheckProver<Flavor, multivariate_d>(multivariate_n, prover_transcript);
 
         RelationSeparator prover_alpha;
         for (size_t idx = 0; idx < prover_alpha.size(); idx++) {
@@ -354,7 +357,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
-        auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_d, verifier_transcript);
+        auto sumcheck_verifier = SumcheckVerifier<Flavor, multivariate_d>(verifier_transcript);
         RelationSeparator verifier_alpha;
         for (size_t idx = 0; idx < verifier_alpha.size(); idx++) {
             verifier_alpha[idx] =
@@ -365,7 +368,11 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             verifier_gate_challenges[idx] =
                 verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
-        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_gate_challenges);
+
+        std::array<FF, multivariate_d> padding_indicator_array;
+        std::ranges::fill(padding_indicator_array, FF{ 1 });
+        auto verifier_output = sumcheck_verifier.verify(
+            relation_parameters, verifier_alpha, verifier_gate_challenges, padding_indicator_array);
 
         auto verified = verifier_output.verified;
 
@@ -374,8 +381,19 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 };
 
 // Define the FlavorTypes
+#ifdef STARKNET_GARAGA_FLAVORS
+using FlavorTypes = testing::Types<UltraFlavor,
+                                   UltraZKFlavor,
+                                   UltraKeccakFlavor,
+                                   UltraKeccakZKFlavor,
+                                   UltraStarknetFlavor,
+                                   UltraStarknetZKFlavor,
+                                   MegaFlavor,
+                                   MegaZKFlavor>;
+#else
 using FlavorTypes =
     testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, MegaFlavor, MegaZKFlavor>;
+#endif
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 

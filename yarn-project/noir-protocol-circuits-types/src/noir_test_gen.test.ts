@@ -1,9 +1,11 @@
+import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  AztecAddress,
   type ContractClass,
   type ContractInstance,
-  FunctionSelector,
-  PublicKeys,
   computeContractAddressFromInstance,
   computeContractClassId,
   computeContractClassIdPreimage,
@@ -11,9 +13,9 @@ import {
   computePartialAddress,
   computePrivateFunctionsTree,
   computeSaltedInitializationHash,
-} from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
-import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+} from '@aztec/stdlib/contract';
+import { hashVK } from '@aztec/stdlib/hash';
+import { PublicKeys } from '@aztec/stdlib/keys';
 
 describe('Data generation for noir tests', () => {
   setupCustomSnapshotSerializers(expect);
@@ -50,14 +52,22 @@ describe('Data generation for noir tests', () => {
   const format = (obj: object) => JSON.stringify(obj, null, 2).replaceAll('"', '');
 
   test.each(contracts)('Computes contract info for %s', async contract => {
-    const contractClass: ContractClass = { ...contract, publicFunctions: [], version: 1 };
+    const defaultVkHash = await hashVK(new Array(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS).fill(Fr.ZERO));
+    contract.privateFunctions.forEach(p => (p.vkHash = defaultVkHash));
+    const contractClass: ContractClass = { ...contract, version: 1 };
     const contractClassId = await computeContractClassId(contractClass);
     const initializationHash = await computeInitializationHashFromEncodedArgs(constructorSelector, []);
-    const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } = await computeContractClassIdPreimage(
-      contractClass,
-    );
+    const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } =
+      await computeContractClassIdPreimage(contractClass);
     const deployer = AztecAddress.ZERO;
-    const instance: ContractInstance = { ...contract, version: 1, initializationHash, contractClassId, deployer };
+    const instance: ContractInstance = {
+      ...contract,
+      version: 1,
+      initializationHash,
+      currentContractClassId: contractClassId,
+      originalContractClassId: contractClassId,
+      deployer,
+    };
     const address = await computeContractAddressFromInstance(instance);
     const saltedInitializationHash = await computeSaltedInitializationHash(instance);
     const partialAddress = await computePartialAddress(instance);

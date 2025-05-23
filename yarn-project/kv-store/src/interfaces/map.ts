@@ -1,9 +1,9 @@
-import { type Key, type Range } from './common.js';
+import type { Key, Range, Value } from './common.js';
 
 /**
  * A map backed by a persistent store.
  */
-interface AztecBaseMap<K extends Key, V> {
+interface AztecBaseMap<K extends Key, V extends Value> {
   /**
    * Sets the value at the given key.
    * @param key - The key to set the value at
@@ -24,7 +24,7 @@ interface AztecBaseMap<K extends Key, V> {
    */
   delete(key: K): Promise<void>;
 }
-export interface AztecMap<K extends Key, V> extends AztecBaseMap<K, V> {
+export interface AztecMap<K extends Key, V extends Value> extends AztecBaseMap<K, V> {
   /**
    * Gets the value at the given key.
    * @param key - The key to get the value from
@@ -62,44 +62,10 @@ export interface AztecMap<K extends Key, V> extends AztecBaseMap<K, V> {
   clear(): Promise<void>;
 }
 
-export interface AztecMapWithSize<K extends Key, V> extends AztecMap<K, V> {
-  /**
-   * Gets the size of the map.
-   * @returns The size of the map
-   */
-  size(): number;
-}
-
-/**
- * A map backed by a persistent store that can have multiple values for a single key.
- */
-export interface AztecMultiMap<K extends Key, V> extends AztecMap<K, V> {
-  /**
-   * Gets all the values at the given key.
-   * @param key - The key to get the values from
-   */
-  getValues(key: K): IterableIterator<V>;
-
-  /**
-   * Deletes a specific value at the given key.
-   * @param key - The key to delete the value at
-   * @param val - The value to delete
-   */
-  deleteValue(key: K, val: V): Promise<void>;
-}
-
-export interface AztecMultiMapWithSize<K extends Key, V> extends AztecMultiMap<K, V> {
-  /**
-   * Gets the size of the map.
-   * @returns The size of the map
-   */
-  size(): number;
-}
-
 /**
  * A map backed by a persistent store.
  */
-export interface AztecAsyncMap<K extends Key, V> extends AztecBaseMap<K, V> {
+export interface AztecAsyncMap<K extends Key, V extends Value> extends AztecBaseMap<K, V> {
   /**
    * Gets the value at the given key.
    * @param key - The key to get the value from
@@ -130,22 +96,4 @@ export interface AztecAsyncMap<K extends Key, V> extends AztecBaseMap<K, V> {
    * @param range - The range of keys to iterate over
    */
   keysAsync(range?: Range<K>): AsyncIterableIterator<K>;
-}
-
-/**
- * A map backed by a persistent store that can have multiple values for a single key.
- */
-export interface AztecAsyncMultiMap<K extends Key, V> extends AztecAsyncMap<K, V> {
-  /**
-   * Gets all the values at the given key.
-   * @param key - The key to get the values from
-   */
-  getValuesAsync(key: K): AsyncIterableIterator<V>;
-
-  /**
-   * Deletes a specific value at the given key.
-   * @param key - The key to delete the value at
-   * @param val - The value to delete
-   */
-  deleteValue(key: K, val: V): Promise<void>;
 }

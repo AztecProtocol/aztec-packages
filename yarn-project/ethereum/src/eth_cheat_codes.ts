@@ -1,33 +1,40 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type Hex } from 'viem';
+import { type Hex, createPublicClient, fallback, http, parseTransaction } from 'viem';
+
+import type { ViemPublicClient } from './types.js';
 
 /**
  * A class that provides utility functions for interacting with ethereum (L1).
  */
 export class EthCheatCodes {
+  private publicClient: ViemPublicClient;
   constructor(
     /**
      * The RPC URL to use for interacting with the chain
      */
-    public rpcUrl: string,
+    public rpcUrls: string[],
     /**
      * The logger to use for the eth cheatcodes
      */
     public logger = createLogger('ethereum:cheat_codes'),
-  ) {}
+  ) {
+    this.publicClient = createPublicClient({
+      transport: fallback(this.rpcUrls.map(url => http(url))),
+    });
+  }
 
   async rpcCall(method: string, params: any[]) {
-    const paramsString = JSON.stringify(params);
-    const content = {
-      body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${paramsString}, "id": 1}`,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    };
-    return await (await fetch(this.rpcUrl, content)).json();
+    const paramsString = jsonStringify(params);
+    this.logger.info(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
+    return (await this.publicClient.transport.request({
+      method,
+      params,
+    })) as any;
   }
 
   /**
@@ -37,7 +44,7 @@ export class EthCheatCodes {
   public async isAutoMining(): Promise<boolean> {
     try {
       const res = await this.rpcCall('anvil_getAutomine', []);
-      return res.result;
+      return res;
     } catch (err) {
       this.logger.error(`Calling "anvil_getAutomine" failed with:`, err);
     }
@@ -50,7 +57,7 @@ export class EthCheatCodes {
    */
   public async blockNumber(): Promise<number> {
     const res = await this.rpcCall('eth_blockNumber', []);
-    return parseInt(res.result, 16);
+    return parseInt(res, 16);
   }
 
   /**
@@ -59,7 +66,7 @@ export class EthCheatCodes {
    */
   public async chainId(): Promise<number> {
     const res = await this.rpcCall('eth_chainId', []);
-    return parseInt(res.result, 16);
+    return parseInt(res, 16);
   }
 
   /**
@@ -68,7 +75,7 @@ export class EthCheatCodes {
    */
   public async timestamp(): Promise<number> {
     const res = await this.rpcCall('eth_getBlockByNumber', ['latest', true]);
-    return parseInt(res.result.timestamp, 16);
+    return parseInt(res.timestamp, 16);
   }
 
   /**
@@ -81,9 +88,10 @@ export class EthCheatCodes {
   }
 
   private async doMine(numberOfBlocks = 1): Promise<void> {
-    const res = await this.rpcCall('hardhat_mine', [numberOfBlocks]);
-    if (res.error) {
-      throw new Error(`Error mining: ${res.error.message}`);
+    try {
+      await this.rpcCall('hardhat_mine', [numberOfBlocks]);
+    } catch (err) {
+      throw new Error(`Error mining: ${err}`);
     }
   }
 
@@ -91,9 +99,10 @@ export class EthCheatCodes {
    * Mines a single block with evm_mine
    */
   public async evmMine(): Promise<void> {
-    const res = await this.rpcCall('evm_mine', []);
-    if (res.error) {
-      throw new Error(`Error mining: ${res.error.message}`);
+    try {
+      await this.rpcCall('evm_mine', []);
+    } catch (err) {
+      throw new Error(`Error mining: ${err}`);
     }
   }
 
@@ -103,9 +112,10 @@ export class EthCheatCodes {
    * @param balance - The balance to set
    */
   public async setBalance(account: EthAddress, balance: bigint): Promise<void> {
-    const res = await this.rpcCall('anvil_setBalance', [account.toString(), toHex(balance)]);
-    if (res.error) {
-      throw new Error(`Error setting balance for ${account}: ${res.error.message}`);
+    try {
+      await this.rpcCall('anvil_setBalance', [account.toString(), toHex(balance)]);
+    } catch (err) {
+      throw new Error(`Error setting balance for ${account}: ${err}`);
     }
     this.logger.warn(`Set balance for ${account} to ${balance}`);
   }
@@ -115,9 +125,10 @@ export class EthCheatCodes {
    * @param interval - The interval to use between blocks
    */
   public async setBlockInterval(interval: number): Promise<void> {
-    const res = await this.rpcCall('anvil_setBlockTimestampInterval', [interval]);
-    if (res.error) {
-      throw new Error(`Error setting block interval: ${res.error.message}`);
+    try {
+      await this.rpcCall('anvil_setBlockTimestampInterval', [interval]);
+    } catch (err) {
+      throw new Error(`Error setting block interval: ${err}`);
     }
     this.logger.warn(`Set L1 block interval to ${interval}`);
   }
@@ -127,9 +138,10 @@ export class EthCheatCodes {
    * @param baseFee - The base fee to set
    */
   public async setNextBlockBaseFeePerGas(baseFee: bigint | number): Promise<void> {
-    const res = await this.rpcCall('anvil_setNextBlockBaseFeePerGas', [baseFee.toString()]);
-    if (res.error) {
-      throw new Error(`Error setting next block base fee per gas: ${res.error.message}`);
+    try {
+      await this.rpcCall('anvil_setNextBlockBaseFeePerGas', [baseFee.toString()]);
+    } catch (err) {
+      throw new Error(`Error setting next block base fee per gas: ${err}`);
     }
     this.logger.warn(`Set L1 next block base fee per gas to ${baseFee}`);
   }
@@ -139,9 +151,10 @@ export class EthCheatCodes {
    * @param seconds - The interval to use between blocks
    */
   public async setIntervalMining(seconds: number): Promise<void> {
-    const res = await this.rpcCall('anvil_setIntervalMining', [seconds]);
-    if (res.error) {
-      throw new Error(`Error setting interval mining: ${res.error.message}`);
+    try {
+      await this.rpcCall('anvil_setIntervalMining', [seconds]);
+    } catch (err) {
+      throw new Error(`Error setting interval mining: ${err}`);
     }
     this.logger.warn(`Set L1 interval mining to ${seconds} seconds`);
   }
@@ -151,9 +164,10 @@ export class EthCheatCodes {
    * @param automine - The automine status to set
    */
   public async setAutomine(automine: boolean): Promise<void> {
-    const res = await this.rpcCall('anvil_setAutomine', [automine]);
-    if (res.error) {
-      throw new Error(`Error setting automine: ${res.error.message}`);
+    try {
+      await this.rpcCall('anvil_setAutomine', [automine]);
+    } catch (err) {
+      throw new Error(`Error setting automine: ${err}`);
     }
     this.logger.warn(`Set L1 automine to ${automine}`);
   }
@@ -163,9 +177,10 @@ export class EthCheatCodes {
    * @param txHash - The transaction hash
    */
   public async dropTransaction(txHash: Hex): Promise<void> {
-    const res = await this.rpcCall('anvil_dropTransaction', [txHash]);
-    if (res.error) {
-      throw new Error(`Error dropping transaction: ${res.error.message}`);
+    try {
+      await this.rpcCall('anvil_dropTransaction', [txHash]);
+    } catch (err) {
+      throw new Error(`Error dropping transaction: ${err}`);
     }
     this.logger.warn(`Dropped transaction ${txHash}`);
   }
@@ -175,9 +190,10 @@ export class EthCheatCodes {
    * @param timestamp - The timestamp to set the next block to
    */
   public async setNextBlockTimestamp(timestamp: number): Promise<void> {
-    const res = await this.rpcCall('evm_setNextBlockTimestamp', [timestamp]);
-    if (res.error) {
-      throw new Error(`Error setting next block timestamp: ${res.error.message}`);
+    try {
+      await this.rpcCall('evm_setNextBlockTimestamp', [timestamp]);
+    } catch (err: any) {
+      throw new Error(`Error setting next block timestamp: ${err.message}`);
     }
     this.logger.warn(`Set L1 next block timestamp to ${timestamp}`);
   }
@@ -187,9 +203,10 @@ export class EthCheatCodes {
    * @param timestamp - The timestamp to set the next block to
    */
   public async warp(timestamp: number | bigint, silent = false): Promise<void> {
-    const res = await this.rpcCall('evm_setNextBlockTimestamp', [Number(timestamp)]);
-    if (res.error) {
-      throw new Error(`Error warping: ${res.error.message}`);
+    try {
+      await this.rpcCall('evm_setNextBlockTimestamp', [Number(timestamp)]);
+    } catch (err) {
+      throw new Error(`Error warping: ${err}`);
     }
     await this.doMine();
     if (!silent) {
@@ -205,7 +222,7 @@ export class EthCheatCodes {
    */
   public async load(contract: EthAddress, slot: bigint): Promise<bigint> {
     const res = await this.rpcCall('eth_getStorageAt', [contract.toString(), toHex(slot), 'latest']);
-    return BigInt(res.result);
+    return BigInt(res);
   }
 
   /**
@@ -216,9 +233,10 @@ export class EthCheatCodes {
    */
   public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<void> {
     // for the rpc call, we need to change value to be a 32 byte hex string.
-    const res = await this.rpcCall('hardhat_setStorageAt', [contract.toString(), toHex(slot), toHex(value, true)]);
-    if (res.error) {
-      throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
+    try {
+      await this.rpcCall('hardhat_setStorageAt', [contract.toString(), toHex(slot), toHex(value, true)]);
+    } catch (err) {
+      throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${err}`);
     }
     this.logger.warn(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
   }
@@ -240,9 +258,10 @@ export class EthCheatCodes {
    * @param who - The address to impersonate
    */
   public async startImpersonating(who: EthAddress | Hex): Promise<void> {
-    const res = await this.rpcCall('hardhat_impersonateAccount', [who.toString()]);
-    if (res.error) {
-      throw new Error(`Error impersonating ${who}: ${res.error.message}`);
+    try {
+      await this.rpcCall('hardhat_impersonateAccount', [who.toString()]);
+    } catch (err) {
+      throw new Error(`Error impersonating ${who}: ${err}`);
     }
     this.logger.warn(`Impersonating ${who}`);
   }
@@ -252,9 +271,10 @@ export class EthCheatCodes {
    * @param who - The address to stop impersonating
    */
   public async stopImpersonating(who: EthAddress | Hex): Promise<void> {
-    const res = await this.rpcCall('hardhat_stopImpersonatingAccount', [who.toString()]);
-    if (res.error) {
-      throw new Error(`Error when stopping the impersonation of ${who}: ${res.error.message}`);
+    try {
+      await this.rpcCall('hardhat_stopImpersonatingAccount', [who.toString()]);
+    } catch (err) {
+      throw new Error(`Error when stopping the impersonation of ${who}: ${err}`);
     }
     this.logger.warn(`Stopped impersonating ${who}`);
   }
@@ -265,9 +285,10 @@ export class EthCheatCodes {
    * @param bytecode - The bytecode to set
    */
   public async etch(contract: EthAddress, bytecode: `0x${string}`): Promise<void> {
-    const res = await this.rpcCall('hardhat_setCode', [contract.toString(), bytecode]);
-    if (res.error) {
-      throw new Error(`Error setting bytecode for ${contract}: ${res.error.message}`);
+    try {
+      await this.rpcCall('hardhat_setCode', [contract.toString(), bytecode]);
+    } catch (err) {
+      throw new Error(`Error setting bytecode for ${contract}: ${err}`);
     }
     this.logger.warn(`Set bytecode for ${contract} to ${bytecode}`);
   }
@@ -279,7 +300,7 @@ export class EthCheatCodes {
    */
   public async getBytecode(contract: EthAddress): Promise<`0x${string}`> {
     const res = await this.rpcCall('eth_getCode', [contract.toString(), 'latest']);
-    return res.result;
+    return res;
   }
 
   /**
@@ -289,6 +310,47 @@ export class EthCheatCodes {
    */
   public async getRawTransaction(txHash: Hex): Promise<`0x${string}`> {
     const res = await this.rpcCall('debug_getRawTransaction', [txHash]);
-    return res.result;
+    return res;
+  }
+
+  /**
+   * Triggers a reorg of the given depth, removing those blocks from the chain.
+   * @param depth - The depth of the reorg
+   */
+  public async reorg(depth: number): Promise<void> {
+    try {
+      await this.rpcCall('anvil_rollback', [depth]);
+    } catch (err) {
+      throw new Error(`Error rolling back: ${err}`);
+    }
+    this.logger.warn(`Rolled back L1 chain with depth ${depth}`);
+  }
+
+  /**
+   * Triggers a reorg of the given depth, optionally replacing it with new blocks.
+   * The resulting block height will be the same as the original chain.
+   * @param depth - The depth of the reorg
+   * @param newBlocks - The blocks to replace the old ones with, each represented as a list of txs.
+   */
+  public async reorgWithReplacement(
+    depth: number,
+    newBlocks: (Hex | { to: EthAddress | Hex; input?: Hex; from?: EthAddress | Hex; value?: number | bigint })[][] = [],
+  ): Promise<void> {
+    this.logger.verbose(`Preparing L1 reorg with depth ${depth}`);
+    for (const tx of newBlocks.flat()) {
+      const isBlobTx = typeof tx === 'string' ? parseTransaction(tx).type === 'eip4844' : 'blobVersionedHashes' in tx;
+      if (isBlobTx) {
+        throw new Error(`Anvil does not support blob transactions in anvil_reorg`);
+      }
+    }
+    try {
+      await this.rpcCall('anvil_reorg', [
+        depth,
+        newBlocks.flatMap((txs, index) => txs.map(tx => [typeof tx === 'string' ? tx : { value: 0, ...tx }, index])),
+      ]);
+    } catch (err) {
+      throw new Error(`Error reorging: ${err}`);
+    }
+    this.logger.warn(`Reorged L1 chain with depth ${depth} and ${newBlocks.length} new blocks`, { depth, newBlocks });
   }
 }

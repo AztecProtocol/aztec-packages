@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -eu
 
-PRESET="${1:-wasm-threads}"
-TARGET="${2:-barretenberg.wasm}"
+PRESET="${PRESET:-wasm-threads}"
+TARGET="${TARGET:-barretenberg.wasm}"
 
 # Move above script dir.
 cd $(dirname $0)/..

@@ -1,0 +1,56 @@
+services:
+  ethereum:
+    image: aztecprotocol/build:3.0
+    cpus: 1
+    cpuset: ${CPU_LIST:-}
+    mem_limit: 2G
+    entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
+
+  aztec:
+    image: aztecprotocol/build:3.0
+    cpus: 4
+    cpuset: ${CPU_LIST:-}
+    mem_limit: 8G
+    tty: true
+    volumes:
+      - ../:/root/aztec-packages
+    working_dir: /root/aztec-packages/yarn-project/aztec
+    command: 'node ./dest/bin start --sandbox'
+    environment:
+      ETHEREUM_HOSTS: http://ethereum:8545
+      HARDWARE_CONCURRENCY: 4
+      L1_CHAIN_ID: 31337
+      FORCE_COLOR: ${FORCE_COLOR:-1}
+      ARCHIVER_POLLING_INTERVAL_MS: 50
+      P2P_BLOCK_CHECK_INTERVAL_MS: 50
+      SEQ_TX_POLLING_INTERVAL_MS: 50
+      WS_BLOCK_CHECK_INTERVAL_MS: 50
+      ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
+    healthcheck:
+      test: ['CMD', 'curl', '-fSs', 'http://127.0.0.1:8080/status']
+      interval: 3s
+      timeout: 30s
+      start_period: 120s
+    depends_on:
+      - ethereum
+
+  playground:
+    image: aztecprotocol/build:3.0
+    cpus: 4
+    cpuset: ${CPU_LIST:-}
+    mem_limit: 8G
+    tty: true
+    volumes:
+      - ../:/root/aztec-packages
+    working_dir: /root/aztec-packages/playground
+    command: 'yarn workspace @aztec/playground test --project=$BROWSER'
+    environment:
+      HARDWARE_CONCURRENCY: 4
+      DEBUG: 'aztec:*'
+      DEBUG_COLORS: 'true'
+      L1_CHAIN_ID: 31337
+      FORCE_COLOR: ${FORCE_COLOR:-1}
+      BROWSER: ${BROWSER:-chromium}
+    depends_on:
+      aztec:
+        condition: service_healthy

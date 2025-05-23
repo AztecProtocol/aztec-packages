@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
@@ -21,12 +21,12 @@ done
 echo "Done waiting."
 
 # Get the chain ID from the Ethereum node
-export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
+export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:8545"}
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id.sh
 export L1_CHAIN_ID=${L1_CHAIN_ID:-31337}
 
 # TODO(AD): Add option for prover-enabled mode
-ARGS="--skipProofWait --l1-chain-id $L1_CHAIN_ID"
+ARGS="--skipProofWait --testAccounts"
 
 # Deploy L2 contracts
 export AZTEC_NODE_URL="http://127.0.0.1:8080"
@@ -34,5 +34,5 @@ export PXE_URL="http://127.0.0.1:8079"
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts $ARGS
 echo "Deployed L2 contracts"
 # Use file just as done signal
-echo "" > state/l2-contracts.env
+echo "" >state/l2-contracts.env
 echo "Wrote to state/l2-contracts.env to signal completion"

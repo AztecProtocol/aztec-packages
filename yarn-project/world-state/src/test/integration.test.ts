@@ -1,16 +1,16 @@
 import { MockPrefilledArchiver } from '@aztec/archiver/test';
-import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
-import { EthAddress, type Fr } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
+import type { L2Block } from '@aztec/stdlib/block';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { jest } from '@jest/globals';
 
-import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { NativeWorldStateService } from '../native/native_world_state.js';
-import { type WorldStateConfig } from '../synchronizer/config.js';
+import type { WorldStateConfig } from '../synchronizer/config.js';
 import { createWorldState } from '../synchronizer/factory.js';
 import { ServerWorldStateSynchronizer } from '../synchronizer/server_world_state_synchronizer.js';
 import { mockBlocks } from './utils.js';
@@ -53,16 +53,8 @@ describe('world-state integration', () => {
 
     archiver = new MockPrefilledArchiver(blocks, messages);
 
-    db = (await createWorldState(
-      config,
-      new WorldStateInstrumentation(getTelemetryClient()),
-    )) as NativeWorldStateService;
-    synchronizer = new TestWorldStateSynchronizer(
-      db,
-      archiver,
-      config,
-      new WorldStateInstrumentation(getTelemetryClient()),
-    );
+    db = (await createWorldState(config)) as NativeWorldStateService;
+    synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
     log.info(`Created synchronizer`);
   }, 30_000);
 
@@ -155,12 +147,7 @@ describe('world-state integration', () => {
       await expectSynchedToBlock(5);
       await synchronizer.stopBlockStream();
 
-      synchronizer = new TestWorldStateSynchronizer(
-        db,
-        archiver,
-        config,
-        new WorldStateInstrumentation(getTelemetryClient()),
-      );
+      synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
 
       await archiver.createBlocks(3);
       await synchronizer.start();
@@ -177,12 +164,7 @@ describe('world-state integration', () => {
     });
 
     it('syncs only proven blocks when instructed', async () => {
-      synchronizer = new TestWorldStateSynchronizer(
-        db,
-        archiver,
-        { ...config, worldStateProvenBlocksOnly: true },
-        new WorldStateInstrumentation(getTelemetryClient()),
-      );
+      synchronizer = new TestWorldStateSynchronizer(db, archiver, { ...config, worldStateProvenBlocksOnly: true });
 
       await archiver.createBlocks(5);
       archiver.setProvenBlockNumber(3);
@@ -216,12 +198,7 @@ describe('world-state integration', () => {
   describe('immediate sync', () => {
     beforeEach(() => {
       // Set up a synchronizer with a longer block check interval to avoid interference with immediate sync
-      synchronizer = new TestWorldStateSynchronizer(
-        db,
-        archiver,
-        { ...config, worldStateBlockCheckIntervalMS: 1000 },
-        new WorldStateInstrumentation(getTelemetryClient()),
-      );
+      synchronizer = new TestWorldStateSynchronizer(db, archiver, { ...config, worldStateBlockCheckIntervalMS: 1000 });
     });
 
     it('syncs immediately to the latest block', async () => {
@@ -271,13 +248,13 @@ describe('world-state integration', () => {
   describe('finalized chain', () => {
     it('syncs finalized chain tip', async () => {
       await archiver.createBlocks(5);
-      archiver.setProvenBlockNumber(3);
+      archiver.setFinalizedBlockNumber(3);
 
       await synchronizer.start();
       await awaitSync(5, 3);
       await expectSynchedToBlock(5, 3);
 
-      archiver.setProvenBlockNumber(4);
+      archiver.setFinalizedBlockNumber(4);
       await awaitSync(5, 4);
       await expectSynchedToBlock(5, 4);
     });

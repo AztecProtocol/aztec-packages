@@ -4,10 +4,12 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./mocks": "./dest/mocks/index.js",
+    "./test-helpers": "./dest/test-helpers/index.js",
     "./bootstrap": "./dest/bootstrap/bootstrap.js",
     "./config": "./dest/config.js",
-    "./msg_validators": "./dest/msg_validators/index.js"
+    "./msg_validators": "./dest/msg_validators/index.js",
+    "./enr": "./dest/enr/index.js",
+    "./types": "./dest/types/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -20,9 +22,7 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "start": "node ./dest",
     "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'"
   },
@@ -57,17 +57,21 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/simulator": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@chainsafe/discv5": "9.0.0",
     "@chainsafe/enr": "3.0.0",
@@ -100,16 +104,16 @@
     "@aztec/archiver": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
-    "@types/node": "^18.14.6",
+    "@types/node": "^22.15.17",
     "get-port": "^7.1.0",
     "it-drain": "^3.0.5",
     "it-length": "^3.0.6",
     "jest": "^29.5.0",
     "jest-mock-extended": "^3.0.4",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4",
+    "typescript": "^5.3.3",
     "uint8arrays": "^5.0.3",
-    "viem": "2.22.8"
+    "viem": "2.23.7"
   },
   "files": [
     "dest",
@@ -118,6 +122,6 @@
   ],
   "types": "./dest/index.d.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

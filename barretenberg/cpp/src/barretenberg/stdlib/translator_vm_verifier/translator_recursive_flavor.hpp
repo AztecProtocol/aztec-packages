@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -27,7 +33,6 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
   public:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/990): Establish whether mini_circuit_size pattern is
     // needed
-    static constexpr size_t mini_circuit_size = 2048;
     using CircuitBuilder = BuilderType;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
@@ -42,40 +47,11 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
 
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
 
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
-    static constexpr bool USE_SHORT_MONOMIALS = TranslatorFlavor::USE_SHORT_MONOMIALS;
-
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
-    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
-
-    // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
-    // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
-    // It is also the only parameter that can be changed without updating relations or structures in the flavor
-    static constexpr size_t MINI_CIRCUIT_SIZE = mini_circuit_size;
-
+    // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = TranslatorFlavor::USE_PADDING;
     // None of this parameters can be changed
-
-    // How many mini_circuit_size polynomials are concatenated in one concatenated_*
-    static constexpr size_t CONCATENATION_GROUP_SIZE = NativeFlavor::CONCATENATION_GROUP_SIZE;
-
-    // The number of concatenated_* wires
-    static constexpr size_t NUM_CONCATENATED_WIRES = NativeFlavor::NUM_CONCATENATED_WIRES;
-
-    // Actual circuit size
-    static constexpr size_t FULL_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE;
-
-    // Number of wires
-    static constexpr size_t NUM_WIRES = NativeFlavor::NUM_WIRES;
-
-    // The step in the DeltaRangeConstraint relation
-    static constexpr size_t SORT_STEP = NativeFlavor::SORT_STEP;
-
-    // The bitness of the range constraint
-    static constexpr size_t MICRO_LIMB_BITS = NativeFlavor::MICRO_LIMB_BITS;
-
-    // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one
-    static constexpr auto NEGATIVE_MODULUS_LIMBS = NativeFlavor::NEGATIVE_MODULUS_LIMBS;
 
     // Number of bits in a binary limb
     // This is not a configurable value. Relations are sepcifically designed for it to be 68
@@ -90,6 +66,10 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = NativeFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
+
+    // Number of wires representing the op queue whose commitments are going to be checked against those from the
+    // final round of merge
+    static constexpr size_t NUM_OP_QUEUE_WIRES = NativeFlavor::NUM_OP_QUEUE_WIRES;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
 
@@ -125,22 +105,18 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
      * portability of our circuits.
      */
     class VerificationKey
-        : public VerificationKey_<TranslatorFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public VerificationKey_<FF, TranslatorFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-        {
-            this->circuit_size = circuit_size;
-            this->log_circuit_size = numeric::get_msb(circuit_size);
-            this->num_public_inputs = num_public_inputs;
-        }
-
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(); // ?
-            this->circuit_size = native_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = native_key->num_public_inputs;
-            this->pub_inputs_offset = native_key->pub_inputs_offset;
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
+            // `log_circuit_size` from MSGPACK and the verification key.
+            this->circuit_size = FF{ 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N };
+            this->circuit_size.convert_constant_to_fixed_witness(builder);
+            this->log_circuit_size = FF{ uint64_t(TranslatorFlavor::CONST_TRANSLATOR_LOG_N) };
+            this->log_circuit_size.convert_constant_to_fixed_witness(builder);
+            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
+            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
 
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);

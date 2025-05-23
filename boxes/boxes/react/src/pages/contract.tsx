@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Contract } from '@aztec/aztec.js';
+import { Contract, FunctionType } from '@aztec/aztec.js';
 import { useNumber } from '../hooks/useNumber';
-import { filteredInterface } from '../config';
+
+const IGNORE_FUNCTIONS = ['constructor', 'sync_private_state'];
 
 export function ContractComponent({ contract }: { contract: Contract }) {
   const [showInput, setShowInput] = useState(true);
   const { wait, getNumber, setNumber } = useNumber({ contract });
+
+  const filteredInterface = contract.artifact.functions.filter(f => !IGNORE_FUNCTIONS.includes(f.name));
 
   return (
     <div>
@@ -15,7 +18,7 @@ export function ContractComponent({ contract }: { contract: Contract }) {
         <select name="viewFunctions" id="viewFunctions">
           {filteredInterface.map(
             (fn, index) =>
-              fn.functionType === 'unconstrained' && (
+              fn.functionType === FunctionType.UTILITY && (
                 <option key={index} value={index}>
                   {fn.name}
                 </option>
@@ -32,7 +35,7 @@ export function ContractComponent({ contract }: { contract: Contract }) {
         <select name="functions" id="functions" onChange={() => setShowInput(true)}>
           {filteredInterface.map(
             (fn, index) =>
-              fn.functionType !== 'unconstrained' && (
+              fn.functionType !== FunctionType.UTILITY && (
                 <option key={index} value={index}>
                   {fn.name}
                 </option>

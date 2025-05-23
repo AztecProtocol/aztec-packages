@@ -11,7 +11,7 @@ import {
  */
 export interface ValidatorClientConfig {
   /** The private key of the validator participating in attestation duties */
-  validatorPrivateKey: string;
+  validatorPrivateKey?: string;
 
   /** Do not run the validator */
   disableValidator: boolean;

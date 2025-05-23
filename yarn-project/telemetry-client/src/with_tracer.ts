@@ -1,4 +1,4 @@
-import { type TelemetryClient, type Tracer } from './telemetry.js';
+import type { TelemetryClient, Tracer } from './telemetry.js';
 
 /**
  * A minimal class that enables recording metrics with a telemetry client.

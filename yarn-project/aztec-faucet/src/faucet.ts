@@ -1,5 +1,5 @@
-import { createEthereumChain } from '@aztec/ethereum';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import { type ExtendedViemWalletClient, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 
@@ -9,17 +9,13 @@ import {
   type GetContractReturnType,
   type HttpTransport,
   type LocalAccount,
-  type PublicClient,
-  http as ViemHttp,
   type WalletClient,
-  createPublicClient,
-  createWalletClient,
   getContract,
   parseEther,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { type FaucetConfig, type L1AssetConfig } from './config.js';
+import type { FaucetConfig, L1AssetConfig } from './config.js';
 
 type L1Asset = {
   contract: GetContractReturnType<typeof TestERC20Abi, WalletClient<HttpTransport, Chain, Account>>;
@@ -27,8 +23,7 @@ type L1Asset = {
 };
 
 export class Faucet {
-  private walletClient: WalletClient<HttpTransport, Chain, Account>;
-  private publicClient: PublicClient<HttpTransport, Chain>;
+  private l1Client: ExtendedViemWalletClient;
 
   private dripHistory = new Map<string, Map<string, number>>();
   private l1Assets = new Map<string, L1Asset>();
@@ -39,18 +34,9 @@ export class Faucet {
     private timeFn: () => number = Date.now,
     private log = createLogger('aztec:faucet'),
   ) {
-    const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
+    const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
 
-    this.walletClient = createWalletClient({
-      account: this.account,
-      chain: chain.chainInfo,
-      transport: ViemHttp(chain.rpcUrl),
-    });
-
-    this.publicClient = createPublicClient({
-      chain: chain.chainInfo,
-      transport: ViemHttp(chain.rpcUrl),
-    });
+    this.l1Client = createExtendedL1Client(config.l1RpcUrls, this.account, chain.chainInfo);
   }
 
   public static async create(config: FaucetConfig): Promise<Faucet> {
@@ -79,12 +65,12 @@ export class Faucet {
   public async sendEth(to: EthAddress): Promise<void> {
     this.checkThrottle(to, 'ETH');
 
-    const hash = await this.walletClient.sendTransaction({
+    const hash = await this.l1Client.sendTransaction({
       account: this.account,
       to: to.toString(),
       value: parseEther(this.config.ethAmount),
     });
-    await this.publicClient.waitForTransactionReceipt({ hash });
+    await this.l1Client.waitForTransactionReceipt({ hash });
 
     this.updateThrottle(to, 'ETH');
     this.log.info(`Sent ETH ${this.config.ethAmount} to ${to} in tx ${hash}`);
@@ -99,7 +85,7 @@ export class Faucet {
     this.checkThrottle(to, assetName);
 
     const hash = await asset.contract.write.mint([to.toString(), asset.amount]);
-    await this.publicClient.waitForTransactionReceipt({ hash });
+    await this.l1Client.waitForTransactionReceipt({ hash });
 
     this.updateThrottle(to, assetName);
 
@@ -110,7 +96,7 @@ export class Faucet {
     const contract = getContract({
       abi: TestERC20Abi,
       address: l1AssetConfig.address.toString(),
-      client: this.walletClient,
+      client: this.l1Client,
     });
 
     const [name, owner] = await Promise.all([contract.read.name(), contract.read.owner()]);

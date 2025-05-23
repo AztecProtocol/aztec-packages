@@ -1,29 +1,22 @@
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L2Block,
-  type LogFilter,
-  type TxEffect,
-  type TxHash,
-  type TxReceipt,
-  type TxScopedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type Fr,
-  type PrivateLog,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js';
-import { type FunctionSelector } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import type { L1BlockId } from '@aztec/ethereum';
+import type { Fr } from '@aztec/foundation/fields';
+import type { CustomRange } from '@aztec/kv-store';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2Block } from '@aztec/stdlib/block';
+import type {
+  ContractClassPublic,
+  ContractInstanceUpdateWithAddress,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UtilityFunctionWithMembershipProof,
+} from '@aztec/stdlib/contract';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
+import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { BlockHeader, type IndexedTxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
-import { type DataRetrieval } from './structs/data_retrieval.js';
-import { type L1Published } from './structs/published.js';
+import type { InboxMessage } from './structs/inbox_message.js';
+import type { PublishedL2Block } from './structs/published.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
@@ -31,10 +24,8 @@ import { type L1Published } from './structs/published.js';
 export type ArchiverL1SynchPoint = {
   /** Number of the last L1 block that added a new L2 block metadata.  */
   blocksSynchedTo?: bigint;
-  /** Number of the last L1 block that added L1 -> L2 messages from the Inbox. */
-  messagesSynchedTo?: bigint;
-  /** Number of the last L1 block that added a new proven block. */
-  provenLogsSynchedTo?: bigint;
+  /** Last L1 block checked for L1 to L2 messages. */
+  messagesSynchedTo?: L1BlockId;
 };
 
 /**
@@ -42,12 +33,17 @@ export type ArchiverL1SynchPoint = {
  * (blocks, encrypted logs, aztec contract data extended contract data).
  */
 export interface ArchiverDataStore {
+  /** Opens a new transaction to the underlying store and runs all operations within it. */
+  transactionAsync<T>(callback: () => Promise<T>): Promise<T>;
+
   /**
    * Append new blocks to the store's list.
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
+   * @param opts - Options for the operation.
+   * @param opts.force - If true, the blocks will be added even if they have gaps.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean>;
+  addBlocks(blocks: PublishedL2Block[], opts?: { force?: boolean }): Promise<boolean>;
 
   /**
    * Unwinds blocks from the database
@@ -59,12 +55,18 @@ export interface ArchiverDataStore {
   unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean>;
 
   /**
-   * Gets up to `limit` amount of L2 blocks starting from `from`.
+   * Returns the block for the given number, or undefined if not exists.
+   * @param number - The block number to return.
+   */
+  getPublishedBlock(number: number): Promise<PublishedL2Block | undefined>;
+
+  /**
+   * Gets up to `limit` amount of published L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]>;
+  getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]>;
 
   /**
    * Gets up to `limit` amount of L2 block headers starting from `from`.
@@ -76,10 +78,10 @@ export interface ArchiverDataStore {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The txHash of the tx corresponding to the tx effect.
-   * @returns The requested tx effect (or undefined if not found).
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
    * Gets a receipt of a settled tx.
@@ -97,28 +99,11 @@ export interface ArchiverDataStore {
   deleteLogs(blocks: L2Block[]): Promise<boolean>;
 
   /**
-   * Append new nullifiers to the store's list.
-   * @param blocks - The blocks for which to add the nullifiers.
-   * @returns True if the operation is successful.
-   */
-  addNullifiers(blocks: L2Block[]): Promise<boolean>;
-  deleteNullifiers(blocks: L2Block[]): Promise<boolean>;
-
-  /**
-   * Returns the provided nullifier indexes scoped to the block
-   * they were first included in, or undefined if they're not present in the tree
-   * @param blockNumber Max block number to search for the nullifiers
-   * @param nullifiers Nullifiers to get
-   * @returns The block scoped indexes of the provided nullifiers, or undefined if the nullifier doesn't exist in the tree
-   */
-  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]>;
-
-  /**
    * Append L1 to L2 messages to the store.
-   * @param messages - The L1 to L2 messages to be added to the store and the last processed L1 block.
+   * @param messages - The L1 to L2 messages to be added to the store.
    * @returns True if the operation is successful.
    */
-  addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean>;
+  addL1ToL2Messages(messages: InboxMessage[]): Promise<void>;
 
   /**
    * Gets L1 to L2 message (to be) included in a given block.
@@ -183,22 +168,10 @@ export interface ArchiverDataStore {
   getProvenL2BlockNumber(): Promise<number>;
 
   /**
-   * Gets the number of the latest proven L2 epoch.
-   * @returns The number of the latest proven L2 epoch.
-   */
-  getProvenL2EpochNumber(): Promise<number | undefined>;
-
-  /**
    * Stores the number of the latest proven L2 block processed.
    * @param l2BlockNumber - The number of the latest proven L2 block processed.
    */
   setProvenL2BlockNumber(l2BlockNumber: number): Promise<void>;
-
-  /**
-   * Stores the number of the latest proven L2 epoch.
-   * @param l2EpochNumber - The number of the latest proven L2 epoch.
-   */
-  setProvenL2EpochNumber(l2EpochNumber: number): Promise<void>;
 
   /**
    * Stores the l1 block number that blocks have been synched until
@@ -207,10 +180,9 @@ export interface ArchiverDataStore {
   setBlockSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
 
   /**
-   * Stores the l1 block number that messages have been synched until
-   * @param l1BlockNumber  - The l1 block number
+   * Stores the l1 block that messages have been synched until
    */
-  setMessageSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
+  setMessageSynchedL1Block(l1Block: L1BlockId): Promise<void>;
 
   /**
    * Gets the synch point of the archiver
@@ -245,19 +217,28 @@ export interface ArchiverDataStore {
   deleteContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
 
   /**
+   * Add new contract instance updates
+   * @param data - List of contract updates to be added.
+   * @param blockNumber - Number of the L2 block the updates were scheduled in.
+   * @returns True if the operation is successful.
+   */
+  addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean>;
+  deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean>;
+  /**
    * Adds private functions to a contract class.
    */
   addFunctions(
     contractClassId: Fr,
     privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+    utilityFunctions: UtilityFunctionWithMembershipProof[],
   ): Promise<boolean>;
 
   /**
-   * Returns a contract instance given its address, or undefined if not exists.
+   * Returns a contract instance given its address and the given block number, or undefined if not exists.
    * @param address - Address of the contract.
+   * @param blockNumber - Block number to get the contract instance at. Contract updates might change the instance at a given block.
    */
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined>;
 
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
@@ -266,10 +247,26 @@ export interface ArchiverDataStore {
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
-  /**
-   * Estimates the size of the store in bytes.
-   */
-  estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }>;
+  /** Estimates the size of the store in bytes. */
+  estimateSize(): Promise<{ mappingSize: number; physicalFileSize: number; actualSize: number; numItems: number }>;
+
+  /** Backups the archiver db to the target folder. Returns the path to the db file. */
+  backupTo(path: string): Promise<string>;
+
+  /** Closes the underlying data store. */
+  close(): Promise<void>;
+
+  /** Deletes all L1 to L2 messages up until (excluding) the target L2 block number. */
+  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number | bigint): Promise<void>;
+
+  /** Returns an async iterator to all L1 to L2 messages on the range. */
+  iterateL1ToL2Messages(range?: CustomRange<bigint>): AsyncIterableIterator<InboxMessage>;
+
+  /** Removes all L1 to L2 messages starting from the given index (inclusive). */
+  removeL1ToL2Messages(startIndex: bigint): Promise<void>;
+
+  /** Returns the last L1 to L2 message stored. */
+  getLastL1ToL2Message(): Promise<InboxMessage | undefined>;
 }

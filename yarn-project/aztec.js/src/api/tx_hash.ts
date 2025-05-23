@@ -1,1 +1,1 @@
-export { TxHash } from '@aztec/circuit-types/tx_hash';
+export { TxHash } from '@aztec/stdlib/tx';

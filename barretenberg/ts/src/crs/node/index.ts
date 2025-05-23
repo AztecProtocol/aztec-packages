@@ -1,24 +1,32 @@
 import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
-import { closeSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from 'fs';
+import { closeSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, createWriteStream } from 'fs';
 import { stat } from 'fs/promises';
-import createDebug from 'debug';
+import { Readable } from 'stream';
 import { homedir } from 'os';
-
-const debug = createDebug('bb.js:crs');
+import { finished } from 'stream/promises';
+import { createDebugLogger } from '../../log/index.js';
 
 /**
  * Generic CRS finder utility class.
  */
 export class Crs {
-  constructor(public readonly numPoints: number, public readonly path: string) {}
+  constructor(
+    public readonly numPoints: number,
+    public readonly path: string,
+    private readonly logger: (msg: string) => void = createDebugLogger('crs'),
+  ) {}
 
-  static async new(numPoints: number, crsPath = homedir() + '/.bb-crs') {
-    const crs = new Crs(numPoints, crsPath);
+  static async new(
+    numPoints: number,
+    crsPath = homedir() + '/.bb-crs',
+    logger: (msg: string) => void = createDebugLogger('crs'),
+  ) {
+    const crs = new Crs(numPoints, crsPath, logger);
     await crs.init();
     return crs;
   }
 
-  async init() {
+  async init(): Promise<void> {
     mkdirSync(this.path, { recursive: true });
 
     const g1FileSize = await stat(this.path + '/bn254_g1.dat')
@@ -29,15 +37,18 @@ export class Crs {
       .catch(() => 0);
 
     if (g1FileSize >= this.numPoints * 64 && g1FileSize % 64 == 0 && g2FileSize == 128) {
-      debug(`using cached crs of size: ${g1FileSize / 64}`);
+      this.logger(`Using cached CRS of size ${g1FileSize / 64}`);
       return;
     }
 
-    debug(`downloading crs of size: ${this.numPoints}`);
+    this.logger(`Downloading CRS of size ${this.numPoints} into ${this.path}`);
     const crs = new NetCrs(this.numPoints);
-    await crs.init();
-    writeFileSync(this.path + '/bn254_g1.dat', crs.getG1Data());
-    writeFileSync(this.path + '/bn254_g2.dat', crs.getG2Data());
+    const [g1, g2] = await Promise.all([crs.streamG1Data(), crs.streamG2Data()]);
+
+    await Promise.all([
+      finished(Readable.fromWeb(g1 as any).pipe(createWriteStream(this.path + '/bn254_g1.dat'))),
+      finished(Readable.fromWeb(g2 as any).pipe(createWriteStream(this.path + '/bn254_g2.dat'))),
+    ]);
   }
 
   /**
@@ -45,7 +56,9 @@ export class Crs {
    * @returns The points data.
    */
   getG1Data(): Uint8Array {
-    const length = this.numPoints * 64;
+    // Ensure length > 0, otherwise we might read a huge file.
+    // This is a backup.
+    const length = Math.max(this.numPoints, 1) * 64;
     const fd = openSync(this.path + '/bn254_g1.dat', 'r');
     const buffer = new Uint8Array(length);
     readSync(fd, buffer, 0, length, 0);
@@ -66,30 +79,40 @@ export class Crs {
  * Generic Grumpkin CRS finder utility class.
  */
 export class GrumpkinCrs {
-  constructor(public readonly numPoints: number, public readonly path: string) {}
+  constructor(
+    public readonly numPoints: number,
+    public readonly path: string,
+    private readonly logger: (msg: string) => void = createDebugLogger('crs'),
+  ) {}
 
-  static async new(numPoints: number, crsPath = homedir() + '/.bb-crs') {
-    const crs = new GrumpkinCrs(numPoints, crsPath);
+  static async new(
+    numPoints: number,
+    crsPath = homedir() + '/.bb-crs',
+    logger: (msg: string) => void = createDebugLogger('crs'),
+  ) {
+    const crs = new GrumpkinCrs(numPoints, crsPath, logger);
     await crs.init();
     return crs;
   }
 
-  async init() {
+  async init(): Promise<void> {
     mkdirSync(this.path, { recursive: true });
 
-    const g1FileSize = await stat(this.path + '/grumpkin_g1.dat')
+    const g1FileSize = await stat(this.path + '/grumpkin_g1.flat.dat')
       .then(stats => stats.size)
       .catch(() => 0);
 
     if (g1FileSize >= this.numPoints * 64 && g1FileSize % 64 == 0) {
-      debug(`using cached crs of size: ${g1FileSize / 64}`);
+      this.logger(`Using cached Grumpkin CRS of size ${g1FileSize / 64}`);
       return;
     }
 
-    debug(`downloading crs of size: ${this.numPoints}`);
+    this.logger(`Downloading Grumpkin CRS of size ${this.numPoints} into ${this.path}`);
     const crs = new NetGrumpkinCrs(this.numPoints);
-    await crs.init();
-    writeFileSync(this.path + '/grumpkin_g1.dat', crs.getG1Data());
+    const stream = await crs.streamG1Data();
+
+    await finished(Readable.fromWeb(stream as any).pipe(createWriteStream(this.path + '/grumpkin_g1.flat.dat')));
+    writeFileSync(this.path + '/grumpkin_size', String(crs.numPoints));
   }
 
   /**
@@ -97,6 +120,6 @@ export class GrumpkinCrs {
    * @returns The points data.
    */
   getG1Data(): Uint8Array {
-    return readFileSync(this.path + '/grumpkin_g1.dat');
+    return readFileSync(this.path + '/grumpkin_g1.flat.dat');
   }
 }

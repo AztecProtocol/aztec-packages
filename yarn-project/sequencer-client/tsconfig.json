@@ -13,13 +13,13 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-lib"
+    },
+    {
       "path": "../blob-sink"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../epoch-cache"
@@ -55,10 +55,10 @@
       "path": "../simulator"
     },
     {
-      "path": "../telemetry-client"
+      "path": "../stdlib"
     },
     {
-      "path": "../types"
+      "path": "../telemetry-client"
     },
     {
       "path": "../validator-client"

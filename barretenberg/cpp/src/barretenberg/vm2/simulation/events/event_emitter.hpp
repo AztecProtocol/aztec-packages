@@ -1,7 +1,9 @@
 #pragma once
 
-#include <list>
+#include <cassert>
 #include <vector>
+
+#include "barretenberg/vm2/common/set.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -12,8 +14,6 @@ template <typename Event> class EventEmitterInterface {
     virtual ~EventEmitterInterface() = default;
     // Pushes the event to the event container.
     virtual void emit(Event&& event) = 0;
-    // Transfers ownership of the events to the caller (clears the internal container).
-    virtual Container dump_events() = 0;
 };
 
 template <typename Event> class EventEmitter : public EventEmitterInterface<Event> {
@@ -24,34 +24,35 @@ template <typename Event> class EventEmitter : public EventEmitterInterface<Even
     void emit(Event&& event) override { events.push_back(std::move(event)); };
 
     const Container& get_events() const { return events; }
-    Container dump_events() override { return std::move(events); }
+    // Transfers ownership of the events to the caller (clears the internal container).
+    Container dump_events() { return std::move(events); }
 
   private:
     Container events;
 };
 
-// This is an event emmiter that offers stable references to the events.
-// It lets you access the last event that was emitted.
-// Note: this is currently unused but it might be needed for the execution trace (calls).
-// Reconsider its existence in a while.
-template <typename Event> class StableEventEmitter : public EventEmitterInterface<Event> {
+// This is an EventEmitter that eagerly deduplicates events based on a provided key.
+template <typename Event> class DeduplicatingEventEmitter : public EventEmitter<Event> {
   public:
-    using Container = std::list<Event>;
+    virtual ~DeduplicatingEventEmitter() = default;
 
-    virtual ~StableEventEmitter() = default;
-    void emit(Event&& event) override { events.push_back(std::move(event)); };
-    Event& last() { return events.back(); }
-
-    const Container& get_events() const { return events; }
-    std::vector<Event> dump_events() override
+    void emit(Event&& event) override
     {
-        std::vector<Event> result(events.begin(), events.end());
-        events.clear();
-        return result;
+        typename Event::Key key = event.get_key();
+        if (!elements_seen.contains(key)) {
+            elements_seen.insert(key);
+            EventEmitter<Event>::emit(std::move(event));
+        }
+    };
+    // Transfers ownership of the events to the caller (clears the internal container).
+    EventEmitter<Event>::Container dump_events()
+    {
+        elements_seen.clear();
+        return EventEmitter<Event>::dump_events();
     }
 
   private:
-    Container events;
+    unordered_flat_set<typename Event::Key> elements_seen;
 };
 
 template <typename Event> class NoopEventEmitter : public EventEmitterInterface<Event> {
@@ -61,7 +62,28 @@ template <typename Event> class NoopEventEmitter : public EventEmitterInterface<
     virtual ~NoopEventEmitter() = default;
 
     void emit(Event&&) override{};
-    Container dump_events() override { return {}; }
+    // TODO: Get rid of this.
+    EventEmitter<Event>::Container dump_events() { return {}; };
+};
+
+// This is an event emitter which only emits events once (it actually just _sets_ an event).
+// This is meant for a special Execution use case.
+template <typename Event> class OneShotEventEmitter : public EventEmitterInterface<Event> {
+  public:
+    OneShotEventEmitter(Event& event)
+        : event(event)
+    {}
+    virtual ~OneShotEventEmitter() = default;
+    void emit(Event&& event) override
+    {
+        assert(!has_emitted);
+        has_emitted = true;
+        this->event = event;
+    }
+
+  private:
+    bool has_emitted = false;
+    Event& event;
 };
 
 } // namespace bb::avm2::simulation

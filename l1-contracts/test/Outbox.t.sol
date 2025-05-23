@@ -35,7 +35,7 @@ contract OutboxTest is Test {
     ROLLUP_CONTRACT = address(new FakeRollup());
     FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
 
-    outbox = new Outbox(ROLLUP_CONTRACT);
+    outbox = new Outbox(ROLLUP_CONTRACT, AZTEC_VERSION);
     zeroedTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
     merkleTestUtil = new MerkleTestUtil();
   }
@@ -113,6 +113,19 @@ contract OutboxTest is Test {
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__InvalidChainId.selector));
     outbox.consume(fakeMessage, 1, 1, path);
+  }
+
+  function testRevertIfVersionMismatch() public {
+    DataStructures.L2ToL1Msg memory message = _fakeMessage(address(this));
+    (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
+
+    message.sender.version = AZTEC_VERSION + 1;
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Outbox__VersionMismatch.selector, message.sender.version, AZTEC_VERSION
+      )
+    );
+    outbox.consume(message, 1, 1, path);
   }
 
   function testRevertIfNothingInsertedAtBlockNumber() public {

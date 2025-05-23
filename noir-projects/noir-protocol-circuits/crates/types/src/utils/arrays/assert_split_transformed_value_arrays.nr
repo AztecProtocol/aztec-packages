@@ -13,14 +13,20 @@ where
     S: Empty + Eq,
 {
     if num_non_revertibles != 0 {
+        // If num_non_revertibles == 0, then the below can still underflow and cause 'Failed constraint' error,
+        // even though it shouldn't reach here. See noir issue #7612.
+        let is_non_zero = (num_non_revertibles != 0) as u32;
         assert(
-            sorted_array[num_non_revertibles - 1].counter() < split_counter,
+            sorted_array[num_non_revertibles - 1].counter() * is_non_zero < split_counter,
             "counter of last non-revertible item is not less than the split counter",
         );
     }
 
     if num_non_revertibles != N {
-        let first_revertible_counter = sorted_array[num_non_revertibles].counter();
+        // If num_non_revertibles == N, then the below can still overflow and cause 'Failed constraint' error,
+        // even though it shouldn't reach here. See noir issue #7612.
+        let is_not_n = (num_non_revertibles != N) as u32;
+        let first_revertible_counter = sorted_array[num_non_revertibles].counter() * is_not_n;
         assert(
             (first_revertible_counter == 0) | (first_revertible_counter >= split_counter),
             "counter of first revertible item is not greater than or equal to the split counter",
@@ -59,7 +65,7 @@ where
     T: Ordered + Empty + Eq,
     S: Empty + Eq,
 {
-    /// Safety: The value is constrained by `assert_split_transformed_value_arrays_with_hint`.
+    // Safety: The value is constrained by `assert_split_transformed_value_arrays_with_hint`.
     let num_non_revertibles =
         unsafe { find_index_hint(sorted_array, |n: T| n.counter() >= split_counter) };
 

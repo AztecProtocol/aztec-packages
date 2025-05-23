@@ -1,5 +1,5 @@
 import { type AztecNode, type PXE, createAztecNodeClient, createCompatibleClient } from '@aztec/aztec.js';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 export async function getNodeInfo(
   rpcUrl: string,
@@ -20,7 +20,7 @@ export async function getNodeInfo(
     logJson({
       nodeVersion: info.nodeVersion,
       l1ChainId: info.l1ChainId,
-      protocolVersion: info.protocolVersion,
+      rollupVersion: info.rollupVersion,
       enr: info.enr,
       l1ContractAddresses: {
         rollup: info.l1ContractAddresses.rollupAddress.toString(),
@@ -34,7 +34,9 @@ export async function getNodeInfo(
         rewardDistributor: info.l1ContractAddresses.rewardDistributorAddress.toString(),
         governanceProposer: info.l1ContractAddresses.governanceProposerAddress.toString(),
         governance: info.l1ContractAddresses.governanceAddress.toString(),
-        slashFactory: info.l1ContractAddresses.slashFactoryAddress.toString(),
+        slashFactory: info.l1ContractAddresses.slashFactoryAddress?.toString(),
+        feeAssetHandler: info.l1ContractAddresses.feeAssetHandlerAddress?.toString(),
+        stakingAssetHandler: info.l1ContractAddresses.stakingAssetHandlerAddress?.toString(),
       },
       protocolContractAddresses: {
         classRegisterer: info.protocolContractAddresses.classRegisterer.toString(),
@@ -46,7 +48,7 @@ export async function getNodeInfo(
   } else {
     log(`Node Version: ${info.nodeVersion}`);
     log(`Chain Id: ${info.l1ChainId}`);
-    log(`Protocol Version: ${info.protocolVersion}`);
+    log(`Rollup Version: ${info.rollupVersion}`);
     log(`Node ENR: ${info.enr}`);
     log(`L1 Contract Addresses:`);
     log(` Rollup Address: ${info.l1ContractAddresses.rollupAddress.toString()}`);
@@ -60,8 +62,9 @@ export async function getNodeInfo(
     log(` RewardDistributor Address: ${info.l1ContractAddresses.rewardDistributorAddress.toString()}`);
     log(` GovernanceProposer Address: ${info.l1ContractAddresses.governanceProposerAddress.toString()}`);
     log(` Governance Address: ${info.l1ContractAddresses.governanceAddress.toString()}`);
-    log(` SlashFactory Address: ${info.l1ContractAddresses.slashFactoryAddress.toString()}`);
-
+    log(` SlashFactory Address: ${info.l1ContractAddresses.slashFactoryAddress?.toString()}`);
+    log(` FeeAssetHandler Address: ${info.l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
+    log(` StakingAssetHandler Address: ${info.l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
     log(`L2 Contract Addresses:`);
     log(` Class Registerer: ${info.protocolContractAddresses.classRegisterer.toString()}`);
     log(` Fee Juice: ${info.protocolContractAddresses.feeJuice.toString()}`);

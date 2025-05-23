@@ -1,29 +1,31 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
-import { deployL1Contract, sleep } from '@aztec/aztec.js';
+import type { AztecNodeService } from '@aztec/aztec-node';
+import { sleep } from '@aztec/aztec.js';
+import { L1TxUtils, RollupContract, deployL1Contract } from '@aztec/ethereum';
 import {
-  TestERC20Abi as FeeJuiceAbi,
   GovernanceAbi,
   GovernanceProposerAbi,
   NewGovernanceProposerPayloadAbi,
   NewGovernanceProposerPayloadBytecode,
-  RollupAbi,
+  TestERC20Abi as StakingAssetAbi,
 } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { getAddress, getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 // Note: these ports must be distinct from the other e2e tests, else the tests will
 // interfere with each other.
-const BOOT_NODE_UDP_PORT = 45000;
+const BOOT_NODE_UDP_PORT = 4500;
 
-const DATA_DIR = './data/upgrade_governance_proposer';
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'upgrade-'));
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -34,6 +36,7 @@ jest.setTimeout(1000 * 60 * 10);
 describe('e2e_p2p_governance_proposer', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
+  let l1TxUtils: L1TxUtils;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -42,16 +45,25 @@ describe('e2e_p2p_governance_proposer', () => {
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
+      initialConfig: {
+        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        listenAddress: '127.0.0.1',
+        governanceProposerQuorum: 6,
+        governanceProposerRoundSize: 10,
+      },
     });
+
     await t.applyBaseSnapshots();
     await t.setup();
+
+    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
+      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
 
@@ -64,39 +76,36 @@ describe('e2e_p2p_governance_proposer', () => {
     const governanceProposer = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
       abi: GovernanceProposerAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
+
+    const roundSize = await governanceProposer.read.M();
 
     const governance = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
       abi: GovernanceAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const rollup = getContract({
-      address: t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: t.ctx.deployL1ContractsValues!.walletClient,
-    });
+    const rollup = new RollupContract(
+      t.ctx.deployL1ContractsValues!.l1Client,
+      t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+    );
 
     const waitL1Block = async () => {
-      await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-        hash: await t.ctx.deployL1ContractsValues.walletClient.sendTransaction({
-          to: emperor.address,
-          value: 1n,
-          account: emperor,
-        }),
+      await l1TxUtils.sendAndMonitorTransaction({
+        to: emperor.address,
+        value: 1n,
       });
     };
 
-    const nextRoundTimestamp = await rollup.read.getTimestampForSlot([
-      ((await rollup.read.getCurrentSlot()) / 10n) * 10n + 10n,
-    ]);
+    const nextRoundTimestamp = await rollup.getTimestampForSlot(
+      ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
+    );
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
     const { address: newPayloadAddress } = await deployL1Contract(
-      t.ctx.deployL1ContractsValues.walletClient,
-      t.ctx.deployL1ContractsValues.publicClient,
+      t.ctx.deployL1ContractsValues.l1Client,
       NewGovernanceProposerPayloadAbi,
       NewGovernanceProposerPayloadBytecode,
       [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString()],
@@ -104,11 +113,11 @@ describe('e2e_p2p_governance_proposer', () => {
 
     t.logger.info(`Deployed new payload at ${newPayloadAddress}`);
 
-    const emperor = t.ctx.deployL1ContractsValues.walletClient.account;
+    const emperor = t.ctx.deployL1ContractsValues.l1Client.account;
 
     const govInfo = async () => {
       const bn = await t.ctx.cheatCodes.eth.blockNumber();
-      const slot = await rollup.read.getCurrentSlot();
+      const slot = await rollup.getSlotNumber();
       const round = await governanceProposer.read.computeRound([slot]);
 
       const info = await governanceProposer.read.rounds([
@@ -137,6 +146,7 @@ describe('e2e_p2p_governance_proposer', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
       DATA_DIR,
       shouldCollectMetrics(),
     );
@@ -158,9 +168,9 @@ describe('e2e_p2p_governance_proposer', () => {
 
     expect(govData.leaderVotes).toBeGreaterThan(govBefore.leaderVotes);
 
-    const nextRoundTimestamp2 = await rollup.read.getTimestampForSlot([
-      ((await rollup.read.getCurrentSlot()) / 10n) * 10n + 10n,
-    ]);
+    const nextRoundTimestamp2 = await rollup.getTimestampForSlot(
+      ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
+    );
     t.logger.info(`Warpping to ${nextRoundTimestamp2}`);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
 
@@ -171,13 +181,13 @@ describe('e2e_p2p_governance_proposer', () => {
       account: emperor,
       gas: 1_000_000n,
     });
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash });
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash });
     t.logger.info(`Executed proposal ${govData.round}`);
 
     const token = getContract({
-      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: FeeJuiceAbi,
-      client: t.ctx.deployL1ContractsValues.walletClient,
+      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
+      abi: StakingAssetAbi,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     t.logger.info(`Minting tokens`);
@@ -185,7 +195,7 @@ describe('e2e_p2p_governance_proposer', () => {
     await token.write.mint([emperor.address, 10000n * 10n ** 18n], { account: emperor });
     await token.write.approve([governance.address, 10000n * 10n ** 18n], { account: emperor });
     const depositTx = await governance.write.deposit([emperor.address, 10000n * 10n ** 18n], { account: emperor });
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: depositTx });
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: depositTx });
     t.logger.info(`Deposited tokens`);
 
     const proposal = await governance.read.getProposal([0n]);
@@ -198,7 +208,7 @@ describe('e2e_p2p_governance_proposer', () => {
 
     t.logger.info(`Voting`);
     const voteTx = await governance.write.vote([0n, 10000n * 10n ** 18n, true], { account: emperor });
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: voteTx });
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: voteTx });
     t.logger.info(`Voted`);
 
     const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
@@ -215,7 +225,7 @@ describe('e2e_p2p_governance_proposer', () => {
 
     t.logger.info(`Executing proposal`);
     const executeTx = await governance.write.execute([0n], { account: emperor });
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: executeTx });
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: executeTx });
     t.logger.info(`Executed proposal`);
     const newGovernanceProposer = await governance.read.governanceProposer();
     expect(newGovernanceProposer).not.toEqual(

@@ -1,4 +1,4 @@
-import { type Tx, type TxHash } from '@aztec/circuit-types';
+import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 /**
  * Interface of a transaction pool. The pool includes tx requests and is kept up-to-date by a P2P client.
@@ -16,6 +16,20 @@ export interface TxPool {
    * @returns The transaction, if found, 'undefined' otherwise.
    */
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+
+  /**
+   * Checks if transactions exist in the pool and returns them.
+   * @param txHashes - The hashes of the transactions
+   * @returns The transactions, if found, 'undefined' otherwise.
+   */
+  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+
+  /**
+   * Checks if transactions exist in the pool
+   * @param txHashes - The hashes of the transactions to check for
+   * @returns True or False for each tx hash
+   */
+  hasTxs(txHashes: TxHash[]): Promise<boolean[]>;
 
   /**
    * Checks if an archived transaction exists in the pool and returns it.
@@ -61,6 +75,9 @@ export interface TxPool {
    */
   getPendingTxHashes(): Promise<TxHash[]>;
 
+  /** Returns the number of pending txs in the pool. */
+  getPendingTxCount(): Promise<number>;
+
   /**
    * Gets the hashes of mined transactions currently in the tx pool.
    * @returns An array of mined transaction hashes found in the tx pool.
@@ -73,4 +90,19 @@ export interface TxPool {
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
   getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
+
+  /**
+   * Configure the maximum size of the tx pool
+   * @param maxSizeBytes - The maximum size in bytes of the mempool. Set to undefined to disable it
+   */
+  setMaxTxPoolSize(maxSizeBytes: number | undefined): Promise<void>;
+
+  /** Returns whether the pool is empty. */
+  isEmpty(): Promise<boolean>;
+
+  /**
+   * Marks transactions as non-evictible in the pool.
+   * @param txHashes - Hashes of the transactions to mark as non-evictible.
+   */
+  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
 }

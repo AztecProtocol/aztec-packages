@@ -19,6 +19,7 @@ export enum LMDBMessageType {
   STATS,
 
   CLOSE,
+  COPY_STORE,
 }
 
 type Key = Uint8Array;
@@ -63,6 +64,11 @@ interface CloseCursorRequest {
   cursor: number;
 }
 
+interface CopyStoreRequest {
+  dstPath: string;
+  compact: boolean;
+}
+
 export interface Batch {
   addEntries: Array<KeyValues>;
   removeEntries: Array<KeyOptionalValues>;
@@ -87,6 +93,7 @@ export type LMDBRequestBody = {
   [LMDBMessageType.STATS]: void;
 
   [LMDBMessageType.CLOSE]: void;
+  [LMDBMessageType.COPY_STORE]: CopyStoreRequest;
 };
 
 interface GetResponse {
@@ -122,6 +129,7 @@ interface StatsResponse {
     totalUsedSize: bigint | number;
   }>;
   dbMapSizeBytes: bigint | number;
+  dbPhysicalFileSizeBytes: bigint | number;
 }
 
 export type LMDBResponseBody = {
@@ -139,6 +147,8 @@ export type LMDBResponseBody = {
   [LMDBMessageType.STATS]: StatsResponse;
 
   [LMDBMessageType.CLOSE]: BoolResponse;
+
+  [LMDBMessageType.COPY_STORE]: BoolResponse;
 };
 
 export interface LMDBMessageChannel {

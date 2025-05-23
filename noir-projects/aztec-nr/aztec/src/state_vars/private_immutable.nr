@@ -3,12 +3,12 @@ use dep::protocol_types::{
     traits::Packable,
 };
 
-use crate::context::{PrivateContext, UnconstrainedContext};
+use crate::context::{PrivateContext, UtilityContext};
 use crate::note::{
     lifecycle::create_note,
     note_emission::NoteEmission,
     note_getter::{get_note, view_notes},
-    note_interface::{NoteInterface, NullifiableNote},
+    note_interface::{NoteHash, NoteType},
     note_viewer_options::NoteViewerOptions,
 };
 use crate::oracle::notes::check_nullifier_exists;
@@ -21,10 +21,10 @@ pub struct PrivateImmutable<Note, Context> {
 }
 // docs:end:struct
 
-impl<T, Context, let N: u32> Storage<N> for PrivateImmutable<T, Context>
-where
-    T: Packable<N>,
-{
+// Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
+// value spilling over multiple slots. For this reason PrivateImmutable (and all other private state variables) needs
+// just one slot to be reserved, regardless of what it stores.
+impl<T, Context> Storage<1> for PrivateImmutable<T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
@@ -54,9 +54,9 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
 
 impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:initialize
-    pub fn initialize<let N: u32>(self, note: &mut Note) -> NoteEmission<Note>
+    pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteType + NoteHash + Packable<N>,
     {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
@@ -69,15 +69,23 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:get_note
     pub fn get_note<let N: u32>(self) -> Note
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteType + NoteHash + Packable<N>,
     {
         let storage_slot = self.storage_slot;
-        get_note(self.context, storage_slot).0
+        let retrieved_note = get_note(self.context, storage_slot).0;
+
+        // Because the notes obtained from PrivateImmutable are not meant to be nullified and get_note(...) function
+        // has already constrained the note (by pushing a read request to the context), we can return just the note
+        // and skip the additional data in RetrievedNote.
+        retrieved_note.note
     }
     // docs:end:get_note
 }
 
-impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
+impl<Note> PrivateImmutable<Note, UtilityContext>
+where
+    Note: NoteType + NoteHash + Eq,
+{
     // docs:start:is_initialized
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
@@ -89,7 +97,7 @@ impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
     // docs:start:view_note
     pub unconstrained fn view_note<let N: u32>(self) -> Note
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: Packable<N>,
     {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Returns the standard artifact prefixes for each arch.
 case $(uname -m) in
   aarch64)

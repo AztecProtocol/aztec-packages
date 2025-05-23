@@ -228,6 +228,13 @@ export class EthAddress {
     return new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES));
   }
 
+  /** Converts a number into an address. Useful for testing. */
+  static fromNumber(num: bigint | number): EthAddress {
+    const buffer = Buffer.alloc(EthAddress.SIZE_IN_BYTES);
+    buffer.writeBigUInt64BE(BigInt(num), 0);
+    return new EthAddress(buffer);
+  }
+
   toJSON() {
     return this.toString();
   }

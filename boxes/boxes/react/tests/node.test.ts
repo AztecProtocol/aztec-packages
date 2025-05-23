@@ -15,11 +15,7 @@ describe('BoxReact Contract Tests', () => {
     accountCompleteAddress = wallet.getCompleteAddress();
     const salt = Fr.random();
 
-    contract = await BoxReactContract.deploy(
-      wallet,
-      Fr.random(),
-      accountCompleteAddress.address
-    )
+    contract = await BoxReactContract.deploy(wallet, Fr.random(), accountCompleteAddress.address)
       .send({ contractAddressSalt: salt })
       .deployed();
 
@@ -27,15 +23,7 @@ describe('BoxReact Contract Tests', () => {
   }, 60000);
 
   test('Can set a number', async () => {
-    logger.info(`${await wallet.getRegisteredAccounts()}`);
-
-    await contract.methods
-      .setNumber(
-        numberToSet,
-        accountCompleteAddress.address
-      )
-      .send()
-      .wait();
+    await contract.methods.setNumber(numberToSet, accountCompleteAddress.address).send().wait();
   }, 40000);
 
   test('Can read a number', async () => {

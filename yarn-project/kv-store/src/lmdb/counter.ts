@@ -1,7 +1,7 @@
-import { type Key as BaseKey, type Database } from 'lmdb';
+import type { Key as BaseKey, Database } from 'lmdb';
 
-import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecAsyncCounter, type AztecCounter } from '../interfaces/counter.js';
+import type { Key, Range } from '../interfaces/common.js';
+import type { AztecAsyncCounter, AztecCounter } from '../interfaces/counter.js';
 import { LmdbAztecMap } from './map.js';
 
 /**

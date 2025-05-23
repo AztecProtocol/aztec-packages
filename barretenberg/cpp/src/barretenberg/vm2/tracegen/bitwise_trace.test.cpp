@@ -3,8 +3,9 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
-#include "barretenberg/vm2/generated/full_row.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
+#include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -16,9 +17,8 @@ using testing::ElementsAre;
 using testing::Field;
 
 using R = TestTraceContainer::Row;
-using FF = R::FF;
 
-TEST(AvmTraceGenBitwiseTest, U1And)
+TEST(BitwiseTraceGenTest, U1And)
 {
     TestTraceContainer trace;
     BitwiseTraceBuilder builder;
@@ -27,10 +27,9 @@ TEST(AvmTraceGenBitwiseTest, U1And)
         {
             {
                 .operation = BitwiseOperation::AND,
-                .tag = MemoryTag::U1,
-                .a = 0,
-                .b = 1,
-                .res = 0,
+                .a = MemoryValue::from(uint1_t(0)),
+                .b = MemoryValue::from(uint1_t(1)),
+                .res = MemoryValue::from(uint1_t(0)),
             },
         },
         trace);
@@ -68,7 +67,7 @@ TEST(AvmTraceGenBitwiseTest, U1And)
                                   ROW_FIELD_EQ(R, bitwise_start, 1))));
 }
 
-TEST(AvmTraceGenBitwiseTest, U32And)
+TEST(BitwiseTraceGenTest, U32And)
 {
     TestTraceContainer trace;
     BitwiseTraceBuilder builder;
@@ -77,10 +76,9 @@ TEST(AvmTraceGenBitwiseTest, U32And)
         {
             {
                 .operation = BitwiseOperation::AND,
-                .tag = MemoryTag::U32,
-                .a = 0x52488425,
-                .b = 0xC684486C,
-                .res = 0x42000024,
+                .a = MemoryValue::from<uint32_t>(0x52488425),
+                .b = MemoryValue::from<uint32_t>(0xC684486C),
+                .res = MemoryValue::from<uint32_t>(0x42000024),
             },
         },
         trace);

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Script base for testing the cache with minio.
 # The cache is essentially ephemeral this way.
 # Any calls to cache_* functions work with hitting local minio instead of S3.

@@ -6,16 +6,16 @@ use dep::types::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
         },
-        log_hash::ScopedLogHash,
+        log_hash::LogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
+        private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
-        side_effect::Counted,
+        side_effect::{Counted, scoped::Scoped},
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::{
-        assert_split_sorted_transformed_value_arrays_asc,
-        assert_split_sorted_transformed_value_arrays_desc, assert_split_transformed_value_arrays,
+        assert_split_sorted_transformed_value_arrays_asc, assert_split_transformed_value_arrays,
     },
 };
 use tail_to_public_output_hints::{generate_tail_to_public_output_hints, TailToPublicOutputHints};
@@ -31,6 +31,7 @@ impl TailToPublicOutputValidator {
         output: PrivateToPublicKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
     ) -> Self {
+        // Safety: the below hints are constrained by calling .validate(). See private_kernel_tail_to_public for use.
         let hints = unsafe { generate_tail_to_public_output_hints(previous_kernel) };
         TailToPublicOutputValidator { output, previous_kernel, hints }
     }
@@ -85,13 +86,13 @@ impl TailToPublicOutputValidator {
         );
 
         // private_logs
-        // assert_split_transformed_value_arrays(
-        //     prev_data.private_logs,
-        //     output_non_revertible.private_logs,
-        //     output_revertible.private_logs,
-        //     |l: Scoped<PrivateLogData>, out: PrivateLog| out == l.inner.log,
-        //     split_counter,
-        // );
+        assert_split_transformed_value_arrays(
+            prev_data.private_logs,
+            output_non_revertible.private_logs,
+            output_revertible.private_logs,
+            |prev: Scoped<PrivateLogData>, out: PrivateLog| out == prev.expose_to_public(),
+            split_counter,
+        );
     }
 
     fn validate_propagated_sorted_values(self) {
@@ -114,7 +115,9 @@ impl TailToPublicOutputValidator {
         // contract_class_logs_hashes
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.contract_class_logs_hashes,
-            prev_data.contract_class_logs_hashes.map(|log: ScopedLogHash| log.expose_to_public()),
+            prev_data.contract_class_logs_hashes.map(|log: Scoped<Counted<LogHash>>| {
+                log.expose_to_public()
+            }),
             split_counter,
             output_non_revertible.contract_class_logs_hashes,
             output_revertible.contract_class_logs_hashes,
@@ -122,7 +125,7 @@ impl TailToPublicOutputValidator {
         );
 
         // public_call_requests
-        assert_split_sorted_transformed_value_arrays_desc(
+        assert_split_sorted_transformed_value_arrays_asc(
             prev_data.public_call_requests,
             prev_data.public_call_requests.map(|cr: Counted<PublicCallRequest>| cr.inner),
             split_counter,

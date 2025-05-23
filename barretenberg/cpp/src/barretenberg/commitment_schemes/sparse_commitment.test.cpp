@@ -1,7 +1,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 
 #include <gtest/gtest.h>
 
@@ -77,7 +77,7 @@ template <>
 std::shared_ptr<CommitmentKey<curve::BN254>> CommitmentKeyTest<curve::BN254>::create_commitment_key<
     CommitmentKey<curve::BN254>>(const size_t num_points)
 {
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     return std::make_shared<CommitmentKey<curve::BN254>>(num_points);
 }
 
@@ -86,7 +86,7 @@ template <>
 std::shared_ptr<CommitmentKey<curve::Grumpkin>> CommitmentKeyTest<curve::Grumpkin>::create_commitment_key<
     CommitmentKey<curve::Grumpkin>>(const size_t num_points)
 {
-    srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
     return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
 }
 
@@ -305,11 +305,51 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredWire)
     using CK = CommitmentKey<Curve>;
     using G1 = Curve::AffineElement;
 
+    if constexpr (std::is_same_v<Curve, curve::Grumpkin>) {
+        GTEST_SKIP() << "Skipping test for Grumpkin as it has too small a CRS.";
+    }
+
     // Arbitrary but realistic block structure in the ivc setting (roughly 2^19 full size with 2^17 utlization)
     std::vector<uint32_t> fixed_sizes = { 1000, 4000, 180000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };
     std::vector<uint32_t> actual_sizes = { 10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2 };
 
     // Construct a random polynomial resembling the wires in the structured trace setting
+    const bool non_zero_complement = false;
+    auto [polynomial, active_range_endpoints] =
+        TestFixture::create_structured_test_polynomial(fixed_sizes, actual_sizes, non_zero_complement);
+
+    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
+    auto key = TestFixture::template create_commitment_key<CK>(polynomial.virtual_size());
+
+    auto full_poly = polynomial.full();
+    G1 actual_expected_result = key->commit(full_poly);
+    G1 expected_result = key->commit(polynomial);
+    G1 result = key->commit_structured(polynomial, active_range_endpoints);
+    EXPECT_EQ(actual_expected_result, expected_result);
+    EXPECT_EQ(result, expected_result);
+}
+
+/**
+ * @brief Test commit_structured on polynomial with blocks of non-zero values that resembles masked structured witness.
+ *
+ */
+TYPED_TEST(CommitmentKeyTest, CommitStructuredMaskedWire)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+
+    const uint32_t circuit_size = 8192;
+    // To ensure that commit_structured is used.
+    const uint32_t actual_size = circuit_size / 8;
+
+    // Create a polynomial with a block of zeroes between actual_size and circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK.
+    // We subtract 1 to account for ZERO_ROW_OFFSET
+    std::vector<uint32_t> fixed_sizes = { circuit_size - 1 - NUM_DISABLED_ROWS_IN_SUMCHECK,
+                                          NUM_DISABLED_ROWS_IN_SUMCHECK };
+    std::vector<uint32_t> actual_sizes = { actual_size, NUM_DISABLED_ROWS_IN_SUMCHECK };
+
+    // Construct a random polynomial resembling a masked structured wire
     const bool non_zero_complement = false;
     auto [polynomial, active_range_endpoints] =
         TestFixture::create_structured_test_polynomial(fixed_sizes, actual_sizes, non_zero_complement);
@@ -335,6 +375,10 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
     using Curve = TypeParam;
     using CK = CommitmentKey<Curve>;
     using G1 = Curve::AffineElement;
+
+    if constexpr (std::is_same_v<Curve, curve::Grumpkin>) {
+        GTEST_SKIP() << "Skipping test for Grumpkin as it has too small a CRS.";
+    }
 
     // Arbitrary but realistic block structure in the ivc setting (roughly 2^19 full size with 2^17 utlization)
     std::vector<uint32_t> fixed_sizes = { 1000, 4000, 180000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };

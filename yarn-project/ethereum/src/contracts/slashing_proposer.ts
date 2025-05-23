@@ -1,23 +1,19 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { SlashingProposerAbi } from '@aztec/l1-artifacts';
+import { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  getContract,
-} from 'viem';
+import { type GetContractReturnType, type Hex, getContract } from 'viem';
 
-import type { L1Clients } from '../deploy_l1_contracts.js';
 import type { L1TxRequest } from '../l1_tx_utils.js';
+import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeVote } from './empire_base.js';
 
 export class SlashingProposerContract implements IEmpireBase {
-  private readonly proposer: GetContractReturnType<typeof SlashingProposerAbi, PublicClient<HttpTransport, Chain>>;
+  private readonly proposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
 
-  constructor(public readonly client: L1Clients['publicClient'], address: Hex) {
+  constructor(
+    public readonly client: ViemClient,
+    address: Hex,
+  ) {
     this.proposer = getContract({ address, abi: SlashingProposerAbi, client });
   }
 

@@ -124,12 +124,12 @@ resource "aws_ecs_task_definition" "p2p-bootstrap" {
         "value": "production"
       },
       {
-        "name": "P2P_UDP_LISTEN_ADDR",
-        "value": "0.0.0.0:${var.BOOTNODE_LISTEN_PORT + count.index}"
+        "name": "P2P_IP",
+        "value": "${data.terraform_remote_state.aztec-network_iac.outputs.p2p_eip}"
       },
       {
-        "name": "P2P_UDP_ANNOUNCE_ADDR",
-        "value": "${data.terraform_remote_state.aztec-network_iac.outputs.p2p_eip}:${var.BOOTNODE_LISTEN_PORT + count.index}"
+        "name": "P2P_PORT",
+        "value": "${var.BOOTNODE_LISTEN_PORT + count.index}"
       },
       {
         "name": "PEER_ID_PRIVATE_KEY",
@@ -142,10 +142,6 @@ resource "aws_ecs_task_definition" "p2p-bootstrap" {
       {
         "name": "LOG_LEVEL",
         "value": "debug"
-      },
-      {
-        "name": "P2P_MIN_PEERS",
-        "value": "${var.P2P_MIN_PEERS}"
       },
       {
         "name": "P2P_MAX_PEERS",

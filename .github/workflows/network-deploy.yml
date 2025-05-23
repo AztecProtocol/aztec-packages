@@ -49,6 +49,11 @@ on:
         required: false
         type: string
         default: "false"
+      sepolia_accounts_mnemonic_secret_name:
+        description: The name of the secret which holds the sepolia accounts mnemonic
+        required: false
+        type: string
+        default: sepolia-accounts-mnemonic
     secrets:
       GCP_SA_KEY:
         required: true
@@ -75,25 +80,21 @@ on:
         description: The salt to use for this deployment. Defaults to random
         required: false
         default: ""
-      respect_tf_lock:
-        description: Whether to respect the Terraform lock
-        required: false
-        default: "true"
       run_terraform_destroy:
         description: Whether to run terraform destroy before deploying
         required: false
         type: string
         default: "false"
-      ref:
-        description: The branch name to deploy from
-        required: false
-        type: string
-        default: "master"
       sepolia_deployment:
         description: "Whether to deploy on Sepolia network (default: false)"
         required: false
         type: string
         default: "false"
+      sepolia_accounts_mnemonic_secret_name:
+        description: The name of the secret which holds the sepolia accounts mnemonic
+        required: false
+        type: string
+        default: sepolia-accounts-mnemonic
 
 jobs:
   network_deployment:
@@ -107,7 +108,9 @@ jobs:
     env:
       AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
+      METRICS_NAMESPACE: "metrics"
       VALUES_FILE: ${{ inputs.values_file }}
+      RESOURCES_FILE: gcloud.yaml
       DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
       DEPLOYMENT_SALT: ${{ inputs.deployment_salt }}
       CHART_PATH: ./spartan/aztec-network
@@ -116,14 +119,15 @@ jobs:
       TF_STATE_BUCKET: aztec-terraform
       GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_${{ inputs.cluster }}"
       GCP_API_KEY_HEADER: "X-goog-api-key"
-      EXTERNAL_ETHEREUM_HOST: "https://json-rpc.${{ secrets.SEPOLIA_EXTERNAL_HOST }}"
-      EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.SEPOLIA_EXTERNAL_HOST }}"
+      EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
+      EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
+      RESPECT_TF_LOCK: ${{ inputs.respect_tf_lock || 'true' }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -168,6 +172,28 @@ jobs:
 
           $REPO/spartan/scripts/generate_devnet_config.sh ${{ env.VALUES_FILE }}
 
+      - name: Fund sepolia accounts
+        uses: ./.github/workflows/fund-sepolia-accounts.yml
+        if: ${{ inputs.sepolia_deployment == 'true' }}
+        with:
+          values_file: ${{ env.VALUES_FILE }}
+          sepolia_accounts_mnemonic_secret_name: ${{ inputs.sepolia_accounts_mnemonic_secret_name }}
+
+      - name: Generate sepolia accounts
+        id: generate-sepolia-accounts
+        if: ${{ inputs.sepolia_deployment == 'true' }}
+        run: |
+          REPO=$(git rev-parse --show-toplevel)
+          export FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
+          export ETHEREUM_HOST="https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
+          echo "Preparing sepolia accounts..."
+          MNEMONIC_FILE=$(mktemp)
+          $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 30 "$MNEMONIC_FILE"
+          mnemonic=$(cat "$MNEMONIC_FILE")
+          rm "$MNEMONIC_FILE"
+          echo "::add-mask::$mnemonic"
+          echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -187,62 +213,70 @@ jobs:
         continue-on-error: true
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
+            L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=${{ inputs.sepolia_accounts_mnemonic_secret_name }})
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
-              -var="VALIDATOR_KEYS=${{ secrets.SEPOLIA_VALIDATOR_KEYS }}" \
-              -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
-              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_PROVER_PUBLISHER_PRIVATE_KEY }}" \
-              -var="EXTERNAL_ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}" \
+              -var="L1_DEPLOYMENT_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
+              -var="EXTERNAL_ETHEREUM_HOSTS=${{ env.EXTERNAL_ETHEREUM_HOSTS }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
-              -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.SEPOLIA_API_KEY }}" \
+              -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.GCP_SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           else
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           fi
+
+          kubectl delete ns ${{env.NAMESPACE}}
 
       - name: Terraform Plan
         working-directory: ./spartan/terraform/deploy-release
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
+            L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=${{ inputs.sepolia_accounts_mnemonic_secret_name }})
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
+              -var="L1_DEPLOYMENT_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
-              -var="VALIDATOR_KEYS=${{ secrets.SEPOLIA_VALIDATOR_KEYS }}" \
-              -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
-              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_PROVER_PUBLISHER_PRIVATE_KEY }}" \
-              -var="EXTERNAL_ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}" \
+              -var="EXTERNAL_ETHEREUM_HOSTS=${{ env.EXTERNAL_ETHEREUM_HOSTS }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
-              -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.SEPOLIA_API_KEY }}" \
+              -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.GCP_SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
+              -var="METRICS_NAMESPACE=${{ env.METRICS_NAMESPACE }}" \
+              ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           else
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
+              -var="METRICS_NAMESPACE=${{ env.METRICS_NAMESPACE }}" \
+              ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           fi
 
       - name: Terraform Apply
         working-directory: ./spartan/terraform/deploy-release
-        run: terraform apply -lock=${{ inputs.respect_tf_lock }} -auto-approve tfplan
+        run: terraform apply -lock=${{ env.RESPECT_TF_LOCK }} -auto-approve tfplan

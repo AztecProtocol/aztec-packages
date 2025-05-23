@@ -1,39 +1,23 @@
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  FunctionSelector,
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/circuits.js';
-import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import { getAvmTestContractBytecode } from '@aztec/simulator/public/fixtures';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
-const DISPATCH_FN_NAME = 'public_dispatch';
-const DISPATCH_SELECTOR = new FunctionSelector(PUBLIC_DISPATCH_SELECTOR);
 
 describe('AVM WitGen & Circuit – proving and verification', () => {
-  const avmTestContractClassSeed = 0;
-  const avmTestContractBytecode = getAvmTestContractBytecode(DISPATCH_FN_NAME);
-  let avmTestContractClass: ContractClassPublic;
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    avmTestContractClass = await makeContractClassPublic(
-      /*seed=*/ avmTestContractClassSeed,
-      /*publicDispatchFunction=*/ { bytecode: avmTestContractBytecode, selector: DISPATCH_SELECTOR },
+    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ false);
+    avmTestContractInstance = await tester.registerAndDeployContract(
+      /*constructorArgs=*/ [],
+      /*deployer=*/ AztecAddress.fromNumber(420),
+      AvmTestContractArtifact,
     );
-    avmTestContractInstance = await makeContractInstanceFromClassId(
-      avmTestContractClass.id,
-      /*seed=*/ avmTestContractClassSeed,
-    );
-    tester = await AvmProvingTester.create(/*checkCircuitOnly*/ false);
-    await tester.addContractClass(avmTestContractClass, AvmTestContractArtifact);
-    await tester.addContractInstance(avmTestContractInstance);
   });
 
   it(
@@ -49,7 +33,7 @@ describe('AVM WitGen & Circuit – proving and verification', () => {
         argsU8,
         /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
         /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
-        /*expectedClassId=*/ expectContractInstance.contractClassId.toField(),
+        /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
         /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
       ];
 

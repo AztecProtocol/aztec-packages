@@ -1,10 +1,12 @@
 import {
   Attributes,
+  type Gauge,
   Metrics,
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
   ValueType,
+  getTelemetryClient,
 } from '@aztec/telemetry-client';
 
 import { type GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/index.js';
@@ -12,10 +14,14 @@ import { type GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/in
 export class PeerManagerMetrics {
   private sentGoodbyes: UpDownCounter;
   private receivedGoodbyes: UpDownCounter;
+  private peerCount: Gauge;
 
   public readonly tracer: Tracer;
 
-  constructor(public readonly telemetryClient: TelemetryClient, name = 'PeerManager') {
+  constructor(
+    public readonly telemetryClient: TelemetryClient = getTelemetryClient(),
+    name = 'PeerManager',
+  ) {
     this.tracer = telemetryClient.getTracer(name);
 
     const meter = telemetryClient.getMeter(name);
@@ -29,6 +35,11 @@ export class PeerManagerMetrics {
       unit: 'peers',
       valueType: ValueType.INT,
     });
+    this.peerCount = meter.createGauge(Metrics.PEER_MANAGER_PEER_COUNT, {
+      description: 'Number of peers',
+      unit: 'peers',
+      valueType: ValueType.INT,
+    });
   }
 
   public recordGoodbyeSent(reason: GoodByeReason) {
@@ -37,5 +48,9 @@ export class PeerManagerMetrics {
 
   public recordGoodbyeReceived(reason: GoodByeReason) {
     this.receivedGoodbyes.add(1, { [Attributes.P2P_GOODBYE_REASON]: prettyGoodbyeReason(reason) });
+  }
+
+  public recordPeerCount(count: number) {
+    this.peerCount.record(count);
   }
 }

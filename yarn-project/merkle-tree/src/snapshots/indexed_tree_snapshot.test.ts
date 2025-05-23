@@ -1,7 +1,8 @@
-import { Fr, NullifierLeaf, NullifierLeafPreimage } from '@aztec/circuits.js';
-import { type AztecKVStore } from '@aztec/kv-store';
+import { Fr } from '@aztec/foundation/fields';
+import type { Hasher } from '@aztec/foundation/trees';
+import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type Hasher } from '@aztec/types/interfaces';
+import { NullifierLeaf, NullifierLeafPreimage } from '@aztec/stdlib/trees';
 
 import { Pedersen, newTree } from '../index.js';
 import { StandardIndexedTreeWithAppend } from '../standard_indexed_tree/test/standard_indexed_tree_with_append.js';
@@ -36,15 +37,16 @@ describe('IndexedTreeSnapshotBuilder', () => {
   describeSnapshotBuilderTestSuite(
     () => tree,
     () => snapshotBuilder,
-    async () => {
+    () => {
       const newLeaves = Array.from({ length: 2 }).map(() => new NullifierLeaf(Fr.random()).toBuffer());
-      await tree.appendLeaves(newLeaves);
+      tree.appendLeaves(newLeaves);
+      return Promise.resolve();
     },
   );
 
   describe('getSnapshot', () => {
     it('returns historical leaf data', async () => {
-      await tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
+      tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
       const expectedLeavesAtBlock1 = await Promise.all([
         tree.getLatestLeafPreimageCopy(0n, false),
@@ -59,7 +61,7 @@ describe('IndexedTreeSnapshotBuilder', () => {
 
       await snapshotBuilder.snapshot(1);
 
-      await tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
+      tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
       const expectedLeavesAtBlock2 = [
         tree.getLatestLeafPreimageCopy(0n, false),
@@ -98,12 +100,12 @@ describe('IndexedTreeSnapshotBuilder', () => {
 
   describe('findIndexOfPreviousValue', () => {
     it('returns the index of the leaf with the closest value to the given value', async () => {
-      await tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
+      tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
       const snapshot = await snapshotBuilder.snapshot(1);
       const historicalPrevValue = tree.findIndexOfPreviousKey(2n, false);
 
-      await tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
+      tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
 
       expect(snapshot.findIndexOfPreviousKey(2n)).toEqual(historicalPrevValue);

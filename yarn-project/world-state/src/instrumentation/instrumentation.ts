@@ -1,11 +1,12 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   Attributes,
   type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
+  type UpDownCounter,
   ValueType,
 } from '@aztec/telemetry-client';
 
@@ -19,8 +20,18 @@ import {
 
 type DBTypeString = 'leaf_preimage' | 'leaf_indices' | 'nodes' | 'blocks' | 'block_indices';
 
+const durationTrackDenylist = new Set<WorldStateMessageType>([
+  WorldStateMessageType.GET_INITIAL_STATE_REFERENCE,
+  WorldStateMessageType.CLOSE,
+
+  // these aren't used anymore, should be removed from the API
+  WorldStateMessageType.COMMIT,
+  WorldStateMessageType.ROLLBACK,
+]);
+
 export class WorldStateInstrumentation {
   private dbMapSize: Gauge;
+  private dbPhysicalSize: Gauge;
   private treeSize: Gauge;
   private unfinalisedHeight: Gauge;
   private finalisedHeight: Gauge;
@@ -28,11 +39,20 @@ export class WorldStateInstrumentation {
   private dbNumItems: Gauge;
   private dbUsedSize: Gauge;
   private requestHistogram: Histogram;
+  private criticalErrors: UpDownCounter;
 
-  constructor(public readonly telemetry: TelemetryClient, private log = createLogger('world-state:instrumentation')) {
+  constructor(
+    public readonly telemetry: TelemetryClient,
+    private log: Logger = createLogger('world-state:instrumentation'),
+  ) {
     const meter = telemetry.getMeter('World State');
     this.dbMapSize = meter.createGauge(Metrics.WORLD_STATE_DB_MAP_SIZE, {
       description: `The current configured map size for each merkle tree`,
+      valueType: ValueType.INT,
+    });
+
+    this.dbPhysicalSize = meter.createGauge(Metrics.WORLD_STATE_DB_PHYSICAL_SIZE, {
+      description: `The current physical disk space used for each database`,
       valueType: ValueType.INT,
     });
 
@@ -71,10 +91,18 @@ export class WorldStateInstrumentation {
       unit: 'us',
       valueType: ValueType.INT,
     });
+
+    this.criticalErrors = meter.createUpDownCounter(Metrics.WORLD_STATE_CRITICAL_ERROR_COUNT, {
+      description: 'The number of critical errors in the world state',
+      valueType: ValueType.INT,
+    });
   }
 
   private updateTreeStats(treeDbStats: TreeDBStats, treeMeta: TreeMeta, tree: MerkleTreeId) {
     this.dbMapSize.record(Number(treeDbStats.mapSize), {
+      [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
+    });
+    this.dbPhysicalSize.record(Number(treeDbStats.physicalFileSize), {
       [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
     });
     this.treeSize.record(Number(treeMeta.size), {
@@ -141,8 +169,18 @@ export class WorldStateInstrumentation {
   }
 
   public recordRoundTrip(timeUs: number, request: WorldStateMessageType) {
-    this.requestHistogram.record(Math.ceil(timeUs), {
-      [Attributes.WORLD_STATE_REQUEST_TYPE]: WorldStateMessageType[request],
+    if (!durationTrackDenylist.has(request)) {
+      this.requestHistogram.record(Math.ceil(timeUs), {
+        [Attributes.WORLD_STATE_REQUEST_TYPE]: WorldStateMessageType[request],
+      });
+    }
+  }
+
+  public incCriticalErrors(
+    errorType: 'synch_pending_block' | 'finalize_block' | 'prune_pending_block' | 'prune_historical_block',
+  ) {
+    this.criticalErrors.add(1, {
+      [Attributes.ERROR_TYPE]: errorType,
     });
   }
 }

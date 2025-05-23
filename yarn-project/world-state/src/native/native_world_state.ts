@@ -1,34 +1,29 @@
-import {
-  type IndexedTreeId,
-  type L2Block,
-  MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-} from '@aztec/circuit-types';
-import {
-  BlockHeader,
-  EthAddress,
-  Fr,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NullifierLeaf,
-  type NullifierLeafPreimage,
-  PartialStateReference,
-  PublicDataTreeLeaf,
-  StateReference,
-} from '@aztec/circuits.js';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { createLogger } from '@aztec/foundation/log';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { tryRmDir } from '@aztec/foundation/fs';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { L2Block } from '@aztec/stdlib/block';
+import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
+import type {
+  IndexedTreeId,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+} from '@aztec/stdlib/interfaces/server';
+import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
+import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert/strict';
-import { mkdir, mkdtemp, rm } from 'fs/promises';
+import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
-import { type MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
+import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
+import type { MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
   WorldStateMessageType,
@@ -41,16 +36,12 @@ import {
   worldStateRevision,
 } from './message.js';
 import { NativeWorldState } from './native_world_state_instance.js';
-import { WorldStateVersion } from './world_state_version.js';
 
-export const WORLD_STATE_VERSION_FILE = 'version';
-
-// A crude way of maintaining DB versioning
-// We don't currently have any method of performing data migrations
-// should the world state db structure change
-// For now we will track versions using this hardcoded value and delete
-// the state if a change is detected
+// The current version of the world state database schema
+// Increment this when making incompatible changes to the database schema
 export const WORLD_STATE_DB_VERSION = 1; // The initial version
+
+export const WORLD_STATE_DIR = 'world_state';
 
 export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: BlockHeader | undefined;
@@ -58,41 +49,33 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
 
   protected constructor(
-    protected readonly instance: NativeWorldState,
+    protected instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
-    protected readonly log = createLogger('world-state:database'),
+    protected readonly log: Logger = createLogger('world-state:database'),
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
   static async new(
     rollupAddress: EthAddress,
     dataDir: string,
-    dbMapSizeKb: number,
+    wsTreeMapSizes: WorldStateTreeMapSizes,
+    prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
-    const worldStateDirectory = join(dataDir, 'world_state');
-    const versionFile = join(worldStateDirectory, WORLD_STATE_VERSION_FILE);
-    const storedWorldStateVersion = await WorldStateVersion.readVersion(versionFile);
+    const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
+    // Create a version manager to handle versioning
+    const versionManager = new DatabaseVersionManager({
+      schemaVersion: WORLD_STATE_DB_VERSION,
+      rollupAddress,
+      dataDirectory: worldStateDirectory,
+      onOpen: (dir: string) => {
+        return Promise.resolve(new NativeWorldState(dir, wsTreeMapSizes, prefilledPublicData, instrumentation));
+      },
+    });
 
-    if (!storedWorldStateVersion) {
-      log.warn('No world state version found, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true });
-    } else if (!rollupAddress.equals(storedWorldStateVersion.rollupAddress)) {
-      log.warn('Rollup address changed, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true });
-    } else if (storedWorldStateVersion.version != WORLD_STATE_DB_VERSION) {
-      log.warn('World state version change detected, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true });
-    }
-
-    const newWorldStateVersion = new WorldStateVersion(WORLD_STATE_DB_VERSION, rollupAddress);
-
-    await mkdir(worldStateDirectory, { recursive: true });
-    await newWorldStateVersion.writeVersionFile(versionFile);
-
-    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb, instrumentation);
+    const [instance] = await versionManager.open();
     const worldState = new this(instance, instrumentation, log, cleanup);
     try {
       await worldState.init();
@@ -107,24 +90,32 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   static async tmp(
     rollupAddress = EthAddress.ZERO,
     cleanupTmpDir = true,
+    prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
   ): Promise<NativeWorldStateService> {
     const log = createLogger('world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
     const dbMapSizeKb = 10 * 1024 * 1024;
-    log.debug(`Created temporary world state database at: ${dataDir} with size: ${dbMapSizeKb}`);
+    const worldStateTreeMapSizes: WorldStateTreeMapSizes = {
+      archiveTreeMapSizeKb: dbMapSizeKb,
+      nullifierTreeMapSizeKb: dbMapSizeKb,
+      noteHashTreeMapSizeKb: dbMapSizeKb,
+      messageTreeMapSizeKb: dbMapSizeKb,
+      publicDataTreeMapSizeKb: dbMapSizeKb,
+    };
+    log.debug(`Created temporary world state database at: ${dataDir} with tree map size: ${dbMapSizeKb}`);
 
     // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
     const cleanup = async () => {
       if (cleanupTmpDir) {
-        await rm(dataDir, { recursive: true, force: true });
+        await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
         log.debug(`Deleted temporary world state database: ${dataDir}`);
       } else {
         log.debug(`Leaving temporary world state database: ${dataDir}`);
       }
     };
 
-    return this.new(rollupAddress, dataDir, dbMapSizeKb, instrumentation, log, cleanup);
+    return this.new(rollupAddress, dataDir, worldStateTreeMapSizes, prefilledPublicData, instrumentation, log, cleanup);
   }
 
   protected async init() {
@@ -146,6 +137,13 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [await this.initialHeader.hash()]);
     const initialHeaderIndex = indices[0];
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
+  }
+
+  public async clear() {
+    await this.instance.close();
+    this.cachedStatusSummary = undefined;
+    await tryRmDir(this.instance.getDataDir(), this.log);
+    this.instance = this.instance.clone();
   }
 
   public getCommitted(): MerkleTreeReadOperations {
@@ -189,21 +187,26 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       });
     });
 
-    return await this.instance.call(
-      WorldStateMessageType.SYNC_BLOCK,
-      {
-        blockNumber: l2Block.number,
-        blockHeaderHash: await l2Block.header.hash(),
-        paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
-        paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
-        paddedNullifiers: paddedNullifiers.map(serializeLeaf),
-        publicDataWrites: publicDataWrites.map(serializeLeaf),
-        blockStateRef: blockStateReference(l2Block.header.state),
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummaryFromFull.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      return await this.instance.call(
+        WorldStateMessageType.SYNC_BLOCK,
+        {
+          blockNumber: l2Block.number,
+          blockHeaderHash: await l2Block.header.hash(),
+          paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
+          paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
+          paddedNullifiers: paddedNullifiers.map(serializeLeaf),
+          publicDataWrites: publicDataWrites.map(serializeLeaf),
+          blockStateRef: blockStateReference(l2Block.header.state),
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('synch_pending_block');
+      throw err;
+    }
   }
 
   public async close(): Promise<void> {
@@ -238,15 +241,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async setFinalised(toBlockNumber: bigint) {
-    await this.instance.call(
-      WorldStateMessageType.FINALISE_BLOCKS,
-      {
-        toBlockNumber,
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummary.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      await this.instance.call(
+        WorldStateMessageType.FINALISE_BLOCKS,
+        {
+          toBlockNumber,
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummary.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('finalize_block');
+      throw err;
+    }
     return this.getStatusSummary();
   }
 
@@ -256,15 +264,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async removeHistoricalBlocks(toBlockNumber: bigint) {
-    return await this.instance.call(
-      WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
-      {
-        toBlockNumber,
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummaryFromFull.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      return await this.instance.call(
+        WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
+        {
+          toBlockNumber,
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('prune_historical_block');
+      throw err;
+    }
   }
 
   /**
@@ -273,15 +286,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async unwindBlocks(toBlockNumber: bigint) {
-    return await this.instance.call(
-      WorldStateMessageType.UNWIND_BLOCKS,
-      {
-        toBlockNumber,
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummaryFromFull.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      return await this.instance.call(
+        WorldStateMessageType.UNWIND_BLOCKS,
+        {
+          toBlockNumber,
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('prune_pending_block');
+      throw err;
+    }
   }
 
   public async getStatusSummary() {
@@ -315,4 +333,25 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       ),
     );
   }
+
+  public async backupTo(
+    dstPath: string,
+    compact: boolean = true,
+  ): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>> {
+    await this.instance.call(WorldStateMessageType.COPY_STORES, {
+      dstPath,
+      compact,
+      canonical: true,
+    });
+    return fromEntries(NATIVE_WORLD_STATE_DBS.map(([name, dir]) => [name, join(dstPath, dir, 'data.mdb')] as const));
+  }
 }
+
+// The following paths are defined in cpp-land
+export const NATIVE_WORLD_STATE_DBS = [
+  ['l1-to-l2-message-tree', 'L1ToL2MessageTree'],
+  ['archive-tree', 'ArchiveTree'],
+  ['public-data-tree', 'PublicDataTree'],
+  ['note-hash-tree', 'NoteHashTree'],
+  ['nullifier-tree', 'NullifierTree'],
+] as const;

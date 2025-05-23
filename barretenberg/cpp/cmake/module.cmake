@@ -73,6 +73,12 @@ function(barretenberg_module MODULE_NAME)
         # enable msgpack downloading via dependency (solves race condition)
         add_dependencies(${MODULE_NAME} msgpack-c)
         add_dependencies(${MODULE_NAME}_objects msgpack-c)
+
+        # enable lmdb downloading via dependency (solves race condition)
+        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
+            add_dependencies(${MODULE_NAME} lmdb_repo)
+            add_dependencies(${MODULE_NAME}_objects lmdb_repo)
+        endif()
         list(APPEND lib_targets ${MODULE_NAME})
 
         set(MODULE_LINK_NAME ${MODULE_NAME})
@@ -92,7 +98,6 @@ function(barretenberg_module MODULE_NAME)
             PRIVATE
             ${TRACY_LIBS}
             GTest::gtest
-            GTest::gtest_main
             GTest::gmock_main
             ${TBB_IMPORTED_TARGETS}
         )
@@ -156,6 +161,12 @@ function(barretenberg_module MODULE_NAME)
         # enable msgpack downloading via dependency (solves race condition)
         add_dependencies(${MODULE_NAME}_test_objects msgpack-c)
         add_dependencies(${MODULE_NAME}_tests msgpack-c)
+
+        # enable lmdb downloading via dependency (solves race condition)
+        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
+            add_dependencies(${MODULE_NAME}_test_objects lmdb_repo)
+            add_dependencies(${MODULE_NAME}_tests lmdb_repo)
+        endif()
         if(NOT WASM)
             # If collecting coverage data, set profile
             # For some reason processor affinity doesn't work, so the developer has to set it manually anyway
@@ -204,7 +215,6 @@ function(barretenberg_module MODULE_NAME)
 
     file(GLOB_RECURSE FUZZERS_SOURCE_FILES *.fuzzer.cpp)
     if(FUZZING AND FUZZERS_SOURCE_FILES)
-        add_definitions(-DULTRA_FUZZ)
         foreach(FUZZER_SOURCE_FILE ${FUZZERS_SOURCE_FILES})
             get_filename_component(FUZZER_NAME_STEM ${FUZZER_SOURCE_FILE} NAME_WE)
             add_executable(
@@ -214,6 +224,12 @@ function(barretenberg_module MODULE_NAME)
             list(APPEND exe_targets ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer)
 
             target_link_options(
+                ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
+                PRIVATE
+                "-fsanitize=fuzzer"
+            )
+
+            target_compile_options(
                 ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
                 PRIVATE
                 "-fsanitize=fuzzer"
@@ -277,6 +293,12 @@ function(barretenberg_module MODULE_NAME)
             # enable msgpack downloading via dependency (solves race condition)
             add_dependencies(${BENCHMARK_NAME}_bench_objects msgpack-c)
             add_dependencies(${BENCHMARK_NAME}_bench msgpack-c)
+
+            # enable lmdb downloading via dependency (solves race condition)
+            if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
+                add_dependencies(${BENCHMARK_NAME}_bench_objects lmdb_repo)
+                add_dependencies(${BENCHMARK_NAME}_bench lmdb_repo)
+            endif()
             add_custom_target(
                 run_${BENCHMARK_NAME}_bench
                 COMMAND ${BENCHMARK_NAME}_bench

@@ -14,7 +14,7 @@ namespace bb::avm2::simulation {
 class AluInterface {
   public:
     virtual ~AluInterface() = default;
-    virtual void add(ContextInterface&, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) = 0;
+    virtual MemoryValue add(const MemoryValue& a, const MemoryValue& b) = 0;
 };
 
 class Alu : public AluInterface {
@@ -23,8 +23,7 @@ class Alu : public AluInterface {
         : events(event_emitter)
     {}
 
-    // Operands are expected to be direct.
-    void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) override;
+    MemoryValue add(const MemoryValue& a, const MemoryValue& b) override;
 
   private:
     EventEmitterInterface<AluEvent>& events;

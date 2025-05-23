@@ -1,1 +1,1 @@
-barretenberg_module(eccvm sumcheck)
+barretenberg_module(eccvm sumcheck commitment_schemes)

@@ -5,21 +5,25 @@ import {
   type ProvingJobInputsMap,
   type ProvingJobResult,
   type ProvingJobResultsMap,
-  ProvingRequestType,
   getProvingJobInputClassFor,
-} from '@aztec/circuit-types';
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { Storage } from '@google-cloud/storage';
 import { join } from 'path';
 
-import { type ProofStore } from './proof_store.js';
+import type { ProofStore } from './proof_store.js';
 
 const INPUTS_PATH = 'inputs';
 
+// REFACTOR(#13067): Use the stdlib/file-store instead of referencing google-cloud-storage directly.
 export class GoogleCloudStorageProofStore implements ProofStore {
   private readonly storage: Storage;
 
-  constructor(private readonly bucketName: string, private readonly path: string) {
+  constructor(
+    private readonly bucketName: string,
+    private readonly path: string,
+  ) {
     this.storage = new Storage();
   }
 

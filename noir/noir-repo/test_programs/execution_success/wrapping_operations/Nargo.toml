@@ -1,6 +1,0 @@
-[package]
-name = "wrapping_operations"
-type = "bin"
-authors = [""]
-
-[dependencies]

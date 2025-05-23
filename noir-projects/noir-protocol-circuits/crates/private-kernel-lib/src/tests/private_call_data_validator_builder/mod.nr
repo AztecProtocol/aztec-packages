@@ -7,6 +7,7 @@ mod validate_call;
 mod validate_call_requests;
 mod validate_contract_address;
 mod validate_counters;
+mod validate_log_lengths;
 mod validate_note_logs;
 mod validate_private_call_requests;
 
@@ -32,7 +33,9 @@ impl PrivateCallDataValidatorBuilder {
     }
 
     pub fn new_from_counter(counter: u32) -> Self {
-        let private_call = FixtureBuilder::new_from_counter(counter);
+        let mut private_call = FixtureBuilder::new_from_counter(counter);
+        private_call.compute_update_tree_and_hints();
+
         let previous_note_hashes = BoundedVec::new();
         PrivateCallDataValidatorBuilder { private_call, previous_note_hashes }
     }

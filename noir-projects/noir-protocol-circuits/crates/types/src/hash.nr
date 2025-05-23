@@ -1,8 +1,8 @@
 use crate::{
     abis::{
         contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
+        contract_class_log::ContractClassLog,
         function_selector::FunctionSelector,
-        log_hash::{LogHash, ScopedLogHash},
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         private_log::{PrivateLog, PrivateLogData},
@@ -10,16 +10,16 @@ use crate::{
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__OUTER_NULLIFIER,
-        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE,
+        GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__SILOED_NOTE_HASH,
+        GENERATOR_INDEX__UNIQUE_NOTE_HASH, TWO_POW_64,
     },
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     poseidon2::Poseidon2Sponge,
-    traits::{FromField, Hash, is_empty, ToField},
-    utils::field::field_from_bytes_32_trunc,
+    traits::{FromField, Hash, ToField},
+    utils::{arrays::array_concat, field::{field_from_bytes, field_from_bytes_32_trunc}},
 };
-use super::{constants::TWO_POW_64, utils::{arrays::array_concat, field::field_from_bytes}};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256::digest(bytes_to_hash);
@@ -113,20 +113,32 @@ pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
     } else {
         let mut fields = private_log.inner.log.fields;
         fields[0] = compute_siloed_private_log_field(private_log.contract_address, fields[0]);
-        PrivateLog { fields }
+        PrivateLog::new(fields, private_log.inner.log.length)
     }
 }
 
-fn compute_siloed_contract_class_log_hash(address: AztecAddress, log_hash: Field) -> Field {
-    accumulate_sha256([address.to_field(), log_hash])
+pub fn compute_siloed_contract_class_log_field(
+    contract_address: AztecAddress,
+    first_field: Field,
+) -> Field {
+    poseidon2_hash([contract_address.to_field(), first_field])
 }
 
-pub fn silo_contract_class_log_hash(log_hash: ScopedLogHash) -> Field {
-    if log_hash.contract_address.is_zero() {
-        0
+pub fn silo_contract_class_log(contract_class_log: ContractClassLog) -> ContractClassLog {
+    if contract_class_log.contract_address.is_zero() {
+        contract_class_log
     } else {
-        compute_siloed_contract_class_log_hash(log_hash.contract_address, log_hash.value())
+        let mut log = contract_class_log;
+        log.log.fields[0] = compute_siloed_contract_class_log_field(
+            contract_class_log.contract_address,
+            log.log.fields[0],
+        );
+        log
     }
+}
+
+pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]) -> Field {
+    poseidon2_hash(log)
 }
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {
@@ -183,7 +195,7 @@ pub fn silo_l2_to_l1_message(
 //
 pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // This is a note about the cpp code, since it takes an array of Fields
-    // instead of a U128.
+    // instead of a u128.
     // 4 Field elements when converted to bytes will usually
     // occupy 4 * 32 = 128 bytes.
     // However, this function is making the assumption that each Field
@@ -203,29 +215,6 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     sha256_to_field(hash_input_flattened)
 }
 
-// Computes the final logs hash for a tx.
-pub fn compute_tx_logs_hash<let N: u32>(logs: [LogHash; N]) -> Field {
-    // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
-    let mut hash_input_flattened = [0; N * 32];
-    for offset in 0..N {
-        // TODO: This is not checking that the decomposition is smaller than P
-        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_radix(256);
-        for byte_index in 0..32 {
-            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
-        }
-    }
-    // Ideally we would push to a slice then hash, but there is no sha_slice
-    // Hardcode to 256 bytes for now
-    let mut hash = sha256_to_field(hash_input_flattened);
-    // Not having a 0 value hash for empty logs causes issues with empty txs
-    // used for padding. Returning early is currently unsupported.
-    // We always provide sorted logs here, so 0 being empty means all are empty.
-    if is_empty(logs[0]) {
-        hash = 0;
-    }
-    hash
-}
-
 pub fn verification_key_hash<let N: u32>(key: [Field; N]) -> Field {
     crate::hash::poseidon2_hash(key)
 }
@@ -236,7 +225,7 @@ pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
 }
 
 pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
-    std::hash::poseidon2::Poseidon2::hash(inputs, N)
+    poseidon::poseidon2::Poseidon2::hash(inputs, N)
 }
 
 #[no_predicates]
@@ -258,7 +247,7 @@ pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Fi
     sponge.squeeze()
 }
 
-// NB the below is the same as std::hash::poseidon2::Poseidon2::hash(), but replacing a range check with a bit check,
+// NB the below is the same as poseidon::poseidon2::Poseidon2::hash(), but replacing a range check with a bit check,
 // and absorbing in chunks of 3 below.
 #[no_predicates]
 pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u32) -> Field {
@@ -464,7 +453,7 @@ fn poseidon_chunks_matches_fixed() {
         input[i] = 3;
     }
     let sub_chunk_hash = poseidon2_hash_subarray(input, in_len);
-    let fixed_len_hash = std::hash::poseidon2::Poseidon2::hash(fixed_input, fixed_input.len());
+    let fixed_len_hash = poseidon::poseidon2::Poseidon2::hash(fixed_input, fixed_input.len());
     assert(sub_chunk_hash == fixed_len_hash);
 }
 
@@ -476,7 +465,7 @@ fn poseidon_chunks_matches_variable() {
         input[i] = 3;
     }
     let variable_chunk_hash = poseidon2_cheaper_variable_hash(input, in_len);
-    let variable_len_hash = std::hash::poseidon2::Poseidon2::hash(input, in_len);
+    let variable_len_hash = poseidon::poseidon2::Poseidon2::hash(input, in_len);
     assert(variable_chunk_hash == variable_len_hash);
 }
 

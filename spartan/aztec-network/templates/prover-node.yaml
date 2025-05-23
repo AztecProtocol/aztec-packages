@@ -38,32 +38,10 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
+      terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
-        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
-        {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
-
-        - name: get-private-key
-          image: {{ .Values.images.foundry.image }}
-          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
-          command:
-            - "/bin/sh"
-            - "-c"
-            - |
-              source /scripts/get-private-key.sh
-          volumeMounts:
-            - name: scripts
-              mountPath: /scripts
-            - name: config
-              mountPath: /shared/config
-          env:
-            - name: KEY_INDEX_START
-              value: {{ .Values.aztec.proverKeyIndexStart | quote }}
-            - name: MNEMONIC
-              value: {{ .Values.aztec.l1DeploymentMnemonic }}
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
+        {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
 
         - name: wait-for-services
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -73,17 +51,15 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
+
+              # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
+              if [ -n "{{ .Values.aztec.contracts.registryAddress }}" ] && [ -n "{{ .Values.aztec.bootstrapENRs }}" ]; then
+                echo "Registry address and bootstrap nodes already set, skipping wait for services"
+                exit 0
+              fi
+
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
-              if [ "${PROVER_BROKER_ENABLED}" == "false" ]; then
-                until curl -s -X POST ${PROVER_BROKER_HOST}/status; do
-                  echo "Waiting for broker ${PROVER_BROKER_HOST} ..."
-                  sleep 5
-                done
-                echo "Broker is ready!"
-              else
-                echo "Using built-in job broker"
-              fi
 
               until curl --head --silent $BOOT_NODE_HOST/status; do
                 echo "Waiting for boot node..."
@@ -93,19 +69,25 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /shared/config
-          env:
-            - name: PROVER_BROKER_ENABLED
-              value: "{{ .Values.proverNode.proverBroker.enabled }}"
 
-        - name: configure-prover-env
+      containers:
+        - name: prover-node
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
-            - "/bin/bash"
-            - "-c"
-            - "cp /scripts/configure-prover-env.sh /tmp/configure-prover-env.sh && \
-               chmod +x /tmp/configure-prover-env.sh && \
-               source /shared/config/service-addresses && \
-               /tmp/configure-prover-env.sh ${BOOT_NODE_HOST}"
+            - /bin/bash
+            - -c
+            - |
+              source /shared/config/service-addresses
+              /scripts/configure-prover-env.sh ${BOOT_NODE_HOST:-""} ${FULL_NODE_HOST:-""}
+              source /scripts/get-private-key.sh
+              source /shared/config/keys.env
+              source /shared/contracts/contracts.env
+              source /shared/config/p2p-addresses
+              source /shared/config/otel-resource
+
+              env
+
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node --archiver
           volumeMounts:
             - name: contracts-env
               mountPath: /shared/contracts
@@ -113,30 +95,17 @@ spec:
               mountPath: /scripts
             - name: config
               mountPath: /shared/config
-
-      containers:
-        - name: prover-node
-          {{- include "aztec-network.image" . | nindent 10 }}
-          command:
-            - "/bin/bash"
-            - "-c"
-            - |
-              source /shared/config/keys.env && \
-              source /shared/contracts/contracts.env && \
-              source /shared/p2p/p2p-addresses && \
-              source /shared/config/service-addresses && \
-              env && \
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node --archiver
-          volumeMounts:
-            - name: contracts-env
-              mountPath: /shared/contracts
-            - name: p2p-addresses
-              mountPath: /shared/p2p
-            - name: config
-              mountPath: /shared/config
             - name: prover-node-data
               mountPath: {{ .Values.proverNode.dataDir }}
           env:
+            - name: BOOTSTRAP_NODES
+              value: "{{ .Values.aztec.bootstrapENRs }}"
+            - name: REGISTRY_CONTRACT_ADDRESS
+              value: "{{ .Values.aztec.contracts.registryAddress }}"
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.proverKeyIndexStart | quote }}
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:
@@ -145,8 +114,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: prover-node
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
@@ -171,40 +138,42 @@ spec:
               value: "{{ .Values.proverNode.proverAgent.pollIntervalMs }}"
             - name: PROVER_AGENT_PROOF_TYPES
               value: {{ join "," .Values.proverNode.proverAgent.proofTypes | quote }}
-            - name: PROVER_BROKER_ENABLED
-              value: "{{ .Values.proverNode.proverBroker.enabled }}"
             - name: PROVER_BROKER_POLL_INTERVAL_MS
               value: "{{ .Values.proverNode.proverBroker.pollIntervalMs }}"
             - name: PROVER_BROKER_JOB_TIMEOUT_MS
               value: "{{ .Values.proverNode.proverBroker.jobTimeoutMs }}"
             - name: PROVER_BROKER_JOB_MAX_RETRIES
               value: "{{ .Values.proverNode.proverBroker.jobMaxRetries }}"
-            - name: PROVER_NODE_TX_GATHERING_TIMEOUT_MS
-              value: "{{ .Values.proverNode.txGathering.timeoutMs }}"
-            - name: PROVER_NODE_TX_GATHERING_INTERVAL_MS
-              value: "{{ .Values.proverNode.txGathering.intervalMs }}"
-            - name: PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS
+            - name: PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE
               value: "{{ .Values.proverNode.txGathering.maxParallelRequests }}"
             - name: PROVER_FAILED_PROOF_STORE
               value: "{{ .Values.proverNode.failedProofStore }}"
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
+            - name: PROVER_NODE_FAILED_EPOCH_STORE
+              value: "{{ .Values.proverNode.failedEpochStore }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
+            - name: L1_FIXED_PRIORITY_FEE_PER_GAS
+              value: {{ .Values.proverNode.l1FixedPriorityFeePerGas | quote }}
+            - name: L1_GAS_LIMIT_BUFFER_PERCENTAGE
+              value: {{ .Values.proverNode.l1GasLimitBufferPercentage | quote }}
+            - name: L1_GAS_PRICE_MAX
+              value: {{ .Values.proverNode.l1GasPriceMax | quote }}
             - name: P2P_ENABLED
-              value: "{{ .Values.proverNode.p2pEnabled }}"
-            - name: P2P_TCP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.proverNode.service.p2pTcpPort }}"
-            - name: P2P_UDP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.proverNode.service.p2pUdpPort }}"
+              value: "{{ .Values.proverNode.p2p.enabled }}"
+            - name: P2P_MAX_TX_POOL_SIZE
+              value: "{{ .Values.network.mempoolLimitBytes }}"
+            - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
+              value: "{{ .Values.proverNode.p2p.floodPublish }}"
+            - name: P2P_PORT
+              value: "{{ .Values.proverNode.service.p2pPort }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
               value: "{{ .Values.aztec.slotDuration }}"
             - name: AZTEC_EPOCH_DURATION
               value: "{{ .Values.aztec.epochDuration }}"
-            - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
-              value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: AZTEC_PROOF_SUBMISSION_WINDOW
+              value: "{{ .Values.aztec.proofSubmissionWindow }}"
             - name: PROVER_VIEM_POLLING_INTERVAL_MS
               value: {{ .Values.proverNode.viemPollingInterval | quote }}
             - name: DATA_DIRECTORY
@@ -213,14 +182,26 @@ spec:
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
               value: "{{ .Values.storage.worldStateMapSize }}"
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
+            - name: SPONSORED_FPC
+              value: "{{ .Values.aztec.sponsoredFPC }}"
+            {{- if .Values.blobSink.enabled }}
+            - name: BLOB_SINK_URL
+              value: {{ include "aztec-network.blobSinkUrl" . }}
+            {{- end }}
+            - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
+              value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
+            - name: SYNC_SNAPSHOTS_URL
+              value: "{{ .Values.snapshots.syncUrl }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
-            - containerPort: {{ .Values.proverNode.service.p2pTcpPort }}
-            - containerPort: {{ .Values.proverNode.service.p2pUdpPort }}
+            - containerPort: {{ .Values.proverNode.service.p2pPort }}
+            - containerPort: {{ .Values.proverNode.service.p2pPort }}
               protocol: UDP
           resources:
             {{- toYaml .Values.proverNode.resources | nindent 12 }}
@@ -228,9 +209,8 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: contracts-env
-          emptyDir: {}
-        - name: p2p-addresses
           emptyDir: {}
         - name: config
           emptyDir: {}
@@ -250,6 +230,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-node
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: prover-node
 spec:
   type: ClusterIP
   selector:
@@ -258,9 +239,9 @@ spec:
   ports:
     - port: {{ .Values.proverNode.service.nodePort }}
       name: node
-    - port: {{ .Values.proverNode.service.p2pTcpPort }}
+    - port: {{ .Values.proverNode.service.p2pPort }}
       name: p2p-tcp
-    - port: {{ .Values.proverNode.service.p2pUdpPort }}
+    - port: {{ .Values.proverNode.service.p2pPort }}
       name: p2p-udp
       protocol: UDP
 {{ end }}

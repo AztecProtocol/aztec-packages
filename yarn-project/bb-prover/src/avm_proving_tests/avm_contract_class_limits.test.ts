@@ -1,10 +1,8 @@
-import {
-  AztecAddress,
-  type ContractInstanceWithAddress,
-  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
-} from '@aztec/circuits.js';
-import { makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
@@ -17,7 +15,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
   let avmTestContractAddress: AztecAddress;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/*checkCircuitOnly=*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true);
     // create enough unique contract classes to hit the limit
     instances = [];
     for (let i = 0; i <= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {
@@ -25,6 +23,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
         /*constructorArgs=*/ [],
         deployer,
         /*contractArtifact=*/ AvmTestContractArtifact,
+        /*skipNullifierInsertion=*/ false,
         /*seed=*/ i,
       );
       instances.push(instance);
@@ -44,7 +43,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
 
       // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
       const instanceSameClassAsFirstContract = await makeContractInstanceFromClassId(
-        instances[0].contractClassId,
+        instances[0].currentContractClassId,
         /*seed=*/ 1000,
       );
       instanceAddresses.push(instanceSameClassAsFirstContract.address);

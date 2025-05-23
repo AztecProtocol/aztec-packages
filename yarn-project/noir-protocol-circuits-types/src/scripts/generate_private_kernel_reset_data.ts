@@ -6,11 +6,10 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
   PRIVATE_KERNEL_RESET_INDEX,
-  type PrivateKernelResetDimensionsConfig,
   VK_TREE_HEIGHT,
-  privateKernelResetDimensionNames,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { createConsoleLogger } from '@aztec/foundation/log';
+import { type PrivateKernelResetDimensionsConfig, privateKernelResetDimensionNames } from '@aztec/stdlib/kernel';
 
 import { promises as fs } from 'fs';
 
@@ -35,24 +34,24 @@ const maxDimensions = [
 
 function generateTypeFileImports() {
   return `
-    import { PrivateKernelResetDimensions, type PrivateKernelResetDimensionsConfig } from '@aztec/circuits.js';
+    import { PrivateKernelResetDimensions, type PrivateKernelResetDimensionsConfig } from '@aztec/stdlib/kernel';
   `;
 }
 
 function generateVkFileImports() {
   return `
-    import { type VerificationKeyData } from '@aztec/circuits.js';
+    import type { VerificationKeyData } from '@aztec/stdlib/vks';
     import { keyJsonToVKData } from './utils/vk_json.js';
 
-    import { type PrivateResetArtifact } from './private_kernel_reset_types.js';
+    import type { PrivateResetArtifact } from './private_kernel_reset_types.js';
   `;
 }
 
 function generateDataFileImports() {
   return `
-    import { type NoirCompiledCircuit } from '@aztec/types/noir';
+    import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 
-    import { type PrivateResetArtifact } from './private_kernel_reset_types.js';
+    import type { PrivateResetArtifact } from './private_kernel_reset_types.js';
   `;
 }
 
@@ -72,7 +71,7 @@ function generateArtifactImports(importTags: string[]) {
   return importTags
     .map(
       tag =>
-        `import PrivateKernelResetJson${tag} from '../artifacts/private_kernel_reset${tag}.json' assert { type: 'json' };`,
+        `import PrivateKernelResetJson${tag} from '../artifacts/private_kernel_reset${tag}.json' with { type: 'json' };`,
     )
     .join('\n');
 }
@@ -81,7 +80,7 @@ function generateSimulatedArtifactImports(importTags: string[]) {
   return importTags
     .map(
       tag =>
-        `import PrivateKernelResetSimulatedJson${tag} from '../artifacts/private_kernel_reset_simulated${tag}.json' assert { type: 'json' };`,
+        `import PrivateKernelResetSimulatedJson${tag} from '../artifacts/private_kernel_reset_simulated${tag}.json' with { type: 'json' };`,
     )
     .join('\n');
 }
@@ -90,7 +89,7 @@ function generateVksImports(importTags: string[]) {
   return importTags
     .map(
       tag =>
-        `import PrivateKernelResetVkJson${tag} from '../artifacts/keys/private_kernel_reset${tag}.vk.data.json' assert { type: 'json' };`,
+        `import PrivateKernelResetVkJson${tag} from '../artifacts/keys/private_kernel_reset${tag}.vk.data.json' with { type: 'json' };`,
     )
     .join('\n');
 }

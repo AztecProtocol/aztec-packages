@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+if [ ${DRY_RUN:-0} = 0 ]; then
+  exec "$@"
+else
+  echo "DRY: $@"
+fi

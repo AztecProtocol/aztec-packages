@@ -1,28 +1,29 @@
-import { type AztecAddress, type AztecNode, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
 import {
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-} from '@aztec/circuits.js';
-import { PendingNoteHashesContract } from '@aztec/noir-contracts.js/PendingNoteHashes';
+} from '@aztec/constants';
+import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_pending_note_hashes_contract', () => {
   let aztecNode: AztecNode;
   let wallet: Wallet;
+  let pxe: PXE;
   let logger: Logger;
   let owner: AztecAddress;
   let teardown: () => Promise<void>;
   let contract: PendingNoteHashesContract;
 
-  beforeEach(async () => {
-    ({ teardown, aztecNode, wallet, logger } = await setup(2));
+  beforeAll(async () => {
+    ({ teardown, aztecNode, wallet, logger, pxe } = await setup(2));
     owner = wallet.getAddress();
   });
 
-  afterEach(() => teardown());
+  afterAll(() => teardown());
 
   const expectNoteHashesSquashedExcept = async (exceptFirstFew: number) => {
     const blockNum = await aztecNode.getBlockNumber();
@@ -292,9 +293,9 @@ describe('e2e_pending_note_hashes_contract', () => {
     // Then emit another note log with the same counter as the one above, but with value 5
     const txReceipt = await deployedContract.methods.test_emit_bad_note_log(owner, sender).send().wait();
 
-    await deployedContract.methods.sync_notes().simulate();
+    await deployedContract.methods.sync_private_state().simulate();
 
-    const notes = await wallet.getNotes({ txHash: txReceipt.txHash });
+    const notes = await pxe.getNotes({ txHash: txReceipt.txHash });
 
     expect(notes.length).toBe(1);
   });

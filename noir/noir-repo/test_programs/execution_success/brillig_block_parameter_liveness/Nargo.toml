@@ -1,6 +1,0 @@
-[package]
-name = "brillig_block_parameter_liveness"
-type = "bin"
-authors = [""]
-
-[dependencies]

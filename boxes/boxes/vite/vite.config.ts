@@ -1,7 +1,6 @@
-import { defineConfig, searchForWorkspaceRoot } from "vite";
+import { defineConfig, loadEnv, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { PolyfillOptions, nodePolyfills } from "vite-plugin-node-polyfills";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 
 const nodeModulesPath = `${searchForWorkspaceRoot(process.cwd())}/node_modules`;
 
@@ -24,36 +23,36 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 };
 
 // https://vite.dev/config/
-export default defineConfig({
-  logLevel: "error",
-  server: {
-    // Headers needed for bb WASM to work in multithreaded mode
-    headers: {
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp",
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  return {
+    logLevel: "error",
+    server: {
+      // Headers needed for bb WASM to work in multithreaded mode
+      headers: {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "require-corp",
+      },
+      // Allow vite to serve files from these directories, since they are symlinked
+      // These are the protocol circuit artifacts and noir/bb WASMs.
+      // ONLY REQUIRED TO RUN FROM THE MONOREPO
+      fs: {
+        allow: [
+          searchForWorkspaceRoot(process.cwd()),
+          "../../../yarn-project/noir-protocol-circuits-types/artifacts",
+          "../../../noir/packages/noirc_abi/web",
+          "../../../noir/packages/acvm_js/web",
+        ],
+      },
     },
-    // Allow vite to serve files from these directories, since they are symlinked
-    // These are the protocol circuit artifacts and noir/bb WASMs.
-    // ONLY REQUIRED TO RUN FROM THE MONOREPO
-    fs: {
-      allow: [
-        searchForWorkspaceRoot(process.cwd()),
-        "../../../yarn-project/noir-protocol-circuits-types/artifacts",
-        "../../../noir/packages/noirc_abi/web",
-        "../../../noir/packages/acvm_js/web",
-      ],
+    plugins: [
+      react(),
+      nodePolyfillsFix({ include: ["buffer", "path", "process"] }),
+    ],
+    define: {
+      "process.env": JSON.stringify({
+        AZTEC_NODE_URL: env.AZTEC_NODE_URL,
+      }),
     },
-  },
-  plugins: [
-    react(),
-    nodePolyfillsFix({ include: ["buffer", "process", "path"] }),
-    viteStaticCopy({
-      targets: [
-        {
-          src: `${nodeModulesPath}/@aztec/aztec.js/dest/*.wasm.gz`,
-          dest: "./",
-        },
-      ],
-    }),
-  ],
+  };
 });

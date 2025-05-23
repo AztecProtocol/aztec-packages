@@ -36,10 +36,18 @@ struct WorldStateStores {
         , messageStore(std::move(other.messageStore))
     {}
 
+    auto begin() const { return stores.begin(); }
+    auto end() const { return stores.end(); }
+
     WorldStateStores(const WorldStateStores& other) = delete;
     ~WorldStateStores() = default;
 
     WorldStateStores& operator=(WorldStateStores&& other) = delete;
     WorldStateStores& operator=(WorldStateStores& other) = delete;
+
+  private:
+    std::array<LMDBTreeStore::SharedPtr, 5> stores{
+        nullifierStore, publicDataStore, archiveStore, noteHashStore, messageStore
+    };
 };
 } // namespace bb::world_state

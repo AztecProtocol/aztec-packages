@@ -1,4 +1,3 @@
-import { Fr } from '@aztec/circuits.js';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -7,7 +6,11 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { Fr } from '@aztec/foundation/fields';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
+import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
 import { z } from 'zod';
 
@@ -22,10 +25,20 @@ export enum SupportedTokenContracts {
 export type BotConfig = {
   /** The URL to the Aztec node to check for tx pool status. */
   nodeUrl: string | undefined;
+  /** The URL to the Aztec node admin API to force-flush txs if configured. */
+  nodeAdminUrl: string | undefined;
   /** URL to the PXE for sending txs, or undefined if an in-proc PXE is used. */
   pxeUrl: string | undefined;
+  /** Url of the ethereum host. */
+  l1RpcUrls: string[] | undefined;
+  /** The mnemonic for the account to bridge fee juice from L1. */
+  l1Mnemonic: string | undefined;
+  /** The private key for the account to bridge fee juice from L1. */
+  l1PrivateKey: string | undefined;
   /** Signing private key for the sender account. */
-  senderPrivateKey: Fr;
+  senderPrivateKey: Fr | undefined;
+  /** Optional salt to use to deploy the sender account */
+  senderSalt: Fr | undefined;
   /** Encryption secret for a recipient account. */
   recipientEncryptionSecret: Fr;
   /** Salt for the token contract deployment. */
@@ -37,7 +50,7 @@ export type BotConfig = {
   /** How many public token transfers are executed per tx. */
   publicTransfersPerTx: number;
   /** How to handle fee payments. */
-  feePaymentMethod: 'fee_juice' | 'none';
+  feePaymentMethod: 'fee_juice';
   /** True to not automatically setup or start the bot on initialization. */
   noStart: boolean;
   /** How long to wait for a tx to be mined before reporting an error. */
@@ -48,8 +61,6 @@ export type BotConfig = {
   maxPendingTxs: number;
   /** Whether to flush after sending each 'setup' transaction */
   flushSetupTransactions: boolean;
-  /** Whether to skip public simulation of txs before sending them. */
-  skipPublicSimulation: boolean;
   /** L2 gas limit for the tx (empty to have the bot trigger an estimate gas). */
   l2GasLimit: number | undefined;
   /** DA gas limit for the tx (empty to have the bot trigger an estimate gas). */
@@ -60,34 +71,47 @@ export type BotConfig = {
   maxConsecutiveErrors: number;
   /** Stops the bot if service becomes unhealthy */
   stopWhenUnhealthy: boolean;
+  /** Deploy an AMM contract and do swaps instead of transfers */
+  ammTxs: boolean;
 };
 
 export const BotConfigSchema = z
   .object({
     nodeUrl: z.string().optional(),
+    nodeAdminUrl: z.string().optional(),
     pxeUrl: z.string().optional(),
-    senderPrivateKey: schemas.Fr,
+    l1RpcUrls: z.array(z.string()).optional(),
+    l1Mnemonic: z.string().optional(),
+    l1PrivateKey: z.string().optional(),
+    senderPrivateKey: schemas.Fr.optional(),
+    senderSalt: schemas.Fr.optional(),
     recipientEncryptionSecret: schemas.Fr,
     tokenSalt: schemas.Fr,
     txIntervalSeconds: z.number(),
-    privateTransfersPerTx: z.number(),
-    publicTransfersPerTx: z.number(),
-    feePaymentMethod: z.union([z.literal('fee_juice'), z.literal('none')]),
+    privateTransfersPerTx: z.number().int().nonnegative(),
+    publicTransfersPerTx: z.number().int().nonnegative(),
+    feePaymentMethod: z.literal('fee_juice'),
     noStart: z.boolean(),
     txMinedWaitSeconds: z.number(),
     followChain: z.enum(BotFollowChain),
-    maxPendingTxs: z.number(),
+    maxPendingTxs: z.number().int().nonnegative(),
     flushSetupTransactions: z.boolean(),
-    skipPublicSimulation: z.boolean(),
-    l2GasLimit: z.number().optional(),
-    daGasLimit: z.number().optional(),
+    l2GasLimit: z.number().int().nonnegative().optional(),
+    daGasLimit: z.number().int().nonnegative().optional(),
     contract: z.nativeEnum(SupportedTokenContracts),
-    maxConsecutiveErrors: z.number(),
+    maxConsecutiveErrors: z.number().int().nonnegative(),
     stopWhenUnhealthy: z.boolean(),
+    ammTxs: z.boolean().default(false),
   })
   .transform(config => ({
     nodeUrl: undefined,
+    nodeAdminUrl: undefined,
     pxeUrl: undefined,
+    l1RpcUrls: undefined,
+    l1Mnemonic: undefined,
+    l1PrivateKey: undefined,
+    senderPrivateKey: undefined,
+    senderSalt: undefined,
     l2GasLimit: undefined,
     daGasLimit: undefined,
     ...config,
@@ -98,15 +122,36 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     env: 'AZTEC_NODE_URL',
     description: 'The URL to the Aztec node to check for tx pool status.',
   },
+  nodeAdminUrl: {
+    env: 'AZTEC_NODE_ADMIN_URL',
+    description: 'The URL to the Aztec node admin API to force-flush txs if configured.',
+  },
   pxeUrl: {
     env: 'BOT_PXE_URL',
     description: 'URL to the PXE for sending txs, or undefined if an in-proc PXE is used.',
   },
+  l1RpcUrls: {
+    env: 'ETHEREUM_HOSTS',
+    description: 'URL of the ethereum host.',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+  },
+  l1Mnemonic: {
+    env: 'BOT_L1_MNEMONIC',
+    description: 'The mnemonic for the account to bridge fee juice from L1.',
+  },
+  l1PrivateKey: {
+    env: 'BOT_L1_PRIVATE_KEY',
+    description: 'The private key for the account to bridge fee juice from L1.',
+  },
   senderPrivateKey: {
     env: 'BOT_PRIVATE_KEY',
     description: 'Signing private key for the sender account.',
-    parseEnv: (val: string) => Fr.fromHexString(val),
-    defaultValue: Fr.random(),
+    parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
+  },
+  senderSalt: {
+    env: 'BOT_ACCOUNT_SALT',
+    description: 'The salt to use to deploys the sender account.',
+    parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
   },
   recipientEncryptionSecret: {
     env: 'BOT_RECIPIENT_ENCRYPTION_SECRET',
@@ -137,9 +182,9 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   feePaymentMethod: {
     env: 'BOT_FEE_PAYMENT_METHOD',
-    description: 'How to handle fee payments. (Options: fee_juice, none)',
-    parseEnv: val => (val as 'fee_juice' | 'none') || undefined,
-    defaultValue: 'none',
+    description: 'How to handle fee payments. (Options: fee_juice)',
+    parseEnv: val => (val as 'fee_juice') || undefined,
+    defaultValue: 'fee_juice',
   },
   noStart: {
     env: 'BOT_NO_START',
@@ -170,11 +215,6 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   flushSetupTransactions: {
     env: 'BOT_FLUSH_SETUP_TRANSACTIONS',
     description: 'Make a request for the sequencer to build a block after each setup transaction.',
-    ...booleanConfigHelper(false),
-  },
-  skipPublicSimulation: {
-    env: 'BOT_SKIP_PUBLIC_SIMULATION',
-    description: 'Whether to skip public simulation of txs before sending them.',
     ...booleanConfigHelper(false),
   },
   l2GasLimit: {
@@ -212,6 +252,11 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Stops the bot if service becomes unhealthy',
     ...booleanConfigHelper(false),
   },
+  ammTxs: {
+    env: 'BOT_AMM_TXS',
+    description: 'Deploy an AMM and send swaps to it',
+    ...booleanConfigHelper(false),
+  },
 };
 
 export function getBotConfigFromEnv(): BotConfig {
@@ -220,4 +265,11 @@ export function getBotConfigFromEnv(): BotConfig {
 
 export function getBotDefaultConfig(): BotConfig {
   return getDefaultConfig<BotConfig>(botConfigMappings);
+}
+
+export function getVersions(): Partial<ComponentsVersions> {
+  return {
+    l2ProtocolContractsTreeRoot: protocolContractTreeRoot.toString(),
+    l2CircuitsVkTreeRoot: getVKTreeRoot().toString(),
+  };
 }

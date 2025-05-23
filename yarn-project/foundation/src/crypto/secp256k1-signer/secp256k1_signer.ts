@@ -1,6 +1,6 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type Signature } from '@aztec/foundation/eth-signature';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Signature } from '@aztec/foundation/eth-signature';
 
 import { addressFromPrivateKey, makeEthSignDigest, signMessage } from './utils.js';
 

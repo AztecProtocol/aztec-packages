@@ -1,5 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
@@ -15,7 +23,7 @@ namespace bb {
  * @tparam Flavor
  * @return OinkOutput<Flavor>
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::verify()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
 {
     // Execute the Verifier rounds
     execute_preamble_round();
@@ -34,24 +42,16 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::verify()
  * @brief Get circuit size, public input size, and public inputs from transcript
  *
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
     // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "circuit_size");
-    const auto public_input_size =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "public_input_size");
-    const auto pub_inputs_offset =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "pub_inputs_offset");
+    const uint64_t circuit_size = verification_key->verification_key->circuit_size;
+    const uint64_t public_input_size = verification_key->verification_key->num_public_inputs;
+    const uint64_t pub_inputs_offset = verification_key->verification_key->pub_inputs_offset;
 
-    if (circuit_size != verification_key->verification_key->circuit_size) {
-        throw_or_abort("OinkVerifier::execute_preamble_round: proof circuit size does not match verification key!");
-    }
-    if (public_input_size != verification_key->verification_key->num_public_inputs) {
-        throw_or_abort("OinkVerifier::execute_preamble_round: public inputs size does not match verification key!");
-    }
-    if (pub_inputs_offset != verification_key->verification_key->pub_inputs_offset) {
-        throw_or_abort("OinkVerifier::execute_preamble_round: public inputs offset does not match verification key!");
-    }
+    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
+    transcript->add_to_hash_buffer(domain_separator + "public_input_size", public_input_size);
+    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
 
     for (size_t i = 0; i < public_input_size; ++i) {
         auto public_input_i =
@@ -65,7 +65,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_roun
  * only received after adding memory records. In the Goblin Flavor, we also receive the ECC OP wires and the
  * DataBus columns.
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_round()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_round()
 {
     // Get commitments to first three wire polynomials
     witness_comms.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_l);
@@ -91,7 +91,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitme
  * @brief Get sorted witness-table accumulator and fourth wire commitments
  *
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
 {
     // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
@@ -112,7 +112,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_sorted_list_a
  * @brief Get log derivative inverse polynomial and its commitment, if MegaFlavor
  *
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
 {
     // Get permutation challenges
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
@@ -135,7 +135,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
  * @brief Compute lookup grand product delta and get permutation and lookup grand product commitments
  *
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
 {
     const FF public_input_delta =
         compute_public_input_delta<Flavor>(public_inputs,
@@ -150,7 +150,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product
     witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_perm);
 }
 
-template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<Flavor>::generate_alphas_round()
+template <IsUltraOrMegaHonk Flavor> typename Flavor::RelationSeparator OinkVerifier<Flavor>::generate_alphas_round()
 {
     // Get the relation separation challenges for sumcheck/combiner computation
     RelationSeparator alphas;
@@ -164,6 +164,10 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<
 template class OinkVerifier<UltraFlavor>;
 template class OinkVerifier<UltraZKFlavor>;
 template class OinkVerifier<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class OinkVerifier<UltraStarknetFlavor>;
+template class OinkVerifier<UltraStarknetZKFlavor>;
+#endif
 template class OinkVerifier<UltraKeccakZKFlavor>;
 template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;

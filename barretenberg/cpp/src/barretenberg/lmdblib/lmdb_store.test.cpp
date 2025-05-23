@@ -182,6 +182,32 @@ TEST_F(LMDBStoreTest, can_write_duplicate_keys_to_database)
     EXPECT_NO_THROW(store->put(putDatas));
 }
 
+TEST_F(LMDBStoreTest, can_write_the_same_data_multiple_times)
+{
+    LMDBStore::Ptr store = create_store(2);
+    const std::string name = "Test Database";
+    store->open_database(name);
+    const std::string nameDups = "Test Database Dups";
+    store->open_database(nameDups, true);
+
+    // Check that writing duplicates in the same tx works
+    auto key = get_key(0);
+    auto data = get_value(0, 1);
+    KeyDupValuesVector toWrite = { { { key, { data, data } } } };
+    KeyOptionalValuesVector toDelete;
+    LMDBStore::PutData putData = { toWrite, toDelete, name };
+    std::vector<LMDBStore::PutData> putDatas = { putData };
+    EXPECT_NO_THROW(store->put(putDatas));
+
+    LMDBStore::PutData putDataDups = { toWrite, toDelete, nameDups };
+    putDatas = { putDataDups };
+    EXPECT_NO_THROW(store->put(putDatas));
+
+    // writing again, in a new tx should also work
+    EXPECT_NO_THROW(store->put(putDatas));
+    EXPECT_NO_THROW(store->put(putDatas));
+}
+
 TEST_F(LMDBStoreTest, can_read_from_database)
 {
     LMDBStore::Ptr store = create_store();
@@ -973,8 +999,12 @@ TEST_F(LMDBStoreTest, reports_stats)
     write_test_data(dbNames, numKeys, numValues, *store);
 
     std::vector<DBStats> stats;
-    uint64_t mapSize = store->get_stats(stats);
+    auto [mapSize, physicalFileSize] = store->get_stats(stats);
+    std::string dataDbPath = (std::filesystem::path(_directory) / "data.mdb").string();
+    EXPECT_TRUE(std::filesystem::exists(dataDbPath));
+
     EXPECT_EQ(mapSize, LMDBStoreTest::_mapSize * 1024);
+    EXPECT_EQ(physicalFileSize, std::filesystem::file_size(dataDbPath));
     EXPECT_EQ(stats.size(), 2);
     for (size_t i = 0; i < 2; i++) {
         if (stats[i].name == dbNames[0]) {

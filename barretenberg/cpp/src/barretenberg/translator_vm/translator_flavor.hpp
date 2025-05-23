@@ -1,4 +1,11 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
+
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/common/ref_vector.hpp"
@@ -16,13 +23,13 @@
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_fixed_vk.hpp"
 
 namespace bb {
 
 class TranslatorFlavor {
 
   public:
-    static constexpr size_t mini_circuit_size = 2048;
     using CircuitBuilder = TranslatorCircuitBuilder;
     using Curve = curve::BN254;
     using PCS = KZG<Curve>;
@@ -40,73 +47,92 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
-    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
-
-    // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
-    // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
-    // It is also the only parameter that can be changed without updating relations or structures in the flavor
-    static constexpr size_t MINI_CIRCUIT_SIZE = mini_circuit_size;
+    // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = false;
+    // Important: these constants cannot be arbitrarily changed - please consult with a member of the Crypto team if
+    // they become too small.
 
     // None of this parameters can be changed
+    // Number of wires representing the op queue whose commitments are going to be checked against those from the
+    // final round of merge
+    static constexpr size_t NUM_OP_QUEUE_WIRES = 4;
 
-    // How many mini_circuit_size polynomials are concatenated in one concatenated_*
-    static constexpr size_t CONCATENATION_GROUP_SIZE = 16;
+    // How many mini_circuit_size polynomials are interleaved in one interleaved_*
+    static constexpr size_t INTERLEAVING_GROUP_SIZE = 16;
 
-    // The number of concatenated_* wires
-    static constexpr size_t NUM_CONCATENATED_WIRES = 4;
+    // The fixed  log size of Translator circuit determining the size most polynomials (except the ones
+    // involved in the interleaving subprotocol). It should be determined by the size of the EccOpQueue.
+    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = 14;
 
-    // Actual circuit size
-    static constexpr size_t FULL_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE;
+    // Log of size of interleaved_* and ordered_* polynomials
+    static constexpr size_t CONST_TRANSLATOR_LOG_N = LOG_MINI_CIRCUIT_SIZE + numeric::get_msb(INTERLEAVING_GROUP_SIZE);
+
+    static constexpr size_t MINI_CIRCUIT_SIZE = 1UL << LOG_MINI_CIRCUIT_SIZE;
+
+    // The number of interleaved_* wires
+    static constexpr size_t NUM_INTERLEAVED_WIRES = 4;
 
     // Number of wires
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
-    // The step in the DeltaRangeConstraint relation
+    // The step in the DeltaRangeConstraint relation i.e. the maximum difference between two consecutive values
     static constexpr size_t SORT_STEP = 3;
+
+    // The result of evaluating the polynomials in the nonnative form in translator circuit, stored as limbs and
+    // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
+    // responsible for checking it against the evaluations received from ECCVM.
+    static constexpr size_t RESULT_ROW = CircuitBuilder::RESULT_ROW;
 
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
 
     // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one
-    static constexpr auto NEGATIVE_MODULUS_LIMBS = CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
+    static constexpr const std::array<FF, 5>& negative_modulus_limbs()
+    {
+        return CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
+    }
 
     // Number of bits in a binary limb
     // This is not a configurable value. Relations are sepcifically designed for it to be 68
     static constexpr size_t NUM_LIMB_BITS = CircuitBuilder::NUM_LIMB_BITS;
 
+    // Lowest possible size of the Translator mini circuit due to the desing of range constraints.
+    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
+    static_assert(MINI_CIRCUIT_SIZE > MINIMUM_MINI_CIRCUIT_SIZE);
+
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 184;
+    static constexpr size_t NUM_ALL_ENTITIES = 186;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 7;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 9;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
     static constexpr size_t NUM_SHIFTED_WITNESSES = 86;
-    static constexpr size_t NUM_CONCATENATED = NUM_CONCATENATED_WIRES * CONCATENATION_GROUP_SIZE;
+    static constexpr size_t NUM_INTERLEAVED = NUM_INTERLEAVED_WIRES * INTERLEAVING_GROUP_SIZE;
     // Number of elements in WireToBeShiftedWithoutConcatenated
-    static constexpr size_t NUM_WIRES_TO_BE_SHIFTED_WITHOUT_CONCATENATED = 16;
+    static constexpr size_t NUM_WIRES_TO_BE_SHIFTED_WITHOUT_INTERLEAVED = 16;
     // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned into
-    // get_unshifted_without_concatenated(), get_to_be_shifted(), and get_groups_to_be_concatenated()
+    // get_unshifted_without_interleaved(), get_to_be_shifted(), and get_groups_to_be_interleaved()
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED;
     // The index of the shift of the first to be shifted witness
     static constexpr size_t SHIFTED_WITNESSES_START = NUM_SHIFTED_WITNESSES + TO_BE_SHIFTED_WITNESSES_START;
-    // The index of the first unshifted witness that is contained in the groups to be concatenated, when AllEntities are
-    // partitioned into get_unshifted_without_concatenated(), get_to_be_shifted(), and get_groups_to_be_concatenated()
-    static constexpr size_t TO_BE_CONCATENATED_START =
-        NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_WIRES_TO_BE_SHIFTED_WITHOUT_CONCATENATED;
-    // The index of the first concatenation groups element inside AllEntities
-    static constexpr size_t CONCATENATED_START = NUM_SHIFTED_WITNESSES + SHIFTED_WITNESSES_START;
+    // The index of the first unshifted witness that is contained in the groups to be interleaved, when AllEntities are
+    // partitioned into get_unshifted_without_interleaved(), get_to_be_shifted(), and get_groups_to_be_interleaved()
+    static constexpr size_t TO_BE_INTERLEAVED_START =
+        NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_WIRES_TO_BE_SHIFTED_WITHOUT_INTERLEAVED;
+    // The index of the first interleaving groups element inside AllEntities
+    static constexpr size_t INTERLEAVED_START = NUM_SHIFTED_WITNESSES + SHIFTED_WITNESSES_START;
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
         RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED,
                                 NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_SHIFTED_WITNESSES,
                                 NUM_SHIFTED_WITNESSES,
-                                TO_BE_CONCATENATED_START,
-                                CONCATENATED_START,
-                                NUM_CONCATENATED);
+                                TO_BE_INTERLEAVED_START,
+                                INTERLEAVED_START,
+                                NUM_INTERLEAVED);
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
@@ -127,6 +153,8 @@ class TranslatorFlavor {
     // length = 3.
     // The degree has to be further increased because the relation is multiplied by the Row Disabling Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
+    static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
+                  "LIBRA_UNIVARIATES_LENGTH must be equal to Translator::BATCHED_RELATION_PARTIAL_LENGTH");
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // define the containers for storing the contributions from each relation in Sumcheck
@@ -137,52 +165,51 @@ class TranslatorFlavor {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType_> class PrecomputedEntities {
       public:
+        bool operator==(const PrecomputedEntities& other) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               ordered_extra_range_constraints_numerator, // column 0
                               lagrange_first,                            // column 1
                               lagrange_last,                             // column 2
-                              // TODO(#758): Check if one of these can be replaced by shifts
-                              lagrange_odd_in_minicircuit,             // column 3
-                              lagrange_even_in_minicircuit,            // column 4
-                              lagrange_second,                         // column 5
-                              lagrange_second_to_last_in_minicircuit); // column 6
+                              // TODO(https://github.com/AztecProtocol/barretenberg/issues/758): Check if one of these
+                              // can be replaced by shifts
+                              lagrange_odd_in_minicircuit,  // column 3
+                              lagrange_even_in_minicircuit, // column 4
+                              lagrange_result_row,          // column 5
+                              lagrange_last_in_minicircuit, // column 6
+                              lagrange_masking,             // column 7
+                              lagrange_real_last);          // column 8
     };
 
-    template <typename DataType> class ConcatenatedRangeConstraints {
+    template <typename DataType> class InterleavedRangeConstraints {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              concatenated_range_constraints_0, // column 0
-                              concatenated_range_constraints_1, // column 1
-                              concatenated_range_constraints_2, // column 2
-                              concatenated_range_constraints_3) // column 3
+                              interleaved_range_constraints_0, // column 0
+                              interleaved_range_constraints_1, // column 1
+                              interleaved_range_constraints_2, // column 2
+                              interleaved_range_constraints_3) // column 3
     };
-    template <typename DataType> class WireToBeShiftedWithoutConcatenated {
+    template <typename DataType> class WireToBeShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              x_lo_y_hi,                   // column 0
-                              x_hi_z_1,                    // column 1
-                              y_lo_z_2,                    // column 2
-                              p_x_low_limbs,               // column 3
-                              p_x_high_limbs,              // column 4
-                              p_y_low_limbs,               // column 5
-                              p_y_high_limbs,              // column 6
-                              z_low_limbs,                 // column 7
-                              z_high_limbs,                // column 8
-                              accumulators_binary_limbs_0, // column 9
-                              accumulators_binary_limbs_1, // column 10
-                              accumulators_binary_limbs_2, // column 11
-                              accumulators_binary_limbs_3, // column 12
-                              quotient_low_binary_limbs,   // column 13
-                              quotient_high_binary_limbs,  // column 14
-                              relation_wide_limbs);        // column 15
-    };
-
-    template <typename DataType> class WireToBeShiftedAndConcatenated {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
+                              x_lo_y_hi,                                    // column 0
+                              x_hi_z_1,                                     // column 1
+                              y_lo_z_2,                                     // column 2
+                              p_x_low_limbs,                                // column 3
+                              p_x_high_limbs,                               // column 4
+                              p_y_low_limbs,                                // column 5
+                              p_y_high_limbs,                               // column 6
+                              z_low_limbs,                                  // column 7
+                              z_high_limbs,                                 // column 8
+                              accumulators_binary_limbs_0,                  // column 9
+                              accumulators_binary_limbs_1,                  // column 10
+                              accumulators_binary_limbs_2,                  // column 11
+                              accumulators_binary_limbs_3,                  // column 12
+                              quotient_low_binary_limbs,                    // column 13
+                              quotient_high_binary_limbs,                   // column 14
+                              relation_wide_limbs,                          // column 15
                               p_x_low_limbs_range_constraint_0,             // column 16
                               p_x_low_limbs_range_constraint_1,             // column 17
                               p_x_low_limbs_range_constraint_2,             // column 18
@@ -248,14 +275,6 @@ class TranslatorFlavor {
                               relation_wide_limbs_range_constraint_2,       // column 78
                               relation_wide_limbs_range_constraint_3);      // column 79
     };
-
-    template <typename DataType>
-    class WireToBeShiftedEntities : public WireToBeShiftedWithoutConcatenated<DataType>,
-                                    public WireToBeShiftedAndConcatenated<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(WireToBeShiftedWithoutConcatenated<DataType>, WireToBeShiftedAndConcatenated<DataType>)
-    };
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/907)
     // Note: These are technically derived from wires but do not depend on challenges (like z_perm). They are committed
     // to in the wires commitment round.
@@ -288,22 +307,29 @@ class TranslatorFlavor {
                             public WireToBeShiftedEntities<DataType>,
                             public OrderedRangeConstraints<DataType>,
                             public DerivedWitnessEntities<DataType>,
-                            public ConcatenatedRangeConstraints<DataType> {
+                            public InterleavedRangeConstraints<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(WireNonshiftedEntities<DataType>,
                                 WireToBeShiftedEntities<DataType>,
                                 OrderedRangeConstraints<DataType>,
                                 DerivedWitnessEntities<DataType>,
-                                ConcatenatedRangeConstraints<DataType>)
+                                InterleavedRangeConstraints<DataType>)
 
-        // Used when populating wire polynomials directly from circuit data
+        /**
+         * @brief Entities constructed from circuit data.
+         *
+         */
         auto get_wires()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all());
         };
 
-        // Used when computing commitments to wires + ordered range constraints during proof consrtuction
+        auto get_wires_to_be_shifted() { return WireToBeShiftedEntities<DataType>::get_all(); };
+
+        /**
+         * @brief Witness Entities to which the prover commits and do not require challenges (i.e. not derived).
+         */
         auto get_wires_and_ordered_range_constraints()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
@@ -311,9 +337,10 @@ class TranslatorFlavor {
                                OrderedRangeConstraints<DataType>::get_all());
         };
 
-        // everything but ConcatenatedRangeConstraints (used for Shplemini input since concatenated handled separately)
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
-        auto get_unshifted_without_concatenated()
+        /**
+         * @brief Witness Entities on which Shplemini operates in the default manner.
+         */
+        auto get_unshifted_without_interleaved()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all(),
@@ -327,8 +354,9 @@ class TranslatorFlavor {
                                WireToBeShiftedEntities<DataType>::get_all(),
                                OrderedRangeConstraints<DataType>::get_all(),
                                DerivedWitnessEntities<DataType>::get_all(),
-                               ConcatenatedRangeConstraints<DataType>::get_all());
+                               InterleavedRangeConstraints<DataType>::get_all());
         }
+
         auto get_to_be_shifted()
         {
             return concatenate(WireToBeShiftedEntities<DataType>::get_all(),
@@ -337,18 +365,15 @@ class TranslatorFlavor {
         };
 
         /**
-         * @brief Get the polynomials that need to be constructed from other polynomials by concatenation
-         *
-         * @return auto
+         * @brief Get the entities constructed by interleaving.
          */
-        auto get_concatenated() { return ConcatenatedRangeConstraints<DataType>::get_all(); }
+        auto get_interleaved() { return InterleavedRangeConstraints<DataType>::get_all(); }
 
         /**
-         * @brief Get the entities concatenated for the permutation relation
+         * @brief Get the entities interleaved for the permutation relation.
          *
-         * @return std::vector<auto>
          */
-        std::vector<RefVector<DataType>> get_groups_to_be_concatenated()
+        std::vector<RefVector<DataType>> get_groups_to_be_interleaved()
         {
             return {
                 {
@@ -521,10 +546,9 @@ class TranslatorFlavor {
                               z_perm_shift)                                       // column 85
     };
 
-  public:
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
-     * sumcheck) in this Honk variant along with particular subsets of interest
+     * sumcheck) in this Honk variant along with particular subsets of interest.
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
      * polynomials; the univariates consturcted during during sumcheck; the evaluations produced by sumcheck.
      *
@@ -540,50 +564,28 @@ class TranslatorFlavor {
         auto get_precomputed() const { return PrecomputedEntities<DataType>::get_all(); };
 
         /**
-         * @brief Get entities concatenated for the permutation relation
-         *
+         * @brief Getter for entities constructed by interleaving
          */
-        std::vector<RefVector<DataType>> get_groups_to_be_concatenated()
-        {
-            return WitnessEntities<DataType>::get_groups_to_be_concatenated();
-        }
-        /**
-         * @brief Getter for entities constructed by concatenation
-         */
-        auto get_concatenated() { return ConcatenatedRangeConstraints<DataType>::get_all(); };
-        /**
-         * @brief Get the polynomials from the grand product denominator
-         *
-         * @return auto
-         */
-        auto get_ordered_constraints()
-        {
-            return RefArray{ this->ordered_range_constraints_0,
-                             this->ordered_range_constraints_1,
-                             this->ordered_range_constraints_2,
-                             this->ordered_range_constraints_3,
-                             this->ordered_range_constraints_4 };
-        };
+        auto get_interleaved() { return InterleavedRangeConstraints<DataType>::get_all(); };
 
-        // Gemini-specific getters.
+        /**
+         * @brief Getter for the ordered entities used in computing the denominator of the grand product in the
+         * permutation relation.
+         */
+        auto get_ordered_range_constraints() { return OrderedRangeConstraints<DataType>::get_all(); };
+
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
         }
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
-        auto get_unshifted_without_concatenated()
+
+        auto get_unshifted_without_interleaved()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               WitnessEntities<DataType>::get_unshifted_without_concatenated());
+                               WitnessEntities<DataType>::get_unshifted_without_interleaved());
         }
-        // get_to_be_shifted is inherited
+
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        // this getter is necessary for more uniform zk verifiers
-        auto get_shifted_witnesses() { return this->get_shifted(); };
-        auto get_wires_and_ordered_range_constraints()
-        {
-            return WitnessEntities<DataType>::get_wires_and_ordered_range_constraints();
-        };
 
         friend std::ostream& operator<<(std::ostream& os, const AllEntities& a)
         {
@@ -614,20 +616,47 @@ class TranslatorFlavor {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        // Define all operations as default, except copy construction/assignment
-        ProverPolynomials() = default;
-        // Constructor to init all unshifted polys to the zero polynomial and set the shifted poly data
-        ProverPolynomials(size_t circuit_size)
+        /**
+         * @brief ProverPolynomials constructor
+         * @details Initialises wire polynomials efficiently to be only minicircuit size..
+         */
+        ProverPolynomials()
         {
-            for (auto& poly : get_to_be_shifted()) {
-                poly = Polynomial{ /*memory size*/ circuit_size - 1,
-                                   /*largest possible index*/ circuit_size,
-                                   /* offset */ 1 };
+
+            const size_t circuit_size = 1 << CONST_TRANSLATOR_LOG_N;
+            for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
+                ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
+                                                       /*largest possible index*/ circuit_size,
+                                                       1 };
             }
+
+            for (auto& interleaved : get_interleaved()) {
+                interleaved = Polynomial{ /*size*/ circuit_size, circuit_size };
+            }
+            z_perm = Polynomial{ /*size*/ circuit_size - 1,
+                                 /*virtual_size*/ circuit_size,
+                                 /*start_index*/ 1 };
+
+            // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
+            // circuit
+            for (auto& poly : get_to_be_shifted()) {
+                if (poly.is_empty()) {
+                    poly = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE - 1,
+                                       /*virtual_size*/ circuit_size,
+                                       /*start_index*/ 1 };
+                }
+            }
+
+            // Initialize some one-off polys with special structure
+            lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
+            lagrange_result_row = Polynomial{ /*size*/ 3, /*virtual_size*/ circuit_size };
+            lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
+            lagrange_odd_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
+
             for (auto& poly : get_unshifted()) {
                 if (poly.is_empty()) {
                     // Not set above
-                    poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
+                    poly = Polynomial{ circuit_size };
                 }
             }
             set_shifted();
@@ -667,15 +696,12 @@ class TranslatorFlavor {
     class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
 
-        ProvingKey() = default;
-        ProvingKey(const size_t dyadic_circuit_size, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-            : Base(dyadic_circuit_size, 0, std::move(commitment_key))
-            , polynomials(this->circuit_size)
+        ProvingKey(std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+            : Base(1UL << CONST_TRANSLATOR_LOG_N, 0, std::move(commitment_key))
         {}
     };
 
@@ -687,17 +713,25 @@ class TranslatorFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        VerificationKey() = default;
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
-        {}
+        // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
+        VerificationKey()
+            : VerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
+        {
+            this->pub_inputs_offset = 0;
+
+            // Populate the commitments of the precomputed polynomials
+            for (auto [vk_commitment, fixed_commitment] :
+                 zip_view(this->get_all(), TranslatorFixedVKCommitments::get_all())) {
+                vk_commitment = fixed_commitment;
+            }
+        }
+
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-            this->circuit_size = proving_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
+            this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
@@ -706,7 +740,8 @@ class TranslatorFlavor {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
-
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
+        // from MSGPACK and the verification key.
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,
@@ -716,20 +751,16 @@ class TranslatorFlavor {
                        lagrange_last,
                        lagrange_odd_in_minicircuit,
                        lagrange_even_in_minicircuit,
-                       lagrange_second,
-                       lagrange_second_to_last_in_minicircuit);
+                       lagrange_result_row,
+                       lagrange_last_in_minicircuit,
+                       lagrange_masking,
+                       lagrange_real_last);
     };
-
-    /**
-     * @brief A container for easier mapping of polynomials
-     */
-    using ProverPolynomialIds = AllEntities<size_t>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-
       public:
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
@@ -737,6 +768,14 @@ class TranslatorFlavor {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
             for (auto& poly : this->get_all()) {
                 poly = Polynomial(circuit_size / 2);
+            }
+        }
+        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
+        {
+            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
+                // After the initial sumcheck round, the new size is CEIL(size/2).
+                size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
+                poly = Polynomial(desired_size, circuit_size / 2);
             }
         }
     };
@@ -842,19 +881,21 @@ class TranslatorFlavor {
             this->relation_wide_limbs_range_constraint_1 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1";
             this->relation_wide_limbs_range_constraint_2 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
             this->relation_wide_limbs_range_constraint_3 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
-            this->concatenated_range_constraints_0 = "CONCATENATED_RANGE_CONSTRAINTS_0";
-            this->concatenated_range_constraints_1 = "CONCATENATED_RANGE_CONSTRAINTS_1";
-            this->concatenated_range_constraints_2 = "CONCATENATED_RANGE_CONSTRAINTS_2";
-            this->concatenated_range_constraints_3 = "CONCATENATED_RANGE_CONSTRAINTS_3";
+            this->interleaved_range_constraints_0 = "INTERLEAVED_RANGE_CONSTRAINTS_0";
+            this->interleaved_range_constraints_1 = "INTERLEAVED_RANGE_CONSTRAINTS_1";
+            this->interleaved_range_constraints_2 = "INTERLEAVED_RANGE_CONSTRAINTS_2";
+            this->interleaved_range_constraints_3 = "INTERLEAVED_RANGE_CONSTRAINTS_3";
             this->z_perm = "Z_PERM";
             // "__" are only used for debugging
             this->lagrange_first = "__LAGRANGE_FIRST";
             this->lagrange_last = "__LAGRANGE_LAST";
             this->lagrange_odd_in_minicircuit = "__LAGRANGE_ODD_IN_MINICIRCUIT";
             this->lagrange_even_in_minicircuit = "__LAGRANGE_EVEN_IN_MINICIRCUIT";
-            this->lagrange_second = "__LAGRANGE_SECOND";
-            this->lagrange_second_to_last_in_minicircuit = "__LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT";
+            this->lagrange_result_row = "__LAGRANGE_RESULT_ROW";
+            this->lagrange_last_in_minicircuit = "__LAGRANGE_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
+            this->lagrange_masking = "__LAGRANGE_MASKING";
+            this->lagrange_real_last = "__LAGRANGE_REAL_LAST";
         };
     };
 
@@ -867,12 +908,14 @@ class TranslatorFlavor {
             this->lagrange_last = verification_key->lagrange_last;
             this->lagrange_odd_in_minicircuit = verification_key->lagrange_odd_in_minicircuit;
             this->lagrange_even_in_minicircuit = verification_key->lagrange_even_in_minicircuit;
-            this->lagrange_second = verification_key->lagrange_second;
-            this->lagrange_second_to_last_in_minicircuit = verification_key->lagrange_second_to_last_in_minicircuit;
+            this->lagrange_result_row = verification_key->lagrange_result_row;
+            this->lagrange_last_in_minicircuit = verification_key->lagrange_last_in_minicircuit;
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
+            this->lagrange_masking = verification_key->lagrange_masking;
+            this->lagrange_real_last = verification_key->lagrange_real_last;
         }
-    };
+    }; // namespace bb
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
     using Transcript = NativeTranscript;

@@ -1,16 +1,21 @@
 import { type AztecNode, type PXE, createAztecNodeClient, createLogger } from '@aztec/aztec.js';
+import { omit } from '@aztec/foundation/collection';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { type AztecNodeAdmin, createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
 import { type TelemetryClient, type Traceable, type Tracer, makeTracedFetch, trackSpan } from '@aztec/telemetry-client';
 
+import { AmmBot } from './amm_bot.js';
+import type { BaseBot } from './base_bot.js';
 import { Bot } from './bot.js';
-import { type BotConfig } from './config.js';
-import { type BotRunnerApi } from './interface.js';
+import { type BotConfig, getVersions } from './config.js';
+import type { BotInfo, BotRunnerApi } from './interface.js';
 
 export class BotRunner implements BotRunnerApi, Traceable {
   private log = createLogger('bot');
-  private bot?: Promise<Bot>;
+  private bot?: Promise<BaseBot>;
   private pxe?: PXE;
   private node: AztecNode;
+  private nodeAdmin?: AztecNodeAdmin;
   private runningPromise: RunningPromise;
   private consecutiveErrors = 0;
   private healthy = true;
@@ -19,14 +24,19 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
   public constructor(
     private config: BotConfig,
-    dependencies: { pxe?: PXE; node?: AztecNode; telemetry: TelemetryClient },
+    dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin; telemetry: TelemetryClient },
   ) {
     this.tracer = dependencies.telemetry.getTracer('Bot');
     this.pxe = dependencies.pxe;
     if (!dependencies.node && !config.nodeUrl) {
       throw new Error(`Missing node URL in config or dependencies`);
     }
-    this.node = dependencies.node ?? createAztecNodeClient(config.nodeUrl!, makeTracedFetch([1, 2, 3], true));
+    const versions = getVersions();
+    const fetch = makeTracedFetch([1, 2, 3], true);
+    this.node = dependencies.node ?? createAztecNodeClient(config.nodeUrl!, versions, fetch);
+    this.nodeAdmin =
+      dependencies.nodeAdmin ??
+      (config.nodeAdminUrl ? createAztecNodeAdminClient(config.nodeAdminUrl, versions, fetch) : undefined);
     this.runningPromise = new RunningPromise(() => this.#work(), this.log, config.txIntervalSeconds * 1000);
   }
 
@@ -125,12 +135,24 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
   /** Returns the current configuration for the bot. */
   public getConfig() {
-    return Promise.resolve(this.config);
+    const redacted = omit(this.config, 'l1Mnemonic', 'l1PrivateKey', 'senderPrivateKey');
+    return Promise.resolve(redacted as BotConfig);
+  }
+
+  /** Returns the bot sender address. */
+  public async getInfo(): Promise<BotInfo> {
+    if (!this.bot) {
+      throw new Error(`Bot is not initialized`);
+    }
+    const botAddress = await this.bot.then(b => b.wallet.getAddress());
+    return { botAddress };
   }
 
   async #createBot() {
     try {
-      this.bot = Bot.create(this.config, { pxe: this.pxe, node: this.node });
+      this.bot = this.config.ammTxs
+        ? AmmBot.create(this.config, { pxe: this.pxe, node: this.node, nodeAdmin: this.nodeAdmin })
+        : Bot.create(this.config, { pxe: this.pxe, node: this.node, nodeAdmin: this.nodeAdmin });
       await this.bot;
     } catch (err) {
       this.log.error(`Error setting up bot: ${err}`);
@@ -141,16 +163,16 @@ export class BotRunner implements BotRunnerApi, Traceable {
   @trackSpan('Bot.work')
   async #work() {
     if (this.config.maxPendingTxs > 0) {
-      const pendingTxs = await this.node.getPendingTxs();
-      if (pendingTxs.length >= this.config.maxPendingTxs) {
-        this.log.verbose(`Not sending bot tx since node has ${pendingTxs.length} pending txs`);
+      const pendingTxCount = await this.node.getPendingTxCount();
+      if (pendingTxCount >= this.config.maxPendingTxs) {
+        this.log.verbose(`Not sending bot tx since node has ${pendingTxCount} pending txs`);
         return;
       }
     }
 
     try {
       await this.run();
-    } catch (err) {
+    } catch {
       // Already logged in run()
       if (this.config.maxConsecutiveErrors > 0 && this.consecutiveErrors >= this.config.maxConsecutiveErrors) {
         this.log.error(`Too many errors bot is unhealthy`);

@@ -1,15 +1,12 @@
-import {
-  type BlockBuilder,
-  L2Block,
-  MerkleTreeId,
-  type MerkleTreeWriteOperations,
-  type ProcessedTx,
-  toNumBlobFields,
-} from '@aztec/circuit-types';
-import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import { SpongeBlob } from '@aztec/blob-lib';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { L2Block } from '@aztec/stdlib/block';
+import type { BlockBuilder, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { type GlobalVariables, type ProcessedTx, toNumBlobFields } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import {
@@ -30,7 +27,10 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   private readonly logger = createLogger('prover-client:block_builder');
 
-  constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient = getTelemetryClient()) {}
+  constructor(
+    private db: MerkleTreeWriteOperations,
+    private telemetry: TelemetryClient = getTelemetryClient(),
+  ) {}
 
   async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
     this.logger.debug('Starting new block', { globalVariables: globalVariables.toInspect(), l1ToL2Messages });
@@ -71,7 +71,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
     this.logger.debug(`Built block ${block.number}`, {
       globalVariables: this.globalVariables?.toInspect(),
       archiveRoot: newArchive.root.toString(),
-      blockHash: block.hash.toString(),
+      blockHash: (await block.hash()).toString(),
     });
 
     return block;

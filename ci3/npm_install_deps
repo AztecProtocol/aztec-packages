@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# In CI we leverage fast caching of node_modules folders using zstd.
+# Note this cache pull won't restore .yarn, which means a subsequent "yarn install" may still be slow.
+# This doesn't matter in CI however.
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+# We assume that `yarn.lock` sits within the root directory of the git repository we're currently in.
+#
+# We cannot assume that this is equal to `$root` as we may be within a nested repository
+# whereas `$root` points to the root of the aztec-packages monorepo.
+REPO_PATH=$(git rev-parse --show-toplevel)
+
+if [ ! -f yarn.lock ]; then
+  echo_stderr "yarn.lock not found in $PWD."
+  exit 1
+fi
+
+yarn_lock_path=$(realpath yarn.lock --relative-to=$REPO_PATH)
+package_json_path=$(realpath package.json --relative-to=$REPO_PATH)
+
+# We only use the node module cache in CI.
+# The checking for ci-started makes sure we really *are* on a CI machine (it's created in bootstrap_ec2).
+if [ "$CI" -eq 1 ] && [ -f $HOME/ci-started ] && [ "${NO_CACHE:-0}" -eq 0 ]; then
+  nm_hash=$(cache_content_hash "^$yarn_lock_path" "^$package_json_path")
+  if ! cache_download node-modules-$nm_hash.zst; then
+    denoise "retry 'find . -type d -iname node_modules -not -path \"*/node_modules/*\" | xargs rm -rf && yarn install --immutable'"
+    cache_upload node-modules-$nm_hash.zst $(find . -type d -iname node_modules -not -path "*/node_modules/*")
+  fi
+else
+  denoise "yarn install"
+fi

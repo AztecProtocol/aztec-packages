@@ -1,6 +1,6 @@
-import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover';
-import { type ProverConfig, proverConfigMappings } from '@aztec/circuit-types';
+import type { ACVMConfig, BBConfig } from '@aztec/bb-prover';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ProverConfig, proverConfigMappings } from '@aztec/stdlib/interfaces/server';
 
 import {
   type ProverAgentConfig,
@@ -9,10 +9,11 @@ import {
   proverBrokerConfigMappings,
 } from './proving_broker/config.js';
 
-/**
- * The prover configuration.
- */
-export type ProverClientConfig = ProverConfig & ProverAgentConfig & ProverBrokerConfig & BBConfig & ACVMConfig;
+/** The prover configuration as defined by the user. */
+export type ProverClientUserConfig = ProverConfig & ProverAgentConfig & ProverBrokerConfig & BBConfig & ACVMConfig;
+
+/** The prover configuration with all missing fields resolved. */
+export type ProverClientConfig = ProverClientUserConfig & Required<Pick<ProverClientUserConfig, 'proverId'>>;
 
 export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
   acvmWorkingDirectory: {
@@ -38,7 +39,7 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
   },
 };
 
-export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> = {
+export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConfig> = {
   ...bbConfigMappings,
   ...proverConfigMappings,
   ...proverAgentConfigMappings,
@@ -50,6 +51,6 @@ export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> 
  * Note: If an environment variable is not set, the default value is used.
  * @returns The prover configuration.
  */
-export function getProverEnvVars(): ProverClientConfig {
-  return getConfigFromMappings<ProverClientConfig>(proverClientConfigMappings);
+export function getProverEnvVars(): ProverClientUserConfig {
+  return getConfigFromMappings<ProverClientUserConfig>(proverClientConfigMappings);
 }

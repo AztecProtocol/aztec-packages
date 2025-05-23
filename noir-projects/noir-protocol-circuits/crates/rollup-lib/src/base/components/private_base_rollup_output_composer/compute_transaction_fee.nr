@@ -60,7 +60,7 @@ mod tests {
         let builder = TestBuilder::new();
         let fee = builder.compute();
 
-        // Make sure the following value matches the one in `transaction_fee.test.ts` in `circuits.js`.
+        // Make sure the following value matches the one in `transaction_fee.test.ts` in `stdlib`.
         // Paying gas_fees + max_priority_fees.
         let expected_fee = 2 * (12 + 5) + 3 * (34 + 7);
         assert_eq(fee, expected_fee);
@@ -74,7 +74,7 @@ mod tests {
 
         let fee = builder.compute();
 
-        // Make sure the following value matches the one in `transaction_fee.test.ts` in `circuits.js`.
+        // Make sure the following value matches the one in `transaction_fee.test.ts` in `stdlib`.
         // Paying gas_fees only.
         let expected_fee_empty_priority = 2 * 12 + 3 * 34;
         assert_eq(fee, expected_fee_empty_priority);
@@ -89,7 +89,7 @@ mod tests {
 
         let fee = builder.compute();
 
-        // Make sure the following value matches the one in `transaction_fee.test.ts` in `circuits.js`.
+        // Make sure the following value matches the one in `transaction_fee.test.ts` in `stdlib`.
         // max_fees were applied.
         let expected_max_fee = 2 * 56 + 3 * 78;
         assert_eq(fee, expected_max_fee);

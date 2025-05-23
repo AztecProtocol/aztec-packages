@@ -2,9 +2,9 @@ import { toArray } from '@aztec/foundation/iterable';
 
 import { expect } from 'chai';
 
-import { type Range } from './common.js';
-import { type AztecAsyncSet, type AztecSet } from './set.js';
-import { type AztecAsyncKVStore, type AztecKVStore } from './store.js';
+import type { Range } from './common.js';
+import type { AztecAsyncSet, AztecSet } from './set.js';
+import type { AztecAsyncKVStore, AztecKVStore } from './store.js';
 import { isSyncStore } from './utils.js';
 
 export function describeAztecSet(

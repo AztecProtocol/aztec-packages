@@ -1,9 +1,13 @@
 # Compiler files
 cache/
+# Artifacts for compile
 out/
+# Artifacts for release process
+release-out/
 
 # Ignores development broadcast logs
 !/broadcast
+/broadcast/*/11155111/
 /broadcast/*/31337/
 /broadcast/**/dry-run/
 
@@ -21,3 +25,11 @@ yarn.lock
 
 # 'deploy_contracts' script output
 serve/
+
+gas_report.new.*
+gas_report.diff
+
+gas_benchmark.new.*
+gas_benchmark.diff
+
+/bench-out

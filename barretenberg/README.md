@@ -4,8 +4,6 @@
 > [!WARNING]
 > :warning: **<https://github.com/AztecProtocol/barretenberg> is a mirror-only repository, please only use <https://github.com/AztecProtocol/aztec-packages>. Do not use this for any purpose other than reference.** :warning:
 
-![banner](../.github/img/bb_banner.png)
-
 # Barretenberg
 
 Barretenberg (or `bb` for short) is an optimized elliptic curve library for the bn128 curve, and a PLONK SNARK prover.
@@ -30,7 +28,7 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
       - [Testing locally in docker](#testing-locally-in-docker)
   - [Docs Build](#docs-build)
   - [Benchmarks](#benchmarks)
-    - [x86\_64](#x86_64)
+    - [x86_64](#x86_64)
     - [WASM](#wasm)
     - [How to run](#how-to-run)
   - [Debugging](#debugging)
@@ -38,8 +36,7 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
     - [Improving LLDB Debugging](#improving-lldb-debugging)
     - [Using Tracy to Profile Memory/CPU](#using-tracy-to-profile-memorycpu)
 
-> [!CAUTION]
-> **This code is highly experimental, use at your own risk!**
+> [!CAUTION] > **This code is highly experimental, use at your own risk!**
 
 ## Installation
 
@@ -66,25 +63,18 @@ All available `bb` commands:
 Prove the valid execution of your program:
 
 ```bash
-bb prove_ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
+bb prove --scheme ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
 ```
 
 You can then compute the verification key for your Noir program and verify the proof:
 
 ```bash
-bb write_vk_ultra_honk -b ./target/hello_world.json -o ./target/vk
-bb verify_ultra_honk -k ./target/vk -p ./target/proof
+bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
+bb verify --scheme ultra_honk -k ./target/vk -p ./target/proof
 
 ```
 
 If successful, the verification will complete in silence.
-
-### MegaHonk
-
-The usage with MegaHonk is similar to the above UltraHonk. Refer to all the available `bb` commands, using the `bb <command>_mega_honk` syntax.
-
->[!WARNING]
-> MegaHonk generates insecure recursion circuits when Goblin recursive verifiers are not present.
 
 ### Solidity verifier
 
@@ -93,21 +83,20 @@ Barretenberg can generate a smart contract that verifies proofs in Solidity (i.e
 First, prove the valid execution of your Noir program and export the verification key:
 
 ```bash
-bb prove_ultra_keccak_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
-bb write_vk_ultra_honk -b ./target/hello_world.json -o ./target/vk
+bb prove --sceme ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
+bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
 ```
 
-> [!IMPORTANT]
-> `prove_ultra_keccak_honk` is used to generate UltraHonk proofs with Keccak hashes, making them gas-efficient. `prove_ultra_honk` in comparison generates proofs with Poseidon hashes, more efficient in recursions but not on-chain verifications.
+> [!IMPORTANT] > `prove --scheme ultra_honk --oracle_hash keccak` is used to generate UltraHonk proofs with Keccak hashes, making them gas-efficient. `prove --scheme ultra_honk` in comparison generates proofs with Poseidon hashes, more efficient in recursions but not on-chain verifications.
 
 You can now use the verification key to generate a Solidity verifier contract:
 
 ```bash
-bb contract_ultra_honk -k ./target/vk -c $CRS_PATH -b ./target/hello_world.json -o ./target/Verifier.sol
+bb write_solidity_verifier --scheme ultra_honk -k ./target/vk -c $CRS_PATH -b ./target/hello_world.json -o ./target/Verifier.sol
 ```
 
->[!CAUTION]
-> Solidity verifier contracts are work-in-progress. Expect significant optimizations and breaking changes, and *do NOT use it in production!*
+> [!CAUTION]
+> Solidity verifier contracts are work-in-progress. Expect significant optimizations and breaking changes, and _do NOT use it in production!_
 
 ## Development
 
@@ -191,9 +180,7 @@ CMake can be passed various build options on its command line:
 - `-DBENCHMARK=ON | OFF`: Enable/disable building of benchmarks.
 - `-DFUZZING=ON | OFF`: Enable building various fuzzers.
 
-If you are cross-compiling, you can use a preconfigured toolchain file:
-
-- `-DCMAKE_TOOLCHAIN_FILE=<filename in ./cmake/toolchains>`: Use one of the preconfigured toolchains.
+Various presets are defined in CMakePresets.json for scenarios such as instrumentation, cross-compiling and targets such as WASM.
 
 #### WASM build
 
@@ -272,13 +259,15 @@ Alternatively you can build separate test binaries, e.g. honk_tests or numeric_t
 
 Code is formatted using `clang-format` and the `./cpp/format.sh` script which is called via a git pre-commit hook.
 
->[!TIP]
+> [!TIP]
 > A default configuration for VS Code is provided by the file [`barretenberg.code-workspace`](barretenberg.code-workspace). These settings can be overridden by placing configuration files in `.vscode/`.
 > If you've installed the C++ Vscode extension, configure it to format on save!
 
 ### Testing
 
-Each module has its own tests. e.g. To build and run `ecc` tests:
+Each module has its own tests. See `./cpp/scripts/bb-tests.sh` for an exhaustive list of test module names.
+
+e.g. To build and run `ecc` tests:
 
 ```bash
 # Replace the `default` preset with whichever preset you want to use
@@ -410,7 +399,7 @@ Usage instructions:
 Caveats:
 
 - This works best for code that is not overly generic, i.e. where just the sequence of function calls carries a lot of information. It is possible to tag extra data along with the stack trace, this can be done as a followup, please leave feedback if desired.
-- There are certain functions like `assert_equals` that can cause gates that occur *before* them to fail. If this would be useful to automatically report, please leave feedback.
+- There are certain functions like `assert_equals` that can cause gates that occur _before_ them to fail. If this would be useful to automatically report, please leave feedback.
 
 Example:
 
@@ -475,11 +464,82 @@ command script import ~/aztec-packages/barretenberg/cpp/scripts/lldb_format.py
 
 Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect in VSCode (if you opened the debug console and put in these commands) then you will get pretty-printing of these types. This can be expanded fairly easily with more types if needed.
 
-#### Using Tracy to Profile Memory/CPU
+#### Debugging and profiling realistic ClientIVC flows
+
+
+#### Running Realistic ClientIVC from barretenberg folder
+
+Realistic IVC inputs pose a problem as the only code to sequence them requires a full end to end run.
+One can run the fourth newest master commit for example (any master commit that has finished benchmarking can be used):
+`barretenberg/cpp/bootstrap.sh bench_ivc origin/master~3`
+
+To do a single benchmark you can do e.g.
+`IVC_BENCH=ecdsar1+transfer_0_recursions+sponsored_fpc ./bootstrap.sh bench_ivc origin/master~3`
+
+If one doesn't provide the commit, it generates these IVC inputs on the fly (depends on yarn-project having been bootstrapped).
+To use these inputs manually, just abort after input download and run ClientIVC proving on those inputs (stored in `yarn-project/end-to-end/example-app-ivc-inputs-out`).
+
+#### Using Tracy to Profile Memory/CPU/Gate Counts
+
+Tracy is a tool that gives us an in-depth look at certain performance related metrics, including memory, CPU usage, time, and circuit gate counts.
 
 See Tracy manual linked here <https://github.com/wolfpld/tracy> for in-depth Tracy documentation.
 
-The basic use of Tracy is to run a benchmark with the `cmake --preset tracy` build type, create a capture file, then
-transfer it to a local machine for interactive UI introspection.
+The basic use of Tracy is to run a benchmark with the `cmake --preset tracy-memory` build type, or any of the other tracy presets, create a capture file, then transfer it to a local machine for interactive UI introspection.
 
-All the steps to do this effectively are included in various scripts in cpp/scripts/.
+The steps to do this effectively are included in various scripts in cpp/scripts/. The main one to look at is the profile_tracy_capture_mainframe_view_local.sh script. This will capture on the mainframe and copy the script locally for you to view on a GUI. Unfortunately, this script is meant for internal use only, but there exists other variants of this script like profile_tracy_local.sh that don't depend on our internal mainframe.
+
+##### Set Up and Script Usage
+
+For profile_tracy_capture_mainframe_view_local.sh, the first step is copying this script locally either manually or using scp.
+Now, you need to specify a few environment variables. The first is the USER. This is just your mainframe username, likely just your first name. Next, the BENCHMARK is the target or executable you are trying to build in barretenberg. The COMMAND should be set to the command you want to run, usually some google benchmark or some flow through bb. Lastly, the PRESET is defaulted to the memory one, but could be changed to a different one if you wanted to measure gates or time instead.
+
+It shouldn't matter where the script is locally. You can now try running the script with the env vars set, or with them as arguments like this:
+
+```
+./profile_tracy_capture_mainframe_view_local.sh <USER> <BENCHMARK> <COMMAND>
+```
+
+The script will ssh to the mainframe and then build the BENCHMARK specified and run the COMMAND specified. It will capture the tracy data in a trace while the COMMAND is run. Then, it will scp this trace to your local machine, build the profiler with cmake, and pop open the GUI for viewing.
+
+##### Using the GUI
+
+The view will likely be cluttered with a lot of information. This is because we set our HARDWARE_CONCURRENCY to 16 by default, so you will get 16 different rows of zones, and then a row with the memory graph , and lastly a time graph. In the Options tab in the top left, we can declutter this through the visibility options which allow you to toggle on and off the zones for the non-main threads. We can usually opt to only keep the zones for the main thread, but maybe keeping around one or a few non-main threads is also useful.
+
+The Find Zone tab is also of use to locate specific zones you care about. Searching for zones will highlight them in the GUI.
+
+The Statistics tab will tell you about time spent in each zone and an overall breakdown of time. Note that time may be inaccurate since tracy adds overhead.
+
+The Memory tab is very useful. It allows you to limit a range (Limit Range checkbox), look at all of the allocations (things that got allocated in the range) and active allocations (allocations that were not freed), and a rough Memory Map so you can get a sense of fragmentation. You can also see the stack trace for a particular memory alloc or free, if you click "alloc" or "free" while looking at the allocations or active allocations list, which is extremely useful. There's also a more global bottom up and top down allocation tree which can show the locations of major allocations.
+
+In terms of general usage, you should be able to use scrolling or the WASD keys to zoom in/out and go left and right in the GUI. You can also Command/Ctrl + click + drag to look at particular range, which tells you the time of that range, and allows you to better pick the zone you want to limit to.
+
+##### Adding Zones
+
+Zones are how you can keep track of where you are relative in the code and how you can bucket allocations together. All of the colored blocks in the Main Thread row and other threads' rows refer to zones. You can nest zones in deeper and deeper scopes, which leads to stacks of these zones. To add a named zone, all you have to do is add PROFILE_THIS() or PROFILE_THIS_NAME(<name>) to a scope and it will create a zone. Note that you can't create multiple zones in the same scope.
+
+##### Analyzing Fragmentation
+
+The main memory graph will only keep track of a sum of active allocations, which can be misleading as it omits possible fragmentation. The most useful tools for analyzing fragmentation are in the Memory tab. Here, in the active allocations/allocations subtabs, you can see the exact addresses that certain allocations are located at. Moreover, you can look at when they are allocated and freed exactly, and the stack traces of those allocate/free calls. The Memory map also gives a more visual layout of memory, as it shows the layout of allocations in memory.
+
+##### Final Thoughts
+
+What's described here is mostly relating to memory, but should in part pertain to time, gate count, and other metric analysis that we have set up with tracy. It's likely that these instructions may become outdated, so please adjust accordingly. Also, there may be other valuable ways to use the tracy GUI that isn't mentioned here. Lastly, please keep in mind that tracy is an awesome tool for measuring memory, but because of the way its currently set up, the memory graph does not account for memory fragmentation, but only a sum of all of the active allocations at every step. Do not overfit to optimizing only this displayed Memory usage number; please account for real memory usage which must include memory fragmentation.
+
+##### Getting Stack Traces from WASM
+
+By default, the barretenberg.wasm.gz that is used by bb.js (aka barretenberg/ts) has debug symbols stripped.
+One can get stack traces working from WASM by running root level ./bootstrap.sh (or otherwise building what you need) and then doing:
+```
+cmake --build --preset wasm-threads --target barretenberg-debug.wasm.gz
+cp build-wasm-threads/bin/barretenberg-debug.wasm.gz ../ts/dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
+```
+
+This will mean that any yarn-project or barretenberg/ts tests that run will get stack traces with function names.
+To get more detailed information use the following (NOTE: takes >10 minutes!):
+
+```
+cmake --preset wasm-threads-dbg
+cmake --build --preset wasm-threads-dbg --target barretenberg-debug.wasm.gz
+cp build-wasm-threads-dbg/bin/barretenberg-debug.wasm.gz ../ts/dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
+```

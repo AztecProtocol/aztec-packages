@@ -10,13 +10,19 @@
       "path": "../accounts"
     },
     {
+      "path": "../archiver"
+    },
+    {
       "path": "../aztec.js"
     },
     {
-      "path": "../circuit-types"
+      "path": "../aztec-node"
     },
     {
-      "path": "../circuits.js"
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../constants"
     },
     {
       "path": "../foundation"
@@ -37,10 +43,7 @@
       "path": "../simulator"
     },
     {
-      "path": "../telemetry-client"
-    },
-    {
-      "path": "../types"
+      "path": "../stdlib"
     },
     {
       "path": "../world-state"

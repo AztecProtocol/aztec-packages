@@ -1,8 +1,8 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 
-import { type ConnectionSampler } from './connection_sampler.js';
+import type { ConnectionSampler } from './connection_sampler.js';
 
 /**
  * Manages batches of peers for parallel request processing.
@@ -22,7 +22,11 @@ export class BatchConnectionSampler {
   private readonly batch: PeerId[] = [];
   private readonly requestsPerPeer: number;
 
-  constructor(private readonly connectionSampler: ConnectionSampler, batchSize: number, maxPeers: number) {
+  constructor(
+    private readonly connectionSampler: ConnectionSampler,
+    batchSize: number,
+    maxPeers: number,
+  ) {
     if (maxPeers <= 0) {
       throw new Error('Max peers cannot be 0');
     }
@@ -70,11 +74,11 @@ export class BatchConnectionSampler {
 
     if (newPeer) {
       this.batch[index] = newPeer;
-      this.logger.trace(`Replaced peer ${peerId} with ${newPeer}`, { peerId, newPeer });
+      this.logger.trace('Replaced peer', { peerId, newPeer });
     } else {
       // If we couldn't get a replacement, remove the peer and compact the array
       this.batch.splice(index, 1);
-      this.logger.trace(`Removed peer ${peerId}`, { peerId });
+      this.logger.trace('Removed peer', { peerId });
     }
   }
 

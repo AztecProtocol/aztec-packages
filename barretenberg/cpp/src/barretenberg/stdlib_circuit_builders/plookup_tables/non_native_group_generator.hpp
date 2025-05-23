@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "./types.hpp"
@@ -10,7 +16,7 @@ namespace bb::plookup::ecc_generator_tables {
 
 template <typename G1> class ecc_generator_table {
   public:
-    typedef typename G1::element element;
+    using element = typename G1::element;
     /**
      * Store arrays of precomputed 8-bit lookup tables for generator point coordinates (and their endomorphism
      *equivalents)

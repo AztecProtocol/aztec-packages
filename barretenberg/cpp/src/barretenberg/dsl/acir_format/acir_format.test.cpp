@@ -5,30 +5,26 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/common/streams.hpp"
-#include "barretenberg/plonk/composer/standard_composer.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
+
 #include "barretenberg/serialize/test_helper.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include "ecdsa_secp256k1.hpp"
 
 using namespace bb;
 using namespace bb::crypto;
 using namespace acir_format;
 
-using Composer = plonk::UltraComposer;
-
 class AcirFormatTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
 {
 
     poly_triple constraint{
-        .a = 1,
-        .b = 2,
-        .c = 3,
+        .a = 0,
+        .b = 1,
+        .c = 2,
         .q_m = 0,
         .q_l = 1,
         .q_r = 1,
@@ -67,16 +63,10 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
-    WitnessVector witness{ 0, 0, 1 };
+    WitnessVector witness{ 5, 7, 12 };
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
-
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-
-    EXPECT_EQ(verifier.verify_proof(proof), false);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST_F(AcirFormatTests, MsgpackLogicConstraint)
@@ -193,13 +183,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
     };
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
-
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST_F(AcirFormatTests, TestKeccakPermutation)
@@ -274,12 +258,8 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                            35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50 };
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
 
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST_F(AcirFormatTests, TestCollectsGateCounts)
@@ -468,12 +448,5 @@ TEST_F(AcirFormatTests, TestBigAdd)
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
-
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }

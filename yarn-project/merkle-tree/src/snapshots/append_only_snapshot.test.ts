@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-import { type FromBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore } from '@aztec/kv-store';
+import type { FromBuffer } from '@aztec/foundation/serialize';
+import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { Pedersen, StandardTree, newTree } from '../index.js';
@@ -23,9 +23,10 @@ describe('AppendOnlySnapshot', () => {
   describeSnapshotBuilderTestSuite(
     () => tree,
     () => snapshotBuilder,
-    async tree => {
+    tree => {
       const newLeaves = Array.from({ length: 2 }).map(() => Fr.random().toBuffer());
-      await tree.appendLeaves(newLeaves);
+      tree.appendLeaves(newLeaves);
+      return Promise.resolve();
     },
   );
 });

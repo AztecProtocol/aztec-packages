@@ -1,7 +1,0 @@
-[package]
-name = "check_large_field_bits"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.35.0"
-
-[dependencies]

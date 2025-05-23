@@ -3,7 +3,7 @@
 TYPE=$1
 NAME=$2
 
-curl -s install.aztec.network | NON_INTERACTIVE=1 bash -s
+curl -s https://install.aztec.network | NON_INTERACTIVE=1 bash -s
 docker compose -f $HOME/.aztec/docker-compose.sandbox.yml pull
 
 if ! grep -q "PXE_URL" ~/.bashrc; then

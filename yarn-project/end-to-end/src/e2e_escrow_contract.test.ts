@@ -7,9 +7,10 @@ import {
   type PXE,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { type PublicKeys, computePartialAddress } from '@aztec/circuits.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { computePartialAddress } from '@aztec/stdlib/contract';
+import type { PublicKeys } from '@aztec/stdlib/keys';
 
 import { expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
@@ -56,9 +57,6 @@ describe('e2e_escrow_contract', () => {
 
     await mintTokensToPrivate(token, wallet, escrowContract.address, 100n);
 
-    // We allow our wallet to see the escrow contract's notes.
-    wallet.setScopes([wallet.getAddress(), escrowContract.address]);
-
     logger.info(`Token contract deployed at ${token.address}`);
   });
 
@@ -79,7 +77,7 @@ describe('e2e_escrow_contract', () => {
 
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
-      escrowContract.withWallet(recipientWallet).methods.withdraw(token.address, 30, recipient).prove(),
+      escrowContract.withWallet(recipientWallet).methods.withdraw(token.address, 30, recipient).simulate(),
     ).rejects.toThrow();
   });
 
@@ -92,8 +90,8 @@ describe('e2e_escrow_contract', () => {
     await expectTokenBalance(wallet, token, owner, 50n, logger);
 
     await new BatchCall(wallet, [
-      await token.methods.transfer(recipient, 10).request(),
-      await escrowContract.methods.withdraw(token.address, 20, recipient).request(),
+      token.methods.transfer(recipient, 10),
+      escrowContract.methods.withdraw(token.address, 20, recipient),
     ])
       .send()
       .wait();

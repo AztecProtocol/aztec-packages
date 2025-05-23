@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
@@ -7,6 +13,7 @@
 #include <tuple>
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "bigfield.hpp"
 
 #include "../bit_array/bit_array.hpp"
 #include "../field/field.hpp"
@@ -81,9 +88,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
             mid_index = static_cast<size_t>((NUM_LIMB_BITS / 2) - 1);
             // Range constraint returns an array of partial sums, midpoint will happen to hold the big limb
             // value
-            if constexpr (!IsSimulator<Builder>) {
-                limb_1.witness_index = low_accumulator[mid_index];
-            }
+            limb_1.witness_index = low_accumulator[mid_index];
             // We can get the first half bits of low_bits_in from the variables we already created
             limb_0 = (low_bits_in - (limb_1 * shift_1));
         }
@@ -121,9 +126,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
                                                                           static_cast<size_t>(num_high_limb_bits),
                                                                           "bigfield: high_bits_in too large.");
 
-            if constexpr (!IsSimulator<Builder>) {
-                limb_3.witness_index = high_accumulator[static_cast<size_t>(((num_last_limb_bits + 1) / 2) - 1)];
-            }
+            limb_3.witness_index = high_accumulator[static_cast<size_t>(((num_last_limb_bits + 1) / 2) - 1)];
             limb_2 = (high_bits_in - (limb_3 * shift_1));
         }
     } else {
@@ -986,7 +989,7 @@ bigfield<Builder, T> bigfield<Builder, T>::div_check_denominator_nonzero(const s
 /**
  * Compute a * a = c mod p
  *
- * Slightly cheaper than operator* for StandardPlonk
+ * Slightly cheaper than operator* for Standard
  **/
 template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::sqr() const
 {
@@ -1105,8 +1108,6 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
  * @returns this ** (exponent)
  *
  * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole
- * class)
  */
 
 template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const size_t exponent) const
@@ -1147,24 +1148,12 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
  * @returns this ** (exponent)
  *
  * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole
- * class)
  */
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent) const
 {
     auto* ctx = get_context() ? get_context() : exponent.get_context();
     uint256_t exponent_value = exponent.get_value();
-
-    if constexpr (IsSimulator<Builder>) {
-        if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
-            ctx->failure("field_t::pow exponent accumulator incorrect");
-        }
-        constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
-        auto result = bigfield(ctx, native(get_value()).pow(exponent_value & MASK_32_BITS));
-        result.set_origin_tag(OriginTag(get_origin_tag(), exponent.get_origin_tag()));
-        return result;
-    }
 
     ASSERT(exponent_value.get_msb() < 32);
     // Use the constant version that perfoms only the necessary multiplications if the exponent is constant
@@ -1580,7 +1569,7 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
     if (fix_remainder_to_zero) {
         remainder = zero();
         // remainder needs to be defined as wire value and not selector values to satisfy
-        // UltraPlonk's bigfield custom gates
+        // Ultra's bigfield custom gates
         remainder.convert_constant_to_fixed_witness(ctx);
     } else {
         remainder = create_from_u512_as_witness(ctx, remainder_value);
@@ -2027,12 +2016,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
 {
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
     // constants are allowed via ASSERT
-    if constexpr (IsSimulator<Builder>) {
-        if (get_value() >= static_cast<uint512_t>(upper_limit)) {
-            context->failure("Bigfield assert_less_than failed in simulation.");
-        }
-        return;
-    }
 
     if (is_constant()) {
         ASSERT(get_value() < static_cast<uint512_t>(upper_limit));
@@ -2110,52 +2093,46 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
 {
     Builder* ctx = this->context ? this->context : other.context;
 
-    if constexpr (IsSimulator<Builder>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/677)
+    if (is_constant() && other.is_constant()) {
+        std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?" << std::endl;
+        ASSERT(get_value() == other.get_value()); // We expect constants to be less than the target modulus
+        return;
+    } else if (other.is_constant()) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/998): Something is fishy here
+        // evaluate a strict equality - make sure *this is reduced first, or an honest prover
+        // might not be able to satisfy these constraints.
+        field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
+        field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
+        field_t<Builder> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
+        field_t<Builder> t3 = (binary_basis_limbs[3].element - other.binary_basis_limbs[3].element);
+        field_t<Builder> t4 = (prime_basis_limb - other.prime_basis_limb);
+        t0.assert_is_zero();
+        t1.assert_is_zero();
+        t2.assert_is_zero();
+        t3.assert_is_zero();
+        t4.assert_is_zero();
+        return;
+    } else if (is_constant()) {
+        other.assert_equal(*this);
         return;
     } else {
-        if (is_constant() && other.is_constant()) {
-            std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?"
-                      << std::endl;
-            ASSERT(get_value() == other.get_value()); // We expect constants to be less than the target modulus
-            return;
-        } else if (other.is_constant()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/998): Something is fishy here
-            // evaluate a strict equality - make sure *this is reduced first, or an honest prover
-            // might not be able to satisfy these constraints.
-            field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
-            field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
-            field_t<Builder> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
-            field_t<Builder> t3 = (binary_basis_limbs[3].element - other.binary_basis_limbs[3].element);
-            field_t<Builder> t4 = (prime_basis_limb - other.prime_basis_limb);
-            t0.assert_is_zero();
-            t1.assert_is_zero();
-            t2.assert_is_zero();
-            t3.assert_is_zero();
-            t4.assert_is_zero();
-            return;
-        } else if (is_constant()) {
-            other.assert_equal(*this);
-            return;
-        } else {
 
-            bigfield diff = *this - other;
-            const uint512_t diff_val = diff.get_value();
-            const uint512_t modulus(target_basis.modulus);
+        bigfield diff = *this - other;
+        const uint512_t diff_val = diff.get_value();
+        const uint512_t modulus(target_basis.modulus);
 
-            const auto [quotient_512, remainder_512] = (diff_val).divmod(modulus);
-            if (remainder_512 != 0) {
-                std::cerr << "bigfield: remainder not zero!" << std::endl;
-            }
-            bigfield quotient;
-
-            const size_t num_quotient_bits = get_quotient_max_bits({ 0 });
-            quotient = bigfield(witness_t(ctx, fr(quotient_512.slice(0, NUM_LIMB_BITS * 2).lo)),
-                                witness_t(ctx, fr(quotient_512.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4).lo)),
-                                false,
-                                num_quotient_bits);
-            unsafe_evaluate_multiply_add(diff, { one() }, {}, quotient, { zero() });
+        const auto [quotient_512, remainder_512] = (diff_val).divmod(modulus);
+        if (remainder_512 != 0) {
+            std::cerr << "bigfield: remainder not zero!" << std::endl;
         }
+        bigfield quotient;
+
+        const size_t num_quotient_bits = get_quotient_max_bits({ 0 });
+        quotient = bigfield(witness_t(ctx, fr(quotient_512.slice(0, NUM_LIMB_BITS * 2).lo)),
+                            witness_t(ctx, fr(quotient_512.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4).lo)),
+                            false,
+                            num_quotient_bits);
+        unsafe_evaluate_multiply_add(diff, { one() }, {}, quotient, { zero() });
     }
 }
 
@@ -2749,8 +2726,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     // will need to apply to validate our product
     uint64_t max_lo_bits = (max_lo.get_msb() + 1);
     uint64_t max_hi_bits = max_hi.get_msb() + 1;
-    // TurboPlonk range checks only work for even bit ranges, so make sure these values are even
-    // TODO: This neccessary anymore? TurboPlonk range checks now work with odd bit ranges...
+    // Turbo range checks only work for even bit ranges, so make sure these values are even
+    // TODO: This neccessary anymore? Turbo range checks now work with odd bit ranges...
     if ((max_lo_bits & 1ULL) == 1ULL) {
         ++max_lo_bits;
     }

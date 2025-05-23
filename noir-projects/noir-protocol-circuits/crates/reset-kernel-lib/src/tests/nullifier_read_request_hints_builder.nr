@@ -1,8 +1,8 @@
 use crate::{
     nullifier_read_request_reset::{NullifierReadRequestHints, NullifierSettledReadHint},
-    reset::read_request::{PendingReadHint, ReadRequestStatus},
+    reset::read_request::{PendingReadHint, ReadRequestStatus, SettledReadHint},
 };
-use dep::types::constants::MAX_NULLIFIER_READ_REQUESTS_PER_TX;
+use dep::types::{constants::MAX_NULLIFIER_READ_REQUESTS_PER_TX, traits::Empty};
 
 pub struct NullifierReadRequestHintsBuilder<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
     pub read_request_statuses: [ReadRequestStatus; MAX_NULLIFIER_READ_REQUESTS_PER_TX],

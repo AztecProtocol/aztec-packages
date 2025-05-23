@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
@@ -385,8 +391,6 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         field_t<C> entry(witness_t<C>(ctx, offset_entry));
         if constexpr (HasPlookup<C>) {
             ctx->create_new_range_constraint(entry.witness_index, 1ULL << (WNAF_SIZE), "biggroup_nafs");
-        } else if constexpr (IsSimulator<C>) {
-            ctx->create_range_constraint(entry.get_value(), WNAF_SIZE, "biggroup_nafs");
         } else {
             ctx->create_range_constraint(entry.witness_index, WNAF_SIZE, "biggroup_nafs");
         }
@@ -397,8 +401,6 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
     wnaf_entries.emplace_back(witness_t<C>(ctx, skew));
     if constexpr (HasPlookup<C>) {
         ctx->create_new_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
-    } else if constexpr (IsSimulator<C>) {
-        ctx->create_range_constraint(wnaf_entries[wnaf_entries.size() - 1].get_value(), 1, "biggroup_nafs");
     } else {
         ctx->create_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
     }
@@ -441,7 +443,7 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         // updates multiplicative constants without computing new witnesses. This ensures the low accumulator will not
         // underflow
         //
-        // Once we hvae reconstructed an Fr element out of our accumulators,
+        // Once we have reconstructed an Fr element out of our accumulators,
         // we ALSO construct an Fr element from the constant offset terms we left out
         // We then subtract off the constant term and call `Fr::assert_is_in_field` to reduce the value modulo
         // Fr::modulus
@@ -488,6 +490,9 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
 template <typename C, class Fq, class Fr, class G>
 std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, const size_t max_num_bits)
 {
+    // We are not handling the case of odd bit lengths here.
+    ASSERT(max_num_bits % 2 == 0);
+
     C* ctx = scalar.context;
     uint512_t scalar_multiplier_512 = uint512_t(uint256_t(scalar.get_value()) % Fr::modulus);
     uint256_t scalar_multiplier = scalar_multiplier_512.lo;
@@ -512,17 +517,14 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     for (size_t i = 0; i < num_rounds - 1; ++i) {
         bool next_entry = scalar_multiplier.get_bit(i + 1);
         // if the next entry is false, we need to flip the sign of the current entry. i.e. make negative
-        // This is a VERY hacky workaround to ensure that UltraPlonkBuilder will apply a basic
+        // This is a VERY hacky workaround to ensure that UltraBuilder will apply a basic
         // range constraint per bool, and not a full 1-bit range gate
         if (next_entry == false) {
             bool_ct bit(ctx, true);
             bit.context = ctx;
             bit.witness_index = witness_t<C>(ctx, true).witness_index; // flip sign
             bit.witness_bool = true;
-            if constexpr (IsSimulator<C>) {
-                ctx->create_range_constraint(
-                    bit.get_value(), 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
-            } else if constexpr (HasPlookup<C>) {
+            if constexpr (HasPlookup<C>) {
                 ctx->create_new_range_constraint(
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
             } else {
@@ -534,11 +536,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             bool_ct bit(ctx, false);
             bit.witness_index = witness_t<C>(ctx, false).witness_index; // don't flip sign
             bit.witness_bool = false;
-            if constexpr (IsSimulator<C>) {
-                ctx->create_range_constraint(
-                    bit.get_value(), 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
-            } else if constexpr (HasPlookup<C>) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/665)
+            if constexpr (HasPlookup<C>) {
                 ctx->create_new_range_constraint(
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
             } else {
@@ -576,9 +574,23 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             }
             return std::make_pair(positive_accumulator, negative_accumulator);
         };
-        const size_t midpoint = num_rounds - Fr::NUM_LIMB_BITS * 2;
-        auto hi_accumulators = reconstruct_half_naf(&naf_entries[0], midpoint);
-        auto lo_accumulators = reconstruct_half_naf(&naf_entries[midpoint], num_rounds - midpoint);
+        const size_t midpoint =
+            (num_rounds > Fr::NUM_LIMB_BITS * 2) ? num_rounds - Fr::NUM_LIMB_BITS * 2 : num_rounds / 2;
+
+        std::pair<field_t<C>, field_t<C>> hi_accumulators;
+        std::pair<field_t<C>, field_t<C>> lo_accumulators;
+
+        if (num_rounds > Fr::NUM_LIMB_BITS * 2) {
+            hi_accumulators = reconstruct_half_naf(&naf_entries[0], midpoint);
+            lo_accumulators = reconstruct_half_naf(&naf_entries[midpoint], num_rounds - midpoint);
+
+        } else {
+            // If the number of rounds is smaller than Fr::NUM_LIMB_BITS, the high bits of the resulting Fr element are
+            // 0.
+            const field_t<C> zero = field_t<C>::from_witness_index(ctx, 0);
+            lo_accumulators = reconstruct_half_naf(&naf_entries[0], num_rounds);
+            hi_accumulators = std::make_pair(zero, zero);
+        }
 
         lo_accumulators.second = lo_accumulators.second + field_t<C>(naf_entries[num_rounds]);
 

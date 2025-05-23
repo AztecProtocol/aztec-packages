@@ -7,7 +7,7 @@ use dep::types::{
         traits::Verifiable,
         verification_key::{HonkVerificationKey, VerificationKey},
     },
-    traits::Empty,
+    traits::{Empty, Serialize},
 };
 
 pub struct RootParityInput {

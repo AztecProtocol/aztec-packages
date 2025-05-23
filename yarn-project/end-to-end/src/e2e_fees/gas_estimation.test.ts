@@ -1,4 +1,4 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   type AztecAddress,
@@ -6,10 +6,10 @@ import {
   type FeePaymentMethod,
   PublicFeePaymentMethod,
 } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
-import { type Logger } from '@aztec/foundation/log';
-import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { Logger } from '@aztec/foundation/log';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { GasSettings } from '@aztec/stdlib/gas';
 
 import { inspect } from 'util';
 
@@ -30,11 +30,7 @@ describe('e2e_fees gas_estimation', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    await t.applyFundAliceWithFeeJuice();
     ({ aliceWallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger } = await t.setup());
-
-    // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
-    aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
   beforeEach(async () => {
@@ -44,7 +40,7 @@ describe('e2e_fees gas_estimation', () => {
       ...gasSettings,
       maxFeesPerGas: gasFees,
     });
-  });
+  }, 10000);
 
   afterAll(async () => {
     await t.teardown();
@@ -53,10 +49,12 @@ describe('e2e_fees gas_estimation', () => {
   const makeTransferRequest = () => bananaCoin.methods.transfer_in_public(aliceAddress, bobAddress, 1n, 0n);
 
   // Sends two tx with transfers of public tokens: one with estimateGas on, one with estimateGas off
-  const sendTransfers = (paymentMethod: FeePaymentMethod, estimatedGasPadding: number) =>
+  const sendTransfers = (paymentMethod: FeePaymentMethod) =>
     Promise.all(
       [true, false].map(estimateGas =>
-        makeTransferRequest().send({ fee: { estimateGas, gasSettings, paymentMethod, estimatedGasPadding } }).wait(),
+        makeTransferRequest()
+          .send({ fee: { estimateGas, gasSettings, paymentMethod, estimatedGasPadding: 0 } })
+          .wait(),
       ),
     );
 
@@ -67,11 +65,9 @@ describe('e2e_fees gas_estimation', () => {
     });
 
   it('estimates gas with Fee Juice payment method', async () => {
-    const estimatedGasPadding = 0;
-
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
     const estimatedGas = await makeTransferRequest().estimateGas({
-      fee: { gasSettings, paymentMethod, estimatedGasPadding },
+      fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });
     logGasEstimate(estimatedGas);
 
@@ -79,7 +75,7 @@ describe('e2e_fees gas_estimation', () => {
       .getSequencer()!
       .updateSequencerConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
 
-    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod, estimatedGasPadding);
+    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 
     // This is the interesting case, which we hit most of the time.
     const block = await t.pxe.getBlock(withEstimate.blockNumber!);
@@ -92,47 +88,48 @@ describe('e2e_fees gas_estimation', () => {
     expect(estimatedGas.teardownGasLimits.l2Gas).toEqual(0);
     expect(estimatedGas.teardownGasLimits.daGas).toEqual(0);
 
-    const estimatedFee = estimatedGas.gasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
+    // Check that estimated fee and fee of the tx with estimate are the same. We need to use the gas fees (gas price)
+    // from the block in which the tx with estimate landed.
+    const gasFeesForBlockInWhichTxWithEstimateLanded = block!.header.globalVariables.gasFees;
+    const estimatedFee = estimatedGas.gasLimits.computeFee(gasFeesForBlockInWhichTxWithEstimateLanded).toBigInt();
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 
   it('estimates gas with public payment method', async () => {
-    // TODO(#11324): Reset this value back to zero.
-    const estimatedGasPadding = 0.1;
+    const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceWallet);
+    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 
     const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
-    const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceWallet);
     const estimatedGas = await makeTransferRequest().estimateGas({
-      fee: { gasSettings, paymentMethod, estimatedGasPadding },
+      fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });
     logGasEstimate(estimatedGas);
 
-    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod, estimatedGasPadding);
-
-    // Actual teardown gas used is less than the limits.
+    // Checks that estimated teardown gas limits are less than the default ones.
     expect(estimatedGas.teardownGasLimits.l2Gas).toBeLessThan(gasSettings.teardownGasLimits.l2Gas);
     expect(estimatedGas.teardownGasLimits.daGas).toBeLessThan(gasSettings.teardownGasLimits.daGas);
 
-    // Estimation should yield that teardown has reduced cost, but is not zero
+    // Estimation should reduce tx fee because all of teardown gas limit gets consumed!
     expect(withEstimate.transactionFee!).toBeLessThan(withoutEstimate.transactionFee!);
     expect(withEstimate.transactionFee!).toBeGreaterThan(withoutEstimate.transactionFee! - teardownFixedFee);
 
     // Check that estimated gas for teardown are not zero since we're doing work there
     expect(estimatedGas.teardownGasLimits.l2Gas).toBeGreaterThan(0);
 
-    // TODO(#11324): Figure out why this does not match no more
-    // const estimatedFee = estimatedGas.gasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
-    // expect(estimatedFee).toEqual(withEstimate.transactionFee!);
+    // Check that estimated fee and fee of the tx with estimate are the same. We need to use the gas fees (gas price)
+    // from the block in which the tx with estimate landed.
+    const block = await t.pxe.getBlock(withEstimate.blockNumber!);
+    const gasFeesForBlockInWhichTxWithEstimateLanded = block!.header.globalVariables.gasFees;
+
+    const estimatedFee = estimatedGas.gasLimits.computeFee(gasFeesForBlockInWhichTxWithEstimateLanded).toBigInt();
+    expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 
   it('estimates gas for public contract initialization with Fee Juice payment method', async () => {
-    // TODO(#11324): Reset this value back to zero.
-    const estimatedGasPadding = 0.1;
-
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
     const deployMethod = () => BananaCoin.deploy(aliceWallet, aliceAddress, 'TKN', 'TKN', 8);
     const deployOpts = (estimateGas = false) => ({
-      fee: { gasSettings, paymentMethod, estimateGas, estimatedGasPadding },
+      fee: { gasSettings, paymentMethod, estimateGas, estimatedGasPadding: 0 },
       skipClassRegistration: true,
     });
     const estimatedGas = await deployMethod().estimateGas(deployOpts());
@@ -150,8 +147,12 @@ describe('e2e_fees gas_estimation', () => {
     expect(estimatedGas.teardownGasLimits.l2Gas).toEqual(0);
     expect(estimatedGas.teardownGasLimits.daGas).toEqual(0);
 
-    // TODO(#11324): Figure out why this does not match no more
-    // const estimatedFee = estimatedGas.gasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
-    // expect(estimatedFee).toEqual(withEstimate.transactionFee!);
+    // Check that estimated fee and fee of the tx with estimate are the same. We need to use the gas fees (gas price)
+    // from the block in which the tx with estimate landed.
+    const block = await t.pxe.getBlock(withEstimate.blockNumber!);
+    const gasFeesForBlockInWhichTxWithEstimateLanded = block!.header.globalVariables.gasFees;
+
+    const estimatedFee = estimatedGas.gasLimits.computeFee(gasFeesForBlockInWhichTxWithEstimateLanded).toBigInt();
+    expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 });

@@ -144,16 +144,19 @@ describe('e2e_token_contract burn', () => {
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
-      await wallets[1].addAuthWitness(witness);
 
-      // We give wallets[1] access to wallets[0]'s notes to burn the note.
-      wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
-
-      await asset.withWallet(wallets[1]).methods.burn_private(accounts[0].address, amount, nonce).send().wait();
+      await asset
+        .withWallet(wallets[1])
+        .methods.burn_private(accounts[0].address, amount, nonce)
+        .send({ authWitnesses: [witness] })
+        .wait();
       tokenSim.burnPrivate(accounts[0].address, amount);
 
       // Perform the transfer again, should fail
-      const txReplay = asset.withWallet(wallets[1]).methods.burn_private(accounts[0].address, amount, nonce).send();
+      const txReplay = asset
+        .withWallet(wallets[1])
+        .methods.burn_private(accounts[0].address, amount, nonce)
+        .send({ authWitnesses: [witness] });
       await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 
@@ -188,9 +191,10 @@ describe('e2e_token_contract burn', () => {
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
         const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
-        await wallets[1].addAuthWitness(witness);
 
-        await expect(action.simulate()).rejects.toThrow('Assertion failed: Balance too low');
+        await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(
+          'Assertion failed: Balance too low',
+        );
       });
 
       it('burn on behalf of other without approval', async () => {
@@ -205,9 +209,6 @@ describe('e2e_token_contract burn', () => {
           { caller: accounts[1].address, action },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
-
-        // We give wallets[1] access to wallets[0]'s notes to test the authwit.
-        wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
 
         await expect(action.simulate()).rejects.toThrow(
           `Unknown auth witness for message hash ${messageHash.toString()}`,
@@ -228,12 +229,8 @@ describe('e2e_token_contract burn', () => {
         );
 
         const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
-        await wallets[2].addAuthWitness(witness);
 
-        // We give wallets[2] access to wallets[0]'s notes to test the authwit.
-        wallets[2].setScopes([wallets[2].getAddress(), wallets[0].getAddress()]);
-
-        await expect(action.simulate()).rejects.toThrow(
+        await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(
           `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
         );
       });

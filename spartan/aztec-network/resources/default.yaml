@@ -1,0 +1,107 @@
+bootNode:
+  resources:
+    requests:
+      memory: "1Gi"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+validator:
+  resources:
+    requests:
+      memory: "1Gi"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+fullNode:
+  resources:
+    requests:
+      memory: "1Gi"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+proverNode:
+  resources:
+    requests:
+      memory: "1Gi"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+pxe:
+  resources:
+    requests:
+      memory: "1Gi"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+bot:
+  gke:
+    spotEnabled: true
+  resources:
+    requests:
+      memory: "1Gi"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+proverAgent:
+  resources:
+    requests:
+      memory: "512Mi"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+proverBroker:
+  resources:
+    requests:
+      memory: "512Mi"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+blobSink:
+  resources:
+    requests:
+      memory: "512Mi"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+faucet:
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+
+ethereum:
+  execution:
+    resources:
+      requests:
+        memory: "1Gi"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+    storageSize: "80Gi"
+  beacon:
+    resources:
+      requests:
+        memory: "1Gi"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+    storageSize: "80Gi"
+  validator:
+    resources:
+      requests:
+        memory: "1Gi"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+

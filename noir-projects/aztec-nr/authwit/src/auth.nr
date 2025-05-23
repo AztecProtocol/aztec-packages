@@ -7,6 +7,7 @@ use dep::aztec::protocol_types::{
         GENERATOR_INDEX__AUTHWIT_NULLIFIER, GENERATOR_INDEX__AUTHWIT_OUTER,
     },
     hash::poseidon2_hash_with_separator,
+    traits::ToField,
 };
 
 /**
@@ -190,7 +191,7 @@ use dep::aztec::protocol_types::{
  *      chain to avoid a case where the same message could be used across multiple chains.
  */
 
-global IS_VALID_SELECTOR: Field = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
+pub global IS_VALID_SELECTOR: Field = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
 
 /**
  * Assert that `on_behalf_of` has authorized the current call with a valid authentication witness

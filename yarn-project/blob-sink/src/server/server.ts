@@ -1,19 +1,23 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob } from '@aztec/blob-lib';
+import { type ViemPublicClient, getL2BlockProposalEvents } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import { bufferToHex, pluralize } from '@aztec/foundation/string';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import express, { type Express, type Request, type Response, json } from 'express';
-import { type Server } from 'http';
-import { type AddressInfo } from 'net';
+import type { Server } from 'http';
+import type { AddressInfo } from 'net';
+import type { Hex } from 'viem';
 import { z } from 'zod';
 
 import { type BlobStore, DiskBlobStore } from '../blobstore/index.js';
 import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
+import type { BlobSinkClientInterface } from '../client/interface.js';
 import { inboundTransform } from '../encoding/index.js';
 import { type PostBlobSidecarRequest, blockIdSchema, indicesSchema } from '../types/api.js';
 import { BlobWithIndex } from '../types/index.js';
-import { type BlobSinkConfig } from './config.js';
+import type { BlobSinkConfig } from './config.js';
 import { BlobSinkMetrics } from './metrics.js';
 
 /**
@@ -28,11 +32,19 @@ export class BlobSinkServer {
 
   private app: Express;
   private server: Server | null = null;
-  private blobStore: BlobStore;
+  private blobStore!: BlobStore;
   private metrics: BlobSinkMetrics;
-  private log: Logger = createLogger('aztec:blob-sink');
+  private l1PublicClient: ViemPublicClient | undefined;
+  private log: Logger = createLogger('blob-sink:server');
 
-  constructor(config?: BlobSinkConfig, store?: AztecAsyncKVStore, telemetry: TelemetryClient = getTelemetryClient()) {
+  constructor(
+    private config: BlobSinkConfig = {},
+    private store?: AztecAsyncKVStore,
+    /** Optional client to retrieve blobs from L1 nodes or archive services if not stored locally. */
+    private httpClient?: BlobSinkClientInterface,
+    l1PublicClient?: ViemPublicClient,
+    telemetry: TelemetryClient = getTelemetryClient(),
+  ) {
     this.port = config?.port ?? 5052; // 5052 is beacon chain default http port
     this.app = express();
 
@@ -40,15 +52,18 @@ export class BlobSinkServer {
     this.app.use(json({ limit: '1mb' })); // Increase the limit to allow for a blob to be sent
 
     this.metrics = new BlobSinkMetrics(telemetry);
+    this.l1PublicClient = l1PublicClient;
 
-    this.blobStore = store === undefined ? new MemoryBlobStore() : new DiskBlobStore(store);
-
-    // Setup routes
+    this.setupBlobStore();
     this.setupRoutes();
   }
 
+  private setupBlobStore() {
+    this.blobStore = this.store === undefined ? new MemoryBlobStore() : new DiskBlobStore(this.store);
+  }
+
   private setupRoutes() {
-    // TODO(md): needed?
+    this.app.get('/status', this.status.bind(this));
     this.app.get('/eth/v1/beacon/headers/:block_id', this.handleGetBlockHeader.bind(this));
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.app.get('/eth/v1/beacon/blob_sidecars/:block_id', this.handleGetBlobSidecar.bind(this));
@@ -74,41 +89,58 @@ export class BlobSinkServer {
     return;
   }
 
+  private status(_req: Request, res: Response) {
+    res.status(200).json({
+      message: 'Ok',
+    });
+    return;
+  }
+
   private async handleGetBlobSidecar(req: Request, res: Response) {
-    // eslint-disable-next-line camelcase
-    const { block_id } = req.params;
-    const { indices } = req.query;
+    const { block_id: blockIdParam } = req.params;
+    const { indices: indicesQuery } = req.query;
 
     try {
-      // eslint-disable-next-line camelcase
-      const parsedBlockId = blockIdSchema.safeParse(block_id);
+      const parsedBlockId = blockIdSchema.safeParse(blockIdParam);
       if (!parsedBlockId.success) {
+        this.metrics.incGetBlob(false);
         res.status(400).json({
           error: 'Invalid block_id parameter',
         });
         return;
       }
 
-      const parsedIndices = indicesSchema.safeParse(indices);
+      const parsedIndices = indicesSchema.safeParse(indicesQuery);
       if (!parsedIndices.success) {
+        this.metrics.incGetBlob(false);
         res.status(400).json({
           error: 'Invalid indices parameter',
         });
         return;
       }
 
-      const blobs = await this.blobStore.getBlobSidecars(parsedBlockId.data.toString(), parsedIndices.data);
+      const blockId = parsedBlockId.data.toString();
+      const indices = parsedIndices.data;
+      this.log.trace(`Received blobs request for block ${blockId}`, { blockId, indices });
+
+      const blobs =
+        (await this.blobStore.getBlobSidecars(blockId, indices)) ?? (await this.tryGetBlobs(blockId, indices));
 
       if (!blobs) {
+        this.log.debug(`No blobs found for block ${blockId}`, { blockId, indices });
+        this.metrics.incGetBlob(false);
         res.status(404).json({ error: 'Blob not found' });
         return;
       }
 
+      this.log.debug(`Returning ${blobs.length} blobs for block ${blockId}`, { blockId, indices });
+      this.metrics.incGetBlob(true);
       res.json({
         version: 'deneb',
         data: blobs.map(blob => blob.toJSON()),
       });
     } catch (error) {
+      this.metrics.incGetBlob(false);
       if (error instanceof z.ZodError) {
         res.status(400).json({
           error: 'Invalid block_id parameter',
@@ -122,34 +154,59 @@ export class BlobSinkServer {
     }
   }
 
-  private async handlePostBlobSidecar(req: Request, res: Response) {
-    // eslint-disable-next-line camelcase
-    const { block_id, blobs } = req.body;
+  private async tryGetBlobs(blockId: string, indices?: number[]): Promise<BlobWithIndex[] | undefined> {
+    if (!this.httpClient) {
+      return undefined;
+    }
 
     try {
-      // eslint-disable-next-line camelcase
-      const parsedBlockId = blockIdSchema.parse(block_id);
-      if (!parsedBlockId) {
-        res.status(400).json({
-          error: 'Invalid block_id parameter',
-        });
-        return;
+      const blobs = await this.httpClient.getBlobSidecar(blockId);
+      if (blobs.length > 0) {
+        this.log.verbose(`Storing ${pluralize('blob', blobs.length)} downloaded from remote sources for ${blockId}`);
+        await this.blobStore.addBlobSidecars(blockId, blobs);
+      } else {
+        this.log.debug(`No blobs found for block ${blockId} from remote sources`);
       }
+      return blobs.filter(blob => !indices || indices.length === 0 || indices.includes(blob.index));
+    } catch (err) {
+      this.log.error(`Failed to get blobs for block ${blockId} from remote sources`, err);
+      return undefined;
+    }
+  }
 
+  private async handlePostBlobSidecar(req: Request, res: Response) {
+    const { block_id: blockId, blobs } = req.body;
+    const { data: parsedBlockId, error } = blockIdSchema.safeParse(blockId);
+    if (error) {
+      res.status(400).json({ error: `Invalid block_id parameter`, details: error.message });
+      return;
+    }
+
+    let blobObjects: BlobWithIndex[];
+
+    try {
       this.log.info(`Received blob sidecar for block ${parsedBlockId}`);
+      blobObjects = this.parseBlobData(blobs);
+      await this.validateBlobs(parsedBlockId, blobObjects);
+    } catch (error: any) {
+      this.log.warn(`Failed to validate incoming blobs for ${parsedBlockId}`, error);
+      res.status(400).json({ error: 'Invalid blob data', details: error.message });
+      this.metrics.incStoreBlob(false);
+      return;
+    }
 
-      const blobObjects: BlobWithIndex[] = this.parseBlobData(blobs);
-
+    try {
       await this.blobStore.addBlobSidecars(parsedBlockId.toString(), blobObjects);
-      this.metrics.recordBlobReciept(blobObjects);
+      this.metrics.recordBlobReceipt(blobObjects);
 
       this.log.info(`Blob sidecar stored successfully for block ${parsedBlockId}`);
 
       res.json({ message: 'Blob sidecar stored successfully' });
-    } catch (error) {
-      res.status(400).json({
-        error: 'Invalid blob data',
-      });
+      this.metrics.incStoreBlob(true);
+    } catch (error: any) {
+      this.log.error(`Error storing blob sidecar for block ${parsedBlockId}`, error);
+      this.metrics.incStoreBlob(false);
+      res.status(500).json({ error: 'Error storing blob sidecar', details: error.message });
     }
   }
 
@@ -170,6 +227,39 @@ export class BlobSinkServer {
           index,
         ),
     );
+  }
+
+  /**
+   * Validates the given blobs were actually emitted by a rollup contract.
+   * Skips validation if the L1 public client is not set.
+   * If the rollupAddress is set in config, it checks that the event came from that contract.
+   * Throws on validation failure.
+   */
+  private async validateBlobs(blockId: Hex, blobs: BlobWithIndex[]): Promise<void> {
+    if (!this.l1PublicClient) {
+      this.log.debug('Skipping blob validation due to no L1 public client set');
+      return;
+    }
+
+    const rollupAddress =
+      !this.config.l1Contracts?.rollupAddress || this.config.l1Contracts?.rollupAddress?.isZero()
+        ? undefined
+        : this.config.l1Contracts.rollupAddress;
+    const events = await getL2BlockProposalEvents(this.l1PublicClient, blockId, rollupAddress);
+    const eventBlobHashes = events.flatMap(event => event.versionedBlobHashes);
+    const blobHashesToValidate = blobs.map(blob => bufferToHex(blob.blob.getEthVersionedBlobHash()));
+
+    this.log.debug(
+      `Retrieved ${events.length} events with blob hashes ${
+        eventBlobHashes ? eventBlobHashes.join(', ') : 'none'
+      } for block ${blockId} to verify blobs ${blobHashesToValidate.join(', ')}`,
+    );
+
+    const notFoundBlobHashes = blobHashesToValidate.filter(blobHash => !eventBlobHashes.includes(blobHash));
+
+    if (notFoundBlobHashes.length > 0) {
+      throw new Error(`Blobs ${notFoundBlobHashes.join(', ')} not found in block proposal event at block ${blockId}`);
+    }
   }
 
   public start(): Promise<void> {
@@ -213,5 +303,11 @@ export class BlobSinkServer {
 
   public getApp(): Express {
     return this.app;
+  }
+
+  /** Deletes all blobs in the sink. Used for testing. */
+  public clear(): Promise<void> {
+    this.setupBlobStore();
+    return Promise.resolve();
   }
 }

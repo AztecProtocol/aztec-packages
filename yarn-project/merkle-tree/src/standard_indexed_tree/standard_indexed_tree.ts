@@ -1,15 +1,15 @@
-import { type BatchInsertionResult, type LeafUpdateWitnessData, SiblingPath } from '@aztec/circuit-types';
-import { type TreeInsertionStats } from '@aztec/circuit-types/stats';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { type FromBuffer } from '@aztec/foundation/serialize';
+import type { FromBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
-import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
-import { type Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/foundation/trees';
+import type { Hasher, IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import type { AztecKVStore, AztecMap } from '@aztec/kv-store';
+import type { TreeInsertionStats } from '@aztec/stdlib/stats';
+import type { BatchInsertionResult, LeafUpdateWitnessData } from '@aztec/stdlib/trees';
 
-import { type IndexedTree, type PreimageFactory } from '../interfaces/indexed_tree.js';
+import type { IndexedTree, PreimageFactory } from '../interfaces/indexed_tree.js';
 import { IndexedTreeSnapshotBuilder } from '../snapshots/indexed_tree_snapshot.js';
-import { type IndexedTreeSnapshot } from '../snapshots/snapshot_builder.js';
+import type { IndexedTreeSnapshot } from '../snapshots/snapshot_builder.js';
 import { TreeBase } from '../tree_base.js';
 
 export const buildDbKeyForPreimage = (name: string, index: bigint) => {
@@ -60,7 +60,7 @@ export const noopDeserializer: FromBuffer<Buffer> = {
  * Standard implementation of an indexed tree.
  */
 export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree {
-  #snapshotBuilder = new IndexedTreeSnapshotBuilder(this.store, this, this.leafPreimageFactory);
+  #snapshotBuilder: IndexedTreeSnapshotBuilder;
 
   protected cachedLeafPreimages: { [key: string]: IndexedTreeLeafPreimage } = {};
   protected leaves: AztecMap<ReturnType<typeof buildDbKeyForPreimage>, Buffer>;
@@ -79,6 +79,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     super(store, hasher, name, depth, size, noopDeserializer, root);
     this.leaves = store.openMap(`tree_${name}_leaves`);
     this.leafIndex = store.openMap(`tree_${name}_leaf_index`);
+    this.#snapshotBuilder = new IndexedTreeSnapshotBuilder(this.store, this, this.leafPreimageFactory);
   }
 
   /**
@@ -87,7 +88,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @returns Empty promise.
    * @remarks Use batchInsert method instead.
    */
-  override appendLeaves(_leaves: Buffer[]): Promise<void> {
+  override appendLeaves(_leaves: Buffer[]): void {
     throw new Error('Not implemented');
   }
 
@@ -217,7 +218,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
   public getLatestLeafPreimageCopy(index: bigint, includeUncommitted: boolean): IndexedTreeLeafPreimage | undefined {
     const preimage = !includeUncommitted
       ? this.getDbPreimage(index)
-      : this.getCachedPreimage(index) ?? this.getDbPreimage(index);
+      : (this.getCachedPreimage(index) ?? this.getDbPreimage(index));
     return preimage && this.leafPreimageFactory.clone(preimage);
   }
 
@@ -318,7 +319,6 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     }
   }
 
-  /* eslint-disable jsdoc/require-description-complete-sentence */
   /* The following doc block messes up with complete-sentence, so we just disable it */
 
   /**

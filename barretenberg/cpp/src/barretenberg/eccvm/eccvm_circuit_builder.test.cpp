@@ -31,7 +31,6 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
     op_queue->mul_accumulate(b, y);
     op_queue->add_accumulate(a);
     op_queue->mul_accumulate(b, x);
-    op_queue->no_op();
     op_queue->add_accumulate(b);
     op_queue->eq_and_reset();
     op_queue->add_accumulate(c);
@@ -72,8 +71,6 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
 TEST(ECCVMCircuitBuilderTests, NoOp)
 {
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-
-    op_queue->no_op();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -454,7 +451,7 @@ TEST(ECCVMCircuitBuilderTests, AddProducesDouble)
  * @details Currently, Goblin does not support clean initialization, which means that we have to create mock ECCOpQueue
  * to avoid commiting to zero polynomials. This test localizes the issue to the problem with populating ECCVM Transcript
  * rows in the method \ref  bb::ECCVMTranscriptBuilder::compute_rows "compute rows". Namely, we are loosing the point at
- * infinity contribution to the 'transcipt_Px' polynomials while parsing the raw ops of ECCOpQueue.
+ * infinity contribution to the 'transcipt_Px' polynomials while parsing the eccvm ops of ECCOpQueue.
  *
  * More specifically, in this test we add a simple MSM with the point at infinity multiplied by \f$0\f$. While the ECCVM
  * computes the result of this op correctly, i.e. outputs the point at infinity, the computation of 'transcript_Px' is
@@ -471,10 +468,9 @@ TEST(ECCVMCircuitBuilderTests, InfinityFailure)
     using Fr = fr;
 
     auto P1 = G1::infinity();
-    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-    auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     for (size_t i = 0; i < 1; i++) {
         op_queue->mul_accumulate(P1, Fr(0));
@@ -482,7 +478,7 @@ TEST(ECCVMCircuitBuilderTests, InfinityFailure)
 
     auto eccvm_builder = ECCVMCircuitBuilder(op_queue);
 
-    auto transcript_rows = ECCVMTranscriptBuilder::compute_rows(op_queue->get_raw_ops(), 1);
+    auto transcript_rows = ECCVMTranscriptBuilder::compute_rows(op_queue->get_eccvm_ops(), 1);
 
     // check that the corresponding op is mul
     bool row_op_code_correct = transcript_rows[1].opcode == 4;

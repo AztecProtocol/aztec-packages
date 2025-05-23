@@ -1,15 +1,15 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type AccountWallet, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
+import { type AccountWallet, type AztecNode, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 
 import { jest } from '@jest/globals';
 
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
@@ -27,7 +27,8 @@ export class TokenContractTest {
   accounts: CompleteAddress[] = [];
   asset!: TokenContract;
   tokenSim!: TokenSimulator;
-  badAccount!: DocsExampleContract;
+  badAccount!: InvalidAccountContract;
+  node!: AztecNode;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_token_contract:${testName}`);
@@ -45,15 +46,15 @@ export class TokenContractTest {
     // Adding a timeout of 2 minutes in here such that it is propagated to the underlying tests
     jest.setTimeout(120_000);
 
-    await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
-      this.wallets = await Promise.all(
-        accountKeys.map(async ak => {
-          const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
-          return account.getWallet();
-        }),
-      );
-      this.accounts = this.wallets.map(w => w.getCompleteAddress());
-    });
+    await this.snapshotManager.snapshot(
+      '3_accounts',
+      deployAccounts(3, this.logger),
+      async ({ deployedAccounts }, { pxe, aztecNode }) => {
+        this.node = aztecNode;
+        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
+        this.accounts = this.wallets.map(w => w.getCompleteAddress());
+      },
+    );
 
     await this.snapshotManager.snapshot(
       'e2e_token_contract',
@@ -76,7 +77,7 @@ export class TokenContractTest {
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await DocsExampleContract.deploy(this.wallets[0]).send().deployed();
+        this.badAccount = await InvalidAccountContract.deploy(this.wallets[0]).send().deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         return { tokenContractAddress: asset.address, badAccountAddress: this.badAccount.address };
@@ -93,7 +94,7 @@ export class TokenContractTest {
           this.accounts.map(a => a.address),
         );
 
-        this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
+        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());

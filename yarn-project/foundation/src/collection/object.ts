@@ -50,3 +50,27 @@ export function omit<T extends object>(object: T, ...props: string[]): Partial<T
   }
   return obj;
 }
+
+/** Equivalent to Object.entries but preserves types. */
+export function getEntries<T extends Record<PropertyKey, unknown>>(obj: T): { [K in keyof T]: [K, T[K]] }[keyof T][] {
+  // See https://stackoverflow.com/a/76176570
+  return Object.entries(obj) as { [K in keyof T]: [K, T[K]] }[keyof T][];
+}
+
+/** Equivalent to Object.fromEntries but preserves types. */
+export function fromEntries<const T extends ReadonlyArray<readonly [PropertyKey, unknown]>>(
+  entries: T,
+): { [K in T[number] as K[0]]: K[1] } {
+  // See https://stackoverflow.com/a/76176570
+  return Object.fromEntries(entries) as { [K in T[number] as K[0]]: K[1] };
+}
+
+/** Asserts all values in object are not undefined. */
+export function assertRequired<T extends object>(obj: T): Required<T> {
+  for (const key in obj) {
+    if (obj[key] === undefined) {
+      throw new Error(`Missing property ${key}`);
+    }
+  }
+  return obj as Required<T>;
+}

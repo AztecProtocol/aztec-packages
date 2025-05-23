@@ -11,9 +11,9 @@ import { init } from "./scripts/init.js";
 
 const getLatestStable = async () => {
   const { data } = await axios.get(
-    `https://api.github.com/repos/AztecProtocol/aztec-packages/releases`
+    `https://api.github.com/repos/AztecProtocol/aztec-packages/releases`,
   );
-  return data[0].tag_name.split("-v")[1];
+  return data[0].tag_name.replace(/^v/, "").replace(/-.*$/, "");
 };
 
 program
@@ -43,7 +43,7 @@ program
         },
         level: debug ? "debug" : "info",
       },
-      prettyStream
+      prettyStream,
     );
 
     global.debug = (msg) => logger.debug(msg);
@@ -74,10 +74,10 @@ program
     global.latestStable = await getLatestStable();
     global.version = version || global.latestStable;
 
-    // if the user has set a semver version (matches the regex), fetch that tag (i.e. aztec-packages-v0.23.0)
+    // if the user has set a semver version (matches the regex), fetch that tag (i.e. v0.23.0)
     // otherwise use the version as the tag
     global.tag = global.version.match(/^\d+\.\d+\.\d+$/)
-      ? `aztec-packages-v${global.version}`
+      ? `v${global.version}`
       : global.version;
 
     global.debug(`Version: ${global.version}`);
@@ -100,11 +100,11 @@ program
   .description("An Aztec project with a built-in development network")
   .option(
     "-t, --project-type <projectType>",
-    "the type of the project to clone ('app' or 'contract')"
+    "the type of the project to clone ('app' or 'contract')",
   )
   .option(
     "-n, --project-name <projectName>",
-    "the name of the project to clone"
+    "the name of the project to clone",
   )
   .action(async (options) => {
     // this is some bad code, but it's def fun

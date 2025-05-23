@@ -1,7 +1,13 @@
-use dep::types::abis::accumulated_data::{
-    private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
-    private_to_public_accumulated_data::PrivateToPublicAccumulatedData,
-    private_to_public_accumulated_data_builder::PrivateToPublicAccumulatedDataBuilder,
+use dep::types::{
+    abis::{
+        accumulated_data::{
+            private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
+            private_to_public_accumulated_data::PrivateToPublicAccumulatedData,
+            private_to_public_accumulated_data_builder::PrivateToPublicAccumulatedDataBuilder,
+        },
+        side_effect::{Ordered, OrderedValue},
+    },
+    traits::Empty,
 };
 
 pub unconstrained fn split_to_public(
@@ -52,9 +58,9 @@ pub unconstrained fn split_to_public(
         if i < private_logs.len() {
             let private_log = private_logs.get_unchecked(i);
             if private_log.inner.counter < min_revertible_side_effect_counter {
-                non_revertible_builder.private_logs.push(private_log.inner.log);
+                non_revertible_builder.private_logs.push(private_log.expose_to_public());
             } else {
-                revertible_builder.private_logs.push(private_log.inner.log);
+                revertible_builder.private_logs.push(private_log.expose_to_public());
             }
         }
     }

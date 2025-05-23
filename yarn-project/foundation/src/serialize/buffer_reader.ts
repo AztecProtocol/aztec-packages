@@ -1,4 +1,4 @@
-import { type Tuple } from './types.js';
+import type { Tuple } from './types.js';
 
 /**
  * The BufferReader class provides a utility for reading various data types from a buffer.
@@ -19,7 +19,10 @@ import { type Tuple } from './types.js';
  */
 export class BufferReader {
   private index: number;
-  constructor(private buffer: Buffer, offset = 0) {
+  constructor(
+    private buffer: Buffer,
+    offset = 0,
+  ) {
     this.index = offset;
   }
 
@@ -78,12 +81,29 @@ export class BufferReader {
    *
    * @returns The read 256 bit value as a bigint.
    */
+  public readUInt64(): bigint {
+    this.#rangeCheck(8);
+
+    const result = this.buffer.readBigUInt64BE(this.index);
+
+    this.index += 8;
+    return result;
+  }
+
+  /**
+   * Reads a 256-bit unsigned integer from the buffer at the current index position.
+   * Updates the index position by 32 bytes after reading the number.
+   *
+   * Assumes the number is stored in big-endian format.
+   *
+   * @returns The read 256 bit value as a bigint.
+   */
   public readUInt256(): bigint {
     this.#rangeCheck(32);
 
     let result = BigInt(0);
-    for (let i = 0; i < 32; i++) {
-      result = (result << BigInt(8)) | BigInt(this.buffer[this.index + i]);
+    for (let i = 0; i < 4; i++) {
+      result = (result << BigInt(64)) | this.buffer.readBigUInt64BE(this.index + i * 8);
     }
 
     this.index += 32;

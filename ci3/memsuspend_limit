@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -eu
+
+# This informs the --memsuspend flag for GNU parallel.
+# Per the documentation:
+# --memsuspend size
+#   If the available memory falls below 2 * size, GNU parallel will suspend some of the running jobs. If the available memory  falls  below  size,
+#   only one job will be running.
+# We aim for one fourth of the total memory, to take at most half the memory when running tests (2 * size).
+if [ -n "${MEMSUSPEND:-}" ]; then
+  echo $MEMSUSPEND
+  exit
+fi
+os=$(uname -s)
+# Default to 64GB memory
+total_mem_gb=64
+
+if [[ "$os" == "Darwin" ]]; then
+  total_mem_bytes=$(sysctl -n hw.memsize)
+  total_mem_gb=$((total_mem_bytes / 1024 / 1024 / 1024))
+elif [[ "$os" == "Linux" ]]; then
+  total_mem_gb=$(free -g | awk '/^Mem:/ {print $2}')
+fi
+
+# Max out at one fourth of 256GB (64GB memsuspend).
+echo $(( total_mem_gb < 256 ? $((total_mem_gb / 4)) : 64 ))G

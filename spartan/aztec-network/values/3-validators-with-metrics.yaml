@@ -11,21 +11,3 @@ validator:
   replicas: 3
   validator:
     disabled: false
-
-bootNode:
-  validator:
-    disabled: true
-
-ethereum:
-  execution:
-    resources:
-      requests:
-        memory: "1Gi"
-  beacon:
-    resources:
-      requests:
-        memory: "1Gi"
-  validator:
-    resources:
-      requests:
-        memory: "1Gi"

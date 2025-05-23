@@ -38,7 +38,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     const receipt = await asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 0).send().wait();
 
     // Redeem it
-    await t.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
+    await t.addPendingShieldNoteToPXE(asset, wallets[0].getAddress(), amount, secretHash, receipt.txHash);
     await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
     // Check that the result matches token sim
@@ -68,7 +68,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     ).rejects.toThrow(/unauthorized/);
 
     // Redeem it
-    await t.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
+    await t.addPendingShieldNoteToPXE(asset, wallets[0].getAddress(), amount, secretHash, receipt.txHash);
     await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
     // Check that the result matches token sim
@@ -82,7 +82,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       const amount = balancePub + 1n;
       expect(amount).toBeGreaterThan(0n);
 
-      await expect(asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 0).prove()).rejects.toThrow(
+      await expect(asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 0).simulate()).rejects.toThrow(
         U128_UNDERFLOW_ERROR,
       );
     });
@@ -92,7 +92,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       const amount = balancePub + 1n;
       expect(amount).toBeGreaterThan(0n);
 
-      await expect(asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 1).prove()).rejects.toThrow(
+      await expect(asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 1).simulate()).rejects.toThrow(
         'Assertion failed: invalid nonce',
       );
     });
@@ -111,7 +111,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       );
       await validateActionInteraction.send().wait();
 
-      await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+      await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
 
     it('on behalf of other (wrong designated caller)', async () => {
@@ -128,7 +128,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       );
       await validateActionInteraction.send().wait();
 
-      await expect(action.prove()).rejects.toThrow(/unauthorized/);
+      await expect(action.simulate()).rejects.toThrow(/unauthorized/);
     });
 
     it('on behalf of other (without approval)', async () => {
@@ -144,8 +144,8 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
 
     it('shielding from blacklisted account', async () => {
       await expect(
-        asset.withWallet(blacklisted).methods.shield(blacklisted.getAddress(), 1n, secretHash, 0).prove(),
-      ).rejects.toThrow(/Assertion failed: Blacklisted: Sender .*/);
+        asset.withWallet(blacklisted).methods.shield(blacklisted.getAddress(), 1n, secretHash, 0).simulate(),
+      ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
   });
 });

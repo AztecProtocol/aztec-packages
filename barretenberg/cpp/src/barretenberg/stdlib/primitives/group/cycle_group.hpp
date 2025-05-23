@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
@@ -47,6 +53,9 @@ template <typename Builder> class cycle_group {
     static constexpr size_t NUM_BITS = ScalarField::modulus.get_msb() + 1;
     static constexpr size_t NUM_ROUNDS = (NUM_BITS + TABLE_BITS - 1) / TABLE_BITS;
     inline static constexpr std::string_view OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
+
+    // Since the cycle_group base field is the circuit's native field, it can be stored using two public inputs.
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 2;
 
   private:
   public:
@@ -161,7 +170,7 @@ template <typename Builder> class cycle_group {
      * We can ensure that all Provers cannot create point collisions between the base points and offset generators.
      * For this restricted case we can skip the x-coordiante collision checks when performing group operations.
      *
-     * @note straus_lookup_table uses UltraPlonk ROM tables if available. If not, we use simple conditional assignment
+     * @note straus_lookup_table uses Ultra ROM tables if available. If not, we use simple conditional assignment
      * constraints and restrict the table size to be 1 bit.
      */
     struct straus_lookup_table {
@@ -207,8 +216,10 @@ template <typename Builder> class cycle_group {
     AffineElement get_value() const;
     [[nodiscard]] bool is_constant() const { return _is_constant; }
     bool_t is_point_at_infinity() const { return _is_infinity; }
-    void set_point_at_infinity(const bool_t& is_infinity) { _is_infinity = is_infinity; }
-    cycle_group get_standard_form() const;
+    void set_point_at_infinity(const bool_t& is_infinity);
+    void standardize();
+    bool is_standard() const { return this->_is_standard; };
+    cycle_group get_standard_form();
     void validate_is_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
@@ -248,8 +259,8 @@ template <typename Builder> class cycle_group {
     cycle_group& operator*=(const cycle_scalar& scalar);
     cycle_group operator*(const BigScalarField& scalar) const;
     cycle_group& operator*=(const BigScalarField& scalar);
-    bool_t operator==(const cycle_group& other) const;
-    void assert_equal(const cycle_group& other, std::string const& msg = "cycle_group::assert_equal") const;
+    bool_t operator==(cycle_group& other);
+    void assert_equal(cycle_group& other, std::string const& msg = "cycle_group::assert_equal");
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
     cycle_group operator/(const cycle_group& other) const;
 
@@ -274,12 +285,45 @@ template <typename Builder> class cycle_group {
         return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
     }
 
+    /**
+     * @brief Set the witness indices representing the cycle_group to public
+     *
+     * @return uint32_t Index into the public inputs array at which the representation is stored
+     */
+    uint32_t set_public()
+    {
+        uint32_t start_idx = x.set_public();
+        y.set_public();
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct a cycle_group from limbs (generally stored in the public inputs)
+     * @details The base field of the cycle_group curve is the same as the circuit's native field so each coordinate is
+     * represented by a single "limb".
+     *
+     * @param limbs The coordinates of the cycle_group element
+     * @return cycle_group
+     */
+    static cycle_group reconstruct_from_public(const std::span<const field_t, 2>& limbs)
+    {
+        return cycle_group(limbs[0], limbs[1], false);
+    }
+
     field_t x;
     field_t y;
 
   private:
     bool_t _is_infinity;
     bool _is_constant;
+    // The point is considered to be `standard` or in `standard form` when:
+    // - It's not a point at infinity, and the coordinates belong to the curve
+    // - It's a point at infinity and both of the coordinates are set to be 0. (0, 0)
+    // Most of the time it is true, so we won't need to do extra conditional_assign
+    // during `get_standard_form`, `assert_equal` or `==` calls
+    // However sometimes it won't be the case(due to some previous design choices),
+    // so we can handle these cases using this flag
+    bool _is_standard;
     Builder* context;
 
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
@@ -299,6 +343,6 @@ template <typename Builder> class cycle_group {
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)
 {
-    return os << v.get_value();
+    return os << "{ " << v.x << ", " << v.y << " }";
 }
 } // namespace bb::stdlib

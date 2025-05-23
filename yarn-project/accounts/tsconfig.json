@@ -10,12 +10,6 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../entrypoints"
     },
     {
@@ -25,7 +19,7 @@
       "path": "../foundation"
     },
     {
-      "path": "../types"
+      "path": "../stdlib"
     }
   ],
   "include": ["src", "artifacts/*.d.json.ts"]

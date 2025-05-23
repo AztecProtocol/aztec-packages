@@ -1,37 +1,30 @@
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
-import { type Chain, type HttpTransport, type PublicClient } from 'viem';
+import type { Hex } from 'viem';
 
-import { type L1ContractsConfig } from './config.js';
-import { GovernanceContract } from './contracts/governance.js';
+import type { L1ContractsConfig } from './config.js';
+import { ReadOnlyGovernanceContract } from './contracts/governance.js';
+import { GovernanceProposerContract } from './contracts/governance_proposer.js';
 import { RollupContract } from './contracts/rollup.js';
-import { type L1ContractAddresses } from './l1_contract_addresses.js';
-
-/** Given the Governance contract address, reads the addresses from all other contracts from L1. */
-export async function getL1ContractsAddresses(
-  publicClient: PublicClient<HttpTransport, Chain>,
-  governanceAddress: EthAddress,
-): Promise<Omit<L1ContractAddresses, 'slashFactoryAddress' | 'coinIssuerAddress'>> {
-  const governance = new GovernanceContract(publicClient, governanceAddress.toString());
-  const governanceAddresses = await governance.getGovernanceAddresses();
-
-  const rollup = new RollupContract(publicClient, governanceAddresses.rollupAddress.toString());
-  const rollupAddresses = await rollup.getRollupAddresses();
-
-  return {
-    ...governanceAddresses,
-    ...rollupAddresses,
-  };
-}
+import type { ViemPublicClient } from './types.js';
 
 /** Reads the L1ContractsConfig from L1 contracts. */
 export async function getL1ContractsConfig(
-  publicClient: PublicClient<HttpTransport, Chain>,
+  publicClient: ViemPublicClient,
   addresses: { governanceAddress: EthAddress; rollupAddress?: EthAddress },
-): Promise<Omit<L1ContractsConfig, 'ethereumSlotDuration'> & { l1StartBlock: bigint; l1GenesisTime: bigint }> {
-  const governance = new GovernanceContract(publicClient, addresses.governanceAddress.toString());
-  const governanceProposer = await governance.getProposer();
-  const rollupAddress = addresses.rollupAddress ?? (await governance.getGovernanceAddresses()).rollupAddress;
+): Promise<
+  Omit<L1ContractsConfig, 'ethereumSlotDuration'> & {
+    l1StartBlock: bigint;
+    l1GenesisTime: bigint;
+    rollupVersion: number;
+    genesisArchiveTreeRoot: `0x${string}`;
+  }
+> {
+  const governance = new ReadOnlyGovernanceContract(addresses.governanceAddress.toString(), publicClient);
+  const governanceProposerAddress = await governance.getGovernanceProposerAddress();
+  const governanceProposer = new GovernanceProposerContract(publicClient, governanceProposerAddress.toString());
+  const rollupAddress = addresses.rollupAddress ?? (await governanceProposer.getRollupAddress());
   const rollup = new RollupContract(publicClient, rollupAddress.toString());
   const slasherProposer = await rollup.getSlashingProposer();
 
@@ -39,7 +32,7 @@ export async function getL1ContractsConfig(
     l1StartBlock,
     l1GenesisTime,
     aztecEpochDuration,
-    aztecEpochProofClaimWindowInL2Slots,
+    aztecProofSubmissionWindow,
     aztecSlotDuration,
     aztecTargetCommitteeSize,
     minimumStake,
@@ -47,11 +40,15 @@ export async function getL1ContractsConfig(
     governanceProposerRoundSize,
     slashingQuorum,
     slashingRoundSize,
+    manaTarget,
+    provingCostPerMana,
+    rollupVersion,
+    genesisArchiveTreeRoot,
   ] = await Promise.all([
     rollup.getL1StartBlock(),
     rollup.getL1GenesisTime(),
     rollup.getEpochDuration(),
-    rollup.getClaimDurationInL2Slots(),
+    rollup.getProofSubmissionWindow(),
     rollup.getSlotDuration(),
     rollup.getTargetCommitteeSize(),
     rollup.getMinimumStake(),
@@ -59,13 +56,17 @@ export async function getL1ContractsConfig(
     governanceProposer.getRoundSize(),
     slasherProposer.getQuorumSize(),
     slasherProposer.getRoundSize(),
+    rollup.getManaTarget(),
+    rollup.getProvingCostPerMana(),
+    rollup.getVersion(),
+    rollup.getGenesisArchiveTreeRoot(),
   ] as const);
 
   return {
     l1StartBlock,
     l1GenesisTime,
     aztecEpochDuration: Number(aztecEpochDuration),
-    aztecEpochProofClaimWindowInL2Slots: Number(aztecEpochProofClaimWindowInL2Slots),
+    aztecProofSubmissionWindow: Number(aztecProofSubmissionWindow),
     aztecSlotDuration: Number(aztecSlotDuration),
     aztecTargetCommitteeSize: Number(aztecTargetCommitteeSize),
     governanceProposerQuorum: Number(governanceProposerQuorum),
@@ -73,5 +74,31 @@ export async function getL1ContractsConfig(
     minimumStake,
     slashingQuorum: Number(slashingQuorum),
     slashingRoundSize: Number(slashingRoundSize),
+    manaTarget: manaTarget,
+    provingCostPerMana: provingCostPerMana,
+    rollupVersion: Number(rollupVersion),
+    genesisArchiveTreeRoot,
   };
+}
+
+export type L2BlockProposedEvent = {
+  versionedBlobHashes: readonly Hex[];
+  archive: Hex;
+  blockNumber: bigint;
+};
+
+export async function getL2BlockProposalEvents(
+  client: ViemPublicClient,
+  blockId: Hex,
+  rollupAddress?: EthAddress,
+): Promise<L2BlockProposedEvent[]> {
+  return (
+    await client.getContractEvents({
+      abi: RollupAbi,
+      address: rollupAddress?.toString(),
+      blockHash: blockId,
+      eventName: 'L2BlockProposed',
+      strict: true,
+    })
+  ).map(log => log.args);
 }

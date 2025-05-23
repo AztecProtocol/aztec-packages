@@ -3,7 +3,7 @@ use crate::test::helpers::utils::TestAccount;
 use dep::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress,
     constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance,
-    public_keys::PublicKeys,
+    public_keys::PublicKeys, traits::Deserialize, utils::reader::Reader,
 };
 
 pub unconstrained fn reset() {
@@ -12,6 +12,10 @@ pub unconstrained fn reset() {
 
 pub unconstrained fn get_side_effects_counter() -> u32 {
     oracle_get_side_effects_counter()
+}
+
+pub unconstrained fn get_contract_address() -> AztecAddress {
+    oracle_get_contract_address()
 }
 
 pub unconstrained fn set_contract_address(address: AztecAddress) {
@@ -33,9 +37,9 @@ pub unconstrained fn deploy<let N: u32, let M: u32, let P: u32>(
     name: str<M>,
     initializer: str<P>,
     args: [Field],
-    public_keys_hash: Field,
+    secret: Field,
 ) -> ContractInstance {
-    let instance_fields = oracle_deploy(path, name, initializer, args, public_keys_hash);
+    let instance_fields = oracle_deploy(path, name, initializer, args, secret);
     ContractInstance::deserialize(instance_fields)
 }
 
@@ -47,8 +51,8 @@ pub unconstrained fn direct_storage_write<let N: u32>(
     let _hash = direct_storage_write_oracle(contract_address, storage_slot, fields);
 }
 
-pub unconstrained fn create_account() -> TestAccount {
-    oracle_create_account()
+pub unconstrained fn create_account(secret: Field) -> TestAccount {
+    oracle_create_account(secret)
 }
 
 pub unconstrained fn add_account(secret: Field) -> TestAccount {
@@ -87,11 +91,47 @@ pub unconstrained fn assert_private_call_fails(
     )
 }
 
+pub unconstrained fn private_call_new_flow(
+    from: AztecAddress,
+    contract_address: AztecAddress,
+    function_selector: FunctionSelector,
+    args: [Field],
+    args_hash: Field,
+    is_static_call: bool,
+) -> (u32, Field, Field) {
+    let fields = oracle_private_call_new_flow(
+        from,
+        contract_address,
+        function_selector,
+        args,
+        args_hash,
+        is_static_call,
+    );
+
+    let mut reader = Reader::new(fields);
+    let end_side_effect_counter = reader.read_u32();
+    let returns_hash = reader.read();
+    let tx_hash = reader.read();
+
+    (end_side_effect_counter, returns_hash, tx_hash)
+}
+
+pub unconstrained fn disable_oracles() {
+    oracle_disable_oracles();
+}
+
+pub unconstrained fn enable_oracles() {
+    oracle_enable_oracles();
+}
+
 #[oracle(reset)]
 unconstrained fn oracle_reset() {}
 
 #[oracle(setContractAddress)]
 unconstrained fn oracle_set_contract_address(address: AztecAddress) {}
+
+#[oracle(getContractAddress)]
+unconstrained fn oracle_get_contract_address() -> AztecAddress {}
 
 #[oracle(getSideEffectsCounter)]
 unconstrained fn oracle_get_side_effects_counter() -> u32 {}
@@ -110,7 +150,7 @@ unconstrained fn oracle_deploy<let N: u32, let M: u32, let P: u32>(
     name: str<M>,
     initializer: str<P>,
     args: [Field],
-    public_keys_hash: Field,
+    secret: Field,
 ) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
 
 #[oracle(directStorageWrite)]
@@ -121,7 +161,7 @@ unconstrained fn direct_storage_write_oracle<let N: u32>(
 ) -> [Field; N] {}
 
 #[oracle(createAccount)]
-unconstrained fn oracle_create_account() -> TestAccount {}
+unconstrained fn oracle_create_account(secret: Field) -> TestAccount {}
 
 #[oracle(addAccount)]
 unconstrained fn oracle_add_account(secret: Field) -> TestAccount {}
@@ -147,3 +187,19 @@ unconstrained fn oracle_assert_private_call_fails(
     sideEffectsCounter: Field,
     isStaticCall: bool,
 ) {}
+
+#[oracle(privateCallNewFlow)]
+unconstrained fn oracle_private_call_new_flow(
+    _from: AztecAddress,
+    _contract_address: AztecAddress,
+    _function_selector: FunctionSelector,
+    _args: [Field],
+    _args_hash: Field,
+    _is_static_call: bool,
+) -> [Field; 3] {}
+
+#[oracle(enableOracles)]
+unconstrained fn oracle_disable_oracles() {}
+
+#[oracle(disableOracles)]
+unconstrained fn oracle_enable_oracles() {}

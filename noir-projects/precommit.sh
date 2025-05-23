@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Precommit hook for formatting staged noir files.
 # We only run the formatter if there are staged *.nr files.
 # Nothing should cause a failure, because that would annoy everyone if all they're trying to do is commit.

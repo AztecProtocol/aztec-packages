@@ -43,7 +43,7 @@ struct GoogleBenchOpCountReporter {
 };
 // Allow for integration with google benchmark user-defined counters
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_REPORT_OP_COUNT_IN_BENCH(state) GoogleBenchOpCountReporter __bb_report_op_count_in_bench{ state };
+#define BB_REPORT_OP_COUNT_IN_BENCH(state) bb::GoogleBenchOpCountReporter __bb_report_op_count_in_bench{ state };
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_REPORT_OP_COUNT_BENCH_CANCEL() __bb_report_op_count_in_bench.cancelled = true;
 }; // namespace bb

@@ -85,6 +85,136 @@ TYPED_TEST(CycleGroupTest, TestBasicTagLogic)
 }
 
 /**
+ * @brief Checks that a point at infinity passes the constant_witness initialization
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestInfConstantWintnessRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto lhs = TestFixture::generators[0] * 0;
+    cycle_group_ct a = cycle_group_ct::from_constant_witness(&builder, lhs);
+    (void)a;
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Checks that a point at infinity passes the witness initialization
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestInfWintnessRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto lhs = TestFixture::generators[0] * 0;
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    (void)a;
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Checks that the result of adding two witness values is not constant
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestWitnessSumRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto lhs = TestFixture::generators[0];
+    auto rhs = TestFixture::generators[1];
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+    cycle_group_ct c = a + b;
+    EXPECT_FALSE(c.is_constant());
+    c = a - b;
+    EXPECT_FALSE(c.is_constant());
+}
+
+/**
+ * @brief Checks that adding operator-(value) to an existing value does not result into error
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestOperatorNegRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto lhs = TestFixture::generators[0];
+    auto rhs = TestFixture::generators[1];
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+    b = -b;
+    cycle_group_ct c = a.unconditional_add(b);
+    (void)c;
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Checks the mixup bad behavior found by fuzzer.
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestConstantWitnessMixupRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto c1 = cycle_group_ct(AffineElement::one());
+    auto cw8 = cycle_group_ct::from_constant_witness(&builder, AffineElement::one() * 0);
+    auto w11 = cycle_group_ct::from_witness(&builder, TestFixture::generators[0]);
+
+    auto w9 = cw8 + c1;  // mixup happens here due to _is_infinity being a constant
+    auto w26 = w9 + w11; // and here the circuit checker crashes
+
+    auto w10 = cw8 - c1;
+    auto w27 = w10 - w11; // and here
+    (void)w26;
+    (void)w27;
+    EXPECT_NO_THROW(CircuitChecker::check(builder)); // It won't be a throw anyway
+}
+
+/**
+ * @brief Checks the bad behavior of conditional assign.
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestConditionalAssignRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto c0 = cycle_group_ct(AffineElement::one() * 0);
+    auto c1 = cycle_group_ct::conditional_assign(bool_ct(witness_ct(&builder, false)), c0, c0);
+    auto w3 = c1.dbl();
+    (void)w3;
+    EXPECT_NO_THROW(CircuitChecker::check(builder)); // It won't be a throw anyway
+}
+
+/**
+ * @brief Checks the bad behavior of conditional assign.
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestConditionalAssignSuperMixupRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto c0 = cycle_group_ct(TestFixture::generators[0]);
+    auto c1 = cycle_group_ct(-TestFixture::generators[0]);
+    auto w2 = cycle_group_ct::conditional_assign(bool_ct(witness_ct(&builder, true)), c0, c1);
+    EXPECT_FALSE(w2.x.is_constant());
+    EXPECT_FALSE(w2.y.is_constant());
+    EXPECT_TRUE(w2.is_point_at_infinity().is_constant());
+    auto w3 = w2.dbl();
+    (void)w3;
+    EXPECT_NO_THROW(CircuitChecker::check(builder)); // It won't be a throw anyway
+}
+
+/**
  * @brief Checks that a point on the curve passes the validate_is_on_curve check
  *
  */
@@ -138,6 +268,25 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
+/**
+ * @brief Checks that a point that is not on the curve but *not* marked as the point at infinity fails the
+ * validate_is_on_curve check
+ * @details (1, 1) is not on the either the Grumpkin curve or the BN254 curve.
+ */
+TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail2)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+
+    cycle_group_ct a(x, y, /*_is_infinity=*/bool_ct(witness_ct(&builder, false)));
+    a.validate_is_on_curve();
+    EXPECT_TRUE(builder.failed());
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
 TYPED_TEST(CycleGroupTest, TestStandardForm)
 {
     STDLIB_TYPE_ALIASES;
@@ -151,6 +300,11 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     input_b.set_point_at_infinity(true);
     input_d.set_point_at_infinity(true);
 
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    cycle_group_ct input_e = cycle_group_ct(x, y, true);
+    cycle_group_ct input_f = cycle_group_ct(x, y, bool_ct(witness_ct(&builder, true)));
+
     // Assign different tags to all inputs
     input_a.set_origin_tag(submitted_value_origin_tag);
     input_b.set_origin_tag(challenge_origin_tag);
@@ -161,11 +315,15 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     auto standard_b = input_b.get_standard_form();
     auto standard_c = input_c.get_standard_form();
     auto standard_d = input_d.get_standard_form();
+    auto standard_e = input_e.get_standard_form();
+    auto standard_f = input_f.get_standard_form();
 
     EXPECT_EQ(standard_a.is_point_at_infinity().get_value(), false);
     EXPECT_EQ(standard_b.is_point_at_infinity().get_value(), true);
     EXPECT_EQ(standard_c.is_point_at_infinity().get_value(), false);
     EXPECT_EQ(standard_d.is_point_at_infinity().get_value(), true);
+    EXPECT_EQ(standard_e.is_point_at_infinity().get_value(), true);
+    EXPECT_EQ(standard_f.is_point_at_infinity().get_value(), true);
 
     // Ensure that the tags in the standard form remain the same
     EXPECT_EQ(standard_a.get_origin_tag(), submitted_value_origin_tag);
@@ -190,6 +348,12 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     auto standard_d_x = standard_d.x.get_value();
     auto standard_d_y = standard_d.y.get_value();
 
+    auto standard_e_x = standard_e.x.get_value();
+    auto standard_e_y = standard_e.y.get_value();
+
+    auto standard_f_x = standard_f.x.get_value();
+    auto standard_f_y = standard_f.y.get_value();
+
     EXPECT_EQ(input_a_x, standard_a_x);
     EXPECT_EQ(input_a_y, standard_a_y);
     EXPECT_EQ(standard_b_x, 0);
@@ -198,6 +362,10 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     EXPECT_EQ(input_c_y, standard_c_y);
     EXPECT_EQ(standard_d_x, 0);
     EXPECT_EQ(standard_d_y, 0);
+    EXPECT_EQ(standard_e_x, 0);
+    EXPECT_EQ(standard_e_y, 0);
+    EXPECT_EQ(standard_f_x, 0);
+    EXPECT_EQ(standard_f_y, 0);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -597,7 +765,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
 
         for (size_t i = 0; i < num_muls; ++i) {
             auto element = TestFixture::generators[i];
-            typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
+            typename Group::Fr scalar = Group::Fr::random_element(&engine);
 
             // 1: add entry where point, scalar are witnesses
             expected += (element * scalar);
@@ -635,7 +803,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
         auto element = TestFixture::generators[0];
-        typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
+        typename Group::Fr scalar = Group::Fr::random_element(&engine);
         points.emplace_back(cycle_group_ct::from_witness(&builder, element));
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
 
@@ -656,7 +824,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
         auto element = TestFixture::generators[0];
-        typename Group::subgroup_field scalar = 0;
+        typename Group::Fr scalar = 0;
         points.emplace_back(cycle_group_ct::from_witness(&builder, element));
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
 
@@ -672,7 +840,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
         auto element = TestFixture::generators[0];
-        typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
+        typename Group::Fr scalar = Group::Fr::random_element(&engine);
 
         // is_infinity = witness
         {
@@ -700,11 +868,11 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
     {
         std::vector<cycle_group_ct> points;
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
-        std::vector<typename Group::coordinate_field> scalars_native;
+        std::vector<typename Group::Fq> scalars_native;
         Element expected = Group::point_at_infinity;
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = plookup::fixed_base::table::LHS_GENERATOR_POINT;
-            typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
+            auto element = plookup::fixed_base::table::lhs_generator_point();
+            typename Group::Fr scalar = Group::Fr::random_element(&engine);
 
             // 1: add entry where point is constant, scalar is witness
             expected += (element * scalar);
@@ -713,7 +881,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars_native.emplace_back(uint256_t(scalar));
 
             // 2: add entry where point is constant, scalar is constant
-            element = plookup::fixed_base::table::RHS_GENERATOR_POINT;
+            element = plookup::fixed_base::table::rhs_generator_point();
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
@@ -731,11 +899,11 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
     {
         std::vector<cycle_group_ct> points;
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
-        std::vector<typename Group::subgroup_field> scalars_native;
+        std::vector<typename Group::Fr> scalars_native;
         Element expected = Group::point_at_infinity;
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = plookup::fixed_base::table::LHS_GENERATOR_POINT;
-            typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
+            auto element = plookup::fixed_base::table::lhs_generator_point();
+            typename Group::Fr scalar = Group::Fr::random_element(&engine);
 
             // 1: add entry where point is constant, scalar is witness
             expected += (element * scalar);
@@ -744,15 +912,15 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars_native.emplace_back(scalar);
 
             // 2: add entry where point is constant, scalar is constant
-            element = plookup::fixed_base::table::RHS_GENERATOR_POINT;
+            element = plookup::fixed_base::table::rhs_generator_point();
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
             scalars_native.emplace_back(scalar);
 
             // // 3: add entry where point is constant, scalar is witness
-            scalar = Group::subgroup_field::random_element(&engine);
-            element = Group::one * Group::subgroup_field::random_element(&engine);
+            scalar = Group::Fr::random_element(&engine);
+            element = Group::one * Group::Fr::random_element(&engine);
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
@@ -770,8 +938,8 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = plookup::fixed_base::table::LHS_GENERATOR_POINT;
-            typename Group::subgroup_field scalar = 0;
+            auto element = plookup::fixed_base::table::lhs_generator_point();
+            typename Group::Fr scalar = 0;
 
             // 1: add entry where point is constant, scalar is witness
             points.emplace_back((element));
@@ -805,7 +973,7 @@ TYPED_TEST(CycleGroupTest, TestMul)
         cycle_group_ct result;
         for (size_t i = 0; i < num_muls; ++i) {
             auto element = TestFixture::generators[i];
-            typename Group::subgroup_field native_scalar = Group::subgroup_field::random_element(&engine);
+            typename Group::Fr native_scalar = Group::Fr::random_element(&engine);
             auto expected_result = element * native_scalar;
 
             // 1: add entry where point, scalar are witnesses

@@ -6,7 +6,7 @@ use std::meta::derive;
 
 // A Fixedsize Compressed String.
 // Essentially a special version of Compressed String for practical use.
-#[derive(Deserialize, Packable, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct FieldCompressedString {
     value: Field,
 }

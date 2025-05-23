@@ -1,4 +1,4 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
   type AztecAddress,
@@ -13,9 +13,10 @@ import {
   createLogger,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
-import { type StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
+import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
+import { type ISnapshotManager, createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
@@ -27,6 +28,7 @@ export class DeployTest {
   public pxe!: PXE;
   public wallet!: AccountWallet;
   public aztecNode!: AztecNode;
+  public aztecNodeAdmin!: AztecNodeAdmin;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_deploy_contract:${testName}`);
@@ -37,6 +39,7 @@ export class DeployTest {
     await this.applyInitialAccountSnapshot();
     const context = await this.snapshotManager.setup();
     ({ pxe: this.pxe, aztecNode: this.aztecNode } = context);
+    this.aztecNodeAdmin = context.aztecNode;
     return this;
   }
 
@@ -47,14 +50,9 @@ export class DeployTest {
   private async applyInitialAccountSnapshot() {
     await this.snapshotManager.snapshot(
       'initial_account',
-      addAccounts(1, this.logger),
-      async ({ accountKeys }, { pxe }) => {
-        this.wallets = await Promise.all(
-          accountKeys.map(async ak => {
-            const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
-            return account.getWallet();
-          }),
-        );
+      deployAccounts(1, this.logger),
+      async ({ deployedAccounts }, { pxe }) => {
+        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         this.wallet = this.wallets[0];
       },

@@ -1,6 +1,6 @@
-import { type PXE } from '@aztec/circuit-types';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 export const waitForPXE = async (pxe: PXE, logger?: Logger) => {
   await retryUntil(async () => {
@@ -9,7 +9,7 @@ export const waitForPXE = async (pxe: PXE, logger?: Logger) => {
       await pxe.getNodeInfo();
       logger?.verbose('Contacted PXE');
       return true;
-    } catch (error) {
+    } catch {
       logger?.verbose('Failed to contact PXE');
     }
     return undefined;

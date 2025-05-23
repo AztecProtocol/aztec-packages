@@ -1,6 +1,6 @@
-import { type z } from 'zod';
+import type { z } from 'zod';
 
-import { type ZodNullableOptional } from './utils.js';
+import type { ZodNullableOptional } from './utils.js';
 
 // Forces usage of ZodNullableOptional in parameters schemas so we properly accept nulls for optional parameters.
 type ZodParameterTypeFor<T> = undefined extends T
@@ -19,10 +19,10 @@ type ZodReturnTypeFor<T> = z.ZodType<T, z.ZodTypeDef, any>;
 type ZodMapParameterTypes<T> = T extends []
   ? []
   : T extends [item: infer Head, ...infer Rest]
-  ? [ZodParameterTypeFor<Head>, ...{ [K in keyof Rest]: ZodParameterTypeFor<Rest[K]> }]
-  : T extends [item?: infer Head, ...infer Rest]
-  ? [ZodNullableOptional<ZodParameterTypeFor<Head>>, ...{ [K in keyof Rest]: ZodParameterTypeFor<Rest[K]> }]
-  : never;
+    ? [ZodParameterTypeFor<Head>, ...{ [K in keyof Rest]: ZodParameterTypeFor<Rest[K]> }]
+    : T extends [item?: infer Head, ...infer Rest]
+      ? [ZodNullableOptional<ZodParameterTypeFor<Head>>, ...{ [K in keyof Rest]: ZodParameterTypeFor<Rest[K]> }]
+      : never;
 
 /** Maps all functions in an interface to their schema representation. */
 export type ApiSchemaFor<T> = {

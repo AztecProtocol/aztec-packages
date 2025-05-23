@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {IStaking, Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
+import {IStakingCore, Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
 contract DepositTest is StakingBase {
   uint256 internal depositAmount;
@@ -90,19 +90,40 @@ contract DepositTest is StakingBase {
   {
     // it reverts
 
-    // Show that everything else than the none status is rejected
-    for (uint256 i = 1; i < 4; i++) {
-      staking.cheat__SetStatus(ATTESTER, Status(i));
+    staking.deposit({
+      _attester: ATTESTER,
+      _proposer: PROPOSER,
+      _withdrawer: WITHDRAWER,
+      _amount: depositAmount
+    });
 
-      // Try to register the attester again
-      vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, ATTESTER));
-      staking.deposit({
-        _attester: ATTESTER,
-        _proposer: PROPOSER,
-        _withdrawer: WITHDRAWER,
-        _amount: depositAmount
-      });
-    }
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, ATTESTER));
+    staking.deposit({
+      _attester: ATTESTER,
+      _proposer: PROPOSER,
+      _withdrawer: WITHDRAWER,
+      _amount: depositAmount
+    });
+
+    vm.prank(SLASHER);
+    staking.slash(ATTESTER, depositAmount / 2);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, ATTESTER));
+    staking.deposit({
+      _attester: ATTESTER,
+      _proposer: PROPOSER,
+      _withdrawer: WITHDRAWER,
+      _amount: depositAmount
+    });
+
+    vm.prank(WITHDRAWER);
+    staking.initiateWithdraw(ATTESTER, WITHDRAWER);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, ATTESTER));
+    staking.deposit({
+      _attester: ATTESTER,
+      _proposer: PROPOSER,
+      _withdrawer: WITHDRAWER,
+      _amount: depositAmount
+    });
   }
 
   modifier givenAttesterIsNotRegistered() {
@@ -120,16 +141,6 @@ contract DepositTest is StakingBase {
 
     // This should not be possible to get to as the attester is registered until exit
     // and to exit it must already have been removed from the active set.
-
-    staking.cheat__AddAttester(ATTESTER);
-
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyActive.selector, ATTESTER));
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _amount: depositAmount
-    });
   }
 
   function test_GivenAttesterIsNotActive(uint256 _depositAmount)
@@ -147,7 +158,7 @@ contract DepositTest is StakingBase {
     assertEq(stakingAsset.balanceOf(address(staking)), 0);
 
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStaking.Deposit(ATTESTER, PROPOSER, WITHDRAWER, depositAmount);
+    emit IStakingCore.Deposit(ATTESTER, PROPOSER, WITHDRAWER, depositAmount);
 
     staking.deposit({
       _attester: ATTESTER,

@@ -1,7 +1,9 @@
-import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/circuit-types';
-import { type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-import { computeSecretHash } from '@aztec/circuits.js/hash';
 import { sha256ToField } from '@aztec/foundation/crypto';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeSecretHash } from '@aztec/stdlib/hash';
+import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 
 /**
  * Test utility function to craft an L1 to L2 message.

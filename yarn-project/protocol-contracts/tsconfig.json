@@ -7,13 +7,13 @@
   },
   "references": [
     {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../foundation"
     },
     {
-      "path": "../types"
+      "path": "../stdlib"
     }
   ],
   "include": ["src", "artifacts/*.d.json.ts"],

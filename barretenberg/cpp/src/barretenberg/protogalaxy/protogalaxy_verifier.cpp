@@ -1,6 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "protogalaxy_verifier.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
@@ -19,13 +25,14 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     const std::vector<FF>& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
+    transcript->enable_manifest();
     size_t index = 0;
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(index);
     if (!key->is_accumulator) {
         run_oink_verifier_on_one_incomplete_key(key, domain_separator);
         key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
+        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
     index++;
 
@@ -137,6 +144,16 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     for (auto [combination, to_combine] :
          zip_view(next_accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
         combination = linear_combination(to_combine, lagranges);
+    }
+
+    // We need to add some commitments to the transcript to ensure the manifest matches with the recursive verifier
+    // manifest This is because the recursive verifier uses a trick to convert smaller MSMs into one large one, and so
+    // the number of commitments in the manifest is different
+    for (size_t i = 0;
+         i < keys_to_fold.get_precomputed_commitments().size() + keys_to_fold.get_witness_commitments().size();
+         i++) {
+
+        transcript->add_to_hash_buffer("new_accumulator_commitment_" + std::to_string(i), Commitment::one());
     }
 
     // generate recursive folding challenges to ensure manifest matches with recursive verifier

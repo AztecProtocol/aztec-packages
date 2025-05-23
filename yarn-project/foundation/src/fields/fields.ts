@@ -166,7 +166,7 @@ export function fromBuffer<T extends BaseField>(buffer: Buffer | BufferReader, f
 }
 
 /**
- * Constructs a field from a Buffer, but reduces it first.
+ * Constructs a field from a Buffer, but reduces it first, modulo the field modulus.
  * This requires a conversion to a bigint first so the initial underlying representation will be a bigint.
  */
 function fromBufferReduce<T extends BaseField>(buffer: Buffer, f: DerivedField<T>) {
@@ -261,7 +261,7 @@ export class Fr extends BaseField {
       return fromHexString(buf, Fr);
     }
 
-    throw new Error('Tried to create a Fr from an invalid string');
+    throw new Error(`Tried to create a Fr from an invalid string: ${buf}`);
   }
 
   /**
@@ -319,7 +319,8 @@ export class Fr extends BaseField {
    * @returns A square root of the field element (null if it does not exist).
    */
   async sqrt(): Promise<Fr | null> {
-    const wasm = (await BarretenbergSync.initSingleton()).getWasm();
+    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
+    const wasm = api.getWasm();
     const [buf] = wasm.callWasmExport('bn254_fr_sqrt', [this.toBuffer()], [Fr.SIZE_IN_BYTES + 1]);
     const isSqrt = buf[0] === 1;
     if (!isSqrt) {
@@ -412,7 +413,7 @@ export class Fq extends BaseField {
       return fromHexString(buf, Fq);
     }
 
-    throw new Error('Tried to create a Fq from an invalid string');
+    throw new Error(`Tried to create a Fq from an invalid string: ${buf}`);
   }
 
   /**
@@ -434,6 +435,13 @@ export class Fq extends BaseField {
 
   toJSON() {
     return this.toString();
+  }
+
+  toFields() {
+    // The following has to match the order of the limbs in EmbeddedCurveScalar struct in noir::std. This is because
+    // this function is used when returning Scalar from the getAddressSecret oracle and in Noir the values get deserialized
+    // using the intrinsic serialization of Noir (which follows the order of the fields/members in the struct).
+    return [this.lo, this.hi];
   }
 
   static get schema() {

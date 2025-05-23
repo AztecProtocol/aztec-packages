@@ -1,8 +1,8 @@
-import { PeerErrorSeverity, makeBlockProposal } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
-import { makeHeader } from '@aztec/circuits.js/testing';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { makeBlockProposal, makeHeader } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
 
@@ -19,7 +19,7 @@ describe('BlockProposalValidator', () => {
 
   it('returns high tolerance error if slot number is not current or next slot', async () => {
     // Create a block proposal for slot 97
-    const mockProposal = await makeBlockProposal({
+    const mockProposal = makeBlockProposal({
       header: makeHeader(1, 97, 97),
     });
 
@@ -41,7 +41,7 @@ describe('BlockProposalValidator', () => {
     const invalidProposer = Secp256k1Signer.random();
 
     // Create a block proposal with correct slot but wrong proposer
-    const mockProposal = await makeBlockProposal({
+    const mockProposal = makeBlockProposal({
       header: makeHeader(1, 100, 100),
       signer: invalidProposer,
     });
@@ -63,7 +63,7 @@ describe('BlockProposalValidator', () => {
     const nextProposer = Secp256k1Signer.random();
 
     // Create a block proposal for current slot with correct proposer
-    const mockProposal = await makeBlockProposal({
+    const mockProposal = makeBlockProposal({
       header: makeHeader(1, 100, 100),
       signer: currentProposer,
     });
@@ -85,7 +85,7 @@ describe('BlockProposalValidator', () => {
     const nextProposer = Secp256k1Signer.random();
 
     // Create a block proposal for next slot with correct proposer
-    const mockProposal = await makeBlockProposal({
+    const mockProposal = makeBlockProposal({
       header: makeHeader(1, 101, 101),
       signer: nextProposer,
     });

@@ -2,31 +2,43 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2::simulation {
 
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-FF compute_public_bytecode_commitment(std::span<const uint8_t> bytecode)
+std::vector<FF> encode_bytecode(std::span<const uint8_t> bytecode)
 {
-    auto encode_bytecode = [](std::span<const uint8_t> contract_bytes) -> std::vector<FF> {
-        // To make from_buffer<uint256_t> work properly, we need to make sure the contract is a multiple of 31 bytes
-        // Otherwise we will end up over-reading the buffer
-        size_t padded_size = 31 * ((contract_bytes.size() + 30) / 31);
-        // We dont want to mutate the original contract bytes, since we will (probably) need them later in the trace
-        // unpadded
-        std::vector<uint8_t> contract_bytes_padded(contract_bytes.begin(), contract_bytes.end());
-        contract_bytes_padded.resize(padded_size, 0);
-        std::vector<FF> contract_bytecode_fields;
-        for (size_t i = 0; i < contract_bytes_padded.size(); i += 31) {
-            uint256_t u256_elem = from_buffer<uint256_t>(contract_bytes_padded, i);
-            // Drop the last byte
-            contract_bytecode_fields.emplace_back(u256_elem >> 8);
+    size_t bytecode_len = bytecode.size();
+
+    auto bytecode_field_at = [&](size_t i) -> FF {
+        // We need to read uint256_ts because reading FFs messes up the order of the bytes.
+        uint256_t as_int = 0;
+        if (bytecode_len - i >= 32) {
+            as_int = from_buffer<uint256_t>(bytecode, i);
+        } else {
+            std::vector<uint8_t> tail(bytecode.begin() + static_cast<ssize_t>(i), bytecode.end());
+            tail.resize(32, 0);
+            as_int = from_buffer<uint256_t>(tail, 0);
         }
-        return contract_bytecode_fields;
+        return as_int >> 8;
     };
 
+    std::vector<FF> contract_bytecode_fields;
+    auto number_of_fields = (bytecode_len + 30) / 31;
+    contract_bytecode_fields.reserve(number_of_fields);
+
+    for (uint32_t i = 0; i < bytecode_len; i += 31) {
+        FF bytecode_field = bytecode_field_at(i);
+        contract_bytecode_fields.push_back(bytecode_field);
+    }
+
+    return contract_bytecode_fields;
+}
+
+FF compute_public_bytecode_commitment(std::span<const uint8_t> bytecode)
+{
     FF bytecode_length_in_bytes = FF(static_cast<uint64_t>(bytecode.size()));
     std::vector<FF> contract_bytecode_fields = encode_bytecode(bytecode);
     FF running_hash = bytecode_length_in_bytes;
@@ -42,6 +54,20 @@ FF compute_contract_class_id(const FF& artifact_hash, const FF& private_fn_root,
         { GENERATOR_INDEX__CONTRACT_LEAF, artifact_hash, private_fn_root, public_bytecode_commitment });
 }
 
+FF hash_public_keys(const PublicKeys& public_keys)
+{
+    std::vector<FF> public_keys_hash_fields = public_keys.to_fields();
+
+    std::vector<FF> public_key_hash_vec{ GENERATOR_INDEX__PUBLIC_KEYS_HASH };
+    for (size_t i = 0; i < public_keys_hash_fields.size(); i += 2) {
+        public_key_hash_vec.push_back(public_keys_hash_fields[i]);
+        public_key_hash_vec.push_back(public_keys_hash_fields[i + 1]);
+        // is_infinity will be removed from address preimage, asumming false.
+        public_key_hash_vec.push_back(FF::zero());
+    }
+    return poseidon2::hash({ public_key_hash_vec });
+}
+
 FF compute_contract_address(const ContractInstance& contract_instance)
 {
     FF salted_initialization_hash = poseidon2::hash({ GENERATOR_INDEX__PARTIAL_ADDRESS,
@@ -49,18 +75,9 @@ FF compute_contract_address(const ContractInstance& contract_instance)
                                                       contract_instance.initialisation_hash,
                                                       contract_instance.deployer_addr });
     FF partial_address = poseidon2::hash(
-        { GENERATOR_INDEX__PARTIAL_ADDRESS, contract_instance.contract_class_id, salted_initialization_hash });
+        { GENERATOR_INDEX__PARTIAL_ADDRESS, contract_instance.original_class_id, salted_initialization_hash });
 
-    std::vector<FF> public_keys_hash_fields = contract_instance.public_keys.to_fields();
-    std::vector<FF> public_key_hash_vec{ GENERATOR_INDEX__PUBLIC_KEYS_HASH };
-    for (size_t i = 0; i < public_keys_hash_fields.size(); i += 2) {
-        public_key_hash_vec.push_back(public_keys_hash_fields[i]);
-        public_key_hash_vec.push_back(public_keys_hash_fields[i + 1]);
-        // Is it guaranteed we wont get a point at infinity here?
-        public_key_hash_vec.push_back(FF::zero());
-    }
-    FF public_keys_hash = poseidon2::hash({ public_key_hash_vec });
-
+    FF public_keys_hash = hash_public_keys(contract_instance.public_keys);
     FF h = poseidon2::hash({ GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
     // This is safe since BN254_Fr < GRUMPKIN_Fr so we know there is no modulo reduction
     grumpkin::fr h_fq = grumpkin::fr(h);

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 # propagate errors inside while loop pipe
 set -o pipefail

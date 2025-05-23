@@ -12,35 +12,63 @@ import {
   type UpDownCounter as OtelUpDownCounter,
   type Span,
   SpanStatusCode,
-  Tracer,
+  type Tracer,
 } from '@opentelemetry/api';
 import { isPromise } from 'node:util/types';
 
-import * as Attributes from './attributes.js';
-import * as Metrics from './metrics.js';
+import type * as Attributes from './attributes.js';
+import type * as Metrics from './metrics.js';
 import { getTelemetryClient } from './start.js';
 
-export { Span, SpanStatusCode, ValueType } from '@opentelemetry/api';
+export { type Span, SpanStatusCode, ValueType } from '@opentelemetry/api';
 
 type ValuesOf<T> = T extends Record<string, infer U> ? U : never;
 
+type AttributeNames = ValuesOf<typeof Attributes>;
+
+/**
+ * This is a set of attributes that could lead to high cardinality in the metrics.
+ * If you find yourself wanting to capture this data in a metric consider if it makes sense to capture
+ * as the metric value instead of an attribute or consider logging instead.
+ *
+ * Think twice before removing an attribute from this list.
+ */
+type BannedMetricAttributeNames = (typeof Attributes)[
+  | 'BLOCK_NUMBER'
+  | 'BLOCK_ARCHIVE'
+  | 'SLOT_NUMBER'
+  | 'BLOCK_PARENT'
+  | 'BLOCK_CANDIDATE_TXS_COUNT'
+  | 'BLOCK_TXS_COUNT'
+  | 'BLOCK_SIZE'
+  | 'EPOCH_SIZE'
+  | 'EPOCH_NUMBER'
+  | 'TX_HASH'
+  | 'PROVING_JOB_ID'
+  | 'P2P_ID'
+  | 'P2P_REQ_RESP_BATCH_REQUESTS_COUNT'
+  | 'TARGET_ADDRESS'
+  | 'MANA_USED'
+  | 'TOTAL_INSTRUCTIONS'];
+
 /** Global registry of attributes */
-type Attributes = Partial<Record<ValuesOf<typeof Attributes>, AttributeValue>>;
-export { Attributes };
+export type AttributesType = Partial<Record<AttributeNames, AttributeValue>>;
+
+/** Subset of attributes allowed to be added to metrics */
+export type MetricAttributesType = Partial<Record<Exclude<AttributeNames, BannedMetricAttributeNames>, AttributeValue>>;
 
 /** Global registry of metrics */
-type Metrics = (typeof Metrics)[keyof typeof Metrics];
-export { Metrics };
+export type MetricsType = (typeof Metrics)[keyof typeof Metrics];
 
-export type Gauge = OtelGauge<Attributes>;
-export type Histogram = OtelHistogram<Attributes>;
-export type UpDownCounter = OtelUpDownCounter<Attributes>;
-export type ObservableGauge = OtelObservableGauge<Attributes>;
-export type ObservableUpDownCounter = OtelObservableUpDownCounter<Attributes>;
-export type ObservableResult = OtelObservableResult<Attributes>;
-export type BatchObservableResult = OtelBatchObservableResult<Attributes>;
+export type Gauge = OtelGauge<MetricAttributesType>;
+export type Histogram = OtelHistogram<MetricAttributesType>;
+export type UpDownCounter = OtelUpDownCounter<MetricAttributesType>;
+export type ObservableGauge = OtelObservableGauge<MetricAttributesType>;
+export type ObservableUpDownCounter = OtelObservableUpDownCounter<MetricAttributesType>;
+export type ObservableResult = OtelObservableResult<MetricAttributesType>;
+export type BatchObservableResult = OtelBatchObservableResult<MetricAttributesType>;
 
-export { Tracer };
+export type { Tracer };
 
 // INTERNAL NOTE: this interface is the same as opentelemetry's Meter, but with proper types
 /**
@@ -52,23 +80,23 @@ export interface Meter {
    * @param name - The name of the gauge
    * @param options - The options for the gauge
    */
-  createGauge(name: Metrics, options?: MetricOptions): Gauge;
+  createGauge(name: MetricsType, options?: MetricOptions): Gauge;
 
   /**
    * Creates a new gauge instrument. A gauge is a metric that represents a single numerical value that can arbitrarily go up and down.
    * @param name - The name of the gauge
    * @param options - The options for the gauge
    */
-  createObservableGauge(name: Metrics, options?: MetricOptions): ObservableGauge;
+  createObservableGauge(name: MetricsType, options?: MetricOptions): ObservableGauge;
 
   addBatchObservableCallback(
-    callback: BatchObservableCallback<Attributes>,
-    observables: Observable<Attributes>[],
+    callback: BatchObservableCallback<AttributesType>,
+    observables: Observable<AttributesType>[],
   ): void;
 
   removeBatchObservableCallback(
-    callback: BatchObservableCallback<Attributes>,
-    observables: Observable<Attributes>[],
+    callback: BatchObservableCallback<AttributesType>,
+    observables: Observable<AttributesType>[],
   ): void;
 
   /**
@@ -76,21 +104,21 @@ export interface Meter {
    * @param name - The name of the histogram
    * @param options - The options for the histogram
    */
-  createHistogram(name: Metrics, options?: MetricOptions): Histogram;
+  createHistogram(name: MetricsType, options?: MetricOptions): Histogram;
 
   /**
    * Creates a new counter instrument. A counter can go up or down with a delta from the previous value.
    * @param name - The name of the counter
    * @param options - The options for the counter
    */
-  createUpDownCounter(name: Metrics, options?: MetricOptions): UpDownCounter;
+  createUpDownCounter(name: MetricsType, options?: MetricOptions): UpDownCounter;
 
   /**
    * Creates a new gauge instrument. A gauge is a metric that represents a single numerical value that can arbitrarily go up and down.
    * @param name - The name of the gauge
    * @param options - The options for the gauge
    */
-  createObservableUpDownCounter(name: Metrics, options?: MetricOptions): ObservableUpDownCounter;
+  createObservableUpDownCounter(name: MetricsType, options?: MetricOptions): ObservableUpDownCounter;
 }
 
 /**
@@ -151,8 +179,8 @@ type SpanDecorator<T extends Traceable, F extends (...args: any[]) => any> = (
  */
 export function trackSpan<T extends Traceable, F extends (...args: any[]) => any>(
   spanName: string | ((this: T, ...args: Parameters<F>) => string),
-  attributes?: Attributes | ((this: T, ...args: Parameters<F>) => Promise<Attributes> | Attributes),
-  extraAttributes?: (this: T, returnValue: Awaited<ReturnType<F>>) => Attributes,
+  attributes?: AttributesType | ((this: T, ...args: Parameters<F>) => Promise<AttributesType> | AttributesType),
+  extraAttributes?: (this: T, returnValue: Awaited<ReturnType<F>>) => AttributesType,
 ): SpanDecorator<T, F> {
   // the return value of trackSpan is a decorator
   return (originalMethod: F, _context: ClassMethodDecoratorContext<T>) => {
@@ -165,7 +193,7 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
       // run originalMethod wrapped in an active span
       // "active" means the span will be alive for the duration of the function execution
       // and if any other spans are started during the execution of originalMethod, they will be children of this span
-      // behind the scenes this uses AsyncLocalStorage https://nodejs.org/dist/latest-v18.x/docs/api/async_context.html
+      // behind the scenes this uses AsyncLocalStorage https://nodejs.org/dist/latest-v22.x/docs/api/async_context.html
       return this.tracer.startActiveSpan(name, async (span: Span) => {
         span.setAttributes(currentAttrs ?? {});
 
@@ -202,7 +230,7 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
 export function wrapCallbackInSpan<F extends (...args: any[]) => any>(
   tracer: Tracer,
   spanName: string,
-  attributes: Attributes,
+  attributes: AttributesType,
   callback: F,
 ): F {
   const span = tracer.startSpan(spanName, { attributes });

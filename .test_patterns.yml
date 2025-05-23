@@ -1,0 +1,267 @@
+# Describes tests that we either:
+#   - Outright skip.
+#   - Run and alert owners on failure.
+# To outright skip a test add a "skip: true" property.
+# Only do this for tests that are currently expected to fail constantly and the noise is unbearable!
+# Otherwise, tests must have owner(s). Owners are identified by their Slack id, (profile, three dots, copy member id).
+# If there is no owner for failed test the build will fail, regardless of if it matches in this file.
+# When a failing test matches one or more of the "regex" properties below,
+# a message is sent to slack channel #aztec3-ci tagging the owners.
+# If an optional error_regex is provided, the output file must match for the test to be considered a flake.
+
+names:
+  - adam: &adam "U04BM8H25NJ"
+  - akosh: &akosh "U07PQ3Y4GHJ"
+  - alex: &alex "U05QWV669JB"
+  - charlie: &charlie "UKUMA5J7K"
+  - grego: &grego "U0689QRCE9L"
+  - lasse: &lasse "U03E5SYLY3Z"
+  - leila: &leila "UBLTU1NJ3"
+  - luke: &luke "U03JYU7AQET"
+  - mitch: &mitch "U06AY5G1NRK"
+  - palla: &palla "U04TPBU26E8"
+  - phil: &phil "U02G4KAD57Y"
+  - sean: &sean "U04DT239VQU"
+  - tom: &tom "U04LLT331NK"
+  - sergei: &sergei "U05RR81391B"
+  - spyros: &spyros "U03FCET0DQE"
+  - jan: &jan "U03FGA0BWNR"
+  - esau: &esau "U067FJ9A4Q1"
+
+tests:
+  # barretenberg
+  #
+  # Rare. But I saw it happen twice in 10 CI runs. Then twice in 10000 mainframe runs. Today I can't reproduce.
+  # Grind with: seq 1 10000 | parallel --bar "barretenberg/cpp/scripts/run_test.sh join_split_example_tests join_split_tests.test_defi_deposit_second_bridge_output_in_use_and_same_virtual_bridge_output_asset_ids >/dev/null"
+  # Logic failed: field_t::range_constraint
+  # /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/examples/join_split/join_split.test.cpp:1735: Failure
+  # Value of: result.valid
+  #   Actual: false
+  # Expected: true
+  - regex: "join_split_example_tests"
+    error_regex: "field_t::range_constraint"
+    owners:
+      - *luke
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "Failed to fetch"
+    owners:
+      - *adam
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "RuntimeError: Out of bounds memory access"
+    owners:
+      - *adam
+  # Sumcheck is failing for some reason
+  - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
+    skip: true
+    owners:
+      - *tom
+
+  # noir
+  # Something to do with how I run the tests now. Think these are fine in nextest.
+  - regex: "noir_lsp-.* notifications::notification_tests::test_caches_open_files"
+    skip: true
+    owners:
+      - *charlie
+  - regex: "noir_lsp-.* requests::"
+    skip: true
+    owners:
+      - *charlie
+  # Sometimes see this on ARM. But not when run on it's own...
+  - regex: "tests::debug_ram_blowup_regression"
+    skip: true
+    owners:
+      - *charlie
+  - regex: "arb_program_can_be_executed"
+    owners:
+      - *akosh
+
+  # AD: hit this flake
+  # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
+  # 18:04:38 Brillig loops: 11
+  # 18:04:38 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+  - regex: "noir/scripts/run_test.sh calibration.* arb_program_freqs_in_expected_range"
+    error_regex: "panicked at tooling/ast_fuzzer/tests/calibration.rs"
+    owners:
+      - *tom
+
+  # e2e tests skipped
+  - regex: "src/e2e_sequencer/gov_proposal"
+    skip: true
+    owners:
+      - *lasse
+  # e2e tests flakes
+  - regex: "src/e2e_p2p"
+    error_regex: "could not listen on any available address"
+    owners:
+      - *sean
+  - regex: "src/e2e_p2p/reex"
+    error_regex: "Received promise resolved instead of rejected"
+    owners:
+      - *sean
+  - regex: "src/e2e_p2p/reex"
+    error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
+    owners:
+      - *sean
+  - regex: "src/e2e_p2p/reqresp"
+    error_regex: 'CodeError: writable end state is "writing" not "ready"'
+    owners:
+      - *sean
+  - regex: "src/e2e_p2p"
+    error_regex: "TimeoutError: Timeout awaiting blocks mined"
+    owners:
+      - *palla
+  - regex: "src/e2e_p2p"
+    error_regex: "TimeoutError: Timeout awaiting isMined"
+    owners:
+      - *palla
+  - regex: "src/e2e_p2p/gossip_network"
+    error_regex: "TimeoutError: Timeout awaiting isMined"
+    owners:
+      - *palla
+  - regex: "e2e_p2p/validators_sentinel"
+    error_regex: "Expected: >= 2"
+    owners:
+      - *palla
+  - regex: "src/e2e_fees/private_payments"
+    owners:
+      - *phil
+  # http://ci.aztec-labs.com/7a5104e136578d64
+  # The "loop that wastes 5m" thing.
+  - regex: "src/e2e_fees/failures"
+    error_regex: "Exceeded timeout"
+    owners:
+      - *palla
+  - regex: "src/e2e_lending_contract"
+    error_regex: "✕ Depositing"
+    owners:
+      - *lasse
+  - regex: "src/e2e_lending_contract"
+    error_regex: "✕ Repay"
+    owners:
+      - *lasse
+  - regex: "src/e2e_epochs/epochs_l1_reorgs"
+    error_regex: "updates L1 to L2 messages changed due to an L1 reorg"
+    owners:
+      - *lasse
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
+    error_regex: "✕ Claim secret is enough to consume the message"
+    owners:
+      - *lasse
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
+    error_regex: "✕ Someone else can mint funds to me on my behalf"
+    owners:
+      - *lasse
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
+    error_regex: "✕ Publicly deposit funds"
+    owners:
+      - *lasse
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_failure_cases"
+    error_regex: "✕ Can't claim funds"
+    owners:
+      - *lasse
+  - regex: "src/e2e_block_building"
+    error_regex: "Could not retrieve body for block"
+    owners:
+      - *palla
+  - regex: "src/composed/integration_l1_publisher"
+    error_regex: "BlockOutOfRangeError"
+    owners:
+      - *palla
+  - regex: "src/e2e_sequencer_config"
+    error_regex: "Anvil failed to stop in time"
+    owners:
+      - *palla
+
+  # yarn-project tests
+  - regex: "p2p/src/services/discv5/discv5_service.test.ts"
+    error_regex: "Timeout: Failed to connect to"
+    owners:
+      - *sean
+  - regex: "p2p/src/client/p2p_client.test.ts"
+    error_regex: "Exceeded timeout of 120000"
+    owners:
+      - *sean
+  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    error_regex: "CodeError: writable end state is .writing. not .ready."
+    owners:
+      - *sean
+  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    error_regex: "✕ should stop after max retry attempts"
+    owners:
+      - *sean
+  - regex: "p2p/src/testbench/port_change.test.ts"
+    error_regex: "Timeout waiting for worker"
+    owners:
+      - *sean
+  - regex: "yarn-project/kv-store"
+    error_regex: "Could not import your test module"
+    owners:
+      - *alex
+  - regex: "yarn-project/kv-store"
+    error_regex: "timeout: sending signal TERM to command"
+    owners:
+      - *alex
+  - regex: "yarn-project/kv-store"
+    error_regex: "Failed to fetch dynamically imported module"
+    owners:
+      - *alex
+  - regex: "ethereum/src/deploy_l1_contracts.test.ts"
+    error_regex: "BlockOutOfRangeError"
+    owners:
+      - *palla
+  - regex: "ethereum/src/l1_tx_utils.test.ts"
+    error_regex: "✕ calculates correct gas prices for initial attempt"
+    owners:
+      - *spyros
+  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
+    error_regex: "✕ keeps the jobs in progress while it is alive"
+    owners:
+      - *alex
+  - regex: "ethereum/src/test/tx_delayer.test.ts"
+    error_regex: "delays a transaction until a given L1 timestamp"
+    owners:
+      - *esau
+
+  # boxes
+  - regex: "BOX=vite BROWSER=webkit run_compose_test vite-webkit box boxes"
+    error_regex: "WARN: sequencer Too far into slot for INITIALIZING_PROPOSAL"
+    owners:
+      - *grego
+
+  - regex: "BOX=vanilla BROWSER=webkit run_compose_test vanilla-webkit box boxes"
+    error_regex: "Test timeout of 90000ms exceeded."
+    owners:
+      - *esau
+
+  # kind tests
+  - regex: "spartan/bootstrap.sh"
+    # Will skip all kind tests for now. Too unstable, blocking merge queue.
+    skip: true
+    error_regex: "timeout: sending signal TERM to command"
+    owners:
+      - *alex
+  - regex: "spartan/bootstrap.sh"
+    error_regex: "cp: cannot create regular file"
+    owners:
+      - *alex
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
+    owners:
+      - *alex
+
+  # aztec-up
+  - regex: "aztec-up/scripts/run_test.sh"
+    error_regex: "Is the docker daemon running"
+    owners:
+      - *charlie
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "code: 124"
+    owners:
+      - *esau
+
+  # Slack testing.
+  - regex: "nonsense to match"
+    error_regex: "something else"
+    owners:
+      - *charlie
+      - *adam

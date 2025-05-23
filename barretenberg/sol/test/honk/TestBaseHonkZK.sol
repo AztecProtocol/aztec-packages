@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.21;
-// WORKTODO: investigate how to share more code
+// TODO: investigate how to share more code
 
 import {TestBase} from "../base/TestBase.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";

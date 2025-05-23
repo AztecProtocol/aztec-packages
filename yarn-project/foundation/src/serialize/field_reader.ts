@@ -1,5 +1,5 @@
 import { Fq, type Fr } from '../fields/fields.js';
-import { type Tuple } from './types.js';
+import type { Tuple } from './types.js';
 
 /**
  * The FieldReader class provides a utility for reading various data types from a field array.
@@ -11,11 +11,15 @@ import { type Tuple } from './types.js';
  */
 export class FieldReader {
   private index: number;
-  private length: number;
-  constructor(private fields: Fr[], offset = 0) {
+  private readonly length: number;
+
+  constructor(
+    private fields: Fr[],
+    offset = 0,
+  ) {
     this.index = offset;
     this.length = fields.length;
-    if (offset >= this.length) {
+    if (offset > this.length) {
       throw new Error('Offset out of bounds.');
     }
   }
@@ -35,6 +39,19 @@ export class FieldReader {
   }
 
   /**
+   * Returns the current cursor position.
+   *
+   * @returns The current cursor position.
+   */
+  public get cursor() {
+    return this.index;
+  }
+
+  public remainingFields(): number {
+    return this.length - this.index;
+  }
+
+  /**
    * Skips the next n fields.
    *
    * @param n - The number of fields to skip.
@@ -44,15 +61,6 @@ export class FieldReader {
       throw new Error('Not enough fields to be consumed.');
     }
     this.index += n;
-  }
-
-  /**
-   * Returns the current cursor position.
-   *
-   * @returns The current cursor position.
-   */
-  public get cursor() {
-    return this.index;
   }
 
   /**

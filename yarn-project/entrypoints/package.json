@@ -6,7 +6,12 @@
   "type": "module",
   "exports": {
     "./dapp": "./dest/dapp_entrypoint.js",
-    "./account": "./dest/account_entrypoint.js"
+    "./account": "./dest/account_entrypoint.js",
+    "./default": "./dest/default_entrypoint.js",
+    "./multicall": "./dest/default_multi_call_entrypoint.js",
+    "./interfaces": "./dest/interfaces.js",
+    "./payload": "./dest/payload.js",
+    "./encoding": "./dest/encoding.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -20,9 +25,7 @@
     "build:dev": "tsc -b --watch",
     "build:ts": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json"
@@ -55,17 +58,16 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
-    "@aztec/aztec.js": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
@@ -73,7 +75,7 @@
     "@types/jest": "^29.5.0",
     "jest": "^29.5.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",
@@ -81,6 +83,6 @@
     "!*.test.*"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

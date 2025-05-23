@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_redis
+
+filter_property=${1:-}
+filter_string=${2:-}
+
+function get_tag {
+  case "$1" in
+    RUNNING) echo -e " ${blue}$1${reset}" ;;
+    PASSED) echo -e "  ${green}$1${reset}" ;;
+    FAILED) echo -e "  ${red}$1${reset}" ;;
+    INACTIVE) echo -e "${bold}$1${reset}" ;;
+  esac
+}
+
+function render {
+  while IFS= read -r json_line; do
+    readarray -t arr < <(jq -r '[.timestamp, .status, .msg, .name, .author, .complete // "", .arch // ""][]' <<< "$json_line")
+    ts="${arr[0]}"
+    status="${arr[1]}"
+    msg="${arr[2]}"
+    name="${arr[3]}"
+    author="${arr[4]}"
+    complete="${arr[5]}"
+    arch="${arr[6]}"
+    local date_time=$(date -d @${ts:0:10} "+%m-%d %H:%M:%S")
+    local link="${link_open}http://ci.aztec-labs.com/$ts${link_close}$ts${link_open}${link_close}"
+    if [ -z "$complete" ]; then
+      local from=$(date +%s%3N)
+    else
+      local from=complete
+    fi
+
+    if [[ $msg =~ \(#([0-9]+)\) ]]; then
+        pr_number="${BASH_REMATCH[1]}"
+        msg="${link_open}https://github.com/aztecprotocol/aztec-packages/pull/$pr_number${link_close}$msg${link_open}${link_close}"
+    fi
+
+    if [ "$status" != "INACTIVE" ]; then
+      local duration=$(( (from - ts) / 1000 ))
+      local duration_str="($((duration / 60))m$((duration % 60))s)"
+      echo -en "\n$date_time $(get_tag $status) (${yellow}$link${reset}): $arch ${bold}$name${reset} ${purple}$author${reset}: $msg ${duration_str} \e[K"
+    else
+      echo -en "\n$date_time $(get_tag $status) ($link): $arch ${bold}$name${reset} $author: $msg \e[K"
+    fi
+  done
+}
+
+SECONDS=5
+
+function update_status {
+  # Jump to top left and clear.
+  echo -en "\e[0;0H\e[K"
+  echo -en "${bold}${blue}AZTEC LABS TERMINAL CI SYSTEM${reset}:" \
+    "(offset: $offset) (filter: ${filter_string:-unset}) (filter_prop: ${filter_property:-unset} [status,name,author,msg])"
+}
+
+function refresh {
+  height=$(tput lines)
+  width=$(tput cols)
+  if [ "$SECONDS" -ge 5 ]; then
+    result=$(redis_cli --eval $ci3/lua/set-filter.lua ci-run , \
+      $offset $((offset + height - 1)) $filter_property $filter_string)
+    SECONDS=0
+  fi
+  update_status
+  if [ -z "$result" ]; then
+    echo -n "\nNothing to see here..."
+  else
+    echo -e "$result" | head -n $((height - 1)) | render
+  fi
+  # Clear remainder.
+  echo -e -n "\e[J"
+}
+
+function cleanup {
+  tput rmcup
+  tput cnorm
+  echo -en '\e[?7h'
+  stty echo
+  exit
+}
+
+tput smcup
+# Hide cursor
+tput civis
+# No wrap
+echo -en '\e[?7l'
+# No echo keypress
+stty -echo
+trap cleanup SIGINT EXIT
+
+offset=0
+
+function offset_up {
+  offset=$(( offset + 1 ))
+  SECONDS=5
+  update_status
+}
+
+function offset_down {
+  offset=$(( offset > 0 ? offset - 1 : 0 ))
+  SECONDS=5
+  update_status
+}
+
+refresh
+while true; do
+  # Read with a timeout.
+  if read -rsn1 -t 1 key; then
+    # Check for escape sequence start.
+    case "$key" in
+      $'\e')
+        read -rsn2 -t 1 key2
+        case "$key2" in
+          "[A") offset_up ;;
+          "[B") offset_down ;;
+        esac
+        ;;
+      j) offset_up ;;
+      k) offset_down ;;
+      q) break ;;
+    esac
+    continue
+  fi
+  refresh
+done

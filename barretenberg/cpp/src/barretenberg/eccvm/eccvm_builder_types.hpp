@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -12,39 +18,6 @@ static constexpr size_t POINT_TABLE_SIZE = 1ULL << (NUM_WNAF_DIGIT_BITS);
 static constexpr size_t WNAF_DIGITS_PER_ROW = 4;
 static constexpr size_t ADDITIONS_PER_ROW = 4;
 
-template <typename CycleGroup> struct VMOperation {
-    bool add = false;
-    bool mul = false;
-    bool eq = false;
-    bool reset = false;
-    typename CycleGroup::affine_element base_point = typename CycleGroup::affine_element{ 0, 0 };
-    uint256_t z1 = 0;
-    uint256_t z2 = 0;
-    typename CycleGroup::subgroup_field mul_scalar_full = 0;
-    [[nodiscard]] uint32_t get_opcode_value() const
-    {
-        auto res = static_cast<uint32_t>(add);
-        res += res;
-        res += static_cast<uint32_t>(mul);
-        res += res;
-        res += static_cast<uint32_t>(eq);
-        res += res;
-        res += static_cast<uint32_t>(reset);
-        return res;
-    }
-    bool operator==(const VMOperation<CycleGroup>& other) const = default;
-
-    std::array<uint256_t, 2> get_base_point_standard_form() const
-    {
-        uint256_t x(base_point.x);
-        uint256_t y(base_point.y);
-        if (base_point.is_point_at_infinity()) {
-            x = 0;
-            y = 0;
-        }
-        return { x, y };
-    }
-};
 template <typename CycleGroup> struct ScalarMul {
     uint32_t pc;
     uint256_t scalar;

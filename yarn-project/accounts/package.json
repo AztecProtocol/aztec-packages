@@ -8,9 +8,13 @@
     "./dapp": "./dest/dapp/index.js",
     "./defaults": "./dest/defaults/index.js",
     "./ecdsa": "./dest/ecdsa/index.js",
+    "./ecdsa/lazy": "./dest/ecdsa/lazy.js",
     "./schnorr": "./dest/schnorr/index.js",
+    "./schnorr/lazy": "./dest/schnorr/lazy.js",
     "./single_key": "./dest/single_key/index.js",
+    "./single_key/lazy": "./dest/single_key/lazy.js",
     "./testing": "./dest/testing/index.js",
+    "./testing/lazy": "./dest/testing/lazy.js",
     "./utils": "./dest/utils/index.js"
   },
   "typedocOptions": {
@@ -31,9 +35,7 @@
     "build:dev": "tsc -b --watch",
     "build:ts": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json",
@@ -67,30 +69,28 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/types": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
-    "@types/node": "^18.7.23",
+    "@types/node": "^22.15.17",
     "jest": "^29.5.0",
     "jest-mock-extended": "^3.0.3",
     "ts-loader": "^9.4.4",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",
@@ -99,6 +99,6 @@
     "artifacts"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

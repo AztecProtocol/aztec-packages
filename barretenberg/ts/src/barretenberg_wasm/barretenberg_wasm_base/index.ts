@@ -1,7 +1,5 @@
-import createDebug from 'debug';
+import { createDebugLogger } from '../../log/index.js';
 import { randomBytes } from '../../random/index.js';
-
-const debug = createDebug('bb.js:wasm');
 
 /**
  * Base implementation of BarretenbergWasm.
@@ -11,7 +9,7 @@ export class BarretenbergWasmBase {
   protected memStore: { [key: string]: Uint8Array } = {};
   protected memory!: WebAssembly.Memory;
   protected instance!: WebAssembly.Instance;
-  protected logger: (msg: string) => void = debug;
+  protected logger: (msg: string) => void = createDebugLogger('bb_wasm_base');
 
   protected getImportObj(memory: WebAssembly.Memory) {
     /* eslint-disable camelcase */
@@ -51,9 +49,9 @@ export class BarretenbergWasmBase {
           const m = this.getMemory();
           const str2 = `${str} (mem: ${(m.length / (1024 * 1024)).toFixed(2)}MiB)`;
           this.logger(str2);
-          if (str2.startsWith('WARNING:')) {
-            this.logger(new Error().stack!);
-          }
+          // if (str2.startsWith('WARNING:')) {
+          //   this.logger(new Error().stack!);
+          // }
         },
 
         get_data: (keyAddr: number, outBufAddr: number) => {

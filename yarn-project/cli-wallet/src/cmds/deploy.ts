@@ -1,13 +1,13 @@
-import { type AccountWalletWithSecretKey, ContractDeployer, type DeployMethod, Fr, type PXE } from '@aztec/aztec.js';
-import { PublicKeys } from '@aztec/circuits.js';
-import { GITHUB_TAG_PREFIX, encodeArgs, getContractArtifact } from '@aztec/cli/utils';
-import { getInitializer } from '@aztec/foundation/abi';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import { type AccountWalletWithSecretKey, ContractDeployer, type DeployOptions, Fr } from '@aztec/aztec.js';
+import { encodeArgs, getContractArtifact } from '@aztec/cli/utils';
+import type { LogFn, Logger } from '@aztec/foundation/log';
+import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
+import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
+import { printProfileResult } from '../utils/profiling.js';
 
 export async function deploy(
-  client: PXE,
   wallet: AccountWalletWithSecretKey,
   artifactPath: string,
   json: boolean,
@@ -21,21 +21,17 @@ export async function deploy(
   universalDeploy: boolean | undefined,
   wait: boolean,
   feeOpts: IFeeOpts,
+  verbose: boolean,
   debugLogger: Logger,
   log: LogFn,
   logJson: (output: any) => void,
 ) {
   salt ??= Fr.random();
   const contractArtifact = await getContractArtifact(artifactPath, log);
-  const constructorArtifact = getInitializer(contractArtifact, initializer);
+  const hasInitializer = getAllFunctionAbis(contractArtifact).some(fn => fn.isInitializer);
+  const constructorArtifact = hasInitializer ? getInitializer(contractArtifact, initializer) : undefined;
 
-  const nodeInfo = await client.getNodeInfo();
-  const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.nodeVersion}`;
-  if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
-    log(
-      `\nWarning: Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}\n`,
-    );
-  }
+  // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
   const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys ?? PublicKeys.default(), initializer);
 
@@ -50,8 +46,8 @@ export async function deploy(
   }
 
   const deploy = deployer.deploy(...args);
-  const deployOpts: Parameters<DeployMethod['send']>[0] = {
-    ...(await feeOpts.toSendOpts(wallet)),
+  const deployOpts: DeployOptions = {
+    ...(await feeOpts.toDeployAccountOpts(wallet)),
     contractAddressSalt: salt,
     universalDeploy,
     skipClassRegistration,
@@ -65,7 +61,12 @@ export async function deploy(
     return;
   }
 
-  const tx = deploy.send(deployOpts);
+  const provenTx = await deploy.prove(deployOpts);
+  if (verbose) {
+    printProfileResult(provenTx.timings!, log);
+  }
+
+  const tx = provenTx.send();
 
   const txHash = await tx.getTxHash();
   debugLogger.debug(`Deploy tx sent with hash ${txHash}`);
@@ -75,14 +76,14 @@ export async function deploy(
     if (json) {
       logJson({
         address: address.toString(),
-        partialAddress: partialAddress.toString(),
+        partialAddress: (await partialAddress).toString(),
         initializationHash: instance.initializationHash.toString(),
         salt: salt.toString(),
         transactionFee: deployed.transactionFee?.toString(),
       });
     } else {
       log(`Contract deployed at ${address.toString()}`);
-      log(`Contract partial address ${partialAddress.toString()}`);
+      log(`Contract partial address ${(await partialAddress).toString()}`);
       log(`Contract init hash ${instance.initializationHash.toString()}`);
       log(`Deployment tx hash: ${txHash.toString()}`);
       log(`Deployment salt: ${salt.toString()}`);
@@ -94,7 +95,7 @@ export async function deploy(
     if (json) {
       logJson({
         address: address?.toString() ?? 'N/A',
-        partialAddress: partialAddress?.toString() ?? 'N/A',
+        partialAddress: (await partialAddress)?.toString() ?? 'N/A',
         txHash: txHash.toString(),
         initializationHash: instance.initializationHash.toString(),
         salt: salt.toString(),
@@ -102,7 +103,7 @@ export async function deploy(
       });
     } else {
       log(`Contract deployed at ${address?.toString()}`);
-      log(`Contract partial address ${partialAddress?.toString()}`);
+      log(`Contract partial address ${(await partialAddress)?.toString()}`);
       log(`Contract init hash ${instance.initializationHash.toString()}`);
       log(`Deployment tx hash: ${txHash.toString()}`);
       log(`Deployment salt: ${salt.toString()}`);

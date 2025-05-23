@@ -1,10 +1,16 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <barretenberg/common/container.hpp>
 #include <cstdint>
@@ -17,26 +23,29 @@ class ProofSurgeon {
     // construct a string of the form "[<fr_0 hex>, <fr_1 hex>, ...]"
     static std::string to_json(const std::vector<bb::fr>& data)
     {
-        return format("[", bb::join(map(data, [](auto fr) { return format("\"", fr, "\""); }), ", "), "]");
+        return format(
+            "[", bb::join(bb::transform::map(data, [](auto fr) { return format("\"", fr, "\""); }), ", "), "]");
     }
 
   public:
     /**
-     * @brief Constrcut a string containing the inputs to a noir verify_proof call (to be written to a .toml)
+     * @brief Construct a string containing the inputs to a noir verify_proof call (to be written to a .toml)
      *
      * @param proof A complete bberg style proof (i.e. contains the public inputs)
      * @param verification_key
      * @param toml_path
      */
-    template <typename Flavor>
-    static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof, const auto& verification_key)
+    static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof,
+                                                            const auto& verification_key,
+                                                            bool ipa_accumulation)
     {
         // Convert verification key to fields
         std::vector<FF> vkey_fields = verification_key.to_field_elements();
 
         // Get public inputs by cutting them out of the proof
-        size_t num_public_inputs_to_extract = verification_key.num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
-        if constexpr (bb::HasIPAAccumulator<Flavor>) {
+        size_t num_public_inputs_to_extract =
+            static_cast<uint32_t>(verification_key.num_public_inputs) - bb::PAIRING_POINTS_SIZE;
+        if (ipa_accumulation) {
             num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
         }
         debug("proof size: ", proof.size());
@@ -75,9 +84,8 @@ class ProofSurgeon {
         proof.reserve(proof_in.size() + public_inputs.size());
 
         // Construct the complete proof as the concatenation {"initial data" | public_inputs | proof_in}
-        proof.insert(proof.end(), proof_in.begin(), proof_in.begin() + bb::HONK_PROOF_PUBLIC_INPUT_OFFSET);
         proof.insert(proof.end(), public_inputs.begin(), public_inputs.end());
-        proof.insert(proof.end(), proof_in.begin() + bb::HONK_PROOF_PUBLIC_INPUT_OFFSET, proof_in.end());
+        proof.insert(proof.end(), proof_in.begin(), proof_in.end());
 
         return proof;
     }
@@ -93,11 +101,8 @@ class ProofSurgeon {
                                                             const size_t num_public_inputs_to_extract)
     {
         // Construct iterators pointing to the start and end of the public inputs within the proof
-        auto pub_inputs_begin_itr =
-            proof_witnesses.begin() + static_cast<std::ptrdiff_t>(bb::HONK_PROOF_PUBLIC_INPUT_OFFSET);
-        auto pub_inputs_end_itr =
-            proof_witnesses.begin() +
-            static_cast<std::ptrdiff_t>(bb::HONK_PROOF_PUBLIC_INPUT_OFFSET + num_public_inputs_to_extract);
+        auto pub_inputs_begin_itr = proof_witnesses.begin();
+        auto pub_inputs_end_itr = proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_public_inputs_to_extract);
 
         // Construct the isolated public inputs
         std::vector<bb::fr> public_input_witnesses{ pub_inputs_begin_itr, pub_inputs_end_itr };
@@ -121,7 +126,7 @@ class ProofSurgeon {
         std::vector<uint32_t> public_input_witness_indices;
         public_input_witness_indices.reserve(num_public_inputs_to_extract);
 
-        const size_t start = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
+        const size_t start = 0;
         const size_t end = start + num_public_inputs_to_extract;
         for (size_t i = start; i < end; ++i) {
             public_input_witness_indices.push_back(proof[i].get_witness_index());

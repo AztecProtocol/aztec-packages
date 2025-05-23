@@ -1,30 +1,25 @@
 import {
-  type MerkleTreeId,
-  type ProofAndVerificationKey,
-  type PublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
-import {
   type ARCHIVE_HEIGHT,
-  type AppendOnlyTreeSnapshot,
-  type BlockHeader,
-  type Fr,
-  type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  MembershipWitness,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
+import type { Fr } from '@aztec/foundation/fields';
+import type { Tuple } from '@aztec/foundation/serialize';
+import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import type { Proof } from '@aztec/stdlib/proofs';
 import {
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   PreviousRollupBlockData,
   RootRollupInputs,
   type RootRollupPublicInputs,
-} from '@aztec/circuits.js/rollup';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
+} from '@aztec/stdlib/rollup';
+import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import type { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
 
 import { BlockProvingState } from './block-proving-state.js';
 
@@ -78,6 +73,7 @@ export class EpochProvingState {
     l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
     lastArchiveSnapshot: AppendOnlyTreeSnapshot,
+    lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHeader: BlockHeader,
   ): BlockProvingState {
@@ -89,6 +85,7 @@ export class EpochProvingState {
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       lastArchiveSnapshot,
+      lastArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
       this,
@@ -150,26 +147,23 @@ export class EpochProvingState {
     return this.blockRootOrMergeProvingOutputs.getParentLocation(location);
   }
 
-  public async getBlockMergeRollupInputs(mergeLocation: TreeNodeLocation) {
+  public getBlockMergeRollupInputs(mergeLocation: TreeNodeLocation) {
     const [left, right] = this.blockRootOrMergeProvingOutputs.getChildren(mergeLocation);
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
     }
 
-    return new BlockMergeRollupInputs([
-      await this.#getPreviousRollupData(left),
-      await this.#getPreviousRollupData(right),
-    ]);
+    return new BlockMergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
   }
 
-  public async getRootRollupInputs(proverId: Fr) {
+  public getRootRollupInputs(proverId: Fr) {
     const [left, right] = this.#getChildProofsForRoot();
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
     }
 
     return RootRollupInputs.from({
-      previousRollupData: [await this.#getPreviousRollupData(left), await this.#getPreviousRollupData(right)],
+      previousRollupData: [this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)],
       proverId,
     });
   }
@@ -187,7 +181,7 @@ export class EpochProvingState {
     return this.blocks.find(block => block?.blockNumber === blockNumber);
   }
 
-  public getEpochProofResult() {
+  public getEpochProofResult(): { proof: Proof; publicInputs: RootRollupPublicInputs } {
     if (!this.rootRollupProvingOutput) {
       throw new Error('Unable to get epoch proof result. Root rollup is not ready.');
     }
@@ -241,7 +235,7 @@ export class EpochProvingState {
       : this.blockRootOrMergeProvingOutputs.getChildren(rootLocation);
   }
 
-  async #getPreviousRollupData({
+  #getPreviousRollupData({
     inputs,
     proof,
     verificationKey,
@@ -249,12 +243,12 @@ export class EpochProvingState {
     BlockRootOrBlockMergePublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >) {
-    const leafIndex = await getVKIndex(verificationKey.keyAsFields);
+    const leafIndex = getVKIndex(verificationKey.keyAsFields);
     return new PreviousRollupBlockData(
       inputs,
       proof,
       verificationKey.keyAsFields,
-      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex)),
+      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
     );
   }
 }

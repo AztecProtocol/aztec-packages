@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Used before releases to write version and rewrite 'workspace:^' URLs.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+version=$1
+
+tmp=$(mktemp)
+
+jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
+
+# We update every category of dependency.
+# While we don't strictly need to update devDependencies, 'workspace:^' is not a valid URL in npm.
+for deps in dependencies devDependencies peerDependencies; do
+  # Update each dependency @aztec package version in package.json.
+  for pkg in $(jq --raw-output "(.$deps // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
+    jq --arg v $version ".$deps[\"$pkg\"] = \$v" package.json >$tmp
+    mv $tmp package.json
+  done
+  # Update each dependency @noir-lang package version in package.json to point to renamed packages and versions.
+  for pkg in $(jq --raw-output '(.'$deps' // {}) | keys[] | select(startswith("@noir-lang/"))' package.json); do
+    new_pkg="@aztec/noir-${pkg#@noir-lang/}"
+    jq --arg v "$version" --arg old "$pkg" --arg new "$new_pkg" '.'$deps'[$new] = $v | del(.'$deps'[$old])' package.json > tmp.json
+    mv tmp.json package.json
+  done
+done

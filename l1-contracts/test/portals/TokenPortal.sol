@@ -13,7 +13,6 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 // docs:end:content_hash_sol_import
 
-// docs:start:init
 contract TokenPortal {
   using SafeERC20 for IERC20;
 
@@ -29,10 +28,27 @@ contract TokenPortal {
   IERC20 public underlying;
   bytes32 public l2Bridge;
 
+  IRollup public rollup;
+  IOutbox public outbox;
+  IInbox public inbox;
+  uint256 public rollupVersion;
+
+  /**
+   * @notice Initialize the portal
+   * @param _registry - The registry address
+   * @param _underlying - The underlying token address
+   * @param _l2Bridge - The L2 bridge address
+   */
+  // docs:start:init
   function initialize(address _registry, address _underlying, bytes32 _l2Bridge) external {
     registry = IRegistry(_registry);
     underlying = IERC20(_underlying);
     l2Bridge = _l2Bridge;
+
+    rollup = IRollup(registry.getCanonicalRollup());
+    outbox = rollup.getOutbox();
+    inbox = rollup.getInbox();
+    rollupVersion = rollup.getVersion();
   }
   // docs:end:init
 
@@ -47,10 +63,10 @@ contract TokenPortal {
   function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
     external
     returns (bytes32, uint256)
+  // docs:end:deposit_public
   {
     // Preamble
-    IInbox inbox = IRollup(registry.getRollup()).INBOX();
-    DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
+    DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, rollupVersion);
 
     // Hash the message content to be reconstructed in the receiving contract
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
@@ -69,7 +85,6 @@ contract TokenPortal {
 
     return (key, index);
   }
-  // docs:end:deposit_public
 
   // docs:start:deposit_private
   /**
@@ -81,10 +96,10 @@ contract TokenPortal {
   function depositToAztecPrivate(uint256 _amount, bytes32 _secretHashForL2MessageConsumption)
     external
     returns (bytes32, uint256)
+  // docs:end:deposit_private
   {
     // Preamble
-    IInbox inbox = IRollup(registry.getRollup()).INBOX();
-    DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
+    DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, rollupVersion);
 
     // Hash the message content to be reconstructed in the receiving contract - the signature below does not correspond
     // to a real function. It's just an identifier of an action.
@@ -103,7 +118,6 @@ contract TokenPortal {
 
     return (key, index);
   }
-  // docs:end:deposit_private
 
   // docs:start:token_portal_withdraw
   /**
@@ -128,7 +142,7 @@ contract TokenPortal {
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2Bridge, 1),
+      sender: DataStructures.L2Actor(l2Bridge, rollupVersion),
       recipient: DataStructures.L1Actor(address(this), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
@@ -139,8 +153,6 @@ contract TokenPortal {
         )
       )
     });
-
-    IOutbox outbox = IRollup(registry.getRollup()).OUTBOX();
 
     outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 

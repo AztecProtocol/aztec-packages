@@ -4,16 +4,17 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {GovernanceProposerBase} from "./Base.t.sol";
-import {ValidatorSelection} from "../../harnesses/ValidatorSelection.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {Fakerollup} from "./mocks/Fakerollup.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 contract VoteTest is GovernanceProposerBase {
   using SlotLib for Slot;
 
   IPayload internal proposal = IPayload(address(0xdeadbeef));
   address internal proposer = address(0);
-  ValidatorSelection internal validatorSelection;
+  Fakerollup internal validatorSelection;
 
   // Skipping this test since the it matches the for now skipped check in `EmpireBase::vote`
   function skip__test_WhenProposalHoldNoCode() external {
@@ -31,18 +32,23 @@ contract VoteTest is GovernanceProposerBase {
 
   function test_GivenCanonicalRollupHoldNoCode() external whenProposalHoldCode {
     // it revert
+
+    // Somehow we added a new rollup, and then its code was deleted. Or the registry implementation differed
+    address f = address(new Fakerollup());
+    vm.prank(registry.getGovernance());
+    registry.addRollup(IRollup(f));
+    vm.etch(f, "");
+
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(0xdead)
-      )
+      abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f))
     );
     governanceProposer.vote(proposal);
   }
 
   modifier givenCanonicalRollupHoldCode() {
-    validatorSelection = new ValidatorSelection();
+    validatorSelection = new Fakerollup();
     vm.prank(registry.getGovernance());
-    registry.upgrade(address(validatorSelection));
+    registry.addRollup(IRollup(address(validatorSelection)));
 
     // We jump into the future since slot 0, will behave as if already voted in
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
@@ -144,9 +150,9 @@ contract VoteTest is GovernanceProposerBase {
     uint256 yeaBefore =
       governanceProposer.yeaCount(address(validatorSelection), validatorSelectionRound, proposal);
 
-    ValidatorSelection freshInstance = new ValidatorSelection();
+    Fakerollup freshInstance = new Fakerollup();
     vm.prank(registry.getGovernance());
-    registry.upgrade(address(freshInstance));
+    registry.addRollup(IRollup(address(freshInstance)));
 
     vm.warp(Timestamp.unwrap(freshInstance.getTimestampForSlot(Slot.wrap(1))));
 

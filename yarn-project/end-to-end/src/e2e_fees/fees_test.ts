@@ -1,37 +1,51 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  CheatCodes,
   type Logger,
   type PXE,
-  SignerlessWallet,
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, GasSettings, computePartialAddress } from '@aztec/circuits.js';
-import { createL1Clients } from '@aztec/ethereum';
+import { CheatCodes } from '@aztec/aztec.js/testing';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
+import {
+  type DeployL1ContractsArgs,
+  RollupContract,
+  createExtendedL1Client,
+  getPublicClient,
+  l1Artifacts,
+} from '@aztec/ethereum';
+import { ChainMonitor } from '@aztec/ethereum/test';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
-import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+import { GasSettings } from '@aztec/stdlib/gas';
 
 import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
-import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
+import {
+  type ISnapshotManager,
+  type SubsystemsContext,
+  createSnapshotManager,
+  deployAccounts,
+} from '../fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import {
   type BalancesFn,
+  type SetupOptions,
   ensureAccountsPubliclyDeployed,
   getBalancesFn,
-  setupCanonicalFeeJuice,
+  setupSponsoredFPC,
 } from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
@@ -43,6 +57,7 @@ const { E2E_DATA_PATH: dataPath } = process.env;
  * PublicDeployAccounts: Deploys the accounts publicly.
  * DeployFeeJuice: Deploys the Fee Juice contract.
  * FPCSetup: Deploys BananaCoin and FPC contracts, and bridges gas from L1.
+ * SponsoredFPCSetup: Deploys Sponsored FPC contract, and bridges gas from L1.
  * FundAlice: Mints private and public bananas to Alice.
  * SetupSubscription: Deploys a counter contract and a subscription contract, and mints Fee Juice to the subscription contract.
  */
@@ -69,32 +84,59 @@ export class FeesTest {
   public feeJuiceContract!: FeeJuiceContract;
   public bananaCoin!: BananaCoin;
   public bananaFPC!: FPCContract;
+  public sponsoredFPC!: SponsoredFPCContract;
   public counterContract!: CounterContract;
   public subscriptionContract!: AppSubscriptionContract;
   public feeJuiceBridgeTestHarness!: GasBridgingTestHarness;
 
+  public context!: SubsystemsContext;
+  public chainMonitor!: ChainMonitor;
+
   public getCoinbaseBalance!: () => Promise<bigint>;
+  public getCoinbaseSequencerRewards!: () => Promise<bigint>;
   public getGasBalanceFn!: BalancesFn;
   public getBananaPublicBalanceFn!: BalancesFn;
   public getBananaPrivateBalanceFn!: BalancesFn;
+  public getProverFee!: (blockNumber: number) => Promise<bigint>;
 
   public readonly ALICE_INITIAL_BANANAS = BigInt(1e22);
   public readonly SUBSCRIPTION_AMOUNT = BigInt(1e19);
   public readonly APP_SPONSORED_TX_GAS_LIMIT = BigInt(10e9);
 
-  constructor(testName: string) {
+  constructor(
+    testName: string,
+    private numberOfAccounts = 3,
+    setupOptions: Partial<SetupOptions & DeployL1ContractsArgs> = {},
+  ) {
+    if (!numberOfAccounts) {
+      throw new Error('There must be at least 1 initial account.');
+    }
     this.logger = createLogger(`e2e:e2e_fees:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_fees/${testName}`, dataPath);
+    this.snapshotManager = createSnapshotManager(
+      `e2e_fees/${testName}-${numberOfAccounts}`,
+      dataPath,
+      { startProverNode: true, ...setupOptions },
+      { ...setupOptions },
+    );
   }
 
   async setup() {
     const context = await this.snapshotManager.setup();
     await context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
+
+    const rollupContract = RollupContract.getFromConfig(context.aztecNodeConfig);
+    this.chainMonitor = new ChainMonitor(rollupContract, this.logger, 200).start();
+
     return this;
   }
 
   async teardown() {
+    this.chainMonitor.stop();
     await this.snapshotManager.teardown();
+  }
+
+  setIsMarkingAsProven(b: boolean) {
+    this.context.watcher.setIsMarkingAsProven(b);
   }
 
   async catchUpProvenChain() {
@@ -102,6 +144,26 @@ export class FeesTest {
     while ((await this.aztecNode.getProvenBlockNumber()) < bn) {
       await sleep(1000);
     }
+  }
+
+  async getBlockRewards() {
+    const rewardDistributor = getContract({
+      address: this.context.deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
+      abi: l1Artifacts.rewardDistributor.contractAbi,
+      client: this.context.deployL1ContractsValues.l1Client,
+    });
+
+    const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+
+    const balance = await this.feeJuiceBridgeTestHarness.getL1FeeJuiceBalance(
+      EthAddress.fromString(rewardDistributor.address),
+    );
+
+    const toDistribute = balance > blockReward ? blockReward : balance;
+    const sequencerBlockRewards = toDistribute / 2n;
+    const proverBlockRewards = toDistribute - sequencerBlockRewards;
+
+    return { sequencerBlockRewards, proverBlockRewards };
   }
 
   async mintAndBridgeFeeJuice(address: AztecAddress, amount: bigint) {
@@ -130,39 +192,24 @@ export class FeesTest {
   async applyInitialAccountsSnapshot() {
     await this.snapshotManager.snapshot(
       'initial_accounts',
-      addAccounts(3, this.logger),
-      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig }) => {
+      deployAccounts(this.numberOfAccounts, this.logger),
+      async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
+
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
-        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
-        const accountManagers = await Promise.all(accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1)));
-        await Promise.all(accountManagers.map(a => a.register()));
-        this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
+        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
         [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.wallets.map(w => w.getAddress());
 
         // We set Alice as the FPC admin to avoid the need for deployment of another account.
         this.fpcAdmin = this.aliceAddress;
+
         const canonicalFeeJuice = await getCanonicalFeeJuice();
         this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
-        const bobInstance = (await this.bobWallet.getContractMetadata(this.bobAddress)).contractInstance;
-        if (!bobInstance) {
-          throw new Error('Bob instance not found');
-        }
-        await this.aliceWallet.registerAccount(accountKeys[1][0], await computePartialAddress(bobInstance));
         this.coinbase = EthAddress.random();
-
-        const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, MNEMONIC);
-        this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
-          aztecNode: aztecNode,
-          pxeService: pxe,
-          publicClient: publicClient,
-          walletClient: walletClient,
-          wallet: this.aliceWallet,
-          logger: this.logger,
-        });
       },
     );
   }
@@ -176,25 +223,19 @@ export class FeesTest {
   async applySetupFeeJuiceSnapshot() {
     await this.snapshotManager.snapshot(
       'setup_fee_juice',
-      async context => {
-        await setupCanonicalFeeJuice(
-          new SignerlessWallet(
-            context.pxe,
-            new DefaultMultiCallEntrypoint(context.aztecNodeConfig.l1ChainId, context.aztecNodeConfig.version),
-          ),
-        );
-      },
+      async () => {},
       async (_data, context) => {
+        this.context = context;
+
         this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.aliceWallet);
 
         this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 
-        const { publicClient, walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
           aztecNode: context.aztecNode,
+          aztecNodeAdmin: context.aztecNode,
           pxeService: context.pxe,
-          publicClient: publicClient,
-          walletClient: walletClient,
+          l1Client: context.deployL1ContractsValues.l1Client,
           wallet: this.aliceWallet,
           logger: this.logger,
         });
@@ -214,6 +255,13 @@ export class FeesTest {
       },
       async ({ bananaCoinAddress }) => {
         this.bananaCoin = await BananaCoin.at(bananaCoinAddress, this.aliceWallet);
+        const logger = this.logger;
+        this.getBananaPublicBalanceFn = getBalancesFn('🍌.public', this.bananaCoin.methods.balance_of_public, logger);
+        this.getBananaPrivateBalanceFn = getBalancesFn(
+          '🍌.private',
+          this.bananaCoin.methods.balance_of_private,
+          logger,
+        );
       },
     );
   }
@@ -238,29 +286,78 @@ export class FeesTest {
           bananaFPCAddress: bananaFPC.address,
           feeJuiceAddress: feeJuiceContract.address,
           l1FeeJuiceAddress: this.feeJuiceBridgeTestHarness.l1FeeJuiceAddress,
+          rollupAddress: context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
         };
       },
       async (data, context) => {
         const bananaFPC = await FPCContract.at(data.bananaFPCAddress, this.aliceWallet);
         this.bananaFPC = bananaFPC;
 
-        const logger = this.logger;
-        this.getBananaPublicBalanceFn = getBalancesFn('🍌.public', this.bananaCoin.methods.balance_of_public, logger);
-        this.getBananaPrivateBalanceFn = getBalancesFn(
-          '🍌.private',
-          this.bananaCoin.methods.balance_of_private,
-          logger,
-        );
-
         this.getCoinbaseBalance = async () => {
-          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+          const l1Client = createExtendedL1Client(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
           const gasL1 = getContract({
             address: data.l1FeeJuiceAddress.toString(),
             abi: TestERC20Abi,
-            client: walletClient,
+            client: l1Client,
           });
           return await gasL1.read.balanceOf([this.coinbase.toString()]);
         };
+
+        this.getCoinbaseSequencerRewards = async () => {
+          const l1Client = createExtendedL1Client(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+          const rollup = new RollupContract(l1Client, data.rollupAddress);
+          return await rollup.getSequencerRewards(this.coinbase);
+        };
+
+        this.getProverFee = async (blockNumber: number) => {
+          const block = await this.pxe.getBlock(blockNumber);
+
+          const publicClient = getPublicClient({
+            l1RpcUrls: context.aztecNodeConfig.l1RpcUrls,
+            l1ChainId: context.aztecNodeConfig.l1ChainId,
+          });
+          const rollup = new RollupContract(publicClient, data.rollupAddress);
+
+          // @todo @lherskind As we deal with #13601
+          // Right now the value is from `FeeLib.sol`
+          const L1_GAS_PER_EPOCH_VERIFIED = 1000000n;
+
+          // We round up
+          const mulDiv = (a: bigint, b: bigint, c: bigint) => (a * b) / c + ((a * b) % c > 0n ? 1n : 0n);
+
+          const { baseFee } = await rollup.getL1FeesAt(block!.header.globalVariables.timestamp.toBigInt());
+          const proverCost =
+            mulDiv(
+              mulDiv(L1_GAS_PER_EPOCH_VERIFIED, baseFee, await rollup.getEpochDuration()),
+              1n,
+              await rollup.getManaTarget(),
+            ) + (await rollup.getProvingCostPerMana());
+
+          const price = await rollup.getFeeAssetPerEth();
+
+          const mana = block!.header.totalManaUsed.toBigInt();
+          return mulDiv(mana * proverCost, price, 10n ** 9n);
+        };
+      },
+    );
+  }
+
+  public async applySponsoredFPCSetupSnapshot() {
+    await this.snapshotManager.snapshot(
+      'sponsored_fpc_setup',
+      async context => {
+        const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
+        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPubliclyDeployed).toBe(true);
+
+        const sponsoredFPC = await setupSponsoredFPC(context.pxe);
+        this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);
+
+        return {
+          sponsoredFPCAddress: sponsoredFPC.address,
+        };
+      },
+      async data => {
+        this.sponsoredFPC = await SponsoredFPCContract.at(data.sponsoredFPCAddress, this.aliceWallet);
       },
     );
   }
@@ -281,16 +378,6 @@ export class FeesTest {
       'fund_alice_with_private_bananas',
       async () => {
         await this.mintPrivateBananas(this.ALICE_INITIAL_BANANAS, this.aliceAddress);
-      },
-      () => Promise.resolve(),
-    );
-  }
-
-  public async applyFundAliceWithFeeJuice() {
-    await this.snapshotManager.snapshot(
-      'fund_alice_with_fee_juice',
-      async () => {
-        await this.mintAndBridgeFeeJuice(this.aliceAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT);
       },
       () => Promise.resolve(),
     );

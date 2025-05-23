@@ -1,10 +1,10 @@
 #pragma once
+#include "acir_loader.hpp"
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/solver/solver.hpp"
 #include "cvc5/cvc5.h"
 #include <string>
 #include <unordered_map>
-
 /**
  * @brief Debug helper to print solver assertions and model values
  * @param solver SMT solver instance
@@ -147,3 +147,12 @@ bool verify_lt(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
  * @return true if a counterexample is found (verification fails)
  */
 bool verify_gt(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
+
+/**
+ * @brief Verify non-uniqueness for casts
+ * @param solver SMT solver instance
+ * @param loader ACIR loader instance
+ * @param type Type of term to verify non-uniqueness for
+ * @return true if a counterexample is found (verification fails)
+ */
+bool verify_non_uniqueness_for_casts(smt_solver::Solver* solver, AcirToSmtLoader* loader, smt_circuit::TermType type);

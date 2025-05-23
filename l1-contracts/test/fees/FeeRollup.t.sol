@@ -2,31 +2,27 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {DecoderBase} from "../decoders/Base.sol";
+import {DecoderBase} from "../base/DecoderBase.sol";
+
+import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {EpochProofQuoteLib} from "@aztec/core/libraries/RollupLibs/EpochProofQuoteLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Rollup, BlockLog} from "@aztec/core/Rollup.sol";
 import {
-  Rollup,
-  Config,
-  BlockLog,
-  L1FeeData,
-  FeeHeader,
-  ManaBaseFeeComponents,
-  SubmitEpochRootProofArgs
-} from "@aztec/core/Rollup.sol";
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
-import {ValidatorSelection} from "@aztec/core/ValidatorSelection.sol";
+  IRollup,
+  SubmitEpochRootProofArgs,
+  PublicInputArgs,
+  RollupConfigInput
+} from "@aztec/core/interfaces/IRollup.sol";
+import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -35,58 +31,47 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {
-  ProposeArgs, OracleInput, ProposeLib
-} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {FeeMath, MANA_TARGET} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {
+  FeeLib,
+  FeeAssetPerEthE9,
+  EthValue,
+  FeeHeader,
+  L1FeeData,
+  ManaBaseFeeComponents
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 
 import {
-  FeeHeader as FeeHeaderModel,
-  ManaBaseFeeComponents as ManaBaseFeeComponentsModel
+  FeeModelTestPoints,
+  TestPoint,
+  FeeHeaderModel,
+  ManaBaseFeeComponentsModel
 } from "./FeeModelTestPoints.t.sol";
 
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
 
-import {FeeModelTestPoints, TestPoint} from "./FeeModelTestPoints.t.sol";
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
+
 // solhint-disable comprehensive-interface
 
-contract FakeCanonical {
-  uint256 public constant BLOCK_REWARD = 50e18;
-  IERC20 public immutable UNDERLYING;
-
-  address public canonicalRollup;
-
-  constructor(IERC20 _asset) {
-    UNDERLYING = _asset;
-  }
-
-  function setCanonicalRollup(address _rollup) external {
-    canonicalRollup = _rollup;
-  }
-
-  function claim(address _recipient) external returns (uint256) {
-    TestERC20(address(UNDERLYING)).mint(_recipient, BLOCK_REWARD);
-    return BLOCK_REWARD;
-  }
-
-  function distributeFees(address _recipient, uint256 _amount) external {
-    TestERC20(address(UNDERLYING)).mint(_recipient, _amount);
-  }
-}
+uint256 constant MANA_TARGET = 100000000;
 
 contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
+  using stdStorage for StdStorage;
+
   using SlotLib for Slot;
   using EpochLib for Epoch;
-  using FeeMath for uint256;
-  using FeeMath for ManaBaseFeeComponents;
+  using FeeLib for uint256;
+  using FeeLib for ManaBaseFeeComponents;
   // We need to build a block that we can submit. We will be using some values from
   // the empty blocks, but otherwise populate using the fee model test points.
 
   struct Block {
     bytes32 archive;
-    bytes32 blockHash;
     bytes header;
     bytes body;
     bytes blobInputs;
@@ -103,7 +88,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
   address internal coinbase = address(bytes20("MONEY MAKER"));
   TestERC20 internal asset;
-  FakeCanonical internal fakeCanonical;
+  RewardDistributor internal rewardDistributor;
+
+  constructor() {
+    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
+  }
 
   function setUp() public {
     // We deploy a the rollup and sets the time and all to
@@ -112,35 +101,21 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.fee(l1Metadata[0].base_fee);
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
-    asset = new TestERC20("test", "TEST", address(this));
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
+      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30);
+    builder.deploy();
 
-    fakeCanonical = new FakeCanonical(IERC20(address(asset)));
-    asset.transferOwnership(address(fakeCanonical));
-
-    rollup = new Rollup(
-      IFeeJuicePortal(address(fakeCanonical)),
-      IRewardDistributor(address(fakeCanonical)),
-      asset,
-      bytes32(0),
-      bytes32(0),
-      address(this),
-      Config({
-        aztecSlotDuration: SLOT_DURATION,
-        aztecEpochDuration: EPOCH_DURATION,
-        targetCommitteeSize: 48,
-        aztecEpochProofClaimWindowInL2Slots: 16,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
-      })
-    );
-    fakeCanonical.setCanonicalRollup(address(rollup));
+    rollup = builder.getConfig().rollup;
+    rewardDistributor = builder.getConfig().rewardDistributor;
+    asset = builder.getConfig().testERC20;
 
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
-    vm.label(address(fakeCanonical), "FAKE CANONICAL");
+    vm.label(address(rewardDistributor), "REWARD DISTRIBUTOR");
+    vm.label(address(rollup.getFeeAssetPortal()), "FEE ASSET PORTAL");
     vm.label(address(asset), "ASSET");
-    vm.label(rollup.CUAUHXICALLI(), "CUAUHXICALLI");
+    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
   }
 
   function _loadL1Metadata(uint256 index) internal {
@@ -157,7 +132,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
-    bytes32 blockHash = bytes32(Constants.GENESIS_BLOCK_HASH);
 
     bytes32[] memory txHashes = new bytes32[](0);
     Signature[] memory signatures = new Signature[](0);
@@ -169,18 +143,16 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     TestPoint memory point = points[slotNumber.unwrap() - 1];
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
-    uint256 bn = rollup.getPendingBlockNumber() + 1;
 
     uint256 manaBaseFee = (
-      point.outputs.mana_base_fee_components_in_fee_asset.data_cost
-        + point.outputs.mana_base_fee_components_in_fee_asset.gas_cost
-        + point.outputs.mana_base_fee_components_in_fee_asset.proving_cost
+      point.outputs.mana_base_fee_components_in_fee_asset.sequencer_cost
+        + point.outputs.mana_base_fee_components_in_fee_asset.prover_cost
         + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost
     );
 
     assertEq(
-      manaBaseFee,
       rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true),
+      manaBaseFee,
       "mana base fee mismatch"
     );
 
@@ -190,32 +162,16 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     address cb = coinbase;
 
     // Updating the header with important information!
-    assembly {
-      let headerRef := add(header, 0x20)
-
-      mstore(add(headerRef, 0x0000), archiveRoot)
-      // Load the full word at 0x20 (which contains lastArchive.nextAvailableLeafIndex and start of numTxs)
-      let word := mload(add(headerRef, 0x20))
-      // Clear just the first 4 bytes from the left (most significant bytes)
-      word := and(word, 0x00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-      // Set the new value for nextAvailableLeafIndex (bn) in the first 4 bytes from left
-      word := or(word, shl(224, bn))
-      // Store the modified word back
-      mstore(add(headerRef, 0x20), word)
-
-      mstore(add(headerRef, 0x0174), bn)
-      mstore(add(headerRef, 0x0194), slotNumber)
-      mstore(add(headerRef, 0x01b4), ts)
-      mstore(add(headerRef, 0x01d4), cb) // coinbase
-      mstore(add(headerRef, 0x01e8), 0) // fee recipient
-      mstore(add(headerRef, 0x0208), 0) // fee per da gas
-      mstore(add(headerRef, 0x0228), manaBaseFee) // fee per l2 gas
-      mstore(add(headerRef, 0x0268), manaSpent) // total mana used
-    }
+    header = DecoderBase.updateHeaderArchive(header, archiveRoot);
+    header = DecoderBase.updateHeaderSlot(header, slotNumber);
+    header = DecoderBase.updateHeaderTimestamp(header, ts);
+    header = DecoderBase.updateHeaderCoinbase(header, cb);
+    header = DecoderBase.updateHeaderFeeRecipient(header, address(0));
+    header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);
+    header = DecoderBase.updateHeaderManaUsed(header, manaSpent);
 
     return Block({
       archive: archiveRoot,
-      blockHash: blockHash,
       header: header,
       body: body,
       blobInputs: full.block.blobInputs,
@@ -239,28 +195,25 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           ProposeArgs({
             header: b.header,
             archive: b.archive,
-            blockHash: b.blockHash,
+            stateReference: new bytes(0),
             oracleInput: OracleInput({
-              provingCostModifier: point.oracle_input.proving_cost_modifier,
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
             }),
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.body,
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
       }
     }
 
-    FeeHeader memory parentFeeHeaderNoPrune =
-      rollup.getBlock(rollup.getPendingBlockNumber()).feeHeader;
+    FeeHeader memory parentFeeHeaderNoPrune = rollup.getFeeHeader(rollup.getPendingBlockNumber());
     uint256 excessManaNoPrune = (
       parentFeeHeaderNoPrune.excessMana + parentFeeHeaderNoPrune.manaUsed
     ).clampedAdd(-int256(MANA_TARGET));
 
-    FeeHeader memory parentFeeHeaderPrune = rollup.getBlock(rollup.getProvenBlockNumber()).feeHeader;
+    FeeHeader memory parentFeeHeaderPrune = rollup.getFeeHeader(rollup.getProvenBlockNumber());
     uint256 excessManaPrune = (parentFeeHeaderPrune.excessMana + parentFeeHeaderPrune.manaUsed)
       .clampedAdd(-int256(MANA_TARGET));
 
@@ -277,7 +230,10 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
-    rollup.setAssumeProvenThroughBlockNumber(10000);
+    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
+      rollup.getPendingBlockNumber()
+    );
+
     ManaBaseFeeComponents memory componentsNoPrune =
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
@@ -291,12 +247,12 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     assertEq(
       componentsPrune.congestionMultiplier,
-      FeeMath.congestionMultiplier(excessManaPrune),
+      FeeLib.congestionMultiplier(excessManaPrune),
       "congestion multiplier mismatch for prune"
     );
     assertEq(
       componentsNoPrune.congestionMultiplier,
-      FeeMath.congestionMultiplier(excessManaNoPrune),
+      FeeLib.congestionMultiplier(excessManaNoPrune),
       "congestion multiplier mismatch for no-prune"
     );
   }
@@ -320,13 +276,13 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         TestPoint memory point = points[nextSlot.unwrap() - 1];
 
         L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(block.timestamp));
-        uint256 feeAssetPrice = rollup.getFeeAssetPrice();
+        uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(rollup.getFeeAssetPerEth());
 
         ManaBaseFeeComponents memory components =
           rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), false);
         ManaBaseFeeComponents memory componentsFeeAsset =
           rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
-        BlockLog memory parentBlockLog = rollup.getBlock(nextSlot.unwrap() - 1);
+        FeeHeader memory parentFeeHeader = rollup.getFeeHeader(nextSlot.unwrap() - 1);
 
         Block memory b = getBlock();
 
@@ -335,28 +291,22 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           ProposeArgs({
             header: b.header,
             archive: b.archive,
-            blockHash: b.blockHash,
+            stateReference: new bytes(0),
             oracleInput: OracleInput({
-              provingCostModifier: point.oracle_input.proving_cost_modifier,
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
             }),
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.body,
           b.blobInputs
         );
 
-        BlockLog memory blockLog = rollup.getBlock(nextSlot.unwrap());
+        FeeHeader memory feeHeader = rollup.getFeeHeader(nextSlot.unwrap());
+
+        assertEq(baseFeePrediction, componentsFeeAsset.summedBaseFee(), "mana base fee mismatch");
 
         assertEq(
-          baseFeePrediction, componentsFeeAsset.summedBaseFee(), "base fee prediction mismatch"
-        );
-
-        assertEq(
-          componentsFeeAsset.congestionCost,
-          blockLog.feeHeader.congestionCost,
-          "congestion cost mismatch"
+          componentsFeeAsset.congestionCost, feeHeader.congestionCost, "congestion cost mismatch"
         );
         // Want to check the fee header to see if they are as we want them.
 
@@ -365,7 +315,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         assertEq(point.block_header.slot_number, nextSlot, "invalid l2 slot number");
         assertEq(point.block_header.timestamp, block.timestamp, "invalid timestamp");
 
-        assertEq(point.fee_header, blockLog.feeHeader);
+        assertEq(point.fee_header, feeHeader);
 
         assertEq(
           point.outputs.fee_asset_price_at_execution, feeAssetPrice, "fee asset price mismatch"
@@ -373,10 +323,12 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         assertEq(point.outputs.l1_fee_oracle_output.base_fee, fees.baseFee, "base fee mismatch");
         assertEq(point.outputs.l1_fee_oracle_output.blob_fee, fees.blobFee, "blob fee mismatch");
 
-        assertEq(point.outputs.mana_base_fee_components_in_wei, components);
-        assertEq(point.outputs.mana_base_fee_components_in_fee_asset, componentsFeeAsset);
+        assertEq(point.outputs.mana_base_fee_components_in_wei, components, "in_wei");
+        assertEq(
+          point.outputs.mana_base_fee_components_in_fee_asset, componentsFeeAsset, "in_fee_asset"
+        );
 
-        assertEq(point.parent_fee_header, parentBlockLog.feeHeader);
+        assertEq(point.parent_fee_header, parentFeeHeader);
 
         nextSlot = nextSlot + Slot.wrap(1);
       }
@@ -395,7 +347,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           epochSize++;
         }
 
-        uint256 feeSum = 0;
+        uint256 proverFees = 0;
+        uint256 sequencerFees = 0;
         uint256 burnSum = 0;
         bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
 
@@ -404,35 +357,36 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
           // We assume that everyone PERFECTLY pays their fees with 0 priority fees and no
           // overpaying on teardown.
-          uint256 baseFee = point.outputs.mana_base_fee_components_in_fee_asset.data_cost
-            + point.outputs.mana_base_fee_components_in_fee_asset.gas_cost
-            + point.outputs.mana_base_fee_components_in_fee_asset.proving_cost
+          uint256 baseFee = point.outputs.mana_base_fee_components_in_fee_asset.sequencer_cost
+            + point.outputs.mana_base_fee_components_in_fee_asset.prover_cost
             + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
 
-          uint256 fee = rollup.getBlock(start + feeIndex).feeHeader.manaUsed * baseFee;
-          feeSum += fee;
-          burnSum += rollup.getBlock(start + feeIndex).feeHeader.manaUsed
-            * point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
+          uint256 manaUsed = rollup.getFeeHeader(start + feeIndex).manaUsed;
+          uint256 fee = manaUsed * baseFee;
+          uint256 burn =
+            manaUsed * point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
+          burnSum += burn;
 
-          fees[feeIndex * 2] = bytes32(uint256(uint160(coinbase)));
+          uint256 proverFee = Math.min(
+            manaUsed * point.outputs.mana_base_fee_components_in_fee_asset.prover_cost, fee - burn
+          );
+          proverFees += proverFee;
+          sequencerFees += (fee - burn - proverFee);
+
+          fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
           fees[feeIndex * 2 + 1] = bytes32(fee);
         }
 
-        bytes memory aggregationObject = "";
-        bytes memory proof = "";
+        uint256 burnAddressBalanceBefore = asset.balanceOf(rollup.getBurnAddress());
+        uint256 sequencerRewardsBefore = rollup.getSequencerRewards(coinbase);
 
-        uint256 cuauhxicalliBalanceBefore = asset.balanceOf(rollup.CUAUHXICALLI());
-        uint256 coinbaseBalanceBefore = asset.balanceOf(coinbase);
-
-        bytes32[7] memory args = [
-          rollup.getBlock(start).archive,
-          rollup.getBlock(start + epochSize - 1).archive,
-          rollup.getBlock(start).blockHash,
-          rollup.getBlock(start + epochSize - 1).blockHash,
-          bytes32(0),
-          bytes32(0),
-          bytes32(0)
-        ];
+        PublicInputArgs memory args = PublicInputArgs({
+          previousArchive: rollup.getBlock(start).archive,
+          endArchive: rollup.getBlock(start + epochSize - 1).archive,
+          endTimestamp: Timestamp.wrap(0),
+          outHash: bytes32(0),
+          proverId: address(0)
+        });
 
         bytes memory blobPublicInputs;
         for (uint256 j = 0; j < epochSize; j++) {
@@ -442,25 +396,38 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             abi.encodePacked(blobPublicInputs, this.getBlobPublicInputs(full.block.blobInputs));
         }
 
-        rollup.submitEpochRootProof(
-          SubmitEpochRootProofArgs({
-            epochSize: epochSize,
-            args: args,
-            fees: fees,
-            blobPublicInputs: blobPublicInputs,
-            aggregationObject: aggregationObject,
-            proof: proof
-          })
-        );
+        {
+          rollup.submitEpochRootProof(
+            SubmitEpochRootProofArgs({
+              start: start,
+              end: start + epochSize - 1,
+              args: args,
+              fees: fees,
+              blobPublicInputs: blobPublicInputs,
+              proof: ""
+            })
+          );
+        }
 
-        uint256 burned = asset.balanceOf(rollup.CUAUHXICALLI()) - cuauhxicalliBalanceBefore;
-        assertEq(
-          asset.balanceOf(coinbase) - coinbaseBalanceBefore
-            - fakeCanonical.BLOCK_REWARD() * epochSize + burned,
-          feeSum,
-          "Sum of fees does not match"
-        );
+        uint256 burned = asset.balanceOf(rollup.getBurnAddress()) - burnAddressBalanceBefore;
         assertEq(burnSum, burned, "Sum of burned does not match");
+
+        // The reward is not yet distributed, but only accumulated.
+        {
+          uint256 newFees = rewardDistributor.BLOCK_REWARD() * epochSize / 2 + sequencerFees;
+          assertEq(
+            rollup.getSequencerRewards(coinbase),
+            sequencerRewardsBefore + newFees,
+            "sequencer rewards"
+          );
+        }
+        {
+          assertEq(
+            rollup.getCollectiveProverRewardsForEpoch(rollup.getEpochForBlock(start)),
+            rewardDistributor.BLOCK_REWARD() * epochSize / 2 + proverFees,
+            "prover rewards"
+          );
+        }
       }
     }
   }
@@ -469,24 +436,23 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     FeeHeaderModel memory bModel = FeeHeaderModel({
       excess_mana: b.excessMana,
       fee_asset_price_numerator: b.feeAssetPriceNumerator,
-      mana_used: b.manaUsed,
-      proving_cost_per_mana_numerator: b.provingCostPerManaNumerator
+      mana_used: b.manaUsed
     });
     assertEq(a, bModel);
   }
 
-  function assertEq(ManaBaseFeeComponentsModel memory a, ManaBaseFeeComponents memory b)
-    internal
-    pure
-  {
+  function assertEq(
+    ManaBaseFeeComponentsModel memory a,
+    ManaBaseFeeComponents memory b,
+    string memory _message
+  ) internal pure {
     ManaBaseFeeComponentsModel memory bModel = ManaBaseFeeComponentsModel({
       congestion_cost: b.congestionCost,
       congestion_multiplier: b.congestionMultiplier,
-      data_cost: b.dataCost,
-      gas_cost: b.gasCost,
-      proving_cost: b.provingCost
+      prover_cost: b.proverCost,
+      sequencer_cost: b.sequencerCost
     });
-    assertEq(a, bModel);
+    assertEq(a, bModel, _message);
   }
 
   // This is duplicated from Rollup.t.sol because we need to call it as this.getBlobPublicInputs

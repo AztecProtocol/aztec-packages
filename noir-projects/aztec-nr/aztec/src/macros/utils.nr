@@ -18,6 +18,18 @@ pub(crate) comptime fn is_fn_public(f: FunctionDefinition) -> bool {
     f.has_named_attribute("public")
 }
 
+pub(crate) comptime fn is_fn_utility(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("utility")
+}
+
+pub(crate) comptime fn is_fn_contract_library_method(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("contract_library_method")
+}
+
+pub(crate) comptime fn is_fn_test(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("test")
+}
+
 pub(crate) comptime fn is_fn_view(f: FunctionDefinition) -> bool {
     f.has_named_attribute("view")
 }
@@ -58,13 +70,17 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
 pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) -> Quoted {
     if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         quote { $slice_name = $slice_name.push_back($name as Field); }
-    } else if typ.as_struct().is_some() {
-        quote { $slice_name = $slice_name.append($name.serialize()); }
+    } else if typ.as_data_type().is_some() {
+        // We invoke serialize as a static trait function rather than calling $name.serialize() directly in the quote
+        // to avoid "trait not in scope" compiler warnings.
+        quote { $slice_name = $slice_name.append(aztec::protocol_types::traits::Serialize::serialize($name)); }
     } else if typ.as_array().is_some() {
         let (element_type, _) = typ.as_array().unwrap();
         let serialized_name = f"{name}_serialized".quoted_contents();
+        // We invoke serialize as a static trait function rather than calling x.serialize() directly in the quote
+        // to avoid "trait not in scope" compiler warnings.
         quote {
-            let $serialized_name = $name.map(|x: $element_type | x.serialize());
+            let $serialized_name = $name.map(|x: $element_type | aztec::protocol_types::traits::Serialize::serialize(x));
             for i in 0..$name.len() {
                 $slice_name = $slice_name.append($serialized_name[i].as_slice());
             }
@@ -84,13 +100,13 @@ pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ:
 pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Type) -> Quoted {
     if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         quote { $hasher_name.add($name as Field); }
-    } else if typ.as_struct().is_some() {
-        quote { $hasher_name.add_multiple($name.serialize()); }
+    } else if typ.as_data_type().is_some() {
+        quote { $hasher_name.add_multiple(dep::aztec::protocol_types::traits::Serialize::serialize($name)); }
     } else if typ.as_array().is_some() {
         let (element_type, _) = typ.as_array().unwrap();
         let serialized_name = f"{name}_serialized".quoted_contents();
         quote {
-           let $serialized_name = $name.map(|x: $element_type | x.serialize());
+           let $serialized_name = $name.map(|x: $element_type | dep::aztec::protocol_types::traits::Serialize::serialize(x));
             for i in 0..$name.len() {
                 $hasher_name.add_multiple($serialized_name[i]);
             }
@@ -127,8 +143,8 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         let array_len = array_len.as_constant().unwrap();
         let element_typ_quote = signature_of_type(element_type);
         f"[{element_typ_quote};{array_len}]".quoted_contents()
-    } else if typ.as_struct().is_some() {
-        let (s, generics) = typ.as_struct().unwrap();
+    } else if typ.as_data_type().is_some() {
+        let (s, generics) = typ.as_data_type().unwrap();
         let field_signatures = s
             .fields(generics)
             .map(|(_, typ): (Quoted, Type)| signature_of_type(typ))
@@ -144,7 +160,7 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
     }
 }
 
-trait AsStrQuote {
+pub(crate) trait AsStrQuote {
     fn as_str_quote(self) -> (Self, u32);
 }
 
@@ -186,12 +202,12 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote).to_field()
+        protocol_types::traits::ToField::to_field(protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote))
     };
     unquote!(computation_quote)
 }
 
-pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
+pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
     // The event selector is computed from the type signature of the struct in the event, similar to how one might type
     // the constructor function. For example, given:
     //
@@ -214,7 +230,7 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote).to_field()
+        protocol_types::traits::ToField::to_field(protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote))
     };
     unquote!(computation_quote)
 }
@@ -234,7 +250,7 @@ pub(crate) comptime fn get_storage_size(typ: Type) -> u32 {
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {
-    m.structs().any(|s: StructDefinition| {
+    m.structs().any(|s: TypeDefinition| {
         s.has_named_attribute("storage") | s.has_named_attribute("storage_no_init")
     })
 }
@@ -243,11 +259,27 @@ pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
     m.functions().any(|f: FunctionDefinition| is_fn_initializer(f))
 }
 
-pub(crate) comptime fn is_note(typ: Type) -> bool {
-    typ.as_struct().map_or(false, |struc: (StructDefinition, [Type])| {
-        let (def, _) = struc;
-        def.has_named_attribute("note")
-            | def.has_named_attribute("partial_note")
-            | def.has_named_attribute("note_custom_interface")
-    })
+/// Returns the typed expression of a trait method implementation.
+///
+/// This helper function is preferred over directly inlining with `$typ::target_method()` in a quote,
+/// as direct inlining would result in missing import warnings in the generated code (specifically,
+/// warnings that the trait implementation is not in scope).
+///
+/// # Note
+/// A copy of this function exists in `noir-protocol-circuits/crates/types/src/meta/mod.nr`. We maintain separate
+/// copies because importing it here from there would cause the `target_trait` to be interpreted in the context
+/// of the protocol circuits types crate, making it impossible to compile code for traits from this crate
+/// (e.g. NoteType).
+pub(crate) comptime fn get_trait_impl_method(
+    typ: Type,
+    target_trait: Quoted,
+    target_method: Quoted,
+) -> TypedExpr {
+    let trait_constraint = target_trait.as_trait_constraint();
+    typ
+        .get_trait_impl(trait_constraint)
+        .expect(f"Type does not implement trait")
+        .methods()
+        .filter(|m| m.name() == target_method)[0]
+        .as_typed_expr()
 }

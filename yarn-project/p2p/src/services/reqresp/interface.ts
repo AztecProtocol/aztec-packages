@@ -1,7 +1,10 @@
-import { L2Block, Tx, TxHash } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
+import { L2Block } from '@aztec/stdlib/block';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
+
+import type { ReqRespStatus } from './status.js';
 
 /*
  * Request Response Sub Protocols
@@ -30,6 +33,15 @@ export type ReqRespSubProtocolHandler = (peerId: PeerId, msg: Buffer) => Promise
  * A type mapping from supprotocol to it's rate limits
  */
 export type ReqRespSubProtocolRateLimits = Record<ReqRespSubProtocol, ProtocolRateLimitQuota>;
+
+/**
+ * The response from the ReqResp protocol
+ * Consists of a status (Error code) and data
+ */
+export interface ReqRespResponse {
+  status: ReqRespStatus;
+  data: Buffer;
+}
 
 /**
  * A rate limit quota

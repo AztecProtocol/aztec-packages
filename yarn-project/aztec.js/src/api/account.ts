@@ -1,5 +1,4 @@
-export { AccountContract, AccountInterface, AuthWitnessProvider, Salt, Wallet } from '../account/index.js';
+export { type AccountContract, type AccountInterface, type Salt, getAccountContractAddress } from '../account/index.js';
+export type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
 
-export { AccountManager } from '../account_manager/index.js';
-
-export { CompleteAddress } from '@aztec/circuit-types';
+export { AccountManager, type DeployAccountOptions } from '../account_manager/index.js';

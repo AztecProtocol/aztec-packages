@@ -7,7 +7,12 @@ import { dirname, resolve } from 'path';
 /**
  * Ensures there's a running Anvil instance and returns the RPC URL.
  */
-export async function startAnvil(l1BlockTime?: number): Promise<{ anvil: Anvil; rpcUrl: string }> {
+export async function startAnvil(
+  opts: {
+    port?: number;
+    l1BlockTime?: number;
+  } = {},
+): Promise<{ anvil: Anvil; rpcUrl: string; stop: () => Promise<void> }> {
   const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil_kill_wrapper.sh');
 
   let port: number | undefined;
@@ -18,8 +23,9 @@ export async function startAnvil(l1BlockTime?: number): Promise<{ anvil: Anvil; 
     async () => {
       const anvil = createAnvil({
         anvilBinary,
-        port: 0,
-        blockTime: l1BlockTime,
+        host: '127.0.0.1',
+        port: opts.port ?? 8545,
+        blockTime: opts.l1BlockTime,
         stopTimeout: 1000,
       });
 
@@ -43,6 +49,6 @@ export async function startAnvil(l1BlockTime?: number): Promise<{ anvil: Anvil; 
   }
 
   // Monkeypatch the anvil instance to include the actually assigned port
-  Object.defineProperty(anvil, 'port', { value: port, writable: false });
-  return { anvil, rpcUrl: `http://127.0.0.1:${port}` };
+  // Object.defineProperty(anvil, 'port', { value: port, writable: false });
+  return { anvil, stop: () => anvil.stop(), rpcUrl: `http://127.0.0.1:${port}` };
 }

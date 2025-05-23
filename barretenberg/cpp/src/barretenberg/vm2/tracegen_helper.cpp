@@ -6,31 +6,35 @@
 #include <string>
 #include <vector>
 
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/vm/stats.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/flavor.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
-#include "barretenberg/vm2/generated/relations/perms_execution.hpp"
+#include "barretenberg/vm2/tooling/stats.hpp"
+#include "barretenberg/vm2/tracegen/address_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
+#include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
+#include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
+#include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
+#include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_sha256_params.hpp"
-#include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
+#include "barretenberg/vm2/tracegen/memory_trace.hpp"
+#include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
+#include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
+#include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
+#include "barretenberg/vm2/tracegen/update_check_trace.hpp"
 
 namespace bb::avm2 {
 
@@ -55,11 +59,34 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/range_8", precomputed_builder.process_sel_range_8(trace));
             AVM_TRACK_TIME("tracegen/precomputed/range_16", precomputed_builder.process_sel_range_16(trace));
             AVM_TRACK_TIME("tracegen/precomputed/power_of_2", precomputed_builder.process_power_of_2(trace));
-            AVM_TRACK_TIME("tracegen/precomputed/unary", precomputed_builder.process_unary(trace));
             AVM_TRACK_TIME("tracegen/precomputed/sha256_round_constants",
                            precomputed_builder.process_sha256_round_constants(trace));
             AVM_TRACK_TIME("tracegen/precomputed/integral_tag_length",
                            precomputed_builder.process_integral_tag_length(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/operand_dec_selectors",
+                           precomputed_builder.process_wire_instruction_spec(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/exec_instruction_spec",
+                           precomputed_builder.process_exec_instruction_spec(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/to_radix_safe_limbs",
+                           precomputed_builder.process_to_radix_safe_limbs(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/to_radix_p_decompositions",
+                           precomputed_builder.process_to_radix_p_decompositions(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/memory_tag_ranges",
+                           precomputed_builder.process_memory_tag_range(trace));
+        },
+    };
+}
+
+auto build_public_inputs_columns_jobs(TraceContainer& trace, const PublicInputs& public_inputs)
+{
+    return std::vector<std::function<void()>>{
+        [&]() {
+            PublicInputsTraceBuilder public_inputs_builder;
+            public_inputs_builder.process_public_inputs(trace, public_inputs);
+        },
+        [&]() {
+            PublicInputsTraceBuilder public_inputs_builder;
+            public_inputs_builder.process_public_inputs_aux_precomputed(trace);
         },
     };
 }
@@ -67,15 +94,6 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
 void execute_jobs(std::span<std::function<void()>> jobs)
 {
     parallel_for(jobs.size(), [&](size_t i) { jobs[i](); });
-}
-
-// We need this to be able to make a vector of unique_ptrs.
-template <typename R, typename... Ts> std::vector<R> make_jobs(Ts&&... args)
-{
-    std::vector<R> jobs;
-    jobs.reserve(sizeof...(Ts));
-    (jobs.push_back(std::move(args)), ...);
-    return jobs;
 }
 
 template <typename T> inline void clear_events(T& c)
@@ -123,9 +141,34 @@ void print_trace_stats(const TraceContainer& trace)
     info("Sum of all column rows: ", total_rows, " (~2^", numeric::get_msb(numeric::round_up_power_2(total_rows)), ")");
 }
 
+// Check that inverses have been set, if assertions are enabled.
+// WARNING: This will not warn you if the interaction is not exercised.
+void check_interactions([[maybe_unused]] const TraceContainer& trace)
+{
+#ifndef NDEBUG
+    bb::constexpr_for<0, std::tuple_size_v<typename AvmFlavor::LookupRelations>, 1>([&]<size_t i>() {
+        using Settings = typename std::tuple_element_t<i, typename AvmFlavor::LookupRelations>::Settings;
+        if (trace.get_column_rows(Settings::SRC_SELECTOR) != 0 && trace.get_column_rows(Settings::INVERSES) == 0) {
+            std::cerr << "Inverses not set for " << Settings::NAME << ". Did you forget to run a lookup builder?"
+                      << std::endl;
+            std::abort();
+        }
+    });
+#endif
+}
+
+// A concatenate that works with movable objects.
+template <typename T> std::vector<T> concatenate_jobs(std::vector<T>&& first, auto&&... rest)
+{
+    std::vector<T> result = std::move(first);
+    result.reserve(first.size() + (rest.size() + ...));
+    (std::move(rest.begin(), rest.end(), std::back_inserter(result)), ...);
+    return result;
+}
+
 } // namespace
 
-TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
+TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const PublicInputs& public_inputs)
 {
     TraceContainer trace;
 
@@ -134,14 +177,20 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
         auto jobs = concatenate(
             // Precomputed column jobs.
             build_precomputed_columns_jobs(trace),
+            // Public inputs column jobs.
+            build_public_inputs_columns_jobs(trace, public_inputs),
             // Subtrace jobs.
             std::vector<std::function<void()>>{
                 [&]() {
                     ExecutionTraceBuilder exec_builder;
-                    AVM_TRACK_TIME("tracegen/execution",
-                                   exec_builder.process(events.execution, events.addressing, trace));
+                    AVM_TRACK_TIME("tracegen/execution", exec_builder.process(events.execution, trace));
                     clear_events(events.execution);
-                    clear_events(events.addressing);
+                },
+                [&]() {
+                    AddressDerivationTraceBuilder address_derivation_builder;
+                    AVM_TRACK_TIME("tracegen/address_derivation",
+                                   address_derivation_builder.process(events.address_derivation, trace));
+                    clear_events(events.address_derivation);
                 },
                 [&]() {
                     AluTraceBuilder alu_builder;
@@ -161,6 +210,12 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     clear_events(events.bytecode_hashing);
                 },
                 [&]() {
+                    ClassIdDerivationTraceBuilder class_id_builder;
+                    AVM_TRACK_TIME("tracegen/class_id_derivation",
+                                   class_id_builder.process(events.class_id_derivation, trace));
+                    clear_events(events.class_id_derivation);
+                },
+                [&]() {
                     BytecodeTraceBuilder bytecode_builder;
                     AVM_TRACK_TIME("tracegen/bytecode_retrieval",
                                    bytecode_builder.process_retrieval(events.bytecode_retrieval, trace));
@@ -176,34 +231,101 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     Sha256TraceBuilder sha256_builder(trace);
                     AVM_TRACK_TIME("tracegen/sha256_compression", sha256_builder.process(events.sha256_compression));
                     clear_events(events.sha256_compression);
-                } });
+                },
+                [&]() {
+                    EccTraceBuilder ecc_builder;
+                    AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process_add(events.ecc_add, trace));
+                    clear_events(events.ecc_add);
+                },
+                [&]() {
+                    EccTraceBuilder ecc_builder;
+                    AVM_TRACK_TIME("tracegen/scalar_mul", ecc_builder.process_scalar_mul(events.scalar_mul, trace));
+                    clear_events(events.scalar_mul);
+                },
+                [&]() {
+                    Poseidon2TraceBuilder poseidon2_builder;
+                    AVM_TRACK_TIME("tracegen/poseidon2_hash",
+                                   poseidon2_builder.process_hash(events.poseidon2_hash, trace));
+                    clear_events(events.poseidon2_hash);
+                },
+                [&]() {
+                    Poseidon2TraceBuilder poseidon2_builder;
+                    AVM_TRACK_TIME("tracegen/poseidon2_permutation",
+                                   poseidon2_builder.process_permutation(events.poseidon2_permutation, trace));
+                    clear_events(events.poseidon2_permutation);
+                },
+                [&]() {
+                    ToRadixTraceBuilder to_radix_builder;
+                    AVM_TRACK_TIME("tracegen/to_radix", to_radix_builder.process(events.to_radix, trace));
+                    clear_events(events.to_radix);
+                },
+                [&]() {
+                    FieldGreaterThanTraceBuilder field_gt_builder;
+                    AVM_TRACK_TIME("tracegen/field_gt", field_gt_builder.process(events.field_gt, trace));
+                    clear_events(events.field_gt);
+                },
+                [&]() {
+                    MerkleCheckTraceBuilder merkle_check_builder;
+                    AVM_TRACK_TIME("tracegen/merkle_check", merkle_check_builder.process(events.merkle_check, trace));
+                    clear_events(events.merkle_check);
+                },
+                [&]() {
+                    RangeCheckTraceBuilder range_check_builder;
+                    AVM_TRACK_TIME("tracegen/range_check", range_check_builder.process(events.range_check, trace));
+                    clear_events(events.range_check);
+                },
+                [&]() {
+                    PublicDataTreeCheckTraceBuilder public_data_tree_check_trace_builder;
+                    AVM_TRACK_TIME(
+                        "tracegen/public_data_tree_check",
+                        public_data_tree_check_trace_builder.process(events.public_data_tree_check_events, trace));
+                    clear_events(events.public_data_tree_check_events);
+                },
+                [&]() {
+                    UpdateCheckTraceBuilder update_check_trace_builder;
+                    AVM_TRACK_TIME("tracegen/update_check",
+                                   update_check_trace_builder.process(events.update_check_events, trace));
+                    clear_events(events.update_check_events);
+                },
+                [&]() {
+                    NullifierTreeCheckTraceBuilder nullifier_tree_check_trace_builder;
+                    AVM_TRACK_TIME(
+                        "tracegen/nullifier_tree_check",
+                        nullifier_tree_check_trace_builder.process(events.nullifier_tree_check_events, trace));
+                    clear_events(events.nullifier_tree_check_events);
+                },
+                [&]() {
+                    MemoryTraceBuilder memory_trace_builder;
+                    AVM_TRACK_TIME("tracegen/memory", memory_trace_builder.process(events.memory, trace));
+                    clear_events(events.memory);
+                },
+            });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
 
     // Now we can compute lookups and permutations.
     {
-        auto jobs_interactions = make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-            std::make_unique<LookupIntoBitwise<lookup_dummy_precomputed_lookup_settings>>(),
-            std::make_unique<LookupIntoDynamicTable<lookup_dummy_dynamic_lookup_settings>>(),
-            std::make_unique<PermutationBuilder<perm_dummy_dynamic_permutation_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_diff_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_pow_2_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r0_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r1_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r2_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r3_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r4_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r5_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r6_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r7_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bitw_byte_operations_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bitw_byte_lengths_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_to_read_unary_lookup_settings>>(),
-            std::make_unique<LookupIntoSha256Params<lookup_sha256_round_constant_lookup_settings>>());
+        auto jobs_interactions = concatenate_jobs(Poseidon2TraceBuilder::lookup_jobs(),
+                                                  RangeCheckTraceBuilder::lookup_jobs(),
+                                                  BitwiseTraceBuilder::lookup_jobs(),
+                                                  Sha256TraceBuilder::lookup_jobs(),
+                                                  BytecodeTraceBuilder::lookup_jobs(),
+                                                  ClassIdDerivationTraceBuilder::lookup_jobs(),
+                                                  EccTraceBuilder::lookup_jobs(),
+                                                  ToRadixTraceBuilder::lookup_jobs(),
+                                                  AddressDerivationTraceBuilder::lookup_jobs(),
+                                                  FieldGreaterThanTraceBuilder::lookup_jobs(),
+                                                  MerkleCheckTraceBuilder::lookup_jobs(),
+                                                  PublicDataTreeCheckTraceBuilder::lookup_jobs(),
+                                                  UpdateCheckTraceBuilder::lookup_jobs(),
+                                                  NullifierTreeCheckTraceBuilder::lookup_jobs(),
+                                                  MemoryTraceBuilder::lookup_jobs());
+
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }
 
+    check_interactions(trace);
     print_trace_stats(trace);
     return trace;
 }

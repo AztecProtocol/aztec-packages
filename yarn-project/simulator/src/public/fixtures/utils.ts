@@ -1,64 +1,74 @@
-import { type PublicExecutionRequest, Tx } from '@aztec/circuit-types';
 import {
-  BlockHeader,
   DEFAULT_GAS_LIMIT,
-  FunctionSelector,
-  Gas,
-  GasFees,
-  GasSettings,
+  DEPLOYER_CONTRACT_ADDRESS,
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+  REGISTERER_CONTRACT_ADDRESS,
+  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+} from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import { DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG } from '@aztec/protocol-contracts';
+import { bufferAsFields } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { siloNullifier } from '@aztec/stdlib/hash';
+import {
+  LogHash,
   PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
   PrivateKernelTailCircuitPublicInputs,
   RollupValidationRequests,
+  countAccumulatedItems,
+} from '@aztec/stdlib/kernel';
+import { ContractClassLogFields, PrivateLog } from '@aztec/stdlib/logs';
+import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import {
+  BlockHeader,
+  HashedValues,
+  PublicCallRequestWithCalldata,
+  Tx,
   TxConstantData,
   TxContext,
-} from '@aztec/circuits.js';
-import { type FunctionArtifact } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+} from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
-
-export const PUBLIC_DISPATCH_FN_NAME = 'public_dispatch';
 
 /**
  * Craft a carrier transaction for some public calls for simulation by PublicTxSimulator.
  */
-export async function createTxForPublicCalls(
+export function createTxForPublicCalls(
   firstNullifier: Fr,
-  setupExecutionRequests: PublicExecutionRequest[],
-  appExecutionRequests: PublicExecutionRequest[],
-  teardownExecutionRequest?: PublicExecutionRequest,
+  setupCallRequests: PublicCallRequestWithCalldata[],
+  appCallRequests: PublicCallRequestWithCalldata[],
+  teardownCallRequest?: PublicCallRequestWithCalldata,
   feePayer = AztecAddress.zero(),
   gasUsedByPrivate: Gas = Gas.empty(),
-): Promise<Tx> {
+): Tx {
   assert(
-    setupExecutionRequests.length > 0 || appExecutionRequests.length > 0 || teardownExecutionRequest !== undefined,
+    setupCallRequests.length > 0 || appCallRequests.length > 0 || teardownCallRequest !== undefined,
     "Can't create public tx with no enqueued calls",
   );
-  const setupCallRequests = await Promise.all(setupExecutionRequests.map(er => er.toCallRequest()));
-  const appCallRequests = await Promise.all(appExecutionRequests.map(er => er.toCallRequest()));
   // use max limits
   const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
   // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
-  forPublic.nonRevertibleAccumulatedData.nullifiers[0] = firstNullifier; // fake tx nullifier
+  forPublic.nonRevertibleAccumulatedData.nullifiers[0] = firstNullifier;
 
-  // We reverse order because the simulator expects it to be like a "stack" of calls to pop from
-  for (let i = setupCallRequests.length - 1; i >= 0; i--) {
-    forPublic.nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i];
+  for (let i = 0; i < setupCallRequests.length; i++) {
+    forPublic.nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i].request;
   }
-  for (let i = appCallRequests.length - 1; i >= 0; i--) {
-    forPublic.revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i];
+  for (let i = 0; i < appCallRequests.length; i++) {
+    forPublic.revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i].request;
   }
-  if (teardownExecutionRequest) {
-    forPublic.publicTeardownCallRequest = await teardownExecutionRequest.toCallRequest();
+  if (teardownCallRequest) {
+    forPublic.publicTeardownCallRequest = teardownCallRequest.request;
   }
 
   const maxFeesPerGas = feePayer.isZero() ? GasFees.empty() : new GasFees(10, 10);
-  const teardownGasLimits = teardownExecutionRequest ? gasLimits : Gas.empty();
+  const teardownGasLimits = teardownCallRequest ? gasLimits : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
@@ -70,41 +80,115 @@ export async function createTxForPublicCalls(
     feePayer,
     forPublic,
   );
-  const tx = Tx.newWithTxData(txData, teardownExecutionRequest);
 
-  // Reverse order because the simulator expects it to be like a "stack" of calls to pop from.
-  // Also push app calls before setup calls for this reason.
-  for (let i = appExecutionRequests.length - 1; i >= 0; i--) {
-    tx.enqueuedPublicFunctionCalls.push(appExecutionRequests[i]);
-  }
-  for (let i = setupExecutionRequests.length - 1; i >= 0; i--) {
-    tx.enqueuedPublicFunctionCalls.push(setupExecutionRequests[i]);
-  }
+  const calldata = [
+    ...setupCallRequests,
+    ...appCallRequests,
+    ...(teardownCallRequest ? [teardownCallRequest] : []),
+  ].map(r => new HashedValues(r.calldata, r.request.calldataHash));
 
-  return tx;
+  return new Tx(txData, ClientIvcProof.empty(), [], calldata);
 }
 
-export function getAvmTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
-  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
-  assert(!!artifact, `Function ${functionName} not found in AvmTestContractArtifact`);
-  const params = artifact.parameters;
-  return FunctionSelector.fromNameAndParameters(artifact.name, params);
-}
+export function createTxForPrivateOnly(feePayer = AztecAddress.zero(), gasUsedByPrivate: Gas = new Gas(10, 10)): Tx {
+  // use max limits
+  const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
-export function getAvmTestContractArtifact(functionName: string): FunctionArtifact {
-  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
-  assert(
-    !!artifact?.bytecode,
-    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
+  const forRollup = PartialPrivateTailPublicInputsForRollup.empty();
+
+  const maxFeesPerGas = feePayer.isZero() ? GasFees.empty() : new GasFees(10, 10);
+  const gasSettings = new GasSettings(gasLimits, Gas.empty(), maxFeesPerGas, GasFees.empty());
+  const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
+  const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
+
+  const txData = new PrivateKernelTailCircuitPublicInputs(
+    constantData,
+    RollupValidationRequests.empty(),
+    /*gasUsed=*/ gasUsedByPrivate,
+    feePayer,
+    /*forPublic=*/ undefined,
+    forRollup,
   );
-  return artifact;
+  return new Tx(txData, ClientIvcProof.empty(), [], []);
 }
 
-export function getAvmTestContractBytecode(functionName: string): Buffer {
-  const artifact = getAvmTestContractArtifact(functionName);
-  return artifact.bytecode;
+export async function addNewContractClassToTx(
+  tx: Tx,
+  contractClass: ContractClassPublic,
+  skipNullifierInsertion = false,
+) {
+  const contractClassLogFields = [
+    new Fr(REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE),
+    contractClass.id,
+    new Fr(contractClass.version),
+    new Fr(contractClass.artifactHash),
+    new Fr(contractClass.privateFunctionsRoot),
+    ...bufferAsFields(contractClass.packedBytecode, Math.ceil(contractClass.packedBytecode.length / 31) + 1),
+  ];
+  const contractAddress = new AztecAddress(new Fr(REGISTERER_CONTRACT_ADDRESS));
+  const emittedLength = contractClassLogFields.length;
+  const log = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
+
+  const contractClassLogHash = LogHash.from({
+    value: await log.hash(),
+    length: emittedLength,
+  }).scope(contractAddress);
+
+  const accumulatedData = tx.data.forPublic ? tx.data.forPublic!.revertibleAccumulatedData : tx.data.forRollup!.end;
+  if (!skipNullifierInsertion) {
+    const nextNullifierIndex = countAccumulatedItems(accumulatedData.nullifiers);
+    accumulatedData.nullifiers[nextNullifierIndex] = contractClass.id;
+  }
+
+  const nextLogIndex = countAccumulatedItems(accumulatedData.contractClassLogsHashes);
+  accumulatedData.contractClassLogsHashes[nextLogIndex] = contractClassLogHash;
+
+  tx.contractClassLogs.push(log);
 }
 
-export function getAvmTestContractPublicDispatchBytecode(): Buffer {
-  return getAvmTestContractBytecode(PUBLIC_DISPATCH_FN_NAME);
+export async function addNewContractInstanceToTx(
+  tx: Tx,
+  contractInstance: ContractInstanceWithAddress,
+  skipNullifierInsertion = false,
+) {
+  // can't use publicKeys.toFields() because it includes isInfinite which
+  // is not broadcast in such private logs
+  const publicKeysAsFields = [
+    contractInstance.publicKeys.masterNullifierPublicKey.x,
+    contractInstance.publicKeys.masterNullifierPublicKey.y,
+    contractInstance.publicKeys.masterIncomingViewingPublicKey.x,
+    contractInstance.publicKeys.masterIncomingViewingPublicKey.y,
+    contractInstance.publicKeys.masterOutgoingViewingPublicKey.x,
+    contractInstance.publicKeys.masterOutgoingViewingPublicKey.y,
+    contractInstance.publicKeys.masterTaggingPublicKey.x,
+    contractInstance.publicKeys.masterTaggingPublicKey.y,
+  ];
+  const logFields = [
+    DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG,
+    contractInstance.address.toField(),
+    new Fr(contractInstance.version),
+    new Fr(contractInstance.salt),
+    contractInstance.currentContractClassId,
+    contractInstance.initializationHash,
+    ...publicKeysAsFields,
+    contractInstance.deployer.toField(),
+  ];
+  const contractInstanceLog = new PrivateLog(
+    padArrayEnd(logFields, Fr.ZERO, PRIVATE_LOG_SIZE_IN_FIELDS),
+    logFields.length,
+  );
+
+  const contractAddressNullifier = await siloNullifier(
+    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+    contractInstance.address.toField(),
+  );
+
+  const accumulatedData = tx.data.forPublic ? tx.data.forPublic!.revertibleAccumulatedData : tx.data.forRollup!.end;
+  if (!skipNullifierInsertion) {
+    const nextNullifierIndex = countAccumulatedItems(accumulatedData.nullifiers);
+    accumulatedData.nullifiers[nextNullifierIndex] = contractAddressNullifier;
+  }
+
+  const nextLogIndex = countAccumulatedItems(accumulatedData.privateLogs);
+  accumulatedData.privateLogs[nextLogIndex] = contractInstanceLog;
 }

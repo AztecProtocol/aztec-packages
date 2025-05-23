@@ -1,13 +1,11 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
-#include "../hash_path.hpp"
-#include "../node_store//tree_meta.hpp"
-#include "../response.hpp"
-#include "../types.hpp"
-#include "barretenberg/common/thread_pool.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
-#include "barretenberg/crypto/merkle_tree/signal.hpp"
-#include "barretenberg/numeric/bitop/pow.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -21,6 +19,16 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "barretenberg/common/thread_pool.hpp"
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/signal.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/numeric/bitop/pow.hpp"
 
 namespace bb::crypto::merkle_tree {
 
@@ -39,22 +47,27 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using StoreType = Store;
 
     // Asynchronous methods accept these callback function types as arguments
+    using EmptyResponseCallback = std::function<void(Response&)>;
     using AppendCompletionCallback = std::function<void(TypedResponse<AddDataResponse>&)>;
     using MetaDataCallback = std::function<void(TypedResponse<TreeMetaResponse>&)>;
     using HashPathCallback = std::function<void(TypedResponse<GetSiblingPathResponse>&)>;
     using FindLeafCallback = std::function<void(TypedResponse<FindLeafIndexResponse>&)>;
     using GetLeafCallback = std::function<void(TypedResponse<GetLeafResponse>&)>;
     using CommitCallback = std::function<void(TypedResponse<CommitResponse>&)>;
-    using RollbackCallback = std::function<void(Response&)>;
+    using RollbackCallback = EmptyResponseCallback;
     using RemoveHistoricBlockCallback = std::function<void(TypedResponse<RemoveHistoricResponse>&)>;
     using UnwindBlockCallback = std::function<void(TypedResponse<UnwindResponse>&)>;
-    using FinaliseBlockCallback = std::function<void(Response&)>;
+    using FinaliseBlockCallback = EmptyResponseCallback;
     using GetBlockForIndexCallback = std::function<void(TypedResponse<BlockForIndexResponse>&)>;
+    using CheckpointCallback = EmptyResponseCallback;
+    using CheckpointCommitCallback = EmptyResponseCallback;
+    using CheckpointRevertCallback = EmptyResponseCallback;
 
     // Only construct from provided store and thread pool, no copies or moves
     ContentAddressedAppendOnlyTree(std::unique_ptr<Store> store,
                                    std::shared_ptr<ThreadPool> workers,
-                                   const std::vector<fr>& initial_values = {});
+                                   const std::vector<fr>& initial_values = {},
+                                   bool commit_genesis_state = true);
     ContentAddressedAppendOnlyTree(ContentAddressedAppendOnlyTree const& other) = delete;
     ContentAddressedAppendOnlyTree(ContentAddressedAppendOnlyTree&& other) = delete;
     ContentAddressedAppendOnlyTree& operator=(ContentAddressedAppendOnlyTree const& other) = delete;
@@ -222,6 +235,10 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
 
     void finalise_block(const block_number_t& blockNumber, const FinaliseBlockCallback& on_completion);
 
+    void checkpoint(const CheckpointCallback& on_completion);
+    void commit_checkpoint(const CheckpointCommitCallback& on_completion);
+    void revert_checkpoint(const CheckpointRevertCallback& on_completion);
+
   protected:
     using ReadTransaction = typename Store::ReadTransaction;
     using ReadTransactionPtr = typename Store::ReadTransactionPtr;
@@ -263,16 +280,16 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
 
 template <typename Store, typename HashingPolicy>
 ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnlyTree(
-    std::unique_ptr<Store> store, std::shared_ptr<ThreadPool> workers, const std::vector<fr>& initial_values)
+    std::unique_ptr<Store> store,
+    std::shared_ptr<ThreadPool> workers,
+    const std::vector<fr>& initial_values,
+    bool commit_genesis_state)
     : store_(std::move(store))
     , workers_(workers)
 {
     TreeMeta meta;
-    {
-        // start by reading the meta data from the backing store
-        ReadTransactionPtr tx = store_->create_read_transaction();
-        store_->get_meta(meta, *tx, true);
-    }
+    // start by reading the meta data from the backing store
+    store_->get_meta(meta);
     depth_ = meta.depth;
     zero_hashes_.resize(depth_ + 1);
 
@@ -292,15 +309,10 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
         return;
     }
 
-    // if the tree is empty then we want to write some initial state
-    meta.initialRoot = meta.root = current;
-    meta.initialSize = meta.size = 0;
-    store_->put_meta(meta);
-    TreeDBStats stats;
-    store_->commit(meta, stats, false);
-
-    // if we were given initial values to insert then we do that now
-    if (!initial_values.empty()) {
+    if (initial_values.empty()) {
+        meta.initialRoot = meta.root = current;
+        meta.initialSize = meta.size = 0;
+    } else {
         Signal signal(1);
         TypedResponse<AddDataResponse> result;
         add_values(initial_values, [&](const TypedResponse<AddDataResponse>& resp) {
@@ -313,16 +325,15 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
             throw std::runtime_error(format("Failed to initialise tree: ", result.message));
         }
 
-        {
-            ReadTransactionPtr tx = store_->create_read_transaction();
-            store_->get_meta(meta, *tx, true);
-        }
+        store_->get_meta(meta);
 
         meta.initialRoot = meta.root = result.inner.root;
         meta.initialSize = meta.size = result.inner.size;
+    }
+    store_->put_meta(meta);
 
-        store_->put_meta(meta);
-        store_->commit(meta, stats, false);
+    if (commit_genesis_state) {
+        store_->commit_genesis_state();
     }
 }
 
@@ -834,7 +845,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit(const CommitCa
     auto job = [=, this]() {
         execute_and_report<CommitResponse>(
             [=, this](TypedResponse<CommitResponse>& response) {
-                store_->commit(response.inner.meta, response.inner.stats);
+                store_->commit_block(response.inner.meta, response.inner.stats);
             },
             on_completion);
     };
@@ -845,6 +856,34 @@ template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const RollbackCallback& on_completion)
 {
     auto job = [=, this]() { execute_and_report([=, this]() { store_->rollback(); }, on_completion); };
+    workers_->enqueue(job);
+}
+
+// TODO(PhilWindle): One possible optimisation is for the following 3 functions
+// checkpoint, commit_checkpoint and revert_checkpoint to not use the thread pool
+// It is not stricly necessary for these operations to use it. The balance is whether
+// the cost of using it outweighs the benefit or checkpointing/reverting all tree concurrently
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::checkpoint(const CheckpointCallback& on_completion)
+{
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->checkpoint(); }, on_completion); };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit_checkpoint(
+    const CheckpointCommitCallback& on_completion)
+{
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->commit_checkpoint(); }, on_completion); };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_checkpoint(
+    const CheckpointRevertCallback& on_completion)
+{
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->revert_checkpoint(); }, on_completion); };
     workers_->enqueue(job);
 }
 
@@ -927,7 +966,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(s
 {
     ReadTransactionPtr tx = store_->create_read_transaction();
     TreeMeta meta;
-    store_->get_meta(meta, *tx, true);
+    store_->get_meta(meta);
     index_t sizeToAppend = values->size();
     new_size = meta.size;
     index_t batchIndex = 0;
@@ -952,7 +991,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_batch_internal(
     auto number_to_insert = static_cast<uint32_t>(hashes_local.size());
 
     TreeMeta meta;
-    store_->get_meta(meta, tx, true);
+    store_->get_meta(meta);
     index_t index = meta.size;
     new_size = meta.size + number_to_insert;
 

@@ -15,7 +15,9 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "@emotion/react"
+    "jsxImportSource": "@emotion/react",
+    "verbatimModuleSyntax": true,
+    "allowArbitraryExtensions": true
   },
   "include": [
     "src/**/*.ts*",

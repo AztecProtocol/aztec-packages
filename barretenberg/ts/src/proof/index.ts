@@ -9,39 +9,17 @@ export type ProofData = {
   proof: Uint8Array;
 };
 
-/**
- * @description
- * The representation of a proof
- * */
-export type ProofDataForRecursion = {
-  /** @description Public inputs of a proof */
-  publicInputs: string[];
-  /** @description An byte array representing the proof */
-  proof: string[];
-};
+export const PAIRING_POINTS_SIZE = 16;
 
-// Buffers are prepended with their size. The size takes 4 bytes.
-const serializedBufferSize = 4;
+// Fields are 32 bytes
 const fieldByteSize = 32;
-const publicInputOffset = 3;
-const publicInputsOffsetBytes = publicInputOffset * fieldByteSize;
 
-export function splitHonkProof(proofWithPublicInputs: Uint8Array): { publicInputs: Uint8Array; proof: Uint8Array } {
-  const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(4));
-
-  const numPublicInputs = Number(proofAsStrings[1]);
-
-  // Account for the serialized buffer size at start
-  const publicInputsOffset = publicInputsOffsetBytes + serializedBufferSize;
-  // Get the part before and after the public inputs
-  const proofStart = proofWithPublicInputs.slice(0, publicInputsOffset);
-  const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
-  const proofEnd = proofWithPublicInputs.slice(publicInputsOffset + publicInputsSplitIndex);
-  // Construct the proof without the public inputs
-  const proof = new Uint8Array([...proofStart, ...proofEnd]);
-
-  // Fetch the number of public inputs out of the proof string
-  const publicInputs = proofWithPublicInputs.slice(publicInputsOffset, publicInputsOffset + publicInputsSplitIndex);
+export function splitHonkProof(
+  proofWithPublicInputs: Uint8Array,
+  numPublicInputs: number,
+): { publicInputs: Uint8Array; proof: Uint8Array } {
+  const publicInputs = proofWithPublicInputs.slice(0, numPublicInputs * fieldByteSize);
+  const proof = proofWithPublicInputs.slice(numPublicInputs * fieldByteSize);
 
   return {
     proof,
@@ -50,22 +28,7 @@ export function splitHonkProof(proofWithPublicInputs: Uint8Array): { publicInput
 }
 
 export function reconstructHonkProof(publicInputs: Uint8Array, proof: Uint8Array): Uint8Array {
-  const proofStart = proof.slice(0, publicInputsOffsetBytes + serializedBufferSize);
-  const proofEnd = proof.slice(publicInputsOffsetBytes + serializedBufferSize);
-
-  // Concatenate publicInputs and proof
-  const proofWithPublicInputs = Uint8Array.from([...proofStart, ...publicInputs, ...proofEnd]);
-
-  return proofWithPublicInputs;
-}
-
-export function reconstructUltraPlonkProof(proofData: ProofData): Uint8Array {
-  // Flatten publicInputs
-  const publicInputsConcatenated = flattenFieldsAsArray(proofData.publicInputs);
-
-  // Concatenate publicInputs and proof
-  const proofWithPublicInputs = Uint8Array.from([...publicInputsConcatenated, ...proofData.proof]);
-
+  const proofWithPublicInputs = Uint8Array.from([...publicInputs, ...proof]);
   return proofWithPublicInputs;
 }
 

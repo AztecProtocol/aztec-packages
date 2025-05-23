@@ -5,21 +5,20 @@ use crate::merkle_tree::membership::MembershipWitness;
 pub struct ContractFunction {
     pub data: FunctionData,
     pub vk_hash: Field,
-    pub acir_hash: Field,
     pub membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
 }
 
-pub global default_vk: [Field; 143] = [0; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS];
+pub global default_vk: [Field; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS] =
+    [0; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS];
 
-// sibling_path taken from __snapshots__/noir_test_gen.test.ts.snap
+// sibling_path copy-and-pasted from __snapshots__/noir_test_gen.test.ts.snap (defaultContract 1)
 pub global default_private_function: ContractFunction = ContractFunction {
     data: FunctionData { selector: FunctionSelector { inner: 1010101 }, is_private: true },
     vk_hash: crate::hash::verification_key_hash(default_vk),
-    acir_hash: 1111,
     membership_witness: MembershipWitness {
         leaf_index: 0,
         sibling_path: [
-            0x1eca11cd2abe68905eab86bc4f207cde29eb7c2b4c2c9b27e3d8c2f8b8234c87,
+            0x13c663ec0bb5d328246394c6b9f33988be9c05f3aa6cbf68f7ec6f795bf1645b,
             0x233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357,
             0x0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614,
             0x1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937,
@@ -35,7 +34,6 @@ pub fn get_protocol_contract_function(contract_index: u32) -> ContractFunction {
             is_private: true,
         },
         vk_hash: crate::hash::verification_key_hash(default_vk),
-        acir_hash: 5555 + contract_index as Field,
         membership_witness: MembershipWitness {
             leaf_index: contract_index as Field,
             sibling_path: [

@@ -1,9 +1,12 @@
-import type { BlockAttestation, BlockProposal, Gossipable, PeerInfo, TxHash } from '@aztec/circuit-types';
+import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 
+import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
-import { type ReqRespSubProtocol, type SubProtocolMap } from './reqresp/interface.js';
+import type { ReqRespSubProtocol, SubProtocolMap } from './reqresp/interface.js';
 import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
 
 /**
@@ -35,7 +38,9 @@ export class DummyP2PService implements P2PService {
    * Called to have the given message propagated through the P2P network.
    * @param _ - The message to be propagated.
    */
-  public propagate<T extends Gossipable>(_: T) {}
+  public propagate<T extends Gossipable>(_: T) {
+    return Promise.resolve();
+  }
 
   /**
    * Called upon receipt of settled transactions.
@@ -81,6 +86,10 @@ export class DummyP2PService implements P2PService {
   public getEnr(): undefined {
     return undefined;
   }
+
+  validate(_txs: Tx[]): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 /**
@@ -88,6 +97,8 @@ export class DummyP2PService implements P2PService {
  */
 export class DummyPeerDiscoveryService extends EventEmitter implements PeerDiscoveryService {
   private currentState = PeerDiscoveryState.STOPPED;
+  public bootstrapNodeEnrs: ENR[] = [];
+
   /**
    * Starts the dummy implementation.
    * @returns A resolved promise.
@@ -106,9 +117,9 @@ export class DummyPeerDiscoveryService extends EventEmitter implements PeerDisco
   }
   /**
    * Called to discover peers in the network.
-   * @returns An array of discovered peer addresses.
+   * @returns An array of Enrs.
    */
-  public getAllPeers() {
+  public getKadValues() {
     return [];
   }
 

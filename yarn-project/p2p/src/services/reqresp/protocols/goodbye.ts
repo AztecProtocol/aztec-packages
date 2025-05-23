@@ -1,10 +1,10 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 
-import { type PeerManager } from '../../peer-manager/peer_manager.js';
+import type { PeerManager } from '../../peer-manager/peer_manager.js';
 import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../interface.js';
-import { type ReqResp } from '../reqresp.js';
+import type { ReqResp } from '../reqresp.js';
 
 /**
  * Enum defining the possible reasons for a goodbye message.
@@ -12,8 +12,8 @@ import { type ReqResp } from '../reqresp.js';
 export enum GoodByeReason {
   /** The peer has shutdown, will be received whenever a peer's node is routinely stopped */
   SHUTDOWN = 0x1,
-  /** Whenever the peer must disconnect due to maintaining max peers */
-  DISCONNECTED = 0x2,
+  /** The max peer count has been reached, will be received whenever a low scoring peer is disconnected to satisfy the max peer count */
+  MAX_PEERS = 0x2,
   /** The peer has a low score, will be received whenever a peer's score is low */
   LOW_SCORE = 0x3,
   /** The peer has been banned, will be received whenever a peer is banned */
@@ -34,7 +34,7 @@ export function decodeGoodbyeReason(buffer: Buffer): GoodByeReason {
       throw new Error('Invalid goodbye reason buffer length');
     }
     return buffer[0] as GoodByeReason;
-  } catch (error) {
+  } catch {
     return GoodByeReason.UNKNOWN;
   }
 }
@@ -48,8 +48,8 @@ export function prettyGoodbyeReason(reason: GoodByeReason): string {
   switch (reason) {
     case GoodByeReason.SHUTDOWN:
       return 'shutdown';
-    case GoodByeReason.DISCONNECTED:
-      return 'disconnected';
+    case GoodByeReason.MAX_PEERS:
+      return 'max_peers';
     case GoodByeReason.LOW_SCORE:
       return 'low_score';
     case GoodByeReason.BANNED:
@@ -95,7 +95,7 @@ export function reqGoodbyeHandler(peerManager: PeerManager): ReqRespSubProtocolH
 
     peerManager.goodbyeReceived(peerId, reason);
 
-    // Return a buffer of length 1 as an acknowledgement
+    // Return a buffer of length 1 as an acknowledgement: this is allowed to fail
     return Promise.resolve(Buffer.from([0x0]));
   };
 }

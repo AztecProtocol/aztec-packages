@@ -1,0 +1,12 @@
+#!/bin/bash
+sed_expr=""
+for var in $(compgen -e); do
+  if [[ "$var" =~ (KEY|TOKEN|PASSWORD|SECRET|MNEMONIC) ]]; then
+    val="${!var}"
+    if [[ -n "$val" ]]; then
+      esc=$(printf '%s\n' "$val" | sed 's/[][\/.^$*]/\\&/g')
+      sed_expr+="s/${esc}/***/g;"
+    fi
+  fi
+done
+sed -u "$sed_expr"

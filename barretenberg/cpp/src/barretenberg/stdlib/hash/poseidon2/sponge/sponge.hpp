@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include <array>
@@ -74,6 +80,13 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         for (size_t i = 0; i < rate; ++i) {
             output[i] = state[i];
         }
+        // variables with indices from rate to size of state - 1 won't be used anymore
+        // after permutation. But they aren't dangerous and needed to put in used witnesses
+        if constexpr (IsUltraBuilder<Builder>) {
+            for (size_t i = rate; i < t; i++) {
+                builder->update_used_witnesses(state[i].witness_index);
+            }
+        }
         return output;
     }
 
@@ -134,7 +147,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
      * @param input
      * @return std::array<field_t, out_len>
      */
-    template <size_t out_len, bool is_variable_length>
+    template <size_t out_len>
     static std::array<field_t, out_len> hash_internal(Builder& builder, std::span<const field_t> input)
     {
         size_t in_len = input.size();
@@ -145,38 +158,25 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
             sponge.absorb(input[i]);
         }
 
-        // In the case where the hash preimage is variable-length, we append `1` to the end of the input, to distinguish
-        // from fixed-length hashes. (the combination of this additional field element + the hash IV ensures
-        // fixed-length and variable-length hashes do not collide)
-        if constexpr (is_variable_length) {
-            sponge.absorb(1);
-        }
-
         std::array<field_t, out_len> output;
         for (size_t i = 0; i < out_len; ++i) {
             output[i] = sponge.squeeze();
         }
+        // variables with indices won't be used in the circuit.
+        // but they aren't dangerous and needed to put in used witnesses
+        if constexpr (IsUltraBuilder<Builder>) {
+            for (const auto& elem : sponge.cache) {
+                if (elem.witness_index != IS_CONSTANT) {
+                    builder.update_used_witnesses(elem.witness_index);
+                }
+            }
+        }
         return output;
     }
 
-    template <size_t out_len>
-    static std::array<field_t, out_len> hash_fixed_length(Builder& builder, std::span<const field_t> input)
+    static field_t hash_internal(Builder& builder, std::span<const field_t> input)
     {
-        return hash_internal<out_len, false>(builder, input);
-    }
-    static field_t hash_fixed_length(Builder& builder, std::span<const field_t> input)
-    {
-        return hash_fixed_length<1>(builder, input)[0];
-    }
-
-    template <size_t out_len>
-    static std::array<field_t, out_len> hash_variable_length(Builder& builder, std::span<field_t> input)
-    {
-        return hash_internal<out_len, true>(builder, input);
-    }
-    static field_t hash_variable_length(Builder& builder, std::span<field_t> input)
-    {
-        return hash_variable_length<1>(builder, input)[0];
+        return hash_internal<1>(builder, input)[0];
     }
 };
 } // namespace bb::stdlib

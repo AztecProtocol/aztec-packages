@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <sys/types.h>
 #include <utility>
@@ -10,12 +11,15 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/simulation/address_derivation.hpp"
+#include "barretenberg/vm2/simulation/bytecode_hashing.hpp"
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/lib/raw_data_db.hpp"
+#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
+#include "barretenberg/vm2/simulation/update_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -35,18 +39,24 @@ class TxBytecodeManagerInterface {
 
 class TxBytecodeManager : public TxBytecodeManagerInterface {
   public:
-    TxBytecodeManager(RawDataDBInterface& db,
-                      AddressDerivationInterface& address_derivation,
-                      ClassIdDerivationInterface& class_id_derivation,
+    TxBytecodeManager(ContractDBInterface& contract_db,
+                      HighLevelMerkleDBInterface& merkle_db,
+                      Poseidon2Interface& poseidon2,
+                      BytecodeHashingInterface& bytecode_hasher,
+                      RangeCheckInterface& range_check,
+                      UpdateCheckInterface& update_check,
+                      uint32_t current_block_number,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
-                      EventEmitterInterface<BytecodeHashingEvent>& hash_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
-        : db(db)
-        , address_derivation(address_derivation)
-        , class_id_derivation(class_id_derivation)
+        : contract_db(contract_db)
+        , merkle_db(merkle_db)
+        , poseidon2(poseidon2)
+        , bytecode_hasher(bytecode_hasher)
+        , range_check(range_check)
+        , update_check(update_check)
+        , current_block_number(current_block_number)
         , retrieval_events(retrieval_events)
-        , hash_events(hash_events)
         , decomposition_events(decomposition_events)
         , fetching_events(fetching_events)
     {}
@@ -55,11 +65,15 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     Instruction read_instruction(BytecodeId bytecode_id, uint32_t pc) override;
 
   private:
-    RawDataDBInterface& db;
-    AddressDerivationInterface& address_derivation;
-    ClassIdDerivationInterface& class_id_derivation;
+    ContractDBInterface& contract_db;
+    HighLevelMerkleDBInterface& merkle_db;
+    Poseidon2Interface& poseidon2;
+    BytecodeHashingInterface& bytecode_hasher;
+    RangeCheckInterface& range_check;
+    UpdateCheckInterface& update_check;
+    // We need the current block number for the update check interaction
+    uint32_t current_block_number;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
-    EventEmitterInterface<BytecodeHashingEvent>& hash_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;
     unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
@@ -73,25 +87,33 @@ class BytecodeManagerInterface {
   public:
     virtual ~BytecodeManagerInterface() = default;
 
-    virtual Instruction read_instruction(uint32_t pc) const = 0;
-    virtual BytecodeId get_bytecode_id() const = 0;
+    virtual Instruction read_instruction(uint32_t pc) = 0;
+    // Returns the id of the current bytecode. Tries to fetch it if not already done.
+    virtual BytecodeId get_bytecode_id() = 0;
 };
 
 class BytecodeManager : public BytecodeManagerInterface {
   public:
-    BytecodeManager(BytecodeId bytecode_id, TxBytecodeManagerInterface& tx_bytecode_manager)
-        : bytecode_id(bytecode_id)
+    BytecodeManager(AztecAddress address, TxBytecodeManagerInterface& tx_bytecode_manager)
+        : address(address)
         , tx_bytecode_manager(tx_bytecode_manager)
     {}
 
-    Instruction read_instruction(uint32_t pc) const override
+    Instruction read_instruction(uint32_t pc) override
     {
-        return tx_bytecode_manager.read_instruction(bytecode_id, pc);
+        return tx_bytecode_manager.read_instruction(get_bytecode_id(), pc);
     }
-    BytecodeId get_bytecode_id() const override { return bytecode_id; }
+    BytecodeId get_bytecode_id() override
+    {
+        if (!bytecode_id.has_value()) {
+            bytecode_id = tx_bytecode_manager.get_bytecode(address);
+        }
+        return bytecode_id.value();
+    }
 
   private:
-    BytecodeId bytecode_id;
+    AztecAddress address;
+    std::optional<BytecodeId> bytecode_id;
     TxBytecodeManagerInterface& tx_bytecode_manager;
 };
 

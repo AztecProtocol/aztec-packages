@@ -1,10 +1,5 @@
-import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
-  AppendOnlyTreeSnapshot,
-  BlockHeader,
-  EthAddress,
-  Fr,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -13,26 +8,44 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-} from '@aztec/circuits.js';
-import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
+} from '@aztec/constants';
+import { timesAsync } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import type { SiblingPath } from '@aztec/foundation/trees';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import type { L2Block } from '@aztec/stdlib/block';
+import { DatabaseVersion, DatabaseVersionManager } from '@aztec/stdlib/database-version';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { makeContentCommitment, makeGlobalVariables } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import { mkdtemp, rm } from 'fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { assertSameState, compareChains, mockBlock } from '../test/utils.js';
+import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
+import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
-import { type WorldStateStatusSummary } from './message.js';
-import { NativeWorldStateService, WORLD_STATE_VERSION_FILE } from './native_world_state.js';
-import { WorldStateVersion } from './world_state_version.js';
+import type { WorldStateStatusSummary } from './message.js';
+import { NativeWorldStateService, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from './native_world_state.js';
 
 jest.setTimeout(60_000);
 
 describe('NativeWorldState', () => {
   let dataDir: string;
+  let backupDir: string | undefined;
   let rollupAddress: EthAddress;
   const defaultDBMapSize = 25 * 1024 * 1024;
+  const wsTreeMapSizes: WorldStateTreeMapSizes = {
+    archiveTreeMapSizeKb: defaultDBMapSize,
+    nullifierTreeMapSizeKb: defaultDBMapSize,
+    noteHashTreeMapSizeKb: defaultDBMapSize,
+    messageTreeMapSizeKb: defaultDBMapSize,
+    publicDataTreeMapSizeKb: defaultDBMapSize,
+  };
 
   beforeAll(async () => {
     dataDir = await mkdtemp(join(tmpdir(), 'world-state-test'));
@@ -40,12 +53,16 @@ describe('NativeWorldState', () => {
   });
 
   afterAll(async () => {
-    await rm(dataDir, { recursive: true });
+    await rm(dataDir, { recursive: true, maxRetries: 3 });
+    if (backupDir) {
+      await rm(backupDir, { recursive: true, maxRetries: 3 });
+    }
   });
 
-  describe('persistence', () => {
+  describe('Persistence', () => {
     let block: L2Block;
     let messages: Fr[];
+    let noteHash: Fr;
 
     const findLeafIndex = async (leaf: Fr, ws: NativeWorldStateService) => {
       const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [leaf]);
@@ -55,10 +72,17 @@ describe('NativeWorldState', () => {
       return indices[0];
     };
 
+    const writeVersion = (baseDir: string) =>
+      DatabaseVersionManager.writeVersion(
+        new DatabaseVersion(WORLD_STATE_DB_VERSION, rollupAddress),
+        join(baseDir, WORLD_STATE_DIR),
+      );
+
     beforeAll(async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const fork = await ws.fork();
       ({ block, messages } = await mockBlock(1, 2, fork));
+      noteHash = block.body.txEffects[0].noteHashes[0];
       await fork.close();
 
       await ws.handleL2BlockAndMessages(block, messages);
@@ -66,16 +90,55 @@ describe('NativeWorldState', () => {
     });
 
     it('correctly restores committed state', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeDefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(1n);
       await ws.close();
     });
 
+    it('copies and restores committed state', async () => {
+      backupDir = await mkdtemp(join(tmpdir(), 'world-state-backup-test'));
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      await expect(findLeafIndex(noteHash, ws)).resolves.toBeDefined();
+      await ws.backupTo(join(backupDir, WORLD_STATE_DIR), true);
+      await ws.close();
+
+      await writeVersion(backupDir);
+      const ws2 = await NativeWorldStateService.new(rollupAddress, backupDir, wsTreeMapSizes);
+      const status2 = await ws2.getStatusSummary();
+      expect(status2.unfinalisedBlockNumber).toBe(1n);
+      await expect(findLeafIndex(noteHash, ws2)).resolves.toBeDefined();
+      expect((await ws2.getStatusSummary()).unfinalisedBlockNumber).toBe(1n);
+      await ws2.close();
+    });
+
+    it('blocks writes while copying', async () => {
+      backupDir = await mkdtemp(join(tmpdir(), 'world-state-backup-test'));
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const copyPromise = ws.backupTo(join(backupDir, WORLD_STATE_DIR), true);
+
+      await timesAsync(5, async i => {
+        const fork = await ws.fork();
+        const { block, messages } = await mockBlock(i + 1, 2, fork);
+        await ws.handleL2BlockAndMessages(block, messages);
+        await fork.close();
+      });
+
+      await copyPromise;
+      expect((await ws.getStatusSummary()).unfinalisedBlockNumber).toBe(6n);
+      await ws.close();
+
+      await writeVersion(backupDir);
+      const ws2 = await NativeWorldStateService.new(rollupAddress, backupDir, wsTreeMapSizes);
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws2)).resolves.toBeDefined();
+      expect((await ws2.getStatusSummary()).unfinalisedBlockNumber).toBe(1n);
+      await ws2.close();
+    });
+
     it('clears the database if the rollup is different', async () => {
       // open ws against the same data dir but a different rollup
-      let ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
+      let ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
       // db should be empty
       await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
 
@@ -83,7 +146,7 @@ describe('NativeWorldState', () => {
 
       // later on, open ws against the original rollup and same data dir
       // db should be empty because we wiped all its files earlier
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(0n);
@@ -92,7 +155,7 @@ describe('NativeWorldState', () => {
 
     it('clears the database if the world state version is different', async () => {
       // open ws against the data again
-      let ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      let ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       // db should be empty
       let emptyStatus = await ws.getStatusSummary();
       expect(emptyStatus.unfinalisedBlockNumber).toBe(0n);
@@ -106,27 +169,34 @@ describe('NativeWorldState', () => {
       expect(status.summary.unfinalisedBlockNumber).toBe(1n);
       await ws.close();
       // we open up the version file that was created and modify the version to be older
-      const fullPath = join(dataDir, 'world_state', WORLD_STATE_VERSION_FILE);
-      const storedWorldStateVersion = await WorldStateVersion.readVersion(fullPath);
+      const fullPath = join(dataDir, 'world_state', DatabaseVersionManager.VERSION_FILE);
+      const storedWorldStateVersion = DatabaseVersion.fromBuffer(await readFile(fullPath));
       expect(storedWorldStateVersion).toBeDefined();
-      const modifiedVersion = new WorldStateVersion(
-        storedWorldStateVersion!.version - 1,
+      const modifiedVersion = new DatabaseVersion(
+        storedWorldStateVersion!.schemaVersion - 1,
         storedWorldStateVersion!.rollupAddress,
       );
-      await modifiedVersion.writeVersionFile(fullPath);
+      await writeFile(fullPath, modifiedVersion.toBuffer());
 
       // Open the world state again and it should be empty
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       // db should be empty
       emptyStatus = await ws.getStatusSummary();
       expect(emptyStatus.unfinalisedBlockNumber).toBe(0n);
       await ws.close();
     });
 
-    it('Fails to sync further blocks if trees are out of sync', async () => {
+    it('fails to sync further blocks if trees are out of sync', async () => {
       // open ws against the same data dir but a different rollup and with a small max db size
       const rollupAddress = EthAddress.random();
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, 1024);
+      const wsTreeMapSizes: WorldStateTreeMapSizes = {
+        archiveTreeMapSizeKb: 1024,
+        nullifierTreeMapSizeKb: 1024,
+        noteHashTreeMapSizeKb: 1024,
+        messageTreeMapSizeKb: 1024,
+        publicDataTreeMapSizeKb: 1024,
+      };
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const initialFork = await ws.fork();
 
       const { block: block1, messages: messages1 } = await mockBlock(1, 8, initialFork);
@@ -164,9 +234,27 @@ describe('NativeWorldState', () => {
 
       // Creating another world state instance should fail
       await ws.close();
-      await expect(NativeWorldStateService.new(rollupAddress, dataDir, 1024)).rejects.toThrow(
+      await expect(NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes)).rejects.toThrow(
         'World state trees are out of sync',
       );
+    });
+
+    it('manually clears the database', async () => {
+      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+      const initialStatus = await ws.getStatusSummary();
+      expect(initialStatus.unfinalisedBlockNumber).toBe(0n);
+
+      // Populate the db
+      const fork = await ws.fork();
+      ({ block, messages } = await mockBlock(1, 2, fork));
+      await fork.close();
+      const status = await ws.handleL2BlockAndMessages(block, messages);
+      expect(status.summary.unfinalisedBlockNumber).toBe(1n);
+
+      // Clear it
+      await ws.clear();
+      const emptyStatus = await ws.getStatusSummary();
+      expect(emptyStatus.unfinalisedBlockNumber).toBe(0n);
     });
   });
 
@@ -174,7 +262,7 @@ describe('NativeWorldState', () => {
     let ws: NativeWorldStateService;
 
     beforeEach(async () => {
-      ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
+      ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
     }, 30_000);
 
     afterEach(async () => {
@@ -264,7 +352,7 @@ describe('NativeWorldState', () => {
       await ws.close();
     });
 
-    it('Tracks pending and proven chains', async () => {
+    it('tracks pending and proven chains', async () => {
       const fork = await ws.fork();
 
       for (let i = 0; i < 16; i++) {
@@ -287,7 +375,7 @@ describe('NativeWorldState', () => {
       }
     });
 
-    it('Can finalise multiple blocks', async () => {
+    it('can finalise multiple blocks', async () => {
       const fork = await ws.fork();
 
       for (let i = 0; i < 16; i++) {
@@ -306,7 +394,7 @@ describe('NativeWorldState', () => {
       expect(status.finalisedBlockNumber).toBe(8n);
     });
 
-    it('Can prune historic blocks', async () => {
+    it('can prune historic blocks', async () => {
       const fork = await ws.fork();
       const forks = [];
       const provenBlockLag = 4;
@@ -359,7 +447,10 @@ describe('NativeWorldState', () => {
       }
     });
 
-    it('Can re-org', async () => {
+    it.each([
+      ['1-tx blocks', (blockNumber: number, fork: MerkleTreeWriteOperations) => mockBlock(blockNumber, 1, fork)],
+      ['empty blocks', (blockNumber: number, fork: MerkleTreeWriteOperations) => mockEmptyBlock(blockNumber, fork)],
+    ])('can re-org %s', async (_, genBlock) => {
       const nonReorgState = await NativeWorldStateService.tmp();
       const sequentialReorgState = await NativeWorldStateService.tmp();
       let fork = await ws.fork();
@@ -372,7 +463,7 @@ describe('NativeWorldState', () => {
       // advance 3 chains by 8 blocks, 2 of the chains go to 16 blocks
       for (let i = 0; i < 16; i++) {
         const blockNumber = i + 1;
-        const { block, messages } = await mockBlock(blockNumber, 1, fork);
+        const { block, messages } = await genBlock(blockNumber, fork);
         const status = await ws.handleL2BlockAndMessages(block, messages);
         blockStats.push(status);
         const blockFork = await ws.fork();
@@ -452,14 +543,14 @@ describe('NativeWorldState', () => {
       for (let i = 0; i < 16; i++) {
         const blockNumber = i + 1;
         const nonReorgSnapshot = nonReorgState.getSnapshot(blockNumber);
-        const reorgSnaphsot = ws.getSnapshot(blockNumber);
-        await compareChains(reorgSnaphsot, nonReorgSnapshot);
+        const reorgSnapshot = ws.getSnapshot(blockNumber);
+        await compareChains(reorgSnapshot, nonReorgSnapshot);
       }
 
       await compareChains(ws.getCommitted(), nonReorgState.getCommitted());
     });
 
-    it('Forks are deleted during a re-org', async () => {
+    it('forks are deleted during a re-org', async () => {
       const fork = await ws.fork();
 
       const blockForks = [];
@@ -492,12 +583,12 @@ describe('NativeWorldState', () => {
     });
   });
 
-  describe('finding leaves', () => {
+  describe('Finding leaves', () => {
     let block: L2Block;
     let messages: Fr[];
 
     it('retrieves leaf indices', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
@@ -529,7 +620,7 @@ describe('NativeWorldState', () => {
     });
   });
 
-  describe('block numbers for indices', () => {
+  describe('Block numbers for indices', () => {
     let block: L2Block;
     let messages: Fr[];
     let noteHashes: number;
@@ -537,11 +628,11 @@ describe('NativeWorldState', () => {
     let publicTree: number;
 
     beforeAll(async () => {
-      await rm(dataDir, { recursive: true });
+      await rm(dataDir, { recursive: true, maxRetries: 3 });
     });
 
     it('correctly reports block numbers', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const statuses = [];
       const numBlocks = 2;
       const txsPerBlock = 2;
@@ -590,16 +681,16 @@ describe('NativeWorldState', () => {
     });
   });
 
-  describe('status reporting', () => {
+  describe('Status reporting', () => {
     let block: L2Block;
     let messages: Fr[];
 
     beforeAll(async () => {
-      await rm(dataDir, { recursive: true });
+      await rm(dataDir, { recursive: true, maxRetries: 3 });
     });
 
     it('correctly reports status', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const statuses = [];
       for (let i = 0; i < 2; i++) {
         const fork = await ws.fork();
@@ -710,6 +801,42 @@ describe('NativeWorldState', () => {
     });
   });
 
+  describe('Initialization args', () => {
+    it('initializes with prefilled public data', async () => {
+      // Without prefilled.
+      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+      const { state: initialState, ...initialRest } = ws.getInitialHeader();
+
+      // With prefilled.
+      const prefilledPublicData = [
+        new PublicDataTreeLeaf(new Fr(1000), new Fr(2000)),
+        new PublicDataTreeLeaf(new Fr(3000), new Fr(4000)),
+      ];
+      const wsPrefilled = await NativeWorldStateService.new(
+        EthAddress.random(),
+        dataDir,
+        wsTreeMapSizes,
+        prefilledPublicData,
+      );
+      const { state: prefilledState, ...prefilledRest } = wsPrefilled.getInitialHeader();
+
+      // The root of the public data tree has changed.
+      expect(initialState.partial.publicDataTree.root).not.toEqual(prefilledState.partial.publicDataTree.root);
+
+      // The rest of the values are the same.
+      expect(initialRest).toEqual(prefilledRest);
+      expect(initialState.l1ToL2MessageTree).toEqual(prefilledState.l1ToL2MessageTree);
+      expect(initialState.partial.noteHashTree).toEqual(prefilledState.partial.noteHashTree);
+      expect(initialState.partial.nullifierTree).toEqual(prefilledState.partial.nullifierTree);
+      expect(initialState.partial.publicDataTree.nextAvailableLeafIndex).toEqual(
+        prefilledState.partial.publicDataTree.nextAvailableLeafIndex,
+      );
+
+      await ws.close();
+      await wsPrefilled.close();
+    });
+  });
+
   describe('Concurrent requests', () => {
     let ws: NativeWorldStateService;
 
@@ -721,7 +848,7 @@ describe('NativeWorldState', () => {
       await ws.close();
     });
 
-    it('Mutating and non-mutating requests are correctly queued', async () => {
+    it('mutating and non-mutating requests are correctly queued', async () => {
       const numReads = 64;
       const setupFork = await ws.fork();
 
@@ -787,5 +914,365 @@ describe('NativeWorldState', () => {
 
       await Promise.all([setupFork.close(), testFork.close()]);
     }, 30_000);
+  });
+
+  describe('Checkpoints', () => {
+    let ws: NativeWorldStateService;
+
+    beforeEach(async () => {
+      ws = await NativeWorldStateService.tmp();
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(1, 2, fork);
+      await fork.close();
+
+      await ws.handleL2BlockAndMessages(block, messages);
+    });
+
+    afterEach(async () => {
+      await ws.close();
+    });
+
+    const getSiblingPaths = async (fork: MerkleTreeWriteOperations) => {
+      return await Promise.all(
+        [
+          MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+          MerkleTreeId.NOTE_HASH_TREE,
+          MerkleTreeId.NULLIFIER_TREE,
+          MerkleTreeId.PUBLIC_DATA_TREE,
+        ].map(x => fork.getSiblingPath(x, 0n)),
+      );
+    };
+
+    const advanceState = async (fork: MerkleTreeWriteOperations) => {
+      await Promise.all([
+        fork.appendLeaves(
+          MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+          Array.from({ length: 8 }, () => Fr.random()),
+        ),
+        fork.appendLeaves(
+          MerkleTreeId.NOTE_HASH_TREE,
+          Array.from({ length: 8 }, () => Fr.random()),
+        ),
+        fork.sequentialInsert(
+          MerkleTreeId.PUBLIC_DATA_TREE,
+          Array.from({ length: 8 }, () => PublicDataWrite.random().toBuffer()),
+        ),
+        fork.batchInsert(
+          MerkleTreeId.NULLIFIER_TREE,
+          Array.from({ length: 8 }, () => Fr.random().toBuffer()),
+          0,
+        ),
+      ]);
+      return getSiblingPaths(fork);
+    };
+
+    const compareState = async (
+      fork: MerkleTreeWriteOperations,
+      pathsToCheck: SiblingPath<number>[],
+      expectedEqual: boolean,
+    ) => {
+      const siblingPaths = await getSiblingPaths(fork);
+
+      if (expectedEqual) {
+        expect(siblingPaths).toEqual(pathsToCheck);
+      } else {
+        expect(siblingPaths).not.toEqual(pathsToCheck);
+      }
+      return siblingPaths;
+    };
+
+    it('can checkpoint and revert', async () => {
+      const fork = await ws.fork();
+      await fork.createCheckpoint();
+
+      const siblingPathsBefore = await getSiblingPaths(fork);
+
+      await advanceState(fork);
+
+      await compareState(fork, siblingPathsBefore, false);
+
+      await fork.revertCheckpoint();
+
+      await compareState(fork, siblingPathsBefore, true);
+
+      await fork.close();
+    });
+
+    it('can checkpoint and commit', async () => {
+      const fork = await ws.fork();
+      await fork.createCheckpoint();
+
+      const siblingPathsBefore = await getSiblingPaths(fork);
+
+      const siblingPathsAfter = await advanceState(fork);
+
+      await compareState(fork, siblingPathsBefore, false);
+
+      await fork.commitCheckpoint();
+
+      await compareState(fork, siblingPathsAfter, true);
+
+      await fork.close();
+    });
+
+    it('can checkpoint from committed', async () => {
+      const fork = await ws.fork();
+      await fork.createCheckpoint();
+
+      const siblingPathsBefore = await getSiblingPaths(fork);
+
+      const siblingPathsAfter = await advanceState(fork);
+
+      await compareState(fork, siblingPathsBefore, false);
+
+      await fork.commitCheckpoint();
+
+      await compareState(fork, siblingPathsAfter, true);
+
+      await fork.createCheckpoint();
+
+      await advanceState(fork);
+
+      await fork.commitCheckpoint();
+
+      await compareState(fork, siblingPathsAfter, false);
+
+      await fork.close();
+    });
+
+    it('can checkpoint from reverted', async () => {
+      const fork = await ws.fork();
+      await fork.createCheckpoint();
+
+      const siblingPathsBefore = await getSiblingPaths(fork);
+
+      const siblingPathsAfter = await advanceState(fork);
+
+      await compareState(fork, siblingPathsBefore, false);
+
+      await fork.commitCheckpoint();
+
+      await compareState(fork, siblingPathsAfter, true);
+
+      await fork.createCheckpoint();
+
+      await advanceState(fork);
+
+      await fork.commitCheckpoint();
+
+      await compareState(fork, siblingPathsAfter, false);
+
+      await fork.close();
+    });
+
+    it('can revert all deeper commits', async () => {
+      const fork = await ws.fork();
+      const siblingPathsBefore = await getSiblingPaths(fork);
+
+      // This is the base checkpoint, this will revert all of the others
+      await fork.createCheckpoint();
+      await advanceState(fork);
+
+      const numCommits = 10;
+
+      for (let i = 0; i < numCommits; i++) {
+        await fork.createCheckpoint();
+        await advanceState(fork);
+      }
+
+      // now commit all of these, and also advance each committed state further
+      for (let i = 0; i < numCommits; i++) {
+        await fork.commitCheckpoint();
+        await advanceState(fork);
+      }
+
+      // check we still have the same state
+      // now revert the base checkpoint
+      await fork.revertCheckpoint();
+
+      await compareState(fork, siblingPathsBefore, true);
+
+      await fork.close();
+    });
+
+    it('can checkpoint many levels', async () => {
+      const fork = await ws.fork();
+
+      const stackDepth = 20;
+
+      const siblingsAtEachLevel = [];
+
+      let index = 0;
+
+      for (; index < stackDepth - 1; index++) {
+        siblingsAtEachLevel[index] = await advanceState(fork);
+        await fork.createCheckpoint();
+      }
+
+      // Add one more depth
+      siblingsAtEachLevel[index] = await advanceState(fork);
+
+      await compareState(fork, siblingsAtEachLevel[stackDepth - 1], true);
+
+      let checkpointIndex = index;
+
+      // Alternate committing and reverting half the levels
+      for (; index > stackDepth / 2; index--) {
+        if (index % 2 == 0) {
+          // Here we change the checkpoint index
+          await fork.revertCheckpoint();
+          checkpointIndex = index - 1;
+        } else {
+          // We don't change the checkpoint index
+          await fork.commitCheckpoint();
+        }
+        await compareState(fork, siblingsAtEachLevel[checkpointIndex], true);
+      }
+
+      // Now go down the stack again
+      for (; index < stackDepth - 1; index++) {
+        siblingsAtEachLevel[index] = await advanceState(fork);
+        await fork.createCheckpoint();
+      }
+
+      // Add one more depth
+      siblingsAtEachLevel[index] = await advanceState(fork);
+
+      await compareState(fork, siblingsAtEachLevel[stackDepth - 1], true);
+
+      checkpointIndex = index;
+
+      // Alternate committing and reverting all the levels
+      for (; index > 0; index--) {
+        if (index % 2 == 0) {
+          // Here we change the checkpoint index
+          await fork.revertCheckpoint();
+          checkpointIndex = index - 1;
+        } else {
+          // We don't change the checkpoint index
+          await fork.commitCheckpoint();
+        }
+        await compareState(fork, siblingsAtEachLevel[checkpointIndex], true);
+      }
+
+      await fork.close();
+    });
+
+    it('can commit and revert', async () => {
+      const fork = await ws.fork();
+
+      const getLeaf = async (index: bigint) => {
+        const leaf = await fork.getLeafValue(MerkleTreeId.NULLIFIER_TREE, index);
+        return Fr.fromBuffer(leaf!);
+      };
+
+      const getPath = async (index: bigint) => {
+        return await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, index);
+      };
+
+      await fork.createCheckpoint();
+
+      const siblingPaths = [];
+      let size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+      let index = 0;
+      const initialSize = size;
+      const initialLeaf = await getLeaf(size - 1n);
+      const initialPath = await getPath(size - 1n);
+
+      const nullifiers: Fr[] = [];
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.createCheckpoint();
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.revertCheckpoint();
+      index--;
+
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+      expect(await getPath(size - 1n)).toEqual(siblingPaths[index]);
+
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.createCheckpoint();
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.revertCheckpoint();
+      index--;
+
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+      expect(await getPath(size - 1n)).toEqual(siblingPaths[index]);
+
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.createCheckpoint();
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.commitCheckpoint();
+
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+      expect(await getPath(size - 1n)).toEqual(siblingPaths[index]);
+
+      await fork.revertCheckpoint();
+
+      index = 0;
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+      expect(size).toBe(initialSize);
+      expect(await getLeaf(size - 1n)).toEqual(initialLeaf);
+      expect(await getPath(size - 1n)).toEqual(initialPath);
+
+      await fork.close();
+    });
   });
 });

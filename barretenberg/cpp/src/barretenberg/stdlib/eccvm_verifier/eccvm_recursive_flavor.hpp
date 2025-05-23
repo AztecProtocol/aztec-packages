@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
@@ -38,6 +44,9 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = ECCVMFlavor::USE_PADDING;
+
     static constexpr size_t NUM_WIRES = ECCVMFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -54,9 +63,6 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // Reuse the Relations from ECCVM
     using Relations = ECCVMFlavor::Relations_<FF>;
 
-    // think these two are not needed for recursive verifier land
-    // using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
-    // using LookupRelation = ECCVMLookupRelation<FF>;
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = ECCVMFlavor::MAX_PARTIAL_RELATION_LENGTH;
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
@@ -90,14 +96,9 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
      * portability of our circuits.
      */
     class VerificationKey
-        : public VerificationKey_<ECCVMFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public VerificationKey_<FF, ECCVMFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-        {
-            this->circuit_size = circuit_size;
-            this->log_circuit_size = numeric::get_msb(circuit_size);
-            this->num_public_inputs = num_public_inputs;
-        };
+        std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
 
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification
@@ -106,15 +107,18 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
          * @param builder
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
-
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(
-                builder, native_key->circuit_size, native_key->pcs_verification_key);
-            this->circuit_size = native_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = native_key->num_public_inputs;
-            this->pub_inputs_offset = native_key->pub_inputs_offset;
+            pcs_verification_key = std::make_shared<VerifierCommitmentKey>(
+                builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
+            // `log_circuit_size` from MSGPACK and the verification key.
+            this->circuit_size = FF{ 1UL << CONST_ECCVM_LOG_N };
+            this->circuit_size.convert_constant_to_fixed_witness(builder);
+            this->log_circuit_size = FF{ uint64_t(CONST_ECCVM_LOG_N) };
+            this->log_circuit_size.convert_constant_to_fixed_witness(builder);
+            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
+            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
 
             for (auto [native_commitment, commitment] : zip_view(native_key->get_all(), this->get_all())) {
                 commitment = Commitment::from_witness(builder, native_commitment);

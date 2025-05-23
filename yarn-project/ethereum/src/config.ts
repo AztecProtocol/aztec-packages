@@ -1,9 +1,19 @@
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
+  booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+
+import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
+
+export type GenesisStateConfig = {
+  /** Whether to populate the genesis state with initial fee juice for the test accounts */
+  testAccounts: boolean;
+  /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
+  sponsoredFPC: boolean;
+};
 
 export type L1ContractsConfig = {
   /** How many seconds an L1 slot lasts. */
@@ -15,7 +25,7 @@ export type L1ContractsConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: number;
   /** The number of L2 slots that we can wait for a proof of an epoch to be produced. */
-  aztecEpochProofClaimWindowInL2Slots: number;
+  aztecProofSubmissionWindow: number;
   /** The minimum stake for a validator. */
   minimumStake: bigint;
   /** The slashing quorum */
@@ -26,19 +36,25 @@ export type L1ContractsConfig = {
   governanceProposerQuorum: number;
   /** Governance proposing round size */
   governanceProposerRoundSize: number;
-};
+  /** The mana target for the rollup */
+  manaTarget: bigint;
+  /** The proving cost per mana */
+  provingCostPerMana: bigint;
+} & L1TxUtilsConfig;
 
 export const DefaultL1ContractsConfig = {
   ethereumSlotDuration: 12,
-  aztecSlotDuration: 24,
-  aztecEpochDuration: 16,
+  aztecSlotDuration: 36,
+  aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
-  aztecEpochProofClaimWindowInL2Slots: 13,
+  aztecProofSubmissionWindow: 64, // you have a full epoch to submit a proof after the epoch to prove ends
   minimumStake: BigInt(100e18),
   slashingQuorum: 6,
   slashingRoundSize: 10,
-  governanceProposerQuorum: 6,
-  governanceProposerRoundSize: 10,
+  governanceProposerQuorum: 51,
+  governanceProposerRoundSize: 100,
+  manaTarget: BigInt(1e10),
+  provingCostPerMana: BigInt(100),
 } satisfies L1ContractsConfig;
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
@@ -62,10 +78,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The target validator committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
-  aztecEpochProofClaimWindowInL2Slots: {
-    env: 'AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS',
-    description: 'The number of L2 slots that we can wait for a proof of an epoch to be produced.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.aztecEpochProofClaimWindowInL2Slots),
+  aztecProofSubmissionWindow: {
+    env: 'AZTEC_PROOF_SUBMISSION_WINDOW',
+    description:
+      'The number of L2 slots that a proof for an epoch can be submitted in, starting from the beginning of the epoch.',
+    ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionWindow),
   },
   minimumStake: {
     env: 'AZTEC_MINIMUM_STAKE',
@@ -92,8 +109,36 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The governance proposing round size',
     ...numberConfigHelper(DefaultL1ContractsConfig.governanceProposerRoundSize),
   },
+  manaTarget: {
+    env: 'AZTEC_MANA_TARGET',
+    description: 'The mana target for the rollup',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.manaTarget),
+  },
+  provingCostPerMana: {
+    env: 'AZTEC_PROVING_COST_PER_MANA',
+    description: 'The proving cost per mana',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.provingCostPerMana),
+  },
+  ...l1TxUtilsConfigMappings,
+};
+
+export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> = {
+  testAccounts: {
+    env: 'TEST_ACCOUNTS',
+    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
+    ...booleanConfigHelper(false),
+  },
+  sponsoredFPC: {
+    env: 'SPONSORED_FPC',
+    description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
+    ...booleanConfigHelper(false),
+  },
 };
 
 export function getL1ContractsConfigEnvVars(): L1ContractsConfig {
   return getConfigFromMappings(l1ContractsConfigMappings);
+}
+
+export function getGenesisStateConfigEnvVars(): GenesisStateConfig {
+  return getConfigFromMappings(genesisStateConfigMappings);
 }

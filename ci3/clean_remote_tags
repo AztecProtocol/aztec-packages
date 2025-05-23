@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Set your GitHub repository info and token if needed
+GH_OWNER="aztecprotocol"
+GH_REPO="aztec-packages"
+
+# Fetch all releases with pagination
+page=1
+per_page=100
+all_releases=""
+
+while true; do
+  page_releases=$(curl -s "https://api.github.com/repos/$GH_OWNER/$GH_REPO/releases?per_page=$per_page&page=$page" | jq -r '.[].tag_name')
+
+  # Break if no more releases are found
+  if [ -z "$page_releases" ]; then
+    break
+  fi
+
+  all_releases="$all_releases $page_releases"
+  page=$((page + 1))
+done
+# echo "${all_releases[@]}"
+
+# Create an associative array for fast lookup
+declare -A release_tags
+for tag in $all_releases; do
+  release_tags["$tag"]=1
+done
+
+# List remote tags and delete those not found in releases
+for tag in $(git ls-remote --tags origin | awk '{print $2}' | sed 's|refs/tags/||'); do
+  if [ -z "${release_tags[$tag]}" ]; then
+    echo "Deleting remote tag: $tag"
+    git push --delete origin tag "$tag"
+  fi
+done

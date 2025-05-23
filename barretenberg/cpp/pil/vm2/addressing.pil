@@ -13,9 +13,15 @@ pol commit sel_op1_is_address;
 pol commit sel_op2_is_address;
 pol commit sel_op3_is_address;
 pol commit sel_op4_is_address;
+pol commit sel_op5_is_address;
+pol commit sel_op6_is_address;
+pol commit sel_op7_is_address;
 // operands after relative resolution
 pol commit op1_after_relative;
 pol commit op2_after_relative;
 pol commit op3_after_relative;
 pol commit op4_after_relative;
+pol commit op5_after_relative;
+pol commit op6_after_relative;
+pol commit op7_after_relative;
 // operands after indirect resolution are the resolved_operands rop1, ...

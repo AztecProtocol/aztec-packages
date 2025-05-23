@@ -37,6 +37,11 @@ on:
         required: true
         type: string
         default: "grafana-dashboard-password"
+      slack_webhook_url_secret_name:
+        description: The name of the secret which holds the Slack webhook URL
+        required: true
+        type: string
+        default: "slack-webhook-url"
     secrets:
       GCP_SA_KEY:
         required: true
@@ -70,6 +75,10 @@ on:
         description: The name of the secret which holds the Grafana dashboard password
         required: true
         default: "grafana-dashboard-password"
+      slack_webhook_url_secret_name:
+        description: The name of the secret which holds the Slack webhook URL
+        required: true
+        default: "slack-webhook-url"
 
 jobs:
   metrics_deployment:
@@ -89,10 +98,11 @@ jobs:
       TF_STATE_BUCKET: aztec-terraform
       GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_${{ inputs.cluster }}"
       GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME: ${{ inputs.grafana_dashboard_password_secret_name }}
+      SLACK_WEBHOOK_URL_SECRET_NAME: ${{ inputs.slack_webhook_url_secret_name }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
 
@@ -117,6 +127,12 @@ jobs:
         run: |
           echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }})"
           echo "grafana_dashboard_password=$(gcloud secrets versions access latest --secret=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
+
+      - name: Grab the Slack webhook URL
+        id: get-slack-webhook-url
+        run: |
+          echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }})"
+          echo "slack_webhook_url=$(gcloud secrets versions access latest --secret=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
 
       - name: Ensure Terraform state bucket exists
         run: |
@@ -155,6 +171,7 @@ jobs:
             -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
             -var="GRAFANA_DASHBOARD_PASSWORD=${{ steps.get-grafana-dashboard-password.outputs.grafana_dashboard_password }}" \
+            -var="SLACK_WEBHOOK_URL=${{ steps.get-slack-webhook-url.outputs.slack_webhook_url }}" \
             -lock=${{ inputs.respect_tf_lock }}
 
       - name: Terraform Plan
@@ -165,6 +182,7 @@ jobs:
             -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
             -var="GRAFANA_DASHBOARD_PASSWORD=${{ steps.get-grafana-dashboard-password.outputs.grafana_dashboard_password }}" \
+            -var="SLACK_WEBHOOK_URL=${{ steps.get-slack-webhook-url.outputs.slack_webhook_url }}" \
             -out=tfplan \
             -lock=${{ inputs.respect_tf_lock }}
 

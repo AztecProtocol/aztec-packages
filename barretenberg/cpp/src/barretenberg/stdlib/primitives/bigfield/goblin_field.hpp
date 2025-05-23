@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "../bigfield/bigfield.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
@@ -21,15 +27,20 @@ namespace bb::stdlib {
  */
 template <class Builder> class goblin_field {
   public:
-    static constexpr uint1024_t DEFAULT_MAXIMUM_REMAINDER =
+    inline static const uint1024_t DEFAULT_MAXIMUM_REMAINDER =
         bigfield<Builder, bb::Bn254FqParams>::DEFAULT_MAXIMUM_REMAINDER;
     static constexpr size_t NUM_LIMBS = bigfield<Builder, bb::Bn254FqParams>::NUM_LIMBS;
     static constexpr size_t NUM_LIMB_BITS = bigfield<Builder, bb::Bn254FqParams>::NUM_LIMB_BITS;
-    static constexpr size_t NUM_LAST_LIMB_BITS = bigfield<Builder, bb::Bn254FqParams>::NUM_LAST_LIMB_BITS;
+    static constexpr size_t NUM_LAST_LIMB_BITS =
+        static_cast<size_t>(bigfield<Builder, bb::Bn254FqParams>::NUM_LAST_LIMB_BITS);
 
     using field_ct = stdlib::field_t<Builder>;
     using bool_ct = stdlib::bool_t<Builder>;
     std::array<field_ct, 2> limbs;
+
+    // Number of bb::fr elements used to represent a goblin field in the public inputs. (Note: 4 instead of 2 for
+    // consistency with bigfield).
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 4;
 
     // constructors mirror bigfield constructors
     goblin_field()
@@ -128,6 +139,32 @@ template <class Builder> class goblin_field {
     {
         limbs[0].set_origin_tag(tag);
         limbs[1].set_origin_tag(tag);
+    }
+
+    /**
+     * @brief Set the witness indices for the limbs of the goblin field to public
+     * @details For consistency with bigfield, a goblin field is represented in the public inputs using four limbs.
+     *
+     * @return uint32_t The public input index at which the representation of the goblin field starts
+     */
+    uint32_t set_public() const
+    {
+        using BigFq = stdlib::bigfield<Builder, bb::fq::Params>;
+
+        BigFq bigfield_equivalent(limbs[0], limbs[1]);
+        const uint32_t start_idx = bigfield_equivalent.set_public();
+
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct goblin field from its representation as limbs as stored in the public inputs
+     * @details For consistency with bigfield, a goblin field is represented in the public inputs using four limbs.
+     *
+     */
+    static goblin_field reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        return construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
     }
 };
 template <typename C> inline std::ostream& operator<<(std::ostream& os, goblin_field<C> const& v)

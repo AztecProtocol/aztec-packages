@@ -1,30 +1,41 @@
-import { InboxLeaf, L2Block, LogId, TxEffect, TxHash, wrapInBlock } from '@aztec/circuit-types';
-import '@aztec/circuit-types/jest';
 import {
-  AztecAddress,
+  INITIAL_L2_BLOCK_NUM,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_SIZE_IN_FIELDS,
+} from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
+import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { times, timesParallel } from '@aztec/foundation/collection';
+import { randomInt } from '@aztec/foundation/crypto';
+import { Signature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
+import { toArray } from '@aztec/foundation/iterable';
+import { sleep } from '@aztec/foundation/sleep';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2Block, wrapInBlock } from '@aztec/stdlib/block';
+import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
-  Fr,
-  INITIAL_L2_BLOCK_NUM,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  MAX_NULLIFIERS_PER_TX,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-  PrivateLog,
-  PublicLog,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
+} from '@aztec/stdlib/contract';
+import { LogId, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import { InboxLeaf } from '@aztec/stdlib/messaging';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,
-  makeUnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js/testing';
-import { times, timesParallel } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
+  makeUtilityFunctionWithMembershipProof,
+} from '@aztec/stdlib/testing';
+import '@aztec/stdlib/testing/jest';
+import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
-import { type L1Published } from './structs/published.js';
+import { makeInboxMessage, makeInboxMessages } from '../test/mock_structs.js';
+import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
+import { BlockNumberNotSequentialError, InitialBlockNumberNotSequentialError } from './errors.js';
+import { MessageStoreError } from './kv_archiver_store/message_store.js';
+import type { InboxMessage } from './structs/inbox_message.js';
+import type { PublishedL2Block } from './structs/published.js';
 
 /**
  * @param testName - The name of the test suite.
@@ -36,8 +47,9 @@ export function describeArchiverDataStore(
 ) {
   describe(testName, () => {
     let store: ArchiverDataStore;
-    let blocks: L1Published<L2Block>[];
-    const blockTests: [number, number, () => L1Published<L2Block>[]][] = [
+    let blocks: PublishedL2Block[];
+
+    const blockTests: [number, number, () => PublishedL2Block[]][] = [
       [1, 1, () => blocks.slice(0, 1)],
       [10, 1, () => blocks.slice(9, 10)],
       [1, 10, () => blocks.slice(0, 10)],
@@ -45,18 +57,30 @@ export function describeArchiverDataStore(
       [5, 2, () => blocks.slice(4, 6)],
     ];
 
-    const makeL1Published = (block: L2Block, l1BlockNumber: number): L1Published<L2Block> => ({
-      data: block,
+    const makePublished = (block: L2Block, l1BlockNumber: number): PublishedL2Block => ({
+      block: block,
       l1: {
         blockNumber: BigInt(l1BlockNumber),
         blockHash: `0x${l1BlockNumber}`,
         timestamp: BigInt(l1BlockNumber * 1000),
       },
+      signatures: times(3, Signature.random),
     });
+
+    const expectBlocksEqual = (actual: PublishedL2Block[], expected: PublishedL2Block[]) => {
+      expect(actual.length).toEqual(expected.length);
+      for (let i = 0; i < expected.length; i++) {
+        const expectedBlock = expected[i];
+        const actualBlock = actual[i];
+        expect(actualBlock.l1).toEqual(expectedBlock.l1);
+        expect(actualBlock.block.equals(expectedBlock.block)).toBe(true);
+        expect(actualBlock.signatures.every((s, i) => s.equals(expectedBlock.signatures[i]))).toBe(true);
+      }
+    };
 
     beforeEach(async () => {
       store = await getStore();
-      blocks = await timesParallel(10, async i => makeL1Published(await L2Block.random(i + 1), i + 10));
+      blocks = await timesParallel(10, async i => makePublished(await L2Block.random(i + 1), i + 10));
     });
 
     describe('addBlocks', () => {
@@ -68,6 +92,18 @@ export function describeArchiverDataStore(
         await store.addBlocks(blocks);
         await expect(store.addBlocks(blocks)).resolves.toBe(true);
       });
+
+      it('throws an error if the previous block does not exist in the store', async () => {
+        const block = makePublished(await L2Block.random(2), 2);
+        await expect(store.addBlocks([block])).rejects.toThrow(InitialBlockNumberNotSequentialError);
+        await expect(store.getPublishedBlocks(1, 10)).resolves.toEqual([]);
+      });
+
+      it('throws an error if there is a gap in the blocks being added', async () => {
+        const blocks = [makePublished(await L2Block.random(1), 1), makePublished(await L2Block.random(3), 3)];
+        await expect(store.addBlocks(blocks)).rejects.toThrow(BlockNumberNotSequentialError);
+        await expect(store.getPublishedBlocks(1, 10)).resolves.toEqual([]);
+      });
     });
 
     describe('unwindBlocks', () => {
@@ -75,22 +111,22 @@ export function describeArchiverDataStore(
         await store.addBlocks(blocks);
         const blockNumber = await store.getSynchedL2BlockNumber();
 
-        expect(await store.getBlocks(blockNumber, 1)).toEqual([blocks[blocks.length - 1]]);
+        expectBlocksEqual(await store.getPublishedBlocks(blockNumber, 1), [blocks[blocks.length - 1]]);
 
         await store.unwindBlocks(blockNumber, 1);
 
         expect(await store.getSynchedL2BlockNumber()).toBe(blockNumber - 1);
-        expect(await store.getBlocks(blockNumber, 1)).toEqual([]);
+        expect(await store.getPublishedBlocks(blockNumber, 1)).toEqual([]);
       });
 
       it('can unwind multiple empty blocks', async () => {
-        const emptyBlocks = await timesParallel(10, async i => makeL1Published(await L2Block.random(i + 1, 0), i + 10));
+        const emptyBlocks = await timesParallel(10, async i => makePublished(await L2Block.random(i + 1, 0), i + 10));
         await store.addBlocks(emptyBlocks);
         expect(await store.getSynchedL2BlockNumber()).toBe(10);
 
         await store.unwindBlocks(10, 3);
         expect(await store.getSynchedL2BlockNumber()).toBe(7);
-        expect((await store.getBlocks(1, 10)).map(b => b.data.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+        expect((await store.getPublishedBlocks(1, 10)).map(b => b.block.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
       });
 
       it('refuses to unwind blocks if the tip is not the last block', async () => {
@@ -105,19 +141,32 @@ export function describeArchiverDataStore(
       });
 
       it.each(blockTests)('retrieves previously stored blocks', async (start, limit, getExpectedBlocks) => {
-        await expect(store.getBlocks(start, limit)).resolves.toEqual(getExpectedBlocks());
+        expectBlocksEqual(await store.getPublishedBlocks(start, limit), getExpectedBlocks());
       });
 
       it('returns an empty array if no blocks are found', async () => {
-        await expect(store.getBlocks(12, 1)).resolves.toEqual([]);
+        await expect(store.getPublishedBlocks(12, 1)).resolves.toEqual([]);
       });
 
       it('throws an error if limit is invalid', async () => {
-        await expect(store.getBlocks(1, 0)).rejects.toThrow('Invalid limit: 0');
+        await expect(store.getPublishedBlocks(1, 0)).rejects.toThrow('Invalid limit: 0');
       });
 
       it('throws an error if `from` it is out of range', async () => {
-        await expect(store.getBlocks(INITIAL_L2_BLOCK_NUM - 100, 1)).rejects.toThrow('Invalid start: -99');
+        await expect(store.getPublishedBlocks(INITIAL_L2_BLOCK_NUM - 100, 1)).rejects.toThrow('Invalid start: -99');
+      });
+
+      it('throws an error if unexpected initial block number is found', async () => {
+        await store.addBlocks([makePublished(await L2Block.random(21), 31)], { force: true });
+        await expect(store.getPublishedBlocks(20, 1)).rejects.toThrow(`mismatch`);
+      });
+
+      it('throws an error if a gap is found', async () => {
+        await store.addBlocks(
+          [makePublished(await L2Block.random(20), 30), makePublished(await L2Block.random(22), 32)],
+          { force: true },
+        );
+        await expect(store.getPublishedBlocks(20, 2)).rejects.toThrow(`mismatch`);
       });
     });
 
@@ -128,7 +177,7 @@ export function describeArchiverDataStore(
 
       it("returns the most recently added block's number", async () => {
         await store.addBlocks(blocks);
-        await expect(store.getSynchedL2BlockNumber()).resolves.toEqual(blocks.at(-1)!.data.number);
+        await expect(store.getSynchedL2BlockNumber()).resolves.toEqual(blocks.at(-1)!.block.number);
       });
     });
 
@@ -149,27 +198,39 @@ export function describeArchiverDataStore(
       });
 
       it('returns the L1 block number that most recently added messages from inbox', async () => {
-        await store.addL1ToL2Messages({
-          lastProcessedL1BlockNumber: 1n,
-          retrievedData: [new InboxLeaf(1n, Fr.ZERO)],
-        });
+        const l1BlockHash = Buffer32.random();
+        const l1BlockNumber = 10n;
+        await store.setMessageSynchedL1Block({ l1BlockNumber: 5n, l1BlockHash: Buffer32.random() });
+        await store.addL1ToL2Messages([makeInboxMessage(Buffer16.ZERO, { l1BlockNumber, l1BlockHash })]);
         await expect(store.getSynchPoint()).resolves.toEqual({
           blocksSynchedTo: undefined,
-          messagesSynchedTo: 1n,
+          messagesSynchedTo: { l1BlockHash, l1BlockNumber },
+        } satisfies ArchiverL1SynchPoint);
+      });
+
+      it('returns the latest syncpoint if latest message is behind', async () => {
+        const l1BlockHash = Buffer32.random();
+        const l1BlockNumber = 10n;
+        await store.setMessageSynchedL1Block({ l1BlockNumber, l1BlockHash });
+        const msg = makeInboxMessage(Buffer16.ZERO, { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() });
+        await store.addL1ToL2Messages([msg]);
+        await expect(store.getSynchPoint()).resolves.toEqual({
+          blocksSynchedTo: undefined,
+          messagesSynchedTo: { l1BlockHash, l1BlockNumber },
         } satisfies ArchiverL1SynchPoint);
       });
     });
 
     describe('addLogs', () => {
       it('adds private & public logs', async () => {
-        const block = blocks[0].data;
+        const block = blocks[0].block;
         await expect(store.addLogs([block])).resolves.toEqual(true);
       });
     });
 
     describe('deleteLogs', () => {
       it('deletes private & public logs', async () => {
-        const block = blocks[0].data;
+        const block = blocks[0].block;
         await store.addBlocks([blocks[0]]);
         await expect(store.addLogs([block])).resolves.toEqual(true);
 
@@ -190,7 +251,7 @@ export function describeArchiverDataStore(
 
     describe('getPrivateLogs', () => {
       it('gets added private logs', async () => {
-        const block = blocks[0].data;
+        const block = blocks[0].block;
         await store.addBlocks([blocks[0]]);
         await store.addLogs([block]);
 
@@ -201,19 +262,25 @@ export function describeArchiverDataStore(
 
     describe('getTxEffect', () => {
       beforeEach(async () => {
-        await store.addLogs(blocks.map(b => b.data));
+        await store.addLogs(blocks.map(b => b.block));
         await store.addBlocks(blocks);
       });
 
       it.each([
-        () => wrapInBlock(blocks[0].data.body.txEffects[0], blocks[0].data),
-        () => wrapInBlock(blocks[9].data.body.txEffects[3], blocks[9].data),
-        () => wrapInBlock(blocks[3].data.body.txEffects[1], blocks[3].data),
-        () => wrapInBlock(blocks[5].data.body.txEffects[2], blocks[5].data),
-        () => wrapInBlock(blocks[1].data.body.txEffects[0], blocks[1].data),
+        () => ({ data: blocks[0].block.body.txEffects[0], block: blocks[0].block, txIndexInBlock: 0 }),
+        () => ({ data: blocks[9].block.body.txEffects[3], block: blocks[9].block, txIndexInBlock: 3 }),
+        () => ({ data: blocks[3].block.body.txEffects[1], block: blocks[3].block, txIndexInBlock: 1 }),
+        () => ({ data: blocks[5].block.body.txEffects[2], block: blocks[5].block, txIndexInBlock: 2 }),
+        () => ({ data: blocks[1].block.body.txEffects[0], block: blocks[1].block, txIndexInBlock: 0 }),
       ])('retrieves a previously stored transaction', async getExpectedTx => {
-        const expectedTx = await getExpectedTx();
-        const actualTx = await store.getTxEffect(expectedTx.data.txHash);
+        const { data, block, txIndexInBlock } = getExpectedTx();
+        const expectedTx = {
+          data,
+          l2BlockNumber: block.number,
+          l2BlockHash: (await block.hash()).toString(),
+          txIndexInBlock,
+        };
+        const actualTx = await store.getTxEffect(data.txHash);
         expect(actualTx).toEqual(expectedTx);
       });
 
@@ -222,11 +289,11 @@ export function describeArchiverDataStore(
       });
 
       it.each([
-        () => wrapInBlock(blocks[0].data.body.txEffects[0], blocks[0].data),
-        () => wrapInBlock(blocks[9].data.body.txEffects[3], blocks[9].data),
-        () => wrapInBlock(blocks[3].data.body.txEffects[1], blocks[3].data),
-        () => wrapInBlock(blocks[5].data.body.txEffects[2], blocks[5].data),
-        () => wrapInBlock(blocks[1].data.body.txEffects[0], blocks[1].data),
+        () => wrapInBlock(blocks[0].block.body.txEffects[0], blocks[0].block),
+        () => wrapInBlock(blocks[9].block.body.txEffects[3], blocks[9].block),
+        () => wrapInBlock(blocks[3].block.body.txEffects[1], blocks[3].block),
+        () => wrapInBlock(blocks[5].block.body.txEffects[2], blocks[5].block),
+        () => wrapInBlock(blocks[1].block.body.txEffects[0], blocks[1].block),
       ])('tries to retrieves a previously stored transaction after deleted', async getExpectedTx => {
         await store.unwindBlocks(blocks.length, blocks.length);
 
@@ -238,39 +305,213 @@ export function describeArchiverDataStore(
       it('returns undefined if tx is not found', async () => {
         await expect(store.getTxEffect(TxHash.random())).resolves.toBeUndefined();
       });
+
+      it('does not fail if the block is unwound while requesting a tx', async () => {
+        const expectedTx = await wrapInBlock(blocks[1].block.body.txEffects[0], blocks[1].block);
+        let done = false;
+        void (async () => {
+          while (!done) {
+            void store.getTxEffect(expectedTx.data.txHash);
+            await sleep(1);
+          }
+        })();
+        await store.unwindBlocks(blocks.length, blocks.length);
+        done = true;
+        expect(await store.getTxEffect(expectedTx.data.txHash)).toEqual(undefined);
+      });
     });
 
     describe('L1 to L2 Messages', () => {
-      const l2BlockNumber = 13n;
-      const l1ToL2MessageSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
+      const initialL2BlockNumber = 13n;
 
-      const generateBlockMessages = (blockNumber: bigint, numMessages: number) =>
-        Array.from(
-          { length: numMessages },
-          (_, i) => new InboxLeaf(InboxLeaf.smallestIndexFromL2Block(blockNumber) + BigInt(i), Fr.random()),
-        );
+      const checkMessages = async (msgs: InboxMessage[]) => {
+        expect(await store.getLastL1ToL2Message()).toEqual(msgs.at(-1));
+        expect(await toArray(store.iterateL1ToL2Messages())).toEqual(msgs);
+        expect(await store.getTotalL1ToL2MessageCount()).toEqual(BigInt(msgs.length));
+      };
 
-      it('returns messages in correct order', async () => {
-        const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize);
-        const shuffledMessages = msgs.slice().sort(() => randomInt(1) - 0.5);
-        await store.addL1ToL2Messages({ lastProcessedL1BlockNumber: 100n, retrievedData: shuffledMessages });
-        const retrievedMessages = await store.getL1ToL2Messages(l2BlockNumber);
+      const makeInboxMessagesWithFullBlocks = (blockCount: number, opts: { initialL2BlockNumber?: bigint } = {}) =>
+        makeInboxMessages(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * blockCount, {
+          overrideFn: (msg, i) => {
+            const l2BlockNumber =
+              (opts.initialL2BlockNumber ?? initialL2BlockNumber) +
+              BigInt(Math.floor(i / NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+            const index =
+              InboxLeaf.smallestIndexFromL2Block(l2BlockNumber) + BigInt(i % NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+            return { ...msg, l2BlockNumber, index };
+          },
+        });
 
-        const expectedLeavesOrder = msgs.map(msg => msg.leaf);
-        expect(expectedLeavesOrder).toEqual(retrievedMessages);
+      it('stores first message ever', async () => {
+        const msg = makeInboxMessage(Buffer16.ZERO, { index: 0n, l2BlockNumber: 1n });
+        await store.addL1ToL2Messages([msg]);
+
+        await checkMessages([msg]);
+        expect(await store.getL1ToL2Messages(1n)).toEqual([msg.leaf]);
       });
 
-      it('throws if it is impossible to sequence messages correctly', async () => {
-        const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize - 1);
-        // We replace a message with index 4 with a message with index at the end of the tree
-        // --> with that there will be a gap and it will be impossible to sequence the
-        // end of tree = start of next tree/block - 1
-        msgs[4] = new InboxLeaf(InboxLeaf.smallestIndexFromL2Block(l2BlockNumber + 1n) - 1n, Fr.random());
+      it('stores single message', async () => {
+        const msg = makeInboxMessage(Buffer16.ZERO, { l2BlockNumber: 2n });
+        await store.addL1ToL2Messages([msg]);
 
-        await store.addL1ToL2Messages({ lastProcessedL1BlockNumber: 100n, retrievedData: msgs });
-        await expect(async () => {
-          await store.getL1ToL2Messages(l2BlockNumber);
-        }).rejects.toThrow(`L1 to L2 message gap found in block ${l2BlockNumber}`);
+        await checkMessages([msg]);
+        expect(await store.getL1ToL2Messages(2n)).toEqual([msg.leaf]);
+      });
+
+      it('stores and returns messages across different blocks', async () => {
+        const msgs = makeInboxMessages(5, { initialL2BlockNumber });
+        await store.addL1ToL2Messages(msgs);
+
+        await checkMessages(msgs);
+        expect(await store.getL1ToL2Messages(initialL2BlockNumber + 2n)).toEqual([msgs[2]].map(m => m.leaf));
+      });
+
+      it('stores the same messages again', async () => {
+        const msgs = makeInboxMessages(5, { initialL2BlockNumber });
+        await store.addL1ToL2Messages(msgs);
+        await store.addL1ToL2Messages(msgs.slice(2));
+
+        await checkMessages(msgs);
+      });
+
+      it('stores and returns messages across different blocks with gaps', async () => {
+        const msgs1 = makeInboxMessages(3, { initialL2BlockNumber: 1n });
+        const msgs2 = makeInboxMessages(3, { initialL2BlockNumber: 20n, initialHash: msgs1.at(-1)!.rollingHash });
+
+        await store.addL1ToL2Messages(msgs1);
+        await store.addL1ToL2Messages(msgs2);
+
+        await checkMessages([...msgs1, ...msgs2]);
+
+        expect(await store.getL1ToL2Messages(1n)).toEqual([msgs1[0].leaf]);
+        expect(await store.getL1ToL2Messages(4n)).toEqual([]);
+        expect(await store.getL1ToL2Messages(20n)).toEqual([msgs2[0].leaf]);
+        expect(await store.getL1ToL2Messages(24n)).toEqual([]);
+      });
+
+      it('stores and returns messages with block numbers larger than a byte', async () => {
+        const msgs = makeInboxMessages(5, { initialL2BlockNumber: 1000n });
+        await store.addL1ToL2Messages(msgs);
+
+        await checkMessages(msgs);
+        expect(await store.getL1ToL2Messages(1002n)).toEqual([msgs[2]].map(m => m.leaf));
+      });
+
+      it('stores and returns multiple messages per block', async () => {
+        const msgs = makeInboxMessagesWithFullBlocks(4);
+        await store.addL1ToL2Messages(msgs);
+
+        await checkMessages(msgs);
+        const blockMessages = await store.getL1ToL2Messages(initialL2BlockNumber + 1n);
+        expect(blockMessages).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(blockMessages).toEqual(
+          msgs.slice(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 2).map(m => m.leaf),
+        );
+      });
+
+      it('stores messages in multiple operations', async () => {
+        const msgs = makeInboxMessages(20, { initialL2BlockNumber });
+        await store.addL1ToL2Messages(msgs.slice(0, 10));
+        await store.addL1ToL2Messages(msgs.slice(10, 20));
+
+        expect(await store.getL1ToL2Messages(initialL2BlockNumber + 2n)).toEqual([msgs[2]].map(m => m.leaf));
+        expect(await store.getL1ToL2Messages(initialL2BlockNumber + 12n)).toEqual([msgs[12]].map(m => m.leaf));
+        await checkMessages(msgs);
+      });
+
+      it('iterates over messages from start index', async () => {
+        const msgs = makeInboxMessages(10, { initialL2BlockNumber });
+        await store.addL1ToL2Messages(msgs);
+
+        const iterated = await toArray(store.iterateL1ToL2Messages({ start: msgs[3].index }));
+        expect(iterated).toEqual(msgs.slice(3));
+      });
+
+      it('iterates over messages in reverse', async () => {
+        const msgs = makeInboxMessages(10, { initialL2BlockNumber });
+        await store.addL1ToL2Messages(msgs);
+
+        const iterated = await toArray(store.iterateL1ToL2Messages({ reverse: true, end: msgs[3].index }));
+        expect(iterated).toEqual(msgs.slice(0, 4).reverse());
+      });
+
+      it('throws if messages are added out of order', async () => {
+        const msgs = makeInboxMessages(5, { overrideFn: (msg, i) => ({ ...msg, index: BigInt(10 - i) }) });
+        await expect(store.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
+      });
+
+      it('throws if block number for the first message is out of order', async () => {
+        const msgs = makeInboxMessages(4, { initialL2BlockNumber });
+        msgs[2].l2BlockNumber = initialL2BlockNumber - 1n;
+        await store.addL1ToL2Messages(msgs.slice(0, 2));
+        await expect(store.addL1ToL2Messages(msgs.slice(2, 4))).rejects.toThrow(MessageStoreError);
+      });
+
+      it('throws if rolling hash is not correct', async () => {
+        const msgs = makeInboxMessages(5);
+        msgs[1].rollingHash = Buffer16.random();
+        await expect(store.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
+      });
+
+      it('throws if rolling hash for first message is not correct', async () => {
+        const msgs = makeInboxMessages(4);
+        msgs[2].rollingHash = Buffer16.random();
+        await store.addL1ToL2Messages(msgs.slice(0, 2));
+        await expect(store.addL1ToL2Messages(msgs.slice(2, 4))).rejects.toThrow(MessageStoreError);
+      });
+
+      it('throws if index is not in the correct range', async () => {
+        const msgs = makeInboxMessages(5, { initialL2BlockNumber });
+        msgs.at(-1)!.index += 100n;
+        await expect(store.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
+      });
+
+      it('throws if first index in block has gaps', async () => {
+        const msgs = makeInboxMessages(4, { initialL2BlockNumber });
+        msgs[2].index++;
+        await expect(store.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
+      });
+
+      it('throws if index does not follow previous one', async () => {
+        const msgs = makeInboxMessages(2, {
+          initialL2BlockNumber,
+          overrideFn: (msg, i) => ({
+            ...msg,
+            l2BlockNumber: 2n,
+            index: BigInt(i + NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 2),
+          }),
+        });
+        msgs[1].index++;
+        await expect(store.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
+      });
+
+      it('removes messages up to the given block number', async () => {
+        const msgs = makeInboxMessagesWithFullBlocks(4, { initialL2BlockNumber: 1n });
+
+        await store.addL1ToL2Messages(msgs);
+        await checkMessages(msgs);
+
+        expect(await store.getL1ToL2Messages(1n)).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(await store.getL1ToL2Messages(2n)).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(await store.getL1ToL2Messages(3n)).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(await store.getL1ToL2Messages(4n)).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+
+        await store.rollbackL1ToL2MessagesToL2Block(2n);
+
+        expect(await store.getL1ToL2Messages(1n)).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(await store.getL1ToL2Messages(2n)).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(await store.getL1ToL2Messages(3n)).toHaveLength(0);
+        expect(await store.getL1ToL2Messages(4n)).toHaveLength(0);
+
+        await checkMessages(msgs.slice(0, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 2));
+      });
+
+      it('removes messages starting with the given index', async () => {
+        const msgs = makeInboxMessagesWithFullBlocks(4, { initialL2BlockNumber: 1n });
+        await store.addL1ToL2Messages(msgs);
+
+        await store.removeL1ToL2Messages(msgs[13].index);
+        await checkMessages(msgs.slice(0, 13));
       });
     });
 
@@ -279,22 +520,121 @@ export function describeArchiverDataStore(
       const blockNum = 10;
 
       beforeEach(async () => {
-        const randomInstance = await SerializableContractInstance.random();
+        const classId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: classId,
+          originalContractClassId: classId,
+        });
         contractInstance = { ...randomInstance, address: await AztecAddress.random() };
         await store.addContractInstances([contractInstance], blockNum);
       });
 
       it('returns previously stored contract instances', async () => {
-        await expect(store.getContractInstance(contractInstance.address)).resolves.toMatchObject(contractInstance);
+        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toMatchObject(
+          contractInstance,
+        );
       });
 
       it('returns undefined if contract instance is not found', async () => {
-        await expect(store.getContractInstance(await AztecAddress.random())).resolves.toBeUndefined();
+        await expect(store.getContractInstance(await AztecAddress.random(), blockNum)).resolves.toBeUndefined();
       });
 
       it('returns undefined if previously stored contract instances was deleted', async () => {
         await store.deleteContractInstances([contractInstance], blockNum);
-        await expect(store.getContractInstance(contractInstance.address)).resolves.toBeUndefined();
+        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('contractInstanceUpdates', () => {
+      let contractInstance: ContractInstanceWithAddress;
+      let classId: Fr;
+      let nextClassId: Fr;
+      const blockOfChange = 10;
+
+      beforeEach(async () => {
+        classId = Fr.random();
+        nextClassId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: classId,
+          originalContractClassId: classId,
+        });
+        contractInstance = { ...randomInstance, address: await AztecAddress.random() };
+        await store.addContractInstances([contractInstance], 1);
+        await store.addContractInstanceUpdates(
+          [
+            {
+              prevContractClassId: classId,
+              newContractClassId: nextClassId,
+              blockOfChange,
+              address: contractInstance.address,
+            },
+          ],
+          blockOfChange - 1,
+        );
+      });
+
+      it('gets the correct current class id for a contract not updated yet', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange - 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(classId);
+      });
+
+      it('gets the correct current class id for a contract that has just been updated', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
+      });
+
+      it('gets the correct current class id for a contract that was updated in the past', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange + 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
+      });
+
+      it('ignores updates for the wrong contract', async () => {
+        const otherClassId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: otherClassId,
+          originalContractClassId: otherClassId,
+        });
+        const otherContractInstance = {
+          ...randomInstance,
+          address: await AztecAddress.random(),
+        };
+        await store.addContractInstances([otherContractInstance], 1);
+
+        const fetchedInstance = await store.getContractInstance(otherContractInstance.address, blockOfChange + 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(otherClassId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(otherClassId);
+      });
+
+      it('bounds its search to the right contract if more than than one update exists', async () => {
+        const otherClassId = Fr.random();
+        const otherNextClassId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: otherClassId,
+          originalContractClassId: otherNextClassId,
+        });
+        const otherContractInstance = {
+          ...randomInstance,
+          address: await AztecAddress.random(),
+        };
+        await store.addContractInstances([otherContractInstance], 1);
+        await store.addContractInstanceUpdates(
+          [
+            {
+              prevContractClassId: otherClassId,
+              newContractClassId: otherNextClassId,
+              blockOfChange,
+              address: otherContractInstance.address,
+            },
+          ],
+          blockOfChange - 1,
+        );
+
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange + 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
       });
     });
 
@@ -349,19 +689,19 @@ export function describeArchiverDataStore(
         expect(stored?.privateFunctions).toEqual(fns);
       });
 
-      it('adds new unconstrained functions', async () => {
-        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+      it('adds new utility functions', async () => {
+        const fns = times(3, makeUtilityFunctionWithMembershipProof);
         await store.addFunctions(contractClass.id, [], fns);
         const stored = await store.getContractClass(contractClass.id);
-        expect(stored?.unconstrainedFunctions).toEqual(fns);
+        expect(stored?.utilityFunctions).toEqual(fns);
       });
 
-      it('does not duplicate unconstrained functions', async () => {
-        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+      it('does not duplicate utility functions', async () => {
+        const fns = times(3, makeUtilityFunctionWithMembershipProof);
         await store.addFunctions(contractClass.id, [], fns.slice(0, 1));
         await store.addFunctions(contractClass.id, [], fns);
         const stored = await store.getContractClass(contractClass.id);
-        expect(stored?.unconstrainedFunctions).toEqual(fns);
+        expect(stored?.utilityFunctions).toEqual(fns);
       });
     });
 
@@ -371,32 +711,25 @@ export function describeArchiverDataStore(
       const numPrivateLogsPerTx = 3;
       const numPublicLogsPerTx = 2;
 
-      let blocks: L1Published<L2Block>[];
+      let blocks: PublishedL2Block[];
 
       const makeTag = (blockNumber: number, txIndex: number, logIndex: number, isPublic = false) =>
-        new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * (isPublic ? 123 : 1));
-
-      // See parseLogFromPublic
-      // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
-      const makeLengthsField = (publicValuesLen: number, privateValuesLen: number) => {
-        const buf = Buffer.alloc(32);
-        buf.writeUint16BE(publicValuesLen, 27);
-        buf.writeUint16BE(privateValuesLen, 30);
-        return Fr.fromBuffer(buf);
-      };
+        blockNumber === 1 && txIndex === 0 && logIndex === 0
+          ? Fr.ZERO // Shared tag
+          : new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * (isPublic ? 123 : 1));
 
       const makePrivateLog = (tag: Fr) =>
-        PrivateLog.fromFields([tag, ...times(PRIVATE_LOG_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i))]);
+        PrivateLog.from({
+          fields: makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, i => (!i ? tag : new Fr(tag.toNumber() + i))),
+          emittedLength: PRIVATE_LOG_SIZE_IN_FIELDS,
+        });
 
-      // The tag lives in field 1, not 0, of a public log
-      // See extractTaggedLogsFromPublic and noir-projects/aztec-nr/aztec/src/macros/notes/mod.nr -> emit_log
       const makePublicLog = (tag: Fr) =>
-        PublicLog.fromFields([
-          AztecAddress.fromNumber(1).toField(), // log address
-          makeLengthsField(2, PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 3), // field 0
-          tag, // field 1
-          ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)), // fields 2 to end
-        ]);
+        PublicLog.from({
+          contractAddress: AztecAddress.fromNumber(1),
+          fields: makeTuple(PUBLIC_LOG_SIZE_IN_FIELDS, i => (!i ? tag : new Fr(tag.toNumber() + i))),
+          emittedLength: PUBLIC_LOG_SIZE_IN_FIELDS,
+        });
 
       const mockPrivateLogs = (blockNumber: number, txIndex: number) => {
         return times(numPrivateLogsPerTx, (logIndex: number) => {
@@ -412,7 +745,7 @@ export function describeArchiverDataStore(
         });
       };
 
-      const mockBlockWithLogs = async (blockNumber: number): Promise<L1Published<L2Block>> => {
+      const mockBlockWithLogs = async (blockNumber: number): Promise<PublishedL2Block> => {
         const block = await L2Block.random(blockNumber);
         block.header.globalVariables.blockNumber = new Fr(blockNumber);
 
@@ -424,35 +757,36 @@ export function describeArchiverDataStore(
         });
 
         return {
-          data: block,
+          block: block,
+          signatures: times(3, Signature.random),
           l1: { blockNumber: BigInt(blockNumber), blockHash: `0x${blockNumber}`, timestamp: BigInt(blockNumber) },
         };
       };
 
       beforeEach(async () => {
-        blocks = await timesParallel(numBlocks, (index: number) => mockBlockWithLogs(index));
+        blocks = await timesParallel(numBlocks, (index: number) => mockBlockWithLogs(index + 1));
 
         await store.addBlocks(blocks);
-        await store.addLogs(blocks.map(b => b.data));
+        await store.addLogs(blocks.map(b => b.block));
       });
 
       it('is possible to batch request private logs via tags', async () => {
-        const tags = [makeTag(1, 1, 2), makeTag(0, 2, 0)];
+        const tags = [makeTag(2, 1, 2), makeTag(1, 2, 0)];
 
         const logsByTags = await store.getLogsByTags(tags);
 
         expect(logsByTags).toEqual([
           [
             expect.objectContaining({
-              blockNumber: 1,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              blockNumber: 2,
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
           ],
           [
             expect.objectContaining({
-              blockNumber: 0,
-              logData: makePrivateLog(tags[1]).toBuffer(),
+              blockNumber: 1,
+              log: makePrivateLog(tags[1]),
               isFromPublic: false,
             }),
           ],
@@ -460,21 +794,21 @@ export function describeArchiverDataStore(
       });
 
       it('is possible to batch request all logs (private and public) via tags', async () => {
-        // Tag(0, 0, 0) is shared with the first private log and the first public log.
-        const tags = [makeTag(0, 0, 0)];
+        // Tag(1, 0, 0) is shared with the first private log and the first public log.
+        const tags = [makeTag(1, 0, 0)];
 
         const logsByTags = await store.getLogsByTags(tags);
 
         expect(logsByTags).toEqual([
           [
             expect.objectContaining({
-              blockNumber: 0,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              blockNumber: 1,
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
             expect.objectContaining({
-              blockNumber: 0,
-              logData: makePublicLog(tags[0]).toBuffer(),
+              blockNumber: 1,
+              log: makePublicLog(tags[0]),
               isFromPublic: true,
             }),
           ],
@@ -487,11 +821,11 @@ export function describeArchiverDataStore(
         // Create a block containing logs that have the same tag as the blocks before.
         const newBlockNumber = numBlocks;
         const newBlock = await mockBlockWithLogs(newBlockNumber);
-        const newLog = newBlock.data.body.txEffects[1].privateLogs[1];
+        const newLog = newBlock.block.body.txEffects[1].privateLogs[1];
         newLog.fields[0] = tags[0];
-        newBlock.data.body.txEffects[1].privateLogs[1] = newLog;
+        newBlock.block.body.txEffects[1].privateLogs[1] = newLog;
         await store.addBlocks([newBlock]);
-        await store.addLogs([newBlock.data]);
+        await store.addLogs([newBlock.block]);
 
         const logsByTags = await store.getLogsByTags(tags);
 
@@ -499,12 +833,12 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
             expect.objectContaining({
               blockNumber: newBlockNumber,
-              logData: newLog.toBuffer(),
+              log: newLog,
               isFromPublic: false,
             }),
           ],
@@ -523,41 +857,11 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              logData: makePrivateLog(tags[1]).toBuffer(),
+              log: makePrivateLog(tags[1]),
               isFromPublic: false,
             }),
           ],
         ]);
-      });
-
-      it('is not possible to add public logs by tag if they are invalid', async () => {
-        const tag = makeTag(99, 88, 77);
-        const invalidLogs = [
-          PublicLog.fromFields([
-            AztecAddress.fromNumber(1).toField(),
-            makeLengthsField(2, 3), // This field claims we have 5 items, but we actually have more
-            tag,
-            ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
-          ]),
-          PublicLog.fromFields([
-            AztecAddress.fromNumber(1).toField(),
-            makeLengthsField(2, PUBLIC_LOG_DATA_SIZE_IN_FIELDS), // This field claims we have more than the max items
-            tag,
-            ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
-          ]),
-        ];
-
-        // Create a block containing these invalid logs
-        const newBlockNumber = numBlocks;
-        const newBlock = await mockBlockWithLogs(newBlockNumber);
-        newBlock.data.body.txEffects[0].publicLogs = invalidLogs;
-        await store.addBlocks([newBlock]);
-        await store.addLogs([newBlock.data]);
-
-        const logsByTags = await store.getLogsByTags([tag]);
-
-        // Neither of the logs should have been added:
-        expect(logsByTags).toEqual([[]]);
       });
     });
 
@@ -566,27 +870,28 @@ export function describeArchiverDataStore(
       const numPublicFunctionCalls = 3;
       const numPublicLogs = 2;
       const numBlocks = 10;
-      let blocks: L1Published<L2Block>[];
+      let blocks: PublishedL2Block[];
 
       beforeEach(async () => {
         blocks = await timesParallel(numBlocks, async (index: number) => ({
-          data: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
+          block: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
           l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
+          signatures: times(3, Signature.random),
         }));
 
         await store.addBlocks(blocks);
-        await store.addLogs(blocks.map(b => b.data));
+        await store.addLogs(blocks.map(b => b.block));
       });
 
       it('no logs returned if deleted ("txHash" filter param is respected variant)', async () => {
         // get random tx
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetTxHash = blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash;
+        const targetTxHash = blocks[targetBlockIndex].block.body.txEffects[targetTxIndex].txHash;
 
         await Promise.all([
           store.unwindBlocks(blocks.length, blocks.length),
-          store.deleteLogs(blocks.map(b => b.data)),
+          store.deleteLogs(blocks.map(b => b.block)),
         ]);
 
         const response = await store.getPublicLogs({ txHash: targetTxHash });
@@ -600,7 +905,7 @@ export function describeArchiverDataStore(
         // get random tx
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetTxHash = blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash;
+        const targetTxHash = blocks[targetBlockIndex].block.body.txEffects[targetTxIndex].txHash;
 
         const response = await store.getPublicLogs({ txHash: targetTxHash });
         const logs = response.logs;
@@ -643,7 +948,7 @@ export function describeArchiverDataStore(
         const targetTxIndex = randomInt(txsPerBlock);
         const targetLogIndex = randomInt(numPublicLogs * numPublicFunctionCalls);
         const targetContractAddress =
-          blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].contractAddress;
+          blocks[targetBlockIndex].block.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].contractAddress;
 
         const response = await store.getPublicLogs({ contractAddress: targetContractAddress });
 
@@ -744,59 +1049,6 @@ export function describeArchiverDataStore(
             }
           }
         }
-      });
-    });
-
-    describe('findNullifiersIndexesWithBlock', () => {
-      let blocks: L2Block[];
-      const numBlocks = 10;
-      const nullifiersPerBlock = new Map<number, Fr[]>();
-
-      beforeEach(async () => {
-        blocks = await timesParallel(numBlocks, (index: number) => L2Block.random(index + 1, 1));
-
-        blocks.forEach((block, blockIndex) => {
-          nullifiersPerBlock.set(
-            blockIndex,
-            block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
-          );
-        });
-      });
-
-      it('returns wrapped nullifiers with blocks if they exist', async () => {
-        await store.addNullifiers(blocks);
-        const nullifiersToRetrieve = [...nullifiersPerBlock.get(0)!, ...nullifiersPerBlock.get(5)!, Fr.random()];
-        const blockScopedNullifiers = await store.findNullifiersIndexesWithBlock(10, nullifiersToRetrieve);
-
-        expect(blockScopedNullifiers).toHaveLength(nullifiersToRetrieve.length);
-        const [undefinedNullifier] = blockScopedNullifiers.slice(-1);
-        const realNullifiers = blockScopedNullifiers.slice(0, -1);
-        realNullifiers.forEach((blockScopedNullifier, index) => {
-          expect(blockScopedNullifier).not.toBeUndefined();
-          const { data, l2BlockNumber } = blockScopedNullifier!;
-          expect(data).toEqual(expect.any(BigInt));
-          expect(l2BlockNumber).toEqual(index < MAX_NULLIFIERS_PER_TX ? 1 : 6);
-        });
-        expect(undefinedNullifier).toBeUndefined();
-      });
-
-      it('returns wrapped nullifiers filtering by blockNumber', async () => {
-        await store.addNullifiers(blocks);
-        const nullifiersToRetrieve = [...nullifiersPerBlock.get(0)!, ...nullifiersPerBlock.get(5)!];
-        const blockScopedNullifiers = await store.findNullifiersIndexesWithBlock(5, nullifiersToRetrieve);
-
-        expect(blockScopedNullifiers).toHaveLength(nullifiersToRetrieve.length);
-        const undefinedNullifiers = blockScopedNullifiers.slice(-MAX_NULLIFIERS_PER_TX);
-        const realNullifiers = blockScopedNullifiers.slice(0, -MAX_NULLIFIERS_PER_TX);
-        realNullifiers.forEach(blockScopedNullifier => {
-          expect(blockScopedNullifier).not.toBeUndefined();
-          const { data, l2BlockNumber } = blockScopedNullifier!;
-          expect(data).toEqual(expect.any(BigInt));
-          expect(l2BlockNumber).toEqual(1);
-        });
-        undefinedNullifiers.forEach(undefinedNullifier => {
-          expect(undefinedNullifier).toBeUndefined();
-        });
       });
     });
   });

@@ -137,7 +137,6 @@ Implementation notes for this milestone:
 - Can be used as both the spending and decryption key for early development.
 
 ### Private Execution Environment (PXE)
-
 ![](https://hackmd.io/_uploads/ryS0sOLyh.png)
 
 Implements:
@@ -360,4 +359,4 @@ For `offchainData`:
 
 ## Participate
 
-Keep up with the latest discussion and join the conversation in the [Aztec forum](https://discourse.aztec.network).
+Keep up with the latest discussion and join the conversation in the [Aztec forum](https://forum.aztec.network/).

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 // clang-format off
 /*                                            )\   /|
@@ -19,7 +25,7 @@
 // clang-format on
 #include <utility>
 
-#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 namespace bb {
@@ -31,7 +37,7 @@ namespace bb {
  *
  * @tparam Flavor
  */
-template <IsUltraFlavor Flavor> class OinkProver {
+template <IsUltraOrMegaHonk Flavor> class OinkProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using DeciderPK = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;
@@ -56,14 +62,13 @@ template <IsUltraFlavor Flavor> class OinkProver {
         , trace_usage_tracker(trace_usage_tracker)
     {}
 
-    void prove();
+    HonkProof prove();
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
     RelationSeparator generate_alphas_round();
-    void mask_witness_polynomial(Polynomial<FF>& polynomial);
     void commit_to_witness_polynomial(Polynomial<FF>& polynomial,
                                       const std::string& label,
                                       const CommitmentKey::CommitType type = CommitmentKey::CommitType::Default);

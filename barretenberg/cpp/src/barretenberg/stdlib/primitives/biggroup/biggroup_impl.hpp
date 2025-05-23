@@ -1,7 +1,14 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "../bit_array/bit_array.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
@@ -115,7 +122,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // yes = lhs_infinity && rhs_infinity
     // n.b. can likely optimize this
     bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
+    if constexpr (IsUltraBuilder<C>) {
+        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+    }
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
+    if constexpr (IsUltraBuilder<C>) {
+        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+    }
     result.set_point_at_infinity(result_is_infinity);
 
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
@@ -187,7 +200,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     // yes = lhs_infinity && rhs_infinity
     // n.b. can likely optimize this
     bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
+    if constexpr (IsUltraBuilder<C>) {
+        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+    }
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
+    if constexpr (IsUltraBuilder<C>) {
+        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+    }
     result.set_point_at_infinity(result_is_infinity);
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
@@ -722,7 +741,8 @@ template <typename C, class Fq, class Fr, class G>
 std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::compute_offset_generators(
     const size_t num_rounds)
 {
-    constexpr typename G::affine_element offset_generator = G::derive_generators("biggroup offset generator", 1)[0];
+    constexpr typename G::affine_element offset_generator =
+        get_precomputed_generators<G, "biggroup offset generator", 1>()[0];
 
     const uint256_t offset_multiplier = uint256_t(1) << uint256_t(num_rounds - 1);
 
@@ -756,8 +776,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     OriginTag tag{};
     const auto empty_tag = OriginTag();
 
-    // handle_points_at_infinity_method can remove some constant points, which messes with this code under
-    // CircuitSimulator
     for (size_t i = 0; i < _points.size(); i++) {
         tag = OriginTag(tag, OriginTag(_points[i].get_origin_tag(), _scalars[i].get_origin_tag()));
     }
@@ -773,78 +791,75 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         scalars[i].set_origin_tag(empty_tag);
     }
 
-    if constexpr (IsSimulator<C>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/663)
-        auto context = points[0].get_context();
-        using element_t = typename G::element;
-        element_t result = G::one;
-        result.self_set_infinity();
-        for (size_t i = 0; i < points.size(); i++) {
-            result += (element_t(points[i].get_value()) * scalars[i].get_value());
-        }
-        result = result.normalize();
-        auto nonnative_result = from_witness(context, result);
-        nonnative_result.set_origin_tag(tag);
-        return nonnative_result;
-    } else {
-        // Perform goblinized batched mul if available; supported only for BN254
-        if (with_edgecases) {
-            std::tie(points, scalars) = mask_points(points, scalars);
-        }
-        const size_t num_points = points.size();
-        ASSERT(scalars.size() == num_points);
-
-        batch_lookup_table point_table(points);
-        const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
-
-        std::vector<std::vector<bool_ct>> naf_entries;
-        for (size_t i = 0; i < num_points; ++i) {
-            naf_entries.emplace_back(compute_naf(scalars[i], max_num_bits));
-        }
-        const auto offset_generators = compute_offset_generators(num_rounds);
-        element accumulator =
-            element::chain_add_end(element::chain_add(offset_generators.first, point_table.get_chain_initial_entry()));
-
-        constexpr size_t num_rounds_per_iteration = 4;
-        size_t num_iterations = num_rounds / num_rounds_per_iteration;
-        num_iterations += ((num_iterations * num_rounds_per_iteration) == num_rounds) ? 0 : 1;
-        const size_t num_rounds_per_final_iteration =
-            (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
-        for (size_t i = 0; i < num_iterations; ++i) {
-
-            std::vector<bool_ct> nafs(num_points);
-            std::vector<element::chain_add_accumulator> to_add;
-            const size_t inner_num_rounds =
-                (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
-            for (size_t j = 0; j < inner_num_rounds; ++j) {
-                for (size_t k = 0; k < num_points; ++k) {
-                    nafs[k] = (naf_entries[k][i * num_rounds_per_iteration + j + 1]);
-                }
-                to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
-            }
-            accumulator = accumulator.multiple_montgomery_ladder(to_add);
-        }
-        for (size_t i = 0; i < num_points; ++i) {
-            element skew = accumulator - points[i];
-            Fq out_x = accumulator.x.conditional_select(skew.x, naf_entries[i][num_rounds]);
-            Fq out_y = accumulator.y.conditional_select(skew.y, naf_entries[i][num_rounds]);
-            accumulator = element(out_x, out_y);
-        }
-        accumulator = accumulator - offset_generators.second;
-
-        accumulator.set_origin_tag(tag);
-        return accumulator;
+    // Perform goblinized batched mul if available; supported only for BN254
+    if (with_edgecases) {
+        std::tie(points, scalars) = mask_points(points, scalars);
     }
-}
+    const size_t num_points = points.size();
+    ASSERT(scalars.size() == num_points);
 
+    batch_lookup_table point_table(points);
+    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
+
+    std::vector<std::vector<bool_ct>> naf_entries;
+    for (size_t i = 0; i < num_points; ++i) {
+        naf_entries.emplace_back(compute_naf(scalars[i], max_num_bits));
+    }
+    const auto offset_generators = compute_offset_generators(num_rounds);
+    element accumulator =
+        element::chain_add_end(element::chain_add(offset_generators.first, point_table.get_chain_initial_entry()));
+
+    constexpr size_t num_rounds_per_iteration = 4;
+    size_t num_iterations = num_rounds / num_rounds_per_iteration;
+    num_iterations += ((num_iterations * num_rounds_per_iteration) == num_rounds) ? 0 : 1;
+    const size_t num_rounds_per_final_iteration = (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
+    for (size_t i = 0; i < num_iterations; ++i) {
+
+        std::vector<bool_ct> nafs(num_points);
+        std::vector<element::chain_add_accumulator> to_add;
+        const size_t inner_num_rounds =
+            (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
+        for (size_t j = 0; j < inner_num_rounds; ++j) {
+            for (size_t k = 0; k < num_points; ++k) {
+                nafs[k] = (naf_entries[k][i * num_rounds_per_iteration + j + 1]);
+            }
+            to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
+        }
+        accumulator = accumulator.multiple_montgomery_ladder(to_add);
+    }
+    for (size_t i = 0; i < num_points; ++i) {
+        element skew = accumulator - points[i];
+        Fq out_x = accumulator.x.conditional_select(skew.x, naf_entries[i][num_rounds]);
+        Fq out_y = accumulator.y.conditional_select(skew.y, naf_entries[i][num_rounds]);
+        accumulator = element(out_x, out_y);
+    }
+    accumulator = accumulator - offset_generators.second;
+
+    accumulator.set_origin_tag(tag);
+    return accumulator;
+}
 /**
- * Implements scalar multiplication.
- *
- * For multiple scalar multiplication use one of the `batch_mul` methods to save gates.
- **/
+ * Implements scalar multiplication operator.
+ */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
 {
+    // Use `scalar_mul` method without specifying the length of `scalar`.
+    return scalar_mul(scalar);
+}
+
+template <typename C, class Fq, class Fr, class G>
+/**
+ * @brief Implements scalar multiplication that supports short scalars.
+ * For multiple scalar multiplication use one of the `batch_mul` methods to save gates.
+ * @param scalar A field element. If `max_num_bits`>0, the length of the scalar must not exceed `max_num_bits`.
+ * @param max_num_bits Even integer < 254. Default value 0 corresponds to scalar multiplication by scalars of
+ * unspecified length.
+ * @return element<C, Fq, Fr, G>
+ */
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const size_t max_num_bits) const
+{
+    ASSERT(max_num_bits % 2 == 0);
     /**
      *
      * Let's say we have some curve E defined over a field Fq. The order of E is p, which is prime.
@@ -868,27 +883,31 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
      * specifics.
      *
      **/
+    OriginTag tag{};
+    tag = OriginTag(tag, OriginTag(this->get_origin_tag(), scalar.get_origin_tag()));
 
-    constexpr uint64_t num_rounds = Fr::modulus.get_msb() + 1;
+    bool_ct is_point_at_infinity = this->is_point_at_infinity();
 
-    std::vector<bool_ct> naf_entries = compute_naf(scalar);
+    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
-    const auto offset_generators = compute_offset_generators(num_rounds);
+    element result;
+    if (max_num_bits != 0) {
+        // The case of short scalars
+        result = element::bn254_endo_batch_mul({}, {}, { *this }, { scalar }, num_rounds);
+    } else {
+        // The case of arbitrary length scalars
+        result = element::bn254_endo_batch_mul({ *this }, { scalar }, {}, {}, num_rounds);
+    };
 
-    element accumulator = *this + offset_generators.first;
+    // Handle point at infinity
+    result.x = Fq::conditional_assign(is_point_at_infinity, x, result.x);
+    result.y = Fq::conditional_assign(is_point_at_infinity, y, result.y);
 
-    for (size_t i = 1; i < num_rounds; ++i) {
-        bool_ct predicate = naf_entries[i];
-        bigfield y_test = y.conditional_negate(predicate);
-        element to_add(x, y_test);
-        accumulator = accumulator.montgomery_ladder(to_add);
-    }
+    result.set_point_at_infinity(is_point_at_infinity);
 
-    element skew_output = accumulator - (*this);
+    // Propagate the origin tag
+    result.set_origin_tag(tag);
 
-    Fq out_x = accumulator.x.conditional_select(skew_output.x, naf_entries[num_rounds]);
-    Fq out_y = accumulator.y.conditional_select(skew_output.y, naf_entries[num_rounds]);
-
-    return element(out_x, out_y) - element(offset_generators.second);
+    return result;
 }
 } // namespace bb::stdlib::element_default

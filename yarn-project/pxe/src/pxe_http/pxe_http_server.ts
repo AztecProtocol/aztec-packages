@@ -1,5 +1,5 @@
-import { type PXE, PXESchema } from '@aztec/circuit-types';
 import { createNamespacedSafeJsonRpcServer, createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { type PXE, PXESchema } from '@aztec/stdlib/interfaces/client';
 
 import http from 'http';
 

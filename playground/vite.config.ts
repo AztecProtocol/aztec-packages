@@ -1,7 +1,10 @@
-import { defineConfig, searchForWorkspaceRoot } from "vite";
-import react from "@vitejs/plugin-react-swc";
-import { PolyfillOptions, nodePolyfills } from "vite-plugin-node-polyfills";
-import { viteStaticCopy } from "vite-plugin-static-copy";
+import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import { PolyfillOptions, nodePolyfills } from 'vite-plugin-node-polyfills';
+import bundlesize from 'vite-plugin-bundlesize';
+
+// Only required for alternative bb wasm file, left as reference
+//import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
 // Suspected to be because of the yarn workspace setup, but not sure
@@ -10,10 +13,7 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
     ...nodePolyfills(options),
     /* @ts-ignore */
     resolveId(source: string) {
-      const m =
-        /^vite-plugin-node-polyfills\/shims\/(buffer|global|process)$/.exec(
-          source
-        );
+      const m = /^vite-plugin-node-polyfills\/shims\/(buffer|global|process)$/.exec(source);
       if (m) {
         return `./node_modules/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
       }
@@ -22,34 +22,61 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 };
 
 // https://vite.dev/config/
-export default defineConfig({
-  server: {
-    // Headers needed for bb WASM to work in multithreaded mode
-    headers: {
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp",
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  return {
+    base: './',
+    logLevel: process.env.CI ? 'error' : undefined,
+    server: {
+      // Headers needed for bb WASM to work in multithreaded mode
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+      },
+      // Allow vite to serve files from these directories, since they are symlinked
+      // These are the protocol circuit artifacts, noir WASMs and bb WASMs.
+      fs: {
+        allow: [
+          searchForWorkspaceRoot(process.cwd()),
+          '../yarn-project/noir-protocol-circuits-types/artifacts',
+          '../noir/packages/noirc_abi/web',
+          '../noir/packages/acvm_js/web',
+          '../barretenberg/ts/dest/browser',
+        ],
+      },
     },
-    // Allow vite to serve files from these directories, since they are symlinked
-    // These are the protocol circuit artifacts and noir WASMs.
-    fs: {
-      allow: [
-        searchForWorkspaceRoot(process.cwd()),
-        "../yarn-project/noir-protocol-circuits-types/artifacts",
-        "../noir/packages/noirc_abi/web",
-        "../noir/packages/acvm_js/web",
-      ],
+    plugins: [
+      react({ jsxImportSource: '@emotion/react' }),
+      nodePolyfillsFix({ include: ['buffer', 'path'] }),
+      // This is unnecessary unless BB_WASM_PATH is defined (default would be /assets/barretenberg.wasm.gz)
+      // Left as an example of how to use a different bb wasm file than the default lazily loaded one
+      // viteStaticCopy({
+      //   targets: [
+      //     {
+      //       src: '../barretenberg/cpp/build-wasm-threads/bin/*.wasm',
+      //       dest: 'assets/',
+      //     },
+      //   ],
+      // }),
+      bundlesize({
+        // Bump log:
+        // - AD: bumped from 1600 => 1680 as we now have a 20kb msgpack lib in bb.js and other logic got us 50kb higher, adding some wiggle room.
+        limits: [{ name: 'assets/index-*', limit: '1700kB' }],
+      }),
+    ],
+    define: {
+      'process.env': JSON.stringify({
+        LOG_LEVEL: env.LOG_LEVEL,
+        // The path to a custom WASM file for bb.js.
+        // Only the single-threaded file name is needed, the multithreaded file name will be inferred
+        // by adding the -threads suffix: e.g: /assets/barretenberg.wasm.gz -> /assets/barretenberg-threads.wasm.gz
+        // Files can be compressed or uncompressed, but must be gzipped if compressed.
+        BB_WASM_PATH: env.BB_WASM_PATH,
+      }),
     },
-  },
-  plugins: [
-    react({ jsxImportSource: "@emotion/react" }),
-    nodePolyfillsFix({ include: ["buffer", "process", "path"] }),
-    viteStaticCopy({
-      targets: [
-        {
-          src: "../barretenberg/ts/dest/browser/*.wasm.gz",
-          dest: "./",
-        },
-      ],
-    }),
-  ],
+    build: {
+      // Required by vite-plugin-bundle-size
+      sourcemap: 'hidden',
+    },
+  };
 });

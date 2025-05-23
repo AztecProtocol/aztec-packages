@@ -5,3 +5,4 @@
 ^barretenberg/sol/src/
 ^barretenberg/sol/scripts/
 ^barretenberg/sol/test/
+^barretenberg/sol/bootstrap.sh

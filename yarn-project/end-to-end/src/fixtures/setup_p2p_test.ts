@@ -2,11 +2,11 @@
  * Test fixtures and utilities to set up and run a test using multiple validators
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type SentTx } from '@aztec/aztec.js';
-import { type AztecAddress } from '@aztec/circuits.js';
+import type { SentTx } from '@aztec/aztec.js';
 import { addLogNameHandler, removeLogNameHandler } from '@aztec/foundation/log';
-import { type DateProvider } from '@aztec/foundation/timer';
-import { type PXEService } from '@aztec/pxe';
+import type { DateProvider } from '@aztec/foundation/timer';
+import type { PXEService } from '@aztec/pxe/server';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import getPort from 'get-port';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -15,16 +15,15 @@ import { TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
-// Setup snapshots will create a node with index 0, so all of our loops here
-// need to start from 1 to avoid running validators with the same key
-export const PROPOSER_PRIVATE_KEYS_START_INDEX = 1;
+// Setup snapshots will create a node with index 0, and run extra bootstrap with
+// index 1, so all of our loops here need to start from 2 to avoid running validators with the same key
+export const PROPOSER_PRIVATE_KEYS_START_INDEX = 2;
 export const ATTESTER_PRIVATE_KEYS_START_INDEX = 1001;
 
 export interface NodeContext {
   node: AztecNodeService;
   pxeService: PXEService;
   txs: SentTx[];
-  account: AztecAddress;
 }
 
 export function generatePrivateKeys(startIndex: number, numberOfKeys: number): `0x${string}`[] {
@@ -42,6 +41,7 @@ export async function createNodes(
   bootstrapNodeEnr: string,
   numNodes: number,
   bootNodePort: number,
+  prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
 ): Promise<AztecNodeService[]> {
@@ -62,6 +62,7 @@ export async function createNodes(
       port,
       bootstrapNodeEnr,
       i,
+      prefilledPublicData,
       dataDir,
       metricsPort,
       loggerIdStorage,
@@ -80,6 +81,7 @@ export async function createNode(
   tcpPort: number,
   bootstrapNode: string | undefined,
   accountIndex: number,
+  prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
   loggerIdStorage?: AsyncLocalStorage<string>,
@@ -87,7 +89,7 @@ export async function createNode(
   const createNode = async () => {
     const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, accountIndex, dataDirectory);
     const telemetry = getEndToEndTestTelemetryClient(metricsPort);
-    return await AztecNodeService.createAndSync(validatorConfig, { telemetry, dateProvider });
+    return await AztecNodeService.createAndSync(validatorConfig, { telemetry, dateProvider }, { prefilledPublicData });
   };
   return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();
 }
@@ -113,14 +115,11 @@ export async function createValidatorConfig(
 
   const nodeConfig: AztecNodeConfig = {
     ...config,
-    udpListenAddress: `0.0.0.0:${port}`,
-    tcpListenAddress: `0.0.0.0:${port}`,
-    tcpAnnounceAddress: `127.0.0.1:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
+    p2pIp: `127.0.0.1`,
+    p2pPort: port,
     p2pEnabled: true,
     peerCheckIntervalMS: TEST_PEER_CHECK_INTERVAL_MS,
     blockCheckIntervalMS: 1000,
-    transactionProtocol: '',
     dataDirectory,
     bootstrapNodes: bootstrapNodeEnr ? [bootstrapNodeEnr] : [],
   };

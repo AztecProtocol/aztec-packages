@@ -9,13 +9,8 @@ telemetry:
 
 validator:
   replicas: 48
-
   resources:
     requests:
       memory: "512Mi"
   validator:
     disabled: false
-
-bootNode:
-  validator:
-    disabled: true

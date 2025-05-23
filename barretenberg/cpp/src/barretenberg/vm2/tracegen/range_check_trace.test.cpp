@@ -3,8 +3,8 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
-#include "barretenberg/vm2/generated/full_row.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
+#include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -15,9 +15,8 @@ using testing::ElementsAre;
 using testing::Field;
 
 using R = TestTraceContainer::Row;
-using FF = R::FF;
 
-TEST(AvmTraceGenRangeCheckTest, RangeCheckLte16Bit)
+TEST(RangeCheckTraceGenTest, RangeCheckLte16Bit)
 {
     TestTraceContainer trace;
     RangeCheckTraceBuilder builder;
@@ -50,7 +49,7 @@ TEST(AvmTraceGenRangeCheckTest, RangeCheckLte16Bit)
                           Field(&R::range_check_dyn_diff, dynamic_diff))));
 }
 
-TEST(AvmTraceGenRangeCheckTest, RangeCheckLte48Bit)
+TEST(RangeCheckTraceGenTest, RangeCheckLte48Bit)
 {
     TestTraceContainer trace;
     RangeCheckTraceBuilder builder;
@@ -90,7 +89,7 @@ TEST(AvmTraceGenRangeCheckTest, RangeCheckLte48Bit)
                           Field(&R::range_check_sel_r1_16_bit_rng_lookup, 1))));
 }
 
-TEST(AvmTraceGenRangeCheckTest, RangeCheckLte128Bit)
+TEST(RangeCheckTraceGenTest, RangeCheckLte128Bit)
 {
     TestTraceContainer trace;
     RangeCheckTraceBuilder builder;

@@ -1,12 +1,12 @@
-import { BlockAttestation } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncMultiMap } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
+import { BlockAttestation } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
-import { type AttestationPool } from './attestation_pool.js';
+import type { AttestationPool } from './attestation_pool.js';
 
 export class KvAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;
@@ -27,14 +27,21 @@ export class KvAttestationPool implements AttestationPool {
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
   }
 
+  public async isEmpty(): Promise<boolean> {
+    for await (const _ of this.attestations.entriesAsync()) {
+      return false;
+    }
+    return true;
+  }
+
   private getProposalKey(slot: number | bigint | Fr | string, proposalId: Fr | string | Buffer): string {
     const slotStr = typeof slot === 'string' ? slot : new Fr(slot).toString();
     const proposalIdStr =
       typeof proposalId === 'string'
         ? proposalId
         : Buffer.isBuffer(proposalId)
-        ? Fr.fromBuffer(proposalId).toString()
-        : proposalId.toString();
+          ? Fr.fromBuffer(proposalId).toString()
+          : proposalId.toString();
 
     return `${slotStr}-${proposalIdStr}`;
   }
@@ -46,9 +53,9 @@ export class KvAttestationPool implements AttestationPool {
   public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
     await this.store.transactionAsync(async () => {
       for (const attestation of attestations) {
-        const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+        const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
-        const address = (await attestation.getSender()).toString();
+        const address = attestation.getSender().toString();
 
         await this.attestations.set(this.getAttestationKey(slotNumber, proposalId, address), attestation.toBuffer());
 
@@ -58,14 +65,31 @@ export class KvAttestationPool implements AttestationPool {
           this.getAttestationKey(slotNumber, proposalId, address),
         );
 
-        this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
+        this.log.verbose(`Added attestation for slot ${slotNumber.toBigInt()} from ${address}`, {
+          signature: attestation.signature.toString(),
+          slotNumber,
+          address,
+          proposalId,
+        });
       }
     });
 
     this.metrics.recordAddedObjects(attestations.length);
   }
 
-  public async getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+  public async getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
+    const slotFr = new Fr(slot);
+    const proposalIds = await toArray(this.proposalsForSlot.getValuesAsync(slotFr.toString()));
+    const attestations: BlockAttestation[] = [];
+
+    for (const proposalId of proposalIds) {
+      attestations.push(...(await this.getAttestationsForSlotAndProposal(slot, proposalId)));
+    }
+
+    return attestations;
+  }
+
+  public async getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
     const attestationIds = await toArray(
       this.attestationsForProposal.getValuesAsync(this.getProposalKey(slot, proposalId)),
     );
@@ -141,9 +165,9 @@ export class KvAttestationPool implements AttestationPool {
   public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
     await this.store.transactionAsync(async () => {
       for (const attestation of attestations) {
-        const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+        const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
-        const address = (await attestation.getSender()).toString();
+        const address = attestation.getSender().toString();
 
         await this.attestations.delete(this.getAttestationKey(slotNumber, proposalId, address));
         await this.attestationsForProposal.deleteValue(

@@ -1,11 +1,13 @@
-import { AztecAddress, Fr, deriveKeys, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { Fr } from '@aztec/foundation/fields';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { deriveKeys, derivePublicKeyFromSecretKey } from '@aztec/stdlib/keys';
 
 import { KeyStore } from './key_store.js';
 
 describe('KeyStore', () => {
   it('Adds account and returns keys', async () => {
-    const keyStore = new KeyStore(openTmpStore());
+    const keyStore = new KeyStore(await openTmpStore('test'));
 
     // Arbitrary fixed values
     const sk = new Fr(8923n);
@@ -76,9 +78,8 @@ describe('KeyStore', () => {
     );
 
     // Manages to find master incoming viewing secret key for pub key
-    const masterIncomingViewingSecretKeyFromPublicKey = await keyStore.getMasterSecretKey(
-      masterIncomingViewingPublicKey,
-    );
+    const masterIncomingViewingSecretKeyFromPublicKey =
+      await keyStore.getMasterSecretKey(masterIncomingViewingPublicKey);
     expect(masterIncomingViewingSecretKeyFromPublicKey.toString()).toMatchInlineSnapshot(
       `"0x1d1d920024dd64e019c23de36d27aefe4d9d4d05983b99cf85bea9e85fd60020"`,
     );

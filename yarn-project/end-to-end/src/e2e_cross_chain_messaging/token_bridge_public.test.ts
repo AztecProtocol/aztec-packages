@@ -84,7 +84,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
 
     // 5. Withdraw owner's funds from L2 to L1
     logger.verbose('5. Withdraw owner funds from L2 to L1');
-    const l2ToL1Message = crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
+    const l2ToL1Message = await crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
     const l2TxReceipt = await crossChainTestHarness.withdrawPublicFromAztecToL1(withdrawAmount, nonce);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, afterBalance - withdrawAmount);
 
@@ -130,7 +130,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, claim.claimSecret, messageLeafIndex)
-        .prove(),
+        .simulate(),
     ).rejects.toThrow(NO_L1_TO_L2_MSG_ERROR);
 
     // user2 consumes owner's L1-> L2 message on bridge contract and mints public tokens on L2

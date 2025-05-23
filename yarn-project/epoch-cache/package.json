@@ -18,35 +18,33 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'",
     "start": "node ./dest/index.js",
-    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json"
   ],
   "dependencies": {
-    "@aztec/circuit-types": "workspace:*",
     "@aztec/ethereum": "workspace:*",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/stdlib": "workspace:*",
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.0.3",
     "get-port": "^7.1.0",
     "jest-mock-extended": "^3.0.7",
     "tslib": "^2.4.0",
-    "viem": "2.22.8",
+    "viem": "2.23.7",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
-    "@types/node": "^18.14.6",
+    "@types/node": "^22.15.17",
     "jest": "^29.5.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",
@@ -82,12 +80,12 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

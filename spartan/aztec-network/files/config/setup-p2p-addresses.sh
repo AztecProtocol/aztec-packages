@@ -19,21 +19,15 @@ if [ "${NETWORK_PUBLIC}" = "true" ]; then
         EXTERNAL_IP=$(kubectl get node $NODE_NAME -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
     fi
 
-    TCP_ADDR="${EXTERNAL_IP}:${P2P_TCP_PORT}"
-    UDP_ADDR="${EXTERNAL_IP}:${P2P_UDP_PORT}"
-
+    IP=${EXTERNAL_IP}
 else
     # Get pod IP for non-public networks
-    POD_IP=$(hostname -i)
-    TCP_ADDR="${POD_IP}:${P2P_TCP_PORT}"
-    UDP_ADDR="${POD_IP}:${P2P_UDP_PORT}"
+    IP=$(hostname -i)
 fi
 
 # Write addresses to file for sourcing
-echo "export P2P_TCP_ANNOUNCE_ADDR=${TCP_ADDR}" > /shared/p2p/p2p-addresses
-echo "export P2P_TCP_LISTEN_ADDR=0.0.0.0:${P2P_TCP_PORT}" >> /shared/p2p/p2p-addresses
-echo "export P2P_UDP_ANNOUNCE_ADDR=${UDP_ADDR}" >> /shared/p2p/p2p-addresses
-echo "export P2P_UDP_LISTEN_ADDR=0.0.0.0:${P2P_UDP_PORT}" >> /shared/p2p/p2p-addresses
+echo "export P2P_IP=${IP}" > /shared/config/p2p-addresses
+echo "export P2P_PORT=${P2P_PORT}" >> /shared/config/p2p-addresses
 
 echo "P2P addresses configured:"
-cat /shared/p2p/p2p-addresses
+cat /shared/config/p2p-addresses

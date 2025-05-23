@@ -1,0 +1,6 @@
+AddUnhinged
+├── when caller of addUnhinged is not owner
+│   └── it reverts
+└── when caller of addUnhinged is owner
+    ├── it grants add validator permission
+    └── it emits a {UnhingedAdded} event

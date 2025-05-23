@@ -73,10 +73,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
   public:
     static void test_constructor_from_witness()
     {
-        bb::fr val = 2;
+        bb::fr val = fr::random_element();
         Builder builder = Builder();
         field_ct elt(witness_ct(&builder, val));
+        // Ensure the value is correct
         EXPECT_EQ(elt.get_value(), val);
+        // Ensure that the context is not missing
+        EXPECT_FALSE(elt.is_constant());
     }
 
     static void create_range_constraint()
@@ -98,7 +101,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         run_test(3, 2, true);
         // 130 = 0b10000010, 8 bits
         for (size_t num_bits = 1; num_bits < 17; num_bits++) {
-            run_test(130, num_bits, num_bits < 8 ? false : true);
+            run_test(130, num_bits, num_bits >= 8);
         }
 
         // -1 has maximum bit length
@@ -118,86 +121,117 @@ template <typename Builder> class stdlib_field : public testing::Test {
         bool_ct b_false = bool_ct(one * field_ct(0));
         EXPECT_FALSE(b_false.get_value());
     }
+
+    /**
+     * @brief Test that conditional assign doesn't produce a new witness if lhs and rhs are constant
+     *
+     */
+    static void test_conditional_assign_regression()
+    {
+
+        auto check_that_conditional_assign_result_is_constant = [](bool_ct& predicate) {
+            field_ct x(2);
+            field_ct y(2);
+            field_ct z(1);
+            field_ct alpha = x.madd(y, -z);
+            field_ct beta(3);
+            field_ct zeta = field_ct::conditional_assign(predicate, alpha, beta);
+
+            EXPECT_TRUE(zeta.is_constant());
+        };
+
+        Builder builder = Builder();
+        // Populate predicate array, ensure that both constant and witness predicates are present
+        std::array<bool_ct, 4> predicates{
+            bool_ct(true), bool_ct(false), bool_ct(witness_ct(&builder, true)), bool_ct(witness_ct(&builder, false))
+        };
+
+        for (auto& predicate : predicates) {
+            check_that_conditional_assign_result_is_constant(predicate);
+        }
+    }
+
+    /**
+     * @brief Test that multiplicative_constant of constants is no longer affected
+     * by any arithimetic operation
+     *
+     */
+    static void test_multiplicative_constant_regression()
+    {
+        Builder builder = Builder();
+
+        field_ct a(1);
+        field_ct b(1);
+        EXPECT_TRUE(a.multiplicative_constant == bb::fr::one());
+        EXPECT_TRUE(b.multiplicative_constant == bb::fr::one());
+        auto c = a + b;
+        EXPECT_TRUE(c.multiplicative_constant == bb::fr::one());
+        c = a - b;
+        EXPECT_TRUE(c.multiplicative_constant == bb::fr::one());
+        c = -c;
+        EXPECT_TRUE(c.multiplicative_constant == bb::fr::one());
+    }
+
     /**
      * @brief Demonstrate current behavior of assert_equal.
      */
     static void test_assert_equal()
     {
-        if constexpr (IsSimulator<Builder>) {
-            auto run_test = [](bool expect_failure) {
-                Builder simulator;
-                auto lhs = bb::fr::random_element();
-                auto rhs = lhs;
-                if (expect_failure) {
-                    lhs++;
-                }
-                simulator.assert_equal(lhs, rhs, "testing assert equal");
-                if (expect_failure) {
-                    ASSERT_TRUE(simulator.failed());
+        auto run_test = [](bool constrain, bool true_when_y_val_zero = true) {
+            Builder builder = Builder();
+            field_ct x = witness_ct(&builder, 1);
+            field_ct y = witness_ct(&builder, 0);
+
+            // With no constraints, the proof verification will pass even though
+            // we assert x and y are equal.
+            bool expected_result = true;
+
+            if (constrain) {
+                /* The fact that we have a passing test in both cases that follow tells us
+                 * that the failure in the first case comes from the additive constraint,
+                 * not from a copy constraint. That failure is because the assert_equal
+                 * below says that 'the value of y was always x'--the value 1 is substituted
+                 * for x when evaluating the gate identity.
+                 */
+                if (true_when_y_val_zero) {
+                    // constraint: 0*x + 1*y + 0*0 + 0 == 0
+
+                    builder.create_add_gate({ .a = x.witness_index,
+                                              .b = y.witness_index,
+                                              .c = builder.zero_idx,
+                                              .a_scaling = 0,
+                                              .b_scaling = 1,
+                                              .c_scaling = 0,
+                                              .const_scaling = 0 });
+                    expected_result = false;
                 } else {
-                    ASSERT_FALSE(simulator.failed());
+                    // constraint: 0*x + 1*y + 0*0 - 1 == 0
+
+                    builder.create_add_gate({ .a = x.witness_index,
+                                              .b = y.witness_index,
+                                              .c = builder.zero_idx,
+                                              .a_scaling = 0,
+                                              .b_scaling = 1,
+                                              .c_scaling = 0,
+                                              .const_scaling = -1 });
+                    expected_result = true;
                 }
-            };
-            run_test(true);
-            run_test(false);
-        } else {
+            }
 
-            auto run_test = [](bool constrain, bool true_when_y_val_zero = true) {
-                Builder builder = Builder();
-                field_ct x = witness_ct(&builder, 1);
-                field_ct y = witness_ct(&builder, 0);
+            x.assert_equal(y);
 
-                // With no constraints, the proof verification will pass even though
-                // we assert x and y are equal.
-                bool expected_result = true;
+            // both field elements have real value 1 now
+            EXPECT_EQ(x.get_value(), 1);
+            EXPECT_EQ(y.get_value(), 1);
 
-                if (constrain) {
-                    /* The fact that we have a passing test in both cases that follow tells us
-                     * that the failure in the first case comes from the additive constraint,
-                     * not from a copy constraint. That failure is because the assert_equal
-                     * below says that 'the value of y was always x'--the value 1 is substituted
-                     * for x when evaluating the gate identity.
-                     */
-                    if (true_when_y_val_zero) {
-                        // constraint: 0*x + 1*y + 0*0 + 0 == 0
+            bool result = CircuitChecker::check(builder);
 
-                        builder.create_add_gate({ .a = x.witness_index,
-                                                  .b = y.witness_index,
-                                                  .c = builder.zero_idx,
-                                                  .a_scaling = 0,
-                                                  .b_scaling = 1,
-                                                  .c_scaling = 0,
-                                                  .const_scaling = 0 });
-                        expected_result = false;
-                    } else {
-                        // constraint: 0*x + 1*y + 0*0 - 1 == 0
+            EXPECT_EQ(result, expected_result);
+        };
 
-                        builder.create_add_gate({ .a = x.witness_index,
-                                                  .b = y.witness_index,
-                                                  .c = builder.zero_idx,
-                                                  .a_scaling = 0,
-                                                  .b_scaling = 1,
-                                                  .c_scaling = 0,
-                                                  .const_scaling = -1 });
-                        expected_result = true;
-                    }
-                }
-
-                x.assert_equal(y);
-
-                // both field elements have real value 1 now
-                EXPECT_EQ(x.get_value(), 1);
-                EXPECT_EQ(y.get_value(), 1);
-
-                bool result = CircuitChecker::check(builder);
-
-                EXPECT_EQ(result, expected_result);
-            };
-
-            run_test(false);
-            run_test(true, true);
-            run_test(true, false);
-        }
+        run_test(false);
+        run_test(true, true);
+        run_test(true, false);
     }
 
     static void test_add_mul_with_constants()
@@ -205,12 +239,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
         Builder builder = Builder();
         auto gates_before = builder.get_estimated_num_finalized_gates();
         uint64_t expected = fidget(builder);
-        if constexpr (!IsSimulator<Builder>) {
-            auto gates_after = builder.get_estimated_num_finalized_gates();
-            auto& block = builder.blocks.arithmetic;
-            EXPECT_EQ(builder.get_variable(block.w_o()[block.size() - 1]), fr(expected));
-            info("Number of gates added", gates_after - gates_before);
-        }
+        auto gates_after = builder.get_estimated_num_finalized_gates();
+        auto& block = builder.blocks.arithmetic;
+        EXPECT_EQ(builder.get_variable(block.w_o()[block.size() - 1]), fr(expected));
+        info("Number of gates added", gates_after - gates_before);
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
@@ -335,9 +367,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         // This logic requires on madd in field, which creates a big mul gate.
         // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
-        if constexpr (std::same_as<Builder, StandardCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 5UL);
-        } else if (std::same_as<Builder, UltraCircuitBuilder>) {
+        if (std::same_as<Builder, UltraCircuitBuilder>) {
             EXPECT_EQ(gates_after - gates_before, 3UL);
         }
 
@@ -363,9 +393,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         // This logic requires on madd in field, which creates a big mul gate.
         // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
-        if constexpr (std::same_as<Builder, StandardCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 5UL);
-        } else if (std::same_as<Builder, UltraCircuitBuilder>) {
+        if (std::same_as<Builder, UltraCircuitBuilder>) {
             EXPECT_EQ(gates_after - gates_before, 3UL);
         }
 
@@ -392,9 +420,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         // This logic requires on madd in field, which creates a big mul gate.
         // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
-        if constexpr (std::same_as<Builder, StandardCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 9UL);
-        } else if (std::same_as<Builder, UltraCircuitBuilder>) {
+        if (std::same_as<Builder, UltraCircuitBuilder>) {
             EXPECT_EQ(gates_after - gates_before, 5UL);
         }
 
@@ -657,7 +683,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
             for (auto a_expected : test_elements) {
                 field_ct a = witness_ct(&builder, a_expected);
-                std::vector<bool_ct> c = a.decompose_into_bits(256);
+                std::vector<bool_ct> c = a.decompose_into_bits();
                 fr bit_sum = 0;
                 for (size_t i = 0; i < c.size(); i++) {
                     fr scaling_factor_value = fr(2).pow(static_cast<uint64_t>(i));
@@ -692,7 +718,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
             fr a_expected = 0;
             field_ct a = witness_ct(&builder, a_expected);
-            std::vector<bool_ct> c = a.decompose_into_bits(256, witness_supplier);
+            std::vector<bool_ct> c = a.decompose_into_bits(witness_supplier);
 
             bool verified = CircuitChecker::check(builder);
             ASSERT_FALSE(verified);
@@ -885,11 +911,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(first_copy.get_value(), value);
         EXPECT_EQ(second_copy.get_value(), value);
 
-        if (!IsSimulator<Builder>) {
-            EXPECT_EQ(value_ct.get_witness_index() + 1, first_copy.get_witness_index());
-            EXPECT_EQ(value_ct.get_witness_index() + 2, second_copy.get_witness_index());
-            info("num gates = ", builder.get_estimated_num_finalized_gates());
-        }
+        EXPECT_EQ(value_ct.get_witness_index() + 1, first_copy.get_witness_index());
+        EXPECT_EQ(value_ct.get_witness_index() + 2, second_copy.get_witness_index());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -941,20 +965,20 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
     static void test_add_two()
     {
-        Builder composer = Builder();
+        Builder builder = Builder();
         auto x_1 = bb::fr::random_element();
         auto x_2 = bb::fr::random_element();
         auto x_3 = bb::fr::random_element();
 
-        field_ct x_1_ct = witness_ct(&composer, x_1);
-        field_ct x_2_ct = witness_ct(&composer, x_2);
-        field_ct x_3_ct = witness_ct(&composer, x_3);
+        field_ct x_1_ct = witness_ct(&builder, x_1);
+        field_ct x_2_ct = witness_ct(&builder, x_2);
+        field_ct x_3_ct = witness_ct(&builder, x_3);
 
         auto sum_ct = x_1_ct.add_two(x_2_ct, x_3_ct);
 
         EXPECT_EQ(sum_ct.get_value(), x_1 + x_2 + x_3);
 
-        bool circuit_checks = composer.check_circuit();
+        bool circuit_checks = CircuitChecker::check(builder);
         EXPECT_TRUE(circuit_checks);
     }
     static void test_origin_tag_consistency()
@@ -1066,7 +1090,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         // Decomposition preserves tags
 
-        auto decomposed_bits = a.decompose_into_bits(256);
+        auto decomposed_bits = a.decompose_into_bits();
         for (const auto& bit : decomposed_bits) {
             EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
         }
@@ -1093,7 +1117,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
     }
 };
 
-using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
+using CircuitTypes = testing::Types<bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(stdlib_field, CircuitTypes);
 
@@ -1104,6 +1128,14 @@ TYPED_TEST(stdlib_field, test_constructor_from_witness)
 TYPED_TEST(stdlib_field, test_create_range_constraint)
 {
     TestFixture::create_range_constraint();
+}
+TYPED_TEST(stdlib_field, test_conditional_assign_regression)
+{
+    TestFixture::test_conditional_assign_regression();
+}
+TYPED_TEST(stdlib_field, test_multiplicative_constant_regression)
+{
+    TestFixture::test_multiplicative_constant_regression();
 }
 TYPED_TEST(stdlib_field, test_assert_equal)
 {
@@ -1231,4 +1263,9 @@ TYPED_TEST(stdlib_field, test_ranged_less_than)
 TYPED_TEST(stdlib_field, test_origin_tag_consistency)
 {
     TestFixture::test_origin_tag_consistency();
+}
+
+TYPED_TEST(stdlib_field, test_add_two)
+{
+    TestFixture::test_add_two();
 }

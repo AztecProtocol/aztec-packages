@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_redis
+
+function process_batch {
+  set -euo pipefail
+
+  # Read all lines from stdin into an array.
+  mapfile -t lines
+
+  # Build array of hashes to query for.
+  local hashes=()
+  for line in "${lines[@]}"; do
+    hashes+=($(hash_str_orig "$line"))
+  done
+
+  # Batch resolve in redis.
+  readarray -t results < <(redis_cli MGET ${hashes[@]})
+
+  # Iterate over the results and output lines whose hashes don't exist in redis.
+  for i in "${!results[@]}"; do
+    if [ -z "${results[$i]}" ]; then
+      echo "${lines[$i]}"
+    else
+      echo -e "${blue}SKIPPED${reset} (${yellow}$(ci_term_link ${results[$i]})${reset}): ${lines[$i]}" >&3
+    fi
+  done
+}
+export -f process_batch
+
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  exec 3> >(cache_log "Skipped tests")
+  # Process stdin in batches of 50.
+  parallel --pipe -N50 --keep-order process_batch
+  exec 3>&-
+  wait
+else
+  # Noop.
+  cat
+fi

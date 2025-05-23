@@ -32,11 +32,11 @@
  * blockCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387}
  */
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type InitialAccountData, deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
-  AnvilTestWatcher,
   BatchCall,
   type Contract,
   Fr,
@@ -45,32 +45,33 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
+import { AnvilTestWatcher } from '@aztec/aztec.js/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-// eslint-disable-next-line no-restricted-imports
-import { L2Block, tryStop } from '@aztec/circuit-types';
-import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
-  L1TxUtilsWithBlobs,
   RollupContract,
   SlashingProposerContract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
-import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type PXEService } from '@aztec/pxe';
+import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import type { PXEService } from '@aztec/pxe/server';
 import { SequencerPublisher } from '@aztec/sequencer-client';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2Block } from '@aztec/stdlib/block';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
 import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
-import { addAccounts } from './fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import {
   type EndToEndContext,
@@ -145,6 +146,10 @@ class TestVariant {
     this.spam = spam;
   }
 
+  setWallets(wallets: AccountWalletWithSecretKey[]) {
+    this.wallets = wallets;
+  }
+
   toString() {
     return this.description();
   }
@@ -157,23 +162,13 @@ class TestVariant {
     return `${this.blockCount}_${this.txCount}_${this.txComplexity}`;
   }
 
-  async deployWallets(numberOfAccounts: number) {
+  async deployWallets(accounts: InitialAccountData[]) {
     // Create accounts such that we can send from many to not have colliding nullifiers
-    const { accountKeys } = await addAccounts(numberOfAccounts, this.logger, false)({ pxe: this.pxe });
-
-    return await Promise.all(
-      accountKeys.map(async (ak, i) => {
-        const account = await getSchnorrAccount(this.pxe, ak[0], ak[1], 1);
-        const partialAddress = (await account.getCompleteAddress()).partialAddress;
-        await this.pxe.registerAccount(accountKeys[i][0], partialAddress);
-        const wallet = await account.getWallet();
-        this.logger.verbose(`Wallet ${i} address: ${wallet.getAddress()} registered`);
-        return wallet;
-      }),
-    );
+    const managers = await deployFundedSchnorrAccounts(this.pxe, accounts);
+    return await Promise.all(managers.map(m => m.getWallet()));
   }
 
-  async setup() {
+  async setup(accounts: InitialAccountData[] = []) {
     if (this.pxe === undefined) {
       throw new Error('Undefined PXE');
     }
@@ -181,7 +176,8 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.Deployment) {
       return;
     }
-    this.wallets = await this.deployWallets(this.txCount);
+
+    this.wallets = await this.deployWallets(accounts);
 
     // Mint tokens publicly if needed
     if (this.txComplexity == TxComplexity.PublicTransfer) {
@@ -206,14 +202,13 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.Deployment) {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
+        const deployWallet = this.wallets[i % this.wallets.length];
         const accountManager = await getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
         this.contractAddresses.push(accountManager.getAddress());
-        const deployMethod = await accountManager.getDeployMethod();
-        const tx = deployMethod.send({
-          contractAddressSalt: new Fr(accountManager.salt),
+        const tx = accountManager.deploy({
+          deployWallet,
           skipClassRegistration: true,
           skipPublicDeployment: true,
-          universalDeploy: true,
         });
         txs.push(tx);
       }
@@ -244,10 +239,10 @@ class TestVariant {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
         const batch = new BatchCall(this.wallets[i], [
-          await this.spam.methods.spam(this.seed, 16, false).request(),
-          await this.spam.methods.spam(this.seed + 16n, 16, false).request(),
-          await this.spam.methods.spam(this.seed + 32n, 16, false).request(),
-          await this.spam.methods.spam(this.seed + 48n, 15, true).request(),
+          this.spam.methods.spam(this.seed, 16, false),
+          this.spam.methods.spam(this.seed + 16n, 16, false),
+          this.spam.methods.spam(this.seed + 32n, 16, false),
+          this.spam.methods.spam(this.seed + 48n, 15, true),
         ]);
 
         this.seed += 100n;
@@ -328,11 +323,11 @@ describe('e2e_synching', () => {
       // The setup is in here and not at the `before` since we are doing different setups depending on what mode we are running in.
       // We require that at least 200 eth blocks have passed from the START_TIME before we see the first L2 block
       // This is to keep the setup more stable, so as long as the setup is less than 100 L1 txs, changing the setup should not break the setup
-      const { teardown, pxe, sequencer, aztecNode, wallet } = await setup(1, {
+      const { teardown, pxe, sequencer, aztecNode, wallet, initialFundedAccounts, cheatCodes } = await setup(1, {
         salt: SALT,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
-        assumeProvenThrough: 10 + variant.blockCount,
+        numberOfInitialFundedAccounts: variant.txCount + 1,
       });
       variant.setPXE(pxe as PXEService);
 
@@ -348,13 +343,15 @@ describe('e2e_synching', () => {
       await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
 
       // The setup will mint tokens (private and public)
-      await variant.setup();
+      const accountsToBeDeployed = initialFundedAccounts.slice(1); // The first one has been deployed in setup.
+      await variant.setup(accountsToBeDeployed);
 
       for (let i = 0; i < variant.blockCount; i++) {
         const txs = await variant.createAndSendTxs();
         if (txs) {
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
         }
+        await cheatCodes.rollup.markAsProven();
       }
 
       const blocks = await aztecNode.getBlocks(1, await aztecNode.getBlockNumber());
@@ -368,7 +365,7 @@ describe('e2e_synching', () => {
   const testTheVariant = async (
     variant: TestVariant,
     alternativeSync: (opts: Partial<EndToEndContext>, variant: TestVariant) => Promise<void>,
-    assumeProvenThrough: number = Number.MAX_SAFE_INTEGER,
+    provenThrough: number = Number.MAX_SAFE_INTEGER,
   ) => {
     if (AZTEC_GENERATE_TEST_DATA) {
       return;
@@ -385,11 +382,12 @@ describe('e2e_synching', () => {
       watcher,
       pxe,
       blobSink,
+      initialFundedAccounts,
     } = await setup(0, {
       salt: SALT,
       l1StartTime: START_TIME,
       skipProtocolContracts: true,
-      assumeProvenThrough,
+      numberOfInitialFundedAccounts: 10,
     });
 
     await (aztecNode as any).stop();
@@ -402,21 +400,16 @@ describe('e2e_synching', () => {
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
 
-    const l1TxUtils = new L1TxUtilsWithBlobs(
-      deployL1ContractsValues.publicClient,
-      deployL1ContractsValues.walletClient,
-      logger,
-      config,
-    );
+    const l1TxUtils = new L1TxUtilsWithBlobs(deployL1ContractsValues.l1Client, logger, config);
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
-    const rollupContract = new RollupContract(deployL1ContractsValues.publicClient, rollupAddress);
+    const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
-      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.l1Client,
       config.l1Contracts.governanceProposerAddress.toString(),
     );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
     const slashingProposerContract = new SlashingProposerContract(
-      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
     const forwarderContract = await createForwarderContract(config, sequencerPK, rollupAddress);
@@ -425,8 +418,7 @@ describe('e2e_synching', () => {
     });
     const publisher = new SequencerPublisher(
       {
-        l1RpcUrl: config.l1RpcUrl,
-        requiredConfirmations: 1,
+        l1RpcUrls: config.l1RpcUrls,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
         publisherPrivateKey: sequencerPK,
         l1PublishRetryIntervalMS: 100,
@@ -459,9 +451,11 @@ describe('e2e_synching', () => {
       }
       // If it breaks here, first place you should look is the pruning.
       await publisher.enqueueProposeL2Block(block);
+
+      await cheatCodes.rollup.markAsProven(provenThrough);
     }
 
-    await alternativeSync({ deployL1ContractsValues, cheatCodes, config, logger, pxe }, variant);
+    await alternativeSync({ deployL1ContractsValues, cheatCodes, config, logger, pxe, initialFundedAccounts }, variant);
 
     await teardown();
   };
@@ -514,7 +508,7 @@ describe('e2e_synching', () => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
             abi: RollupAbi,
-            client: opts.deployL1ContractsValues!.walletClient,
+            client: opts.deployL1ContractsValues!.l1Client,
           });
 
           const contracts: Contract[] = [];
@@ -522,7 +516,7 @@ describe('e2e_synching', () => {
             const watcher = new AnvilTestWatcher(
               opts.cheatCodes!.eth,
               opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-              opts.deployL1ContractsValues!.publicClient,
+              opts.deployL1ContractsValues!.l1Client,
             );
             await watcher.start();
 
@@ -532,7 +526,7 @@ describe('e2e_synching', () => {
             const { pxe } = await setupPXEService(aztecNode!);
 
             variant.setPXE(pxe);
-            const wallet = (await variant.deployWallets(1))[0];
+            const wallet = (await variant.deployWallets(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
             contracts.push(
               await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed(),
@@ -560,8 +554,8 @@ describe('e2e_synching', () => {
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 
           // We prune the last token and schnorr contract
-          const assumeProvenThrough = pendingBlockNumber - 2n;
-          await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
+          const provenThrough = pendingBlockNumber - 2n;
+          await opts.cheatCodes!.rollup.markAsProven(provenThrough);
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
@@ -569,13 +563,13 @@ describe('e2e_synching', () => {
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
-          expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(assumeProvenThrough));
+          expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(provenThrough));
           const blockTip = (await archiver.getBlock(await archiver.getBlockNumber()))!;
           const txHash = blockTip.body.txEffects[0].txHash;
 
           const contractClassIds = await archiver.getContractClassIds();
           for (const c of contracts) {
-            expect(contractClassIds.includes(c.instance.contractClassId)).toBeTrue;
+            expect(contractClassIds.includes(c.instance.currentContractClassId)).toBeTrue;
             expect(await archiver.getContract(c.address)).not.toBeUndefined;
           }
 
@@ -589,19 +583,19 @@ describe('e2e_synching', () => {
 
           // We need to sleep a bit to make sure that we have caught the prune and deleted blocks.
           await sleep(3000);
-          expect(await archiver.getBlockNumber()).toBe(Number(assumeProvenThrough));
+          expect(await archiver.getBlockNumber()).toBe(Number(provenThrough));
 
           const contractClassIdsAfter = await archiver.getContractClassIds();
 
-          expect(contractClassIdsAfter.includes(contracts[0].instance.contractClassId)).toBeTrue;
-          expect(contractClassIdsAfter.includes(contracts[1].instance.contractClassId)).toBeFalse;
+          expect(contractClassIdsAfter.includes(contracts[0].instance.currentContractClassId)).toBeTrue;
+          expect(contractClassIdsAfter.includes(contracts[1].instance.currentContractClassId)).toBeFalse;
           expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined;
           expect(await archiver.getContract(contracts[1].address)).toBeUndefined;
           expect(await archiver.getContract(contracts[2].address)).toBeUndefined;
 
           // Only the hardcoded schnorr is pruned since the contract class also existed before prune.
           expect(contractClassIdsAfter).toEqual(
-            contractClassIds.filter(c => !c.equals(contracts[1].instance.contractClassId)),
+            contractClassIds.filter(c => !c.equals(contracts[1].instance.currentContractClassId)),
           );
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
@@ -611,11 +605,9 @@ describe('e2e_synching', () => {
           );
 
           // Check world state reverted as well
-          expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));
-          const worldStateLatestBlockHash = await worldState.getL2BlockHash(Number(assumeProvenThrough));
-          const archiverLatestBlockHash = await archiver
-            .getBlockHeader(Number(assumeProvenThrough))
-            .then(b => b?.hash());
+          expect(await worldState.getLatestBlockNumber()).toEqual(Number(provenThrough));
+          const worldStateLatestBlockHash = await worldState.getL2BlockHash(Number(provenThrough));
+          const archiverLatestBlockHash = await archiver.getBlockHeader(Number(provenThrough)).then(b => b?.hash());
           expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
 
           await tryStop(archiver);
@@ -638,11 +630,11 @@ describe('e2e_synching', () => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
             abi: RollupAbi,
-            client: opts.deployL1ContractsValues!.walletClient,
+            client: opts.deployL1ContractsValues!.l1Client,
           });
 
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
-          await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
+          await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
 
           const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
@@ -658,11 +650,11 @@ describe('e2e_synching', () => {
           const watcher = new AnvilTestWatcher(
             opts.cheatCodes!.eth,
             opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-            opts.deployL1ContractsValues!.publicClient,
+            opts.deployL1ContractsValues!.l1Client,
           );
           await watcher.start();
 
-          await opts.deployL1ContractsValues!.publicClient.waitForTransactionReceipt({
+          await opts.deployL1ContractsValues!.l1Client.waitForTransactionReceipt({
             hash: await rollup.write.prune(),
           });
 
@@ -703,11 +695,11 @@ describe('e2e_synching', () => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
             abi: RollupAbi,
-            client: opts.deployL1ContractsValues!.walletClient,
+            client: opts.deployL1ContractsValues!.l1Client,
           });
 
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
-          await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
+          await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
@@ -720,7 +712,7 @@ describe('e2e_synching', () => {
           const watcher = new AnvilTestWatcher(
             opts.cheatCodes!.eth,
             opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-            opts.deployL1ContractsValues!.publicClient,
+            opts.deployL1ContractsValues!.l1Client,
           );
           await watcher.start();
 

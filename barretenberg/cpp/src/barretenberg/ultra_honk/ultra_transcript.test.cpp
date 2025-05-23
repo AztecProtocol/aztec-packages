@@ -3,6 +3,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -16,11 +17,7 @@ using namespace bb;
 
 template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
@@ -59,9 +56,13 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "public_input_size", frs_per_uint32);
         manifest_expected.add_entry(round, "pub_inputs_offset", frs_per_uint32);
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
+        for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
+            manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
+        }
         if constexpr (HasIPAAccumulator<Flavor>) {
             for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
-                manifest_expected.add_entry(round, "public_input_" + std::to_string(i + 1), frs_per_Fr);
+                manifest_expected.add_entry(
+                    round, "public_input_" + std::to_string(1 + PAIRING_POINTS_SIZE + i), frs_per_Fr);
             }
         }
         manifest_expected.add_entry(round, "W_L", frs_per_G);
@@ -113,7 +114,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
 
         if constexpr (Flavor::HasZK) {
             manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
-            manifest_expected.add_entry(round, "Libra:big_sum_commitment", frs_per_G);
+            manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
             manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
             manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
             manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
@@ -135,8 +136,8 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
 
         if constexpr (Flavor::HasZK) {
             manifest_expected.add_entry(round, "Libra:concatenation_eval", frs_per_Fr);
-            manifest_expected.add_entry(round, "Libra:shifted_big_sum_eval", frs_per_Fr);
-            manifest_expected.add_entry(round, "Libra:big_sum_eval", frs_per_Fr);
+            manifest_expected.add_entry(round, "Libra:shifted_grand_sum_eval", frs_per_Fr);
+            manifest_expected.add_entry(round, "Libra:grand_sum_eval", frs_per_Fr);
             manifest_expected.add_entry(round, "Libra:quotient_eval", frs_per_Fr);
         }
 
@@ -152,21 +153,21 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         return manifest_expected;
     }
 
-    void generate_test_circuit(typename Flavor::CircuitBuilder& builder)
+    void generate_test_circuit(Builder& builder)
     {
         FF a = 1;
         builder.add_variable(a);
         builder.add_public_variable(a);
-
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
-            builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
+                IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
+            stdlib_opening_claim.set_public();
             builder.ipa_proof = ipa_proof;
         }
     }
 
-    void generate_random_test_circuit(typename Flavor::CircuitBuilder& builder)
+    void generate_random_test_circuit(Builder& builder)
     {
         auto a = FF::random_element();
         auto b = FF::random_element();
@@ -176,15 +177,25 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
 
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
-            builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
+                IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
+            stdlib_opening_claim.set_public();
             builder.ipa_proof = ipa_proof;
         }
     }
 };
 
+#ifdef STARKNET_GARAGA_FLAVORS
+using FlavorTypes = ::testing::Types<UltraFlavor,
+                                     UltraKeccakFlavor,
+                                     UltraStarknetFlavor,
+                                     UltraStarknetZKFlavor,
+                                     UltraRollupFlavor,
+                                     UltraZKFlavor,
+                                     UltraKeccakZKFlavor>;
+#else
 using FlavorTypes =
     ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
+#endif
 TYPED_TEST_SUITE(UltraTranscriptTests, FlavorTypes);
 
 /**
@@ -200,6 +211,7 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
     typename TestFixture::Prover prover(proving_key);
+    prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
@@ -208,6 +220,7 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
     // Note: a manifest can be printed using manifest.print()
     manifest_expected.print();
     prover_manifest.print();
+    ASSERT(manifest_expected.size() > 0);
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;
     }
@@ -228,6 +241,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
     typename TestFixture::Prover prover(proving_key);
+    prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
@@ -239,7 +253,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
         verifier.ipa_verification_key =
             std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
         const size_t HONK_PROOF_LENGTH = TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<uint32_t>(proof[1]);
+        const size_t num_public_inputs = static_cast<uint32_t>(verification_key->num_public_inputs);
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
         ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
@@ -247,7 +261,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
         ipa_proof = HonkProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
-        honk_proof = HonkProof(proof.begin(), proof.end() + honk_proof_with_pub_inputs_length);
+        honk_proof = HonkProof(proof.begin(), proof.begin() + honk_proof_with_pub_inputs_length);
     } else {
         honk_proof = proof;
     }
@@ -258,6 +272,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     auto verifier_manifest = verifier.transcript->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()
+    ASSERT(prover_manifest.size() > 0);
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], verifier_manifest[round])
             << "Prover/Verifier manifest discrepency in round " << round;
@@ -312,20 +327,26 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     // try deserializing and serializing with no changes and check proof is still valid
-    prover.transcript->deserialize_full_transcript();
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     prover.transcript->serialize_full_transcript();
-    EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
+    verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
+
+    proof = (HasIPAAccumulator<Flavor>) ? prover.export_proof() : prover.transcript->proof_data;
+    EXPECT_TRUE(verifier.verify_proof(proof)); // we have changed nothing so proof is still valid
 
     Commitment one_group_val = Commitment::one();
     FF rand_val = FF::random_element();
-    prover.transcript->z_perm_comm = one_group_val * rand_val; // choose random object to modify
-    EXPECT_TRUE(verifier.verify_proof(
-        prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
+    prover.transcript->z_perm_comm = one_group_val * rand_val;             // choose random object to modify
+    verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
+    proof = (HasIPAAccumulator<Flavor>) ? prover.export_proof() : prover.transcript->proof_data;
+    EXPECT_TRUE(verifier.verify_proof(proof)); // we have not serialized it back to the proof so it should still be fine
 
     prover.transcript->serialize_full_transcript();
-    EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
+    verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
+    proof = (HasIPAAccumulator<Flavor>) ? prover.export_proof() : prover.transcript->proof_data;
+    EXPECT_FALSE(verifier.verify_proof(proof)); // the proof is now wrong after serializing it
 
-    prover.transcript->deserialize_full_transcript();
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
 }
 

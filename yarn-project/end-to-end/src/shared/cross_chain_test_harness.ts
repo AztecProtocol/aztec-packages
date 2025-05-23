@@ -1,6 +1,7 @@
 // docs:start:cross_chain_test_harness
 import {
   type AccountWallet,
+  AuthWitness,
   type AztecAddress,
   type AztecNode,
   EthAddress,
@@ -15,23 +16,14 @@ import {
   type SiblingPath,
   type TxReceipt,
   type Wallet,
-  deployL1Contract,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
-import { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
+import { type ExtendedViemWalletClient, type L1ContractAddresses, deployL1Contract } from '@aztec/ethereum';
+import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import {
-  type Account,
-  type Chain,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-} from 'viem';
+import { type Hex, getContract } from 'viem';
 
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
@@ -48,11 +40,10 @@ import { mintTokensToPrivate } from '../fixtures/token_utils.js';
  */
 export async function deployAndInitializeTokenAndBridgeContracts(
   wallet: Wallet,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-  publicClient: PublicClient<HttpTransport, Chain>,
+  l1Client: ExtendedViemWalletClient,
   rollupRegistryAddress: EthAddress,
   owner: AztecAddress,
-  underlyingERC20Address?: EthAddress,
+  underlyingERC20Address: EthAddress,
 ): Promise<{
   /**
    * The L2 token contract instance.
@@ -75,33 +66,12 @@ export async function deployAndInitializeTokenAndBridgeContracts(
    */
   underlyingERC20: any;
 }> {
-  if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode, [
-      'Underlying',
-      'UND',
-      walletClient.account.address,
-    ]).then(({ address }) => address);
-  }
-  const underlyingERC20 = getContract({
-    address: underlyingERC20Address!.toString(),
-    abi: TestERC20Abi,
-    client: walletClient,
-  });
-
-  // allow anyone to mint
-  await underlyingERC20.write.setFreeForAll([true], {} as any);
-
   // deploy the token portal
-  const { address: tokenPortalAddress } = await deployL1Contract(
-    walletClient,
-    publicClient,
-    TokenPortalAbi,
-    TokenPortalBytecode,
-  );
+  const { address: tokenPortalAddress } = await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode);
   const tokenPortal = getContract({
     address: tokenPortalAddress.toString(),
     abi: TokenPortalAbi,
-    client: walletClient,
+    client: l1Client,
   });
 
   // deploy l2 token
@@ -114,7 +84,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     throw new Error(`Token admin is not ${owner}`);
   }
 
-  if (!(await bridge.methods.get_token().simulate()).equals(token.address)) {
+  if (!(await bridge.methods.get_config().simulate()).token.equals(token.address)) {
     throw new Error(`Bridge token is not ${token.address}`);
   }
 
@@ -130,9 +100,26 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     {} as any,
   );
 
+  const underlyingERC20 = getContract({
+    address: underlyingERC20Address.toString(),
+    abi: TestERC20Abi,
+    client: l1Client,
+  });
+
   return { token, bridge, tokenPortalAddress, tokenPortal, underlyingERC20 };
 }
 // docs:end:deployAndInitializeTokenAndBridgeContracts
+
+export type CrossChainContext = {
+  l2Token: AztecAddress;
+  l2Bridge: AztecAddress;
+  tokenPortal: EthAddress;
+  underlying: EthAddress;
+  ethAccount: EthAddress;
+  ownerAddress: AztecAddress;
+  inbox: EthAddress;
+  outbox: EthAddress;
+};
 
 /**
  * A Class for testing cross chain interactions, contains common interactions
@@ -142,21 +129,19 @@ export class CrossChainTestHarness {
   static async new(
     aztecNode: AztecNode,
     pxeService: PXE,
-    publicClient: PublicClient<HttpTransport, Chain>,
-    walletClient: WalletClient<HttpTransport, Chain, Account>,
+    l1Client: ExtendedViemWalletClient,
     wallet: AccountWallet,
     logger: Logger,
-    underlyingERC20Address?: EthAddress,
+    underlyingERC20Address: EthAddress,
   ): Promise<CrossChainTestHarness> {
-    const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
+    const ethAccount = EthAddress.fromString((await l1Client.getAddresses())[0]);
     const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
 
     // Deploy and initialize all required contracts
     logger.info('Deploying and initializing token, portal and its bridge...');
     const { token, bridge, tokenPortalAddress, underlyingERC20 } = await deployAndInitializeTokenAndBridgeContracts(
       wallet,
-      walletClient,
-      publicClient,
+      l1Client,
       l1ContractAddresses.registryAddress,
       wallet.getAddress(),
       underlyingERC20Address,
@@ -172,8 +157,7 @@ export class CrossChainTestHarness {
       ethAccount,
       tokenPortalAddress,
       underlyingERC20.address,
-      publicClient,
-      walletClient,
+      l1Client,
       l1ContractAddresses,
       wallet,
     );
@@ -204,10 +188,8 @@ export class CrossChainTestHarness {
     public tokenPortalAddress: EthAddress,
     /** Underlying token for portal tests. */
     public underlyingERC20Address: EthAddress,
-    /** Viem Public client instance. */
-    public publicClient: PublicClient<HttpTransport, Chain>,
-    /** Viem Wallet Client instance. */
-    public walletClient: WalletClient<HttpTransport, Chain, Account>,
+    /** Viem Extended client instance. */
+    public l1Client: ExtendedViemWalletClient,
 
     /** Deployment addresses for all L1 contracts */
     public readonly l1ContractAddresses: L1ContractAddresses,
@@ -218,9 +200,9 @@ export class CrossChainTestHarness {
     this.l1TokenPortalManager = new L1TokenPortalManager(
       this.tokenPortalAddress,
       this.underlyingERC20Address,
+      this.l1ContractAddresses.feeAssetHandlerAddress,
       this.l1ContractAddresses.outboxAddress,
-      this.publicClient,
-      this.walletClient,
+      this.l1Client,
       this.logger,
     );
     this.l1TokenManager = this.l1TokenPortalManager.getTokenManager();
@@ -228,8 +210,15 @@ export class CrossChainTestHarness {
   }
 
   async mintTokensOnL1(amount: bigint) {
-    await this.l1TokenManager.mint(amount, this.ethAccount.toString());
-    expect(await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString())).toEqual(amount);
+    const contract = getContract({
+      abi: TestERC20Abi,
+      address: this.l1TokenManager.tokenAddress.toString(),
+      client: this.l1Client,
+    });
+    const balanceBefore = await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString());
+    const hash = await contract.write.mint([this.ethAccount.toString(), amount]);
+    await this.l1Client.waitForTransactionReceipt({ hash });
+    expect(await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString())).toEqual(balanceBefore + amount);
   }
 
   getL1BalanceOf(address: EthAddress) {
@@ -280,10 +269,14 @@ export class CrossChainTestHarness {
       .wait();
   }
 
-  async withdrawPrivateFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
+  async withdrawPrivateFromAztecToL1(
+    withdrawAmount: bigint,
+    nonce: Fr = Fr.ZERO,
+    authWitness: AuthWitness,
+  ): Promise<FieldsOf<TxReceipt>> {
     const withdrawReceipt = await this.l2Bridge.methods
       .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-      .send()
+      .send({ authWitnesses: [authWitness] })
       .wait();
 
     return withdrawReceipt;
@@ -317,8 +310,8 @@ export class CrossChainTestHarness {
     expect(balance).toBe(expectedBalance);
   }
 
-  getL2ToL1MessageLeaf(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Fr {
-    return this.l1TokenPortalManager.getL2ToL1MessageLeaf(
+  async getL2ToL1MessageLeaf(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Promise<Fr> {
+    return await this.l1TokenPortalManager.getL2ToL1MessageLeaf(
       withdrawAmount,
       this.ethAccount,
       this.l2Bridge.address,
@@ -365,6 +358,19 @@ export class CrossChainTestHarness {
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);
+  }
+
+  toCrossChainContext(): CrossChainContext {
+    return {
+      l2Token: this.l2Token.address,
+      l2Bridge: this.l2Bridge.address,
+      tokenPortal: this.tokenPortalAddress,
+      underlying: this.underlyingERC20Address,
+      ethAccount: this.ethAccount,
+      ownerAddress: this.ownerAddress,
+      inbox: this.l1ContractAddresses.inboxAddress,
+      outbox: this.l1ContractAddresses.outboxAddress,
+    };
   }
 }
 // docs:end:cross_chain_test_harness

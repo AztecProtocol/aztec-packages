@@ -1,9 +1,16 @@
+/.devcontainer/ @charlielye
+/.github/ @charlielye
+/aztec-up/ @charlielye
+/release-image/ @charlielye
 /build-images/ @charlielye
+/ci3/ @charlielye
+**/bootstrap.sh @charlielye
+**/run_test.sh @charlielye
+/release-please-config @charlielye
+/.test_patterns.yml @charlielye
 
-# Notify the Noir team of any changes to ACIR serialization
-/noir/noir-repo/acvm-repo/acir/codegen/* @TomAFrench @vezenovm @guipublic
-# on changes to stdlib
-/noir/noir-repo/noir_stdlib/* @TomAFrench
+# Notify the Noir team of divergences to upstream
+/noir/noir-repo.patch @TomAFrench
 
 #####################################################
 # Notify the AVM team
@@ -12,21 +19,19 @@
 /bb-pilcom @Maddiaa0 @jeanmon @IlyasRidhuan @fcarreiro
 # on changes to PIL code (AVM circuit)
 /barretenberg/cpp/pil @Maddiaa0 @jeanmon @IlyasRidhuan @fcarreiro
-# on changes to PIL-generated C++
-/barretenberg/cpp/src/barretenberg/**/generated @jeanmon @IlyasRidhuan @fcarreiro
 # on changes to AVM C++ code
 /barretenberg/cpp/src/barretenberg/vm @jeanmon @IlyasRidhuan @fcarreiro
+/barretenberg/cpp/src/barretenberg/vm2 @jeanmon @IlyasRidhuan @fcarreiro
 # on changes to public context in aztec-nr
-/noir-projects/aztec-nr/aztec/src/context/inputs/public_context_inputs.nr @fcarreiro @dbanks12
 /noir-projects/aztec-nr/aztec/src/context/public_context.nr @fcarreiro @dbanks12
 # on changes to the AVM simulator and supporting modules
-/yarn-project/simulator/src/avm @fcarreiro @dbanks12
-/yarn-project/simulator/src/public/execution.ts @fcarreiro @dbanks12
-/yarn-project/simulator/src/public/executor.ts @fcarreiro @dbanks12
-/yarn-project/simulator/src/public/side_effect_trace.test.ts @fcarreiro @dbanks12
-/yarn-project/simulator/src/public/side_effect_trace.ts @fcarreiro @dbanks12
-/yarn-project/simulator/src/public/side_effect_trace_interface.ts @fcarreiro @dbanks12
+/yarn-project/simulator/src/public @fcarreiro @dbanks12 @sirasistant
 # on changes to the AVM transpiler
-/avm-transpiler/src @fcarreiro @dbanks12
+/avm-transpiler/src @fcarreiro @dbanks12 @sirasistant
 #####################################################
 
+# Notify fairies of changes to playground bundler config
+/playground/vite.config.ts @Thunkar
+
+# Notify turtles of changes to L1-contracts
+/l1-contracts/src @LHerskind @Maddiaa0 @just-mitch

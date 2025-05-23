@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -39,7 +39,7 @@ jobs:
     needs: mirror-to-barretenberg-repo
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -51,7 +51,7 @@ jobs:
 
           monorepo_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
           # list all aztec-packages tags, take the "highest" version
-          monorepo_tag="$(git tag --list aztec-packages-v* | sort --version-sort | tail -1)"
+          monorepo_tag="$(git tag --list v* | sort --version-sort | tail -1)"
           monorepo_protocol_circuits_path="noir-projects/noir-protocol-circuits"
 
           # take all Nargo.toml files that reference noir-protocol-circuits
@@ -60,7 +60,7 @@ jobs:
           # match lines like this:
           # protocol_types = { path = "../../noir-protocol-circuits/crates/types" }
           # and replace with
-          # protocol_types = { git="https://github.com/aztecprotocol/aztec-packages", tag="aztec-packages-v0.16.9", directory="noir-projects/noir-protocol-circuits/crates/types" }
+          # protocol_types = { git="https://github.com/aztecprotocol/aztec-packages", tag="v0.16.9", directory="noir-projects/noir-protocol-circuits/crates/types" }
           for nargo_file in $nargo_files; do
             sed --regexp-extended --in-place \
               "s;path\s*=\s*\".*noir-protocol-circuits(.*)\";git=\"$monorepo_url\", tag=\"$monorepo_tag\", directory=\"$monorepo_protocol_circuits_path\1\";" \
@@ -77,7 +77,7 @@ jobs:
             for nargo_file in $nargo_files; do
               git restore --source=origin/master -- $nargo_file
             done
-            git commit --all --amend -m "$(git log -1 --pretty=%B) [skip ci]"
+            git commit --all --amend -m "$(git log -1 --pretty=%B)"
 
             git push
           fi

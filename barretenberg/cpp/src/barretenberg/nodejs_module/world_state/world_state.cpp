@@ -1,18 +1,5 @@
-#include "barretenberg/nodejs_module/world_state/world_state.hpp"
-#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/response.hpp"
-#include "barretenberg/crypto/merkle_tree/types.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/messaging/header.hpp"
-#include "barretenberg/nodejs_module/util/async_op.hpp"
-#include "barretenberg/nodejs_module/world_state/world_state_message.hpp"
-#include "barretenberg/world_state/fork.hpp"
-#include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
-#include "msgpack/v3/pack_decl.hpp"
-#include "msgpack/v3/sbuffer_decl.hpp"
-#include "napi.h"
+
 #include <algorithm>
 #include <any>
 #include <array>
@@ -24,6 +11,20 @@
 #include <stdexcept>
 #include <sys/types.h>
 #include <unordered_map>
+
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/messaging/header.hpp"
+#include "barretenberg/nodejs_module/util/async_op.hpp"
+#include "barretenberg/nodejs_module/world_state/world_state.hpp"
+#include "barretenberg/nodejs_module/world_state/world_state_message.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/world_state/fork.hpp"
+#include "barretenberg/world_state/types.hpp"
+#include "napi.h"
 
 using namespace bb::nodejs;
 using namespace bb::world_state;
@@ -46,6 +47,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     };
     std::unordered_map<MerkleTreeId, uint32_t> tree_height;
     std::unordered_map<MerkleTreeId, index_t> tree_prefill;
+    std::vector<PublicDataLeafValue> prefilled_public_data;
     std::vector<MerkleTreeId> tree_ids{
         MerkleTreeId::NULLIFIER_TREE,        MerkleTreeId::NOTE_HASH_TREE, MerkleTreeId::PUBLIC_DATA_TREE,
         MerkleTreeId::L1_TO_L2_MESSAGE_TREE, MerkleTreeId::ARCHIVE,
@@ -87,7 +89,30 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         throw Napi::TypeError::New(env, "Tree prefill must be a map");
     }
 
-    size_t initial_header_generator_point_index = 3;
+    size_t prefilled_public_data_index = 3;
+    if (info.Length() > prefilled_public_data_index && info[prefilled_public_data_index].IsArray()) {
+        Napi::Array arr = info[prefilled_public_data_index].As<Napi::Array>();
+        for (uint32_t i = 0; i < arr.Length(); ++i) {
+            Napi::Array deserialized = arr.Get(i).As<Napi::Array>();
+            if (deserialized.Length() != 2 || !deserialized.Get(uint32_t(0)).IsBuffer() ||
+                !deserialized.Get(uint32_t(1)).IsBuffer()) {
+                throw Napi::TypeError::New(env, "Prefilled public data value must be a buffer array of size 2");
+            }
+            Napi::Buffer<uint8_t> slot_buf = deserialized.Get(uint32_t(0)).As<Napi::Buffer<uint8_t>>();
+            Napi::Buffer<uint8_t> value_buf = deserialized.Get(uint32_t(1)).As<Napi::Buffer<uint8_t>>();
+            uint256_t slot = 0;
+            uint256_t value = 0;
+            for (size_t j = 0; j < 32; ++j) {
+                slot = (slot << 8) | slot_buf[j];
+                value = (value << 8) | value_buf[j];
+            }
+            prefilled_public_data.push_back(PublicDataLeafValue(slot, value));
+        }
+    } else {
+        throw Napi::TypeError::New(env, "Prefilled public data must be an array");
+    }
+
+    size_t initial_header_generator_point_index = 4;
     if (info.Length() > initial_header_generator_point_index && info[initial_header_generator_point_index].IsNumber()) {
         initial_header_generator_point = info[initial_header_generator_point_index].As<Napi::Number>().Uint32Value();
     } else {
@@ -95,9 +120,9 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     }
 
     // optional parameters
-    size_t map_size_index = 4;
+    size_t map_size_index = 5;
     if (info.Length() > map_size_index) {
-        if (info[4].IsObject()) {
+        if (info[map_size_index].IsObject()) {
             Napi::Object obj = info[map_size_index].As<Napi::Object>();
 
             for (auto tree_id : tree_ids) {
@@ -115,7 +140,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         }
     }
 
-    size_t thread_pool_size_index = 5;
+    size_t thread_pool_size_index = 6;
     if (info.Length() > thread_pool_size_index) {
         if (!info[thread_pool_size_index].IsNumber()) {
             throw Napi::TypeError::New(env, "Thread pool size must be a number");
@@ -124,98 +149,119 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         thread_pool_size = info[thread_pool_size_index].As<Napi::Number>().Uint32Value();
     }
 
-    _ws = std::make_unique<WorldState>(
-        thread_pool_size, data_dir, map_size, tree_height, tree_prefill, initial_header_generator_point);
+    _ws = std::make_unique<WorldState>(thread_pool_size,
+                                       data_dir,
+                                       map_size,
+                                       tree_height,
+                                       tree_prefill,
+                                       prefilled_public_data,
+                                       initial_header_generator_point);
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_TREE_INFO,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_tree_info(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_STATE_REFERENCE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_state_reference(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_INITIAL_STATE_REFERENCE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_initial_state_reference(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_LEAF_VALUE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_leaf_value(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_LEAF_PREIMAGE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_leaf_preimage(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_SIBLING_PATH,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_sibling_path(obj, buffer); });
 
-    _dispatcher.registerTarget(WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
-                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) {
-                                   return get_block_numbers_for_leaf_indices(obj, buffer);
-                               });
+    _dispatcher.register_target(WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
+                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) {
+                                    return get_block_numbers_for_leaf_indices(obj, buffer);
+                                });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::FIND_LEAF_INDICES,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_leaf_indices(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::FIND_LOW_LEAF,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_low_leaf(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::APPEND_LEAVES,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return append_leaves(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::BATCH_INSERT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return batch_insert(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::SEQUENTIAL_INSERT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return sequential_insert(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::UPDATE_ARCHIVE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return update_archive(obj, buffer); });
 
-    _dispatcher.registerTarget(WorldStateMessageType::COMMIT,
-                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit(obj, buffer); });
+    _dispatcher.register_target(WorldStateMessageType::COMMIT,
+                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit(obj, buffer); });
 
-    _dispatcher.registerTarget(WorldStateMessageType::ROLLBACK, [this](msgpack::object& obj, msgpack::sbuffer& buffer) {
-        return rollback(obj, buffer);
-    });
+    _dispatcher.register_target(
+        WorldStateMessageType::ROLLBACK,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return rollback(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::SYNC_BLOCK,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return sync_block(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::CREATE_FORK,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return create_fork(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::DELETE_FORK,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return delete_fork(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::FINALISE_BLOCKS,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return set_finalised(obj, buffer); });
 
-    _dispatcher.registerTarget(WorldStateMessageType::UNWIND_BLOCKS,
-                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return unwind(obj, buffer); });
+    _dispatcher.register_target(WorldStateMessageType::UNWIND_BLOCKS,
+                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return unwind(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::REMOVE_HISTORICAL_BLOCKS,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return remove_historical(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_STATUS,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_status(obj, buffer); });
 
-    _dispatcher.registerTarget(WorldStateMessageType::CLOSE,
-                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return close(obj, buffer); });
+    _dispatcher.register_target(WorldStateMessageType::CLOSE,
+                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return close(obj, buffer); });
+
+    _dispatcher.register_target(
+        WorldStateMessageType::CREATE_CHECKPOINT,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return checkpoint(obj, buffer); });
+
+    _dispatcher.register_target(
+        WorldStateMessageType::COMMIT_CHECKPOINT,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit_checkpoint(obj, buffer); });
+
+    _dispatcher.register_target(
+        WorldStateMessageType::REVERT_CHECKPOINT,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return revert_checkpoint(obj, buffer); });
+
+    _dispatcher.register_target(
+        WorldStateMessageType::COPY_STORES,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return copy_stores(obj, buffer); });
 }
 
 Napi::Value WorldStateWrapper::call(const Napi::CallbackInfo& info)
@@ -243,7 +289,7 @@ Napi::Value WorldStateWrapper::call(const Napi::CallbackInfo& info)
         auto* op = new AsyncOperation(env, deferred, [=, this](msgpack::sbuffer& buf) {
             msgpack::object_handle obj_handle = msgpack::unpack(data->data(), length);
             msgpack::object obj = obj_handle.get();
-            _dispatcher.onNewData(obj, buf);
+            _dispatcher.on_new_data(obj, buf);
         });
 
         // Napi is now responsible for destroying this object
@@ -726,6 +772,48 @@ bool WorldStateWrapper::remove_historical(msgpack::object& obj, msgpack::sbuffer
     return true;
 }
 
+bool WorldStateWrapper::checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<ForkIdOnlyRequest> request;
+    obj.convert(request);
+
+    _ws->checkpoint(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::CREATE_CHECKPOINT, header, {});
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::commit_checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<ForkIdOnlyRequest> request;
+    obj.convert(request);
+
+    _ws->commit_checkpoint(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COMMIT_CHECKPOINT, header, {});
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::revert_checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<ForkIdOnlyRequest> request;
+    obj.convert(request);
+
+    _ws->revert_checkpoint(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::REVERT_CHECKPOINT, header, {});
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
 bool WorldStateWrapper::get_status(msgpack::object& obj, msgpack::sbuffer& buf) const
 {
     HeaderOnlyMessage request;
@@ -737,6 +825,20 @@ bool WorldStateWrapper::get_status(msgpack::object& obj, msgpack::sbuffer& buf) 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusSummary> resp_msg(WorldStateMessageType::GET_STATUS, header, { status });
     msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::copy_stores(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<CopyStoresRequest> request;
+    obj.convert(request);
+
+    _ws->copy_stores(request.value.dstPath, request.value.compact.value_or(false));
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COPY_STORES, header, {});
+    msgpack::pack(buffer, resp_msg);
 
     return true;
 }

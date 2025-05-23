@@ -1,0 +1,80 @@
+name: Fund Sepolia Accounts
+
+on:
+  workflow_call:
+    inputs:
+      values_file:
+        description: The values file to use, e.g. 1-validators.yaml
+        required: true
+        type: string
+      sepolia_accounts_mnemonic_secret_name:
+        description: The name of the secret which holds the sepolia accounts mnemonic. Will create a new one if it doesn't exist.
+        required: true
+        type: string
+        default: sepolia-accounts-mnemonic
+
+jobs:
+  fund-sepolia-accounts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install cast
+        run: |
+          if ! command -v cast &>/dev/null; then
+            echo "Installing cast..."
+            curl -L https://foundry.paradigm.xyz | bash
+            $HOME/.foundry/bin/foundryup
+          fi
+
+      - name: Get mnemonic
+        id: get-mnemonic
+        run: |
+          if gcloud secrets describe ${{ inputs.sepolia_accounts_mnemonic_secret_name }} >/dev/null 2>&1; then
+            echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ inputs.sepolia_accounts_mnemonic_secret_name }})"
+            echo "mnemonic=$(gcloud secrets versions access latest --secret=${{ inputs.sepolia_accounts_mnemonic_secret_name }})" >> "$GITHUB_OUTPUT"
+            echo "new_mnemonic=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new_mnemonic=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fund accounts
+        id: fund-accounts
+        run: |
+          # Check if we need a new mnemonic
+          if [[ "${{ steps.get-mnemonic.outputs.new_mnemonic }}" == "true" ]]; then
+            echo "Generating new mnemonic"
+          else
+            MNEMONIC="${{ steps.get-mnemonic.outputs.mnemonic }}"
+            echo "Using mnemonic from GCP"
+          fi
+
+          REPO=$(git rev-parse --show-toplevel)
+          MNEMONIC_FILE=$(mktemp)
+          export FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
+          export ETHEREUM_HOST="https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
+
+          echo "Funding accounts..."
+          $REPO/spartan/scripts/fund_sepolia_accounts.sh ${{ inputs.values_file }} "$MNEMONIC_FILE"
+          mnemonic=$(cat "$MNEMONIC_FILE")
+          rm "$MNEMONIC_FILE"
+          echo "::add-mask::$mnemonic"
+          echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"
+
+      - name: Save mnemonic to GCP
+        if: ${{ steps.get-mnemonic.outputs.new_mnemonic == 'true' }}
+        run: |
+          echo "Saving mnemonic to GCP"
+          echo "::add-mask::${{ steps.get-mnemonic.outputs.mnemonic }}"
+          gcloud secrets versions add latest --secret=${{ inputs.sepolia_accounts_mnemonic_secret_name }} --data-file="$MNEMONIC_FILE"

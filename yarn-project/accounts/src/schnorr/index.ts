@@ -4,16 +4,35 @@
  *
  * @packageDocumentation
  */
-import { AccountManager, type Salt } from '@aztec/aztec.js/account';
-import { type AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
-import { type GrumpkinScalar, type PXE } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
+import { AccountManager, type Salt, getAccountContractAddress } from '@aztec/aztec.js/account';
+import { type AccountWallet, type AccountWalletWithSecretKey, getWallet } from '@aztec/aztec.js/wallet';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
+import { loadContractArtifact } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
+import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import { SchnorrAccountContract } from './account_contract.js';
+import SchnorrAccountContractJson from '../../artifacts/SchnorrAccount.json' with { type: 'json' };
+import { SchnorrBaseAccountContract } from './account_contract.js';
 
-export { SchnorrAccountContract };
+export const SchnorrAccountContractArtifact = loadContractArtifact(SchnorrAccountContractJson as NoirCompiledContract);
 
-export { SchnorrAccountContractArtifact } from './artifact.js';
+/**
+ * Account contract that authenticates transactions using Schnorr signatures
+ * verified against a Grumpkin public key stored in an immutable encrypted note.
+ * Eagerly loads the contract artifact
+ */
+export class SchnorrAccountContract extends SchnorrBaseAccountContract {
+  constructor(signingPrivateKey: GrumpkinScalar) {
+    super(signingPrivateKey);
+  }
+
+  override getContractArtifact(): Promise<ContractArtifact> {
+    return Promise.resolve(SchnorrAccountContractArtifact);
+  }
+}
 
 /**
  * Creates an Account Manager that relies on a Grumpkin signing key for authentication.
@@ -45,4 +64,34 @@ export function getSchnorrWallet(
   signingPrivateKey: GrumpkinScalar,
 ): Promise<AccountWallet> {
   return getWallet(pxe, address, new SchnorrAccountContract(signingPrivateKey));
+}
+
+/**
+ * Gets a wallet for an already registered account using Schnorr signatures.
+ * @param pxe - An PXE server instance.
+ * @param secretKey - Secret key used to derive all the keystore keys.
+ * @param signingPrivateKey - Grumpkin key used for signing transactions.
+ * @param salt - Deployment salt.
+ * @returns A wallet for this account that can be used to interact with a contract instance.
+ */
+export async function getSchnorrWalletWithSecretKey(
+  pxe: PXE,
+  secretKey: Fr,
+  signingPrivateKey: GrumpkinScalar,
+  salt: Salt,
+): Promise<AccountWalletWithSecretKey> {
+  const account = await getSchnorrAccount(pxe, secretKey, signingPrivateKey, salt);
+  return account.getWallet();
+}
+
+/**
+ * Compute the address of a schnorr account contract.
+ * @param secret - A seed for deriving the signing key and public keys.
+ * @param salt - The contract address salt.
+ * @param signingPrivateKey - A specific signing private key that's not derived from the secret.
+ */
+export async function getSchnorrAccountContractAddress(secret: Fr, salt: Fr, signingPrivateKey?: GrumpkinScalar) {
+  const signingKey = signingPrivateKey ?? deriveSigningKey(secret);
+  const accountContract = new SchnorrAccountContract(signingKey);
+  return await getAccountContractAddress(accountContract, secret, salt);
 }

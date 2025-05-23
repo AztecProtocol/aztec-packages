@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
-  Timestamp, Status, ValidatorInfo, Exit, IStaking
+  Timestamp, Status, ValidatorInfo, Exit, IStakingCore
 } from "@aztec/core/interfaces/IStaking.sol";
 
 contract InitiateWithdrawTest is StakingBase {
@@ -26,7 +26,6 @@ contract InitiateWithdrawTest is StakingBase {
       _withdrawer: WITHDRAWER,
       _amount: MINIMUM_STAKE
     });
-
     _;
   }
 
@@ -53,13 +52,15 @@ contract InitiateWithdrawTest is StakingBase {
   {
     // it revert
 
-    staking.cheat__SetStatus(ATTESTER, Status.EXITING);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NothingToExit.selector, ATTESTER));
+    assertTrue(staking.getInfo(address(1)).status == Status.NONE);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NothingToExit.selector, address(1)));
+    vm.prank(address(0));
+    staking.initiateWithdraw(address(1), address(2));
+
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
 
-    // Should not be possible to hit this, as you should have failed with withdrawer being address(0)
-    staking.cheat__SetStatus(ATTESTER, Status.NONE);
+    assertTrue(staking.getInfo(ATTESTER).status == Status.EXITING);
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NothingToExit.selector, ATTESTER));
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
@@ -76,12 +77,7 @@ contract InitiateWithdrawTest is StakingBase {
     givenAttesterIsValidating
   {
     // it revert
-
-    // Again, this should not be possible to hit
-    staking.cheat__RemoveAttester(ATTESTER);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__FailedToRemove.selector, ATTESTER));
-    vm.prank(WITHDRAWER);
-    staking.initiateWithdraw(ATTESTER, RECIPIENT);
+    // this should not be possible to hit
   }
 
   function test_GivenAttesterIsInTheActiveSet()
@@ -105,7 +101,7 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(staking.getActiveAttesterCount(), 1);
 
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStaking.WithdrawInitiated(ATTESTER, RECIPIENT, MINIMUM_STAKE);
+    emit IStakingCore.WithdrawInitiated(ATTESTER, RECIPIENT, MINIMUM_STAKE);
 
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
@@ -117,6 +113,7 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(exit.recipient, RECIPIENT);
     info = staking.getInfo(ATTESTER);
     assertTrue(info.status == Status.EXITING);
+
     assertEq(staking.getActiveAttesterCount(), 0);
   }
 
@@ -125,8 +122,8 @@ contract InitiateWithdrawTest is StakingBase {
     // it updates the operator status to exiting
     // it emits a {WithdrawInitiated} event
 
-    staking.cheat__SetStatus(ATTESTER, Status.LIVING);
-    staking.cheat__RemoveAttester(ATTESTER);
+    vm.prank(SLASHER);
+    staking.slash(ATTESTER, MINIMUM_STAKE / 2);
 
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
@@ -135,10 +132,11 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(exit.recipient, address(0));
     ValidatorInfo memory info = staking.getInfo(ATTESTER);
     assertTrue(info.status == Status.LIVING);
+
     assertEq(staking.getActiveAttesterCount(), 0);
 
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStaking.WithdrawInitiated(ATTESTER, RECIPIENT, MINIMUM_STAKE);
+    emit IStakingCore.WithdrawInitiated(ATTESTER, RECIPIENT, MINIMUM_STAKE - MINIMUM_STAKE / 2);
 
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);

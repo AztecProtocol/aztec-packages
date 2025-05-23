@@ -3,99 +3,104 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-# hash=$(cache_content_hash ../noir/.rebuild_patterns \
-#   ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-#   ../barretenberg/*/.rebuild_patterns)
+hash=$(../bootstrap.sh hash)
+bench_fixtures_dir=example-app-ivc-inputs-out
 
 function test_cmds {
-  local run_test="yarn-project/end-to-end/scripts/test.sh"
-  echo "$run_test simple e2e_2_pxes"
-  echo "$run_test simple e2e_account_contracts"
-  echo "$run_test simple e2e_authwit"
-  echo "$run_test simple e2e_avm_simulator"
-  echo "$run_test simple e2e_blacklist_token_contract/access_control"
-  echo "$run_test simple e2e_blacklist_token_contract/burn"
-  echo "$run_test simple e2e_blacklist_token_contract/minting"
-  echo "$run_test simple e2e_blacklist_token_contract/shielding"
-  echo "$run_test simple e2e_blacklist_token_contract/transfer_private"
-  echo "$run_test simple e2e_blacklist_token_contract/transfer_public"
-  echo "$run_test simple e2e_blacklist_token_contract/unshielding"
-  # echo "$run_test simple-flake e2e_block_building"
-  echo "$run_test simple e2e_bot"
-  echo "$run_test simple e2e_card_game"
-  echo "$run_test simple e2e_cheat_codes"
-  echo "$run_test simple e2e_cross_chain_messaging/l1_to_l2"
-  echo "$run_test simple e2e_cross_chain_messaging/l2_to_l1"
-  echo "$run_test simple e2e_cross_chain_messaging/token_bridge_failure_cases"
-  echo "$run_test simple e2e_cross_chain_messaging/token_bridge_private"
-  echo "$run_test simple e2e_cross_chain_messaging/token_bridge_public"
-  echo "$run_test simple e2e_crowdfunding_and_claim"
-  echo "$run_test simple e2e_deploy_contract/contract_class_registration"
-  echo "$run_test simple e2e_deploy_contract/deploy_method"
-  echo "$run_test simple e2e_deploy_contract/legacy"
-  echo "$run_test simple e2e_deploy_contract/private_initialization"
-  echo "$run_test simple e2e_escrow_contract"
-  echo "$run_test simple e2e_event_logs"
-  echo "$run_test simple e2e_fees/account_init"
-  echo "$run_test simple e2e_fees/failures"
-  echo "$run_test simple e2e_fees/fee_juice_payments"
-  echo "$run_test simple e2e_fees/gas_estimation"
-  # echo "$run_test simple e2e_fees/private_payments"
-  echo "$run_test simple e2e_keys"
-  echo "$run_test simple e2e_l1_with_wall_time"
-  echo "$run_test simple e2e_lending_contract"
-  echo "$run_test simple e2e_max_block_number"
-  echo "$run_test simple e2e_multiple_accounts_1_enc_key"
-  echo "$run_test simple e2e_nested_contract/importer"
-  echo "$run_test simple e2e_nested_contract/manual_private_call"
-  echo "$run_test simple e2e_nested_contract/manual_private_enqueue"
-  echo "$run_test simple e2e_nested_contract/manual_public"
-  echo "$run_test simple e2e_nft"
-  echo "$run_test simple e2e_non_contract_account"
-  echo "$run_test simple e2e_note_getter"
-  echo "$run_test simple e2e_ordering"
-  echo "$run_test simple e2e_outbox"
-  echo "$run_test simple e2e_p2p/gossip_network"
-  # echo "$run_test simple e2e_p2p/rediscovery"
-  # echo "$run_test simple-flake e2e_p2p/reqresp"
-  # echo "$run_test simple-flake e2e_p2p/upgrade_governance_proposer"
-  echo "$run_test simple e2e_private_voting_contract"
-  # echo "FAKE_PROOFS=1 $run_test simple-flake e2e_prover/full"
-  echo "$run_test simple e2e_prover_coordination"
-  echo "$run_test simple e2e_public_testnet_transfer"
-  echo "$run_test simple e2e_state_vars"
-  echo "$run_test simple e2e_static_calls"
-  echo "$run_test simple e2e_synching"
-  echo "$run_test simple e2e_token_contract/access_control"
-  echo "$run_test simple e2e_token_contract/burn"
-  echo "$run_test simple e2e_token_contract/minting"
-  echo "$run_test simple e2e_token_contract/private_transfer_recursion"
-  echo "$run_test simple e2e_token_contract/reading_constants"
-  echo "$run_test simple e2e_token_contract/transfer_in_private"
-  echo "$run_test simple e2e_token_contract/transfer_in_public"
-  echo "$run_test simple e2e_token_contract/transfer_to_private"
-  echo "$run_test simple e2e_token_contract/transfer_to_public"
-  echo "$run_test simple e2e_token_contract/transfer.test"
-  # echo "$run_test simple-flake flakey_e2e_inclusion_proofs_contract"
+  local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
+  local prefix="$hash:ISOLATE=1"
 
-  echo "$run_test compose composed/docs_examples"
-  echo "$run_test compose composed/e2e_aztec_js_browser"
-  echo "$run_test compose composed/e2e_pxe"
-  echo "$run_test compose composed/e2e_sandbox_example"
-  echo "$run_test compose composed/integration_l1_publisher"
-  echo "$run_test compose sample-dapp/index"
-  echo "$run_test compose sample-dapp/ci/index"
-  echo "$run_test compose guides/dapp_testing"
-  echo "$run_test compose guides/up_quick_start"
-  echo "$run_test compose guides/writing_an_account_contract"
+  # Longest-running tests first
+  if [ "$CI_FULL" -eq 1 ]; then
+    echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+  else
+    echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
+  fi
+  echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $run_test_script simple e2e_block_building"
+
+  local tests=(
+    # List all standalone and nested tests, except for the ones listed above.
+    src/e2e_!(prover)/*.test.ts
+    src/e2e_!(block_building).test.ts
+  )
+  for test in "${tests[@]}"; do
+    local name=${test#*e2e_}
+    name=e2e_${name%.test.ts}
+    echo "$prefix:NAME=$name $run_test_script simple $test"
+  done
+
+  # compose-based tests (use running sandbox)
+  tests=(
+    src/composed/!(integration_proof_verification|e2e_persistence).test.ts
+    src/guides/*.test.ts
+    src/sample-dapp/index
+    src/sample-dapp/ci/index
+  )
+  for test in "${tests[@]}"; do
+    # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
+    echo "$hash:ONLY_TERM_PARENT=1 $run_test_script compose $test"
+  done
+
+  # TODO(AD): figure out workaround for mainframe subnet exhaustion
+  if [ "$CI" -eq 1 ]; then
+    # compose-based tests with custom scripts
+    for flow in ../cli-wallet/test/flows/*.sh; do
+      # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
+      # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
+      echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info $run_test_script compose $flow"
+    done
+  fi
+}
+
+function test {
+  echo_header "e2e tests"
+  test_cmds | filter_test_cmds | parallelise
+}
+
+function bench_cmds {
+  echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
+  for dir in $bench_fixtures_dir/*; do
+    for runtime in native wasm; do
+      echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $runtime ../../yarn-project/end-to-end/$dir"
+    done
+  done
+}
+
+# Builds the benchmark fixtures.
+function build_bench {
+  export CAPTURE_IVC_FOLDER=$bench_fixtures_dir
+  export BENCHMARK_CONFIG=key_flows
+  export LOG_LEVEL=error
+  export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER LOG_LEVEL"
+  rm -rf $CAPTURE_IVC_FOLDER && mkdir -p $CAPTURE_IVC_FOLDER
+  rm -rf bench-out && mkdir -p bench-out
+  if cache_download bb-client-ivc-captures-$hash.tar.gz; then
+    return
+  fi
+  if [ -n "${DOWNLOAD_ONLY:-}" ]; then
+    echo "Could not find ivc inputs cached!"
+    exit 1
+  fi
+  parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
+    client_flows/deployments \
+    client_flows/bridging \
+    client_flows/transfers \
+    client_flows/amm
+  cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
+}
+
+function bench {
+  rm -rf bench-out
+  mkdir -p bench-out
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  "test-cmds")
-    test_cmds
+  test|test_cmds|bench|bench_cmds|build_bench)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"

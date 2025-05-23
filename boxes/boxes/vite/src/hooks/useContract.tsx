@@ -2,7 +2,6 @@ import { useState } from "react";
 import { deployerEnv } from "../config";
 
 import { Contract, Fr } from "@aztec/aztec.js";
-import { BoxReactContract } from "../../artifacts/BoxReact";
 import { toast } from "react-toastify";
 
 export function useContract() {
@@ -16,6 +15,8 @@ export function useContract() {
     await deployerEnv.init();
     const wallet = await deployerEnv.getWallet();
     const salt = Fr.random();
+
+    const { BoxReactContract } = await import("../../artifacts/BoxReact");
 
     const tx = await BoxReactContract.deploy(
       wallet,

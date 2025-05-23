@@ -2,7 +2,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { GoogleCloudStorageProofStore } from './gcs_proof_store.js';
 import { InlineProofStore } from './inline_proof_store.js';
-import { type ProofStore } from './proof_store.js';
+import type { ProofStore } from './proof_store.js';
 
 export function createProofStore(config: string | undefined, logger = createLogger('prover-client:proof-store')) {
   if (config === undefined) {
@@ -15,7 +15,7 @@ export function createProofStore(config: string | undefined, logger = createLogg
       const path = url.pathname.replace(/^\/+/, '');
       logger.info(`Creating google cloud proof store at ${bucket}`, { bucket, path });
       return new GoogleCloudStorageProofStore(bucket, path);
-    } catch (err) {
+    } catch {
       throw new Error(
         `Invalid google cloud proof store definition: '${config}'. Supported values are 'gs://bucket-name/path/to/store'.`,
       );

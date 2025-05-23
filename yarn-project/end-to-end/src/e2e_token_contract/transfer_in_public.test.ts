@@ -131,29 +131,20 @@ describe('e2e_token_contract transfer public', () => {
         .withWallet(wallets[1])
         .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
 
-      expect(await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action })).toEqual(
-        {
-          isValidInPrivate: false,
-          isValidInPublic: false,
-        },
-      );
-
+      const intent = { caller: accounts[1].address, action };
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const validateActionInteraction = await wallets[0].setPublicAuthWit(
-        { caller: accounts[1].address, action },
-        true,
-      );
+      const validateActionInteraction = await wallets[0].setPublicAuthWit(intent, true);
       await validateActionInteraction.send().wait();
 
-      expect(await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action })).toEqual(
-        {
-          isValidInPrivate: false,
-          isValidInPublic: true,
-        },
-      );
+      const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+
+      expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
+        isValidInPrivate: true,
+        isValidInPublic: true,
+      });
 
       // Perform the transfer
-      await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+      await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
       expect(await asset.methods.balance_of_public(accounts[0].address).simulate()).toEqual(balance0);
       expect(await asset.methods.balance_of_public(accounts[1].address).simulate()).toEqual(balance1);

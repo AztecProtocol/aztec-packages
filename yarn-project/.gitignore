@@ -1,4 +1,3 @@
-# To be maintained along with .earthlyinore
 **/dest
 **/node_modules
 **/.cache
@@ -16,16 +15,16 @@ accounts/artifacts
 aztec-faucet/data*
 aztec-node/data*
 aztec/log
-circuits.js/fixtures/*.json
-circuit-types/src/test/artifacts
+stdlib/fixtures/*.json
+stdlib/src/test/artifacts
 docs/dist
 end-to-end/addresses.json
 end-to-end/flame_graph
 end-to-end/log
 end-to-end/data
 end-to-end/src/web/*.gz
-end-to-end/src/web/*main.js
-end-to-end/src/web/main.js.LICENSE.txt
+end-to-end/src/web/*.mjs
+end-to-end/src/web/*.mjs.LICENSE.txt
 l1-artifacts/generated
 l1-contracts/generated
 builder/target/
@@ -41,6 +40,7 @@ noir-protocol-circuits-types/src/private_kernel_reset_data.ts
 noir-protocol-circuits-types/src/private_kernel_reset_vks.ts
 noir-protocol-circuits-types/src/private_kernel_reset_types.ts
 noir-protocol-circuits-types/src/client_artifacts_helper.ts
+noir-protocol-circuits-types/src/vk_tree.ts
 noir-protocol-circuits-types/src/types/
 ivc-integration/artifacts
 ivc-integration/src/types/
@@ -50,6 +50,9 @@ scripts/tmp
 noir-contracts.js/src
 noir-contracts.js/artifacts/
 noir-contracts.js/codegenCache.json
+noir-test-contracts.js/src
+noir-test-contracts.js/artifacts/
+noir-test-contracts.js/codegenCache.json
 types/fixtures/*.json
 cli-wallet/test/data
 

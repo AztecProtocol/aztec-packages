@@ -1,8 +1,11 @@
-import { type ExportResult } from '@opentelemetry/core';
-import { type MetricData, type PushMetricExporter, type ResourceMetrics } from '@opentelemetry/sdk-metrics';
+import type { ExportResult } from '@opentelemetry/core';
+import type { MetricData, PushMetricExporter, ResourceMetrics } from '@opentelemetry/sdk-metrics';
 
 export class OtelFilterMetricExporter implements PushMetricExporter {
-  constructor(private readonly exporter: PushMetricExporter, private readonly excludeMetricPrefixes: string[]) {
+  constructor(
+    private readonly exporter: PushMetricExporter,
+    private readonly excludeMetricPrefixes: string[],
+  ) {
     if (exporter.selectAggregation) {
       (this as PushMetricExporter).selectAggregation = exporter.selectAggregation.bind(exporter);
     }

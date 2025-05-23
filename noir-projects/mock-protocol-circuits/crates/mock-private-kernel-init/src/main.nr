@@ -14,4 +14,3 @@ fn main(
     private_kernel_inputs.ingest_app_inputs(app_inputs);
     private_kernel_inputs.finish()
 }
-

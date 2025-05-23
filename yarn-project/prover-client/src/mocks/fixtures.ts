@@ -1,19 +1,17 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations, type ProcessedTx } from '@aztec/circuit-types';
-import {
-  AztecAddress,
-  EthAddress,
-  Fr,
-  GasFees,
-  GlobalVariables,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  NULLIFIER_TREE_HEIGHT,
-} from '@aztec/circuits.js';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { type Logger } from '@aztec/foundation/log';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { NativeACVMSimulator, type SimulationProvider, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasFees } from '@aztec/stdlib/gas';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import type { ProcessedTx } from '@aztec/stdlib/tx';
+import { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -39,7 +37,7 @@ export const getEnvironmentConfig = async (logger: Logger) => {
     const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
     const bbWorkingDirectory = BB_WORKING_DIRECTORY ? BB_WORKING_DIRECTORY : `${tempWorkingDirectory}/bb`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
-    logger.verbose(`Using native BB binary at ${expectedBBPath} with working directory ${bbWorkingDirectory}`);
+    logger.info(`Found native BB binary at ${expectedBBPath} with working directory ${bbWorkingDirectory}`);
 
     const expectedAcvmPath = ACVM_BINARY_PATH
       ? ACVM_BINARY_PATH
@@ -47,7 +45,7 @@ export const getEnvironmentConfig = async (logger: Logger) => {
     await fs.access(expectedAcvmPath, fs.constants.R_OK);
     const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
-    logger.verbose(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
+    logger.info(`Found native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
 
     const bbSkipCleanup = ['1', 'true'].includes(BB_SKIP_CLEANUP);
     bbSkipCleanup && logger.verbose(`Not going to clean up BB working directory ${bbWorkingDirectory} after run`);
@@ -61,7 +59,7 @@ export const getEnvironmentConfig = async (logger: Logger) => {
       bbSkipCleanup,
     };
   } catch (err) {
-    logger.verbose(`Native BB not available, error: ${err}`);
+    logger.info(`Native BB not available: ${err}`);
     return undefined;
   }
 };

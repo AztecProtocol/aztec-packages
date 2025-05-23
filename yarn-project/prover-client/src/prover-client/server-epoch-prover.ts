@@ -1,13 +1,19 @@
-import { type EpochProver, type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
-import { type BlockHeader, type Fr, type GlobalVariables, type Proof } from '@aztec/circuits.js';
-import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
+import type { Fr } from '@aztec/foundation/fields';
+import type { L2Block } from '@aztec/stdlib/block';
+import type { EpochProver } from '@aztec/stdlib/interfaces/server';
+import type { Proof } from '@aztec/stdlib/proofs';
+import type { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import type { BlockHeader, GlobalVariables, ProcessedTx, Tx } from '@aztec/stdlib/tx';
 
-import { type ProvingOrchestrator } from '../orchestrator/orchestrator.js';
-import { type BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
+import type { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import type { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 
 /** Encapsulates the proving orchestrator and the broker facade */
 export class ServerEpochProver implements EpochProver {
-  constructor(private facade: BrokerCircuitProverFacade, private orchestrator: ProvingOrchestrator) {}
+  constructor(
+    private facade: BrokerCircuitProverFacade,
+    private orchestrator: ProvingOrchestrator,
+  ) {}
 
   startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number): void {
     this.orchestrator.startNewEpoch(epochNumber, firstBlockNumber, totalNumBlocks);

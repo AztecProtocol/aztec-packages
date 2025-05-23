@@ -1,13 +1,11 @@
 import { type Worker } from 'worker_threads';
-import createDebug from 'debug';
 import { Remote } from 'comlink';
 import { getNumCpu, getRemoteBarretenbergWasm, getSharedMemoryAvailable } from '../helpers/index.js';
 import { createThreadWorker } from '../barretenberg_wasm_thread/factory/node/index.js';
 import { type BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/index.js';
 import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
 import { HeapAllocator } from './heap_allocator.js';
-
-const debug = createDebug('bb.js:wasm');
+import { createDebugLogger } from '../../log/index.js';
 
 /**
  * This is the "main thread" implementation of BarretenbergWasm.
@@ -31,7 +29,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   public async init(
     module: WebAssembly.Module,
     threads = Math.min(getNumCpu(), BarretenbergWasmMain.MAX_THREADS),
-    logger: (msg: string) => void = debug,
+    logger: (msg: string) => void = createDebugLogger('bb_wasm'),
     initial = 32,
     maximum = 2 ** 16,
   ) {
@@ -42,9 +40,9 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     const shared = getSharedMemoryAvailable();
 
     this.logger(
-      `initial mem: ${initial} pages, ${initialMb}MiB. ` +
-        `max mem: ${maximum} pages, ${maxMb}MiB. ` +
-        `threads: ${threads}, shared: ${shared}`,
+      `Initializing bb wasm: initial memory ${initial} pages ${initialMb}MiB; ` +
+        `max memory: ${maximum} pages, ${maxMb}MiB; ` +
+        `threads: ${threads}; shared memory: ${shared}`,
     );
 
     this.memory = new WebAssembly.Memory({ initial, maximum, shared });
@@ -58,7 +56,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
 
     // Create worker threads. Create 1 less than requested, as main thread counts as a thread.
     if (threads > 1) {
-      this.logger(`creating ${threads} worker threads...`);
+      this.logger(`Creating ${threads} worker threads`);
       this.workers = await Promise.all(Array.from({ length: threads - 1 }).map(createThreadWorker));
       this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
       await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory)));

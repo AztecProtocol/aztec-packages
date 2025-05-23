@@ -1,4 +1,3 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   GeneratorIndex,
@@ -8,14 +7,17 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-} from '@aztec/circuits.js';
-import { createLogger } from '@aztec/foundation/log';
+} from '@aztec/constants';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { NativeWorldState as BaseNativeWorldState, MsgpackChannel } from '@aztec/native';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import assert from 'assert';
 import { cpus } from 'os';
 
-import { type WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
+import type { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
+import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import {
   WorldStateMessageType,
   type WorldStateRequest,
@@ -49,15 +51,19 @@ export class NativeWorldState implements NativeWorldStateInstance {
 
   /** Creates a new native WorldState instance */
   constructor(
-    dataDir: string,
-    dbMapSizeKb: number,
-    private instrumentation: WorldStateInstrumentation,
-    private log = createLogger('world-state:database'),
+    private readonly dataDir: string,
+    private readonly wsTreeMapSizes: WorldStateTreeMapSizes,
+    private readonly prefilledPublicData: PublicDataTreeLeaf[] = [],
+    private readonly instrumentation: WorldStateInstrumentation,
+    private readonly log: Logger = createLogger('world-state:database'),
   ) {
     const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
     log.info(
-      `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${threads} threads.`,
+      `Creating world state data store at directory ${dataDir} with map sizes ${JSON.stringify(
+        wsTreeMapSizes,
+      )} and ${threads} threads.`,
     );
+    const prefilledPublicDataBufferArray = prefilledPublicData.map(d => [d.slot.toBuffer(), d.value.toBuffer()]);
     const ws = new BaseNativeWorldState(
       dataDir,
       {
@@ -71,13 +77,34 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.NULLIFIER_TREE]: 2 * MAX_NULLIFIERS_PER_TX,
         [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       },
+      prefilledPublicDataBufferArray,
       GeneratorIndex.BLOCK_HASH,
-      dbMapSizeKb,
+      {
+        [MerkleTreeId.NULLIFIER_TREE]: wsTreeMapSizes.nullifierTreeMapSizeKb,
+        [MerkleTreeId.NOTE_HASH_TREE]: wsTreeMapSizes.noteHashTreeMapSizeKb,
+        [MerkleTreeId.PUBLIC_DATA_TREE]: wsTreeMapSizes.publicDataTreeMapSizeKb,
+        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: wsTreeMapSizes.messageTreeMapSizeKb,
+        [MerkleTreeId.ARCHIVE]: wsTreeMapSizes.archiveTreeMapSizeKb,
+      },
       threads,
     );
     this.instance = new MsgpackChannel(ws);
     // Manually create the queue for the canonical fork
     this.queues.set(0, new WorldStateOpsQueue());
+  }
+
+  public getDataDir() {
+    return this.dataDir;
+  }
+
+  public clone() {
+    return new NativeWorldState(
+      this.dataDir,
+      this.wsTreeMapSizes,
+      this.prefilledPublicData,
+      this.instrumentation,
+      this.log,
+    );
   }
 
   /**

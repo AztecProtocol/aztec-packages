@@ -6,15 +6,15 @@ use crate::components::reset_output_composer::reset_output_hints::generate_reset
 use dep::reset_kernel_lib::{PrivateValidationRequestProcessor, TransientDataIndexHint};
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
-        nullifier::ScopedNullifier, private_log::PrivateLogData, side_effect::scoped::Scoped,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        note_hash::ScopedNoteHash,
+        nullifier::ScopedNullifier,
+        private_log::PrivateLogData,
+        side_effect::{Ordered, scoped::Scoped},
     },
     address::AztecAddress,
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX},
-    hash::{
-        compute_siloed_private_log_field, compute_unique_siloed_note_hash, silo_note_hash,
-        silo_nullifier,
-    },
+    hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
     utils::arrays::sort_by_counter_asc,
 };
 
@@ -114,21 +114,14 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
     unconstrained fn get_sorted_siloed_private_logs(
         self,
     ) -> [Scoped<PrivateLogData>; MAX_PRIVATE_LOGS_PER_TX] {
-        let mut private_logs = sort_by_counter_asc(self.hints.kept_private_logs);
-        for i in 0..private_logs.len() {
-            private_logs[i].inner = silo_private_log(private_logs[i]);
-            // The following modifies self.hints.kept_private_logs :(
-            // private_logs[i].inner.log = silo_private_log(private_logs[i]);
-            private_logs[i].contract_address = AztecAddress::zero();
-        }
-        private_logs
+        let private_logs = sort_by_counter_asc(self.hints.kept_private_logs);
+        private_logs.map(|l: Scoped<PrivateLogData>| {
+            PrivateLogData {
+                log: silo_private_log(l),
+                note_hash_counter: l.inner.note_hash_counter,
+                counter: l.inner.counter,
+            }
+                .scope(AztecAddress::zero())
+        })
     }
-}
-
-fn silo_private_log(scoped: Scoped<PrivateLogData>) -> PrivateLogData {
-    let mut serialized = scoped.inner.serialize();
-    if !scoped.contract_address.is_zero() {
-        serialized[0] = compute_siloed_private_log_field(scoped.contract_address, serialized[0]);
-    }
-    PrivateLogData::deserialize(serialized)
 }

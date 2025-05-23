@@ -1,11 +1,11 @@
-import { AuthWitness } from '@aztec/circuit-types';
-import { type AztecAddress } from '@aztec/circuits.js';
 import { parseAztecAddress, parseSecretKey, parseTxHash } from '@aztec/cli/utils';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { Option } from 'commander';
 import { readdir, stat } from 'fs/promises';
 
-import { type AliasType, type WalletDB } from '../../storage/wallet_db.js';
+import type { AliasType, WalletDB } from '../../storage/wallet_db.js';
 import { AccountTypes } from '../accounts.js';
 
 const TARGET_DIR = 'target';
@@ -32,21 +32,25 @@ export function integerArgParser(
 export function aliasedTxHashParser(txHash: string, db?: WalletDB) {
   try {
     return parseTxHash(txHash);
-  } catch (err) {
+  } catch {
     const prefixed = txHash.includes(':') ? txHash : `transactions:${txHash}`;
     const rawTxHash = db ? db.tryRetrieveAlias(prefixed) : txHash;
     return parseTxHash(rawTxHash);
   }
 }
 
-export function aliasedAuthWitParser(witness: string, db?: WalletDB) {
-  try {
-    return AuthWitness.fromString(witness);
-  } catch (err) {
-    const prefixed = witness.includes(':') ? witness : `authwits:${witness}`;
-    const rawAuthWitness = db ? db.tryRetrieveAlias(prefixed) : witness;
-    return AuthWitness.fromString(rawAuthWitness);
-  }
+export function aliasedAuthWitParser(witnesses: string, db?: WalletDB) {
+  const parsedWitnesses = witnesses.split(',').map(witness => {
+    try {
+      return AuthWitness.fromString(witness);
+    } catch {
+      const prefixed = witness.includes(':') ? witness : `authwits:${witness}`;
+      const rawAuthWitness = db ? db.tryRetrieveAlias(prefixed) : witness;
+      return AuthWitness.fromString(rawAuthWitness);
+    }
+  });
+
+  return parsedWitnesses;
 }
 
 export function aliasedAddressParser(defaultPrefix: AliasType, address: string, db?: WalletDB) {
@@ -79,6 +83,12 @@ export function createAccountOption(description: string, hide: boolean, db?: Wal
     .argParser(address => aliasedAddressParser('accounts', address, db));
 }
 
+export function createAuthwitnessOption(description: string, hide: boolean, db?: WalletDB) {
+  return new Option('-aw, --auth-witness <string,...>', description)
+    .hideHelp(hide)
+    .argParser(witness => aliasedAuthWitParser(witness, db));
+}
+
 export function createTypeOption(mandatory: boolean) {
   return new Option('-t, --type <string>', 'Type of account to create')
     .choices(AccountTypes)
@@ -101,6 +111,20 @@ export function createContractAddressOption(db?: WalletDB) {
   return new Option('-ca, --contract-address <address>', 'Aztec address of the contract.')
     .argParser(address => aliasedAddressParser('contracts', address, db))
     .makeOptionMandatory(true);
+}
+
+export function createDebugExecutionStepsDirOption() {
+  return new Option(
+    '--debug-execution-steps-dir <address>',
+    'Directory to write execution step artifacts for bb profiling/debugging.',
+  ).makeOptionMandatory(false);
+}
+
+export function createVerboseOption() {
+  return new Option(
+    '-v, --verbose',
+    'Provide timings on all executed operations (synching, simulating, proving)',
+  ).default(false);
 }
 
 export function artifactPathParser(filePath: string, db?: WalletDB) {
@@ -140,18 +164,11 @@ export function createArtifactOption(db?: WalletDB) {
     .makeOptionMandatory(false);
 }
 
-export function createProfileOption() {
-  return new Option(
-    '-p, --profile',
-    'Run the real prover and get the gate count for each function in the transaction.',
-  ).default(false);
-}
-
 async function contractArtifactFromWorkspace(pkg?: string, contractName?: string) {
   const cwd = process.cwd();
   try {
     await stat(`${cwd}/Nargo.toml`);
-  } catch (e) {
+  } catch {
     throw new Error(
       'Invalid contract artifact argument provided. To use this option, command should be called from a nargo workspace',
     );
@@ -172,4 +189,8 @@ async function contractArtifactFromWorkspace(pkg?: string, contractName?: string
     );
   }
   return `${cwd}/${TARGET_DIR}/${bestMatch[0]}`;
+}
+
+export function cleanupAuthWitnesses(authWitnesses: AuthWitness[] | undefined): AuthWitness[] {
+  return authWitnesses?.filter(w => w !== undefined) ?? [];
 }

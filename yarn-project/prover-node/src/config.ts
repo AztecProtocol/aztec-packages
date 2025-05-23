@@ -1,13 +1,11 @@
-import { type ArchiverConfig, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver/config';
-import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover/config';
-import {
-  type ConfigMappingsType,
-  bigintConfigHelper,
-  getConfigFromMappings,
-  numberConfigHelper,
-} from '@aztec/foundation/config';
-import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
-import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p/config';
+import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
+import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
+import { type GenesisStateConfig, genesisStateConfigMappings, getAddressFromPrivateKey } from '@aztec/ethereum';
+import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/fields';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
+import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import {
   type ProverAgentConfig,
   type ProverBrokerConfig,
@@ -16,52 +14,40 @@ import {
 } from '@aztec/prover-client/broker';
 import {
   type ProverClientConfig,
+  type ProverClientUserConfig,
   bbConfigMappings,
-  getProverEnvVars,
   proverClientConfigMappings,
 } from '@aztec/prover-client/config';
 import {
   type PublisherConfig,
   type TxSenderConfig,
-  getPublisherConfigFromEnv,
   getPublisherConfigMappings,
-  getTxSenderConfigFromEnv,
   getTxSenderConfigMappings,
 } from '@aztec/sequencer-client/config';
-import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state/config';
+import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
 
-import { type ProverBondManagerConfig, proverBondManagerConfigMappings } from './bond/config.js';
-import {
-  type ProverCoordinationConfig,
-  getTxProviderConfigFromEnv,
-  proverCoordinationConfigMappings,
-} from './prover-coordination/config.js';
+import { type ProverCoordinationConfig, proverCoordinationConfigMappings } from './prover-coordination/config.js';
 
 export type ProverNodeConfig = ArchiverConfig &
-  ProverClientConfig &
+  ProverClientUserConfig &
   P2PConfig &
   WorldStateConfig &
   PublisherConfig &
   TxSenderConfig &
   DataStoreConfig &
   ProverCoordinationConfig &
-  ProverBondManagerConfig &
-  QuoteProviderConfig &
-  SpecificProverNodeConfig;
+  SharedNodeConfig &
+  SpecificProverNodeConfig &
+  GenesisStateConfig;
 
-type SpecificProverNodeConfig = {
+export type SpecificProverNodeConfig = {
   proverNodeMaxPendingJobs: number;
   proverNodePollingIntervalMs: number;
   proverNodeMaxParallelBlocksPerEpoch: number;
-  txGatheringTimeoutMs: number;
+  proverNodeFailedEpochStore: string | undefined;
   txGatheringIntervalMs: number;
-  txGatheringMaxParallelRequests: number;
-};
-
-export type QuoteProviderConfig = {
-  quoteProviderBasisPointFee: number;
-  quoteProviderBondAmount: bigint;
-  quoteProviderUrl?: string;
+  txGatheringBatchSize: number;
+  txGatheringMaxParallelRequestsPerNode: number;
 };
 
 const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
@@ -80,38 +66,25 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
     description: 'The Maximum number of blocks to process in parallel while proving an epoch',
     ...numberConfigHelper(32),
   },
-  txGatheringTimeoutMs: {
-    env: 'PROVER_NODE_TX_GATHERING_TIMEOUT_MS',
-    description: 'The maximum amount of time to wait for tx data to be available',
-    ...numberConfigHelper(60_000),
+  proverNodeFailedEpochStore: {
+    env: 'PROVER_NODE_FAILED_EPOCH_STORE',
+    description: 'File store where to upload node state when an epoch fails to be proven',
+    defaultValue: undefined,
   },
   txGatheringIntervalMs: {
     env: 'PROVER_NODE_TX_GATHERING_INTERVAL_MS',
     description: 'How often to check that tx data is available',
     ...numberConfigHelper(1_000),
   },
-  txGatheringMaxParallelRequests: {
-    env: 'PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS',
-    description: 'How many txs to load up a time',
+  txGatheringBatchSize: {
+    env: 'PROVER_NODE_TX_GATHERING_BATCH_SIZE',
+    description: 'How many transactions to gather from a node in a single request',
+    ...numberConfigHelper(10),
+  },
+  txGatheringMaxParallelRequestsPerNode: {
+    env: 'PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE',
+    description: 'How many tx requests to make in parallel to each node',
     ...numberConfigHelper(100),
-  },
-};
-
-const quoteProviderConfigMappings: ConfigMappingsType<QuoteProviderConfig> = {
-  quoteProviderBasisPointFee: {
-    env: 'QUOTE_PROVIDER_BASIS_POINT_FEE',
-    description: 'The basis point fee to charge for providing quotes',
-    ...numberConfigHelper(100),
-  },
-  quoteProviderBondAmount: {
-    env: 'QUOTE_PROVIDER_BOND_AMOUNT',
-    description: 'The bond amount to charge for providing quotes',
-    ...bigintConfigHelper(1000n),
-  },
-  quoteProviderUrl: {
-    env: 'QUOTE_PROVIDER_URL',
-    description:
-      'The URL of the remote quote provider. Overrides QUOTE_PROVIDER_BASIS_POINT_FEE and QUOTE_PROVIDER_BOND_AMOUNT.',
   },
 };
 
@@ -124,25 +97,13 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...getPublisherConfigMappings('PROVER'),
   ...getTxSenderConfigMappings('PROVER'),
   ...proverCoordinationConfigMappings,
-  ...quoteProviderConfigMappings,
-  ...proverBondManagerConfigMappings,
   ...specificProverNodeConfigMappings,
+  ...genesisStateConfigMappings,
+  ...sharedNodeConfigMappings,
 };
 
 export function getProverNodeConfigFromEnv(): ProverNodeConfig {
-  return {
-    ...getDataConfigFromEnv(),
-    ...getArchiverConfigFromEnv(),
-    ...getProverEnvVars(),
-    ...getP2PConfigFromEnv(),
-    ...getWorldStateConfigFromEnv(),
-    ...getPublisherConfigFromEnv('PROVER'),
-    ...getTxSenderConfigFromEnv('PROVER'),
-    ...getTxProviderConfigFromEnv(),
-    ...getConfigFromMappings(quoteProviderConfigMappings),
-    ...getConfigFromMappings(specificProverNodeConfigMappings),
-    ...getConfigFromMappings(proverBondManagerConfigMappings),
-  };
+  return getConfigFromMappings(proverNodeConfigMappings);
 }
 
 export function getProverNodeBrokerConfigFromEnv(): ProverBrokerConfig {
@@ -156,4 +117,12 @@ export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig 
     ...getConfigFromMappings(proverAgentConfigMappings),
     ...getConfigFromMappings(bbConfigMappings),
   };
+}
+
+export function resolveConfig(userConfig: ProverNodeConfig): ProverNodeConfig & ProverClientConfig {
+  const proverId =
+    userConfig.proverId && !userConfig.proverId.isZero()
+      ? userConfig.proverId
+      : Fr.fromHexString(getAddressFromPrivateKey(userConfig.publisherPrivateKey));
+  return { ...userConfig, proverId };
 }

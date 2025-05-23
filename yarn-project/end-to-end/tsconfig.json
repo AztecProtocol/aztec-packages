@@ -13,6 +13,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../aztec"
+    },
+    {
       "path": "../aztec-node"
     },
     {
@@ -22,16 +25,19 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-lib"
+    },
+    {
       "path": "../blob-sink"
     },
     {
       "path": "../bot"
     },
     {
-      "path": "../circuit-types"
+      "path": "../cli"
     },
     {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../entrypoints"
@@ -61,6 +67,9 @@
       "path": "../noir-protocol-circuits-types"
     },
     {
+      "path": "../noir-test-contracts.js"
+    },
+    {
       "path": "../p2p"
     },
     {
@@ -82,10 +91,10 @@
       "path": "../simulator"
     },
     {
-      "path": "../telemetry-client"
+      "path": "../stdlib"
     },
     {
-      "path": "../types"
+      "path": "../telemetry-client"
     },
     {
       "path": "../validator-client"
@@ -94,5 +103,6 @@
       "path": "../world-state"
     }
   ],
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["*.mjs"]
 }

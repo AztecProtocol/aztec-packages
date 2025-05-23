@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -7,7 +8,9 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
@@ -25,28 +28,51 @@ class ContextInterface {
     virtual void set_pc(uint32_t new_pc) = 0;
     virtual uint32_t get_next_pc() const = 0;
     virtual void set_next_pc(uint32_t new_next_pc) = 0;
-    virtual void set_nested_returndata(std::vector<FF> return_data) = 0;
+    virtual bool halted() const = 0;
+    virtual void halt() = 0;
+    virtual uint32_t get_context_id() const = 0;
+    virtual uint32_t get_parent_id() const = 0;
 
     // Environment.
     virtual const AztecAddress& get_address() const = 0;
     virtual const AztecAddress& get_msg_sender() const = 0;
-    virtual std::span<const FF> get_calldata() const = 0;
     virtual bool get_is_static() const = 0;
+
+    // Input / Output
+    virtual std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
+    virtual std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) = 0;
+    virtual ContextInterface& get_child_context() = 0;
+    // The child context needs to be accessible by this context in order to access the child
+    // memory for returndata. We own it so that it's lifetime is as long as decided by this context
+    // (i.e. if it is replaced by another child OR this parent context falls out of scope)
+    virtual void set_child_context(std::unique_ptr<ContextInterface> child_ctx) = 0;
+
+    virtual MemoryAddress get_last_rd_offset() const = 0;
+    virtual void set_last_rd_offset(MemoryAddress rd_offset) = 0;
+
+    virtual MemoryAddress get_last_rd_size() const = 0;
+    virtual void set_last_rd_size(MemoryAddress rd_size) = 0;
+
+    virtual bool get_last_success() const = 0;
+    virtual void set_last_success(bool success) = 0;
+
+    // Events
+    virtual ContextEvent serialize_context_event() = 0;
 };
 
 // The context for a single nested call.
-class Context : public ContextInterface {
+class BaseContext : public ContextInterface {
   public:
-    Context(AztecAddress address,
-            AztecAddress msg_sender,
-            std::span<const FF> calldata,
-            bool is_static,
-            std::unique_ptr<BytecodeManagerInterface> bytecode,
-            std::unique_ptr<MemoryInterface> memory)
+    BaseContext(uint32_t context_id,
+                AztecAddress address,
+                AztecAddress msg_sender,
+                bool is_static,
+                std::unique_ptr<BytecodeManagerInterface> bytecode,
+                std::unique_ptr<MemoryInterface> memory)
         : address(address)
         , msg_sender(msg_sender)
-        , calldata(calldata.begin(), calldata.end())
         , is_static(is_static)
+        , context_id(context_id)
         , bytecode(std::move(bytecode))
         , memory(std::move(memory))
     {}
@@ -59,66 +85,188 @@ class Context : public ContextInterface {
     void set_pc(uint32_t new_pc) override { pc = new_pc; }
     uint32_t get_next_pc() const override { return next_pc; }
     void set_next_pc(uint32_t new_next_pc) override { next_pc = new_next_pc; }
-    void set_nested_returndata(std::vector<FF> return_data) override { nested_returndata = std::move(return_data); }
+    bool halted() const override { return has_halted; }
+    void halt() override { has_halted = true; }
+
+    uint32_t get_context_id() const override { return context_id; }
 
     // Environment.
     const AztecAddress& get_address() const override { return address; }
     const AztecAddress& get_msg_sender() const override { return msg_sender; }
-    std::span<const FF> get_calldata() const override { return calldata; }
     bool get_is_static() const override { return is_static; }
+
+    ContextInterface& get_child_context() override { return *child_context; }
+    void set_child_context(std::unique_ptr<ContextInterface> child_ctx) override
+    {
+        child_context = std::move(child_ctx);
+    }
+
+    MemoryAddress get_last_rd_offset() const override { return last_child_rd_offset; }
+    void set_last_rd_offset(MemoryAddress rd_offset) override { last_child_rd_offset = rd_offset; }
+
+    MemoryAddress get_last_rd_size() const override { return last_child_rd_size; }
+    void set_last_rd_size(MemoryAddress rd_size) override { last_child_rd_size = rd_size; }
+
+    bool get_last_success() const override { return last_child_success; }
+    void set_last_success(bool success) override { last_child_success = success; }
+
+    // Input / Output
+    std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) override
+    {
+        MemoryInterface& child_memory = get_child_context().get_memory();
+        uint32_t write_size = std::min(rd_offset + rd_size, last_child_rd_size);
+
+        std::vector<FF> retrieved_returndata;
+        retrieved_returndata.reserve(write_size);
+        for (uint32_t i = 0; i < write_size; i++) {
+            retrieved_returndata.push_back(child_memory.get(get_last_rd_offset() + i));
+        }
+        retrieved_returndata.resize(rd_size);
+
+        return retrieved_returndata;
+    };
 
   private:
     // Environment.
     AztecAddress address;
     AztecAddress msg_sender;
-    std::vector<FF> calldata;
     bool is_static;
+
+    uint32_t context_id;
 
     // Machine state.
     uint32_t pc = 0;
     uint32_t next_pc = 0;
-    std::vector<FF> nested_returndata;
+    bool has_halted = false;
     std::unique_ptr<BytecodeManagerInterface> bytecode;
     std::unique_ptr<MemoryInterface> memory;
+
+    // Output
+    std::unique_ptr<ContextInterface> child_context = nullptr;
+    MemoryAddress last_child_rd_offset = 0;
+    MemoryAddress last_child_rd_size = 0;
+    bool last_child_success = false;
 };
 
-class ContextProviderInterface {
+// TODO(ilyas): flesh these out in the cpp file, these are just temporary
+class EnqueuedCallContext : public BaseContext {
   public:
-    virtual ~ContextProviderInterface() = default;
-    virtual std::unique_ptr<ContextInterface> make(AztecAddress address,
-                                                   AztecAddress msg_sender,
-                                                   std::span<const FF> calldata,
-                                                   bool is_static) const = 0;
-};
-
-// This is the real thing. If you need a context made out of other objects, use a mock.
-class ContextProvider : public ContextProviderInterface {
-  public:
-    ContextProvider(TxBytecodeManagerInterface& tx_bytecode_manager, EventEmitterInterface<MemoryEvent>& memory_events)
-        : tx_bytecode_manager(tx_bytecode_manager)
-        , memory_events(memory_events)
+    EnqueuedCallContext(uint32_t context_id,
+                        AztecAddress address,
+                        AztecAddress msg_sender,
+                        bool is_static,
+                        std::unique_ptr<BytecodeManagerInterface> bytecode,
+                        std::unique_ptr<MemoryInterface> memory,
+                        std::span<const FF> calldata)
+        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
+        , calldata(calldata.begin(), calldata.end())
     {}
-    std::unique_ptr<ContextInterface> make(AztecAddress address,
-                                           AztecAddress msg_sender,
-                                           std::span<const FF> calldata,
-                                           bool is_static) const override
+
+    uint32_t get_parent_id() const override { return 0; } // No parent context for the top-level context.
+    // Event Emitting
+    ContextEvent serialize_context_event() override
     {
-        uint32_t space_id = static_cast<uint32_t>(address); // FIXME: space id.
+        return {
+            .id = get_context_id(),
+            .parent_id = 0,
+            .pc = get_pc(),
+            .next_pc = get_next_pc(),
+            .msg_sender = get_msg_sender(),
+            .contract_addr = get_address(),
+            .is_static = get_is_static(),
+            .parent_cd_addr = 0,
+            .parent_cd_size_addr = 0,
+            .last_child_rd_addr = get_last_rd_offset(),
+            .last_child_rd_size_addr = get_last_rd_size(),
+            .last_child_success = get_last_success(),
+        };
+    };
 
-        // FIXME: doing too much in a "constructor"!
-        BytecodeId bytecode_id = tx_bytecode_manager.get_bytecode(address);
+    // Input / Output
+    std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const override
+    {
+        // TODO(ilyas): Do we assert to assert cd_size < calldata.size(), otherwise it could trigger a massive write of
+        // zeroes. OTOH: this should be caught by an OUT_OF_GAS exception
+        std::vector<FF> padded_calldata(cd_size, 0); // Vector of size cd_size filled with zeroes;
 
-        return std::make_unique<Context>(address,
-                                         msg_sender,
-                                         calldata,
-                                         is_static,
-                                         std::make_unique<BytecodeManager>(bytecode_id, tx_bytecode_manager),
-                                         std::make_unique<Memory>(space_id, memory_events));
-    }
+        // We first take a slice of the data, the most we can slice is the actual size of the data
+        size_t slice_size = std::min(static_cast<size_t>(cd_offset + cd_size), calldata.size());
+
+        for (size_t i = cd_offset; i < slice_size; i++) {
+            padded_calldata[i] = calldata[i];
+        }
+        return padded_calldata;
+    };
 
   private:
-    TxBytecodeManagerInterface& tx_bytecode_manager;
-    EventEmitterInterface<MemoryEvent>& memory_events;
+    std::vector<FF> calldata;
+};
+
+// Parameters for a nested call need to be changed
+class NestedContext : public BaseContext {
+  public:
+    NestedContext(uint32_t context_id,
+                  AztecAddress address,
+                  AztecAddress msg_sender,
+                  bool is_static,
+                  std::unique_ptr<BytecodeManagerInterface> bytecode,
+                  std::unique_ptr<MemoryInterface> memory,
+                  ContextInterface& parent_context,
+                  MemoryAddress cd_offset_address, /* This is a direct mem address */
+                  MemoryAddress cd_size_address    /* This is a direct mem address */
+                  )
+        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
+        , parent_cd_offset(cd_offset_address)
+        , parent_cd_size(cd_size_address)
+        , parent_context(parent_context)
+    {}
+
+    uint32_t get_parent_id() const override { return parent_context.get_context_id(); }
+
+    // Event Emitting
+    ContextEvent serialize_context_event() override
+    {
+        return {
+            .id = get_context_id(),
+            .parent_id = get_parent_id(),
+            .pc = get_pc(),
+            .next_pc = get_next_pc(),
+            .msg_sender = get_msg_sender(),
+            .contract_addr = get_address(),
+            .is_static = get_is_static(),
+            .parent_cd_addr = parent_cd_offset,
+            .parent_cd_size_addr = parent_cd_size,
+            .last_child_rd_addr = get_last_rd_offset(),
+            .last_child_rd_size_addr = get_last_rd_size(),
+            .last_child_success = get_last_success(),
+        };
+    };
+
+    // Input / Output
+    std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const override
+    {
+        auto get_calldata_size = parent_context.get_memory().get(parent_cd_size);
+        // TODO(ilyas): error if tag != U32
+        auto calldata_size = get_calldata_size.as<uint32_t>();
+        uint32_t read_size = std::min(cd_offset + cd_size, calldata_size);
+
+        std::vector<FF> retrieved_calldata;
+        retrieved_calldata.reserve(read_size);
+        for (uint32_t i = 0; i < read_size; i++) {
+            retrieved_calldata.push_back(parent_context.get_memory().get(parent_cd_offset + i));
+        }
+
+        // Pad the calldata
+        retrieved_calldata.resize(cd_size, 0);
+        return retrieved_calldata;
+    };
+
+  private:
+    // These are direct addresses to look up into the parent context during calldata copying
+    MemoryAddress parent_cd_offset;
+    MemoryAddress parent_cd_size;
+
+    ContextInterface& parent_context;
 };
 
 } // namespace bb::avm2::simulation

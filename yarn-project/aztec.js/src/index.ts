@@ -20,126 +20,47 @@
  * TODO: Ultimately reimplement this mega exporter by mega exporting a granular api (then deprecate it).
  */
 
-export { ContractDeployer } from './deployment/index.js';
+export { Fq, Fr, Point, GrumpkinScalar } from '@aztec/foundation/fields';
 
-export {
-  AnvilTestWatcher,
-  CheatCodes,
-  L1FeeJuicePortalManager,
-  L1ToL2TokenPortalManager,
-  L1TokenManager,
-  L1TokenPortalManager,
-  computeAuthWitMessageHash,
-  computeInnerAuthWitHash,
-  computeInnerAuthWitHashFromAction,
-  generateClaimSecret,
-  generatePublicKey,
-  readFieldCompressedString,
-  waitForPXE,
-  waitForNode,
-  type AztecAddressLike,
-  type EthAddressLike,
-  type EventSelectorLike,
-  type FieldLike,
-  type FunctionSelectorLike,
-  type L2AmountClaim,
-  type L2AmountClaimWithRecipient,
-  type L2Claim,
-  type U128Like,
-  type WrappedFieldLike,
-  type IntentAction,
-} from './utils/index.js';
+export { SiblingPath } from '@aztec/foundation/trees';
 
-export { NoteSelector } from '@aztec/foundation/abi';
+export { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 
-export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js';
-
-export { type AuthWitnessProvider } from './account/index.js';
-
-export { type AccountContract } from './account/index.js';
-export { AccountManager, type DeployAccountOptions } from './account_manager/index.js';
-
-export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from './wallet/index.js';
-
-// // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632 --> FunctionSelector might not need to be exposed
-// // here once the issue is resolved.
-export {
-  ContractClassWithId,
-  ContractInstanceWithAddress,
-  EthAddress,
-  Fq,
-  Fr,
-  GlobalVariables,
-  GrumpkinScalar,
-  INITIAL_L2_BLOCK_NUM,
-  NodeInfo,
-  Point,
-  PublicKeys,
-  getContractClassFromArtifact,
-  getContractInstanceFromDeployParams,
-} from '@aztec/circuits.js';
-
-export { computeSecretHash } from '@aztec/circuits.js/hash';
-
+export { MerkleTreeId, merkleTreeIds } from '@aztec/stdlib/trees';
+export { type PublicKey, PublicKeys } from '@aztec/stdlib/keys';
+export { computeSecretHash } from '@aztec/stdlib/hash';
 export {
   computeAppNullifierSecretKey,
   deriveKeys,
   deriveMasterIncomingViewingSecretKey,
   deriveMasterNullifierSecretKey,
-} from '@aztec/circuits.js/keys';
-
-export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
-
+} from '@aztec/stdlib/keys';
+export { AuthWitness } from '@aztec/stdlib/auth-witness';
+export { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 export {
-  AuthWitness,
-  Body,
-  Comparator,
-  ContractClass2BlockL2Logs,
-  EncryptedLogPayload,
-  EpochProofQuote,
-  EpochProofQuotePayload,
-  EventMetadata,
-  EventType,
-  ExtendedNote,
-  FunctionCall,
-  L1Actor,
-  L1EventPayload,
-  L1NotePayload,
-  L1ToL2Message,
-  L2Actor,
-  L2Block,
-  LogId,
-  MerkleTreeId,
-  Note,
-  HashedValues,
-  SiblingPath,
   Tx,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
   TxStatus,
-  UnencryptedL2Log,
-  UniqueNote,
-  createAztecNodeClient,
-  getTimestampRangeForEpoch,
-  merkleTreeIds,
-  mockEpochProofQuote,
-  mockTx,
-  type AztecNode,
-  type LogFilter,
-  type PXE,
-  type PartialAddress,
-  type PublicKey,
-} from '@aztec/circuit-types';
+  Capsule,
+  HashedValues,
+  GlobalVariables,
+} from '@aztec/stdlib/tx';
+export { Body, L2Block } from '@aztec/stdlib/block';
+export { LogId, type LogFilter } from '@aztec/stdlib/logs';
+export { L1ToL2Message, L2Actor, L1Actor } from '@aztec/stdlib/messaging';
+export { UniqueNote, ExtendedNote, Comparator, Note } from '@aztec/stdlib/note';
+export { type PXE, EventType } from '@aztec/stdlib/interfaces/client';
+
+export { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
-export { decodeFromAbi, encodeArguments, type AbiType } from '@aztec/foundation/abi';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-export { sha256 } from '@aztec/foundation/crypto';
+export { sha256, Grumpkin, Schnorr } from '@aztec/foundation/crypto';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
-export { createLogger, type Logger } from '@aztec/foundation/log';
 export { retry, retryUntil } from '@aztec/foundation/retry';
 export { to2Fields, toBigInt } from '@aztec/foundation/serialize';
 export { sleep } from '@aztec/foundation/sleep';
@@ -151,8 +72,14 @@ export { fileURLToPath } from '@aztec/foundation/url';
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/abi.js';
-export * from './api/fee.js';
+export * from './api/account.js';
 export * from './api/addresses.js';
+export * from './api/deployment.js';
 export * from './api/ethereum.js';
-// Granular export, even if not in the api folder
-export * from './contract/index.js';
+export * from './api/eth_address.js';
+export * from './api/fee.js';
+export * from './api/log.js';
+export * from './api/contract.js';
+export * from './api/utils.js';
+export * from './api/rpc.js';
+export * from './api/wallet.js';

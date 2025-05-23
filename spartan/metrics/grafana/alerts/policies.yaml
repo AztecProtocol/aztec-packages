@@ -1,0 +1,11 @@
+apiVersion: 1
+policies:
+    - orgId: 1
+      receiver: 'Slack #network-alerts channel'
+      object_matchers:
+        - - k8s_namespace_name
+          - =~
+          - $PRODUCTION_NAMESPACES_REGEX
+      group_by:
+        - grafana_folder
+        - alertname

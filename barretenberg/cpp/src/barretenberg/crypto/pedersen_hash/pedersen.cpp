@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "./pedersen.hpp"
 #include "../pedersen_commitment/pedersen.hpp"
 
@@ -48,6 +54,21 @@ std::vector<typename Curve::BaseField> pedersen_hash_base<Curve>::convert_buffer
  *          e.g. if one desires to compute
  *          `inputs[0] * [generators[hash_index]] + `inputs[1] * [generators[hash_index + 1]]` + ... etc
  *          Potentially useful to ensure multiple hashes with the same domain separator cannot collide.
+ *
+ * @note Length inclusion for collision resistance:
+ *       For a given commitment C = a*G1 + b*G2 + c*G3 we take an x-coordinate of C.x and use it as the hash.
+ *       However, due to elliptic curve symmetry about the x-axis, for any x-coordinate,
+ *       there are two points with that x-coordinate. This means -C has the same hash (x-coord) as C,
+ *       and the tuple [-a, -b, -c] produces the same hash as [a, b, c].
+ *
+ *       This property makes the hash trivially not collision resistant without including the length.
+ *       By including the length l, the commitment becomes:
+ *       C = a*G1 + b*G2 + c*G3 + l*G_len
+ *
+ *       Since -l would be -3 (an extraordinarily large number that cannot be a valid preimage length),
+ *       including the length protects against these collisions.
+ *
+ *       For more background, see: https://hackmd.io/@aztec-network/ryzn3JIu3#PedersenHash
  *
  * @param inputs what are we hashing?
  * @param context Stores generator metadata + context pointer to the generators we are using for this hash

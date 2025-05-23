@@ -7,10 +7,7 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../foundation"
@@ -22,10 +19,10 @@
       "path": "../protocol-contracts"
     },
     {
-      "path": "../telemetry-client"
+      "path": "../stdlib"
     },
     {
-      "path": "../types"
+      "path": "../telemetry-client"
     },
     {
       "path": "../world-state"
@@ -38,6 +35,9 @@
     },
     {
       "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../noir-test-contracts.js"
     }
   ],
   "include": ["src"]

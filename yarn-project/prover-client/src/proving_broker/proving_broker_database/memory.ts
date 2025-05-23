@@ -4,9 +4,9 @@ import {
   type ProvingJobId,
   type ProvingJobSettledResult,
   getEpochFromProvingJobId,
-} from '@aztec/circuit-types';
+} from '@aztec/stdlib/interfaces/server';
 
-import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
+import type { ProvingBrokerDatabase } from '../proving_broker_database.js';
 
 export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
   private jobs = new Map<ProvingJobId, ProvingJob>();
@@ -20,8 +20,8 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
     return this.results.get(id);
   }
 
-  addProvingJob(request: ProvingJob): Promise<void> {
-    this.jobs.set(request.id, request);
+  addProvingJob(job: ProvingJob): Promise<void> {
+    this.jobs.set(job.id, job);
     return Promise.resolve();
   }
 
@@ -52,7 +52,7 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
   }
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
-    for await (const item of this.jobs.values()) {
+    for (const item of this.jobs.values()) {
       yield [item, this.results.get(item.id)] as const;
     }
   }

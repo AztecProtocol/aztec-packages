@@ -1,12 +1,12 @@
-import {
-  type ProofUri,
-  type ProvingJobId,
-  type ProvingJobInputs,
-  type ProvingJobInputsMap,
-  type ProvingJobResult,
-  type ProvingJobResultsMap,
-  type ProvingRequestType,
-} from '@aztec/circuit-types';
+import type {
+  ProofUri,
+  ProvingJobId,
+  ProvingJobInputs,
+  ProvingJobInputsMap,
+  ProvingJobResult,
+  ProvingJobResultsMap,
+} from '@aztec/stdlib/interfaces/server';
+import type { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 /**
  * A database for storing proof inputs and outputs.

@@ -3,8 +3,8 @@ import { format } from 'util';
 
 import { createLogger } from '../log/index.js';
 import { type EventMessage, type ResponseMessage, isEventMessage } from './dispatch/messages.js';
-import { type Connector } from './interface/connector.js';
-import { type Socket } from './interface/socket.js';
+import type { Connector } from './interface/connector.js';
+import type { Socket } from './interface/socket.js';
 
 const log = createLogger('foundation:transport_client');
 
@@ -18,9 +18,9 @@ interface PendingRequest {
    * The unique message identifier used for tracking and matching request/response pairs.
    */
   msgId: number;
-  // eslint-disable-next-line jsdoc/require-jsdoc
+
   resolve(data: any): void;
-  // eslint-disable-next-line jsdoc/require-jsdoc
+
   reject(error: Error): void;
 }
 
@@ -30,9 +30,8 @@ interface PendingRequest {
  * for efficient and concurrent communication with a corresponding TransportServer.
  */
 export interface ITransportClient<Payload> extends EventEmitter {
-  // eslint-disable-next-line jsdoc/require-jsdoc
   on(name: 'event_msg', handler: (payload: Payload) => void): this;
-  // eslint-disable-next-line jsdoc/require-jsdoc
+
   emit(name: 'event_msg', payload: Payload): boolean;
 }
 

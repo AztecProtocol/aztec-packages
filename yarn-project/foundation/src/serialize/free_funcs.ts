@@ -1,5 +1,5 @@
 import { Fr } from '../fields/fields.js';
-import { type Tuple } from './types.js';
+import type { Tuple } from './types.js';
 
 /**
  * Convert a boolean value to its corresponding byte representation in a Buffer of size 1.
@@ -53,6 +53,19 @@ export function numToUInt32LE(n: number, bufferSize = 4) {
 export function numToUInt32BE(n: number, bufferSize = 4) {
   const buf = Buffer.alloc(bufferSize);
   buf.writeUInt32BE(n, bufferSize - 4);
+  return buf;
+}
+
+/**
+ * Convert a bigint to a big-endian unsigned 64-bit integer Buffer.
+ *
+ * @param n - The bigint to be converted to a big-endian unsigned 64-bit integer Buffer.
+ * @param bufferSize - Optional, the size of the output Buffer (default is 8).
+ * @returns A Buffer containing the big-endian unsigned 64-bit integer representation of the input number.
+ */
+export function bigintToUInt64BE(n: bigint, bufferSize = 8) {
+  const buf = Buffer.alloc(bufferSize);
+  buf.writeBigUInt64BE(n, bufferSize - 8);
   return buf;
 }
 

@@ -1,4 +1,4 @@
-import { type BlockBuilder, type MerkleTreeReadOperations } from '@aztec/circuit-types';
+import type { BlockBuilder, MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 
 export * from './light.js';
 export interface BlockBuilderFactory {

@@ -1,4 +1,4 @@
-import { type ConfigMappingsType } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
@@ -21,12 +21,15 @@ export const L1ContractsNames = [
   'governanceProposerAddress',
   'governanceAddress',
   'stakingAssetAddress',
-  'slashFactoryAddress',
 ] as const;
 
 /** Provides the directory of current L1 contract addresses */
 export type L1ContractAddresses = {
   [K in (typeof L1ContractsNames)[number]]: EthAddress;
+} & {
+  slashFactoryAddress?: EthAddress | undefined;
+  feeAssetHandlerAddress?: EthAddress | undefined;
+  stakingAssetHandlerAddress?: EthAddress | undefined;
 };
 
 export const L1ContractAddressesSchema = z.object({
@@ -41,7 +44,9 @@ export const L1ContractAddressesSchema = z.object({
   rewardDistributorAddress: schemas.EthAddress,
   governanceProposerAddress: schemas.EthAddress,
   governanceAddress: schemas.EthAddress,
-  slashFactoryAddress: schemas.EthAddress,
+  slashFactoryAddress: schemas.EthAddress.optional(),
+  feeAssetHandlerAddress: schemas.EthAddress.optional(),
+  stakingAssetHandlerAddress: schemas.EthAddress.optional(),
 }) satisfies ZodFor<L1ContractAddresses>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
@@ -105,6 +110,16 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
   slashFactoryAddress: {
     env: 'SLASH_FACTORY_CONTRACT_ADDRESS',
     description: 'The deployed L1 slashFactory contract address',
+    parseEnv,
+  },
+  feeAssetHandlerAddress: {
+    env: 'FEE_ASSET_HANDLER_CONTRACT_ADDRESS',
+    description: 'The deployed L1 feeAssetHandler contract address',
+    parseEnv,
+  },
+  stakingAssetHandlerAddress: {
+    env: 'STAKING_ASSET_HANDLER_CONTRACT_ADDRESS',
+    description: 'The deployed L1 stakingAssetHandler contract address',
     parseEnv,
   },
 };

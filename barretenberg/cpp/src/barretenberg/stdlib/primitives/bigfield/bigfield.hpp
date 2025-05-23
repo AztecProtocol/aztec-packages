@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "../byte_array/byte_array.hpp"
@@ -18,6 +24,10 @@ template <typename Builder, typename T> class bigfield {
     using CoefficientAccumulator = bigfield;
     using TParams = T;
     using native = bb::field<T>;
+    using field_ct = field_t<Builder>;
+
+    // Number of bb::fr field elements used to represent a bigfield element in the public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 4;
 
     struct Basis {
         uint512_t modulus;
@@ -52,7 +62,7 @@ template <typename Builder, typename T> class bigfield {
     static constexpr size_t NUM_LIMBS = 4;
 
     Builder* context;
-    mutable Limb binary_basis_limbs[NUM_LIMBS];
+    mutable std::array<Limb, NUM_LIMBS> binary_basis_limbs;
     mutable field_t<Builder> prime_basis_limb;
 
     bigfield(const field_t<Builder>& low_bits,
@@ -149,7 +159,7 @@ template <typename Builder, typename T> class bigfield {
                                       .add_two(result.binary_basis_limbs[2].element * shift_2,
                                                result.binary_basis_limbs[1].element * shift_1);
         result.prime_basis_limb += (result.binary_basis_limbs[0].element);
-        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
+        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : static_cast<size_t>(NUM_LAST_LIMB_BITS);
         if constexpr (HasPlookup<Builder>) {
             ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
                                            result.binary_basis_limbs[1].element.get_normalized_witness_index(),
@@ -222,7 +232,7 @@ template <typename Builder, typename T> class bigfield {
     // The quotient reduction checks currently only support >=250 bit moduli and moduli >256 have never been tested
     // (Check zkSecurity audit report issue #12 for explanation)
     static_assert(modulus_u512.get_msb() + 1 >= 250 && modulus_u512.get_msb() + 1 <= 256);
-    static constexpr uint1024_t DEFAULT_MAXIMUM_REMAINDER =
+    inline static const uint1024_t DEFAULT_MAXIMUM_REMAINDER =
         (uint1024_t(1) << (NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS)) - uint1024_t(1);
     static constexpr uint256_t DEFAULT_MAXIMUM_LIMB = (uint256_t(1) << NUM_LIMB_BITS) - uint256_t(1);
     static constexpr uint256_t DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB =
@@ -238,7 +248,7 @@ template <typename Builder, typename T> class bigfield {
         uint256_t(modulus_u512.slice(NUM_LIMB_BITS * (NUM_LIMBS - 1), NUM_LIMB_BITS* NUM_LIMBS));
     static constexpr Basis prime_basis{ uint512_t(bb::fr::modulus), bb::fr::modulus.get_msb() + 1 };
     static constexpr Basis binary_basis{ uint512_t(1) << LOG2_BINARY_MODULUS, LOG2_BINARY_MODULUS };
-    static constexpr Basis target_basis{ modulus_u512, modulus_u512.get_msb() + 1 };
+    static constexpr Basis target_basis{ modulus_u512, static_cast<size_t>(modulus_u512.get_msb() + 1) };
     static constexpr bb::fr shift_1 = bb::fr(uint256_t(1) << NUM_LIMB_BITS);
     static constexpr bb::fr shift_2 = bb::fr(uint256_t(1) << (NUM_LIMB_BITS * 2));
     static constexpr bb::fr shift_3 = bb::fr(uint256_t(1) << (NUM_LIMB_BITS * 3));
@@ -467,6 +477,29 @@ template <typename Builder, typename T> class bigfield {
                              prime_basis_limb.tag);
     }
 
+    /**
+     * @brief Set the witness indices of the binary basis limbs to public
+     *
+     * @return uint32_t The public input index at which the representation of the bigfield starts
+     */
+    uint32_t set_public() const
+    {
+        Builder* ctx = get_context();
+        const uint32_t start_index = static_cast<uint32_t>(ctx->public_inputs.size());
+        for (auto& limb : binary_basis_limbs) {
+            ctx->set_public_input(limb.element.normalize().witness_index);
+        }
+        return start_index;
+    }
+
+    /**
+     * @brief Reconstruct a bigfield from limbs (generally stored in the public inputs)
+     */
+    static bigfield reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        return construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
+    }
+
     static constexpr uint512_t get_maximum_unreduced_value()
     {
         // This = `T * n = 2^272 * |BN(Fr)|` So this equals n*2^t
@@ -561,7 +594,7 @@ template <typename Builder, typename T> class bigfield {
         for (const auto& add : to_add) {
             add_term += add.get_maximum_value();
         }
-        constexpr uint1024_t maximum_default_bigint = uint1024_t(1) << (NUM_LIMB_BITS * 6 + NUM_LAST_LIMB_BITS * 2);
+        static const uint1024_t maximum_default_bigint = uint1024_t(1) << (NUM_LIMB_BITS * 6 + NUM_LAST_LIMB_BITS * 2);
 
         // check that the add terms alone cannot overflow the crt modulus. v. unlikely so just forbid circuits that
         // trigger this case
@@ -671,5 +704,3 @@ template <typename C, typename T> inline std::ostream& operator<<(std::ostream& 
 }
 
 } // namespace bb::stdlib
-
-#include "bigfield_impl.hpp"

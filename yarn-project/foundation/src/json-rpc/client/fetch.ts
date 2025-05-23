@@ -6,6 +6,13 @@ import { jsonStringify } from '../convert.js';
 
 const log = createLogger('json-rpc:json_rpc_client');
 
+export type JsonRpcFetch = (
+  host: string,
+  body: any,
+  extraHeaders?: Record<string, string>,
+  noRetry?: boolean,
+) => Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }>;
+
 /**
  * A normal fetch function that does not retry.
  * Alternatives are a fetch function with retries, or a mocked fetch.
@@ -18,45 +25,35 @@ const log = createLogger('json-rpc:json_rpc_client');
  */
 export async function defaultFetch(
   host: string,
-  rpcMethod: string,
-  body: any,
-  useApiEndpoints: boolean,
+  body: unknown,
   extraHeaders: Record<string, string> = {},
   noRetry = false,
-) {
-  log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
+): Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }> {
+  log.debug(format(`JsonRpcClient.fetch`, host, '->', body));
   let resp: Response;
   try {
-    if (useApiEndpoints) {
-      resp = await fetch(`${host}/${rpcMethod}`, {
-        method: 'POST',
-        body: jsonStringify(body),
-        headers: { 'content-type': 'application/json', ...extraHeaders },
-      });
-    } else {
-      resp = await fetch(host, {
-        method: 'POST',
-        body: jsonStringify({ ...body, method: rpcMethod }),
-        headers: { 'content-type': 'application/json', ...extraHeaders },
-      });
-    }
+    resp = await fetch(host, {
+      method: 'POST',
+      body: jsonStringify(body),
+      headers: { 'content-type': 'application/json', ...extraHeaders },
+    });
   } catch (err) {
-    const errorMessage = `Error fetching from host ${host} with method ${rpcMethod}: ${inspect(err)}`;
+    const errorMessage = `Error fetching from host ${host}: ${inspect(err)}`;
     throw new Error(errorMessage);
   }
 
   let responseJson;
   try {
     responseJson = await resp.json();
-  } catch (err) {
+  } catch {
     if (!resp.ok) {
       throw new Error(resp.statusText);
     }
-    throw new Error(`Failed to parse body as JSON: ${resp.text()}`);
+    throw new Error(`Failed to parse body as JSON: ${await resp.text()}`);
   }
 
   if (!resp.ok) {
-    const errorMessage = `Error ${resp.status} from server ${host} on ${rpcMethod}: ${responseJson.error.message}`;
+    const errorMessage = `Error ${resp.status} from server ${host}: ${responseJson.error.message}`;
     if (noRetry || (resp.status >= 400 && resp.status < 500)) {
       throw new NoRetryError(errorMessage);
     } else {
@@ -64,7 +61,7 @@ export async function defaultFetch(
     }
   }
 
-  return responseJson;
+  return { response: responseJson, headers: resp.headers };
 }
 
 /**
@@ -75,17 +72,10 @@ export async function defaultFetch(
  * @returns A fetch function.
  */
 export function makeFetch(retries: number[], defaultNoRetry: boolean, log?: Logger): typeof defaultFetch {
-  return async (
-    host: string,
-    rpcMethod: string,
-    body: any,
-    useApiEndpoints: boolean,
-    extraHeaders: Record<string, string> = {},
-    noRetry?: boolean,
-  ) => {
+  return async (host: string, body: unknown, extraHeaders: Record<string, string> = {}, noRetry?: boolean) => {
     return await retry(
-      () => defaultFetch(host, rpcMethod, body, useApiEndpoints, extraHeaders, noRetry ?? defaultNoRetry),
-      `JsonRpcClient request ${rpcMethod} to ${host}`,
+      () => defaultFetch(host, body, extraHeaders, noRetry ?? defaultNoRetry),
+      `JsonRpcClient request to ${host}`,
       makeBackoff(retries),
       log,
       false,

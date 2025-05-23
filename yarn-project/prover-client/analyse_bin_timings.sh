@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 NODE_NO_WARNINGS=1 strace -f -tt -T \
   -e trace=execve \

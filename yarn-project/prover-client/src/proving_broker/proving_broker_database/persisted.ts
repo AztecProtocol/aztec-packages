@@ -1,23 +1,26 @@
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { BatchQueue } from '@aztec/foundation/queue';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { openVersionedStoreAt } from '@aztec/kv-store/lmdb-v2';
 import {
   type ProofUri,
   ProvingJob,
   type ProvingJobId,
   ProvingJobSettledResult,
   getEpochFromProvingJobId,
-} from '@aztec/circuit-types';
-import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
+} from '@aztec/stdlib/interfaces/server';
 import { Attributes, LmdbMetrics, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { mkdir, readdir } from 'fs/promises';
 import { join } from 'path';
 
-import { type ProverBrokerConfig } from '../config.js';
-import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
+import type { ProverBrokerConfig } from '../config.js';
+import type { ProvingBrokerDatabase } from '../proving_broker_database.js';
 
 class SingleEpochDatabase {
+  public static readonly SCHEMA_VERSION = 1;
+
   private jobs: AztecAsyncMap<ProvingJobId, string>;
   private jobResults: AztecAsyncMap<ProvingJobId, string>;
 
@@ -30,8 +33,15 @@ class SingleEpochDatabase {
     return this.store.estimateSize();
   }
 
-  async addProvingJob(job: ProvingJob): Promise<void> {
-    await this.jobs.set(job.id, jsonStringify(job));
+  async batchWrite(jobs: ProvingJob[], results: Array<[ProvingJobId, ProvingJobSettledResult]>) {
+    await this.store.transactionAsync(async () => {
+      for (const job of jobs) {
+        await this.jobs.set(job.id, jsonStringify(job));
+      }
+      for (const [id, result] of results) {
+        await this.jobResults.set(id, jsonStringify(result));
+      }
+    });
   }
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
@@ -65,6 +75,8 @@ class SingleEpochDatabase {
 export class KVBrokerDatabase implements ProvingBrokerDatabase {
   private metrics: LmdbMetrics;
 
+  private batchQueue: BatchQueue<ProvingJob | [ProvingJobId, ProvingJobSettledResult], number>;
+
   private constructor(
     private epochs: Map<number, SingleEpochDatabase>,
     private config: ProverBrokerConfig,
@@ -78,12 +90,29 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       },
       () => this.estimateSize(),
     );
+
+    this.batchQueue = new BatchQueue(
+      (items, key) => this.commitWrites(items, key),
+      config.proverBrokerBatchSize,
+      config.proverBrokerBatchIntervalMs,
+      createLogger('proving-client:proving-broker-database:batch-queue'),
+    );
+  }
+
+  // exposed for testing
+  public async commitWrites(items: Array<ProvingJob | [ProvingJobId, ProvingJobSettledResult]>, epochNumber: number) {
+    const jobsToAdd = items.filter((item): item is ProvingJob => 'id' in item);
+    const resultsToAdd = items.filter((item): item is [ProvingJobId, ProvingJobSettledResult] => Array.isArray(item));
+
+    const db = await this.getEpochDatabase(epochNumber);
+    await db.batchWrite(jobsToAdd, resultsToAdd);
   }
 
   private async estimateSize() {
     const sizes = await Promise.all(Array.from(this.epochs.values()).map(x => x.estimateSize()));
     return {
       mappingSize: this.config.dataStoreMapSizeKB,
+      physicalFileSize: sizes.reduce((prev, curr) => prev + curr.physicalFileSize, 0),
       numItems: sizes.reduce((prev, curr) => prev + curr.numItems, 0),
       actualSize: sizes.reduce((prev, curr) => prev + curr.actualSize, 0),
     };
@@ -110,14 +139,26 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       logger.info(
         `Loading broker database for epoch ${epochNumber} from ${fullDirectory} with map size ${config.dataStoreMapSizeKB}KB`,
       );
-      const db = await AztecLMDBStoreV2.new(fullDirectory, config.dataStoreMapSizeKB);
+      const db = await openVersionedStoreAt(
+        fullDirectory,
+        SingleEpochDatabase.SCHEMA_VERSION,
+        config.l1Contracts.rollupAddress,
+        config.dataStoreMapSizeKB,
+      );
       const epochDb = new SingleEpochDatabase(db);
       epochs.set(epochNumber, epochDb);
     }
-    return new KVBrokerDatabase(epochs, config, client, logger);
+    const db = new KVBrokerDatabase(epochs, config, client, logger);
+    db.start();
+    return db;
+  }
+
+  private start(): void {
+    this.batchQueue.start();
   }
 
   async close(): Promise<void> {
+    await this.batchQueue.stop();
     for (const [_, v] of this.epochs) {
       await v.close();
     }
@@ -136,19 +177,8 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
-  async addProvingJob(job: ProvingJob): Promise<void> {
-    let epochDb = this.epochs.get(job.epochNumber);
-    if (!epochDb) {
-      const newEpochDirectory = join(this.config.dataDirectory!, job.epochNumber.toString());
-      await mkdir(newEpochDirectory, { recursive: true });
-      this.logger.info(
-        `Creating broker database for epoch ${job.epochNumber} at ${newEpochDirectory} with map size ${this.config.dataStoreMapSizeKB}`,
-      );
-      const db = await AztecLMDBStoreV2.new(newEpochDirectory, this.config.dataStoreMapSizeKB);
-      epochDb = new SingleEpochDatabase(db);
-      this.epochs.set(job.epochNumber, epochDb);
-    }
-    await epochDb.addProvingJob(job);
+  addProvingJob(job: ProvingJob): Promise<void> {
+    return this.batchQueue.put(job, job.epochNumber);
   }
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
@@ -158,19 +188,32 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
-  async setProvingJobError(id: ProvingJobId, reason: string): Promise<void> {
-    const epochDb = this.epochs.get(getEpochFromProvingJobId(id));
-    if (!epochDb) {
-      return;
-    }
-    await epochDb.setProvingJobError(id, reason);
+  setProvingJobError(id: ProvingJobId, reason: string): Promise<void> {
+    return this.batchQueue.put([id, { status: 'rejected', reason }], getEpochFromProvingJobId(id));
   }
 
-  async setProvingJobResult(id: ProvingJobId, value: ProofUri): Promise<void> {
-    const epochDb = this.epochs.get(getEpochFromProvingJobId(id));
+  setProvingJobResult(id: ProvingJobId, value: ProofUri): Promise<void> {
+    return this.batchQueue.put([id, { status: 'fulfilled', value }], getEpochFromProvingJobId(id));
+  }
+
+  private async getEpochDatabase(epochNumber: number): Promise<SingleEpochDatabase> {
+    let epochDb = this.epochs.get(epochNumber);
     if (!epochDb) {
-      return;
+      const newEpochDirectory = join(this.config.dataDirectory!, epochNumber.toString());
+      await mkdir(newEpochDirectory, { recursive: true });
+      this.logger.info(
+        `Creating broker database for epoch ${epochNumber} at ${newEpochDirectory} with map size ${this.config.dataStoreMapSizeKB}`,
+      );
+      const db = await openVersionedStoreAt(
+        newEpochDirectory,
+        SingleEpochDatabase.SCHEMA_VERSION,
+        this.config.l1Contracts.rollupAddress,
+        this.config.dataStoreMapSizeKB,
+      );
+      epochDb = new SingleEpochDatabase(db);
+      this.epochs.set(epochNumber, epochDb);
     }
-    await epochDb.setProvingJobResult(id, value);
+
+    return epochDb;
   }
 }

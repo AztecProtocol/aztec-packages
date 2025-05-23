@@ -1,5 +1,5 @@
 {
-  "name": "headless-test",
+  "name": "sol-test",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
@@ -10,5 +10,6 @@
   "dependencies": {
     "ethers": "^6.8.1",
     "solc": "^0.8.27"
-  }
+  },
+  "packageManager": "yarn@4.5.2"
 }

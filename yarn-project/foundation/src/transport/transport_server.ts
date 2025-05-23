@@ -1,6 +1,6 @@
-import { type RequestMessage, type ResponseMessage } from './dispatch/messages.js';
-import { type Listener } from './interface/listener.js';
-import { type Socket } from './interface/socket.js';
+import type { RequestMessage, ResponseMessage } from './dispatch/messages.js';
+import type { Listener } from './interface/listener.js';
+import type { Socket } from './interface/socket.js';
 import { isTransferDescriptor } from './interface/transferable.js';
 
 /**
@@ -9,7 +9,10 @@ import { isTransferDescriptor } from './interface/transferable.js';
 export class TransportServer<Payload> {
   private sockets: Socket[] = [];
 
-  constructor(private listener: Listener, private msgHandlerFn: (msg: Payload) => Promise<any>) {}
+  constructor(
+    private listener: Listener,
+    private msgHandlerFn: (msg: Payload) => Promise<any>,
+  ) {}
 
   /**
    * Starts the TransportServer, allowing it to accept new connections and handle incoming messages.

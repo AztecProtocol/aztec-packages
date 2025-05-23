@@ -1,9 +1,17 @@
 [profile.default]
 src = 'src'
+test = 'test'
+script = 'script'
 out = 'out'
 libs = ['lib']
 solc = "0.8.27"
 evm_version = 'cancun'
+optimizer = true
+
+match_path = "test/**/*.t.sol"
+# Helper to get all the contract names in the src/governance and src/core directories
+# find ./src/governance ./src/core ./src/periphery/Forwarder -type f -name "*.sol" -exec grep -h "^contract [A-Za-z]" {} \; | sed -E 's/contract ([A-Za-z0-9_]+).*/"\1"/' | tr "\n" ", "
+gas_reports = ["Governance","Registry","RewardDistributor","GovernanceProposer","CoinIssuer","Rollup","Inbox","Outbox","FeeJuicePortal","RollupCore","SlashingProposer","Slasher","Forwarder"]
 
 remappings = [
   "@oz/=lib/openzeppelin-contracts/contracts/",
@@ -23,6 +31,8 @@ fs_permissions = [
   {access = "read", path = "./test/fixtures/fee_data_points.json"},
 ]
 
+no_match_contract="(ScreamAndShoutTest|UniswapPortalTest)"
+
 [fmt]
 line_length = 100
 tab_width = 2
@@ -30,3 +40,4 @@ variable_override_spacing=false
 
 [rpc_endpoints]
 mainnet_fork="https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c"
+

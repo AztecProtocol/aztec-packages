@@ -12,7 +12,8 @@ Alternatively you can use docker instead, it will handle installations and run t
 
 The `src` folder contain contracts that is to be used by the local developer testnet. It is grouped into 3 categories:
 
-- `core` contains the required contracts, the bare minimum
+- `core` contains the required contracts, the bare minimum.
+- `governance` contains the contracts for the governance system.
 - `mock` contains stubs, for now an always true verifier.
 - `periphery` stuff that is nice to have, convenience contracts and functions belong in here.
 
@@ -30,6 +31,31 @@ We use `forge fmt` to format. But follow a few general guidelines beyond the sta
   - Don't `function transfer(address to, uint256 amount);`
   - Do `function transfer(address _to, uint256 _amount);`
 - use `_` prefix for `internal` and `private` functions.
+
+## Gas Reports
+
+You can run `./bootstrap.sh gas_report` to generate a detailed gas report for the current state and update the gas_report.md file.
+
+If you want something more manageble you should be using the `./boostrap.sh gas_benchmark` which will give you some "happy path" gas numbers for set with and without validators in a format that might be slightly simpler to figure out. The values outputted from this can also be seen over time at https://aztecprotocol.github.io/aztec-packages/dev/l1-gas-bench/.
+
+When running CI or tests with `./bootstrap.sh test`, the script will automatically check if gas usage has changed by running `./bootstrap.sh gas_report check`. If gas usage has changed, the test will fail and show a diff of the changes.
+
+If the changes in gas usage are expected and desired:
+
+1. Review the diff shown in the output
+2. Run `./bootstrap.sh gas_report` to update the gas report file
+3. Commit the updated gas_report.md file
+
+NOTE: Our gas reporting excludes certain tests due to Forge limitations:
+
+- FeeRollupTest and MinimalFeeModelTest test suites are excluded
+- testInvalidBlobHash and testInvalidBlobProof test cases are excluded
+
+This is related to [this Foundry issue](https://github.com/foundry-rs/foundry/issues/10074).
+
+This means that we don't report gas for blob validation (currently 50k gas per blob, and we use 3 blobs per propose in production).
+
+If you want to run gas reports directly with `forge`, you must use the environment variable `FORGE_GAS_REPORT=true` instead of the `--gas-report` flag. The `./bootstrap.sh gas_report` command does this for you automatically.
 
 ## Contracts:
 

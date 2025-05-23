@@ -1,9 +1,9 @@
-import { SiblingPath } from '@aztec/circuit-types';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import { SiblingPath } from '@aztec/foundation/trees';
+import type { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
-import { type TreeBase } from '../tree_base.js';
-import { type TreeSnapshot, type TreeSnapshotBuilder } from './snapshot_builder.js';
+import type { TreeBase } from '../tree_base.js';
+import type { TreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
 
 /**
  * Metadata for a snapshot, per block
@@ -37,7 +37,10 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
   protected nodes: AztecMap<string, [Buffer, Buffer]>;
   protected snapshotMetadata: AztecMap<number, SnapshotMetadata>;
 
-  constructor(protected db: AztecKVStore, protected tree: T) {
+  constructor(
+    protected db: AztecKVStore,
+    protected tree: T,
+  ) {
     this.nodes = db.openMap(`full_snapshot:${tree.getName()}:node`);
     this.snapshotMetadata = db.openMap(`full_snapshot:${tree.getName()}:metadata`);
   }

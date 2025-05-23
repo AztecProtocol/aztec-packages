@@ -24,7 +24,7 @@ pub use assert_combined_transformed_array::{
 };
 pub use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
-    get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint},
+    get_order_hints::{get_order_hints_asc, OrderHint},
 };
 pub use assert_sorted_array::assert_sorted_array;
 pub use assert_sorted_transformed_value_array::{
@@ -32,12 +32,11 @@ pub use assert_sorted_transformed_value_array::{
 };
 pub use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc,
-    assert_split_sorted_transformed_value_arrays_desc,
-    get_split_order_hints::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints},
+    get_split_order_hints::{get_split_order_hints_asc, SplitOrderHints},
 };
 pub use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
 pub use get_sorted_result::{get_sorted_result, SortedResult};
-pub use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
+pub use sort_by_counter::sort_by_counter_asc;
 
 use crate::traits::{Empty, is_empty};
 
@@ -113,14 +112,33 @@ where
 {
     // We get the length by checking the index of the first empty element.
 
-    /// Safety: This is safe because we have validated the array (see function doc above) and the emptiness
-    /// of the element and non-emptiness of the previous element is checked below.
+    // Safety: This is safe because we have validated the array (see function doc above) and the emptiness
+    // of the element and non-emptiness of the previous element is checked below.
     let length = unsafe { find_index_hint(array, |elem: T| is_empty(elem)) };
     if length != 0 {
         assert(!is_empty(array[length - 1]));
     }
     if length != N {
         assert(is_empty(array[length]));
+    }
+    length
+}
+
+// Returns the number of consecutive elements at the start of the array for which the predicate returns false.
+// This function ensures that any element after the first matching element (predicate returns true) also matches the predicate.
+pub fn array_length_until<T, let N: u32, Env>(array: [T; N], predicate: fn[Env](T) -> bool) -> u32 {
+    let mut length = 0;
+    let mut stop = false;
+    for i in 0..N {
+        if predicate(array[i]) {
+            stop = true;
+        } else {
+            assert(
+                stop == false,
+                "matching element found after already encountering a non-matching element",
+            );
+            length += 1;
+        }
     }
     length
 }
@@ -136,7 +154,29 @@ pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -
     result
 }
 
+/// This function assumes that `array1` and `array2` contain no more than N non-empty elements between them,
+/// if this is not the case then elements from the end of `array2` will be dropped.
 pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
+where
+    T: Empty + Eq,
+{
+    // Safety: we constrain this array below
+    let result = unsafe { array_merge_helper(array1, array2) };
+    // We assume arrays have been validated. The only use cases so far are with previously validated arrays.
+    let array1_len = array_length(array1);
+    let mut add_from_left = true;
+    for i in 0..N {
+        add_from_left &= i != array1_len;
+        if add_from_left {
+            assert_eq(result[i], array1[i]);
+        } else {
+            assert_eq(result[i], array2[i - array1_len]);
+        }
+    }
+    result
+}
+
+unconstrained fn array_merge_helper<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
 where
     T: Empty + Eq,
 {
@@ -188,6 +228,78 @@ where
     }
 }
 
+// Helper function to find the index of the last element in an array, allowing empty elements.
+// e.g. useful for removing trailing 0s from [1, 0, 2, 0, 0, 0] -> [1, 0, 2]
+// Nothing to do with validated arrays. Correctness constrained by padded_array_length.
+pub unconstrained fn find_last_value_index<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq,
+{
+    let mut index = N;
+    for i in 0..N {
+        let j = N - i - 1;
+        // We check `index == N` to ensure that we only update the index if we haven't found a match yet.
+        if (index == N) & !is_empty(array[j]) {
+            index = j;
+        }
+    }
+    index
+}
+
+// Routine which returns the length of an array right padded by empty elements
+// of the form: [*,*,*...,0,0,0,0] where * is any value (zeroes allowed).
+// See smoke_validate_array_trailing for examples.
+// Nothing to do with validated arrays. Correctness constrained by padded_array_length.
+pub unconstrained fn unsafe_padded_array_length<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq,
+{
+    let index = find_last_value_index(array);
+    if index == N {
+        0
+    } else {
+        index + 1
+    }
+}
+
+// Routine which validates that zero values of an array form a contiguous region at the end, i.e.,
+// of the form: [*,*,*...,0,0,0,0] where * is any value (zeroes allowed).
+pub fn padded_array_length<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq,
+{
+    // Safety: this value is constrained in the below loop.
+    let length = unsafe { unsafe_padded_array_length(array) };
+    // Check the elt just before length is non-zero:
+    if length != 0 {
+        assert(!is_empty(array[length - 1]), "invalid right padded array");
+    }
+    // Check all beyond length are zero:
+    let mut check_zero = false;
+    for i in 0..N {
+        check_zero |= i == length;
+        if check_zero {
+            assert(is_empty(array[i]), "invalid right padded array");
+        }
+    }
+    length
+}
+
+// Helper function to check if an array is padded with a given value from a given index.
+// Different to padded_array_length in that it allows the elements before the given index to be the same as the padded value.
+pub fn array_padded_with<T, let N: u32>(array: [T; N], from_index: u32, padded_with: T) -> bool
+where
+    T: Eq,
+{
+    let mut is_valid = true;
+    let mut should_check = false;
+    for i in 0..N {
+        should_check |= i == from_index;
+        is_valid &= !should_check | (array[i] == padded_with);
+    }
+    is_valid
+}
+
 #[test]
 fn smoke_validate_array() {
     let valid_array: [Field; 0] = [];
@@ -207,6 +319,30 @@ fn smoke_validate_array() {
 
     let valid_array = [1, 2, 3, 0, 0];
     assert(validate_array(valid_array) == 3);
+}
+
+#[test]
+fn smoke_validate_array_trailing() {
+    let valid_array: [Field; 0] = [];
+    assert(padded_array_length(valid_array) == 0);
+
+    let valid_array = [0];
+    assert(padded_array_length(valid_array) == 0);
+
+    let valid_array = [3];
+    assert(padded_array_length(valid_array) == 1);
+
+    let valid_array = [1, 0, 3];
+    assert(padded_array_length(valid_array) == 3);
+
+    let valid_array = [1, 0, 3, 0];
+    assert(padded_array_length(valid_array) == 3);
+
+    let valid_array = [1, 2, 3, 0, 0];
+    assert(padded_array_length(valid_array) == 3);
+
+    let valid_array = [0, 0, 3, 0, 0];
+    assert(padded_array_length(valid_array) == 3);
 }
 
 #[test(should_fail_with = "invalid array")]
@@ -248,6 +384,27 @@ fn test_array_length_invalid_arrays() {
     assert_eq(array_length([0, 123, 0]), 0);
     assert_eq(array_length([0, 123, 456]), 0);
     assert_eq(array_length([123, 0, 456]), 1);
+}
+
+#[test]
+fn test_array_length_until() {
+    let array = [11, 22, 33, 44, 55];
+    assert_eq(array_length_until(array, |x| x == 55), 4);
+    assert_eq(array_length_until(array, |x| x == 56), 5);
+    assert_eq(array_length_until(array, |x| x > 40), 3);
+    assert_eq(array_length_until(array, |x| x > 10), 0);
+}
+
+#[test(should_fail_with = "matching element found after already encountering a non-matching element")]
+fn test_array_length_until_non_consecutive_fails() {
+    let array = [1, 1, 0, 1, 0];
+    let _ = array_length_until(array, |x| x == 0);
+}
+
+#[test(should_fail_with = "matching element found after already encountering a non-matching element")]
+fn test_array_length_until_first_non_matching_fails() {
+    let array = [1, 0, 0, 0, 0];
+    let _ = array_length_until(array, |x| x == 1);
 }
 
 #[test]
@@ -296,4 +453,17 @@ fn check_permutation_invalid_index() {
     let permuted_array = [1, 0, 0];
     let indexes = [1, 0, 2];
     check_permutation(original_array, permuted_array, indexes);
+}
+
+#[test]
+fn test_array_padded_with() {
+    let array = [11, 22, 33, 44, 44];
+    assert_eq(array_padded_with(array, 0, 44), false);
+    assert_eq(array_padded_with(array, 1, 44), false);
+    assert_eq(array_padded_with(array, 2, 44), false);
+    assert_eq(array_padded_with(array, 3, 44), true);
+    assert_eq(array_padded_with(array, 4, 44), true);
+    assert_eq(array_padded_with(array, 4, 33), false);
+    assert_eq(array_padded_with(array, 5, 44), true); // Index out of bounds.
+    assert_eq(array_padded_with(array, 0, 11), false);
 }

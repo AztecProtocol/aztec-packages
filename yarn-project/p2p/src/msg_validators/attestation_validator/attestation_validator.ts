@@ -1,22 +1,22 @@
-import { type BlockAttestation, type P2PValidator, PeerErrorSeverity } from '@aztec/circuit-types';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { type BlockAttestation, type P2PValidator, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 export class AttestationValidator implements P2PValidator<BlockAttestation> {
-  private epochCache: EpochCache;
+  private epochCache: EpochCacheInterface;
 
-  constructor(epochCache: EpochCache) {
+  constructor(epochCache: EpochCacheInterface) {
     this.epochCache = epochCache;
   }
 
   async validate(message: BlockAttestation): Promise<PeerErrorSeverity | undefined> {
     const { currentSlot, nextSlot } = await this.epochCache.getProposerInCurrentOrNextSlot();
 
-    const slotNumberBigInt = message.payload.header.globalVariables.slotNumber.toBigInt();
+    const slotNumberBigInt = message.payload.header.slotNumber.toBigInt();
     if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
       return PeerErrorSeverity.HighToleranceError;
     }
 
-    const attester = await message.getSender();
+    const attester = message.getSender();
     if (!(await this.epochCache.isInCommittee(attester))) {
       return PeerErrorSeverity.HighToleranceError;
     }

@@ -1,15 +1,12 @@
+import { Fr } from '@aztec/foundation/fields';
+import { FieldReader } from '@aztec/foundation/serialize';
+import { bufferFromFields } from '@aztec/stdlib/abi';
 import {
   type ContractClassPublic,
-  PUBLIC_DISPATCH_SELECTOR,
-  type PublicFunction,
   computeContractClassId,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
-import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
-
-import chunk from 'lodash.chunk';
+} from '@aztec/stdlib/contract';
+import type { ContractClassLog } from '@aztec/stdlib/logs';
 
 import { REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '../protocol_contract_data.js';
 
@@ -23,19 +20,18 @@ export class ContractClassRegisteredEvent {
     public readonly packedPublicBytecode: Buffer,
   ) {}
 
-  static isContractClassRegisteredEvent(log: Buffer) {
-    return log.subarray(0, 32).equals(REGISTERER_CONTRACT_CLASS_REGISTERED_TAG.toBuffer());
+  static isContractClassRegisteredEvent(log: ContractClassLog) {
+    return log.fields.fields[0].equals(REGISTERER_CONTRACT_CLASS_REGISTERED_TAG);
   }
 
-  static fromLog(log: Buffer) {
-    const reader = new BufferReader(log.subarray(32));
-    const contractClassId = reader.readObject(Fr);
-    const version = reader.readObject(Fr).toNumber();
-    const artifactHash = reader.readObject(Fr);
-    const privateFunctionsRoot = reader.readObject(Fr);
-    const packedPublicBytecode = bufferFromFields(
-      chunk(reader.readToEnd(), Fr.SIZE_IN_BYTES).map(Buffer.from).map(Fr.fromBuffer),
-    );
+  static fromLog(log: ContractClassLog) {
+    const fieldsWithoutTag = log.fields.fields.slice(1);
+    const reader = new FieldReader(fieldsWithoutTag);
+    const contractClassId = reader.readField();
+    const version = reader.readField().toNumber();
+    const artifactHash = reader.readField();
+    const privateFunctionsRoot = reader.readField();
+    const packedPublicBytecode = bufferFromFields(reader.readFieldArray(fieldsWithoutTag.length - reader.cursor));
 
     return new ContractClassRegisteredEvent(
       contractClassId,
@@ -63,24 +59,14 @@ export class ContractClassRegisteredEvent {
       throw new Error(`Unexpected contract class version ${this.version}`);
     }
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Remove public functions.
-    const publicFunctions: PublicFunction[] = [];
-    if (this.packedPublicBytecode.length > 0) {
-      publicFunctions.push({
-        selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-        bytecode: this.packedPublicBytecode,
-      });
-    }
-
     return {
       id: this.contractClassId,
       artifactHash: this.artifactHash,
       packedBytecode: this.packedPublicBytecode,
       privateFunctionsRoot: this.privateFunctionsRoot,
-      publicFunctions: publicFunctions,
       version: this.version,
       privateFunctions: [],
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
     };
   }
 }

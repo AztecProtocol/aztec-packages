@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+dist_tag=$1
+version=$2
+
+dry_run=${DRY_RUN:-0}
+
+# Point .npmrc config to one that relies on 'NPM_TOKEN' in the environment.
+export NPM_CONFIG_GLOBALCONFIG="$root/ci3/npm/.npmrc"
+
+package_name=$(jq -r '.name' package.json)
+echo_header "publishing $package_name"
+
+published_version=$(npm show . version --tag $dist_tag 2>/dev/null | grep -vE '^@' || true)
+higher_version=$(semver sort ${version} ${published_version} | tail -1)
+
+# Check if there is already a published package equal to given version, assume this is a re-run of a deploy.
+if [ "$version" == "$published_version" ]; then
+  echo "Tagged $dist_tag version $version is equal to published $dist_tag version $published_version."
+  echo "Skipping publish."
+  exit 0
+fi
+
+cp package.json package.json.deploy_bkup
+# Restore package.json as we write over it.
+function cleanup {
+  mv package.json.deploy_bkup package.json &>/dev/null || true
+}
+trap cleanup SIGINT SIGTERM EXIT
+
+$root/ci3/npm/release_prep_package_json $version
+
+# Publish.
+if [ "$dry_run" -eq 1 ]; then
+  denoise "npm publish --ignore-scripts --dry-run --tag $dist_tag --access public"
+else
+  # Check if version exists.
+  if npm view "$package_name@$version" version >/dev/null 2>&1; then
+    # Tag the existing version.
+    npm dist-tag add $package_name@$version $dist_tag
+  else
+    # Publish new version.
+    denoise "npm publish --ignore-scripts --tag $dist_tag --access public"
+  fi
+fi

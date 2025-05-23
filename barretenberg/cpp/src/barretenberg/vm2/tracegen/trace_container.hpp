@@ -11,8 +11,9 @@
 
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
+#include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -23,12 +24,21 @@ class TraceContainer {
     TraceContainer();
 
     const FF& get(Column col, uint32_t row) const;
-    template <size_t N> std::array<FF, N> get_multiple(const std::array<Column, N>& cols, uint32_t row) const
+    template <size_t N> std::array<FF, N> get_multiple(const std::array<ColumnAndShifts, N>& cols, uint32_t row) const
     {
         std::array<FF, N> result;
-        std::transform(cols.begin(), cols.end(), result.begin(), [&](Column col) { return get(col, row); });
+        for (size_t i = 0; i < N; ++i) {
+            if (!is_shift(cols[i])) {
+                result[i] = get(static_cast<Column>(cols[i]), row);
+            } else {
+                Column unshifted_col = unshift_column(cols[i]).value();
+                result[i] = get(unshifted_col, row + 1);
+            }
+        }
         return result;
     }
+    // Extended version of get that works with shifted columns. More expensive.
+    const FF& get_column_or_shift(ColumnAndShifts col, uint32_t row) const;
 
     void set(Column col, uint32_t row, const FF& value);
     // Bulk setting for a given row.
@@ -55,8 +65,8 @@ class TraceContainer {
     // Observe that therefore concurrent write access to different columns is cheap.
     struct SparseColumn {
         std::shared_mutex mutex;
-        uint32_t max_row_number = 0;
-        bool row_number_dirty; // needs recalculation
+        int64_t max_row_number = -1; // We use -1 to indicate that the column is empty.
+        bool row_number_dirty;       // Needs recalculation.
         // Future memory optimization notes: we can do the same trick as in Operand.
         // That is, store a variant with a unique_ptr. However, we should benchmark this.
         // (see serialization.hpp).

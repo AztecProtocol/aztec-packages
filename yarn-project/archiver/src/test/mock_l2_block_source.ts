@@ -1,26 +1,23 @@
-import {
-  type L1RollupConstants,
-  L2Block,
-  L2BlockHash,
-  type L2BlockSource,
-  type L2Tips,
-  type TxHash,
-  TxReceipt,
-  TxStatus,
-  getSlotRangeForEpoch,
-} from '@aztec/circuit-types';
-import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
+import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.
  */
-export class MockL2BlockSource implements L2BlockSource {
+export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   protected l2Blocks: L2Block[] = [];
 
-  private provenEpochNumber: number = 0;
   private provenBlockNumber: number = 0;
+  private finalizedBlockNumber: number = 0;
 
   private log = createLogger('archiver:mock_l2_block_source');
 
@@ -48,8 +45,11 @@ export class MockL2BlockSource implements L2BlockSource {
     this.provenBlockNumber = provenBlockNumber;
   }
 
-  public setProvenEpochNumber(provenEpochNumber: number) {
-    this.provenEpochNumber = provenEpochNumber;
+  public setFinalizedBlockNumber(finalizedBlockNumber: number) {
+    if (finalizedBlockNumber > this.provenBlockNumber) {
+      this.provenBlockNumber = finalizedBlockNumber;
+    }
+    this.finalizedBlockNumber = finalizedBlockNumber;
   }
 
   /**
@@ -80,10 +80,6 @@ export class MockL2BlockSource implements L2BlockSource {
     return Promise.resolve(this.provenBlockNumber);
   }
 
-  public getProvenL2EpochNumber(): Promise<number | undefined> {
-    return Promise.resolve(this.provenEpochNumber);
-  }
-
   /**
    * Gets an l2 block.
    * @param number - The block number to return (inclusive).
@@ -107,6 +103,19 @@ export class MockL2BlockSource implements L2BlockSource {
     );
   }
 
+  public async getPublishedBlocks(from: number, limit: number, proven?: boolean) {
+    const blocks = await this.getBlocks(from, limit, proven);
+    return blocks.map(block => ({
+      block,
+      l1: {
+        blockNumber: BigInt(block.number),
+        blockHash: Buffer32.random().toString(),
+        timestamp: BigInt(block.number),
+      },
+      signatures: [],
+    }));
+  }
+
   getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
     return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number - 1 : -1)?.header);
   }
@@ -121,10 +130,14 @@ export class MockL2BlockSource implements L2BlockSource {
     return Promise.resolve(blocks);
   }
 
+  getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
+    return this.getBlocksForEpoch(epochNumber).then(blocks => blocks.map(b => b.header));
+  }
+
   /**
    * Gets a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
   public async getTxEffect(txHash: TxHash) {
     const match = this.l2Blocks
@@ -134,7 +147,12 @@ export class MockL2BlockSource implements L2BlockSource {
       return Promise.resolve(undefined);
     }
     const [txEffect, block] = match;
-    return { data: txEffect, l2BlockNumber: block.number, l2BlockHash: (await block.hash()).toString() };
+    return {
+      data: txEffect,
+      l2BlockNumber: block.number,
+      l2BlockHash: (await block.hash()).toString(),
+      txIndexInBlock: block.body.txEffects.indexOf(txEffect),
+    };
   }
 
   /**
@@ -164,7 +182,7 @@ export class MockL2BlockSource implements L2BlockSource {
     const [latest, proven, finalized] = [
       await this.getBlockNumber(),
       await this.getProvenBlockNumber(),
-      await this.getProvenBlockNumber(),
+      this.finalizedBlockNumber,
     ] as const;
 
     const latestBlock = this.l2Blocks[latest - 1];
@@ -172,9 +190,18 @@ export class MockL2BlockSource implements L2BlockSource {
     const finalizedBlock = this.l2Blocks[finalized - 1];
 
     return {
-      latest: { number: latest, hash: (await latestBlock?.hash())?.toString() },
-      proven: { number: proven, hash: (await provenBlock?.hash())?.toString() },
-      finalized: { number: finalized, hash: (await finalizedBlock?.hash())?.toString() },
+      latest: {
+        number: latest,
+        hash: (await latestBlock?.hash())?.toString(),
+      },
+      proven: {
+        number: proven,
+        hash: (await provenBlock?.hash())?.toString(),
+      },
+      finalized: {
+        number: finalized,
+        hash: (await finalizedBlock?.hash())?.toString(),
+      },
     };
   }
 
@@ -199,6 +226,7 @@ export class MockL2BlockSource implements L2BlockSource {
    * @returns A promise that signals the initialization of the l2 block source on completion.
    */
   public start(): Promise<void> {
+    this.log.verbose('Starting mock L2 block source');
     return Promise.resolve();
   }
 
@@ -207,6 +235,35 @@ export class MockL2BlockSource implements L2BlockSource {
    * @returns A promise that signals the l2 block source is now stopped.
    */
   public stop(): Promise<void> {
+    this.log.verbose('Stopping mock L2 block source');
+    return Promise.resolve();
+  }
+
+  getContractClass(_id: Fr): Promise<ContractClassPublic | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getBytecodeCommitment(_id: Fr): Promise<Fr | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getContract(_address: AztecAddress, _blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getContractClassIds(): Promise<Fr[]> {
+    return Promise.resolve([]);
+  }
+
+  getDebugFunctionName(_address: AztecAddress, _selector: FunctionSelector): Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
+    return Promise.resolve();
+  }
+
+  syncImmediate(): Promise<void> {
     return Promise.resolve();
   }
 }

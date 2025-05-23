@@ -28,7 +28,7 @@ impl NullifierMembershipWitness {
 unconstrained fn get_low_nullifier_membership_witness_oracle(
     _block_number: u32,
     _nullifier: Field,
-) -> [Field; NULLIFIER_MEMBERSHIP_WITNESS] {}
+) -> NullifierMembershipWitness {}
 
 // Nullifier here refers to the nullifier we are looking to get non-inclusion proof for (by proving that a lower
 // nullifier's next_value is bigger than the nullifier)
@@ -36,15 +36,14 @@ pub unconstrained fn get_low_nullifier_membership_witness(
     block_number: u32,
     nullifier: Field,
 ) -> NullifierMembershipWitness {
-    let fields = get_low_nullifier_membership_witness_oracle(block_number, nullifier);
-    NullifierMembershipWitness::deserialize(fields)
+    get_low_nullifier_membership_witness_oracle(block_number, nullifier)
 }
 
 #[oracle(getNullifierMembershipWitness)]
 unconstrained fn get_nullifier_membership_witness_oracle(
     _block_number: u32,
     _nullifier: Field,
-) -> [Field; NULLIFIER_MEMBERSHIP_WITNESS] {}
+) -> NullifierMembershipWitness {}
 
 // Nullifier here refers to the nullifier we are looking to get non-inclusion proof for (by proving that a lower
 // nullifier's next_value is bigger than the nullifier)
@@ -52,6 +51,5 @@ pub unconstrained fn get_nullifier_membership_witness(
     block_number: u32,
     nullifier: Field,
 ) -> NullifierMembershipWitness {
-    let fields = get_nullifier_membership_witness_oracle(block_number, nullifier);
-    NullifierMembershipWitness::deserialize(fields)
+    get_nullifier_membership_witness_oracle(block_number, nullifier)
 }

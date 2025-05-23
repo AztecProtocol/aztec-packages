@@ -1,0 +1,365 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use feature 'say';
+
+# Written in perl as it is very portable and doesn't have the python versioning fiasco.
+# We allow one variant: a leading 'v' can be used (Aztec convention).
+# Usage:
+#   semver check <semver>
+#   semver <component> <semver>    # valid: major, minor, patch, prerelease, buildmetadata
+#   semver sort <semver1> [<semver2> ...]
+#   semver test
+
+my $mode = shift @ARGV or die usage();
+
+if ($mode eq 'test') {
+    run_tests();
+    exit 0;
+}
+elsif ($mode eq 'sort') {
+    die usage() unless @ARGV >= 1;
+    sort_versions(@ARGV);
+    exit 0;
+}
+else {
+    # Either "check" or extracting a component
+    die usage() unless @ARGV == 1;
+    my $version = $ARGV[0];
+
+    my $regex = qr/
+        ^
+        v?
+        (?<major>0|[1-9]\d*)
+        \.
+        (?<minor>0|[1-9]\d*)
+        \.
+        (?<patch>0|[1-9]\d*)
+        (?:-
+            (?<prerelease>
+                (?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)
+                (?:\.
+                    (?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)
+                )*
+            )
+        )?
+        (?:\+
+            (?<buildmetadata>
+                [0-9a-zA-Z-]+
+                (?:\.[0-9a-zA-Z-]+)*
+            )
+        )?
+        $
+    /x;
+
+    if ($version =~ $regex) {
+        if ($mode eq 'check') {
+            # valid semver
+            exit 0;
+        }
+
+        my %valid = map { $_ => 1 } qw(major minor patch prerelease buildmetadata);
+        die "Invalid component: $mode\n" unless $valid{$mode};
+
+        if ($mode eq 'prerelease' && defined $+{prerelease}) {
+            say $+{prerelease};
+        }
+        else {
+            my $value = defined $+{$mode} ? $+{$mode} : "";
+            say $value;
+        }
+        exit 0;
+    }
+    else {
+        # invalid semver
+        exit 1;
+    }
+}
+
+# ---------------------------------------------------------------------------
+# SUBROUTINES
+# ---------------------------------------------------------------------------
+
+sub usage {
+    return <<"END_USAGE";
+Usage:
+  $0 check <semver>
+  $0 <component> <semver>    # valid: major, minor, patch, prerelease, buildmetadata
+  $0 sort <semver1> [<semver2> ...]
+  $0 test
+END_USAGE
+}
+
+sub parse_semver {
+    my ($version) = @_;
+    my $regex = qr/
+        ^
+        v?
+        (?<major>0|[1-9]\d*)
+        \.
+        (?<minor>0|[1-9]\d*)
+        \.
+        (?<patch>0|[1-9]\d*)
+        (?:-
+            (?<prerelease>
+                (?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)
+                (?:\.
+                    (?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)
+                )*
+            )
+        )?
+        (?:\+
+            (?<buildmetadata>
+                [0-9a-zA-Z-]+
+                (?:\.[0-9a-zA-Z-]+)*
+            )
+        )?
+        $
+    /x;
+
+    if ($version =~ $regex) {
+        return {
+            major         => $+{major},
+            minor         => $+{minor},
+            patch         => $+{patch},
+            prerelease    => (defined $+{prerelease} ? [ split /\./, $+{prerelease} ] : undef),
+            buildmetadata => $+{buildmetadata},
+        };
+    }
+    else {
+        die "Invalid semver: $version\n";
+    }
+}
+
+# Sort any number of versions (ascending order) by SemVer precedence.
+sub sort_versions {
+    my @versions = @_;
+
+    # Parse each version once
+    my @parsed = map { { original => $_, parsed => parse_semver($_) } } @versions;
+
+    # Sort by comparing their parsed data
+    my @sorted = sort {
+        compare_semver($a->{parsed}, $b->{parsed});
+    } @parsed;
+
+    # Print them in the sorted order
+    for my $v (@sorted) {
+        say $v->{original};
+    }
+}
+
+# Compare two parsed semver structures, returning -1/0/+1
+sub compare_semver {
+    my ($a, $b) = @_;
+    for my $key (qw(major minor patch)) {
+        my $cmp = $a->{$key} <=> $b->{$key};
+        return $cmp if $cmp != 0;
+    }
+
+    # If one has no prerelease, that one is considered higher precedence
+    if (!defined $a->{prerelease} && defined $b->{prerelease}) {
+        return 1;
+    }
+    if (defined $a->{prerelease} && !defined $b->{prerelease}) {
+        return -1;
+    }
+    if (!defined $a->{prerelease} && !defined $b->{prerelease}) {
+        return 0;
+    }
+
+    my @a_ids = @{ $a->{prerelease} };
+    my @b_ids = @{ $b->{prerelease} };
+    my $len   = @a_ids < @b_ids ? @a_ids : @b_ids;
+
+    for (my $i = 0; $i < $len; $i++) {
+        my $c = compare_identifiers($a_ids[$i], $b_ids[$i]);
+        return $c if $c != 0;
+    }
+    return @a_ids <=> @b_ids;
+}
+
+sub compare_identifiers {
+    my ($x, $y) = @_;
+    my $x_is_num = ($x =~ /^\d+$/);
+    my $y_is_num = ($y =~ /^\d+$/);
+
+    if ($x_is_num && $y_is_num) {
+        return $x <=> $y;
+    }
+    elsif ($x_is_num && !$y_is_num) {
+        return -1;
+    }
+    elsif (!$x_is_num && $y_is_num) {
+        return 1;
+    }
+    else {
+        return $x cmp $y;
+    }
+}
+
+# ---------------------------------------------------------------------------
+# TEST SUBROUTINE
+# ---------------------------------------------------------------------------
+sub run_tests {
+    my @tests = (
+        {
+            name         => 'check valid semver 1.2.3',
+            cmd          => [ 'check', '1.2.3' ],
+            expect_exit  => 0,
+            expect_stdout => '',
+        },
+        {
+            name         => 'check valid semver v1.2.3',
+            cmd          => [ 'check', 'v1.2.3' ],
+            expect_exit  => 0,
+            expect_stdout => '',
+        },
+        {
+            name         => 'check invalid semver 1.2',
+            cmd          => [ 'check', '1.2' ],
+            expect_exit  => 1,
+            expect_stdout => '',
+        },
+        {
+            name         => 'check invalid semver 1.2.3.4',
+            cmd          => [ 'check', '1.2.3.4' ],
+            expect_exit  => 1,
+            expect_stdout => '',
+        },
+        {
+            name         => 'extract major from 1.2.3',
+            cmd          => [ 'major', '1.2.3' ],
+            expect_exit  => 0,
+            expect_stdout => "1\n",
+        },
+        {
+            name         => 'extract minor from v1.2.3',
+            cmd          => [ 'minor', 'v1.2.3' ],
+            expect_exit  => 0,
+            expect_stdout => "2\n",
+        },
+        {
+            name         => 'extract patch from 1.2.3',
+            cmd          => [ 'patch', '1.2.3' ],
+            expect_exit  => 0,
+            expect_stdout => "3\n",
+        },
+        {
+            name         => 'extract prerelease from 1.2.3-alpha.1',
+            cmd          => [ 'prerelease', '1.2.3-alpha.1' ],
+            expect_exit  => 0,
+            expect_stdout => "alpha.1\n",
+        },
+        {
+            name         => 'extract buildmetadata from 1.2.3+exp.sha',
+            cmd          => [ 'buildmetadata', '1.2.3+exp.sha' ],
+            expect_exit  => 0,
+            expect_stdout => "exp.sha\n",
+        },
+        {
+            name         => 'extract prerelease empty from 1.2.3 (none)',
+            cmd          => [ 'prerelease', '1.2.3' ],
+            expect_exit  => 0,
+            expect_stdout => "\n",
+        },
+        {
+            name         => 'extract buildmetadata empty from 1.2.3 (none)',
+            cmd          => [ 'buildmetadata', '1.2.3' ],
+            expect_exit  => 0,
+            expect_stdout => "\n",
+        },
+        {
+            name         => 'sort just 1.2.3',
+            cmd          => [ 'sort', '1.2.3' ],
+            expect_exit  => 0,
+            expect_stdout => "1.2.3\n",
+        },
+        {
+            name         => 'sort 1.2.3 and 1.2.4',
+            cmd          => [ 'sort', '1.2.3', '1.2.4' ],
+            expect_exit  => 0,
+            expect_stdout => "1.2.3\n1.2.4\n",
+        },
+        {
+            name         => 'sort v2.0.0 and 2.0.0 (they are equal, so keep input order)',
+            cmd          => [ 'sort', 'v2.0.0', '2.0.0' ],
+            expect_exit  => 0,
+            expect_stdout => "v2.0.0\n2.0.0\n",
+        },
+        {
+            name         => 'sort 1.0.0-alpha and 1.0.0 (alpha is lower)',
+            cmd          => [ 'sort', '1.0.0-alpha', '1.0.0' ],
+            expect_exit  => 0,
+            expect_stdout => "1.0.0-alpha\n1.0.0\n",
+        },
+        {
+            name => 'sort multiple versions',
+            cmd  => [
+                'sort',
+                'v1.2.3',
+                '1.10.0-alpha',
+                '1.2.3-beta.1',
+                '1.2.3-alpha.2',
+                '1.2.3-alpha.1',
+                'v1.2.3+build123',
+                '2.0.0',
+                'v0.1.2',
+            ],
+            expect_exit  => 0,
+            expect_stdout => join("\n",
+                'v0.1.2',
+                '1.2.3-alpha.1',
+                '1.2.3-alpha.2',
+                '1.2.3-beta.1',
+                'v1.2.3',
+                'v1.2.3+build123',
+                '1.10.0-alpha',
+                '2.0.0',
+            ) . "\n",
+        },
+    );
+
+    my $all_passed = 1;
+    my $test_count = 0;
+
+    foreach my $test (@tests) {
+        $test_count++;
+        my $name = $test->{name};
+
+        # Build the command string from the array
+        my $cmd_str = join(' ', @{ $test->{cmd} });
+
+        # $^X is the current Perl executable
+        my $full_cmd = "$^X $0 $cmd_str";
+        my $output   = `$full_cmd`;
+        my $exit_code = $? >> 8;
+
+        my $ok_exit   = ($exit_code == $test->{expect_exit});
+        my $ok_stdout = ($output eq $test->{expect_stdout});
+
+        if (!$ok_exit || !$ok_stdout) {
+            $all_passed = 0;
+            say "FAILED: $name";
+            say "  Command       : $full_cmd";
+            say "  Expected exit : $test->{expect_exit}, got $exit_code";
+            say "  Expected stdout:\n---\n$test->{expect_stdout}---";
+            say "  Got stdout:\n---\n$output---";
+            say "";
+        }
+        else {
+            say "PASSED: $name";
+        }
+    }
+
+    say "-------------------------------------------";
+    say "Test summary: $test_count tests run.";
+    if ($all_passed) {
+        say "All tests PASSED!";
+        exit 0;
+    }
+    else {
+        say "Some tests FAILED!";
+        exit 1;
+    }
+}

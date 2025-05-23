@@ -1,23 +1,39 @@
-#!/bin/bash
-source $(git rev-parse --show-toplevel)/ci3/source
+#!/usr/bin/env bash
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_refname
 
-cmd=${1:-"./bootstrap.sh ci || exec bash"}
-postfix=${2:-}
-cores=${CORES:-128}
+cmd=$1
+arch=${ARCH:-amd64}
 NO_TERMINATE=${NO_TERMINATE:-0}
-# picked up by github_group and github_endgroup
-GITHUB_LOG=${GITHUB_LOG:-}
-BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
+
+# We're always "in CI" if we're running on a remote instance.
+export CI=1
+
+if [ "$arch" == "arm64" ]; then
+  cores=64
+  # Allow for 90 minutes as ARM has less cores.
+  export AWS_SHUTDOWN_TIME=90
+else
+  if [ "$CI_FULL" -eq 1 ]; then
+    # cores=192,128,64
+    cores=128,64
+  else
+    cores=128,64
+  fi
+fi
+
+# Allow override.
+cores=${CPUS:-$cores}
 
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
-    set +e
-    if [ "$NO_TERMINATE" -eq 0 ]; then
-      aws_terminate_instance $iid $sir
-    else
-      echo "Remote machine not terminated, connect with: ./ci.sh attach"
-    fi
+  set +e
+  if [ -n "${iid:-}" ]; then
+    aws_terminate_instance $iid $sir
+    iid=""
+  fi
 }
+trap on_exit SIGINT SIGTERM EXIT
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
@@ -26,61 +42,238 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
   exit 1
 fi
 
-instance_name="${BRANCH//\//_}"
-[ -n "$postfix" ] && instance_name+="_$postfix"
+if [ "$REF_NAME" == "master" ]; then
+  # Allow parallelism on master by having the instance name be the commit.
+  instance_name="$current_commit"_$arch
+else
+  instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
+fi
 
-github_group "Request Build Instance"
-# Terminate any existing instance with the same name.
+if semver check $REF_NAME; then
+  # Override the public key that aws will load into ~/.ssh/authorized_keys on the launched instance.
+  # This requires the restricted key only available in release environments.
+  key_name="super-build-instance"
+else
+  key_name="build-instance"
+fi
+
+[ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
+
+echo_header "request build instance"
+# Terminate any existing instances with the same name.
 existing_instance=$(aws ec2 describe-instances \
   --region us-east-2 \
-  --filters "Name=tag:Name,Values=$instance_name" \
+  --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
   --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
   --output text)
 if [ -n "$existing_instance" ]; then
-  echo "Terminating existing instance: $existing_instance"
-  aws ec2 --region us-east-2 terminate-instances --instance-ids $existing_instance > /dev/null 2>&1
+  for i in $existing_instance; do
+    echo "Terminating existing instance: $i"
+    aws ec2 --region us-east-2 terminate-instances --instance-ids $i > /dev/null 2>&1
+  done
 fi
 
 # Request new instance.
-ip_sir=$(aws_request_instance $instance_name $cores x86_64)
-parts=(${ip_sir//:/ })
+ip_sir=$(KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch)
+IFS=':' read -r -a parts <<< "$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
 iid="${parts[2]}"
-trap on_exit EXIT
-github_endgroup
 
-args="-e GITHUB_LOG='$GITHUB_LOG' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"
-[ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
+# If AWS credentials are not set, try to load them from ~/.aws/build_instance_credentials.
+if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+  if [ ! -f ~/.aws/build_instance_credentials ]; then
+    echo "No aws credentials found in env or ~/.aws/build_instance_credentials."
+    exit 1
+  fi
+  echo "AWS credentials are being set from ~/.aws/build_instance_credentials."
+  export AWS_ACCESS_KEY_ID=$(grep aws_access_key_id ~/.aws/build_instance_credentials | awk '{print $3}')
+  export AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key ~/.aws/build_instance_credentials | awk '{print $3}')
+  if [[ $(echo "$AWS_ACCESS_KEY_ID" | wc -l) > 1 ]] || [[ $(echo "$AWS_SECRET_ACCESS_KEY" | wc -l) > 1 ]] ; then
+    echo "Error: multiple AWS credentials found in ~/.aws/build_instance_credentials. Make sure you have only one profile defined."
+    exit 1
+  fi
+fi
 
 # Interactive if stdin is connected to terminal.
-[ -t 0 ] && args+=" -i"
+[ -t 0 ] && docker_args+=" -i"
 
-args+=" -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-}"
+# If stdout is connected to a terminal, drop into a shell on failure.
+# Otherwise ensure all logs go to redis cache.
+if [ -t 1 ]; then
+  ssh_args="-t"
+  docker_args+=" -t"
+  if [ "$NO_TERMINATE" -eq 0 ]; then
+    run_cmd="run || exec zsh"
+  else
+    run_cmd="run; exec zsh"
+  fi
+else
+  # We're probably running in CI. Handle aws evictions and add timestamps to the logs.
+  run_cmd="ci3/aws_handle_evict run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
+fi
+
+container_script=$(cat <<EOF
+  set -euo pipefail
+  # When restarting the container, just hang around.
+  # Note we use the "ci-started" file to determine if we're running on a CI machine in some cases (e.g. npm cache).
+  while [ -f ci-started ]; do sleep 999; done
+  touch ci-started
+  sudo chown aztec-dev:aztec-dev aztec-packages
+  # Set up preferred commit attribution (used during releases).
+  git config --global user.email "tech@aztecprotocol.com"
+  git config --global user.name "AztecBot"
+  cd aztec-packages
+  git config --global advice.detachedHead false
+  git init . &>/dev/null
+  git remote add origin https://github.com/aztecprotocol/aztec-packages
+  git fetch --depth 1 origin $current_commit
+  git checkout FETCH_HEAD
+  git checkout -b \$REF_NAME
+  source ci3/source
+  source ci3/source_refname
+  source ci3/source_redis
+  ci_log_id=\$(log_ci_run)
+  export PARENT_LOG_URL=${PARENT_LOG_URL:-http://ci.aztec-labs.com/\$ci_log_id}
+
+  # Heartbeat.
+  while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
+
+  function run {
+    echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION TARGET_BRANCH=\$TARGET_BRANCH"
+    if semver check "\$REF_NAME"; then
+      echo "Performing a release because \$REF_NAME is a semver."
+    fi
+
+    set +e
+    set -x
+    $cmd
+    local code=\${PIPESTATUS[0]}
+    set +x
+    sudo dmesg 2>&1 | cache_log 'dmesg'
+    sudo cat /tmp/cpufile | cache_log 'cpufile'
+    sudo cat /tmp/memfile | cache_log 'memfile'
+    return \$code
+  }
+  export -f run
+
+  set +e
+  set -x
+  $run_cmd
+  code=\${PIPESTATUS[0]}
+
+  case \$code in
+    155) ;;
+    0) log_ci_run PASSED \$ci_log_id ;;
+    *) log_ci_run FAILED \$ci_log_id ;;
+  esac
+  exit \$code
+EOF
+)
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
-# Run in our build container, cloning commit and running bootstrap.sh.
-github_group "Start CI Image"
-ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
-  docker run --privileged $args --name aztec_build -t \
-    -v boostrap_ci_local_docker:/var/lib/docker \
-    -v \$HOME:/root \
-    -v /tmp:/tmp \
-    aztecprotocol/ci:2.2 bash -c '
-      [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
-      [ -n \"$GITHUB_LOG\" ] && echo "::group::Clone Repository"
-      set -e
-      # When restarting the container, just hang around.
-      while [ -f started ]; do sleep 999; done
-      touch started
-      /usr/local/share/docker-init.sh &> /dev/null
-      mkdir -p /root/aztec-packages
-      cd /root/aztec-packages
-      git init &>/dev/null
-      git remote add origin https://github.com/aztecprotocol/aztec-packages
-      git fetch --depth 1 origin $current_commit &>/dev/null
-      git checkout FETCH_HEAD &>/dev/null
-      [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
-      $cmd
-    '
-"
+# Launch our devbox container, clones the branches latest commit and runs the given command.
+# To improve performance we:
+#   - Use a volume on /var/lib/docker for docker-in-docker as overlayfs trashes performance (in fact it just breaks).
+#   - The volume has the devbox image preloaded within it in the ami_update.sh script.
+#   - Use a volume for the actual working directory in /home/aztec-dev/aztec-packages.
+#   - Copy the CRS into a 3G tmpfs and mount that into the container.
+#   - Mount the hosts /tmp into the container.
+# We mount in aws credentials to leverage the s3 cache.
+# We enable the test cache, which uses a redis instance for tracking test runs.
+# We set SSH_CONNECTION to something to ensure the hostname is shown in the lean prompt.
+# We provide the host user and group ids to the entrypoint script to ensure alignment.
+# We raise the default pid limit to 32k.
+function run {
+  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
+    # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
+    sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
+    sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
+
+    echo Loading CRS into tmpfs...
+    sudo mkdir /mnt/bb-crs
+    sudo mount -t tmpfs -o size=3G tmpfs /mnt/bb-crs
+    sudo cp -r \$HOME/.bb-crs/* /mnt/bb-crs
+    echo Done in \$SECONDS seconds.
+
+    # Capture net status.
+    # echo Installing and starting sysdig...
+    # sudo apt-get update &>/dev/null
+    # sudo apt-get install -y sysdig net-tools &>/dev/null
+    # sudo sysdig -p '%evt.time (cid: %container.id) (event: %evt.dir %evt.type) (args: %evt.args): %proc.cmdline' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
+    # netfile_pid=\$!
+
+    # Capture cpu load.
+    mpstat 2 &> /tmp/cpufile &
+    cpufile_pid=\$!
+
+    # Capture mem load.
+    vmstat -w -S M 2 &> /tmp/memfile &
+    memfile_pid=\$!
+
+    # Kill monitoring processes on exit.
+    trap 'sudo kill \$cpufile_pid \$memfile_pid' EXIT
+
+    echo Starting devbox...
+    docker run --privileged --rm ${docker_args:-} \
+      --name aztec_build \
+      --hostname $instance_name \
+      -v bootstrap_ci_local_docker:/var/lib/docker \
+      -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
+      -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
+      -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
+      -v /tmp:/tmp \
+      -v /dev/kmsg:/dev/kmsg \
+      -e CI=1 \
+      -e RUN_ID=${RUN_ID:-} \
+      -e JOB_ID=${JOB_ID:-} \
+      -e REF_NAME=${REF_NAME:-} \
+      -e TARGET_BRANCH=${TARGET_BRANCH:-} \
+      -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
+      -e NO_CACHE=${NO_CACHE:-} \
+      -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
+      -e SSH_CONNECTION=' ' \
+      -e LOCAL_USER_ID=\$(id -u) \
+      -e LOCAL_GROUP_ID=\$(id -g) \
+      -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
+      -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
+      -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
+      -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
+      -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
+      -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
+      -e AWS_ACCESS_KEY_ID=\"${AWS_ACCESS_KEY_ID:-}\" \
+      -e AWS_SECRET_ACCESS_KEY=\"${AWS_SECRET_ACCESS_KEY:-}\" \
+      -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
+      -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
+      -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
+      -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
+      -e NPM_TOKEN=${NPM_TOKEN:-} \
+      -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
+      -e AWS_TOKEN=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600') \
+      --pids-limit=32768 \
+      aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
+  "
+}
+
+set +e
+# If in terminal run in foreground.
+# If not, run in background so we can handle the signals in a timely fashion, and wait for it to finish.
+if [ -t 0 ]; then
+  run
+else
+  echo "No tty, running in background..."
+  run &
+  wait $!
+fi
+
+code=$?
+set -e
+echo "SSH exited with code: $code"
+
+# If we were spot evicted, try again using on-demand.
+if [ $code -eq 155 ]; then
+  echo "Spot was evicted. Retrying with on-demand instance."
+  NO_SPOT=1 exec "$0" "$@"
+else
+  exit $code
+fi

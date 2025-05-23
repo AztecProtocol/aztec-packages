@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include <array>
 #include <tuple>
@@ -40,7 +46,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     using View = typename Accumulator::View;
 
     static const auto offset_generator = [&]() {
-        static constexpr auto offset_generator_base = bb::g1::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
+        static constexpr auto offset_generator_base = get_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1>()[0];
         static bb::g1::affine_element result =
             bb::g1::affine_element(bb::g1::element(offset_generator_base) * grumpkin::fq(uint256_t(1) << 124));
         static const FF qx = result.x;

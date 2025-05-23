@@ -18,17 +18,26 @@ const testSetup = async (): Promise<UniswapSetupContext> => {
     deployL1ContractsValues,
     wallets,
     logger,
+    cheatCodes,
   } = await e2eSetup(2, { stateLoad: dumpedState });
 
-  const walletClient = deployL1ContractsValues.walletClient;
-  const publicClient = deployL1ContractsValues.publicClient;
+  const l1Client = deployL1ContractsValues.l1Client;
 
   const ownerWallet = wallets[0];
   const sponsorWallet = wallets[1];
 
   teardown = teardown_;
 
-  return { aztecNode, pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet, deployL1ContractsValues };
+  return {
+    aztecNode,
+    pxe,
+    logger,
+    l1Client,
+    ownerWallet,
+    sponsorWallet,
+    deployL1ContractsValues,
+    cheatCodes,
+  };
 };
 // docs:end:uniswap_setup
 

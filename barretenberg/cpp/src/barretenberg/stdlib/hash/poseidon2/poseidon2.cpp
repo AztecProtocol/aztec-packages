@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 namespace bb::stdlib {
@@ -14,7 +20,7 @@ template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vecto
      * This should just call the sponge variable length hash function
      *
      */
-    return Sponge::hash_fixed_length(builder, inputs);
+    return Sponge::hash_internal(builder, inputs);
 }
 
 /**
@@ -41,6 +47,5 @@ template <typename C> field_t<C> poseidon2<C>::hash_buffer(C& builder, const std
 }
 template class poseidon2<bb::MegaCircuitBuilder>;
 template class poseidon2<bb::UltraCircuitBuilder>;
-template class poseidon2<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

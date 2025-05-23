@@ -1,26 +1,21 @@
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { GovernanceProposerAbi } from '@aztec/l1-artifacts';
+import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type TransactionReceipt,
-  encodeFunctionData,
-  getContract,
-} from 'viem';
+import { type GetContractReturnType, type Hex, type TransactionReceipt, encodeFunctionData, getContract } from 'viem';
 
-import type { L1Clients } from '../deploy_l1_contracts.js';
 import type { GasPrice, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
+import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeVote } from './empire_base.js';
+import { extractProposalIdFromLogs } from './governance.js';
 
 export class GovernanceProposerContract implements IEmpireBase {
-  private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, PublicClient<HttpTransport, Chain>>;
+  private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, ViemClient>;
 
-  constructor(public readonly client: L1Clients['publicClient'], address: Hex) {
+  constructor(
+    public readonly client: ViemClient,
+    address: Hex,
+  ) {
     this.proposer = getContract({ address, abi: GovernanceProposerAbi, client });
   }
 
@@ -72,14 +67,15 @@ export class GovernanceProposerContract implements IEmpireBase {
     };
   }
 
-  public executeProposal(
+  public async executeProposal(
     round: bigint,
     l1TxUtils: L1TxUtils,
   ): Promise<{
     receipt: TransactionReceipt;
     gasPrice: GasPrice;
+    proposalId: bigint;
   }> {
-    return l1TxUtils.sendAndMonitorTransaction({
+    const { receipt, gasPrice } = await l1TxUtils.sendAndMonitorTransaction({
       to: this.address.toString(),
       data: encodeFunctionData({
         abi: this.proposer.abi,
@@ -87,5 +83,7 @@ export class GovernanceProposerContract implements IEmpireBase {
         args: [round],
       }),
     });
+    const proposalId = extractProposalIdFromLogs(receipt.logs);
+    return { receipt, gasPrice, proposalId };
   }
 }

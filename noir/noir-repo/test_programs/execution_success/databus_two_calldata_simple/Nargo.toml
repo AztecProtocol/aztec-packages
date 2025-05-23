@@ -1,6 +1,0 @@
-[package]
-name = "databus_two_calldata_simple"
-type = "bin"
-authors = [""]
-
-[dependencies]

@@ -1,16 +1,25 @@
 {{- if .Values.bot.enabled }}
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
     app: {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.bot.replicas }}
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: bot
+  volumeClaimTemplates:
+    - metadata:
+        name: bot-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.bot.storageSize }}
   template:
     metadata:
       labels:
@@ -34,6 +43,9 @@ spec:
       {{- if .Values.network.public }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- else }}
+      dnsPolicy: ClusterFirst
       {{- end }}
       volumes:
         - name: config
@@ -41,10 +53,17 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: scripts-output
           emptyDir: {}
+        - name: bot-data
+          persistentVolumeClaim:
+            claimName: bot-data
+      terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
-        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
+
         - name: wait-for-aztec-node
           image: "{{ .Values.images.curl.image }}"
           command:
@@ -55,10 +74,8 @@ spec:
               cat /shared/config/service-addresses
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
-              {{- else if .Values.network.public }}
-              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- else }}
-              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- end }}
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               until curl -s ${AZTEC_NODE_URL}/status; do echo waiting for aztec-node; sleep 2; done
@@ -77,16 +94,35 @@ spec:
             - "/bin/bash"
             - "-c"
             - |
+              source /scripts/get-private-key.sh
+              source /shared/config/keys.env
+
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
+              source /shared/config/otel-resource
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
-              {{- else if .Values.network.public }}
-              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- else }}
-              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- end }}
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
+
+              export BOT_ACCOUNT_SALT=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF+1}') # +1 so that salt is not 0
+
+              # set this to a folder in order to capture simulation recordings for later debug
+              # be sure to set it to a persistent volume
+              export CIRCUIT_RECORD_DIR=""
+
+              # a crude way to avoid a race condition that could arise if more than one bot is started:
+              # the bots need to register contract classes, if they all start at the same time (or close to it) then multiple of them might try to register the same class leading to failed txs due to duplicate nullifiers
+              # instead lets allow the first bot to start immediately giving it the responsibility to register the classes
+              # every other bot after that will sleep at least a slot before starting up
+              if [[ "$BOT_ACCOUNT_SALT" != "1" ]]; then
+                sleep_duration=$(({{ .Values.aztec.slotDuration }} + ($RANDOM % 10)))
+                echo "Sleeping for $sleep_duration seconds"
+                sleep $sleep_duration
+              fi
+
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe --bot
           env:
             - name: K8S_POD_UID
@@ -97,12 +133,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: bot
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.botKeyIndexStart | quote }}
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
             - name: AZTEC_PORT
               value: "{{ .Values.bot.service.nodePort }}"
             - name: LOG_JSON
@@ -123,6 +161,8 @@ spec:
               value: "{{ .Values.bot.botNoStart }}"
             - name: BOT_FEE_PAYMENT_METHOD
               value: "{{ .Values.bot.feePaymentMethod }}"
+            - name: BOT_AMM_TXS
+              value: "{{ .Values.bot.ammTxs }}"
             - name: PXE_PROVER_ENABLED
               value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_REAL_PROOFS
@@ -131,10 +171,14 @@ spec:
               value: "{{ .Values.bot.maxErrors }}"
             - name: BOT_STOP_WHEN_UNHEALTHY
               value: "{{ .Values.bot.stopIfUnhealthy }}"
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
-            - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.bot.dataDir }}"
           ports:
             - name: http
               containerPort: {{ .Values.bot.service.nodePort }}
@@ -164,6 +208,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: bot
 spec:
   type: {{ .Values.bot.service.type }}
   selector:

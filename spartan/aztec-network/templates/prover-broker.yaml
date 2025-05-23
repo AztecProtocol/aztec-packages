@@ -46,9 +46,12 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
       initContainers:
-        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
-        - name: wait-for-prover-node
+        {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
+
+        - name: wait-for-dependencies
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
@@ -56,15 +59,57 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
+
+              # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
+              if [ -n "{{ .Values.aztec.contracts.registryAddress }}" ]; then
+                echo "Registry address already set, skipping wait for services"
+                exit 0
+              fi
+
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
+
+              until curl --head --silent $BOOT_NODE_HOST/status; do
+                echo "Waiting for boot node..."
+                sleep 5
+              done
+              echo "Boot node is ready!"
+
           volumeMounts:
             - name: config
               mountPath: /shared/config
+
+        - name: configure-broker-env
+          {{- include "aztec-network.image" . | nindent 10 }}
+          command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              source /shared/config/service-addresses
+              /scripts/configure-prover-env.sh ${BOOT_NODE_HOST:-""} ${FULL_NODE_HOST:-""}
+          volumeMounts:
+            - name: contracts-env
+              mountPath: /shared/contracts
+            - name: scripts
+              mountPath: /scripts
+            - name: config
+              mountPath: /shared/config
+          env:
+            # broker does not join the p2p network
+            - name: P2P_ENABLED
+              value: "false"
+            - name: BOOTSTRAP_NODES
+              value: "{{ .Values.aztec.bootstrapENRs }}"
+            - name: REGISTRY_CONTRACT_ADDRESS
+              value: "{{ .Values.aztec.contracts.registryAddress }}"
+
       containers:
         - name: prover-broker
           {{- include "aztec-network.image" . | nindent 10 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
+            - name: contracts-env
+              mountPath: /shared/contracts
             - name: prover-broker-data
               mountPath: {{ .Values.proverBroker.dataDir }}
           command:
@@ -72,6 +117,8 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses && \
+              source /shared/contracts/contracts.env && \
+              source /shared/config/otel-resource && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-broker
           env:
             - name: K8S_POD_UID
@@ -82,14 +129,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: prover-broker
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.proverBroker.maxOldSpaceSize}}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
             - name: AZTEC_PORT
               value: "{{ .Values.proverBroker.service.nodePort }}"
             - name: LOG_LEVEL
@@ -106,10 +153,8 @@ spec:
               value: "{{ .Values.proverBroker.dataDir }}"
             - name: DATA_STORE_MAP_SIZE_KB
               value: "{{ .Values.storage.dataStoreMapSize }}"
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
           resources:
@@ -118,7 +163,10 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: config
+          emptyDir: {}
+        - name: contracts-env
           emptyDir: {}
       {{- if .Values.storage.localSsd }}
         - name: prover-broker-data
@@ -137,6 +185,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-broker
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: prover-broker
 spec:
   type: ClusterIP
   selector:

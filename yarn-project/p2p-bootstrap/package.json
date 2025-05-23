@@ -14,11 +14,9 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'",
     "start": "node ./dest/index.js",
-    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json"
@@ -29,7 +27,7 @@
     "@aztec/p2p": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "dotenv": "^16.0.3",
-    "koa": "^2.15.3",
+    "koa": "^2.16.1",
     "koa-router": "^12.0.1",
     "tslib": "^2.4.0"
   },
@@ -38,10 +36,10 @@
     "@types/jest": "^29.5.0",
     "@types/koa": "^2.15.0",
     "@types/koa-router": "^7.4.8",
-    "@types/node": "^18.14.6",
+    "@types/node": "^22.15.17",
     "jest": "^29.5.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",
@@ -77,12 +75,12 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

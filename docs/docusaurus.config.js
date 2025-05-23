@@ -2,15 +2,22 @@
 // Note: type annotations allow type checking and IDEs autocompletion
 
 const { themes } = require("prism-react-renderer");
+// @ts-ignore
 const lightTheme = themes.github;
+// @ts-ignore
 const darkTheme = themes.dracula;
 
+// @ts-ignore
 import math from "remark-math";
+// @ts-ignore
 import katex from "rehype-katex";
 
+// @ts-ignore
 const path = require("path");
+// @ts-ignore
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
+const versions = require("./versions.json");
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -55,9 +62,8 @@ const config = {
             );
           },
           routeBasePath: "/",
-          include: process.env.SHOW_PROTOCOL_SPECS
-            ? ['**/*.{md,mdx}']
-            : ['**/*.{md,mdx}', '!protocol-specs/**'],
+          include: ["**/*.{md,mdx}"],
+          exclude: !process.env.PROTOCOL_SPECS ? ['protocol-specs/**'] : [],
 
           remarkPlugins: [math],
           rehypePlugins: [
@@ -70,6 +76,18 @@ const config = {
               },
             ],
           ],
+          versions: (() => {
+            const versionObject = {};
+            if (process.env.ENV === "dev") {
+              return versionObject;
+            }
+            versions.map((version) => {
+              versionObject[version] = {
+                banner: "none",
+              };
+            });
+            return versionObject;
+          })(),
         },
         blog: false,
         theme: {
@@ -88,35 +106,6 @@ const config = {
     },
   ],
   plugins: [
-    async function loadVersions(context, options) {
-      // ...
-      return {
-        name: "load-versions",
-        async loadContent() {
-          try {
-            const aztecVersionPath = path.resolve(
-              __dirname,
-              "../.release-please-manifest.json"
-            );
-            const aztecVersion = JSON.parse(
-              fs.readFileSync(aztecVersionPath).toString()
-            )["."];
-            return {
-              "aztec-packages": `aztec-packages-v${aztecVersion}`,
-            };
-          } catch (err) {
-            throw new Error(
-              `Error loading versions in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
-            );
-          }
-        },
-        async contentLoaded({ content, actions }) {
-          // await actions.createData("versions.json", JSON.stringify(content));
-          actions.setGlobalData({ versions: content });
-        },
-        /* other lifecycle API */
-      };
-    },
     [
       "@docusaurus/plugin-ideal-image",
       {
@@ -131,10 +120,10 @@ const config = {
       "docusaurus-plugin-typedoc",
       {
         id: "aztecjs/pxe",
-        entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
-        tsconfig: "../yarn-project/circuit-types/tsconfig.json",
+        entryPoints: ["../yarn-project/stdlib/src/interfaces/pxe.ts"],
+        tsconfig: "../yarn-project/stdlib/tsconfig.json",
         entryPointStrategy: "expand",
-        out: "reference/developer_references/aztecjs/pxe",
+        out: "developers/reference/aztecjs/pxe",
         readme: "none",
         sidebar: {
           categoryLabel: "Private Execution Environment (PXE)",
@@ -152,7 +141,7 @@ const config = {
         ],
         tsconfig: "../yarn-project/aztec.js/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "reference/developer_references/aztecjs/aztec-js",
+        out: "developers/reference/aztecjs/aztec-js",
         readme: "none",
         sidebar: {
           categoryLabel: "Aztec.js",
@@ -173,7 +162,7 @@ const config = {
         ],
         tsconfig: "../yarn-project/accounts/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "reference/developer_references/aztecjs/accounts",
+        out: "developers/reference/aztecjs/accounts",
         readme: "none",
         sidebar: {
           categoryLabel: "Accounts",
@@ -208,19 +197,12 @@ const config = {
           ],
           apiKey: "gpH8o2YnqsOEj2jgtIMTULbtHi1kZ2X3", // public search-only api key, safe to commit
         },
-        contextualSearch: true,
       },
       colorMode: {
         defaultMode: "light",
         disableSwitch: false,
         respectPrefersColorScheme: false,
       },
-      // docs: {
-      //   sidebar: {
-      //     hideable: true,
-      //     autoCollapseCategories: false,
-      //   },
-      // },
       navbar: {
         logo: {
           alt: "Aztec Logo",
@@ -230,27 +212,43 @@ const config = {
         },
         items: [
           {
+            type: "docsVersionDropdown",
+            position: "left",
+            dropdownActiveClassDisabled: true,
+          },
+          {
             type: "doc",
-            docId: "index",
+            docId: "aztec/index",
             position: "left",
             label: "Learn",
           },
+
           {
             type: "docSidebar",
-            sidebarId: "guidesSidebar",
+            sidebarId: "buildSidebar",
             position: "left",
-            label: "Guides",
+            label: "Build",
           },
           {
             type: "docSidebar",
-            sidebarId: "referenceSidebar",
+            sidebarId: "nodesSidebar",
             position: "left",
-            label: "Reference",
+            label: "Run a node",
+          },
+          {
+            to: "/developers/getting_started",
+            label: "Install Sandbox",
+            position: "right",
+          },
+          {
+            to: "/try_testnet",
+            label: "Try Testnet",
+            position: "right",
           },
           {
             type: "dropdown",
             label: "Resources",
-            position: "left",
+            position: "right",
             items: [
               {
                 type: "html",
@@ -306,13 +304,6 @@ const config = {
                 label: "Roadmap",
                 className: "no-external-icon",
               },
-              ...(process.env.SHOW_PROTOCOL_SPECS ?
-              [{
-                type: "docSidebar",
-                sidebarId: "protocolSpecSidebar",
-                label: "Protocol Specification",
-                className: "no-external-icon",
-              }] : []),
               {
                 to: "https://noir-lang.org/docs",
                 label: "Noir docs",
@@ -353,7 +344,7 @@ const config = {
               },
               {
                 label: "Developer Getting Started Guide",
-                to: "/guides/getting_started",
+                to: "/developers/getting_started",
               },
               {
                 label: "Aztec.nr",
@@ -370,7 +361,7 @@ const config = {
               },
               {
                 label: "Discord",
-                href: "https://discord.gg/DgWG2DBMyB",
+                href: "https://discord.com/invite/aztec",
               },
               {
                 label: "X (Twitter)",
@@ -443,5 +434,19 @@ const config = {
       },
     }),
 };
+
+if (process.env.PROTOCOL_SPECS) {
+  //@ts-ignore
+  const index = config.themeConfig.navbar.items.findIndex(
+    (e) => e.type == "dropdown"
+  );
+
+  //@ts-ignore
+  config.themeConfig.navbar.items.splice(index, 0, {
+    type: "docSidebar",
+    sidebarId: "protocolSpecSidebar",
+    label: "Protocol Specification",
+  });
+}
 
 module.exports = config;

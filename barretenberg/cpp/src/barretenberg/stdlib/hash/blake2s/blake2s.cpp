@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "blake2s.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "blake2s_plookup.hpp"
@@ -135,7 +141,6 @@ template <typename Builder> byte_array<Builder> blake2s(const byte_array<Builder
     return result;
 }
 
-template byte_array<bb::StandardCircuitBuilder> blake2s(const byte_array<bb::StandardCircuitBuilder>& input);
 template byte_array<bb::UltraCircuitBuilder> blake2s(const byte_array<bb::UltraCircuitBuilder>& input);
 template byte_array<bb::MegaCircuitBuilder> blake2s(const byte_array<bb::MegaCircuitBuilder>& input);
 

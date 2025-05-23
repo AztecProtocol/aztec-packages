@@ -6,14 +6,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.74.0 # x-release-please-version
     LANGUAGES CXX C
-)
-# Insert version into `bb` config file
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/barretenberg/bb/config.hpp.in
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/barretenberg/bb/config.hpp
-    @ONLY
 )
 
 # Add doxygen build command
@@ -39,6 +32,7 @@ option(ENABLE_HEAVY_TESTS "Enable heavy tests when collecting coverage" OFF)
 option(CHECK_CIRCUIT_STACKTRACES "Enable (slow) stack traces for check circuit" OFF)
 option(ENABLE_TRACY "Enable low-medium overhead profiling for memory and performance with tracy" OFF)
 option(ENABLE_PIC "Builds with position independent code" OFF)
+option(SYNTAX_ONLY "only check syntax (-fsyntax-only)" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     message(STATUS "Compiling for ARM.")
@@ -77,14 +71,16 @@ if(ENABLE_ASAN)
 endif()
 
 if(FUZZING)
+    add_definitions(-DULTRA_FUZZ)
+    if(SHOW_INFORMATION)
+        add_definitions(-DSHOW_INFORMATION=1)
+    endif()
+
     add_definitions(-DFUZZING=1)
 
     if(DISABLE_CUSTOM_MUTATORS)
         add_definitions(-DDISABLE_CUSTOM_MUTATORS=1)
     endif()
-
-    add_compile_options(-fsanitize=fuzzer)
-    add_link_options(-fsanitize=fuzzer)
 
     set(MULTITHREADING OFF)
 endif()
@@ -105,7 +101,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-fbracket-depth=1024)
+    add_compile_options(-fbracket-depth=512)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14")
         message(WARNING "Clang <14 is not supported")
     endif()
@@ -167,6 +163,7 @@ include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
 include(cmake/lmdb.cmake)
+include(cmake/libdeflate.cmake)
 
 # We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
 if (NOT WASM)
@@ -193,4 +190,30 @@ if (ENABLE_ASAN AND NOT(FUZZING))
     else()
         message(AUTHOR_WARNING "Run `export ASAN_SYMBOLIZER_PATH=\"${LLVM_SYMBOLIZER_PATH}\"` before running tests for better ASAN output (at which lines the bugs are).")
     endif()
+endif()
+
+# adapted from https://gitlab.kitware.com/cmake/cmake/-/issues/21717
+if(SYNTAX_ONLY)
+  if (NOT ((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
+    (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")))
+    message(FATAL_ERROR
+      "only clang and gcc support -fsyntax-only, using ${CMAKE_CXX_COMPILER_ID}")
+  endif()
+
+  add_compile_options(-fsyntax-only)
+
+  set(CMAKE_CXX_COMPILE_OBJECT "${CMAKE_CXX_COMPILE_OBJECT} && touch <OBJECT>")
+  set(CMAKE_CXX_CREATE_SHARED_LIBRARY "touch <TARGET>")
+  set(CMAKE_CXX_CREATE_SHARED_MODULE "touch <TARGET>")
+  set(CMAKE_CXX_LINK_EXECUTABLE "touch <TARGET>")
+  set(CMAKE_CXX_ARCHIVE_CREATE "touch <TARGET>")
+  set(CMAKE_CXX_ARCHIVE_APPEND "touch <TARGET>")
+  set(CMAKE_CXX_ARCHIVE_FINISH "touch <TARGET>")
+  set(CMAKE_C_COMPILE_OBJECT "${CMAKE_CXX_COMPILE_OBJECT} && touch <OBJECT>")
+  set(CMAKE_C_CREATE_SHARED_LIBRARY "touch <TARGET>")
+  set(CMAKE_C_CREATE_SHARED_MODULE "touch <TARGET>")
+  set(CMAKE_C_LINK_EXECUTABLE "touch <TARGET>")
+  set(CMAKE_C_ARCHIVE_CREATE "touch <TARGET>")
+  set(CMAKE_C_ARCHIVE_APPEND "touch <TARGET>")
+  set(CMAKE_C_ARCHIVE_FINISH "touch <TARGET>")
 endif()

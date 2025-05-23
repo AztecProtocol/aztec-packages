@@ -1,7 +1,6 @@
 import { Fr } from '@aztec/aztec.js';
-import { RollupAbi } from '@aztec/l1-artifacts';
-
-import { getContract } from 'viem';
+import { CheatCodes } from '@aztec/aztec.js/testing';
+import { RollupContract } from '@aztec/ethereum';
 
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
@@ -18,8 +17,9 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     l2Token,
     user1Wallet,
     user2Wallet,
-    rollup,
   } = t;
+  let rollup: RollupContract;
+  let cheatCodes: CheatCodes;
 
   beforeEach(async () => {
     await t.applyBaseSnapshots();
@@ -33,11 +33,12 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     ownerAddress = crossChainTestHarness.ownerAddress;
     l2Bridge = crossChainTestHarness.l2Bridge;
     l2Token = crossChainTestHarness.l2Token;
-    rollup = getContract({
-      address: crossChainTestHarness.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: crossChainTestHarness.walletClient,
-    });
+    rollup = new RollupContract(
+      crossChainTestHarness!.l1Client,
+      crossChainTestHarness!.l1ContractAddresses.rollupAddress,
+    );
+
+    cheatCodes = await CheatCodes.create(t.aztecNodeConfig.l1RpcUrls, t.pxe);
   }, 300_000);
 
   afterEach(async () => {
@@ -70,15 +71,15 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    await user1Wallet.createAuthWit({
+    const burnAuthwit = await user1Wallet.createAuthWit({
       caller: l2Bridge.address,
       action: l2Token.methods.burn_private(ownerAddress, withdrawAmount, nonce),
     });
     // docs:end:authwit_to_another_sc
 
     // 5. Withdraw owner's funds from L2 to L1
-    const l2ToL1Message = crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
-    const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(withdrawAmount, nonce);
+    const l2ToL1Message = await crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
+    const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(withdrawAmount, nonce, burnAuthwit);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount);
 
     const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
@@ -87,7 +88,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     );
 
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
+    await cheatCodes.rollup.markAsProven(await rollup.getBlockNumber());
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);

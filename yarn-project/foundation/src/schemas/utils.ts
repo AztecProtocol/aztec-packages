@@ -14,7 +14,7 @@ import {
 
 import { pick } from '../collection/object.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
-import { type ZodFor } from './types.js';
+import type { ZodFor } from './types.js';
 
 export const hexSchema = z.string().refine(isHex, 'Not a valid hex string').transform(withoutHexPrefix);
 

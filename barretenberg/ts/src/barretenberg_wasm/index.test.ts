@@ -1,24 +1,24 @@
-import { type Worker } from 'worker_threads';
-import { BarretenbergWasm, BarretenbergWasmWorker } from './index.js';
+import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from './barretenberg_wasm_main/index.js';
+import { Barretenberg } from '../index.js';
 
 describe('barretenberg wasm', () => {
-  let worker!: Worker;
-  let wasm!: BarretenbergWasmWorker;
+  let api: Barretenberg;
+  let wasm: BarretenbergWasmMainWorker;
 
   beforeAll(async () => {
-    ({ wasm, worker } = await BarretenbergWasm.new(2));
+    api = await Barretenberg.new({ threads: 2 });
+    wasm = api.getWasm();
   }, 20000);
 
   afterAll(async () => {
-    await wasm.destroy();
-    await worker.terminate();
+    await api.destroy();
   });
 
   it('should new malloc, transfer and slice mem', async () => {
     const length = 1024;
     const ptr = await wasm.call('bbmalloc', length);
     const buf = Buffer.alloc(length, 128);
-    await wasm.writeMemory(ptr, buf);
+    await wasm.writeMemory(ptr, Uint8Array.from(buf));
     const result = Buffer.from(await wasm.getMemorySlice(ptr, ptr + length));
     await wasm.call('bbfree', ptr);
     expect(result).toStrictEqual(buf);
@@ -37,7 +37,7 @@ describe('barretenberg wasm', () => {
     const length = 1024;
     const ptr = await wasm.call('bbmalloc', length);
     const buf = Buffer.alloc(length, 128);
-    await wasm.writeMemory(ptr, buf);
+    await wasm.writeMemory(ptr, Uint8Array.from(buf));
     const result = Buffer.from(await wasm.getMemorySlice(ptr, ptr + length));
     await wasm.call('bbfree', ptr);
     expect(result).toStrictEqual(buf);

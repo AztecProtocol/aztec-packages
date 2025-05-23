@@ -3,16 +3,20 @@ import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { MsgpackChannel, NativeLMDBStore } from '@aztec/native';
 
 import { AsyncLocalStorage } from 'async_hooks';
-import { rm } from 'fs/promises';
+import { mkdir, rm } from 'fs/promises';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
-import type { Key, StoreSize } from '../interfaces/common.js';
+import type { Key, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
-import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
+import type { AztecAsyncMap } from '../interfaces/map.js';
+import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
 import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
-import { LMDBMap, LMDBMultiMap } from './map.js';
+// eslint-disable-next-line import/no-cycle
+import { LMDBArray } from './array.js';
+// eslint-disable-next-line import/no-cycle
+import { LMDBMap } from './map.js';
 import {
   Database,
   type LMDBMessageChannel,
@@ -20,7 +24,9 @@ import {
   type LMDBRequestBody,
   type LMDBResponseBody,
 } from './message.js';
+import { LMDBMultiMap } from './multi_map.js';
 import { ReadTransaction } from './read_transaction.js';
+// eslint-disable-next-line import/no-cycle
 import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';
 
@@ -76,6 +82,11 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return db;
   }
 
+  public async backupTo(dstPath: string, compact = true) {
+    await mkdir(dstPath, { recursive: true });
+    await this.channel.sendMessage(LMDBMessageType.COPY_STORE, { dstPath, compact });
+  }
+
   public getReadTx(): ReadTransaction {
     if (!this.open) {
       throw new Error('Store is closed');
@@ -91,20 +102,20 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return currentWrite;
   }
 
-  openMap<K extends Key, V>(name: string): AztecAsyncMap<K, V> {
+  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
     return new LMDBMap(this, name);
   }
 
-  openMultiMap<K extends Key, V>(name: string): AztecAsyncMultiMap<K, V> {
+  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
     return new LMDBMultiMap(this, name);
   }
 
-  openSingleton<T>(name: string): AztecAsyncSingleton<T> {
+  openSingleton<T extends Value>(name: string): AztecAsyncSingleton<T> {
     return new LMDBSingleValue(this, name);
   }
 
-  openArray<T>(_name: string): AztecAsyncArray<T> {
-    throw new Error('Not implemented');
+  openArray<T extends Value>(name: string): AztecAsyncArray<T> {
+    return new LMDBArray(this, name);
   }
 
   openSet<K extends Key>(_name: string): AztecAsyncSet<K> {
@@ -149,13 +160,9 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return Promise.resolve();
   }
 
-  fork(): Promise<AztecAsyncKVStore> {
-    throw new Error('Not implemented');
-  }
-
   async delete(): Promise<void> {
     await this.close();
-    await rm(this.dataDir, { recursive: true, force: true });
+    await rm(this.dataDir, { recursive: true, force: true, maxRetries: 3 });
     this.log.verbose(`Deleted database files at ${this.dataDir}`);
     await this.cleanup?.();
   }
@@ -203,6 +210,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     const resp = await this.sendMessage(LMDBMessageType.STATS, undefined);
     return {
       mappingSize: Number(resp.dbMapSizeBytes),
+      physicalFileSize: Number(resp.dbPhysicalFileSizeBytes),
       actualSize: resp.stats.reduce((s, db) => Number(db.totalUsedSize) + s, 0),
       numItems: resp.stats.reduce((s, db) => Number(db.numDataItems) + s, 0),
     };

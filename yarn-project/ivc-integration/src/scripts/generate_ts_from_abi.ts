@@ -1,7 +1,7 @@
 import { createConsoleLogger } from '@aztec/foundation/log';
+import { codegen } from '@aztec/noir-noir_codegen';
+import { type CompiledCircuit } from '@aztec/noir-types';
 
-import { codegen } from '@noir-lang/noir_codegen';
-import { type CompiledCircuit } from '@noir-lang/types';
 import { pascalCase } from 'change-case';
 import { promises as fs } from 'fs';
 
@@ -14,7 +14,10 @@ const circuits = [
   'mock_private_kernel_inner',
   'mock_private_kernel_reset',
   'mock_private_kernel_tail',
-  'mock_public_base',
+  'mock_rollup_base_public',
+  'mock_rollup_base_private',
+  'mock_rollup_merge',
+  'mock_rollup_root',
 ];
 
 const main = async () => {

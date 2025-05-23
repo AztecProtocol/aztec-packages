@@ -1,7 +1,6 @@
 dest
 node_modules
 .cache
-scripts/.earthly
 .pnp.cjs
 .pnp.loader.mjs
 build/
@@ -11,6 +10,7 @@ cmake-build-debug
 terraform.tfstate*
 .bootstrapped
 .tsbuildinfo
+bench-out
 
 # Local Netlify folder
 .netlify
@@ -18,17 +18,12 @@ terraform.tfstate*
 .graphite*
 .DS_Store
 
-**/*.dockerignore
-
-# Earthly
-.arg
-.secret
-.bb_tmp
-
-
 # tmux
 tmux-client-*.log
 .supermavenignore
 
 # parallel
 joblog.txt
+
+docs/.yarn/install-state.gz
+docs/docs/protocol-specs/public-vm/gen/

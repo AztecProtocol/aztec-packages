@@ -1,9 +1,0 @@
-UpgradeTest
-├── when caller is not owner
-│   └── it should revert
-└── when caller is owner
-    ├── when rollup already in set
-    │   └── it should revert
-    └── when rollup not already in set
-        ├── it should add the rollup to state
-        └── it should emit a {InstanceAdded} event

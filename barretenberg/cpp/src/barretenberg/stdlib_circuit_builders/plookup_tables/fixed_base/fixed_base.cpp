@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
 
 #include "./fixed_base.hpp"
 
@@ -105,7 +110,7 @@ grumpkin::g1::affine_element table::generate_generator_offset(const grumpkin::g1
  */
 bool table::lookup_table_exists_for_point(const affine_element& input)
 {
-    return (input == LHS_GENERATOR_POINT || input == RHS_GENERATOR_POINT);
+    return (input == lhs_generator_point() || input == rhs_generator_point());
 }
 
 /**
@@ -118,10 +123,10 @@ bool table::lookup_table_exists_for_point(const affine_element& input)
 std::optional<std::array<MultiTableId, 2>> table::get_lookup_table_ids_for_point(
     const grumpkin::g1::affine_element& input)
 {
-    if (input == LHS_GENERATOR_POINT) {
+    if (input == lhs_generator_point()) {
         return { { FIXED_BASE_LEFT_LO, FIXED_BASE_LEFT_HI } };
     }
-    if (input == RHS_GENERATOR_POINT) {
+    if (input == rhs_generator_point()) {
         return { { FIXED_BASE_RIGHT_LO, FIXED_BASE_RIGHT_HI } };
     }
     return {};
@@ -138,16 +143,16 @@ std::optional<std::array<MultiTableId, 2>> table::get_lookup_table_ids_for_point
 std::optional<grumpkin::g1::affine_element> table::get_generator_offset_for_table_id(const MultiTableId table_id)
 {
     if (table_id == FIXED_BASE_LEFT_LO) {
-        return fixed_base_table_offset_generators[0];
+        return fixed_base_table_offset_generators()[0];
     }
     if (table_id == FIXED_BASE_LEFT_HI) {
-        return fixed_base_table_offset_generators[1];
+        return fixed_base_table_offset_generators()[1];
     }
     if (table_id == FIXED_BASE_RIGHT_LO) {
-        return fixed_base_table_offset_generators[2];
+        return fixed_base_table_offset_generators()[2];
     }
     if (table_id == FIXED_BASE_RIGHT_HI) {
-        return fixed_base_table_offset_generators[3];
+        return fixed_base_table_offset_generators()[3];
     }
     return std::nullopt;
 }
@@ -199,7 +204,7 @@ BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_
     table.table_index = basic_table_index;
     table.use_twin_keys = false;
 
-    const auto& basic_table = fixed_base_tables[multitable_index][table_index];
+    const auto& basic_table = fixed_base_tables()[multitable_index][table_index];
 
     for (size_t i = 0; i < table_size; ++i) {
         table.column_1.emplace_back(i);
@@ -271,19 +276,36 @@ template MultiTable table::get_fixed_base_table<1, table::BITS_PER_HI_SCALAR>(Mu
 template MultiTable table::get_fixed_base_table<2, table::BITS_PER_LO_SCALAR>(MultiTableId);
 template MultiTable table::get_fixed_base_table<3, table::BITS_PER_HI_SCALAR>(MultiTableId);
 
-const table::all_multi_tables table::fixed_base_tables = {
-    table::generate_tables<BITS_PER_LO_SCALAR>(lhs_base_point_lo),
-    table::generate_tables<BITS_PER_HI_SCALAR>(lhs_base_point_hi),
-    table::generate_tables<BITS_PER_LO_SCALAR>(rhs_base_point_lo),
-    table::generate_tables<BITS_PER_HI_SCALAR>(rhs_base_point_hi),
-};
-
-const std::array<table::affine_element, table::NUM_FIXED_BASE_MULTI_TABLES>
-    table::fixed_base_table_offset_generators = {
-        table::generate_generator_offset<BITS_PER_LO_SCALAR>(lhs_base_point_lo),
-        table::generate_generator_offset<BITS_PER_HI_SCALAR>(lhs_base_point_hi),
-        table::generate_generator_offset<BITS_PER_LO_SCALAR>(rhs_base_point_lo),
-        table::generate_generator_offset<BITS_PER_HI_SCALAR>(rhs_base_point_hi),
+/**
+ * NOTE: Without putting these computed lookup tables behind statics there is a timing issue
+ * when compiling for the WASM target.
+ * hypothesis: because it's 32-bit it has different static init order and this helps?
+ */
+const table::all_multi_tables& table::fixed_base_tables()
+{
+    static const table::all_multi_tables tables = {
+        table::generate_tables<BITS_PER_LO_SCALAR>(lhs_base_point_lo()),
+        table::generate_tables<BITS_PER_HI_SCALAR>(lhs_base_point_hi()),
+        table::generate_tables<BITS_PER_LO_SCALAR>(rhs_base_point_lo()),
+        table::generate_tables<BITS_PER_HI_SCALAR>(rhs_base_point_hi()),
     };
+    return tables;
+}
+
+/**
+ * NOTE: Without putting these computed lookup tables behind statics there is a timing issue
+ * when compiling for the WASM target.
+ * hypothesis: because it's 32-bit it has different static init order and this helps?
+ */
+const std::array<table::affine_element, table::NUM_FIXED_BASE_MULTI_TABLES>& table::fixed_base_table_offset_generators()
+{
+    static const std::array<table::affine_element, table::NUM_FIXED_BASE_MULTI_TABLES> tables = {
+        table::generate_generator_offset<BITS_PER_LO_SCALAR>(lhs_base_point_lo()),
+        table::generate_generator_offset<BITS_PER_HI_SCALAR>(lhs_base_point_hi()),
+        table::generate_generator_offset<BITS_PER_LO_SCALAR>(rhs_base_point_lo()),
+        table::generate_generator_offset<BITS_PER_HI_SCALAR>(rhs_base_point_hi()),
+    };
+    return tables;
+}
 
 } // namespace bb::plookup::fixed_base

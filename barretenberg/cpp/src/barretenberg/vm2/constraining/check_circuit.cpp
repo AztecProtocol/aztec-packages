@@ -10,6 +10,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2::constraining {
 
@@ -36,8 +37,7 @@ void run_check_circuit(AvmFlavor::ProverPolynomials& polys, size_t num_rows)
             typename Relation::SumcheckArrayOfValuesOverSubrelations result{};
 
             for (size_t r = 0; r < num_rows; ++r) {
-                // TODO(fcarreiro): do not use standard row.
-                Relation::accumulate(result, polys.get_standard_row(r), {}, 1);
+                Relation::accumulate(result, polys.get_row(r), {}, 1);
                 for (size_t j = 0; j < result.size(); ++j) {
                     if (!result[j].is_zero()) {
                         throw std::runtime_error(format("Relation ",
@@ -57,7 +57,7 @@ void run_check_circuit(AvmFlavor::ProverPolynomials& polys, size_t num_rows)
         using Relation = std::tuple_element_t<i, typename AvmFlavor::LookupRelations>;
         checks.push_back([&, num_rows]() {
             // Compute logderivs.
-            bb::compute_logderivative_inverse<AvmFlavor, Relation>(polys, params, num_rows);
+            bb::compute_logderivative_inverse<typename AvmFlavor::FF, Relation>(polys, params, num_rows);
 
             // Check the logderivative relation
             typename Relation::SumcheckArrayOfValuesOverSubrelations lookup_result{};

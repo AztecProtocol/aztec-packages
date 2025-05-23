@@ -1,21 +1,19 @@
-import {
-  type BlockAttestation,
-  type BlockProposal,
-  type EpochProofQuote,
-  type L2Block,
-  type L2BlockId,
-  type L2BlockSource,
-  type L2BlockStreamEvent,
-  type L2Tips,
-  type P2PApi,
-  type P2PClientType,
-  type PeerInfo,
-  type Tx,
-  type TxHash,
-} from '@aztec/circuit-types';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncSingleton } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
+import type {
+  L2Block,
+  L2BlockId,
+  L2BlockSource,
+  L2BlockStream,
+  L2BlockStreamEvent,
+  L2Tips,
+  PublishedL2Block,
+} from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import { BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
+import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type TelemetryClient,
@@ -25,167 +23,15 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import { type ENR } from '@chainsafe/enr';
+import type { ENR } from '@chainsafe/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
-import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
-import { type MemPools } from '../mem_pools/interface.js';
-import { type TxPool } from '../mem_pools/tx_pool/index.js';
+import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { MemPools } from '../mem_pools/interface.js';
+import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
 import type { P2PService } from '../services/service.js';
-
-/**
- * Enum defining the possible states of the p2p client.
- */
-export enum P2PClientState {
-  IDLE,
-  SYNCHING,
-  RUNNING,
-  STOPPED,
-}
-
-/**
- * The synchronization status of the P2P client.
- */
-export interface P2PSyncState {
-  /**
-   * The current state of the p2p client.
-   */
-  state: P2PClientState;
-  /**
-   * The block number that the p2p client is synced to.
-   */
-  syncedToL2Block: L2BlockId;
-}
-
-/**
- * Interface of a P2P client.
- **/
-export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
-  /**
-   * Broadcasts a block proposal to other peers.
-   *
-   * @param proposal - the block proposal
-   */
-  broadcastProposal(proposal: BlockProposal): void;
-
-  /**
-   * Queries the EpochProofQuote pool for quotes for the given epoch
-   *
-   * @param epoch  - the epoch to query
-   * @returns EpochProofQuotes
-   */
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
-
-  /**
-   * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
-   *
-   * @param quote - the quote to broadcast
-   */
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
-
-  /**
-   * Registers a callback from the validator client that determines how to behave when
-   * foreign block proposals are received
-   *
-   * @param handler - A function taking a received block proposal and producing an attestation
-   */
-  // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
-  // ^ This pattern is not my favorite (md)
-  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
-
-  /**
-   * Request a list of transactions from another peer by their tx hashes.
-   * @param txHashes - Hashes of the txs to query.
-   * @returns A list of transactions or undefined if the transactions are not found.
-   */
-  requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
-
-  /**
-   * Request a transaction from another peer by its tx hash.
-   * @param txHash - Hash of the tx to query.
-   */
-  requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
-
-  /**
-   * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
-   * @param tx - The transaction.
-   **/
-  sendTx(tx: Tx): Promise<void>;
-
-  /**
-   * Deletes 'txs' from the pool, given hashes.
-   * NOT used if we use sendTx as reconcileTxPool will handle this.
-   * @param txHashes - Hashes to check.
-   **/
-  deleteTxs(txHashes: TxHash[]): Promise<void>;
-
-  /**
-   * Returns a transaction in the transaction pool by its hash.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined>;
-
-  /**
-   * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
-
-  /**
-   * Returns an archived transaction from the transaction pool by its hash.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
-
-  /**
-   * Returns whether the given tx hash is flagged as pending or mined.
-   * @param txHash - Hash of the tx to query.
-   * @returns Pending or mined depending on its status, or undefined if not found.
-   */
-  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
-
-  /** Returns an iterator over pending txs on the mempool. */
-  iteratePendingTxs(): AsyncIterableIterator<Tx>;
-
-  /** Returns the number of pending txs in the mempool. */
-  getPendingTxCount(): Promise<number>;
-
-  /**
-   * Starts the p2p client.
-   * @returns A promise signalling the completion of the block sync.
-   */
-  start(): Promise<void>;
-
-  /**
-   * Stops the p2p client.
-   * @returns A promise signalling the completion of the stop process.
-   */
-  stop(): Promise<void>;
-
-  /**
-   * Indicates if the p2p client is ready for transaction submission.
-   * @returns A boolean flag indicating readiness.
-   */
-  isReady(): boolean;
-
-  /**
-   * Returns the current status of the p2p client.
-   */
-  getStatus(): Promise<P2PSyncState>;
-
-  /**
-   * Returns the ENR of this node, if any.
-   */
-  getEnr(): ENR | undefined;
-
-  /** Identifies a p2p client. */
-  isP2PClient(): true;
-};
+import { type P2P, P2PClientState, type P2PSyncState } from './interface.js';
 
 /**
  * The P2P client implementation.
@@ -202,21 +48,20 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private syncResolve?: () => void = undefined;
   private latestBlockNumberAtStart = -1;
   private provenBlockNumberAtStart = -1;
+  private finalizedBlockNumberAtStart = -1;
 
   private synchedBlockHashes: AztecAsyncMap<number, string>;
   private synchedLatestBlockNumber: AztecAsyncSingleton<number>;
   private synchedProvenBlockNumber: AztecAsyncSingleton<number>;
+  private synchedFinalizedBlockNumber: AztecAsyncSingleton<number>;
+  private synchedLatestSlot: AztecAsyncSingleton<bigint>;
 
   private txPool: TxPool;
   private attestationPool: T extends P2PClientType.Full ? AttestationPool : undefined;
-  private epochProofQuotePool: EpochProofQuotePool;
 
-  /** How many slots to keep attestations for. */
-  private keepAttestationsInPoolFor: number;
-  /** How many slots to keep proven txs for. */
-  private keepProvenTxsFor: number;
+  private config: P2PConfig;
 
-  private blockStream;
+  private blockStream: L2BlockStream | undefined;
 
   /**
    * In-memory P2P client constructor.
@@ -224,42 +69,34 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param l2BlockSource - P2P client's source for fetching existing blocks.
    * @param txPool - The client's instance of a transaction pool. Defaults to in-memory implementation.
    * @param p2pService - The concrete instance of p2p networking to use.
-   * @param keepProvenTxsFor - How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven).
    * @param log - A logger.
    */
   constructor(
     _clientType: T,
-    store: AztecAsyncKVStore,
-    private l2BlockSource: L2BlockSource,
+    private store: AztecAsyncKVStore,
+    private l2BlockSource: L2BlockSource & ContractDataSource,
     mempools: MemPools<T>,
     private p2pService: P2PService,
     config: Partial<P2PConfig> = {},
-    telemetry: TelemetryClient = getTelemetryClient(),
+    private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p'),
   ) {
     super(telemetry, 'P2PClient');
 
-    const { keepProvenTxsInPoolFor, blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } = {
-      ...getP2PDefaultConfig(),
-      ...config,
-    };
-    this.keepProvenTxsFor = keepProvenTxsInPoolFor;
-    this.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
+    this.config = { ...getP2PDefaultConfig(), ...config };
+    this.txPool = mempools.txPool;
+    this.attestationPool = mempools.attestationPool!;
 
-    const tracer = telemetry.getTracer('P2PL2BlockStream');
-    const logger = createLogger('p2p:l2-block-stream');
-    this.blockStream = new TraceableL2BlockStream(l2BlockSource, this, this, tracer, 'P2PL2BlockStream', logger, {
-      batchSize: blockRequestBatchSize,
-      pollIntervalMS: blockCheckIntervalMS,
-    });
-
+    // REFACTOR: Try replacing these with an L2TipsStore
     this.synchedBlockHashes = store.openMap('p2p_pool_block_hashes');
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
+    this.synchedFinalizedBlockNumber = store.openSingleton('p2p_pool_last_finalized_l2_block');
+    this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
+  }
 
-    this.txPool = mempools.txPool;
-    this.epochProofQuotePool = mempools.epochProofQuotePool;
-    this.attestationPool = mempools.attestationPool!;
+  public clear(): Promise<void> {
+    return this.store.clear();
   }
 
   public isP2PClient(): true {
@@ -274,33 +111,49 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.synchedBlockHashes.getAsync(number);
   }
 
+  public async updateP2PConfig(config: Partial<P2PConfig>): Promise<void> {
+    if (typeof config.maxTxPoolSize === 'number' && this.config.maxTxPoolSize !== config.maxTxPoolSize) {
+      await this.txPool.setMaxTxPoolSize(config.maxTxPoolSize);
+      this.config.maxTxPoolSize = config.maxTxPoolSize;
+    }
+  }
+
   public async getL2Tips(): Promise<L2Tips> {
     const latestBlockNumber = await this.getSyncedLatestBlockNum();
     let latestBlockHash: string | undefined;
+
     const provenBlockNumber = await this.getSyncedProvenBlockNum();
     let provenBlockHash: string | undefined;
+
+    const finalizedBlockNumber = await this.getSyncedFinalizedBlockNum();
+    let finalizedBlockHash: string | undefined;
 
     if (latestBlockNumber > 0) {
       latestBlockHash = await this.synchedBlockHashes.getAsync(latestBlockNumber);
       if (typeof latestBlockHash === 'undefined') {
-        this.log.warn(`Block hash for latest block ${latestBlockNumber} not found`);
-        throw new Error();
+        throw new Error(`Block hash for latest block ${latestBlockNumber} not found in p2p client`);
       }
     }
 
     if (provenBlockNumber > 0) {
       provenBlockHash = await this.synchedBlockHashes.getAsync(provenBlockNumber);
       if (typeof provenBlockHash === 'undefined') {
-        this.log.warn(`Block hash for proven block ${provenBlockNumber} not found`);
-        throw new Error();
+        throw new Error(`Block hash for proven block ${provenBlockNumber} not found in p2p client`);
       }
     }
 
-    return Promise.resolve({
+    if (finalizedBlockNumber > 0) {
+      finalizedBlockHash = await this.synchedBlockHashes.getAsync(finalizedBlockNumber);
+      if (typeof finalizedBlockHash === 'undefined') {
+        throw new Error(`Block hash for finalized block ${finalizedBlockNumber} not found in p2p client`);
+      }
+    }
+
+    return {
       latest: { hash: latestBlockHash!, number: latestBlockNumber },
       proven: { hash: provenBlockHash!, number: provenBlockNumber },
-      finalized: { hash: provenBlockHash!, number: provenBlockNumber },
-    });
+      finalized: { hash: finalizedBlockHash!, number: finalizedBlockNumber },
+    };
   }
 
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
@@ -309,17 +162,24 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       case 'blocks-added':
         await this.handleLatestL2Blocks(event.blocks);
         break;
-      case 'chain-finalized':
+      case 'chain-finalized': {
         // TODO (alexg): I think we can prune the block hashes map here
+        await this.setBlockHash(event.block);
+        const from = (await this.getSyncedFinalizedBlockNum()) + 1;
+        const limit = event.block.number - from + 1;
+        if (limit > 0) {
+          await this.handleFinalizedL2Blocks(await this.l2BlockSource.getBlocks(from, limit));
+        }
         break;
+      }
       case 'chain-proven': {
-        const from = (await this.getSyncedProvenBlockNum()) + 1;
-        const limit = event.blockNumber - from + 1;
-        await this.handleProvenL2Blocks(await this.l2BlockSource.getBlocks(from, limit));
+        await this.setBlockHash(event.block);
+        await this.synchedProvenBlockNumber.set(event.block.number);
         break;
       }
       case 'chain-pruned':
-        await this.handlePruneL2Blocks(event.blockNumber);
+        await this.setBlockHash(event.block);
+        await this.handlePruneL2Blocks(event.block.number);
         break;
       default: {
         const _: never = event;
@@ -328,31 +188,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
   }
 
+  private async setBlockHash(block: L2BlockId): Promise<void> {
+    if (block.hash !== undefined) {
+      await this.synchedBlockHashes.set(block.number, block.hash.toString());
+    }
+  }
+
   #assertIsReady() {
     // this.log.info('Checking if p2p client is ready, current state: ', this.currentState);
     if (!this.isReady()) {
       throw new Error('P2P client not ready');
     }
-  }
-
-  /**
-   * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
-   * @param quote - the quote to broadcast
-   */
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    this.epochProofQuotePool.addQuote(quote);
-    this.broadcastEpochProofQuote(quote);
-    return Promise.resolve();
-  }
-
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
-    return Promise.resolve(this.epochProofQuotePool.getQuotes(epoch));
-  }
-
-  broadcastEpochProofQuote(quote: EpochProofQuote): void {
-    this.#assertIsReady();
-    this.log.info('Broadcasting epoch proof quote', quote.toViemArgs());
-    return this.p2pService.propagate(quote);
   }
 
   /**
@@ -368,31 +214,72 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     // get the current latest block numbers
-    this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockNumber();
-    this.provenBlockNumberAtStart = await this.l2BlockSource.getProvenBlockNumber();
+    const latestBlockNumbers = await this.l2BlockSource.getL2Tips();
+    this.latestBlockNumberAtStart = latestBlockNumbers.latest.number;
+    this.provenBlockNumberAtStart = latestBlockNumbers.proven.number;
+    this.finalizedBlockNumberAtStart = latestBlockNumbers.finalized.number;
 
     const syncedLatestBlock = (await this.getSyncedLatestBlockNum()) + 1;
     const syncedProvenBlock = (await this.getSyncedProvenBlockNum()) + 1;
+    const syncedFinalizedBlock = (await this.getSyncedFinalizedBlockNum()) + 1;
 
-    // if there are blocks to be retrieved, go to a synching state
-    if (syncedLatestBlock <= this.latestBlockNumberAtStart || syncedProvenBlock <= this.provenBlockNumberAtStart) {
+    if (
+      (await this.txPool.isEmpty()) &&
+      (this.attestationPool === undefined || (await this.attestationPool?.isEmpty()))
+    ) {
+      // if mempools are empty, we don't care about syncing prior blocks
+      this.initBlockStream(this.latestBlockNumberAtStart);
+      this.setCurrentState(P2PClientState.RUNNING);
+      this.syncPromise = Promise.resolve();
+      await this.p2pService.start();
+      this.log.info(`Starting p2p client from block ${this.latestBlockNumberAtStart} with empty mempools`);
+    } else if (
+      syncedLatestBlock <= this.latestBlockNumberAtStart ||
+      syncedProvenBlock <= this.provenBlockNumberAtStart ||
+      syncedFinalizedBlock <= this.finalizedBlockNumberAtStart
+    ) {
+      // if there are blocks to be retrieved, go to a synching state
+      // this gets resolved on `startServiceIfSynched`
+      this.initBlockStream();
       this.setCurrentState(P2PClientState.SYNCHING);
       this.syncPromise = new Promise(resolve => {
         this.syncResolve = resolve;
       });
-      this.log.verbose(`Starting sync from ${syncedLatestBlock} (last proven ${syncedProvenBlock})`);
+      this.log.info(`Initiating p2p sync from ${syncedLatestBlock}`, {
+        syncedLatestBlock,
+        syncedProvenBlock,
+        syncedFinalizedBlock,
+      });
     } else {
       // if no blocks to be retrieved, go straight to running
+      this.initBlockStream();
       this.setCurrentState(P2PClientState.RUNNING);
       this.syncPromise = Promise.resolve();
       await this.p2pService.start();
-      this.log.debug(`Block ${syncedLatestBlock} (proven ${syncedProvenBlock}) already beyond current block`);
+      this.log.info(`Starting P2P client synced to ${syncedLatestBlock}`, {
+        syncedLatestBlock,
+        syncedProvenBlock,
+        syncedFinalizedBlock,
+      });
     }
 
-    this.blockStream.start();
-    this.log.verbose(`Started block downloader from block ${syncedLatestBlock}`);
-
+    this.blockStream!.start();
     return this.syncPromise;
+  }
+
+  private initBlockStream(startingBlock?: number) {
+    if (!this.blockStream) {
+      const { blockRequestBatchSize: batchSize, blockCheckIntervalMS: pollIntervalMS } = this.config;
+      this.blockStream = new TraceableL2BlockStream(
+        this.l2BlockSource,
+        this,
+        this,
+        this.telemetry.getTracer('P2PL2BlockStream'),
+        'P2PL2BlockStream',
+        createLogger('p2p:l2-block-stream'),
+        { batchSize, pollIntervalMS, startingBlock },
+      );
+    }
   }
 
   /**
@@ -403,46 +290,46 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug('Stopping p2p client...');
     await this.p2pService.stop();
     this.log.debug('Stopped p2p service');
-    await this.blockStream.stop();
+    await this.blockStream?.stop();
     this.log.debug('Stopped block downloader');
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
     this.log.info('P2P client stopped.');
   }
 
+  /** Triggers a sync to the archiver. Used for testing. */
+  public async sync() {
+    this.initBlockStream();
+    await this.blockStream!.sync();
+  }
+
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
-    [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toNumber(),
-    [Attributes.SLOT_NUMBER]: proposal.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: proposal.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
     [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
   }))
-  public broadcastProposal(proposal: BlockProposal): void {
-    this.log.verbose(`Broadcasting proposal ${proposal.p2pMessageIdentifier()} to peers`);
+  public broadcastProposal(proposal: BlockProposal): Promise<void> {
+    this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber.toNumber()} to peers`);
     return this.p2pService.propagate(proposal);
   }
 
-  public async getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
-    return (await this.attestationPool?.getAttestationsForSlot(slot, proposalId)) ?? [];
+  public async getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]> {
+    return (
+      (await (proposalId
+        ? this.attestationPool?.getAttestationsForSlotAndProposal(slot, proposalId)
+        : this.attestationPool?.getAttestationsForSlot(slot))) ?? []
+    );
+  }
+
+  public addAttestation(attestation: BlockAttestation): Promise<void> {
+    return this.attestationPool?.addAttestations([attestation]) ?? Promise.resolve();
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
   public registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void {
     this.p2pService.registerBlockReceivedCallback(handler);
-  }
-
-  /**
-   * Requests the transactions with the given hashes from the network.
-   *
-   * If a transaction can be retrieved, it will be returned, if not an undefined
-   * will be returned. In place.
-   *
-   * @param txHashes - The hashes of the transactions to request.
-   * @returns A promise that resolves to an array of transactions or undefined.
-   */
-  public async requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    const res = await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes);
-    return Promise.resolve(res ?? []);
   }
 
   /**
@@ -467,13 +354,40 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return tx;
   }
 
-  public getPendingTxs(): Promise<Tx[]> {
-    return Promise.resolve(this.getTxs('pending'));
+  /**
+   * Uses the batched Request Response protocol to request a set of transactions from the network.
+   */
+  public async requestTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    const timeoutMs = 8000; // Longer timeout for now
+    const maxPeers = Math.min(Math.ceil(txHashes.length / 3), 10);
+    const maxRetryAttempts = 10; // Keep retrying within the timeout
+
+    const txs = await this.p2pService.sendBatchRequest(
+      ReqRespSubProtocol.TX,
+      txHashes,
+      timeoutMs,
+      maxPeers,
+      maxRetryAttempts,
+    );
+
+    // Some transactions may return undefined, so we filter them out
+    const filteredTxs = txs.filter((tx): tx is Tx => !!tx);
+    if (filteredTxs.length > 0) {
+      await this.txPool.addTxs(filteredTxs);
+    }
+    const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
+    this.log.debug(`Requested txs ${txHashesStr} (${filteredTxs.length} / ${txHashes.length}}) from peers`);
+
+    // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
+    return txs;
   }
 
-  public async getPendingTxCount(): Promise<number> {
-    const pendingTxs = await this.txPool.getPendingTxHashes();
-    return pendingTxs.length;
+  public getPendingTxs(): Promise<Tx[]> {
+    return this.getTxs('pending');
+  }
+
+  public getPendingTxCount(): Promise<number> {
+    return this.txPool.getPendingTxCount();
   }
 
   public async *iteratePendingTxs(): AsyncIterableIterator<Tx> {
@@ -516,6 +430,19 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /**
+   * Returns transactions in the transaction pool by hash.
+   * @param txHashes - Hashes of the transactions to look for.
+   * @returns The txs found, not necessarily on the same order as the hashes.
+   */
+  getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    return this.txPool.getTxsByHash(txHashes);
+  }
+
+  hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
+    return this.txPool.hasTxs(txHashes);
+  }
+
+  /**
    * Returns a transaction in the transaction pool by its hash.
    * If the transaction is not in the pool, it will be requested from the network.
    * @param txHash - Hash of the transaction to look for in the pool.
@@ -527,6 +454,50 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       return tx;
     }
     return this.requestTxByHash(txHash);
+  }
+
+  /**
+   * Returns transactions in the transaction pool by hash.
+   * If a transaction is not in the pool, it will be requested from the network.
+   * @param txHashes - Hashes of the transactions to look for.
+   * @returns The txs found, or undefined if not found in the order requested.
+   */
+  async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
+    const missingTxHashes = txs
+      .map((tx, index) => [tx, index] as const)
+      .filter(([tx, _index]) => !tx)
+      .map(([_tx, index]) => txHashes[index]);
+
+    if (missingTxHashes.length === 0) {
+      return txs as Tx[];
+    }
+
+    const missingTxs = await this.requestTxsByHash(missingTxHashes);
+    const fetchedMissingTxs = missingTxs.filter((tx): tx is Tx => !!tx);
+
+    // TODO: optimize
+    // Merge the found txs in order
+    const mergingTxsPromises = txHashes.map(async txHash => {
+      // Is it in the txs list from the mempool?
+      for (const tx of txs) {
+        if (tx !== undefined && (await tx.getTxHash()).equals(txHash)) {
+          return tx;
+        }
+      }
+
+      // Is it in the fetched missing txs?
+      for (const tx of fetchedMissingTxs) {
+        if (tx !== undefined && (await tx.getTxHash()).equals(txHash)) {
+          return tx;
+        }
+      }
+
+      // Otherwise return undefined
+      return undefined;
+    });
+
+    return await Promise.all(mergingTxsPromises);
   }
 
   /**
@@ -544,9 +515,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
+    await this.addTxs([tx]);
+    await this.p2pService.propagate(tx);
+  }
+
+  /**
+   * Adds transactions to the pool. Does not send to peers or validate the txs.
+   * @param txs - The transactions.
+   **/
+  public async addTxs(txs: Tx[]): Promise<void> {
     this.#assertIsReady();
-    await this.txPool.addTxs([tx]);
-    this.p2pService.propagate(tx);
+    await this.txPool.addTxs(txs);
   }
 
   /**
@@ -601,6 +580,15 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return (await this.synchedProvenBlockNumber.getAsync()) ?? INITIAL_L2_BLOCK_NUM - 1;
   }
 
+  public async getSyncedFinalizedBlockNum(): Promise<number> {
+    return (await this.synchedFinalizedBlockNumber.getAsync()) ?? INITIAL_L2_BLOCK_NUM - 1;
+  }
+
+  /** Returns latest L2 slot for which we have seen an L2 block. */
+  public async getSyncedLatestSlot(): Promise<bigint> {
+    return (await this.synchedLatestSlot.getAsync()) ?? BigInt(0);
+  }
+
   /**
    * Method to check the status the p2p client.
    * @returns Information about p2p client status: state & syncedToBlockNum.
@@ -651,59 +639,73 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
    * @returns Empty promise.
    */
-  private async handleLatestL2Blocks(blocks: L2Block[]): Promise<void> {
+  private async handleLatestL2Blocks(blocks: PublishedL2Block[]): Promise<void> {
     if (!blocks.length) {
       return Promise.resolve();
     }
 
-    await this.markTxsAsMinedFromBlocks(blocks);
-    const lastBlockNum = blocks[blocks.length - 1].number;
+    await this.markTxsAsMinedFromBlocks(blocks.map(b => b.block));
+    void this.requestMissingTxsFromUnprovenBlocks(blocks.map(b => b.block));
+
+    const lastBlock = blocks.at(-1)!.block;
+
     await Promise.all(
-      blocks.map(async block => this.synchedBlockHashes.set(block.number, (await block.hash()).toString())),
+      blocks.map(async block =>
+        this.setBlockHash({
+          number: block.block.number,
+          hash: await block.block.hash().then(h => h.toString()),
+        }),
+      ),
     );
-    await this.synchedLatestBlockNumber.set(lastBlockNum);
-    this.log.verbose(`Synched to latest block ${lastBlockNum}`);
+
+    await this.synchedLatestBlockNumber.set(lastBlock.number);
+    await this.synchedLatestSlot.set(lastBlock.header.getSlot());
+    this.log.verbose(`Synched to latest block ${lastBlock.number}`);
     await this.startServiceIfSynched();
   }
 
+  /** Request txs for unproven blocks so the prover node has more chances to get them. */
+  private async requestMissingTxsFromUnprovenBlocks(blocks: L2Block[]): Promise<void> {
+    try {
+      const provenBlockNumber = Math.max(await this.getSyncedProvenBlockNum(), this.provenBlockNumberAtStart);
+      const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
+      const txHashes = unprovenBlocks.flatMap(block => block.body.txEffects.map(txEffect => txEffect.txHash));
+      const missingTxHashes = await this.txPool
+        .hasTxs(txHashes)
+        .then(availability => txHashes.filter((_, index) => !availability[index]));
+      if (missingTxHashes.length > 0) {
+        this.log.verbose(
+          `Requesting ${missingTxHashes.length} missing txs from peers for ${unprovenBlocks.length} unproven mined blocks`,
+          { missingTxHashes, unprovenBlockNumbers: unprovenBlocks.map(block => block.number) },
+        );
+        await this.requestTxsByHash(missingTxHashes);
+      }
+    } catch (err) {
+      this.log.error(`Error requesting missing txs from unproven blocks`, err, {
+        blocks: blocks.map(block => block.number),
+      });
+    }
+  }
+
   /**
-   * Handles new proven blocks by deleting the txs in them, or by deleting the txs in blocks `keepProvenTxsFor` ago.
-   * @param blocks - A list of proven L2 blocks.
+   * Handles new finalized blocks by deleting the txs and attestations in them.
+   * @param blocks - A list of finalized L2 blocks.
    * @returns Empty promise.
    */
-  private async handleProvenL2Blocks(blocks: L2Block[]): Promise<void> {
+  private async handleFinalizedL2Blocks(blocks: L2Block[]): Promise<void> {
+    this.log.trace(`Handling finalized blocks ${blocks.length} up to ${blocks.at(-1)?.number}`);
     if (!blocks.length) {
       return Promise.resolve();
     }
 
-    const firstBlockNum = blocks[0].number;
     const lastBlockNum = blocks[blocks.length - 1].number;
-    const lastBlockSlot = blocks[blocks.length - 1].header.globalVariables.slotNumber.toBigInt();
+    const lastBlockSlot = blocks[blocks.length - 1].header.getSlot();
 
-    // If keepProvenTxsFor is 0, we delete all txs from all proven blocks.
-    if (this.keepProvenTxsFor === 0) {
-      await this.deleteTxsFromBlocks(blocks);
-    } else if (lastBlockNum - this.keepProvenTxsFor >= INITIAL_L2_BLOCK_NUM) {
-      const fromBlock = Math.max(INITIAL_L2_BLOCK_NUM, firstBlockNum - this.keepProvenTxsFor);
-      const toBlock = lastBlockNum - this.keepProvenTxsFor;
-      const limit = toBlock - fromBlock + 1;
-      const blocksToDeleteTxsFrom = await this.l2BlockSource.getBlocks(fromBlock, limit, true);
-      await this.deleteTxsFromBlocks(blocksToDeleteTxsFrom);
-    }
+    await this.deleteTxsFromBlocks(blocks);
+    await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlot);
 
-    // We delete attestations older than the last block slot minus the number of slots we want to keep in the pool.
-    const lastBlockSlotMinusKeepAttestationsInPoolFor = lastBlockSlot - BigInt(this.keepAttestationsInPoolFor);
-    if (lastBlockSlotMinusKeepAttestationsInPoolFor >= BigInt(INITIAL_L2_BLOCK_NUM)) {
-      await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
-    }
-
-    const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
-    if (provenEpochNumber !== undefined) {
-      this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
-    }
-
-    await this.synchedProvenBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to proven block ${lastBlockNum}`);
+    await this.synchedFinalizedBlockNumber.set(lastBlockNum);
+    this.log.debug(`Synched to finalized block ${lastBlockNum}`);
 
     await this.startServiceIfSynched();
   }
@@ -713,48 +715,73 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param latestBlock - The block number the chain was pruned to.
    */
   private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
-    const txsToDelete: TxHash[] = [];
+    // NOTE: temporary fix for alphanet, deleting ALL txs that were in the epoch from the pool #13723
+    // TODO: undo once fixed: #13770
+    const txsToDelete = new Map<string, TxHash>();
+    const minedTxs = await this.txPool.getMinedTxHashes();
+    for (const [txHash, blockNumber] of minedTxs) {
+      if (blockNumber > latestBlock) {
+        txsToDelete.set(txHash.toString(), txHash);
+      }
+    }
+
+    // Find transactions that reference pruned blocks in their historical header
     for (const tx of await this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
-        txsToDelete.push(await tx.getTxHash());
+        const txHash = await tx.getTxHash();
+        txsToDelete.set(txHash.toString(), txHash);
       }
     }
 
     this.log.info(
       `Detected chain prune. Removing invalid txs count=${
-        txsToDelete.length
-      } newLatestBlock=${latestBlock} previousLatestBlock=${this.getSyncedLatestBlockNum()}`,
+        txsToDelete.size
+      } newLatestBlock=${latestBlock} previousLatestBlock=${await this.getSyncedLatestBlockNum()}`,
     );
 
     // delete invalid txs (both pending and mined)
-    await this.txPool.deleteTxs(txsToDelete);
+    await this.txPool.deleteTxs(Array.from(txsToDelete.values()));
 
     // everything left in the mined set was built against a block on the proven chain so its still valid
     // move back to pending the txs that were reorged out of the chain
     // NOTE: we can't move _all_ txs back to pending because the tx pool could keep hold of mined txs for longer
     // (see this.keepProvenTxsFor)
-    const txsToMoveToPending: TxHash[] = [];
-    for (const [txHash, blockNumber] of await this.txPool.getMinedTxHashes()) {
-      if (blockNumber > latestBlock) {
-        txsToMoveToPending.push(txHash);
-      }
-    }
 
-    this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
-    await this.txPool.markMinedAsPending(txsToMoveToPending);
+    // NOTE: given current fix for alphanet, the code below is redundant as all these txs will be deleted.
+    // TODO: bring back once fixed: #13770
+    // const txsToMoveToPending: TxHash[] = [];
+    // for (const [txHash, blockNumber] of minedTxs) {
+    //   if (blockNumber > latestBlock) {
+    //     txsToMoveToPending.push(txHash);
+    //   }
+    // }
+
+    // this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
+    // await this.txPool.markMinedAsPending(txsToMoveToPending);
 
     await this.synchedLatestBlockNumber.set(latestBlock);
     // no need to update block hashes, as they will be updated as new blocks are added
   }
 
   private async startServiceIfSynched() {
+    if (this.currentState !== P2PClientState.SYNCHING) {
+      return;
+    }
+    const syncedFinalizedBlock = await this.getSyncedFinalizedBlockNum();
+    const syncedProvenBlock = await this.getSyncedProvenBlockNum();
+    const syncedLatestBlock = await this.getSyncedLatestBlockNum();
+
     if (
-      this.currentState === P2PClientState.SYNCHING &&
-      (await this.getSyncedLatestBlockNum()) >= this.latestBlockNumberAtStart &&
-      (await this.getSyncedProvenBlockNum()) >= this.provenBlockNumberAtStart
+      syncedLatestBlock >= this.latestBlockNumberAtStart &&
+      syncedProvenBlock >= this.provenBlockNumberAtStart &&
+      syncedFinalizedBlock >= this.finalizedBlockNumberAtStart
     ) {
-      this.log.debug(`Synched to blocks at start`);
+      this.log.info(`Completed P2P client sync to block ${syncedLatestBlock}. Starting service.`, {
+        syncedLatestBlock,
+        syncedProvenBlock,
+        syncedFinalizedBlock,
+      });
       this.setCurrentState(P2PClientState.RUNNING);
       if (this.syncResolve !== undefined) {
         this.syncResolve();
@@ -771,5 +798,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const oldState = this.currentState;
     this.currentState = newState;
     this.log.debug(`Moved from state ${P2PClientState[oldState]} to ${P2PClientState[this.currentState]}`);
+  }
+
+  public validate(txs: Tx[]): Promise<void> {
+    return this.p2pService.validate(txs);
+  }
+
+  /**
+   * Marks transactions as non-evictable in the pool.
+   * @param txHashes - Hashes of the transactions to mark as non-evictable.
+   */
+  public markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void> {
+    return this.txPool.markTxsAsNonEvictable(txHashes);
   }
 }

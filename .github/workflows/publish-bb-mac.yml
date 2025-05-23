@@ -1,0 +1,174 @@
+name: Publish Barretenberg Mac
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    # Allow pushing a manual nightly release
+    inputs:
+      ref_name:
+        description: The ref name to build as. Useful for hotfixing a release.
+        required: false
+      tag:
+        description: The tag to build from (leave empty to build a nightly release from master)
+        required: false
+      publish:
+        description: Whether to publish the build artifacts
+        type: boolean
+        default: false
+  schedule:
+    # Run a nightly release at 2 AM UTC
+    - cron: "0 2 * * *"
+
+permissions:
+  # Necessary to upload new release artifacts
+  contents: write
+  issues: write
+
+jobs:
+  build-mac:
+    name: Build on Mac (matrix)
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - label: amd64-darwin
+            runner: macos-13
+            cmake_flags: ""
+            optional: false
+          - label: arm64-darwin
+            runner: macos-14
+            cmake_flags: ""
+            optional: false
+          - label: amd64-darwin-starknet
+            runner: macos-13
+            cmake_flags: "-DCMAKE_CXX_FLAGS=\"-DSTARKNET_GARAGA_FLAVORS=1\""
+            optional: true
+          - label: arm64-darwin-starknet
+            runner: macos-14
+            cmake_flags: "-DCMAKE_CXX_FLAGS=\"-DSTARKNET_GARAGA_FLAVORS=1\""
+            optional: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.sha }}
+
+      - name: Create Mac Build Environment
+        run: |
+          brew install cmake ninja llvm@18
+          echo "BREW_PREFIX=$(brew --prefix)" >> $GITHUB_ENV
+
+      - name: Replace version string in main.cpp
+        working-directory: barretenberg/cpp
+        run: |
+          version_string=${{ inputs.ref_name || inputs.tag || github.ref_name }}
+          version_string=$(echo $version_string | sed "s/\//_/")
+          sed -i.bak "s/00000000\.00000000\.00000000/$version_string/g" src/barretenberg/bb/cli.cpp
+
+      - name: Compile Barretenberg
+        working-directory: barretenberg/cpp
+        continue-on-error: ${{ matrix.optional }}
+        run: |
+          cmake --preset homebrew ${{ matrix.cmake_flags }}
+          cmake --build --preset homebrew --target bb
+
+      - name: Package barretenberg artifact (${{ matrix.label }})
+        working-directory: barretenberg/cpp/build/bin
+        continue-on-error: ${{ matrix.optional }}
+        run: |
+          mkdir dist
+          cp ./bb ./dist/bb
+          7z a -ttar -so -an ./dist/* | 7z a -si ./barretenberg-${{ matrix.label }}.tar.gz
+
+      - name: Upload artifact (${{ matrix.label }})
+        uses: actions/upload-artifact@v4
+        continue-on-error: ${{ matrix.optional }}
+        with:
+          name: barretenberg-${{ matrix.label }}.tar.gz
+          path: ./barretenberg/cpp/build/bin/barretenberg-${{ matrix.label }}.tar.gz
+          retention-days: 3
+
+  build-check:
+    name: Check builds are successful
+    needs: build-mac
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report overall success
+        env:
+          FAIL: ${{ contains(needs.build-mac.*.result, 'failure') }}
+        run: |
+          if [[ $FAIL == true ]]; then
+              echo "At least one job failed, release is unsuccessful."
+              exit 1
+          else
+              echo "All jobs succeeded, uploading artifacts to release."
+              exit 0
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        if: ${{ failure() }}
+        with:
+          ref: ${{ inputs.tag || github.sha }}
+
+      - name: Alert on build failure
+        uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5
+        if: ${{ failure() }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          update_existing: true
+          filename: .github/RELEASE_FAILED.md
+
+  release:
+    name: Publish
+    needs: build-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact (amd64-darwin)
+        uses: actions/download-artifact@v4
+        with:
+          name: barretenberg-amd64-darwin.tar.gz
+
+      - name: Download artifact (arm64-darwin)
+        uses: actions/download-artifact@v4
+        with:
+          name: barretenberg-arm64-darwin.tar.gz
+
+      - name: Download artifact (amd64-darwin-starknet)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: barretenberg-amd64-darwin-starknet.tar.gz
+
+      - name: Download artifact (arm64-darwin-starknet)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: barretenberg-arm64-darwin-starknet.tar.gz
+
+      - name: Publish to GitHub
+        uses: softprops/action-gh-release@v1
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
+        with:
+          tag_name: ${{ inputs.ref_name || inputs.tag || github.ref_name }}
+          prerelease: true
+          files: |
+            barretenberg-amd64-darwin.tar.gz
+            barretenberg-arm64-darwin.tar.gz
+
+      - name: Publish to GitHub (starknet variants)
+        uses: softprops/action-gh-release@v1
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
+        continue-on-error: true
+        with:
+          tag_name: ${{ inputs.ref_name || inputs.tag || github.ref_name }}
+          prerelease: true
+          files: |
+            barretenberg-amd64-darwin-starknet.tar.gz
+            barretenberg-arm64-darwin-starknet.tar.gz

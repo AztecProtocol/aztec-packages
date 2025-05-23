@@ -1,7 +1,7 @@
-import { type Database, type RangeOptions } from 'lmdb';
+import type { Database, RangeOptions } from 'lmdb';
 
-import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecAsyncMultiMap, type AztecMapWithSize, type AztecMultiMap } from '../interfaces/map.js';
+import type { Key, Range, Value } from '../interfaces/common.js';
+import type { AztecAsyncMap, AztecMap } from '../interfaces/map.js';
 
 /** The slot where a key-value entry would be stored */
 type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
@@ -9,7 +9,7 @@ type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
 /**
  * A map backed by LMDB.
  */
-export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, AztecAsyncMultiMap<K, V> {
+export class LmdbAztecMap<K extends Key, V extends Value> implements AztecMap<K, V>, AztecAsyncMap<K, V> {
   protected db: Database<[K, V], MapValueSlot<K>>;
   protected name: string;
 
@@ -37,26 +37,6 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
 
   getAsync(key: K): Promise<V | undefined> {
     return Promise.resolve(this.get(key));
-  }
-
-  *getValues(key: K): IterableIterator<V> {
-    const transaction = this.db.useReadTransaction();
-    try {
-      const values = this.db.getValues(this.slot(key), {
-        transaction,
-      });
-      for (const value of values) {
-        yield value?.[1];
-      }
-    } finally {
-      transaction.done();
-    }
-  }
-
-  async *getValuesAsync(key: K): AsyncIterableIterator<V> {
-    for (const value of this.getValues(key)) {
-      yield value;
-    }
   }
 
   has(key: K): boolean {
@@ -90,10 +70,6 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
     await this.db.remove(this.slot(key));
   }
 
-  async deleteValue(key: K, val: V): Promise<void> {
-    await this.db.remove(this.slot(key), [key, val]);
-  }
-
   *entries(range: Range<K> = {}): IterableIterator<[K, V]> {
     const transaction = this.db.useReadTransaction();
 
@@ -106,16 +82,16 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
           ? this.slot(range.end)
           : this.endSentinel
         : range.start
-        ? this.slot(range.start)
-        : this.startSentinel;
+          ? this.slot(range.start)
+          : this.startSentinel;
 
       const end = reverse
         ? range.start
           ? this.slot(range.start)
           : this.startSentinel
         : range.end
-        ? this.slot(range.end)
-        : this.endSentinel;
+          ? this.slot(range.end)
+          : this.endSentinel;
 
       const lmdbRange: RangeOptions = {
         start,
@@ -137,7 +113,7 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
     }
   }
 
-  async *entriesAsync(range?: Range<K> | undefined): AsyncIterableIterator<[K, V]> {
+  async *entriesAsync(range?: Range<K>): AsyncIterableIterator<[K, V]> {
     for (const entry of this.entries(range)) {
       yield entry;
     }
@@ -182,67 +158,5 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
     for (const { key } of iterator) {
       await this.db.remove(key);
     }
-  }
-}
-
-export class LmdbAztecMapWithSize<K extends Key, V>
-  extends LmdbAztecMap<K, V>
-  implements AztecMapWithSize<K, V>, AztecAsyncMultiMap<K, V>
-{
-  #sizeCache?: number;
-
-  constructor(rootDb: Database, mapName: string) {
-    super(rootDb, mapName);
-  }
-
-  override async set(key: K, val: V): Promise<void> {
-    await this.db.childTransaction(() => {
-      const exists = this.db.doesExist(this.slot(key));
-      this.db.putSync(this.slot(key), [key, val], {
-        appendDup: true,
-      });
-      if (!exists) {
-        this.#sizeCache = undefined; // Invalidate cache
-      }
-    });
-  }
-
-  override async delete(key: K): Promise<void> {
-    await this.db.childTransaction(async () => {
-      const exists = this.db.doesExist(this.slot(key));
-      if (exists) {
-        await this.db.remove(this.slot(key));
-        this.#sizeCache = undefined; // Invalidate cache
-      }
-    });
-  }
-
-  override async deleteValue(key: K, val: V): Promise<void> {
-    await this.db.childTransaction(async () => {
-      const exists = this.db.doesExist(this.slot(key));
-      if (exists) {
-        await this.db.remove(this.slot(key), [key, val]);
-        this.#sizeCache = undefined; // Invalidate cache
-      }
-    });
-  }
-
-  /**
-   * Gets the size of the map by counting entries.
-   * @returns The number of entries in the map
-   */
-  size(): number {
-    if (this.#sizeCache === undefined) {
-      this.#sizeCache = this.db.getCount({
-        start: this.startSentinel,
-        end: this.endSentinel,
-      });
-    }
-    return this.#sizeCache;
-  }
-
-  // Reset cache on clear/drop operations
-  clearCache() {
-    this.#sizeCache = undefined;
   }
 }

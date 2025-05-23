@@ -1,6 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
+#include "barretenberg/common/utils.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -195,6 +202,10 @@ template <class Params_> struct alignas(32) field {
                                                               Params::modulus_wasm_4, Params::modulus_wasm_5,
                                                               Params::modulus_wasm_6, Params::modulus_wasm_7,
                                                               Params::modulus_wasm_8 };
+    static constexpr std::array<uint64_t, 9> wasm_r_inv = {
+        Params::r_inv_wasm_0, Params::r_inv_wasm_1, Params::r_inv_wasm_2, Params::r_inv_wasm_3, Params::r_inv_wasm_4,
+        Params::r_inv_wasm_5, Params::r_inv_wasm_6, Params::r_inv_wasm_7, Params::r_inv_wasm_8
+    };
 
 #endif
     static constexpr field cube_root_of_unity()
@@ -320,7 +331,8 @@ template <class Params_> struct alignas(32) field {
 
     BB_INLINE constexpr field pow(const uint256_t& exponent) const noexcept;
     BB_INLINE constexpr field pow(uint64_t exponent) const noexcept;
-    static_assert(Params::modulus_0 != 1);
+    // STARKNET: next line was commented as stark252 violates the assertion
+    // static_assert(Params::modulus_0 != 1);
     static constexpr uint256_t modulus_minus_two =
         uint256_t(Params::modulus_0 - 2ULL, Params::modulus_1, Params::modulus_2, Params::modulus_3);
     constexpr field invert() const noexcept;
@@ -617,6 +629,16 @@ template <class Params_> struct alignas(32) field {
                                                 uint64_t& result_6,
                                                 uint64_t& result_7,
                                                 uint64_t& result_8);
+    BB_INLINE static constexpr void wasm_reduce_yuval(uint64_t& result_0,
+                                                      uint64_t& result_1,
+                                                      uint64_t& result_2,
+                                                      uint64_t& result_3,
+                                                      uint64_t& result_4,
+                                                      uint64_t& result_5,
+                                                      uint64_t& result_6,
+                                                      uint64_t& result_7,
+                                                      uint64_t& result_8,
+                                                      uint64_t& result_9);
     BB_INLINE static constexpr std::array<uint64_t, WASM_NUM_LIMBS> wasm_convert(const uint64_t* data);
 #endif
     BB_INLINE static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b) noexcept;
@@ -714,7 +736,8 @@ template <typename B, typename Params> void write(B& buf, field<Params> const& v
 template <typename Params> struct std::hash<bb::field<Params>> {
     std::size_t operator()(const bb::field<Params>& ff) const noexcept
     {
-        return std::hash<uint64_t>()(ff.data[0]) ^ (std::hash<uint64_t>()(ff.data[1]) << 1) ^
-               (std::hash<uint64_t>()(ff.data[2]) << 2) ^ (std::hash<uint64_t>()(ff.data[3]) << 3);
+        // Just like in equality, we need to reduce the field element before hashing.
+        auto reduced = ff.reduce_once();
+        return bb::utils::hash_as_tuple(reduced.data[0], reduced.data[1], reduced.data[2], reduced.data[3]);
     }
 };

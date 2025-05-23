@@ -1,5 +1,11 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
-#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
@@ -46,7 +52,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     ProtogalaxyProver_(const std::vector<std::shared_ptr<DeciderPK>>& keys,
                        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
         : keys_to_fold(DeciderProvingKeys_(keys))
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
         , commitment_key(keys_to_fold[1]->proving_key.commitment_key)
         , pg_internal(trace_usage_tracker){};
 

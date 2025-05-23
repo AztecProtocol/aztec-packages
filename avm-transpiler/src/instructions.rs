@@ -128,8 +128,6 @@ pub enum AvmOperand {
     U64 { value: u64 },
     U128 { value: u128 },
     FF { value: FieldElement },
-    // Unresolved brillig pc that needs translation to a 16 bit byte-indexed PC.
-    BRILLIG_LOCATION { brillig_pc: u32 },
 }
 
 impl Display for AvmOperand {
@@ -141,9 +139,6 @@ impl Display for AvmOperand {
             AvmOperand::U64 { value } => write!(f, " U64:{}", value),
             AvmOperand::U128 { value } => write!(f, " U128:{}", value),
             AvmOperand::FF { value } => write!(f, " FF:{}", value),
-            AvmOperand::BRILLIG_LOCATION { brillig_pc } => {
-                write!(f, " BRILLIG_LOCATION:{}", brillig_pc)
-            }
         }
     }
 }
@@ -157,7 +152,6 @@ impl AvmOperand {
             AvmOperand::U64 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::FF { value } => value.to_be_bytes(),
-            AvmOperand::BRILLIG_LOCATION { brillig_pc } => brillig_pc.to_be_bytes().to_vec(),
         }
     }
 }
@@ -192,10 +186,12 @@ impl AddressingModeBuilder {
             self.indirect.into_iter().zip(self.relative.into_iter()).enumerate()
         {
             if indirect {
-                result |= 1 << i;
+                // Even bits are indirect
+                result |= 1 << (i * 2);
             }
             if relative {
-                result |= 1 << (num_operands + i);
+                // Odd bits are relative
+                result |= 1 << (i * 2 + 1);
             }
         }
 

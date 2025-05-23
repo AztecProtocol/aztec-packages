@@ -1,15 +1,12 @@
-import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import {
-  type EntrypointInterface,
-  EntrypointPayload,
-  type ExecutionRequestInit,
-  computeCombinedPayloadHash,
-} from '@aztec/aztec.js/entrypoint';
-import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, TxContext } from '@aztec/circuits.js';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { Fr } from '@aztec/foundation/fields';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
+import { EncodedCallsForEntrypoint, computeCombinedPayloadHash } from './encoding.js';
+import type { AuthWitnessProvider, EntrypointInterface, FeeOptions, TxExecutionOptions } from './interfaces.js';
+import { ExecutionPayload } from './payload.js';
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
@@ -23,27 +20,52 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     private version: number = DEFAULT_VERSION,
   ) {}
 
-  async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, fee, nonce, cancellable } = exec;
-    const appPayload = await EntrypointPayload.fromAppExecution(calls, nonce);
-    const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
+  async createTxExecutionRequest(
+    exec: ExecutionPayload,
+    fee: FeeOptions,
+    options: TxExecutionOptions,
+  ): Promise<TxExecutionRequest> {
+    // Initial request with calls, authWitnesses and capsules
+    const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
+    // Global tx options
+    const { cancellable, nonce } = options;
+    // Encode the calls for the app
+    const appEncodedCalls = await EncodedCallsForEntrypoint.fromAppExecution(calls, nonce);
+    // Get the execution payload for the fee, it includes the calls and potentially authWitnesses
+    const { calls: feeCalls, authWitnesses: feeAuthwitnesses } = await fee.paymentMethod.getExecutionPayload(
+      fee.gasSettings,
+    );
+    // Encode the calls for the fee
+    const feePayer = await fee.paymentMethod.getFeePayer(fee.gasSettings);
+    const isFeePayer = feePayer.equals(this.address);
+    const feeEncodedCalls = await EncodedCallsForEntrypoint.fromFeeCalls(feeCalls, isFeePayer);
 
+    // Obtain the entrypoint hashed args, built from the app and fee encoded calls
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromValues(
-      encodeArguments(abi, [appPayload, feePayload, !!cancellable]),
+    const entrypointHashedArgs = await HashedValues.fromArgs(
+      encodeArguments(abi, [appEncodedCalls, feeEncodedCalls, !!cancellable]),
     );
 
+    // Generate the combined payload auth witness, by signing the hash of the combined payload
     const combinedPayloadAuthWitness = await this.auth.createAuthWit(
-      await computeCombinedPayloadHash(appPayload, feePayload),
+      await computeCombinedPayloadHash(appEncodedCalls, feeEncodedCalls),
     );
 
+    // Assemble the tx request
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
       functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...appPayload.hashedArguments, ...feePayload.hashedArguments, entrypointHashedArgs],
-      authWitnesses: [combinedPayloadAuthWitness],
+      argsOfCalls: [
+        ...appEncodedCalls.hashedArguments,
+        ...feeEncodedCalls.hashedArguments,
+        entrypointHashedArgs,
+        ...extraHashedArgs,
+      ],
+      authWitnesses: [...authWitnesses, ...feeAuthwitnesses, combinedPayloadAuthWitness],
+      capsules,
+      salt: Fr.random(),
     });
 
     return txRequest;

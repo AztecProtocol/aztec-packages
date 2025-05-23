@@ -1,6 +1,8 @@
-import type { L1PublishBlockStats, L1PublishProofStats, L1PublishStats } from '@aztec/circuit-types/stats';
+import { createLogger } from '@aztec/aztec.js';
+import type { L1PublishBlockStats, L1PublishStats } from '@aztec/stdlib/stats';
 import {
   Attributes,
+  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
@@ -10,7 +12,7 @@ import {
 
 import { formatEther } from 'viem/utils';
 
-export type L1TxType = 'submitProof' | 'process' | 'claimEpochProofRight';
+export type L1TxType = 'process';
 
 export class SequencerPublisherMetrics {
   private gasPrice: Histogram;
@@ -22,13 +24,20 @@ export class SequencerPublisherMetrics {
   private txCalldataGas: Histogram;
   private txBlobDataGasUsed: Histogram;
   private txBlobDataGasCost: Histogram;
+  private txTotalFee: Histogram;
 
   private readonly blobCountHistogram: Histogram;
   private readonly blobInclusionBlocksHistogram: Histogram;
   private readonly blobTxSuccessCounter: UpDownCounter;
   private readonly blobTxFailureCounter: UpDownCounter;
 
-  constructor(client: TelemetryClient, name = 'SequencerPublisher') {
+  private senderBalance: Gauge;
+
+  constructor(
+    client: TelemetryClient,
+    name = 'SequencerPublisher',
+    private logger = createLogger('sequencer:publisher:metrics'),
+  ) {
     const meter = client.getMeter(name);
 
     this.gasPrice = meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE, {
@@ -96,6 +105,23 @@ export class SequencerPublisherMetrics {
     this.blobTxFailureCounter = meter.createUpDownCounter(Metrics.L1_PUBLISHER_BLOB_TX_FAILURE, {
       description: 'Number of failed L1 transactions with blobs',
     });
+
+    this.txTotalFee = meter.createHistogram(Metrics.L1_PUBLISHER_TX_TOTAL_FEE, {
+      description: 'How much L1 tx costs',
+      unit: 'eth',
+      valueType: ValueType.DOUBLE,
+      advice: {
+        explicitBucketBoundaries: [
+          0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.1, 0.2, 0.4, 0.8, 1, 1.2, 1.4, 1.8, 2,
+        ],
+      },
+    });
+
+    this.senderBalance = meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
+      unit: 'eth',
+      description: 'The balance of the sender address',
+      valueType: ValueType.DOUBLE,
+    });
   }
 
   recordFailedTx(txType: L1TxType) {
@@ -107,10 +133,6 @@ export class SequencerPublisherMetrics {
     if (txType === 'process') {
       this.blobTxFailureCounter.add(1);
     }
-  }
-
-  recordSubmitProof(durationMs: number, stats: L1PublishProofStats) {
-    this.recordTx('submitProof', durationMs, stats);
   }
 
   recordProcessBlockTx(durationMs: number, stats: L1PublishBlockStats) {
@@ -127,8 +149,11 @@ export class SequencerPublisherMetrics {
     }
   }
 
-  recordClaimEpochProofRightTx(durationMs: number, stats: L1PublishStats) {
-    this.recordTx('claimEpochProofRight', durationMs, stats);
+  recordSenderBalance(wei: bigint, senderAddress: string) {
+    const eth = parseFloat(formatEther(wei, 'wei'));
+    this.senderBalance.record(eth, {
+      [Attributes.SENDER_ADDRESS]: senderAddress,
+    });
   }
 
   private recordTx(txType: L1TxType, durationMs: number, stats: L1PublishStats) {
@@ -156,7 +181,17 @@ export class SequencerPublisherMetrics {
 
     try {
       this.gasPrice.record(parseInt(formatEther(stats.gasPrice, 'gwei'), 10));
-    } catch (e) {
+    } catch {
+      // ignore
+    }
+
+    const executionFee = stats.gasUsed * stats.gasPrice;
+    const blobFee = stats.blobGasUsed * stats.blobDataGas;
+    const totalFee = executionFee + blobFee;
+
+    try {
+      this.txTotalFee.record(parseFloat(formatEther(totalFee)));
+    } catch {
       // ignore
     }
   }

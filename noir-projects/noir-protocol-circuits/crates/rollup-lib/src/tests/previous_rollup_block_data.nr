@@ -10,8 +10,7 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
     let mut previous_rollup_data = [PreviousRollupBlockData::empty(); 2];
 
     let vk_index = BLOCK_ROOT_ROLLUP_INDEX;
-    let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
-        comptime { fixtures::vk_tree::get_vk_merkle_tree() };
+    let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> = fixtures::vk_tree::VK_MERKLE_TREE;
     let vk_path = vk_tree.get_sibling_path(vk_index);
     let vk_tree_root = vk_tree.get_root();
 
@@ -36,11 +35,6 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
         AppendOnlyTreeSnapshot { root: 1, next_available_leaf_index: 1 };
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.new_archive =
         AppendOnlyTreeSnapshot { root: 2, next_available_leaf_index: 2 };
-
-    previous_rollup_data[0].block_root_or_block_merge_public_inputs.previous_block_hash = 1;
-    previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_block_hash = 2;
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.previous_block_hash = 2;
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_block_hash = 3;
 
     // previous_rollup_data is from one block_root circuit => ecompasses a single block (block 1)
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.block_number =

@@ -20,7 +20,7 @@ global ACCOUNT_MAX_CALLS: u32 = 4;
 #[derive(Serialize)]
 pub struct AppPayload {
     function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],
-    nonce: Field,
+    pub nonce: Field,
 }
 // docs:end:app-payload-struct
 
@@ -45,13 +45,12 @@ impl AppPayload {
 
     // Executes all private and public calls
     // docs:start:entrypoint-execute-calls
-    fn execute_calls(self, context: &mut PrivateContext) {
+    pub fn execute_calls(self, context: &mut PrivateContext) {
         for call in self.function_calls {
             if !call.target_address.is_zero() {
                 if call.is_public {
-                    context.call_public_function_with_args_hash(
+                    context.call_public_function_with_calldata_hash(
                         call.target_address,
-                        call.function_selector,
                         call.args_hash,
                         call.is_static,
                     );

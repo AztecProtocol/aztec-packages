@@ -40,6 +40,8 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
 
     bb::nodejs::AsyncMessageProcessor _msg_processor;
 
+    void verify_store() const;
+
     BoolResponse open_database(const OpenDatabaseRequest& req);
 
     GetResponse get(const GetRequest& req);
@@ -54,6 +56,8 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
     StatsResponse get_stats();
 
     BoolResponse close();
+
+    BoolResponse copy_store(const CopyStoreRequest& req);
 
     static std::pair<bool, lmdblib::KeyDupValuesVector> _advance_cursor(const lmdblib::LMDBCursor& cursor,
                                                                         bool reverse,

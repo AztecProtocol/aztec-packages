@@ -2,11 +2,14 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  type CheatCodes,
   FeeJuicePaymentMethod,
+  retryUntil,
 } from '@aztec/aztec.js';
-import { Fr, type GasSettings } from '@aztec/circuits.js';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { CheatCodes } from '@aztec/aztec.js/testing';
+import { Fr } from '@aztec/foundation/fields';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import type { GasSettings } from '@aztec/stdlib/gas';
+import { TX_ERROR_INSUFFICIENT_FEE_PER_GAS } from '@aztec/stdlib/tx';
 
 import { inspect } from 'util';
 
@@ -21,11 +24,10 @@ describe('e2e_fees fee settings', () => {
   let paymentMethod: FeeJuicePaymentMethod;
   let testContract: TestContract;
 
-  const t = new FeesTest('fee_juice');
+  const t = new FeesTest('fee_juice', 1);
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
-    await t.applyFundAliceWithFeeJuice();
 
     ({ aliceAddress, aliceWallet, gasSettings, cheatCodes, aztecNode } = await t.setup());
 
@@ -41,23 +43,21 @@ describe('e2e_fees fee settings', () => {
   describe('setting max fee per gas', () => {
     const bumpL2Fees = async () => {
       const before = await aztecNode.getCurrentBaseFees();
-      t.logger.info(`Initial L2 base fees are ${inspect(before)}`, { baseFees: before });
-
-      // Bumps L1 base fee, updates the L1 fee oracle, and advances slots to update L2 base fees.
-      // Do we need all these advance and upgrade calls? Probably not, but these calls are blazing fast,
-      // so it's not big deal if we're throwing some unnecessary calls. We just want higher L2 base fees.
-      t.logger.info(`Bumping L1 base fee per gas`);
-      await cheatCodes.rollup.updateL1GasFeeOracle();
-      await cheatCodes.eth.setNextBlockBaseFeePerGas(1e11);
-      await cheatCodes.eth.mine();
-      await cheatCodes.rollup.advanceSlots(6);
-      await cheatCodes.rollup.updateL1GasFeeOracle();
-      await cheatCodes.rollup.advanceSlots(6);
-      await cheatCodes.rollup.updateL1GasFeeOracle();
-
-      const after = await aztecNode.getCurrentBaseFees();
-      t.logger.info(`L2 base fees after L1 gas spike are ${inspect(after)}`, { baseFees: after });
-      expect(after.feePerL2Gas.toBigInt()).toBeGreaterThan(before.feePerL2Gas.toBigInt());
+      t.logger.info(`Initial L2 base fees are ${inspect(before)}`, { baseFees: before.toInspect() });
+      await cheatCodes.rollup.bumpProvingCostPerMana(current => (current * 120n) / 100n);
+      await retryUntil(
+        async () => {
+          const after = await aztecNode.getCurrentBaseFees();
+          t.logger.info(`L2 base fees are now ${inspect(after)}`, {
+            baseFeesBefore: before.toInspect(),
+            baseFeesAfter: after.toInspect(),
+          });
+          return after.feePerL2Gas.toBigInt() > before.feePerL2Gas.toBigInt();
+        },
+        'L2 base fee increase',
+        5,
+        1,
+      );
     };
 
     const sendTx = async (baseFeePadding: number | undefined) => {
@@ -66,7 +66,7 @@ describe('e2e_fees fee settings', () => {
         .emit_nullifier_public(Fr.random())
         .prove({ fee: { gasSettings, paymentMethod, baseFeePadding } });
       const { maxFeesPerGas } = tx.data.constants.txContext.gasSettings;
-      t.logger.info(`Tx with hash ${tx.getTxHash()} ready with max fees ${inspect(maxFeesPerGas)}`);
+      t.logger.info(`Tx with hash ${await tx.getTxHash()} ready with max fees ${inspect(maxFeesPerGas)}`);
       return tx;
     };
 
@@ -83,7 +83,7 @@ describe('e2e_fees fee settings', () => {
       const sentWithNoPadding = txWithNoPadding.send();
       const sentWithDefaultPadding = txWithDefaultPadding.send();
       t.logger.info(`Awaiting txs`);
-      await expect(sentWithNoPadding.wait({ timeout: 30 })).rejects.toThrow(/dropped./i);
+      await expect(sentWithNoPadding.wait({ timeout: 30 })).rejects.toThrow(TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
       await sentWithDefaultPadding.wait({ timeout: 30 });
     });
   });

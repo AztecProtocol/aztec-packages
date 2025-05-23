@@ -4,7 +4,6 @@ export default defineConfig({
   testDir: './tests',
   testMatch: '**.spec.ts',
   fullyParallel: true,
-  retries: 3,
   workers: process.env.CI ? 1 : 3,
   reporter: 'list',
   use: {

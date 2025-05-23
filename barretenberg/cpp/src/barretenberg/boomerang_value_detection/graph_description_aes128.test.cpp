@@ -12,26 +12,35 @@
 
 using namespace bb;
 using namespace bb::stdlib;
+using namespace cdg;
 
 using Builder = UltraCircuitBuilder;
-typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
-typedef stdlib::witness_t<bb::UltraCircuitBuilder> witness_pt;
+using field_pt = stdlib::field_t<UltraCircuitBuilder>;
+using witness_pt = stdlib::witness_t<bb::UltraCircuitBuilder>;
 
-bool check_in_vector(const std::vector<field_pt>& input_vector, const uint32_t& real_var_index)
+/**
+ * @brief Fix witness values in a vector to ensure they appear in multiple gates
+ *
+ * Static analyzer typically identifies variables in only one gate. For test input/output variables,
+ * we can filter them by fixing their witness values, which adds them to a second gate
+ * and prevents them from being flagged as potentially dangerous.
+ *
+ * @param input_vector Vector of field elements to fix
+ */
+void fix_vector_witness(std::vector<field_pt>& input_vector)
 {
-    for (const auto& elem : input_vector) {
-        if (elem.witness_index == real_var_index) {
-            return true;
-        }
+    for (auto& elem : input_vector) {
+        elem.fix_witness();
     }
-    return false;
 }
 
 /**
- * @brief this test checks graph description of circuit for AES128CBC
- * graph must be consist from one connected component
+ * @brief Test graph description of AES128CBC circuit with 64 bytes of data
+ *
+ * @details This test verifies that:
+ * - The graph consists of one connected component
+ * - No variables are in only one gate
  */
-
 TEST(boomerang_stdlib_aes, test_graph_for_aes_64_bytes)
 {
     uint8_t key[16]{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
@@ -41,7 +50,7 @@ TEST(boomerang_stdlib_aes, test_graph_for_aes_64_bytes)
                     0x30, 0xc8, 0x1c, 0x46, 0xa3, 0x5c, 0xe4, 0x11, 0xe5, 0xfb, 0xc1, 0x19, 0x1a, 0x0a, 0x52, 0xef,
                     0xf6, 0x9f, 0x24, 0x45, 0xdf, 0x4f, 0x9b, 0x17, 0xad, 0x2b, 0x41, 0x7b, 0xe6, 0x6c, 0x37, 0x10 };
 
-    const auto convert_bytes = [](uint8_t* data) {
+    auto convert_bytes = [](uint8_t* data) {
         uint256_t converted(0);
         for (uint64_t i = 0; i < 16; ++i) {
             uint256_t to_add = uint256_t((uint64_t)(data[i])) << uint256_t((15 - i) * 8);
@@ -59,28 +68,35 @@ TEST(boomerang_stdlib_aes, test_graph_for_aes_64_bytes)
         witness_pt(&builder, fr(convert_bytes(in + 48))),
     };
 
+    fix_vector_witness(in_field);
+
     field_pt key_field(witness_pt(&builder, fr(convert_bytes(key))));
     field_pt iv_field(witness_pt(&builder, fr(convert_bytes(iv))));
+    key_field.fix_witness();
+    iv_field.fix_witness();
 
-    const auto result = stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
+    auto result = stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
+    fix_vector_witness(result);
 
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
-    auto num_connected_components = connected_components.size();
-    bool graph_result = num_connected_components == 1;
-
-    EXPECT_EQ(graph_result, true);
+    EXPECT_EQ(connected_components.size(), 1);
+    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
 /**
- * @brief this test checks variables gate counts for variables in circuit for AES128CBC
- * Some variables can be from input/output vectors, or they are key and iv, and they have variable
- * gates count = 1, because it's the circuit for test. So, we can ignore these variables
+ * @brief Test variable gate counts for AES128CBC circuit
+ *
+ * @details This test verifies that:
+ * - The graph consists of one connected component
+ * - No variables appear in only one gate
+ *
+ * Note: Input/output vectors, key, and IV variables might normally appear in only one gate,
+ * but we fix their witness values to ensure they appear in multiple gates.
  */
-
 TEST(boomerang_stdlib_aes, test_variable_gates_count_for_aes128cbc)
 {
-
     uint8_t key[16]{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
     uint8_t iv[16]{ 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
     uint8_t in[64]{ 0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96, 0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a,
@@ -88,7 +104,7 @@ TEST(boomerang_stdlib_aes, test_variable_gates_count_for_aes128cbc)
                     0x30, 0xc8, 0x1c, 0x46, 0xa3, 0x5c, 0xe4, 0x11, 0xe5, 0xfb, 0xc1, 0x19, 0x1a, 0x0a, 0x52, 0xef,
                     0xf6, 0x9f, 0x24, 0x45, 0xdf, 0x4f, 0x9b, 0x17, 0xad, 0x2b, 0x41, 0x7b, 0xe6, 0x6c, 0x37, 0x10 };
 
-    const auto convert_bytes = [](uint8_t* data) {
+    auto convert_bytes = [](uint8_t* data) {
         uint256_t converted(0);
         for (uint64_t i = 0; i < 16; ++i) {
             uint256_t to_add = uint256_t((uint64_t)(data[i])) << uint256_t((15 - i) * 8);
@@ -106,18 +122,19 @@ TEST(boomerang_stdlib_aes, test_variable_gates_count_for_aes128cbc)
         witness_pt(&builder, fr(convert_bytes(in + 48))),
     };
 
+    fix_vector_witness(in_field);
+
     field_pt key_field(witness_pt(&builder, fr(convert_bytes(key))));
     field_pt iv_field(witness_pt(&builder, fr(convert_bytes(iv))));
+    key_field.fix_witness();
+    iv_field.fix_witness();
 
-    const auto result = stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
+    auto result = stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
+    fix_vector_witness(result);
 
     Graph graph = Graph(builder);
+    auto connected_components = graph.find_connected_components();
+    EXPECT_EQ(connected_components.size(), 1);
     std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    for (const auto& elem : variables_in_one_gate) {
-        bool result1 = check_in_vector(in_field, elem);
-        bool result2 = check_in_vector(result, elem);
-        bool check =
-            (result1 == 1) || (result2 == 1) || (elem == key_field.witness_index) || (elem == iv_field.witness_index);
-        EXPECT_EQ(check, true);
-    }
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }

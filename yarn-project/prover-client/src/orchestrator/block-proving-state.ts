@@ -1,25 +1,23 @@
-import { type L2Block, type MerkleTreeId, type PublicInputsAndRecursiveProof } from '@aztec/circuit-types';
-import { type CircuitName } from '@aztec/circuit-types/stats';
+import { SpongeBlob } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
-  type AppendOnlyTreeSnapshot,
   BLOBS_PER_BLOCK,
-  type BlockHeader,
   FIELDS_PER_BLOB,
-  Fr,
-  type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  MembershipWitness,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type ParityPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
-  RootParityInput,
-  RootParityInputs,
-  StateReference,
   VK_TREE_HEIGHT,
-} from '@aztec/circuits.js';
-import { SpongeBlob } from '@aztec/circuits.js/blobs';
+} from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import type { Tuple } from '@aztec/foundation/serialize';
+import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import type { L2Block } from '@aztec/stdlib/block';
+import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import { type ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -31,17 +29,14 @@ import {
   MergeRollupInputs,
   PreviousRollupData,
   SingleTxBlockRootRollupInputs,
-} from '@aztec/circuits.js/rollup';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { type Logger } from '@aztec/foundation/log';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
-import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+} from '@aztec/stdlib/rollup';
+import type { CircuitName } from '@aztec/stdlib/stats';
+import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/stdlib/tx';
 
 import { buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
-import { type EpochProvingState } from './epoch-proving-state.js';
-import { type TxProvingState } from './tx-proving-state.js';
+import type { EpochProvingState } from './epoch-proving-state.js';
+import type { TxProvingState } from './tx-proving-state.js';
 
 export type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
 
@@ -72,6 +67,7 @@ export class BlockProvingState {
     private readonly l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     private readonly l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSnapshot: AppendOnlyTreeSnapshot,
+    private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly previousBlockHeader: BlockHeader,
     private readonly parentEpoch: EpochProvingState,
@@ -164,13 +160,13 @@ export class BlockProvingState {
     return this.baseOrMergeProvingOutputs.getParentLocation(location);
   }
 
-  public async getMergeRollupInputs(mergeLocation: TreeNodeLocation) {
+  public getMergeRollupInputs(mergeLocation: TreeNodeLocation) {
     const [left, right] = this.baseOrMergeProvingOutputs.getChildren(mergeLocation);
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
     }
 
-    return new MergeRollupInputs([await this.#getPreviousRollupData(left), await this.#getPreviousRollupData(right)]);
+    return new MergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
   }
 
   public async getBlockRootRollupTypeAndInputs(proverId: Fr) {
@@ -184,13 +180,13 @@ export class BlockProvingState {
       throw new Error('At lease one child is not ready for the block root.');
     }
 
-    const data = await this.#getBlockRootRollupData(proverId);
+    const data = this.#getBlockRootRollupData(proverId);
 
     if (this.totalNumTxs === 0) {
       const constants = ConstantRollupData.from({
         lastArchive: this.lastArchiveSnapshot,
         globalVariables: this.globalVariables,
-        vkTreeRoot: await getVKTreeRoot(),
+        vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,
       });
 
@@ -234,8 +230,9 @@ export class BlockProvingState {
     const newArchive = this.blockRootProvingOutput!.inputs.newArchive;
 
     const data = BlockRootRollupData.from({
-      l1ToL2Roots: await this.#getRootParityData(this.rootParityProvingOutput!),
+      l1ToL2Roots: this.#getRootParityData(this.rootParityProvingOutput!),
       l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
+      previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader: newBlockHeader,
       proverId,
@@ -244,7 +241,7 @@ export class BlockProvingState {
     const constants = ConstantRollupData.from({
       lastArchive: newArchive,
       globalVariables: this.globalVariables,
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
     });
 
@@ -255,12 +252,12 @@ export class BlockProvingState {
     });
   }
 
-  public async getRootParityInputs() {
+  public getRootParityInputs() {
     if (!this.baseParityProvingOutputs.every(p => !!p)) {
       throw new Error('At lease one base parity is not ready.');
     }
 
-    const children = await Promise.all(this.baseParityProvingOutputs.map(p => this.#getRootParityData(p!)));
+    const children = this.baseParityProvingOutputs.map(p => this.#getRootParityData(p!));
     return new RootParityInputs(
       children as Tuple<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
     );
@@ -271,7 +268,7 @@ export class BlockProvingState {
     return this.txs[txIndex];
   }
 
-  public async buildHeaderFromProvingOutputs(logger?: Logger) {
+  public async buildHeaderFromProvingOutputs() {
     const previousRollupData =
       this.totalNumTxs === 0
         ? []
@@ -293,7 +290,6 @@ export class BlockProvingState {
       this.rootParityProvingOutput!.inputs,
       this.blockRootProvingOutput!.inputs,
       endState,
-      logger,
     );
   }
 
@@ -326,10 +322,11 @@ export class BlockProvingState {
     this.parentEpoch.reject(reason);
   }
 
-  async #getBlockRootRollupData(proverId: Fr) {
+  #getBlockRootRollupData(proverId: Fr) {
     return BlockRootRollupData.from({
-      l1ToL2Roots: await this.#getRootParityData(this.rootParityProvingOutput!),
+      l1ToL2Roots: this.#getRootParityData(this.rootParityProvingOutput!),
       l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
+      previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader: this.previousBlockHeader,
       proverId,
@@ -358,25 +355,25 @@ export class BlockProvingState {
       : this.baseOrMergeProvingOutputs.getChildren(rootLocation);
   }
 
-  async #getPreviousRollupData({
+  #getPreviousRollupData({
     inputs,
     proof,
     verificationKey,
   }: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>) {
-    const leafIndex = await getVKIndex(verificationKey.keyAsFields);
+    const leafIndex = getVKIndex(verificationKey.keyAsFields);
     return new PreviousRollupData(
       inputs,
       proof,
       verificationKey.keyAsFields,
-      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex)),
+      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
     );
   }
 
-  async #getRootParityData({ inputs, proof, verificationKey }: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
+  #getRootParityData({ inputs, proof, verificationKey }: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
     return new RootParityInput(
       proof,
       verificationKey.keyAsFields,
-      await getVKSiblingPath(await getVKIndex(verificationKey)),
+      getVKSiblingPath(getVKIndex(verificationKey)),
       inputs,
     );
   }

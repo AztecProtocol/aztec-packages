@@ -1,10 +1,10 @@
-import { type TreeInsertionStats } from '@aztec/circuit-types/stats';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
+import type { TreeInsertionStats } from '@aztec/stdlib/stats';
 
-import { type AppendOnlyTree } from '../interfaces/append_only_tree.js';
+import type { AppendOnlyTree } from '../interfaces/append_only_tree.js';
 import { AppendOnlySnapshotBuilder } from '../snapshots/append_only_snapshot.js';
-import { type TreeSnapshot } from '../snapshots/snapshot_builder.js';
+import type { TreeSnapshot } from '../snapshots/snapshot_builder.js';
 import { TreeBase } from '../tree_base.js';
 
 /**
@@ -18,7 +18,7 @@ export class StandardTree<T extends Bufferable = Buffer> extends TreeBase<T> imp
    * @param leaves - The leaves to append.
    * @returns Empty promise.
    */
-  public override appendLeaves(leaves: T[]): Promise<void> {
+  public override appendLeaves(leaves: T[]): void {
     this.hasher.reset();
     const timer = new Timer();
     super.appendLeaves(leaves);
@@ -31,8 +31,6 @@ export class StandardTree<T extends Bufferable = Buffer> extends TreeBase<T> imp
       treeType: 'append-only',
       ...this.hasher.stats(),
     } satisfies TreeInsertionStats);
-
-    return Promise.resolve();
   }
 
   public snapshot(blockNumber: number): Promise<TreeSnapshot<T>> {

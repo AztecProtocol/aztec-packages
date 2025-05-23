@@ -1,45 +1,143 @@
+# CI for Aztec. At a high-level, runs ./bootstrap.sh ci in root. See root README.md for more details.
+# Only for internal devs. For external devs, see ci3-external.yml.
+#
+# CAREFUL! We use "exec" a lot to ensure signal propagation to the child process, to allow proper ec2 cleanup.
 name: CI3
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches:
-  #     - master
-  # pull_request:
-  #   types:
-  #     - opened
-  #     - synchronize
-  #     - reopened
-  #     - labeled
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group: {}
 
 concurrency:
-  # force parallelism in master
-  group: ci3-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  group: ci3-${{ github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
-    if: >
-      (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
+    # exclusive with ci3-external.yml: never run on forks
+    # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
     steps:
+      #############
+      # Prepare Env
+      #############
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          # Ensure it is not an artificial merge commit
+          # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: CI Full Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-full')
+        run: echo "CI_FULL=1" >> $GITHUB_ENV
+
+      - name: Cache Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
+        run: echo "NO_CACHE=1" >> $GITHUB_ENV
+
       - name: Setup
         run: |
-          # Ensure we can SSH into the spot instances we request
+          # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
-          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+          # Install required packages.
+          sudo apt update && sudo apt install -y redis-tools parallel
+
+      #############
+      # Run
+      #############
       - name: Run
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_LOG: 1
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # Nightly test env vars.
+          EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
+          EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
+          EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
+          EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
+          TARGET_BRANCH: >-
+            ${{
+              github.event_name == 'pull_request' && github.event.pull_request.base.ref
+              || github.event_name == 'merge_group' && github.event.merge_group.base_ref
+              || github.ref_name
+            }}
         run: |
-          BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }} ./ci.sh ec2
+          if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_FULL:-0}" -eq 1 ]; then
+            exec ./ci.sh merge-queue
+          elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ]; then
+            exec ./ci.sh nightly
+          elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
+            exec ./ci.sh release
+          else
+            exec ./ci.sh fast
+          fi
+
+      - name: Download benchmarks
+        if: github.event_name == 'merge_group'
+        run: ./ci.sh gh-bench
+
+      - name: Upload benchmarks
+        if: github.event_name == 'merge_group'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: Aztec Benchmarks
+          benchmark-data-dir-path: "bench/${{ github.event.merge_group.base_ref }}"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "105%"
+          comment-on-alert: false
+          fail-on-alert: false
+          max-items-in-chart: 100
+
+  notify:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && failure()
+    needs:
+      - ci
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Get Context
+        id: get_context
+        run: |
+          authors=$(git log -1 --pretty=format:'%an <%ae>')
+          echo "authors=${authors}" >> $GITHUB_OUTPUT
+          # Note, we have to make sure double quotes don't break our JSON.
+          title=$(git log -1 --pretty=format:'%s' | sed s/\"/\'/g)
+          echo "commit_title=${title}" >> $GITHUB_OUTPUT
+          failed_jobs=""
+          [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"
+          [ "${{ needs.ci.result }}" = "failure" ] && failed_jobs+="ci"
+          echo "failed_jobs=${failed_jobs}" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
+
+      - name: Send Notification
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "Failure on ${{ github.ref_name }}\nCommit: ${{ steps.get_context.outputs.commit_title }}",
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "authors": "${{ steps.get_context.outputs.authors }}",
+              "failed_jobs": "${{ steps.get_context.outputs.failed_jobs }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}

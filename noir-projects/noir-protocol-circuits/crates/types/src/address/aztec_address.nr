@@ -1,24 +1,22 @@
 use crate::{
-    abis::function_selector::FunctionSelector,
     address::{
         partial_address::PartialAddress, salted_initialization_hash::SaltedInitializationHash,
     },
     constants::{
-        AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
-        MAX_FIELD_VALUE,
+        AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1, MAX_FIELD_VALUE,
+        MAX_PROTOCOL_CONTRACTS,
     },
     contract_class_id::ContractClassId,
-    hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
-    merkle_tree::membership::MembershipWitness,
+    hash::poseidon2_hash_with_separator,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
     traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField},
+    utils::field::{pow, sqrt},
 };
 
 // We do below because `use crate::point::Point;` does not work
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 use crate::public_keys::AddressPoint;
-use ec::{pow, sqrt};
 use std::{
     embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
     ops::Add,
@@ -118,41 +116,27 @@ impl AztecAddress {
         // they can recover our full point using the x-coordinate (our address itself). To do this, they recompute the y-coordinate according to the equation y^2 = x^3 - 17.
         // When they do this, they may get a positive y-coordinate (a value that is less than or equal to MAX_FIELD_VALUE / 2) or
         // a negative y-coordinate (a value that is more than MAX_FIELD_VALUE), and we cannot dictate which one they get and hence the recovered point may sometimes be different than the one
-        // our secrect can decrypt. Regardless though, they should and will always encrypt using point with the positive y-coordinate by convention.
+        // our secret can decrypt. Regardless though, they should and will always encrypt using point with the positive y-coordinate by convention.
         // This ensures that everyone encrypts to the same point given an arbitrary x-coordinate (address). This is allowed because even though our original point may not have a positive y-coordinate,
         // with our original secret, we will be able to derive the secret to the point with the flipped (and now positive) y-coordinate that everyone encrypts to.
         AztecAddress::from_field(address_point.x)
     }
 
-    pub fn compute_from_private_function(
-        function_selector: FunctionSelector,
-        function_vk_hash: Field,
-        function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-        contract_class_artifact_hash: Field,
-        contract_class_public_bytecode_commitment: Field,
+    pub fn compute_from_class_id(
+        contract_class_id: ContractClassId,
         salted_initialization_hash: SaltedInitializationHash,
         public_keys: PublicKeys,
     ) -> Self {
-        let private_functions_root = private_functions_root_from_siblings(
-            function_selector,
-            function_vk_hash,
-            function_leaf_membership_witness.leaf_index,
-            function_leaf_membership_witness.sibling_path,
-        );
-
-        let contract_class_id = ContractClassId::compute(
-            contract_class_artifact_hash,
-            private_functions_root,
-            contract_class_public_bytecode_commitment,
-        );
-
-        // Compute contract address using the preimage which includes the class_id.
         let partial_address = PartialAddress::compute_from_salted_initialization_hash(
             contract_class_id,
             salted_initialization_hash,
         );
 
         AztecAddress::compute(public_keys, partial_address)
+    }
+
+    pub fn is_protocol_contract(self) -> bool {
+        self.inner.lt(MAX_PROTOCOL_CONTRACTS as Field)
     }
 
     pub fn is_zero(self) -> bool {

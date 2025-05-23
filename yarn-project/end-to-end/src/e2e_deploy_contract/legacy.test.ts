@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   ContractDeployer,
+  type DeployOptions,
   Fr,
   type Logger,
   type PXE,
@@ -8,9 +9,10 @@ import {
   type Wallet,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
-import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
-import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
+import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
 import { DeployTest } from './deploy_test.js';
 
@@ -81,19 +83,21 @@ describe('e2e_deploy_contract legacy', () => {
     const deployer = new ContractDeployer(TestContractArtifact, wallet);
 
     await deployer.deploy().send({ contractAddressSalt }).wait({ wallet });
-    await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrow(/dropped/);
+    await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrow(TX_ERROR_EXISTING_NULLIFIER);
   });
 
-  // TODO(#10007): Reenable this test.
-  it.skip('should not deploy a contract which failed the public part of the execution', async () => {
+  it('should not deploy a contract which failed the public part of the execution', async () => {
     // This test requires at least another good transaction to go through in the same block as the bad one.
     const artifact = TokenContractArtifact;
     const initArgs = ['TokenName', 'TKN', 18] as const;
     const goodDeploy = StatefulTestContract.deploy(wallet, wallet.getAddress(), wallet.getAddress(), 42);
     const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
 
-    const firstOpts = { skipPublicSimulation: true, skipClassRegistration: true, skipInstanceDeploy: true };
-    const secondOpts = { skipPublicSimulation: true };
+    const firstOpts: DeployOptions = {
+      skipClassRegistration: true,
+      skipPublicDeployment: true,
+    };
+    const secondOpts: DeployOptions = {};
 
     await Promise.all([goodDeploy.prove(firstOpts), badDeploy.prove(secondOpts)]);
     const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];
@@ -114,9 +118,7 @@ describe('e2e_deploy_contract legacy', () => {
     expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
     const { isContractClassPubliclyRegistered } = await pxe.getContractClassMetadata(
-      (
-        await badDeploy.getInstance()
-      ).contractClassId,
+      (await badDeploy.getInstance()).currentContractClassId,
     );
     // But the bad tx did not deploy
     expect(isContractClassPubliclyRegistered).toBeFalse();

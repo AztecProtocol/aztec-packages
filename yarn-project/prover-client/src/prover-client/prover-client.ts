@@ -1,21 +1,21 @@
 import { type ACVMConfig, type BBConfig, BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
-import {
-  type ActualProverConfig,
-  type EpochProver,
-  type EpochProverManager,
-  type ForkMerkleTreeOperations,
-  type ProvingJobBroker,
-  type ProvingJobConsumer,
-  type ProvingJobProducer,
-  type ServerCircuitProver,
-} from '@aztec/circuit-types/interfaces';
-import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
+import type {
+  ActualProverConfig,
+  EpochProver,
+  EpochProverManager,
+  ForkMerkleTreeOperations,
+  ProvingJobBroker,
+  ProvingJobConsumer,
+  ProvingJobProducer,
+  ServerCircuitProver,
+} from '@aztec/stdlib/interfaces/server';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type ProverClientConfig } from '../config.js';
+import type { ProverClientConfig } from '../config.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore, type ProofStore, createProofStore } from '../proving_broker/proof_store/index.js';
@@ -49,7 +49,7 @@ export class ProverClient implements EpochProverManager {
   }
 
   public getProverId(): Fr {
-    return this.config.proverId ?? Fr.ZERO;
+    return this.config.proverId;
   }
 
   async updateProverConfig(config: Partial<ProverClientConfig>): Promise<void> {

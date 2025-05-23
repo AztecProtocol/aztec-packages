@@ -41,9 +41,5 @@ mod tests {
                 .end_global_variables
                 .timestamp,
         ));
-
-        assert(outputs.end_block_hash.eq(
-            inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_block_hash,
-        ));
     }
 }

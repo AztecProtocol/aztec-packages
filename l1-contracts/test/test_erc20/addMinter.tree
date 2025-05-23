@@ -1,0 +1,6 @@
+AddMinterTest
+├── when the caller is not the owner
+│   └── it reverts
+└── when the caller is the owner
+    ├── it adds the minter
+    └── it emits a MinterAdded event

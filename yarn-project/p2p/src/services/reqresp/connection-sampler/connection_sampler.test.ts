@@ -1,7 +1,7 @@
 import { sleep } from '@aztec/foundation/sleep';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { type PeerId, type Stream } from '@libp2p/interface';
+import type { PeerId, Stream } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -20,7 +20,7 @@ describe('ConnectionSampler', () => {
 
     // Mock libp2p
     mockLibp2p = {
-      getPeers: jest.fn().mockReturnValue([...peers]),
+      getPeers: jest.fn().mockImplementation(() => [...peers]),
       dialProtocol: jest.fn(),
     };
 
@@ -196,15 +196,28 @@ describe('ConnectionSampler', () => {
 
       // Mock libp2p
       mockLibp2p = {
-        getPeers: jest.fn().mockReturnValue(peers),
+        getPeers: jest.fn().mockImplementation(() => [...peers]),
         dialProtocol: jest.fn(),
       };
 
       mockRandomSampler = mock<RandomSampler>();
+      mockRandomSampler.random.mockReturnValue(0);
       sampler = new ConnectionSampler(mockLibp2p, 1000, mockRandomSampler);
     });
 
+    it('should only return samples as many peers as available', () => {
+      const sampledPeers = sampler.samplePeersBatch(100);
+
+      expect(sampledPeers).toHaveLength(peers.length);
+    });
+
     it('prioritizes peers without active connections', () => {
+      mockRandomSampler.random
+        // Will pick the peers with active connections
+        .mockReturnValueOnce(3)
+        .mockReturnValueOnce(3)
+        .mockReturnValue(0);
+
       // Set up some peers with active connections
       sampler['activeConnectionsCount'].set(peers[3], 1);
       sampler['activeConnectionsCount'].set(peers[4], 2);
@@ -248,7 +261,8 @@ describe('ConnectionSampler', () => {
       const sampledPeers = sampler.samplePeersBatch(3);
 
       expect(sampledPeers).toHaveLength(3);
-      expect(sampledPeers).toEqual(expect.arrayContaining([peers[0], peers[1], peers[2]]));
+      // The last one will be picked first, then the first one, then the second one
+      expect(sampledPeers).toEqual(expect.arrayContaining([peers[4], peers[0], peers[1]]));
     });
 
     it('handles case when fewer peers available than requested', () => {

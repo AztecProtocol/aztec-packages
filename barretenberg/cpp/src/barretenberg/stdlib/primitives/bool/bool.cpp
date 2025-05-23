@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
@@ -330,6 +336,10 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator!() const
 {
     bool_t<Builder> result(*this);
+    if (result.is_constant()) {
+        result.witness_bool = !result.witness_bool;
+        return result;
+    }
     result.witness_inverted = !result.witness_inverted;
     return result;
 }
@@ -411,9 +421,7 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
     const bool_t lhs = *this;
     Builder* ctx = lhs.get_context() ? lhs.get_context() : rhs.get_context();
 
-    if constexpr (IsSimulator<Builder>) {
-        ctx->assert_equal(lhs.get_value(), rhs.get_value(), msg);
-    } else if (lhs.is_constant() && rhs.is_constant()) {
+    if (lhs.is_constant() && rhs.is_constant()) {
         ASSERT(lhs.get_value() == rhs.get_value());
     } else if (lhs.is_constant()) {
         // if rhs is inverted, flip the value of the lhs constant
@@ -441,6 +449,18 @@ bool_t<Builder> bool_t<Builder>::conditional_assign(const bool_t<Builder>& predi
                                                     const bool_t& lhs,
                                                     const bool_t& rhs)
 {
+    if (predicate.is_constant()) {
+        auto result = bool_t(predicate.get_value() ? lhs : rhs);
+        result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
+        return result;
+    }
+
+    bool same = lhs.witness_index == rhs.witness_index;
+    bool witness_same = same && lhs.witness_index != IS_CONSTANT && (lhs.witness_inverted == rhs.witness_inverted);
+    bool const_same = same && (lhs.witness_index == IS_CONSTANT) && (lhs.witness_bool == rhs.witness_bool);
+    if (witness_same || const_same) {
+        return lhs;
+    }
     return (predicate && lhs) || (!predicate && rhs);
 }
 
@@ -527,7 +547,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::implies_both_ways(c
 
 template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
 {
-    if (is_constant() || !witness_inverted) {
+    if (is_constant()) {
+        ASSERT(!this->witness_inverted);
         return *this;
     }
 
@@ -553,9 +574,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
     return *this;
 }
 
-template class bool_t<bb::StandardCircuitBuilder>;
 template class bool_t<bb::UltraCircuitBuilder>;
 template class bool_t<bb::MegaCircuitBuilder>;
-template class bool_t<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

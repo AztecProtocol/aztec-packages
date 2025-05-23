@@ -62,7 +62,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance0 + 1n;
         const nonce = 0;
-        await expect(asset.methods.burn_public(wallets[0].getAddress(), amount, nonce).prove()).rejects.toThrow(
+        await expect(asset.methods.burn_public(wallets[0].getAddress(), amount, nonce).simulate()).rejects.toThrow(
           U128_UNDERFLOW_ERROR,
         );
       });
@@ -100,7 +100,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         );
         await validateActionInteraction.send().wait();
 
-        await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+        await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
       });
 
       it('burn on behalf of other, wrong designated caller', async () => {
@@ -123,7 +123,7 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn from blacklisted account', async () => {
-        await expect(asset.methods.burn_public(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
+        await expect(asset.methods.burn_public(blacklisted.getAddress(), 1n, 0).simulate()).rejects.toThrow(
           /Assertion failed: Blacklisted: Sender/,
         );
       });
@@ -151,16 +151,19 @@ describe('e2e_blacklist_token_contract burn', () => {
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-      await wallets[1].addAuthWitness(witness);
 
-      // We give wallets[1] access to wallets[0]'s notes to be able to burn the notes.
-      wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
-
-      await asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce).send().wait();
+      await asset
+        .withWallet(wallets[1])
+        .methods.burn(wallets[0].getAddress(), amount, nonce)
+        .send({ authWitnesses: [witness] })
+        .wait();
       tokenSim.burnPrivate(wallets[0].getAddress(), amount);
 
       // Perform the transfer again, should fail
-      const txReplay = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce).send();
+      const txReplay = asset
+        .withWallet(wallets[1])
+        .methods.burn(wallets[0].getAddress(), amount, nonce)
+        .send({ authWitnesses: [witness] });
       await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 
@@ -169,7 +172,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 + 1n;
         expect(amount).toBeGreaterThan(0n);
-        await expect(asset.methods.burn(wallets[0].getAddress(), amount, 0).prove()).rejects.toThrow(
+        await expect(asset.methods.burn(wallets[0].getAddress(), amount, 0).simulate()).rejects.toThrow(
           'Assertion failed: Balance too low',
         );
       });
@@ -178,7 +181,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 - 1n;
         expect(amount).toBeGreaterThan(0n);
-        await expect(asset.methods.burn(wallets[0].getAddress(), amount, 1).prove()).rejects.toThrow(
+        await expect(asset.methods.burn(wallets[0].getAddress(), amount, 1).simulate()).rejects.toThrow(
           'Assertion failed: invalid nonce',
         );
       });
@@ -195,9 +198,10 @@ describe('e2e_blacklist_token_contract burn', () => {
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-        await wallets[1].addAuthWitness(witness);
 
-        await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
+        await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(
+          'Assertion failed: Balance too low',
+        );
       });
 
       it('burn on behalf of other without approval', async () => {
@@ -213,10 +217,9 @@ describe('e2e_blacklist_token_contract burn', () => {
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
 
-        // We give wallets[1] access to wallets[0]'s notes to test the authwit.
-        wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
-
-        await expect(action.prove()).rejects.toThrow(`Unknown auth witness for message hash ${messageHash.toString()}`);
+        await expect(action.simulate()).rejects.toThrow(
+          `Unknown auth witness for message hash ${messageHash.toString()}`,
+        );
       });
 
       it('on behalf of other (invalid designated caller)', async () => {
@@ -233,19 +236,15 @@ describe('e2e_blacklist_token_contract burn', () => {
         );
 
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-        await wallets[2].addAuthWitness(witness);
 
-        // We give wallets[2] access to wallets[0]'s notes to test the authwit.
-        wallets[2].setScopes([wallets[2].getAddress(), wallets[0].getAddress()]);
-
-        await expect(action.prove()).rejects.toThrow(
+        await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(
           `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
         );
       });
 
       it('burn from blacklisted account', async () => {
-        await expect(asset.methods.burn(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
-          /Assertion failed: Blacklisted: Sender .*/,
+        await expect(asset.methods.burn(blacklisted.getAddress(), 1n, 0).simulate()).rejects.toThrow(
+          'Assertion failed: Blacklisted: Sender',
         );
       });
     });

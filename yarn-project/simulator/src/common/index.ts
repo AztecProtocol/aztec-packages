@@ -1,2 +1,2 @@
-export * from './hashed_values_cache.js';
 export * from './errors.js';
+export * from './stats/index.js';

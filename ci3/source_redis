@@ -1,0 +1,74 @@
+# We use a redis cache for e.g. test run tracking, denoise logs, etc.
+
+# Declare CI_REDIS host, allowing override.
+export CI_REDIS=${CI_REDIS:-localhost}
+
+# If we haven't yet checked for redis availability.
+if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
+  # Start by setting it as not available.
+  export CI_REDIS_AVAILABLE=0
+
+  if nc -z $CI_REDIS 6379 &>/dev/null; then
+    # Redis is found at given host, we're done.
+    export CI_REDIS_AVAILABLE=1
+  elif [ -f ~/.ssh/build_instance_key ]; then
+    # We have the build_instance_key.
+    # Attempt to open a port to the remote redis cache via ssh through the bastion.
+    echo_stderr "Opening port to remote redis..."
+    ssh -N -L 6379:ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com:6379 \
+      -o ControlMaster=auto -o ControlPath=/tmp/ssh_mux_%h_%p_%r -o ControlPersist=480m \
+      -F $ci3/aws/build_instance_ssh_config ci-bastion.aztecprotocol.com true && true
+    if nc -z $CI_REDIS 6379 &>/dev/null; then
+      export CI_REDIS_AVAILABLE=1
+    else
+      echo_stderr -e "${yellow}Failed to establish connection to remote redis. Log and test cache will be disabled.${reset}"
+    fi
+  elif command -v docker &> /dev/null; then
+    echo_stderr "Starting local redis container..."
+    docker run -d --rm --name ci-redis -p 6379:6379 redis:latest &>/dev/null && true
+    if nc -z $CI_REDIS 6379 &>/dev/null; then
+      export CI_REDIS_AVAILABLE=1
+    else
+      echo_stderr -e "${yellow}Failed to start a local redis. Log and test cache will be disabled.${reset}"
+    fi
+  fi
+fi
+
+# If redis isn't available, neither is the test cache.
+if [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
+  echo_stderr -e "${yellow}Redis unavailable. Disabling test cache.${reset}"
+  export USE_TEST_CACHE=0
+fi
+
+# Will set log expiry to 2 weeks in CI, and 8 hours for local runs.
+if [ "${CI:-0}" -eq 1 ]; then
+  CI_REDIS_EXPIRE=$((60 * 60 * 24 * 14))
+else
+  CI_REDIS_EXPIRE=$((60 * 60 * 8))
+fi
+
+# Help function to avoid having to constantly specify args.
+# Noop when redis is unavailable.
+function redis_cli {
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    redis-cli --raw -h $CI_REDIS "$@"
+  fi
+}
+
+function redis_setexz {
+  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+}
+
+function redis_getz {
+  hex=$(redis_cli --raw GET "$1" | head -c -1 | xxd -p)
+  if [ -z "$hex" ]; then
+    echo "Key not found."
+  fi
+  if [[ "${hex:0:4}" == "1f8b" ]]; then
+    echo "$hex" | xxd -r -p | gunzip
+  else
+    echo "$hex" | xxd -r -p
+  fi
+}
+
+export -f redis_cli redis_setexz redis_getz

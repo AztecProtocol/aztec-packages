@@ -1,5 +1,5 @@
 import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { createTXERpcServer } from '@aztec/txe';
 
 export async function startTXE(options: any, debugLogger: Logger) {

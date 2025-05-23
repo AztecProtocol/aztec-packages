@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 /**
  * Special case function for performing BN254 group operations
@@ -7,6 +13,7 @@
  * We use a special case algorithm to split bn254 scalar multipliers into endomorphism scalars
  *
  **/
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
@@ -226,7 +233,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
                                                                   const std::vector<Fr>& small_scalars,
                                                                   const size_t max_num_small_bits)
 {
-    ASSERT(max_num_small_bits >= 128);
+
+    ASSERT(max_num_small_bits % 2 == 0);
+
     const size_t num_big_points = big_points.size();
     const size_t num_small_points = small_points.size();
     C* ctx = nullptr;

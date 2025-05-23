@@ -3,7 +3,8 @@ pragma solidity >=0.8.27;
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "../harnesses/Rollup.sol";
+import {IRollup, Rollup} from "@aztec/core/Rollup.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
@@ -20,9 +21,12 @@ import {TokenPortal} from "./TokenPortal.sol";
 import {UniswapPortal} from "./UniswapPortal.sol";
 
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
-import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
+
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
 contract UniswapPortalTest is Test {
+  using stdStorage for StdStorage;
   using Hash for DataStructures.L2ToL1Msg;
 
   IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
@@ -52,12 +56,11 @@ contract UniswapPortalTest is Test {
     uint256 forkId = vm.createFork(vm.rpcUrl("mainnet_fork"));
     vm.selectFork(forkId);
 
-    registry = new Registry(address(this));
-    RewardDistributor rewardDistributor = new RewardDistributor(DAI, registry, address(this));
-    rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, DAI, bytes32(0), bytes32(0), address(this)
-    );
-    registry.upgrade(address(rollup));
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
+
+    rollup = builder.getConfig().rollup;
+    registry = builder.getConfig().registry;
 
     daiTokenPortal = new TokenPortal();
     daiTokenPortal.initialize(address(registry), address(DAI), l2TokenAddress);
@@ -70,12 +73,14 @@ contract UniswapPortalTest is Test {
 
     // Modify the proven block count
     vm.store(address(rollup), bytes32(uint256(13)), bytes32(l2BlockNumber + 1));
+
+    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(l2BlockNumber + 1);
     assertEq(rollup.getProvenBlockNumber(), l2BlockNumber + 1);
 
     // have DAI locked in portal that can be moved when funds are withdrawn
     deal(address(DAI), address(daiTokenPortal), amount);
 
-    outbox = rollup.OUTBOX();
+    outbox = rollup.getOutbox();
   }
 
   /**
@@ -92,7 +97,7 @@ contract UniswapPortalTest is Test {
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2TokenAddress, 1),
+      sender: DataStructures.L2Actor(l2TokenAddress, rollup.getVersion()),
       recipient: DataStructures.L1Actor(address(daiTokenPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature("withdraw(address,uint256,address)", _recipient, amount, _caller)
@@ -116,7 +121,7 @@ contract UniswapPortalTest is Test {
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2UniswapAddress, 1),
+      sender: DataStructures.L2Actor(l2UniswapAddress, rollup.getVersion()),
       recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
@@ -145,7 +150,7 @@ contract UniswapPortalTest is Test {
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2UniswapAddress, 1),
+      sender: DataStructures.L2Actor(l2UniswapAddress, rollup.getVersion()),
       recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(

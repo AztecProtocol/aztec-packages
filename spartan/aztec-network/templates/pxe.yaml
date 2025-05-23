@@ -26,6 +26,8 @@ spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      {{- else }}
+      dnsPolicy: ClusterFirst
       {{- end }}
       volumes:
         - name: config
@@ -33,11 +35,14 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: scripts-output
           emptyDir: {}
+      terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
-        - name: wait-for-boot-node
+
+        - name: wait-for-host
           image: {{ .Values.images.curl.image }}
           command:
             - /bin/sh
@@ -45,26 +50,21 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              until curl --head --silent ${BOOT_NODE_HOST}/status; do
+
+              {{- if .Values.pxe.nodeUrl }}
+              export AZTEC_NODE_URL={{ .Values.pxe.nodeUrl }}
+              {{- else }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
+              {{- end }}
+
+              until curl --head --silent ${AZTEC_NODE_URL}/status; do
                 echo "Waiting for boot node..."
                 sleep 5
               done
           volumeMounts:
             - name: config
               mountPath: /shared/config
-        {{- if not .Values.network.public }}
-        # We only need to wait for the validator service if the network is not public
-        - name: wait-for-validator-service
-          image: {{ .Values.images.curl.image }}
-          command:
-            - /bin/sh
-            - -c
-            - |
-              until curl --head --silent {{ include "aztec-network.validatorUrl" . }}/status; do
-                echo "Waiting for validator service..."
-                sleep 5
-              done
-        {{- end }}
+
       containers:
         - name: pxe
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -77,12 +77,10 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              {{- if .Values.network.public }}
-              # If the network is public, we need to use the boot node URL
-              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
+              {{- if .Values.pxe.nodeUrl }}
+              export AZTEC_NODE_URL={{ .Values.pxe.nodeUrl }}
               {{- else }}
-              # If the network is not public, we can use the validator URL
-              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- end }}
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe
@@ -95,8 +93,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: pxe
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
@@ -109,10 +105,12 @@ spec:
               value: "{{ .Values.pxe.logLevel }}"
             - name: PXE_PROVER_ENABLED
               value: "{{ .Values.aztec.realProofs }}"
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
-            - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.nodePort }}
@@ -125,7 +123,7 @@ spec:
                 - |
                   curl -s -X POST -H 'content-type: application/json' \
                   -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
-                  127.0.0.1:{{ .Values.pxe.service.nodePort }} | grep -q '"protocolVersion":1'
+                  127.0.0.1:{{ .Values.pxe.service.nodePort }} | grep -q '"rollupVersion":[1-9][0-9]*'
             initialDelaySeconds: {{ .Values.pxe.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.pxe.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.pxe.readinessProbe.timeoutSeconds }}
@@ -140,6 +138,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-pxe
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: pxe
 spec:
   type: ClusterIP
   selector:

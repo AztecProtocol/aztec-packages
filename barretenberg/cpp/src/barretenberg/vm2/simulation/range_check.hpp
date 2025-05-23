@@ -3,11 +3,8 @@
 #include <cstdint>
 #include <memory>
 
-#include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
-#include "barretenberg/vm2/simulation/memory.hpp"
 
 namespace bb::avm2::simulation {
 

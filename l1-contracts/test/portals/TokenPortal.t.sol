@@ -3,12 +3,14 @@ pragma solidity >=0.8.27;
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "../harnesses/Rollup.sol";
+import {IRollup, Rollup} from "@aztec/core/Rollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 
 // Interfaces
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -22,6 +24,7 @@ import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
 contract TokenPortalTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -34,7 +37,7 @@ contract TokenPortalTest is Test {
 
   Registry internal registry;
   RewardDistributor internal rewardDistributor;
-  IInbox internal inbox;
+  Inbox internal inbox;
   IOutbox internal outbox;
 
   Rollup internal rollup;
@@ -59,16 +62,15 @@ contract TokenPortalTest is Test {
   uint256 internal l2BlockNumber = 69;
 
   function setUp() public {
-    registry = new Registry(address(this));
-    testERC20 = new TestERC20("test", "TEST", address(this));
-    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
-    rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, testERC20, bytes32(0), bytes32(0), address(this)
-    );
-    inbox = rollup.INBOX();
-    outbox = rollup.OUTBOX();
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
 
-    registry.upgrade(address(rollup));
+    rollup = builder.getConfig().rollup;
+    registry = builder.getConfig().registry;
+    testERC20 = builder.getConfig().testERC20;
+
+    inbox = Inbox(address(rollup.getInbox()));
+    outbox = rollup.getOutbox();
 
     tokenPortal = new TokenPortal();
     tokenPortal.initialize(address(registry), address(testERC20), l2TokenAddress);
@@ -89,7 +91,7 @@ contract TokenPortalTest is Test {
     // it has nothing to do with calling the function.
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
-      recipient: DataStructures.L2Actor(l2TokenAddress, 1),
+      recipient: DataStructures.L2Actor(l2TokenAddress, rollup.getVersion()),
       content: Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", amount)),
       secretHash: secretHashForL2MessageConsumption,
       index: _index
@@ -105,7 +107,7 @@ contract TokenPortalTest is Test {
     // it has nothing to do with calling the function.
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
-      recipient: DataStructures.L2Actor(l2TokenAddress, 1),
+      recipient: DataStructures.L2Actor(l2TokenAddress, rollup.getVersion()),
       content: Hash.sha256ToField(
         abi.encodeWithSignature("mint_to_public(bytes32,uint256)", to, amount)
       ),
@@ -125,11 +127,12 @@ contract TokenPortalTest is Test {
       _createExpectedMintPrivateL1ToL2Message(expectedIndex);
 
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
-
+    bytes16 expectedHash =
+      bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedLeaf)));
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash);
     // event we will get
 
     // Perform op
@@ -152,11 +155,13 @@ contract TokenPortalTest is Test {
     DataStructures.L1ToL2Msg memory expectedMessage =
       _createExpectedMintPublicL1ToL2Message(expectedIndex);
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
+    bytes16 expectedHash =
+      bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedLeaf)));
 
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash);
 
     // Perform op
     (bytes32 leaf, uint256 index) =
@@ -176,7 +181,7 @@ contract TokenPortalTest is Test {
     // it has nothing to do with calling the function.
     bytes32 l2ToL1Message = Hash.sha256ToField(
       DataStructures.L2ToL1Msg({
-        sender: DataStructures.L2Actor({actor: l2TokenAddress, version: 1}),
+        sender: DataStructures.L2Actor({actor: l2TokenAddress, version: rollup.getVersion()}),
         recipient: DataStructures.L1Actor({actor: address(tokenPortal), chainId: block.chainid}),
         content: Hash.sha256ToField(
           abi.encodeWithSignature(
