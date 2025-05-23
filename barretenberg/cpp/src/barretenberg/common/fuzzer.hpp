@@ -600,7 +600,6 @@ class ArithmeticFuzzHelper {
     {
         typename T::ExecutionState state;
         Composer composer = Composer();
-        bool circuit_should_fail = false;
         size_t total_instruction_weight = 0;
         (void)total_instruction_weight;
         for (auto& instruction : instructions) {
@@ -641,6 +640,8 @@ class ArithmeticFuzzHelper {
 #endif
         }
         bool check_result = bb::CircuitChecker::check(composer) && final_value_check;
+        info("check_result", check_result);
+        info("circuit_should_fail", circuit_should_fail);
         // If the circuit is correct, but it should fail, abort
         if (check_result && circuit_should_fail) {
             abort();
