@@ -314,7 +314,7 @@ export interface ExecutionDataProvider {
    * @returns The public log with transaction data if found, null otherwise.
    * @throws If more than one log with that tag exists.
    */
-  getPublicLogByTagForContract(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null>;
+  getPublicLogByTagFromContract(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null>;
 
   /**
    * Removes all of a contract's notes that have been nullified from the note database.
