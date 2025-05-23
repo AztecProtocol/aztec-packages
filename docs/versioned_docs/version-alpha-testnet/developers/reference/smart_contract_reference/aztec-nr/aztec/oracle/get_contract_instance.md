@@ -1,3 +1,11 @@
+# GetContractInstanceResult
+
+## Fields
+| Field | Type |
+| --- | --- |
+| exists | bool |
+| member | Field |
+
 ## Standalone Functions
 
 ### get_contract_instance_oracle

@@ -38,18 +38,18 @@ init(context);
 ### storage_no_init
 
 ```rust
-storage_no_init(_s);
+storage_no_init(s);
 ```
 
 #### Parameters
 | Name | Type |
 | --- | --- |
-| _s | TypeDefinition |
+| s | TypeDefinition |
 
 ### generate_storage_field_constructor
 
 ```rust
-generate_storage_field_constructor(typ, slot, parent_is_map, );
+generate_storage_field_constructor(typ, slot);
 ```
 
 #### Parameters
@@ -57,8 +57,6 @@ generate_storage_field_constructor(typ, slot, parent_is_map, );
 | --- | --- |
 | typ | Type |
 | slot | Quoted |
-| parent_is_map | bool |
-|  |  |
 
 ### new
 

@@ -10,6 +10,14 @@ TestEnvironment::new();
 
 Takes no parameters.
 
+### _new
+
+```rust
+TestEnvironment::_new();
+```
+
+Takes no parameters.
+
 ### pending_block_number
 
 ```rust
@@ -249,6 +257,63 @@ TestEnvironment::assert_private_call_fails(_self, call_interface);
 | --- | --- |
 | _self | Self |
 | call_interface | C |
+
+### call_private
+
+```rust
+TestEnvironment::call_private(_self, from, call_interface, T>, );
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| _self | Self |
+| from | AztecAddress |
+| call_interface | PrivateCallInterface&lt;M |
+| T&gt; |  |
+|  |  |
+
+### call_private_void
+
+```rust
+TestEnvironment::call_private_void(_self, from, call_interface, );
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| _self | Self |
+| from | AztecAddress |
+| call_interface | PrivateVoidCallInterface&lt;M&gt; |
+|  |  |
+
+### simulate_utility
+
+```rust
+TestEnvironment::simulate_utility(_self, call_interface, T>, );
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| _self | Self |
+| call_interface | UtilityCallInterface&lt;M |
+| T&gt; |  |
+|  |  |
+
+### simulate_void_utility
+
+```rust
+TestEnvironment::simulate_void_utility(_self, call_interface, T>, );
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| _self | Self |
+| call_interface | UtilityCallInterface&lt;M |
+| T&gt; |  |
+|  |  |
 
 ### add_note
 
