@@ -33,4 +33,20 @@ contract SamplingTest is Test {
       }
     }
   }
+
+  function test_dirtySample(uint8 _committeeSize, uint16 _validatorSetSize, uint256 _seed) public {
+    vm.assume(_validatorSetSize < 2 ** 12 - 1);
+    vm.assume(_committeeSize <= _validatorSetSize);
+    vm.assume(_committeeSize > 0);
+    vm.assume(_seed != 0); // Seed is computed from a hash, which we can safetly assume is non zero
+
+    // We sample 3 committees in the same tx, so if we fail to clear it should explode.
+    uint256[] memory committee1 = sampler.computeCommittee(_committeeSize, _validatorSetSize, _seed);
+    uint256[] memory committee2 = sampler.computeCommittee(_committeeSize, _validatorSetSize, _seed);
+    uint256[] memory committee3 = sampler.computeCommittee(_committeeSize, _validatorSetSize, _seed);
+
+    assertEq(committee1, committee2);
+    assertEq(committee1, committee3);
+    assertEq(committee2, committee3);
+  }
 }

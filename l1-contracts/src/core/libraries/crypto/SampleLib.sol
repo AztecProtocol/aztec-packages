@@ -56,6 +56,17 @@ library SampleLib {
       }
     }
 
+    // Clear transient storage.
+    // Note that we are cleaing the `sampleIndicies` and do not keep track of a separate list of
+    // `sampleIndex` that was written to. The reasoning being that we are only overwriting for
+    // duplicate cases, so `sampleIndicies` isa superset of the `sampleIndex` that have been drawn
+    // (due to account for duplicates). Thereby clearing the `sampleIndicies` clears all.
+    // Due to the cost of `tstore` and `tload` it is cheaper just to overwrite it all, than checking
+    // if there is even anything to override.
+    for (uint256 i = 0; i < _committeeSize; i++) {
+      setOverrideValue(sampledIndices[i], 0);
+    }
+
     return sampledIndices;
   }
 
