@@ -101,7 +101,7 @@ pub contract Orderbook {
         let maker_partial_note =
             Token::at(token_out).prepare_private_balance_increase(maker, maker).call(&mut context);
 
-        // Create and store the order
+        // Create the order and store it in public storage
         let order = Order { amount_in, amount_out, zero_to_one: token_in == config.token0 };
 
         Orderbook::at(context.this_address())._create_order(maker_partial_note, order).enqueue(
@@ -150,6 +150,11 @@ pub contract Orderbook {
         // a nullifier is cheaper (1 Field in DA instead of multiple Fields for the order). We use the `order_id`
         // itself as the nullifier because this contract does not work with notes and hence there is no risk of
         // colliding with a real note nullifier.
+        //
+        // It's worth noting that since nullifier information is public, a malicious actor could potentially frontrun
+        // the taker's transaction. While this vulnerability exists in this simplified demonstration, a production
+        // implementation would typically employ a privileged matchmaker service to securely pair makers and takers,
+        // thereby ensuring order execution integrity.
         context.push_nullifier(order_id.to_field());
 
         // Enqueue the fulfillment to finalize both partial notes
