@@ -14,7 +14,7 @@ on:
   merge_group: {}
 
 concurrency:
-  group: ci3-${{ github.event.merge_group.head_ref || github.ref_name }}
+  group: ci3-pr-${{ github.event.number || split(split(github.event.merge_group.head_ref, '/pr-')[1], '-')[0] }}
   cancel-in-progress: true
 
 jobs:
