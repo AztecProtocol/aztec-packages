@@ -354,17 +354,13 @@ async function setupFromFresh(
     opts.initialAccountFeeJuice,
   );
 
-  const initialValidators = opts.initialValidatorPrivateKeys?.map(privateKey => {
-    const account = privateKeyToAccount(privateKey);
-    return EthAddress.fromString(account.address);
-  });
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
     genesisArchiveRoot,
     feeJuicePortalInitialBalance: fundingNeeded,
     salt: opts.salt,
     ...deployL1ContractsArgs,
-    initialValidators,
+    initialValidators: opts.initialValidators,
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
