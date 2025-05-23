@@ -120,8 +120,32 @@ template <typename FF_> class CircuitBuilderBase {
      * */
     inline FF get_variable(const uint32_t index) const
     {
-        ASSERT(variables.size() > index);
+        ASSERT(variables.size() > real_variable_index[index]);
         return variables[real_variable_index[index]];
+    }
+
+    /**
+     * Set the value of the variable pointed to by a witness index.
+     *
+     * @param index The index of the variable.
+     * @return The value of the variable.
+     * */
+
+    /**
+     * @brief Set the value of the variable pointed to by a witness index.
+     * @details The witness value pointed to by a witness index is determined by the mapping of the input witness index
+     * to the corresponding "real variable index" which may agree with the input index or it may point to a different
+     * location within the variables array due to copy contraints that have been imposed, e.g. by assert_equal.
+     * @note This has the same effect on the resulting circuit as assert_equal(add_variable(value), index) but has the
+     * benefit of not adding an additional variable to the circuit unnecessarily.
+     *
+     * @param index
+     * @param value
+     */
+    inline void set_variable(const uint32_t index, const FF& value)
+    {
+        ASSERT(variables.size() > real_variable_index[index]);
+        variables[real_variable_index[index]] = value;
     }
 
     /**

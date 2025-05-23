@@ -452,10 +452,10 @@ TEST(stdlib_sha256, test_boomerang_value_regression)
             random32bits = engine.get_random_uint32();
         }
         auto backup = builder.get_variable(variable_index);
-        builder.assert_equal(builder.add_variable(fr(random32bits)), variable_index);
+        builder.set_variable(variable_index, fr(random32bits));
         // Check that the circuit fails
         result2 = result2 || CircuitChecker::check(builder);
-        builder.assert_equal(builder.add_variable(backup), variable_index);
+        builder.set_variable(variable_index, backup);
     }
     // If at least one of the updated witnesses hasn't caused the circuit to fail, we're in trouble
     EXPECT_EQ(result2, false);
