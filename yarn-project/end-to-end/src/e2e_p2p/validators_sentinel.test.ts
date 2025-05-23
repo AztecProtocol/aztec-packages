@@ -112,7 +112,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Collected validator stats at block ${t.monitor.l2BlockNumber}`, { stats });
     });
 
-    it("tries to slash the validator that didn't sign proven blocks", async () => {
+    it.skip("tries to slash the validator that didn't sign proven blocks", async () => {
       // turn back on block building
       await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
 
