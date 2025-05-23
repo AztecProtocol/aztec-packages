@@ -884,6 +884,7 @@ class ECCVMFlavor {
             Base::transcript_msm_count_zero_at_transition = "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION";
             Base::transcript_msm_count_at_transition_inverse = "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE";
             Base::z_perm = "Z_PERM";
+            Base::z_perm_shift = "Z_PERM_SHIFT";
             Base::lookup_inverses = "LOOKUP_INVERSES";
             // The ones beginning with "__" are only used for debugging
             Base::lagrange_first = "__LAGRANGE_FIRST";
@@ -971,9 +972,18 @@ class ECCVMFlavor {
     static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                 [[maybe_unused]] const EdgeType edge_idx)
     {
+        // skip conditions:
+        // Most cases covered: the permutation argument does not change. i.e. the row does not contribute to the
+        // permutation Edge cases where nonzero rows do not contribute to permutation: 1: If `lagrange_last != 0`, the
+        // permutation polynomial identity is updated even if z_perm == z_perm_shift 2: The final MSM row won't add to
+        // the permutation but still has polynomial identitiy contributions.
+        //    This is because the permutation argument uses the SHIFTED msm columns when performing lookups
+        //    i.e. `polynomials.msm_accumulator_x[last_edge_idx] will change z_perm[last_edge_idx - 1] and
+        //    z_perm_shift[last_edge_idx - 1]
         return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
                (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
-               polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0;
+               polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0 &&
+               (polynomials.msm_transition[edge_idx] == 0 && polynomials.msm_transition[edge_idx + 1] == 0);
     }
 
     using Transcript = NativeTranscript;
