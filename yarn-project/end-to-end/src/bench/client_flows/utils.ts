@@ -230,8 +230,10 @@ export async function captureProfile(
   opts?: Omit<ProfileMethodOptions & DeployOptions, 'profileMode'>,
   expectedSteps?: number,
 ) {
-  const logs = ProxyLogger.getInstance().getLogs();
+  // Make sure the proxy logger starts from a clean slate
+  ProxyLogger.getInstance().flushLogs();
   const result = await interaction.profile({ ...opts, profileMode: 'full', skipProofGeneration: false });
+  const logs = ProxyLogger.getInstance().getLogs();
   if (expectedSteps !== undefined && result.executionSteps.length !== expectedSteps) {
     throw new Error(`Expected ${expectedSteps} execution steps, got ${result.executionSteps.length}`);
   }
@@ -254,10 +256,11 @@ export async function captureProfile(
 
   const benchOutput = process.env.BENCH_OUTPUT;
   if (benchOutput) {
-    await mkdir(dirname(benchOutput), { recursive: true });
+    await mkdir(benchOutput, { recursive: true });
     const ghBenchmark = convertProfileToGHBenchmark(benchmark);
-    await writeFile(benchOutput, JSON.stringify(ghBenchmark));
-    logger.info(`Wrote benchmark to ${benchOutput}`);
+    const benchFile = join(benchOutput, `${label}.bench.json`);
+    await writeFile(benchFile, JSON.stringify(ghBenchmark));
+    logger.info(`Wrote benchmark to ${benchFile}`);
   }
 
   return result;

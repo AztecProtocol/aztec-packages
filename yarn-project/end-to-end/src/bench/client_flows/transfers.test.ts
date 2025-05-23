@@ -1,4 +1,4 @@
-import { AccountWallet, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
+import { AccountWallet, type AztecNode, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
@@ -28,6 +28,8 @@ describe('Transfer benchmark', () => {
   let candyBarCoin: TokenContract;
   // Sponsored FPC contract
   let sponsoredFPC: SponsoredFPCContract;
+  // Aztec node
+  let node: AztecNode;
   // Benchmarking configuration
   const config = t.config.transfers;
 
@@ -38,7 +40,7 @@ describe('Transfer benchmark', () => {
     await t.applyDeployCandyBarTokenSnapshot();
     await t.applyDeploySponsoredFPCSnapshot();
 
-    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, sponsoredFPC } = await t.setup());
+    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, sponsoredFPC, aztecNode: node } = await t.setup());
   });
 
   afterAll(async () => {
@@ -88,8 +90,6 @@ describe('Transfer benchmark', () => {
               candyBarCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
             );
-            // Make sure the proxy logger starts from a clean slate
-            ProxyLogger.getInstance().flushLogs();
           });
 
           afterEach(async () => {
@@ -135,37 +135,37 @@ describe('Transfer benchmark', () => {
                 1, // Kernel tail
             );
 
-            // These slow down benchmarking too much.
-            // Left as reference don't really know what to do
-
-            // const tx = await transferInteraction.send(options).wait();
-            // expect(tx.transactionFee!).toBeGreaterThan(0n);
-
-            // // Sanity checks
-
-            // const txEffects = await node.getTxEffect(tx.txHash);
-
-            // /*
-            //  * We should have created the following nullifiers:
-            //  * - One per created note
-            //  * - One for the transaction
-            //  * - One for the fee note if we're using private fpc
-            //  */
-            // expect(txEffects!.data.nullifiers.length).toBe(
-            //   notesToCreate + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 1 : 0),
-            // );
-            // /** We should have created 4 new notes,
-            //  *  - One for the recipient
-            //  *  - One for the sender (with the change)
-            //  *  - One for the fee if we're using private fpc
-            //  *  - One for the fee refund if we're using private fpc
-            //  */
-            // expect(txEffects!.data.noteHashes.length).toBe(2 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0));
-
             expectedChange = totalAmount - BigInt(amountToSend);
 
-            // const senderBalance = await asset.methods.balance_of_private(benchysWallet.getAddress()).simulate();
-            // expect(senderBalance).toEqual(expectedChange);
+            if (process.env.SANITY_CHECKS) {
+              // Ensure we paid a fee
+              const tx = await transferInteraction.send(options).wait();
+              expect(tx.transactionFee!).toBeGreaterThan(0n);
+
+              // Sanity checks
+
+              const txEffects = await node.getTxEffect(tx.txHash);
+
+              /*
+               * We should have created the following nullifiers:
+               * - One per created note
+               * - One for the transaction
+               * - One for the fee note if we're using private fpc
+               */
+              expect(txEffects!.data.nullifiers.length).toBe(
+                notesToCreate + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 1 : 0),
+              );
+              /** We should have created 4 new notes,
+               *  - One for the recipient
+               *  - One for the sender (with the change)
+               *  - One for the fee if we're using private fpc
+               *  - One for the fee refund if we're using private fpc
+               */
+              expect(txEffects!.data.noteHashes.length).toBe(2 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0));
+
+              const senderBalance = await asset.methods.balance_of_private(benchysWallet.getAddress()).simulate();
+              expect(senderBalance).toEqual(expectedChange);
+            }
           });
         });
       }

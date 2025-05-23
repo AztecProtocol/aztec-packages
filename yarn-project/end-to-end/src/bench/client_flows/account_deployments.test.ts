@@ -41,11 +41,6 @@ describe('Deployment benchmark', () => {
 
   function deploymentBenchmark(accountType: AccountType) {
     return describe(`Deployment benchmark for ${accountType}`, () => {
-      beforeEach(() => {
-        // Make sure the proxy logger starts from a clean slate
-        ProxyLogger.getInstance().flushLogs();
-      });
-
       function deploymentTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
         return it(`Deploys a ${accountType} account contract, pays using ${benchmarkingPaymentMethod}`, async () => {
           const benchysAccountManager = await t.createBenchmarkingAccountManager(userPXE, accountType);
@@ -87,12 +82,12 @@ describe('Deployment benchmark', () => {
               1 + // Kernel reset
               1, // Kernel tail
           );
-          // These slow down benchmarking too much.
-          // Left as reference don't really know what to do
 
-          // Ensure we paid a fee
-          // const tx = await deploymentInteraction.send(options).wait();
-          // expect(tx.transactionFee!).toBeGreaterThan(0n);
+          if (process.env.SANITY_CHECKS) {
+            // Ensure we paid a fee
+            const tx = await deploymentInteraction.send(options).wait();
+            expect(tx.transactionFee!).toBeGreaterThan(0n);
+          }
         });
       }
 

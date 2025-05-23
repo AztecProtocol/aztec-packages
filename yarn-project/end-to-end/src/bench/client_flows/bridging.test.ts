@@ -62,8 +62,6 @@ describe('Bridging benchmark', () => {
         await benchysWallet.registerContract(bananaCoin);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
         await benchysWallet.registerContract(sponsoredFPC);
-        // Make sure the proxy logger starts from a clean slate
-        ProxyLogger.getInstance().flushLogs();
       });
 
       function privateClaimTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
@@ -106,17 +104,16 @@ describe('Bridging benchmark', () => {
               1, // Kernel tail
           );
 
-          // These slow down benchmarking too much.
-          // Left as reference don't really know what to do
+          if (process.env.SANITY_CHECKS) {
+            // Ensure we paid a fee
+            const tx = await claimInteraction.send(options).wait();
+            expect(tx.transactionFee!).toBeGreaterThan(0n);
 
-          // // Ensure we paid a fee
-          // const tx = await claimInteraction.send(options).wait();
-          // expect(tx.transactionFee!).toBeGreaterThan(0n);
+            // 4. Check the balance
 
-          // // 4. Check the balance
-
-          // const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
-          // expect(balance).toBe(bridgeAmount);
+            const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
+            expect(balance).toBe(bridgeAmount);
+          }
         });
       }
 

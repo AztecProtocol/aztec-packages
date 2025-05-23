@@ -61,7 +61,7 @@ function bench_cmds {
   echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
 
   for client_flow in client_flows/bridging client_flows/deployments client_flows/amm client_flows/account_deployments client_flows/transfers; do
-    echo "$hash:ISOLATE=1:CPUS=8:NAME=$client_flow REAL_PROOFS=1 BENCHMARK_CONFIG=key_flows LOG_LEVEL=error BENCH_OUTPUT=bench-out/$client_flow.bench.json yarn-project/end-to-end/scripts/run_test.sh simple $client_flow"
+    echo "$hash:ISOLATE=1:CPUS=8:NAME=$client_flow CAPTURE_IVC_FOLDER=$bench_fixtures_dir REAL_PROOFS=1 BENCHMARK_CONFIG=key_flows LOG_LEVEL=error BENCH_OUTPUT=bench-out/ yarn-project/end-to-end/scripts/run_test.sh simple $client_flow"
   done
 }
 

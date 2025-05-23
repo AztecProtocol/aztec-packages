@@ -96,8 +96,6 @@ describe('AMM benchmark', () => {
               bananaCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
             );
-            // Make sure the proxy logger starts from a clean slate
-            ProxyLogger.getInstance().flushLogs();
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
@@ -152,6 +150,11 @@ describe('AMM benchmark', () => {
                 1 + // Kernel reset
                 1, // Kernel tail
             );
+
+            if (process.env.SANITY_CHECKS) {
+              const tx = await addLiquidityInteraction.send().wait();
+              expect(tx.transactionFee!).toBeGreaterThan(0n);
+            }
           });
         });
       }
