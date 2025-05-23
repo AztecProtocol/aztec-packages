@@ -716,7 +716,6 @@ export const addMultipleValidators = async (
   validators: Operator[],
   acceleratedTestDeployments: boolean | undefined,
   logger: Logger,
-  proposer?: Hex,
 ) => {
   const rollup = new RollupContract(extendedClient, rollupAddress);
   const minimumStake = await rollup.getMinimumStake();
