@@ -103,6 +103,13 @@ jobs:
     with:
       values_file: ${{ inputs.values_file }}
       sepolia_accounts_mnemonic_secret_name: ${{ inputs.sepolia_accounts_mnemonic_secret_name }}
+      ref: ${{ inputs.ref || github.ref || 'master' }}
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      SEPOLIA_FUNDING_PRIVATE_KEY: ${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
+      GCP_SEPOLIA_URL: ${{ secrets.GCP_SEPOLIA_URL }}
+      GCP_SEPOLIA_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
+      QUICKNODE_SEPOLIA_URL: ${{ secretsQUICKNODE_SEPOLIA_URL }}
 
   network_deployment:
     needs: fund_sepolia_accounts
