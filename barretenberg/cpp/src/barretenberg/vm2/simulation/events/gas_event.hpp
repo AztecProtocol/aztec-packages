@@ -66,6 +66,7 @@ struct GasEvent {
 
     Gas dynamic_gas_factor = { 0, 0 };
     Gas dynamic_gas = { 0, 0 };
+    Gas dynamic_gas_used = { 0, 0 };
 
     bool oog_l2_base = false;
     bool oog_da_base = false;

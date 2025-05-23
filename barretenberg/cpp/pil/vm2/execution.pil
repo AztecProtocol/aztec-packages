@@ -105,7 +105,7 @@ sel {
 } in
 precomputed.sel_exec_spec {
     precomputed.clk,
-    precomputed.exec_opcode_base_l2_gas,
+    precomputed.exec_opcode_opcode_gas,
     precomputed.exec_opcode_base_da_gas,
     precomputed.exec_opcode_dynamic_l2_gas,
     precomputed.exec_opcode_dynamic_da_gas

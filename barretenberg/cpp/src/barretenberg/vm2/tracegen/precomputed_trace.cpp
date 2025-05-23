@@ -233,7 +233,7 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
 
         trace.set(static_cast<uint32_t>(exec_opcode),
                   { { { C::precomputed_sel_exec_spec, 1 },
-                      { C::precomputed_exec_opcode_base_l2_gas, exec_instruction_spec.gas_cost.base_l2 },
+                      { C::precomputed_exec_opcode_opcode_gas, exec_instruction_spec.gas_cost.opcode_gas },
                       { C::precomputed_exec_opcode_base_da_gas, exec_instruction_spec.gas_cost.base_da },
                       { C::precomputed_exec_opcode_dynamic_l2_gas, exec_instruction_spec.gas_cost.dyn_l2 },
                       { C::precomputed_exec_opcode_dynamic_da_gas, exec_instruction_spec.gas_cost.dyn_da },

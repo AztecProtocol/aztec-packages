@@ -34,7 +34,10 @@ class GasTracker final : public GasTrackerInterface {
   private:
     const InstructionInfoDBInterface& instruction_info_db;
     ContextInterface& context;
-    Instruction instruction;
+
+    ExecutionOpCode exec_opcode;
+    uint16_t indirect;
+
     GasEvent gas_event = {};
 };
 

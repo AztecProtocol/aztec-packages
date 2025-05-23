@@ -195,7 +195,7 @@ TEST(ExecutionTraceGenTest, Gas)
     Gas gas_limit = { .l2Gas = 110149, .daGas = 100000 };
     Gas prev_gas_used = { .l2Gas = 100000, .daGas = 70000 };
     Gas base_gas = { .l2Gas = 150, .daGas = 5000 };
-    Gas dynamic_gas = { .l2Gas = 10000, .daGas = 9000 };
+    Gas dynamic_gas = { .l2Gas = 5000, .daGas = 9000 };
 
     ex_event.after_context_event.gas_limit = gas_limit; // Will OOG on l2 after dynamic gas
     ex_event.before_context_event.gas_used = prev_gas_used;
@@ -204,6 +204,7 @@ TEST(ExecutionTraceGenTest, Gas)
     ex_event.gas_event.base_gas = base_gas;
     ex_event.gas_event.dynamic_gas = dynamic_gas;
     ex_event.gas_event.dynamic_gas_factor = { .l2Gas = 2, .daGas = 1 };
+    ex_event.gas_event.dynamic_gas_used = { .l2Gas = dynamic_gas.daGas * 2, .daGas = dynamic_gas.l2Gas * 1 };
     ex_event.gas_event.oog_l2_base = false;
     ex_event.gas_event.oog_da_base = false;
     ex_event.gas_event.oog_l2_dynamic = true;
@@ -224,8 +225,10 @@ TEST(ExecutionTraceGenTest, Gas)
                       Contains(Field(&R::execution_should_run_dyn_gas_check, true)),
                       Contains(Field(&R::execution_l2_dynamic_gas_factor, 2)),
                       Contains(Field(&R::execution_da_dynamic_gas_factor, 1)),
-                      Contains(Field(&R::execution_l2_dynamic_gas, 10000)),
+                      Contains(Field(&R::execution_l2_dynamic_gas, 5000)),
                       Contains(Field(&R::execution_da_dynamic_gas, 9000)),
+                      Contains(Field(&R::execution_l2_dynamic_gas_used, 10000)),
+                      Contains(Field(&R::execution_da_dynamic_gas_used, 9000)),
                       Contains(Field(&R::execution_out_of_gas_l2_dynamic, true)),
                       Contains(Field(&R::execution_out_of_gas_da_dynamic, false)),
                       Contains(Field(&R::execution_out_of_gas_dynamic, true))));
@@ -236,7 +239,7 @@ TEST(ExecutionTraceGenTest, Gas)
     uint32_t limit_used_l2_base_cmp_diff = gas_limit.l2Gas - gas_used_after_base.l2Gas;
     uint32_t limit_used_da_base_cmp_diff = gas_limit.daGas - gas_used_after_base.daGas;
 
-    Gas gas_used_after_dynamic = gas_used_after_base + ex_event.gas_event.dynamic_gas;
+    Gas gas_used_after_dynamic = gas_used_after_base + ex_event.gas_event.dynamic_gas_used;
     uint32_t limit_used_da_dynamic_cmp_diff = gas_limit.daGas - gas_used_after_dynamic.daGas;
 
     EXPECT_THAT(trace.as_rows(),

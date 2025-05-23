@@ -102,7 +102,7 @@ pol constant p_decomposition_limb;
 // - Opcode memory operations and destination registers
 pol constant sel_exec_spec;
 // exec_opcode is clk
-pol constant exec_opcode_base_l2_gas;
+pol constant exec_opcode_opcode_gas;
 pol constant exec_opcode_base_da_gas;
 pol constant exec_opcode_dynamic_l2_gas;
 pol constant exec_opcode_dynamic_da_gas;

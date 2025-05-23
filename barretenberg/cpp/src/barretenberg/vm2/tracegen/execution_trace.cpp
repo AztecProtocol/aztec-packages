@@ -258,7 +258,7 @@ void ExecutionTraceBuilder::process(
             decompose_gas_value(limit_used_da_base_cmp_diff);
 
         // Dynamic gas
-        Gas gas_used_after_dynamic = gas_used_after_base + ex_event.gas_event.dynamic_gas;
+        Gas gas_used_after_dynamic = gas_used_after_base + ex_event.gas_event.dynamic_gas_used;
         uint32_t limit_used_l2_dynamic_cmp_diff = 0;
         uint32_t limit_used_da_dynamic_cmp_diff = 0;
         if (!ex_event.gas_event.oog_l2_base || !ex_event.gas_event.oog_da_base) {
@@ -297,6 +297,8 @@ void ExecutionTraceBuilder::process(
                 { C::execution_da_dynamic_gas_factor, ex_event.gas_event.dynamic_gas_factor.daGas },
                 { C::execution_l2_dynamic_gas, ex_event.gas_event.dynamic_gas.l2Gas },
                 { C::execution_da_dynamic_gas, ex_event.gas_event.dynamic_gas.daGas },
+                { C::execution_l2_dynamic_gas_used, ex_event.gas_event.dynamic_gas_used.l2Gas },
+                { C::execution_da_dynamic_gas_used, ex_event.gas_event.dynamic_gas_used.daGas },
                 { C::execution_out_of_gas_l2_dynamic, ex_event.gas_event.oog_l2_dynamic },
                 { C::execution_out_of_gas_da_dynamic, ex_event.gas_event.oog_da_dynamic },
                 { C::execution_out_of_gas_dynamic,

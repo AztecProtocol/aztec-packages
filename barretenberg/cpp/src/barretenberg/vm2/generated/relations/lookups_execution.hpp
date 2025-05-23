@@ -30,7 +30,7 @@ struct lookup_execution_exec_spec_read_settings_ {
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::precomputed_exec_opcode_base_l2_gas,
+        ColumnAndShifts::precomputed_exec_opcode_opcode_gas,
         ColumnAndShifts::precomputed_exec_opcode_base_da_gas,
         ColumnAndShifts::precomputed_exec_opcode_dynamic_l2_gas,
         ColumnAndShifts::precomputed_exec_opcode_dynamic_da_gas
