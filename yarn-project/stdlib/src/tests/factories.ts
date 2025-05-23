@@ -1,7 +1,7 @@
 import { makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
-  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
@@ -55,6 +55,7 @@ import { ContractStorageRead } from '../avm/contract_storage_read.js';
 import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_request.js';
 import {
   AvmAccumulatedData,
+  AvmAccumulatedDataArrayLengths,
   AvmAppendLeavesHint,
   AvmBytecodeCommitmentHint,
   AvmCircuitInputs,
@@ -115,7 +116,11 @@ import { PrivateCallRequest } from '../kernel/private_call_request.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import { PrivateLogData } from '../kernel/private_log_data.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from '../kernel/private_to_rollup_kernel_circuit_public_inputs.js';
-import { CountedPublicCallRequest, PublicCallRequest } from '../kernel/public_call_request.js';
+import {
+  CountedPublicCallRequest,
+  PublicCallRequest,
+  PublicCallRequestArrayLengths,
+} from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
 import { ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
@@ -368,6 +373,10 @@ function makeAvmAccumulatedData(seed = 1) {
   );
 }
 
+function makeAvmAccumulatedDataArrayLengths(seed = 1) {
+  return new AvmAccumulatedDataArrayLengths(seed, seed + 1, seed + 2, seed + 3, seed + 4);
+}
+
 export function makeGas(seed = 1) {
   return new Gas(seed, seed + 1);
 }
@@ -453,6 +462,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
     makeGas(seed + 0x20),
     makeGasSettings(),
     makeAztecAddress(seed + 0x40),
+    makePublicCallRequestArrayLengths(seed + 0x40),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x200),
     makePublicCallRequest(seed + 0x300),
@@ -462,6 +472,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
     makePrivateToAvmAccumulatedData(seed + 0x600),
     makeTreeSnapshots(seed + 0x700),
     makeGas(seed + 0x750),
+    makeAvmAccumulatedDataArrayLengths(seed + 0x800),
     makeAvmAccumulatedData(seed + 0x800),
     fr(seed + 0x900),
     false,
@@ -531,6 +542,10 @@ function makePrivateCallRequest(seed = 1): PrivateCallRequest {
 
 export function makePublicCallRequest(seed = 1) {
   return new PublicCallRequest(makeAztecAddress(seed), makeAztecAddress(seed + 1), false, fr(seed + 0x3));
+}
+
+export function makePublicCallRequestArrayLengths(seed = 1) {
+  return new PublicCallRequestArrayLengths(seed, seed + 1, seed % 2 === 0);
 }
 
 function makeCountedPublicCallRequest(seed = 1) {
@@ -881,13 +896,10 @@ export function makeRootParityInputs(seed = 0): RootParityInputs {
  */
 export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
-    makeAppendOnlyTreeSnapshot(seed + 0x100),
-    makeAppendOnlyTreeSnapshot(seed + 0x200),
-    fr(seed + 0x300),
-    fr(seed + 0x400),
-    fr(seed + 0x500),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x650),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x600),
+    fr(seed + 0x100),
+    fr(seed + 0x200),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     fr(seed + 0x700),
     fr(seed + 0x701),
     fr(seed + 0x702),
@@ -1158,7 +1170,7 @@ function makePublicTubeData(seed = 1) {
 function makeAvmProofData(seed = 1) {
   return new AvmProofData(
     makeAvmCircuitPublicInputs(seed),
-    makeRecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>(AVM_PROOF_LENGTH_IN_FIELDS, seed + 0x100),
+    makeRecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, seed + 0x100),
     makeVkWitnessData(seed + 0x200),
   );
 }
@@ -1486,6 +1498,7 @@ export function makeAvmTxHint(seed = 0): AvmTxHint {
   return new AvmTxHint(
     `txhash-${seed}`,
     makeGlobalVariables(seed),
+    makeGasSettings(),
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
@@ -1497,6 +1510,7 @@ export function makeAvmTxHint(seed = 0): AvmTxHint {
     makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x5000), // setupEnqueuedCalls
     makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x6000), // appLogicEnqueuedCalls
     makeAvmEnqueuedCallHint(seed + 0x7000), // teardownEnqueuedCall
+    makeGas(seed + 0x8000), // gasUsedByPrivate
   );
 }
 

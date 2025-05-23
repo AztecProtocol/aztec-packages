@@ -687,11 +687,7 @@ constexpr void RunWithBuilder(const uint8_t* Data, const size_t Size, FastRandom
 template <template <typename> class Fuzzer, uint64_t Composers>
 constexpr void RunWithBuilders(const uint8_t* Data, const size_t Size, FastRandom& VarianceRNG)
 {
-    if (Composers & 1) {
-        RunWithBuilder<Fuzzer, bb::StandardCircuitBuilder>(Data, Size, VarianceRNG);
-    } else if (Composers & 2) {
-        RunWithBuilder<Fuzzer, bb::UltraCircuitBuilder>(Data, Size, VarianceRNG);
-    }
+    RunWithBuilder<Fuzzer, bb::UltraCircuitBuilder>(Data, Size, VarianceRNG);
 }
 
 // NOLINTEND(cppcoreguidelines-macro-usage, google-runtime-int)

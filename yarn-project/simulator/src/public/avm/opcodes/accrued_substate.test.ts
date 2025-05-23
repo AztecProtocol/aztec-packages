@@ -1,3 +1,8 @@
+import {
+  AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
+  AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS,
+  AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -303,6 +308,27 @@ describe('Accrued Substate', () => {
 
       expect(trace.tracePublicLog).toHaveBeenCalledTimes(1);
       expect(trace.tracePublicLog).toHaveBeenCalledWith(address, values);
+    });
+
+    it('Should charge dynamic gas', async () => {
+      const startOffset = 0;
+      const logSizeOffset = 20;
+
+      const values = [new Fr(69n), new Fr(420n), new Fr(Fr.MODULUS - 1n)];
+      context.machineState.memory.setSlice(
+        startOffset,
+        values.map(f => new Field(f)),
+      );
+      context.machineState.memory.set(logSizeOffset, new Uint32(values.length));
+
+      const l2GasBefore = context.machineState.l2GasLeft;
+      const daGasBefore = context.machineState.daGasLeft;
+      await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, logSizeOffset).execute(context);
+
+      expect(context.machineState.l2GasLeft).toEqual(
+        l2GasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS - AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS * values.length,
+      );
+      expect(context.machineState.daGasLeft).toEqual(daGasBefore - AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS * values.length);
     });
   });
 

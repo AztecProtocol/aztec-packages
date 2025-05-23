@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { retryUntil, sleep } from '@aztec/aztec.js';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import type { ValidatorsStats } from '@aztec/stdlib/validators';
 
 import { jest } from '@jest/globals';
@@ -7,6 +8,7 @@ import fs from 'fs';
 import 'jest-extended';
 import os from 'os';
 import path from 'path';
+import { getContract } from 'viem';
 
 import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
@@ -15,6 +17,10 @@ const NUM_NODES = 4;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
 const BOOT_NODE_UDP_PORT = 4500;
 const BLOCK_COUNT = 3;
+const EPOCH_DURATION = 5;
+const SLASHING_QUORUM = 6;
+const SLASHING_ROUND_SIZE = 10;
+const SLASH_AMOUNT = 10n ** 18n;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 
@@ -26,21 +32,39 @@ describe('e2e_p2p_validators_sentinel', () => {
 
   beforeAll(async () => {
     t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_network',
+      testName: 'e2e_p2p_validators_sentinel',
       numberOfNodes: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
+      startProverNode: true,
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
+        aztecEpochDuration: EPOCH_DURATION,
         validatorReexecute: false,
         sentinelEnabled: true,
+        slashingQuorum: SLASHING_QUORUM,
+        slashingRoundSize: SLASHING_ROUND_SIZE,
+        slashInactivityCreatePenalty: SLASH_AMOUNT,
+        slashInactivityCreateTargetPercentage: 0.6,
+        slashInactivitySignalTargetPercentage: 0.5,
+        slashProposerRoundPollingIntervalSeconds: 1,
       },
     });
 
     await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
+    nodes = await createNodes(
+      t.ctx.aztecNodeConfig,
+      t.ctx.dateProvider,
+      t.bootstrapNodeEnr,
+      NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
+      BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
+
+      DATA_DIR,
+    );
     await t.removeInitialNode();
 
     t.logger.info(`Setup complete`, { validators: t.validators });
@@ -57,17 +81,6 @@ describe('e2e_p2p_validators_sentinel', () => {
   describe('with an offline validator', () => {
     let stats: ValidatorsStats;
     beforeAll(async () => {
-      t.logger.info('Creating nodes');
-      nodes = await createNodes(
-        t.ctx.aztecNodeConfig,
-        t.ctx.dateProvider,
-        t.bootstrapNodeEnr,
-        NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
-        BOOT_NODE_UDP_PORT,
-        t.prefilledPublicData,
-        DATA_DIR,
-      );
-
       const currentBlock = t.monitor.l2BlockNumber;
       const blockCount = BLOCK_COUNT;
       const timeout = SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * blockCount * 8;
@@ -97,6 +110,45 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       stats = await nodes[0].getValidatorsStats();
       t.logger.info(`Collected validator stats at block ${t.monitor.l2BlockNumber}`, { stats });
+    });
+
+    it("tries to slash the validator that didn't sign proven blocks", async () => {
+      // turn back on block building
+      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
+
+      // wait until we're beyond the second epoch
+      await retryUntil(
+        async () => {
+          const tips = await nodes[0].getL2Tips();
+          return tips.proven.number > 1;
+        },
+        'proven blocks',
+        EPOCH_DURATION * SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * 2,
+        1,
+      );
+
+      const rollupRaw = getContract({
+        address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+        abi: RollupAbi,
+        client: t.ctx.deployL1ContractsValues.l1Client,
+      });
+
+      await retryUntil(
+        async () => {
+          const slashEvents = await rollupRaw.getEvents.Slashed();
+          return slashEvents.length >= 1;
+        },
+        'slash event',
+        // wait up to 2 full rounds plus 2 ethereum blocks
+        SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * SLASHING_ROUND_SIZE * 3 +
+          SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.ethereumSlotDuration * 2,
+        1,
+      );
+      const slashEvents = await rollupRaw.getEvents.Slashed();
+      const { attester, amount } = slashEvents[0].args;
+      expect(slashEvents.length).toBe(1);
+      expect(attester?.toLowerCase()).toBe(t.validators.at(-1)!.attester.toLowerCase());
+      expect(amount).toBe(SLASH_AMOUNT);
     });
 
     it('collects stats on offline validator', () => {

@@ -7,6 +7,7 @@ import type {
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 import type { PrivateKernelResetHints } from './hints/private_kernel_reset_hints.js';
+import type { PaddedSideEffects } from './padded_side_effects.js';
 import type { PrivateKernelData } from './private_kernel_data.js';
 import type { PrivateKernelResetDimensions } from './private_kernel_reset_dimensions.js';
 
@@ -20,6 +21,7 @@ export class PrivateKernelResetCircuitPrivateInputsVariants<
 > {
   constructor(
     public previousKernel: PrivateKernelData,
+    public paddedSideEffects: PaddedSideEffects,
     public hints: PrivateKernelResetHints<
       NH_RR_PENDING,
       NH_RR_SETTLED,
@@ -31,7 +33,7 @@ export class PrivateKernelResetCircuitPrivateInputsVariants<
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.hints);
+    return serializeToBuffer(this.previousKernel, this.paddedSideEffects, this.hints);
   }
 }
 
@@ -44,6 +46,7 @@ export class PrivateKernelResetCircuitPrivateInputs {
      * The previous kernel data
      */
     public previousKernel: PrivateKernelData,
+    public paddedSideEffects: PaddedSideEffects,
     public hints: PrivateKernelResetHints<
       typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
       typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -60,7 +63,7 @@ export class PrivateKernelResetCircuitPrivateInputs {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.hints, this.dimensions);
+    return serializeToBuffer(this.previousKernel, this.paddedSideEffects, this.hints, this.dimensions);
   }
 
   trimToSizes() {
@@ -72,6 +75,6 @@ export class PrivateKernelResetCircuitPrivateInputs {
       this.dimensions.KEY_VALIDATION,
       this.dimensions.TRANSIENT_DATA_SQUASHING,
     );
-    return new PrivateKernelResetCircuitPrivateInputsVariants(this.previousKernel, hints);
+    return new PrivateKernelResetCircuitPrivateInputsVariants(this.previousKernel, this.paddedSideEffects, hints);
   }
 }

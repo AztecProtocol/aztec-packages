@@ -1,5 +1,6 @@
 use dep::private_kernel_lib::{
-    PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetDimensions, PrivateKernelResetHints,
+    PaddedSideEffects, PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetDimensions,
+    PrivateKernelResetHints,
 };
 use dep::types::{
     constants::{
@@ -43,6 +44,7 @@ global PRIVATE_LOG_SILOING_AMOUNT: u32 = MAX_PRIVATE_LOGS_PER_TX; // 32
 fn main(
     previous_kernel: PrivateKernelDataWithoutPublicInputs,
     previous_kernel_public_inputs: call_data(0) PrivateKernelCircuitPublicInputs,
+    padded_side_effects: PaddedSideEffects,
     hints: PrivateKernelResetHints<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN>,
 ) -> return_data PrivateKernelCircuitPublicInputs {
     let dimensions = PrivateKernelResetDimensions {
@@ -60,6 +62,7 @@ fn main(
     let private_inputs = PrivateKernelResetCircuitPrivateInputs::new(
         previous_kernel,
         previous_kernel_public_inputs,
+        padded_side_effects,
         hints,
         dimensions,
     );

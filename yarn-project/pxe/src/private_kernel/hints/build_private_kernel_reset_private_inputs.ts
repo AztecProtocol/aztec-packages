@@ -16,6 +16,7 @@ import { MembershipWitness } from '@aztec/foundation/trees';
 import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';
 import {
   KeyValidationHint,
+  PaddedSideEffects,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -179,8 +180,12 @@ export class PrivateKernelResetPrivateInputsBuilder {
       dimensions.NULLIFIER_SETTLED_READ,
     );
 
+    // TODO: Enable padding when we have a better idea what are the final amounts we should pad to.
+    const paddedSideEffects = PaddedSideEffects.empty();
+
     return new PrivateKernelResetCircuitPrivateInputs(
       previousKernelData,
+      paddedSideEffects,
       new PrivateKernelResetHints(
         await buildNoteHashReadRequestHintsFromResetStates(
           oracle,

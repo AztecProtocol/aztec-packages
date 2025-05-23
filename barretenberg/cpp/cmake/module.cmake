@@ -98,7 +98,6 @@ function(barretenberg_module MODULE_NAME)
             PRIVATE
             ${TRACY_LIBS}
             GTest::gtest
-            GTest::gtest_main
             GTest::gmock_main
             ${TBB_IMPORTED_TARGETS}
         )

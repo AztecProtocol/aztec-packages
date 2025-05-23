@@ -19,8 +19,6 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 struct PublicInputArgs {
   bytes32 previousArchive;
   bytes32 endArchive;
-  Timestamp endTimestamp;
-  bytes32 outHash;
   address proverId;
 }
 
@@ -76,7 +74,6 @@ struct RollupConfigInput {
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
   uint256 aztecProofSubmissionWindow;
-  uint256 minimumStake;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 manaTarget;

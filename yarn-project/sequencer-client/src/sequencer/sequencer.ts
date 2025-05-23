@@ -12,6 +12,7 @@ import type { P2P } from '@aztec/p2p';
 import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { SlasherClient } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -40,7 +41,6 @@ import type { ValidatorClient } from '@aztec/validator-client';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
-import type { SlasherClient } from '../slasher/slasher_client.js';
 import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -217,7 +217,7 @@ export class Sequencer {
     this.metrics.stop();
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();
-    this.slasherClient.stop();
+    await this.slasherClient.stop();
     this.publisher.interrupt();
     this.setState(SequencerState.STOPPED, 0n, true /** force */);
     this.l1Metrics.stop();
@@ -822,5 +822,9 @@ export class Sequencer {
 
   get maxL2BlockGas(): number | undefined {
     return this.config.maxL2BlockGas;
+  }
+
+  public getSlasherClient(): SlasherClient {
+    return this.slasherClient;
   }
 }

@@ -189,11 +189,11 @@ export async function startNode(
     await setupUpdateMonitor(
       nodeConfig.autoUpdate,
       new URL(nodeConfig.autoUpdateUrl),
-      followsCanonicalRollup ? 'canonical' : nodeConfig.rollupVersion,
+      followsCanonicalRollup,
       getPublicClient(nodeConfig!),
       nodeConfig.l1Contracts.registryAddress,
       signalHandlers,
-      config => node.setConfig(config),
+      async config => node.setConfig((await AztecNodeAdminApiSchema.setConfig.parameters().parseAsync([config]))[0]),
     );
   }
 
