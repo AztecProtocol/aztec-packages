@@ -166,6 +166,10 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
         padding_indicator_array, claim_batcher, output.challenge, Commitment::one(&builder), transcript);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Investigate if normalize() calls are needed.
+    pairing_points[0] = pairing_points[0].normalize();
+    pairing_points[1] = pairing_points[1].normalize();
     return pairing_points;
 }
 
