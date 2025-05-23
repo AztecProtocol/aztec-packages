@@ -780,9 +780,8 @@ impl FixtureBuilder {
         for i in 0..self.note_hashes.max_len() {
             if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
-                // Silo and clear the contract address here
-                // because the padded note hashes are siloed when added in the reset circuit.
-                // We can only see the siloed version of it in the public inputs.
+                // Silo and clear the contract address here because the padded note hashes are siloed when added in the
+                // reset circuit. We can only see the siloed version of it in the public inputs.
                 let siloed_value = compute_siloed_note_hash(SIDE_EFFECT_MASKING_ADDRESS, value);
                 self.note_hashes.push(NoteHash { value: siloed_value, counter: MAX_U32_VALUE }
                     .scope(AztecAddress::zero()));
@@ -850,9 +849,14 @@ impl FixtureBuilder {
         for i in 0..self.nullifiers.max_len() {
             if i < num_nullifiers {
                 let value = self.mock_nullifier_value(index_offset + i);
-                // The padded nullifiers are siloed when added in the reset circuit.
-                // So the contract address is always zero.
-                self.nullifiers.push(Nullifier { value, counter: MAX_U32_VALUE, note_hash: 0 }
+                // Silo and clear the contract address here because the padded nullifiers are siloed when added in the
+                // reset circuit. We can only see the siloed version of it in the public inputs.
+                let siloed_value = compute_siloed_nullifier(SIDE_EFFECT_MASKING_ADDRESS, value);
+                self.nullifiers.push(Nullifier {
+                    value: siloed_value,
+                    counter: MAX_U32_VALUE,
+                    note_hash: 0,
+                }
                     .scope(AztecAddress::zero()));
             }
         }
@@ -1058,9 +1062,10 @@ impl FixtureBuilder {
         let index_offset = self.private_logs.len();
         for i in 0..self.private_logs.max_len() {
             if i < num_logs {
-                let fields = self.mock_private_log_fields(index_offset + i);
-                // The padded private logs are siloed when added in the reset circuit.
-                // So the contract address is always zero.
+                let mut fields = self.mock_private_log_fields(index_offset + i);
+                // Silo and clear the contract address here because the padded private logs are siloed when added in the
+                // reset circuit. We can only see the siloed version of it in the public inputs.
+                fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
                 self.private_logs.push(PrivateLogData {
                     log: PrivateLog { fields, length: fields.len() },
                     note_hash_counter: 0,
