@@ -54,10 +54,9 @@ std::unique_ptr<AddressingInterface> ExecutionComponentsProvider::make_addressin
     return addressing;
 }
 
-std::unique_ptr<GasTrackerInterface> ExecutionComponentsProvider::make_gas_tracker(ContextInterface& context,
-                                                                                   Instruction instruction)
+std::unique_ptr<GasTrackerInterface> ExecutionComponentsProvider::make_gas_tracker(ContextInterface& context)
 {
-    return std::make_unique<GasTracker>(instruction_info_db, context, instruction);
+    return std::make_unique<GasTracker>(instruction_info_db, context);
 }
 
 } // namespace bb::avm2::simulation

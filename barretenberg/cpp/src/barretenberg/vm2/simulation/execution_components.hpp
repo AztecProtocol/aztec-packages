@@ -40,8 +40,7 @@ class ExecutionComponentsProviderInterface {
 
     virtual std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) = 0;
 
-    virtual std::unique_ptr<GasTrackerInterface> make_gas_tracker(ContextInterface& context,
-                                                                  Instruction instruction) = 0;
+    virtual std::unique_ptr<GasTrackerInterface> make_gas_tracker(ContextInterface& context) = 0;
 
     // This can be removed if we use clk for the context id
     virtual uint32_t get_next_context_id() = 0;
@@ -73,7 +72,7 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
                                                             Gas gas_used) override;
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
 
-    std::unique_ptr<GasTrackerInterface> make_gas_tracker(ContextInterface& context, Instruction instruction) override;
+    std::unique_ptr<GasTrackerInterface> make_gas_tracker(ContextInterface& context) override;
 
     uint32_t get_next_context_id() override { return next_context_id; }
 

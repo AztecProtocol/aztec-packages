@@ -85,7 +85,8 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
     set_inputs({ get_ret_size });
     // TODO(ilyas): check this is a U32
     auto rd_size = get_ret_size.as<uint32_t>();
-    set_execution_result({ .rd_offset = ret_offset, .rd_size = rd_size, .success = true });
+    set_execution_result(
+        { .rd_offset = ret_offset, .rd_size = rd_size, .gas_used = context.get_gas_used(), .success = true });
 
     context.halt();
 }
@@ -97,7 +98,8 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
     set_inputs({ get_rev_size });
     // TODO(ilyas): check this is a U32
     auto rd_size = get_rev_size.as<uint32_t>();
-    set_execution_result({ .rd_offset = rev_offset, .rd_size = rd_size, .success = false });
+    set_execution_result(
+        { .rd_offset = rev_offset, .rd_size = rd_size, .gas_used = context.get_gas_used(), .success = false });
 
     context.halt();
 }
@@ -132,6 +134,9 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         // We'll be filling in the event as we go. And we always emit at the end.
         ExecutionEvent ex_event;
 
+        // We'll be filling this with gas data as we go.
+        init_gas_tracker(context);
+
         try {
             // State before doing anything.
             ex_event.before_context_event = context.serialize_context_event();
@@ -145,6 +150,8 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             Instruction instruction = context.get_bytecode_manager().read_instruction(pc);
             ex_event.wire_instruction = instruction;
 
+            get_gas_tracker().set_instruction(instruction);
+
             // Go from a wire instruction to an execution opcode.
             const WireInstructionSpec& wire_spec = instruction_info_db.get(instruction.opcode);
             context.set_next_pc(pc + wire_spec.size_in_bytes);
@@ -154,9 +161,7 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
 
-            auto gas_tracker = execution_components.make_gas_tracker(context, instruction);
-
-            gas_tracker->consume_base_gas();
+            get_gas_tracker().consume_base_gas();
 
             // Resolve the operands.
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
@@ -177,6 +182,8 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
         ex_event.inputs = get_inputs();
         ex_event.output = get_output();
+
+        ex_event.gas_event = finish_gas_tracker();
 
         // State after the opcode.
         ex_event.after_context_event = context.serialize_context_event();
@@ -222,7 +229,7 @@ void Execution::handle_exit_call()
         parent_context.set_last_success(result.success);
         parent_context.set_child_context(std::move(child_context));
         // Safe since the nested context gas limit should be clamped to the available gas.
-        parent_context.set_gas_used(child_context->get_gas_used() + parent_context.get_gas_used());
+        parent_context.set_gas_used(result.gas_used + parent_context.get_gas_used());
     }
     // Else: was top level. ExecutionResult is already set and that will be returned.
 }

@@ -33,9 +33,10 @@ void TxExecution::simulate(const Tx& tx)
         // Setup.
         for (const auto& call : tx.setupEnqueuedCalls) {
             info("[SETUP] Executing enqueued call to ", call.contractAddress);
-            auto context =
-                make_enqueued_context(call.contractAddress, call.msgSender, call.calldata, call.isStaticCall);
-            call_execution.execute(std::move(context));
+            auto context = make_enqueued_context(
+                call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
+            ExecutionResult result = call_execution.execute(std::move(context));
+            gas_used = result.gas_used;
         }
 
         try {
@@ -47,9 +48,10 @@ void TxExecution::simulate(const Tx& tx)
             // App logic.
             for (const auto& call : tx.appLogicEnqueuedCalls) {
                 info("[APP_LOGIC] Executing enqueued call to ", call.contractAddress);
-                auto context =
-                    make_enqueued_context(call.contractAddress, call.msgSender, call.calldata, call.isStaticCall);
-                call_execution.execute(std::move(context));
+                auto context = make_enqueued_context(
+                    call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
+                ExecutionResult result = call_execution.execute(std::move(context));
+                gas_used = result.gas_used;
             }
         } catch (const std::exception& e) {
             // TODO: revert the checkpoint.
@@ -63,7 +65,9 @@ void TxExecution::simulate(const Tx& tx)
                 auto context = make_enqueued_context(tx.teardownEnqueuedCall->contractAddress,
                                                      tx.teardownEnqueuedCall->msgSender,
                                                      tx.teardownEnqueuedCall->calldata,
-                                                     tx.teardownEnqueuedCall->isStaticCall);
+                                                     tx.teardownEnqueuedCall->isStaticCall,
+                                                     tx.gasSettings.teardownGasLimits,
+                                                     Gas{ 0, 0 });
                 call_execution.execute(std::move(context));
             } catch (const std::exception& e) {
                 info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());

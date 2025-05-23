@@ -175,10 +175,6 @@ TEST(ExecutionTraceGenTest, Gas)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    // Some inputs
-    ExecInstructionSpec spec = {
-        .num_addresses = 3, .gas_cost = { .base_l2 = AVM_ADD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 }
-    };
     // Use the instruction builder - we can make the operands more complex
     const auto instr = InstructionBuilder(WireOpCode::ADD_8)
                            // All operands are direct - for simplicity
@@ -188,10 +184,9 @@ TEST(ExecutionTraceGenTest, Gas)
                            .build();
     simulation::AddressingEvent addressing_event{
         .instruction = instr,
-        .spec = &spec,
     };
 
-    auto ex_event = simulation::ExecutionEvent::allocate();
+    simulation::ExecutionEvent ex_event;
     ex_event.inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) };
     ex_event.output = { TaggedValue::from_tag(ValueTag::U16, 8) };
     ex_event.opcode = ExecutionOpCode::ADD;
@@ -202,8 +197,8 @@ TEST(ExecutionTraceGenTest, Gas)
     Gas base_gas = { .l2Gas = 150, .daGas = 5000 };
     Gas dynamic_gas = { .l2Gas = 10000, .daGas = 9000 };
 
-    ex_event.context_event.gas_limit = gas_limit; // Will OOG on l2 after dynamic gas
-    ex_event.gas_event.prev_gas_used = prev_gas_used;
+    ex_event.after_context_event.gas_limit = gas_limit; // Will OOG on l2 after dynamic gas
+    ex_event.before_context_event.gas_used = prev_gas_used;
     ex_event.gas_event.opcode_gas = 100;
     ex_event.gas_event.addressing_gas = 50;
     ex_event.gas_event.base_gas = base_gas;
@@ -236,7 +231,7 @@ TEST(ExecutionTraceGenTest, Gas)
                       Contains(Field(&R::execution_out_of_gas_dynamic, true))));
 
     // Test the comparisons
-    Gas gas_used_after_base = ex_event.gas_event.prev_gas_used + ex_event.gas_event.base_gas;
+    Gas gas_used_after_base = ex_event.before_context_event.gas_used + ex_event.gas_event.base_gas;
 
     uint32_t limit_used_l2_base_cmp_diff = gas_limit.l2Gas - gas_used_after_base.l2Gas;
     uint32_t limit_used_da_base_cmp_diff = gas_limit.daGas - gas_used_after_base.daGas;

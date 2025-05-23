@@ -5,9 +5,14 @@
 
 namespace bb::avm2::simulation {
 
+void GasTracker::set_instruction(const Instruction& instruction)
+{
+    this->instruction = instruction;
+}
+
 void GasTracker::consume_base_gas()
 {
-    gas_event.prev_gas_used = context.get_gas_used();
+    Gas prev_gas_used = context.get_gas_used();
 
     ExecutionOpCode exec_opcode = instruction_info_db.get(instruction.opcode).exec_opcode;
     const ExecInstructionSpec& spec = instruction_info_db.get(exec_opcode);
@@ -22,7 +27,7 @@ void GasTracker::consume_base_gas()
 
     Gas gas_limit = context.get_gas_limit();
 
-    Gas gas_used = gas_event.prev_gas_used + gas_event.base_gas;
+    Gas gas_used = prev_gas_used + gas_event.base_gas;
 
     gas_event.oog_l2_base = gas_used.l2Gas > gas_limit.l2Gas;
     gas_event.oog_da_base = gas_used.daGas > gas_limit.daGas;

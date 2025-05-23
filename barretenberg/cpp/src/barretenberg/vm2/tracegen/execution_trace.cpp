@@ -245,7 +245,7 @@ void ExecutionTraceBuilder::process(
             } });
 
         // Base gas
-        Gas gas_used_after_base = ex_event.gas_event.prev_gas_used + ex_event.gas_event.base_gas;
+        Gas gas_used_after_base = ex_event.before_context_event.gas_used + ex_event.gas_event.base_gas;
 
         uint32_t limit_used_l2_base_cmp_diff =
             gas_comparison_witness(ex_event.after_context_event.gas_limit.l2Gas, gas_used_after_base.l2Gas);
@@ -284,8 +284,8 @@ void ExecutionTraceBuilder::process(
                 { C::execution_out_of_gas_l2_base, ex_event.gas_event.oog_l2_base },
                 { C::execution_out_of_gas_da_base, ex_event.gas_event.oog_da_base },
                 { C::execution_out_of_gas_base, ex_event.gas_event.oog_l2_base || ex_event.gas_event.oog_da_base },
-                { C::execution_prev_l2_gas_used, ex_event.gas_event.prev_gas_used.l2Gas },
-                { C::execution_prev_da_gas_used, ex_event.gas_event.prev_gas_used.daGas },
+                { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
+                { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
                 { C::execution_limit_used_l2_base_cmp_diff, limit_used_l2_base_cmp_diff },
                 { C::execution_limit_used_l2_base_cmp_diff_lo, limit_used_l2_base_cmp_diff_lo },
                 { C::execution_limit_used_l2_base_cmp_diff_hi, limit_used_l2_base_cmp_diff_hi },

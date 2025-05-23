@@ -16,6 +16,7 @@
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -26,6 +27,7 @@ namespace bb::avm2::simulation {
 struct ExecutionResult {
     MemoryAddress rd_offset;
     MemoryAddress rd_size;
+    Gas gas_used;
     bool success;
 };
 
@@ -80,6 +82,15 @@ class Execution : public ExecutionInterface {
     const std::vector<TaggedValue>& get_inputs() const { return inputs; }
     const TaggedValue& get_output() const { return output; }
 
+    void init_gas_tracker(ContextInterface& context) { gas_tracker = execution_components.make_gas_tracker(context); }
+    GasTrackerInterface& get_gas_tracker() { return *gas_tracker; }
+    GasEvent finish_gas_tracker()
+    {
+        GasEvent event = gas_tracker->finish();
+        gas_tracker = nullptr;
+        return event;
+    }
+
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
     ExecutionResult get_execution_result() const { return exec_result; }
@@ -107,6 +118,7 @@ class Execution : public ExecutionInterface {
     std::stack<std::unique_ptr<ContextInterface>> external_call_stack;
     std::vector<TaggedValue> inputs;
     TaggedValue output;
+    std::unique_ptr<GasTrackerInterface> gas_tracker;
 };
 
 } // namespace bb::avm2::simulation

@@ -9,6 +9,7 @@ namespace bb::avm2::simulation {
 class GasTrackerInterface {
   public:
     virtual ~GasTrackerInterface() = default;
+    virtual void set_instruction(const Instruction& instruction) = 0;
     // @throws OutOfGasException.
     virtual void consume_base_gas() = 0;
     // @throws OutOfGasException.
@@ -20,14 +21,12 @@ class GasTrackerInterface {
 
 class GasTracker final : public GasTrackerInterface {
   public:
-    GasTracker(const InstructionInfoDBInterface& instruction_info_db,
-               ContextInterface& context,
-               const Instruction& instruction)
+    GasTracker(const InstructionInfoDBInterface& instruction_info_db, ContextInterface& context)
         : instruction_info_db(instruction_info_db)
         , context(context)
-        , instruction(instruction)
     {}
 
+    void set_instruction(const Instruction& instruction) override;
     void consume_base_gas() override;
     void consume_dynamic_gas(Gas dynamic_gas_factor) override;
     GasEvent finish() override;
@@ -35,7 +34,7 @@ class GasTracker final : public GasTrackerInterface {
   private:
     const InstructionInfoDBInterface& instruction_info_db;
     ContextInterface& context;
-    const Instruction& instruction;
+    Instruction instruction;
     GasEvent gas_event = {};
 };
 

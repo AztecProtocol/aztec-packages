@@ -29,8 +29,10 @@ class GasTrackerTest : public ::testing::Test {
 
 TEST_F(GasTrackerTest, BaseGasConsumption)
 {
+    GasTracker tracker(instruction_info_db, context);
+
     instruction.opcode = WireOpCode::SET_8;
-    GasTracker tracker(instruction_info_db, context, instruction);
+    tracker.set_instruction(instruction);
 
     // Test base gas consumption
     EXPECT_CALL(context, get_gas_used());
@@ -45,7 +47,9 @@ TEST_F(GasTrackerTest, AddressingGasConsumption)
     instruction.opcode = WireOpCode::SET_8;
     // Indirect and relative
     instruction.indirect = 0b11;
-    GasTracker tracker(instruction_info_db, context, instruction);
+    GasTracker tracker(instruction_info_db, context);
+
+    tracker.set_instruction(instruction);
 
     // Test base gas consumption
     EXPECT_CALL(context, get_gas_used());
@@ -58,7 +62,9 @@ TEST_F(GasTrackerTest, AddressingGasConsumption)
 TEST_F(GasTrackerTest, OutOfGasBase)
 {
     instruction.opcode = WireOpCode::SET_8;
-    GasTracker tracker(instruction_info_db, context, instruction);
+    GasTracker tracker(instruction_info_db, context);
+
+    tracker.set_instruction(instruction);
 
     // Set up context to be near gas limit
     EXPECT_CALL(context, get_gas_used()).WillOnce(testing::Return(Gas{ 999, 450 }));
@@ -71,7 +77,9 @@ TEST_F(GasTrackerTest, OutOfGasBase)
 TEST_F(GasTrackerTest, DynamicGasConsumption)
 {
     instruction.opcode = WireOpCode::CALLDATACOPY;
-    GasTracker tracker(instruction_info_db, context, instruction);
+    GasTracker tracker(instruction_info_db, context);
+
+    tracker.set_instruction(instruction);
 
     EXPECT_CALL(context, get_gas_used());
     EXPECT_CALL(context, get_gas_limit());
@@ -83,7 +91,9 @@ TEST_F(GasTrackerTest, DynamicGasConsumption)
 TEST_F(GasTrackerTest, OutOfGasDynamicPhase)
 {
     instruction.opcode = WireOpCode::CALLDATACOPY;
-    GasTracker tracker(instruction_info_db, context, instruction);
+    GasTracker tracker(instruction_info_db, context);
+
+    tracker.set_instruction(instruction);
 
     EXPECT_CALL(context, get_gas_used()).WillOnce(testing::Return(Gas{ 999, 450 }));
     EXPECT_CALL(context, get_gas_limit()).WillOnce(testing::Return(Gas{ 1000, 500 }));
@@ -102,7 +112,9 @@ TEST_F(GasTrackerTest, GasEvent)
     EXPECT_CALL(context,
                 set_gas_used(Gas{ AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect), 0 }));
 
-    GasTracker tracker(instruction_info_db, context, instruction);
+    GasTracker tracker(instruction_info_db, context);
+    tracker.set_instruction(instruction);
+
     tracker.consume_base_gas();
 
     EXPECT_CALL(context, get_gas_used())
@@ -118,7 +130,6 @@ TEST_F(GasTrackerTest, GasEvent)
 
     EXPECT_EQ(tracker.finish(),
               (GasEvent{
-                  .prev_gas_used = (Gas{ 0, 0 }),
                   .opcode_gas = AVM_CALLDATACOPY_BASE_L2_GAS,
                   .addressing_gas = compute_addressing_gas(instruction.indirect),
                   .base_gas = (Gas{ AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect), 0 }),
