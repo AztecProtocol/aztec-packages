@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
+#include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
@@ -32,6 +33,8 @@ struct ExecutionEvent {
     AddressingEvent addressing_event;
     ContextEvent before_context_event; // FIXME: currently unused (also might be overkill).
     ContextEvent after_context_event;
+
+    GasEvent gas_event;
 };
 
 } // namespace bb::avm2::simulation
