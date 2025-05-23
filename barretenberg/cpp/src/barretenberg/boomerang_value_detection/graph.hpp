@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <list>
 #include <set>
