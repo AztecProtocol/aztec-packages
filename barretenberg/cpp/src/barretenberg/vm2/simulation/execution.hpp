@@ -75,22 +75,6 @@ class Execution : public ExecutionInterface {
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
 
-    // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
-    // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
-    void set_inputs(std::vector<TaggedValue> inputs) { this->inputs = std::move(inputs); }
-    void set_output(TaggedValue output) { this->output = std::move(output); }
-    const std::vector<TaggedValue>& get_inputs() const { return inputs; }
-    const TaggedValue& get_output() const { return output; }
-
-    void init_gas_tracker(ContextInterface& context) { gas_tracker = execution_components.make_gas_tracker(context); }
-    GasTrackerInterface& get_gas_tracker() { return *gas_tracker; }
-    GasEvent finish_gas_tracker()
-    {
-        GasEvent event = gas_tracker->finish();
-        gas_tracker = nullptr;
-        return event;
-    }
-
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
     ExecutionResult get_execution_result() const { return exec_result; }
@@ -105,6 +89,17 @@ class Execution : public ExecutionInterface {
 
     void handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context);
     void handle_exit_call();
+
+    // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
+    // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
+    void set_inputs(std::vector<TaggedValue> inputs) { this->inputs = std::move(inputs); }
+    void set_output(TaggedValue output) { this->output = std::move(output); }
+    const std::vector<TaggedValue>& get_inputs() const { return inputs; }
+    const TaggedValue& get_output() const { return output; }
+
+    void init_gas_tracker(ContextInterface& context);
+    GasTrackerInterface& get_gas_tracker();
+    GasEvent finish_gas_tracker();
 
     ExecutionComponentsProviderInterface& execution_components;
     const InstructionInfoDBInterface& instruction_info_db;

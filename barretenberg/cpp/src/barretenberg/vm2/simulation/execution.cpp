@@ -285,4 +285,24 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
     }(operand_indices);
 }
 
+void Execution::init_gas_tracker(ContextInterface& context)
+{
+    assert(gas_tracker == nullptr);
+    gas_tracker = execution_components.make_gas_tracker(context);
+}
+
+GasTrackerInterface& Execution::get_gas_tracker()
+{
+    assert(gas_tracker != nullptr);
+    return *gas_tracker;
+}
+
+GasEvent Execution::finish_gas_tracker()
+{
+    assert(gas_tracker != nullptr);
+    GasEvent event = gas_tracker->finish();
+    gas_tracker = nullptr;
+    return event;
+}
+
 } // namespace bb::avm2::simulation
