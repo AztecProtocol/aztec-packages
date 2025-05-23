@@ -243,13 +243,8 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
   });
 
-  it('getPrivateLogsByTags', async () => {
-    const response = await context.client.getPrivateLogsByTags([Fr.random()]);
-    expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
-  });
-
-  it('getPublicLogsByTagsFromContract', async () => {
-    const response = await context.client.getPublicLogsByTagsFromContract([Fr.random()], await AztecAddress.random());
+  it('getLogsByTags', async () => {
+    const response = await context.client.getLogsByTags([Fr.random()]);
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
@@ -582,15 +577,10 @@ class MockAztecNode implements AztecNode {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
-  async getPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(Fr);
-    return [[await TxScopedL2Log.random(false)]];
-  }
-  async getPublicLogsByTagsFromContract(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    expect(tags).toHaveLength(1);
-    expect(tags[0]).toBeInstanceOf(Fr);
-    return [[await TxScopedL2Log.random(true)]];
+    return [[await TxScopedL2Log.random()]];
   }
   sendTx(tx: Tx): Promise<void> {
     expect(tx).toBeInstanceOf(Tx);

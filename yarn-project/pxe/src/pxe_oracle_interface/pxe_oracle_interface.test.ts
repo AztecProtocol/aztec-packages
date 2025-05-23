@@ -147,7 +147,7 @@ describe('PXEOracleInterface', () => {
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
 
       // Set up the getPrivateLogsByTags mock
-      aztecNode.getPrivateLogsByTags.mockImplementation(tags => {
+      aztecNode.getLogsByTags.mockImplementation(tags => {
         return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
       });
     }
@@ -167,7 +167,7 @@ describe('PXEOracleInterface', () => {
       for (const sender of senders) {
         await taggingDataProvider.addSenderAddress(sender.completeAddress.address);
       }
-      aztecNode.getPrivateLogsByTags.mockReset();
+      aztecNode.getLogsByTags.mockReset();
       aztecNode.getTxEffect.mockResolvedValue({
         ...randomInBlock(await TxEffect.random()),
         txIndexInBlock: 0,
@@ -202,7 +202,7 @@ describe('PXEOracleInterface', () => {
 
       // We should have called the node 2 times:
       // 2 times: first time during initial request, second time after pushing the edge of the window once
-      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBe(2);
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
     });
 
     it('should sync tagged logs as senders', async () => {
@@ -236,7 +236,7 @@ describe('PXEOracleInterface', () => {
       const indexesAsSender = await getTaggingSecretsIndexesAsSenderForSenders();
       expect(indexesAsSender).toStrictEqual([[0], [0], [0], [0], [0], [0], [0], [0], [0], [0]]);
 
-      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBe(0);
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(0);
 
       for (let i = 0; i < senders.length; i++) {
         await pxeOracleInterface.syncTaggedLogsAsSender(
@@ -250,8 +250,8 @@ describe('PXEOracleInterface', () => {
       expect(indexesAsSenderAfterSync).toStrictEqual([[1], [1], [1], [1], [1], [2], [2], [2], [2], [2]]);
 
       // Only 1 window is obtained for each sender
-      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBe(NUM_SENDERS);
-      aztecNode.getPrivateLogsByTags.mockReset();
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS);
+      aztecNode.getLogsByTags.mockReset();
 
       // We add more logs to the second half of the window to test that a second iteration in `syncTaggedLogsAsSender`
       // is handled correctly.
@@ -268,7 +268,7 @@ describe('PXEOracleInterface', () => {
       indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
       expect(indexesAsSenderAfterSync).toStrictEqual([[12], [12], [12], [12], [12], [13], [13], [13], [13], [13]]);
 
-      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
     });
 
     it('should sync tagged logs with a sender index offset', async () => {
@@ -298,7 +298,7 @@ describe('PXEOracleInterface', () => {
 
       // We should have called the node 2 times:
       // 2 times: first time during initial request, second time after pushing the edge of the window once
-      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBe(2);
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
     });
 
     it("should sync tagged logs for which indexes are not updated if they're inside the window", async () => {
@@ -335,7 +335,7 @@ describe('PXEOracleInterface', () => {
 
       // We should have called the node 2 times:
       // first time during initial request, second time after pushing the edge of the window once
-      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBe(2);
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
     });
 
     it("should not sync tagged logs for which indexes are not updated if they're outside the window", async () => {
@@ -371,7 +371,7 @@ describe('PXEOracleInterface', () => {
       expect(indexes).toEqual([index, index, index, index, index, index, index, index, index, index]);
 
       // We should have called the node once and that is only for the first window
-      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBe(1);
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1);
     });
 
     it('should sync tagged logs from scratch after a DB wipe', async () => {
@@ -398,9 +398,9 @@ describe('PXEOracleInterface', () => {
 
       // Since no logs were synced, window edge hash not been pushed and for this reason we should have called
       // the node only once for the initial window
-      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBe(1);
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1);
 
-      aztecNode.getPrivateLogsByTags.mockClear();
+      aztecNode.getLogsByTags.mockClear();
 
       // Wipe the database
       await taggingDataProvider.resetNoteSyncData();
@@ -417,7 +417,7 @@ describe('PXEOracleInterface', () => {
 
       // We should have called the node 2 times:
       // first time during initial request, second time after pushing the edge of the window once
-      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBe(2);
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
     });
 
     it('should not sync tagged logs with a blockNumber larger than the block number to which PXE is synced', async () => {
@@ -616,12 +616,12 @@ describe('PXEOracleInterface', () => {
     const tag = Fr.random();
 
     beforeEach(() => {
-      aztecNode.getPublicLogsByTagsFromContract.mockReset();
+      aztecNode.getLogsByTags.mockReset();
       aztecNode.getTxEffect.mockReset();
     });
 
     it('returns null if no logs found for tag', async () => {
-      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[]]);
+      aztecNode.getLogsByTags.mockResolvedValue([[]]);
 
       const result = await pxeOracleInterface.getPublicLogByTagFromContract(tag, contractAddress);
       expect(result).toBeNull();
@@ -631,7 +631,7 @@ describe('PXEOracleInterface', () => {
       const scopedLog = await TxScopedL2Log.random(true);
       const logContractAddress = (scopedLog.log as PublicLog).contractAddress;
 
-      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[scopedLog]]);
+      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
       const indexedTxEffect = await randomIndexedTxEffect();
       aztecNode.getTxEffect.mockImplementation((txHash: TxHash) =>
         txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
@@ -644,13 +644,13 @@ describe('PXEOracleInterface', () => {
       expect(result.txHash).toEqual(scopedLog.txHash);
       expect(result.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);
 
-      expect(aztecNode.getPublicLogsByTagsFromContract).toHaveBeenCalledWith([tag], logContractAddress);
+      expect(aztecNode.getLogsByTags).toHaveBeenCalledWith([tag]);
       expect(aztecNode.getTxEffect).toHaveBeenCalledWith(scopedLog.txHash);
     });
 
     it('throws if multiple logs found for tag', async () => {
       const scopedLog = await TxScopedL2Log.random(true);
-      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[scopedLog, scopedLog]]);
+      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog, scopedLog]]);
 
       await expect(pxeOracleInterface.getPublicLogByTagFromContract(tag, contractAddress)).rejects.toThrow(
         /Got 2 logs for tag/,
@@ -659,7 +659,7 @@ describe('PXEOracleInterface', () => {
 
     it('throws if tx effect not found', async () => {
       const scopedLog = await TxScopedL2Log.random(true);
-      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[scopedLog]]);
+      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
       aztecNode.getTxEffect.mockResolvedValue(undefined);
 
       await expect(pxeOracleInterface.getPublicLogByTagFromContract(tag, contractAddress)).rejects.toThrow(
@@ -683,7 +683,7 @@ describe('PXEOracleInterface', () => {
         log,
       );
 
-      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[scopedLogWithPadding]]);
+      aztecNode.getLogsByTags.mockResolvedValue([[scopedLogWithPadding]]);
       aztecNode.getTxEffect.mockResolvedValue(await randomIndexedTxEffect());
 
       const result = await pxeOracleInterface.getPublicLogByTagFromContract(tag, contractAddress);

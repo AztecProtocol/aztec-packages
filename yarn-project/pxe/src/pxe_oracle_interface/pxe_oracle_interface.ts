@@ -392,7 +392,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       });
 
       // We fetch the logs for the tags
-      const possibleLogs = await this.aztecNode.getPrivateLogsByTags(currentTags);
+      const possibleLogs = await this.#getPrivateLogsByTags(currentTags);
 
       // We find the index of the last log in the window that is not empty
       const indexOfLastLog = possibleLogs.findLastIndex(possibleLog => possibleLog.length !== 0);
@@ -491,7 +491,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         const newLargestIndexMapForIteration: { [k: string]: number } = {};
 
         // Fetch the private logs for the tags and iterate over them
-        const logsByTags = await this.aztecNode.getPrivateLogsByTags(tagsForTheWholeWindow);
+        const logsByTags = await this.#getPrivateLogsByTags(tagsForTheWholeWindow);
 
         for (let logIndex = 0; logIndex < logsByTags.length; logIndex++) {
           const logsByTag = logsByTags[logIndex];
@@ -698,7 +698,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     tag: Fr,
     contractAddress: AztecAddress,
   ): Promise<PublicLogWithTxData | null> {
-    const logs = await this.aztecNode.getPublicLogsByTagsFromContract([tag], contractAddress);
+    const logs = await this.#getPublicLogsByTagsFromContract([tag], contractAddress);
     const logsForTag = logs[0];
 
     this.log.debug(`Got ${logsForTag.length} logs for tag ${tag}`);
@@ -827,6 +827,23 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       logIndexInTx,
       txIndexInBlock,
       blockNumber,
+    );
+  }
+
+  // TODO: Make this a public function on the AztecNode interface and remove the original getLogsByTags. This was not
+  // done yet as we were unsure about the API and we didn't want to introduce a breaking change.
+  async #getPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+    const allLogs = await this.aztecNode.getLogsByTags(tags);
+    return allLogs.map(logs => logs.filter(log => !log.isFromPublic));
+  }
+
+  // TODO: Make this a public function on the AztecNode interface and remove the original getLogsByTags. This was not
+  // done yet as we were unsure about the API and we didn't want to introduce a breaking change.
+  async #getPublicLogsByTagsFromContract(tags: Fr[], contractAddress: AztecAddress): Promise<TxScopedL2Log[][]> {
+    const allLogs = await this.aztecNode.getLogsByTags(tags);
+    const allPublicLogs = allLogs.map(logs => logs.filter(log => log.isFromPublic));
+    return allPublicLogs.map(logs =>
+      logs.filter(log => (log.log as PublicLog).contractAddress.equals(contractAddress)),
     );
   }
 }
