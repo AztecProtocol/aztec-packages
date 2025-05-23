@@ -253,7 +253,7 @@ pub contract Token {
     /// Transfers tokens from private balance of `from` to public balance of `to` and prepares a partial note for
     /// receiving change for `from`.
     ///
-    /// This is an optimization that combines two operations into one to reduce kernel iterations:
+    /// This is an optimization that combines two operations into one to reduce contract calls:
     /// 1. Transfers `amount` tokens from `from`'s private balance to `to`'s public balance
     /// 2. Creates a partial note that can later be used to receive change back to `from`'s private balance
     ///
