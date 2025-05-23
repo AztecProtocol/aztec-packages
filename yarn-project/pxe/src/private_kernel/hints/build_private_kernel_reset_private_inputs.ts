@@ -170,13 +170,13 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
     this.reduceReadRequestStates(
       this.noteHashResetStates,
-      dimensions.NOTE_HASH_PENDING_AMOUNT,
-      dimensions.NOTE_HASH_SETTLED_AMOUNT,
+      dimensions.NOTE_HASH_PENDING_READ,
+      dimensions.NOTE_HASH_SETTLED_READ,
     );
     this.reduceReadRequestStates(
       this.nullifierResetStates,
-      dimensions.NULLIFIER_PENDING_AMOUNT,
-      dimensions.NULLIFIER_SETTLED_AMOUNT,
+      dimensions.NULLIFIER_PENDING_READ,
+      dimensions.NULLIFIER_SETTLED_READ,
     );
 
     return new PrivateKernelResetCircuitPrivateInputs(
@@ -196,7 +196,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
         ),
         await getMasterSecretKeysAndAppKeyGenerators(
           this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators,
-          dimensions.NULLIFIER_KEYS,
+          dimensions.KEY_VALIDATION,
           oracle,
         ),
         this.transientDataIndexHints,
@@ -262,19 +262,19 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
     if (!this.nextIteration) {
       this.noteHashResetStates = resetStates;
-      this.requestedDimensions.NOTE_HASH_PENDING_AMOUNT = numPendingReads;
-      this.requestedDimensions.NOTE_HASH_SETTLED_AMOUNT = numSettledReads;
+      this.requestedDimensions.NOTE_HASH_PENDING_READ = numPendingReads;
+      this.requestedDimensions.NOTE_HASH_SETTLED_READ = numSettledReads;
     } else {
       // Pick only one dimension to reset if next iteration is not empty.
       if (numPendingReads > numSettledReads) {
-        this.requestedDimensions.NOTE_HASH_PENDING_AMOUNT = numPendingReads;
+        this.requestedDimensions.NOTE_HASH_PENDING_READ = numPendingReads;
         this.noteHashResetStates.states = assertLength(
           resetStates.states.map(state => (state === ReadRequestState.PENDING ? state : ReadRequestState.NADA)),
           MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
         );
         this.noteHashResetStates.pendingReadHints = resetStates.pendingReadHints;
       } else {
-        this.requestedDimensions.NOTE_HASH_SETTLED_AMOUNT = numSettledReads;
+        this.requestedDimensions.NOTE_HASH_SETTLED_READ = numSettledReads;
         this.noteHashResetStates.states = assertLength(
           resetStates.states.map(state => (state === ReadRequestState.SETTLED ? state : ReadRequestState.NADA)),
           MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -314,19 +314,19 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
     if (!this.nextIteration) {
       this.nullifierResetStates = resetStates;
-      this.requestedDimensions.NULLIFIER_PENDING_AMOUNT = numPendingReads;
-      this.requestedDimensions.NULLIFIER_SETTLED_AMOUNT = numSettledReads;
+      this.requestedDimensions.NULLIFIER_PENDING_READ = numPendingReads;
+      this.requestedDimensions.NULLIFIER_SETTLED_READ = numSettledReads;
     } else {
       // Pick only one dimension to reset if next iteration is not empty.
       if (numPendingReads > numSettledReads) {
-        this.requestedDimensions.NULLIFIER_PENDING_AMOUNT = numPendingReads;
+        this.requestedDimensions.NULLIFIER_PENDING_READ = numPendingReads;
         this.nullifierResetStates.states = assertLength(
           resetStates.states.map(state => (state === ReadRequestState.PENDING ? state : ReadRequestState.NADA)),
           MAX_NULLIFIER_READ_REQUESTS_PER_TX,
         );
         this.nullifierResetStates.pendingReadHints = resetStates.pendingReadHints;
       } else {
-        this.requestedDimensions.NULLIFIER_SETTLED_AMOUNT = numSettledReads;
+        this.requestedDimensions.NULLIFIER_SETTLED_READ = numSettledReads;
         this.nullifierResetStates.states = assertLength(
           resetStates.states.map(state => (state === ReadRequestState.SETTLED ? state : ReadRequestState.NADA)),
           MAX_NULLIFIER_READ_REQUESTS_PER_TX,
@@ -349,7 +349,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       return false;
     }
 
-    this.requestedDimensions.NULLIFIER_KEYS = numCurr;
+    this.requestedDimensions.KEY_VALIDATION = numCurr;
 
     return true;
   }
@@ -426,7 +426,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
     this.numTransientData = numTransientData;
     this.transientDataIndexHints = transientDataIndexHints;
-    this.requestedDimensions.TRANSIENT_DATA_AMOUNT = numTransientData;
+    this.requestedDimensions.TRANSIENT_DATA_SQUASHING = numTransientData;
 
     return numTransientData > 0;
   }
@@ -438,7 +438,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
     const numNoteHashes = this.previousKernel.end.noteHashes.filter(n => !n.contractAddress.isZero()).length;
     const numToSilo = Math.max(0, numNoteHashes - this.numTransientData);
-    this.requestedDimensions.NOTE_HASH_SILOING_AMOUNT = numToSilo;
+    this.requestedDimensions.NOTE_HASH_SILOING = numToSilo;
 
     return numToSilo > 0;
   }
@@ -454,7 +454,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     // The reset circuit checks that capped_size must be greater than or equal to all non-empty nullifiers.
     // Which includes the first nullifier, even though its contract address is always zero and doesn't need siloing.
     const cappedSize = numToSilo ? numToSilo + 1 : 0;
-    this.requestedDimensions.NULLIFIER_SILOING_AMOUNT = cappedSize;
+    this.requestedDimensions.NULLIFIER_SILOING = cappedSize;
 
     return numToSilo > 0;
   }
@@ -474,7 +474,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     const numSquashedLogs = privateLogs.filter(l => squashedNoteHashCounters.includes(l.inner.noteHashCounter)).length;
 
     const numToSilo = numLogs - numSquashedLogs;
-    this.requestedDimensions.PRIVATE_LOG_SILOING_AMOUNT = numToSilo;
+    this.requestedDimensions.PRIVATE_LOG_SILOING = numToSilo;
 
     return numToSilo > 0;
   }

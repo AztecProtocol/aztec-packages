@@ -807,23 +807,35 @@ export function mapPrivateKernelResetHintsToNoir<
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
-  NUM_TRANSIENT_DATA_HINTS extends number,
+  KEY_VALIDATION_HINTS_LEN extends number,
+  TRANSIENT_DATA_HINTS_LEN extends number,
 >(
   inputs: PrivateKernelResetHints<
     NH_RR_PENDING,
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
-    NUM_TRANSIENT_DATA_HINTS
+    KEY_VALIDATION_HINTS_LEN,
+    TRANSIENT_DATA_HINTS_LEN
   >,
-): PrivateKernelResetHintsNoir<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, NUM_TRANSIENT_DATA_HINTS> {
+): PrivateKernelResetHintsNoir<
+  NH_RR_PENDING,
+  NH_RR_SETTLED,
+  NLL_RR_PENDING,
+  NLL_RR_SETTLED,
+  KEY_VALIDATION_HINTS_LEN,
+  TRANSIENT_DATA_HINTS_LEN
+> {
   return {
     note_hash_read_request_hints: mapNoteHashReadRequestHintsToNoir(inputs.noteHashReadRequestHints),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
-    key_validation_hints: mapTuple(inputs.keyValidationHints, mapKeyValidationHintToNoir),
+    key_validation_hints: mapTuple(inputs.keyValidationHints, mapKeyValidationHintToNoir) as FixedLengthArray<
+      KeyValidationHintNoir,
+      KEY_VALIDATION_HINTS_LEN
+    >,
     transient_data_index_hints: inputs.transientDataIndexHints.map(mapTransientDataIndexHintToNoir) as FixedLengthArray<
       TransientDataIndexHintNoir,
-      NUM_TRANSIENT_DATA_HINTS
+      TRANSIENT_DATA_HINTS_LEN
     >,
     validation_requests_split_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
   };

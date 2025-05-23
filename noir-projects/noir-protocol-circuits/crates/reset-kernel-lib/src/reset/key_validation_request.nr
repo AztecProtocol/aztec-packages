@@ -48,18 +48,21 @@ fn verify_key_validation_request(
     );
 }
 
-// `num_key_validations` should be a known constant at compile time.
-pub fn verify_reset_key_validation_requests<let N: u32>(
-    key_validation_requests: [ScopedKeyValidationRequestAndGenerator; N],
-    hints: [KeyValidationHint; N],
-    num_key_validations: u32,
-    unverified_requests: [ScopedKeyValidationRequestAndGenerator; N],
+// `key_validation_amount` should be a known constant at compile time.
+pub fn verify_reset_key_validation_requests<let REQUESTS_LEN: u32, let HINTS_LEN: u32>(
+    key_validation_requests: [ScopedKeyValidationRequestAndGenerator; REQUESTS_LEN],
+    hints: [KeyValidationHint; HINTS_LEN],
+    key_validation_amount: u32,
+    unverified_requests: [ScopedKeyValidationRequestAndGenerator; REQUESTS_LEN],
 ) {
-    let mut should_verify = true;
-    for i in 0..N {
-        should_verify &= i != num_key_validations;
+    assert(
+        key_validation_amount <= HINTS_LEN,
+        "key_validation_amount cannot be greater than the hints array length",
+    );
+
+    for i in 0..REQUESTS_LEN {
         let request = key_validation_requests[i];
-        if should_verify {
+        if i < key_validation_amount {
             let hint = hints[i];
             if !is_empty(request.contract_address) {
                 verify_key_validation_request(request, hint.sk_m);
@@ -68,18 +71,18 @@ pub fn verify_reset_key_validation_requests<let N: u32>(
             // For each verified key validation request, an empty request is added to the unverified requests.
             // We need to make sure that the unverified requests are padded with empty requests, because the protocol
             // expects it to be a validated array ([...non_empty_items, ...empty_items]).
-            // This ensures that the new requests from later iterations are appended correctly without overriding
+            // This ensures that the new requests from later iterations are appended correctly and can't override the
             // previous values, and the result will still be a validated array.
-            // This will allow the tail kernels to simply check that the first request is empty to know that all the
+            // This will enable the tail kernels to simply check that the first request is empty to know that all the
             // requests are validated.
             assert(
-                is_empty(unverified_requests[N - i - 1]),
+                is_empty(unverified_requests[REQUESTS_LEN - i - 1]),
                 "unverified requests should be padded with empty requests",
             );
         } else {
             assert_eq(
                 request,
-                unverified_requests[i - num_key_validations],
+                unverified_requests[i - key_validation_amount],
                 "mismatch propagated key validation request",
             );
         }
@@ -88,11 +91,11 @@ pub fn verify_reset_key_validation_requests<let N: u32>(
 
 pub unconstrained fn get_unverified_key_validation_requests<let N: u32>(
     key_validation_requests: [ScopedKeyValidationRequestAndGenerator; N],
-    num_key_validations: u32,
+    key_validation_amount: u32,
 ) -> [ScopedKeyValidationRequestAndGenerator; N] {
     let mut propagated = [ScopedKeyValidationRequestAndGenerator::empty(); N];
-    for i in num_key_validations..N {
-        propagated[i - num_key_validations] = key_validation_requests[i];
+    for i in key_validation_amount..N {
+        propagated[i - key_validation_amount] = key_validation_requests[i];
     }
     propagated
 }
