@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { TxHash } from '@aztec/stdlib/tx';
 
 // TypeScript representation of the Noir aztec::oracle::message_discovery::PublicLogWithTxData struct. This is used as a
-// response for PXE's custom getPublicLogByTagForContract oracle.
+// response for PXE's custom getPublicLogByTagFromContract oracle.
 export class PublicLogWithTxData {
   constructor(
     // The emitted fields of a log.

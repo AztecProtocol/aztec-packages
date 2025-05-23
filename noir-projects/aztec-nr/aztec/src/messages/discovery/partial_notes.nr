@@ -4,7 +4,7 @@ use crate::{
         discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
     },
-    oracle::message_discovery::{deliver_note, get_public_log_by_tag_for_contract},
+    oracle::message_discovery::{deliver_note, get_public_log_by_tag_from_contract},
     utils::array,
 };
 
@@ -93,7 +93,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
     );
 
     pending_partial_notes.for_each(|i, pending_partial_note: DeliveredPendingPartialNote| {
-        let maybe_log = get_public_log_by_tag_for_contract(
+        let maybe_log = get_public_log_by_tag_from_contract(
             pending_partial_note.note_completion_log_tag,
             contract_address,
         );

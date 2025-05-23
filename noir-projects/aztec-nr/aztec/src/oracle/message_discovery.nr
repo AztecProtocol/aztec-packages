@@ -64,11 +64,11 @@ pub struct PublicLogWithTxData {
 /// Returns `Option::none` if no such log exists. Throws if more than one log with that tag exists.
 // TODO(#11627): handle multiple logs with the same tag.
 // TODO(#10273): improve contract siloing of logs, don't introduce an extra field.
-pub unconstrained fn get_public_log_by_tag_for_contract(
+pub unconstrained fn get_public_log_by_tag_from_contract(
     tag: Field,
     contract_address: AztecAddress,
 ) -> Option<PublicLogWithTxData> {
-    get_public_log_by_tag_for_contract_oracle(tag, contract_address)
+    get_public_log_by_tag_from_contract_oracle(tag, contract_address)
 }
 
 #[oracle(deliverNote)]
@@ -83,8 +83,8 @@ unconstrained fn deliver_note_oracle(
     recipient: AztecAddress,
 ) -> bool {}
 
-#[oracle(getPublicLogByTagForContract)]
-unconstrained fn get_public_log_by_tag_for_contract_oracle(
+#[oracle(getPublicLogByTagFromContract)]
+unconstrained fn get_public_log_by_tag_from_contract_oracle(
     tag: Field,
     contract_address: AztecAddress,
 ) -> Option<PublicLogWithTxData> {}
