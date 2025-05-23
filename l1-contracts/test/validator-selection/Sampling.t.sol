@@ -2,9 +2,11 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {Test} from "forge-std/Test.sol";
 
-import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
+// solhint-disable comprehensive-interface
+// solhint-disable func-name-mixedcase
 
 // Adding a contract to get some gas-numbers out.
 contract Sampler {
@@ -17,7 +19,7 @@ contract Sampler {
 }
 
 contract SamplingTest is Test {
-  Sampler sampler = new Sampler();
+  Sampler public sampler = new Sampler();
 
   function testSampleFuzz(uint8 _committeeSize, uint8 _validatorSetSize, uint256 _seed) public {
     vm.assume(_committeeSize <= _validatorSetSize);
@@ -48,5 +50,17 @@ contract SamplingTest is Test {
     assertEq(committee1, committee2);
     assertEq(committee1, committee3);
     assertEq(committee2, committee3);
+  }
+
+  function testSimpleSample() public {
+    bool saw1 = false;
+    for (uint256 i = 0; i < 1000; i++) {
+      uint256[] memory committee = sampler.computeCommittee(1, 2, i);
+      assertEq(committee.length, 1, "committee length is 1");
+      if (committee[0] == 1) {
+        saw1 = true;
+      }
+    }
+    assertEq(saw1, true, "should have seen 1");
   }
 }
