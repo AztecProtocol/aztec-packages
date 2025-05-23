@@ -11,6 +11,7 @@ import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { type ProverClientUserConfig, proverClientConfigMappings } from '@aztec/prover-client/config';
 import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
+import { type SlasherConfig, slasherConfigMappings } from '@aztec/slasher';
 import { type NodeRPCConfig, nodeRpcConfigMappings } from '@aztec/stdlib/config';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
@@ -33,7 +34,8 @@ export type AztecNodeConfig = ArchiverConfig &
   SentinelConfig &
   SharedNodeConfig &
   GenesisStateConfig &
-  NodeRPCConfig & {
+  NodeRPCConfig &
+  SlasherConfig & {
     /** L1 contracts addresses */
     l1Contracts: L1ContractAddresses;
     /** Whether the validator is disabled for this node */
@@ -52,6 +54,7 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...sharedNodeConfigMappings,
   ...genesisStateConfigMappings,
   ...nodeRpcConfigMappings,
+  ...slasherConfigMappings,
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
     nested: l1ContractAddressesMapping,
