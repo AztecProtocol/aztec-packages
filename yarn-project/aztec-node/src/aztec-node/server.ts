@@ -67,7 +67,7 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
@@ -472,10 +472,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return allLogs.map(logs => logs.filter(log => !log.isFromPublic));
   }
 
-  public async getPublicLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  public async getPublicLogsByTagsForContract(tags: Fr[], contractAddress: AztecAddress): Promise<TxScopedL2Log[][]> {
     const allLogs = await this.logsSource.getLogsByTags(tags);
-    // TODO(#14460): Have logSource implement getPublicLogsByTags and skip the filter here.
-    return allLogs.map(logs => logs.filter(log => log.isFromPublic));
+    // TODO(#14460): Have logSource implement getPublicLogsByTagsForContract and skip the filtering here.
+    const allPublicLogs = allLogs.map(logs => logs.filter(log => log.isFromPublic));
+    return allPublicLogs.filter(logs =>
+      logs.some(log => (log.log as PublicLog).contractAddress.equals(contractAddress)),
+    );
   }
 
   /**

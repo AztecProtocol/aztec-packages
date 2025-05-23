@@ -231,8 +231,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('deliverNote'));
   }
 
-  getPublicLogByTag(_tag: Fr): Promise<PublicLogWithTxData | null> {
-    throw new OracleMethodNotAvailableError('getPublicLogByTag');
+  getPublicLogByTagForContract(_tag: Fr, _contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
+    throw new OracleMethodNotAvailableError('getPublicLogByTagForContract');
   }
 
   storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {

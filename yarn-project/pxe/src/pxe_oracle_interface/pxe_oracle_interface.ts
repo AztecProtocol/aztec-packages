@@ -694,8 +694,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
   }
 
-  public async getPublicLogByTag(tag: Fr): Promise<PublicLogWithTxData | null> {
-    const logs = await this.aztecNode.getPublicLogsByTags([tag]);
+  public async getPublicLogByTagForContract(
+    tag: Fr,
+    contractAddress: AztecAddress,
+  ): Promise<PublicLogWithTxData | null> {
+    const logs = await this.aztecNode.getPublicLogsByTagsForContract([tag], contractAddress);
     const logsForTag = logs[0];
 
     this.log.debug(`Got ${logsForTag.length} logs for tag ${tag}`);
@@ -705,7 +708,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     } else if (logsForTag.length > 1) {
       // TODO(#11627): handle this case
       throw new Error(
-        `Got ${logsForTag.length} logs for tag ${tag}. getPublicLogByTag currently only supports a single log per tag`,
+        `Got ${logsForTag.length} logs for tag ${tag} and contract ${contractAddress.toString()}. getPublicLogByTagForContract currently only supports a single log per tag`,
       );
     }
 
