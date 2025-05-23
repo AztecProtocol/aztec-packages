@@ -44,7 +44,7 @@ library SampleLib {
     uint256 upperLimit = _indexCount - 1;
 
     for (uint256 index = 0; index < _committeeSize; index++) {
-      uint256 sampledIndex = computeSampleIndex(index, upperLimit, _seed);
+      uint256 sampledIndex = computeSampleIndex(index, upperLimit + 1, _seed);
 
       // Get index, or its swapped override
       sampledIndices[index] = getValue(sampledIndex);
