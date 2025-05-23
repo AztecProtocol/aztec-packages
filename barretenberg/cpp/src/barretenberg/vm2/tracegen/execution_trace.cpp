@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <ranges>
 #include <stdexcept>
+#include <sys/types.h>
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/zip_view.hpp"
@@ -24,19 +25,17 @@ constexpr size_t operand_columns = 7;
 // TODO: Currently we accept the execution opcode, we need a way to map this to the actual selector for the circuit
 // we should be able to leverage the instruction specification table for this
 void ExecutionTraceBuilder::process(
-    const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& orig_events, TraceContainer& trace)
+    const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& ex_events, TraceContainer& trace)
 {
     using C = Column;
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
 
-    // We need to sort the events by their order/sort id.
-    // We allocate a vector of pointers so that the sorting doesn't move the whole events around.
-    std::vector<const simulation::ExecutionEvent*> ex_events(orig_events.size());
-    std::transform(orig_events.begin(), orig_events.end(), ex_events.begin(), [](const auto& event) { return &event; });
-    std::ranges::sort(ex_events, [](const auto& lhs, const auto& rhs) { return lhs->order < rhs->order; });
+    // TODO: Compute success for the call opcodes.
 
-    for (const auto& ex_event_ptr : ex_events) {
-        const auto& ex_event = *ex_event_ptr;
+    uint32_t last_seen_parent_id = 0;
+    FF cached_parent_id_inv = 0;
+
+    for (const auto& ex_event : ex_events) {
         const auto& addr_event = ex_event.addressing_event;
 
         // TODO(ilyas): These operands will likely also need to obey the exec instruction spec, i.e. a SET will require
@@ -49,9 +48,14 @@ void ExecutionTraceBuilder::process(
         assert(resolved_operands.size() <= operand_columns);
         resolved_operands.resize(operand_columns, simulation::Operand::from<FF>(0));
 
+        // TODO: remove this once we support all opcodes.
+        bool ex_opcode_exists =
+            REGISTER_INFO_MAP.contains(ex_event.opcode) && SUBTRACE_INFO_MAP.contains(ex_event.opcode);
+
         std::array<TaggedValue, operand_columns> registers = {};
         size_t input_counter = 0;
-        auto register_info = REGISTER_INFO_MAP.at(ex_event.opcode);
+        auto register_info =
+            ex_opcode_exists ? REGISTER_INFO_MAP.at(ex_event.opcode) : REGISTER_INFO_MAP.at(ExecutionOpCode::ADD);
         for (uint8_t i = 0; i < operand_columns; ++i) {
             if (register_info.is_active(i)) {
                 if (register_info.is_write(i)) {
@@ -59,20 +63,54 @@ void ExecutionTraceBuilder::process(
                     registers[i] = ex_event.output;
                 } else {
                     // If this is a read operation, we need to get the value from the input.
-                    registers[i] = ex_event.inputs[input_counter++];
+                    auto input = ex_event.inputs.size() > input_counter ? ex_event.inputs[input_counter]
+                                                                        : TaggedValue::from<FF>(0);
+                    registers[i] = input;
+                    input_counter++;
                 }
             }
         }
-        const SubtraceInfo& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(ex_event.opcode);
+
+        const SubtraceInfo& dispatch_to_subtrace =
+            ex_opcode_exists ? SUBTRACE_INFO_MAP.at(ex_event.opcode) : SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD);
+
+        // Overly verbose but maximising readibility here
+        bool is_call = ex_event.opcode == ExecutionOpCode::CALL;
+        bool is_static_call = ex_event.opcode == ExecutionOpCode::STATICCALL;
+        bool is_return = ex_event.opcode == ExecutionOpCode::RETURN;
+        bool is_revert = ex_event.opcode == ExecutionOpCode::REVERT;
+        bool is_err = ex_event.error;
+        bool has_parent = ex_event.after_context_event.parent_id != 0;
+        bool sel_enter_call = (is_call || is_static_call) && !is_err;
+        bool sel_exit_call = is_return || is_revert || is_err;
+        bool nested_exit_call = sel_exit_call && has_parent;
+        // We rollback if we revert or error and we have a parent context.
+        bool rollback_context = (ex_event.opcode == ExecutionOpCode::REVERT || ex_event.error) && has_parent;
+
+        // Cache the parent id inversion since we will repeatedly just be doing the same expensive inversion
+        if (last_seen_parent_id != ex_event.after_context_event.parent_id) {
+            last_seen_parent_id = ex_event.after_context_event.parent_id;
+            cached_parent_id_inv = has_parent ? FF(ex_event.after_context_event.parent_id).invert() : 0;
+        }
 
         trace.set(
             row,
             { {
                 { C::execution_sel, 1 }, // active execution trace
                 { C::execution_ex_opcode, static_cast<size_t>(ex_event.opcode) },
-                { C::execution_sel_call, ex_event.opcode == ExecutionOpCode::CALL ? 1 : 0 },
-                { C::execution_sel_static_call, ex_event.opcode == ExecutionOpCode::STATICCALL ? 1 : 0 },
+                { C::execution_sel_call, is_call ? 1 : 0 },
+                { C::execution_sel_static_call, is_static_call ? 1 : 0 },
+                { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
+                { C::execution_sel_return, is_return ? 1 : 0 },
+                { C::execution_sel_revert, is_revert ? 1 : 0 },
+                { C::execution_sel_error, ex_event.error ? 1 : 0 },
+                { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
                 { C::execution_bytecode_id, ex_event.bytecode_id },
+                // Nested Context Control Flow
+                { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
+                { C::execution_is_parent_id_inv, cached_parent_id_inv },
+                { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
+                { C::execution_rollback_context, rollback_context ? 1 : 0 },
                 // Operands
                 { C::execution_op1, operands.at(0) },
                 { C::execution_op2, operands.at(1) },
@@ -135,6 +173,8 @@ void ExecutionTraceBuilder::process(
         assert(operands_after_relative.size() <= operand_columns);
         operands_after_relative.resize(operand_columns, simulation::Operand::from<FF>(0));
 
+        const ExecInstructionSpec& ex_spec = ex_opcode_exists ? EXEC_INSTRUCTION_SPEC.at(ex_event.opcode)
+                                                              : EXEC_INSTRUCTION_SPEC.at(ExecutionOpCode::ADD);
         // Addressing
         trace.set(
             row,
@@ -145,13 +185,13 @@ void ExecutionTraceBuilder::process(
                 { C::execution_addressing_error_idx, addr_event.error.has_value() ? addr_event.error->operand_idx : 0 },
                 { C::execution_addressing_error_kind,
                   addr_event.error.has_value() ? static_cast<size_t>(addr_event.error->error) : 0 },
-                { C::execution_sel_op1_is_address, addr_event.spec->num_addresses <= 1 ? 1 : 0 },
-                { C::execution_sel_op2_is_address, addr_event.spec->num_addresses <= 2 ? 1 : 0 },
-                { C::execution_sel_op3_is_address, addr_event.spec->num_addresses <= 3 ? 1 : 0 },
-                { C::execution_sel_op4_is_address, addr_event.spec->num_addresses <= 4 ? 1 : 0 },
-                { C::execution_sel_op5_is_address, addr_event.spec->num_addresses <= 5 ? 1 : 0 },
-                { C::execution_sel_op6_is_address, addr_event.spec->num_addresses <= 6 ? 1 : 0 },
-                { C::execution_sel_op7_is_address, addr_event.spec->num_addresses <= 7 ? 1 : 0 },
+                { C::execution_sel_op1_is_address, ex_spec.num_addresses <= 1 ? 1 : 0 },
+                { C::execution_sel_op2_is_address, ex_spec.num_addresses <= 2 ? 1 : 0 },
+                { C::execution_sel_op3_is_address, ex_spec.num_addresses <= 3 ? 1 : 0 },
+                { C::execution_sel_op4_is_address, ex_spec.num_addresses <= 4 ? 1 : 0 },
+                { C::execution_sel_op5_is_address, ex_spec.num_addresses <= 5 ? 1 : 0 },
+                { C::execution_sel_op6_is_address, ex_spec.num_addresses <= 6 ? 1 : 0 },
+                { C::execution_sel_op7_is_address, ex_spec.num_addresses <= 7 ? 1 : 0 },
                 // After Relative
                 { C::execution_op1_after_relative, operands_after_relative.at(0) },
                 { C::execution_op2_after_relative, operands_after_relative.at(1) },
@@ -163,22 +203,23 @@ void ExecutionTraceBuilder::process(
             } });
 
         // Context
-        trace.set(row,
-                  { {
-                      { C::execution_context_id, ex_event.context_event.id },
-                      { C::execution_parent_id, ex_event.context_event.parent_id },
-                      { C::execution_pc, ex_event.context_event.pc },
-                      { C::execution_next_pc, ex_event.context_event.next_pc },
-                      { C::execution_is_static, ex_event.context_event.is_static },
-                      { C::execution_msg_sender, ex_event.context_event.msg_sender },
-                      { C::execution_contract_address, ex_event.context_event.contract_addr },
-                      { C::execution_parent_calldata_offset_addr, ex_event.context_event.parent_cd_addr },
-                      { C::execution_parent_calldata_size_addr, ex_event.context_event.parent_cd_size_addr },
-                      { C::execution_last_child_returndata_offset_addr, ex_event.context_event.last_child_rd_addr },
-                      { C::execution_last_child_returndata_size_addr, ex_event.context_event.last_child_rd_size_addr },
-                      { C::execution_last_child_success, ex_event.context_event.last_child_success },
-                      { C::execution_next_context_id, ex_event.next_context_id },
-                  } });
+        trace.set(
+            row,
+            { {
+                { C::execution_context_id, ex_event.after_context_event.id },
+                { C::execution_parent_id, ex_event.after_context_event.parent_id },
+                { C::execution_pc, ex_event.before_context_event.pc },
+                { C::execution_next_pc, ex_event.after_context_event.pc },
+                { C::execution_is_static, ex_event.after_context_event.is_static },
+                { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
+                { C::execution_contract_address, ex_event.after_context_event.contract_addr },
+                { C::execution_parent_calldata_offset_addr, ex_event.after_context_event.parent_cd_addr },
+                { C::execution_parent_calldata_size_addr, ex_event.after_context_event.parent_cd_size_addr },
+                { C::execution_last_child_returndata_offset_addr, ex_event.after_context_event.last_child_rd_addr },
+                { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
+                { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
+                { C::execution_next_context_id, ex_event.next_context_id },
+            } });
 
         row++;
     }

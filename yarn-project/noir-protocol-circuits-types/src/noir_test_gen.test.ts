@@ -57,9 +57,8 @@ describe('Data generation for noir tests', () => {
     const contractClass: ContractClass = { ...contract, version: 1 };
     const contractClassId = await computeContractClassId(contractClass);
     const initializationHash = await computeInitializationHashFromEncodedArgs(constructorSelector, []);
-    const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } = await computeContractClassIdPreimage(
-      contractClass,
-    );
+    const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } =
+      await computeContractClassIdPreimage(contractClass);
     const deployer = AztecAddress.ZERO;
     const instance: ContractInstance = {
       ...contract,

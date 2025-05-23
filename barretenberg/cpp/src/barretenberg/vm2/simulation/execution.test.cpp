@@ -66,6 +66,7 @@ TEST_F(ExecutionSimulationTest, Call)
 
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
+    EXPECT_CALL(execution_components, get_next_context_id);
     EXPECT_CALL(context, get_parent_id);
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
@@ -83,12 +84,6 @@ TEST_F(ExecutionSimulationTest, Call)
 
     EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _))
         .WillOnce(Return(std::move(nested_context)));
-
-    // Back in parent context
-    EXPECT_CALL(context, set_child_context(_));
-    EXPECT_CALL(context, set_last_rd_offset(_));
-    EXPECT_CALL(context, set_last_rd_size(_));
-    EXPECT_CALL(context, set_last_success(_));
 
     execution.call(context,
                    /*l2_gas_offset=*/1,

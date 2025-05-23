@@ -647,7 +647,6 @@ export class TXE implements TypedOracle {
       counter,
     );
     this.sideEffectCounter = counter + 1;
-    return Promise.resolve();
   }
 
   async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
@@ -1162,7 +1161,7 @@ export class TXE implements TypedOracle {
     return await this.pxeOracleInterface.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  async syncNotes(pendingTaggedLogArrayBaseSlot: Fr) {
+  async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot);
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
@@ -1536,8 +1535,7 @@ export class TXE implements TypedOracle {
         padArrayEnd(l2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
         padArrayEnd(taggedPrivateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
         padArrayEnd(contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
-        // We need to reverse the public call requests because the public processor expects the first one at the top of the array (the last element)
-        padArrayEnd(publicCallRequests.reverse(), PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
+        padArrayEnd(publicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
       );
 
       inputsForPublic = new PartialPrivateTailPublicInputsForPublic(

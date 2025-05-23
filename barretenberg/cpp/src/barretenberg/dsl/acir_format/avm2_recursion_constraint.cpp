@@ -11,7 +11,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
@@ -81,8 +81,11 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
-    builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[0].witness_index);
-    offset = 1;
+    // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
+    // TODO(#14234)[Unconditional PIs validation]: Remove next line and use offset == 0 for subsequent line.
+    builder.assert_equal(builder.add_variable(1), proof_fields[0].witness_index);
+    builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[1].witness_index);
+    offset = 2; // TODO(#14234)[Unconditional PIs validation]: reset offset = 1
 
     // Witness Commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {

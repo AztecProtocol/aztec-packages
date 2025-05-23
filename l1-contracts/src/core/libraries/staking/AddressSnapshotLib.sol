@@ -211,4 +211,12 @@ library AddressSnapshotLib {
     }
     return vals;
   }
+
+  function contains(SnapshottedAddressSet storage _self, address _address)
+    internal
+    view
+    returns (bool)
+  {
+    return _self.addressToIndex[_address].exists;
+  }
 }

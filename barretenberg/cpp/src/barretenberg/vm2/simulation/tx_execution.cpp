@@ -17,34 +17,55 @@ void TxExecution::simulate(const Tx& tx)
     // TODO: This method is currently wrong. We need to lift the context to this level.
     // TODO: Checkpointing is not yet correctly implemented.
 
-    // Insert non-revertibles.
-    insert_non_revertibles(tx);
+    try {
+        // Insert non-revertibles.
+        insert_non_revertibles(tx);
 
-    // Setup.
-    for (const auto& call : tx.setupEnqueuedCalls) {
-        info("[SETUP] Executing enqueued call to ", call.contractAddress);
-        auto context = make_enqueued_context(call.contractAddress, call.msgSender, call.calldata, call.isStaticCall);
-        call_execution.execute(*context);
-    }
+        // Setup.
+        for (const auto& call : tx.setupEnqueuedCalls) {
+            info("[SETUP] Executing enqueued call to ", call.contractAddress);
+            auto context =
+                make_enqueued_context(call.contractAddress, call.msgSender, call.calldata, call.isStaticCall);
+            call_execution.execute(std::move(context));
+        }
 
-    // Insert revertibles.
-    insert_revertibles(tx);
+        try {
+            merkle_db.create_checkpoint();
 
-    // App logic.
-    for (const auto& call : tx.appLogicEnqueuedCalls) {
-        info("[APP_LOGIC] Executing enqueued call to ", call.contractAddress);
-        auto context = make_enqueued_context(call.contractAddress, call.msgSender, call.calldata, call.isStaticCall);
-        call_execution.execute(*context);
-    }
+            // Insert revertibles.
+            insert_revertibles(tx);
 
-    // Teardown.
-    if (tx.teardownEnqueuedCall) {
-        info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->contractAddress);
-        auto context = make_enqueued_context(tx.teardownEnqueuedCall->contractAddress,
-                                             tx.teardownEnqueuedCall->msgSender,
-                                             tx.teardownEnqueuedCall->calldata,
-                                             tx.teardownEnqueuedCall->isStaticCall);
-        call_execution.execute(*context);
+            // App logic.
+            for (const auto& call : tx.appLogicEnqueuedCalls) {
+                info("[APP_LOGIC] Executing enqueued call to ", call.contractAddress);
+                auto context =
+                    make_enqueued_context(call.contractAddress, call.msgSender, call.calldata, call.isStaticCall);
+                call_execution.execute(std::move(context));
+            }
+        } catch (const std::exception& e) {
+            // TODO: revert the checkpoint.
+            info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
+        }
+
+        // Teardown.
+        if (tx.teardownEnqueuedCall) {
+            try {
+                info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->contractAddress);
+                auto context = make_enqueued_context(tx.teardownEnqueuedCall->contractAddress,
+                                                     tx.teardownEnqueuedCall->msgSender,
+                                                     tx.teardownEnqueuedCall->calldata,
+                                                     tx.teardownEnqueuedCall->isStaticCall);
+                call_execution.execute(std::move(context));
+            } catch (const std::exception& e) {
+                info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
+            }
+        }
+
+        // TODO: Fee payment.
+    } catch (const std::exception& e) {
+        // Catastrophic failure.
+        info("Error while simulating tx ", tx.hash, ": ", e.what());
+        throw e;
     }
 }
 
@@ -70,7 +91,6 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
 
 void TxExecution::insert_revertibles(const Tx&)
 {
-    merkle_db.create_checkpoint();
     // 1. Write the nullifiers.
     // 2. Write the note hashes.
     // 3. Write the new contracts.

@@ -47,6 +47,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
   address internal constant EMPEROR = address(uint160(bytes20("EMPEROR")));
 
   function setUp() external {
+    vm.warp(1000);
     RollupBuilder builder = new RollupBuilder(address(this));
     builder.deploy();
 
@@ -64,16 +65,12 @@ contract UpgradeGovernanceProposerTest is TestBase {
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       validators[i - 1] = validator;
-      initialValidators[i - 1] = CheatDepositArgs({
-        attester: validator,
-        proposer: validator,
-        withdrawer: validator,
-        amount: TestConstants.AZTEC_MINIMUM_STAKE
-      });
+      initialValidators[i - 1] =
+        CheatDepositArgs({attester: validator, proposer: validator, withdrawer: validator});
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    token.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
+    token.mint(address(multiAdder), rollup.getMinimumStake() * VALIDATOR_COUNT);
     multiAdder.addValidators(initialValidators);
 
     registry.updateGovernance(address(governance));

@@ -22,7 +22,10 @@ import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 export class AcirSimulator {
   private log: Logger;
 
-  constructor(private executionDataProvider: ExecutionDataProvider, private simulationProvider: SimulationProvider) {
+  constructor(
+    private executionDataProvider: ExecutionDataProvider,
+    private simulationProvider: SimulationProvider,
+  ) {
     this.log = createLogger('simulator');
   }
 

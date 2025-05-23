@@ -532,8 +532,8 @@ describe('sequencer', () => {
       n === -1
         ? L2Block.random(currentTip.number + 1)
         : n === currentTip.number
-        ? Promise.resolve(currentTip)
-        : Promise.resolve(undefined),
+          ? Promise.resolve(currentTip)
+          : Promise.resolve(undefined),
     );
 
     publisher.canProposeAtNextEthBlock.mockResolvedValueOnce(undefined);

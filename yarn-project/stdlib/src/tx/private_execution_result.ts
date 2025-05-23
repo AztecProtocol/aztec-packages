@@ -47,7 +47,10 @@ export class NoteAndSlot {
 }
 
 export class CountedContractClassLog implements IsEmpty {
-  constructor(public log: ContractClassLog, public counter: number) {}
+  constructor(
+    public log: ContractClassLog,
+    public counter: number,
+  ) {}
 
   static get schema(): ZodFor<CountedContractClassLog> {
     return z

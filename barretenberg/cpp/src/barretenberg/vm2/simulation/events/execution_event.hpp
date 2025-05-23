@@ -15,9 +15,7 @@
 namespace bb::avm2::simulation {
 
 struct ExecutionEvent {
-    // For sorting in tracegen.
-    uint32_t order;
-
+    bool error = false;
     BytecodeId bytecode_id;
     Instruction wire_instruction;
     ExecutionOpCode opcode;
@@ -32,19 +30,8 @@ struct ExecutionEvent {
 
     // Sub-events.
     AddressingEvent addressing_event;
-    ContextEvent context_event;
-
-    // Not thread safe.
-    static ExecutionEvent allocate()
-    {
-        static uint32_t last_order = 0;
-        ExecutionEvent event;
-        event.order = last_order++;
-        return event;
-    }
-
-  private:
-    ExecutionEvent() = default;
+    ContextEvent before_context_event; // FIXME: currently unused (also might be overkill).
+    ContextEvent after_context_event;
 };
 
 } // namespace bb::avm2::simulation

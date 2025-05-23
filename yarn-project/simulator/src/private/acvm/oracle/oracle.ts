@@ -7,7 +7,12 @@ import { TxHash } from '@aztec/stdlib/tx';
 
 import type { ACVMField } from '../acvm_types.js';
 import { fromBoundedVec, fromUintArray, fromUintBoundedVec } from '../deserialize.js';
-import { bufferToBoundedVec, toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
+import {
+  arrayOfArraysToBoundedVecOfArrays,
+  bufferToBoundedVec,
+  toACVMField,
+  toACVMFieldSingleOrArray,
+} from '../serialize.js';
 import type { TypedOracle } from './typed_oracle.js';
 
 /**
@@ -169,8 +174,9 @@ export class Oracle {
     [limit]: ACVMField[],
     [offset]: ACVMField[],
     [status]: ACVMField[],
-    [returnSize]: ACVMField[],
-  ): Promise<ACVMField[][]> {
+    [maxNotes]: ACVMField[],
+    [packedRetrievedNoteLength]: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
     const noteDatas = await this.typedOracle.getNotes(
       Fr.fromString(storageSlot),
       +numSelects,
@@ -188,32 +194,30 @@ export class Oracle {
       +status,
     );
 
-    const noteLength = noteDatas?.[0]?.note.items.length ?? 0;
-    if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
-      throw new Error('Notes should all be the same length.');
+    if (noteDatas.length > 0) {
+      const noteLength = noteDatas[0].note.items.length;
+      if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
+        throw new Error('Notes should all be the same length.');
+      }
     }
 
-    const contractAddress = noteDatas[0]?.contractAddress ?? Fr.ZERO;
+    // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
+    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note].
 
-    // Values indicates whether the note is settled or transient.
-    const noteTypes = {
-      isSettled: new Fr(0),
-      isTransient: new Fr(1),
-    };
-    const flattenData = noteDatas.flatMap(({ nonce, note, index }) => [
-      nonce,
-      index === undefined ? noteTypes.isTransient : noteTypes.isSettled,
-      ...note.items,
-    ]);
+    const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, nonce, index, note }) => {
+      // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
+      const noteIsTransient = index === undefined;
+      const nonzeroNoteHashCounter = noteIsTransient ? true : false;
+      // If you change the array on the next line you have to change the `unpack_retrieved_note` function in
+      // `aztec/src/note/retrieved_note.nr`
+      return [contractAddress, nonce, nonzeroNoteHashCounter, ...note.items];
+    });
 
-    const returnFieldSize = +returnSize;
-    const returnData = [noteDatas.length, contractAddress, ...flattenData].map(v => toACVMField(v));
-    if (returnData.length > returnFieldSize) {
-      throw new Error(`Return data size too big. Maximum ${returnFieldSize} fields. Got ${flattenData.length}.`);
-    }
+    // Now we convert each sub-array to an array of ACVMField
+    const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfArrays.map(subArray => subArray.map(toACVMField));
 
-    const paddedZeros = Array(returnFieldSize - returnData.length).fill(toACVMField(0));
-    return [returnData.concat(paddedZeros)];
+    // At last we convert the array of arrays to a bounded vec of arrays
+    return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +packedRetrievedNoteLength);
   }
 
   notifyCreatedNote(
@@ -352,8 +356,10 @@ export class Oracle {
     return [];
   }
 
-  notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    this.typedOracle.notifySetMinRevertibleSideEffectCounter(Fr.fromString(minRevertibleSideEffectCounter).toNumber());
+  async notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.notifySetMinRevertibleSideEffectCounter(
+      Fr.fromString(minRevertibleSideEffectCounter).toNumber(),
+    );
     return Promise.resolve([]);
   }
 
@@ -373,8 +379,8 @@ export class Oracle {
     return [];
   }
 
-  async syncNotes([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.syncNotes(Fr.fromString(pendingTaggedLogArrayBaseSlot));
+  async fetchTaggedLogs([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.fetchTaggedLogs(Fr.fromString(pendingTaggedLogArrayBaseSlot));
     return [];
   }
 

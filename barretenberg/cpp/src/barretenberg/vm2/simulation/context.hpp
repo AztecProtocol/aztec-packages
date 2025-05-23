@@ -114,9 +114,7 @@ class BaseContext : public ContextInterface {
     std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) override
     {
         MemoryInterface& child_memory = get_child_context().get_memory();
-        auto get_returndata_size = child_memory.get(last_child_rd_size);
-        uint32_t returndata_size = get_returndata_size.as<uint32_t>();
-        uint32_t write_size = std::min(rd_offset + rd_size, returndata_size);
+        uint32_t write_size = std::min(rd_offset + rd_size, last_child_rd_size);
 
         std::vector<FF> retrieved_returndata;
         retrieved_returndata.reserve(write_size);
@@ -172,7 +170,6 @@ class EnqueuedCallContext : public BaseContext {
             .id = get_context_id(),
             .parent_id = 0,
             .pc = get_pc(),
-            .next_pc = get_next_pc(),
             .msg_sender = get_msg_sender(),
             .contract_addr = get_address(),
             .is_static = get_is_static(),
@@ -232,7 +229,6 @@ class NestedContext : public BaseContext {
             .id = get_context_id(),
             .parent_id = get_parent_id(),
             .pc = get_pc(),
-            .next_pc = get_next_pc(),
             .msg_sender = get_msg_sender(),
             .contract_addr = get_address(),
             .is_static = get_is_static(),
