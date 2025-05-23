@@ -21,6 +21,8 @@ describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
   });
 
   it('Minimal Tx avm inputs snapshot loaded from json file', async () => {
+    // If the test data needs to be updated, run the above ^ test case
+    // with AZTEC_GENERATE_TEST_DATA=1, and _then_ rerun this test and it should pass.
     const result = await createAvmMinimalPublicTx();
     const inputs = result.avmProvingRequest.inputs;
     const avmInputsFromFile = readAvmMinimalPublicTxInputsFromFile();

@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
@@ -57,7 +56,6 @@ struct AddressingEvent {
     std::vector<Operand> after_relative;
     std::vector<Operand> resolved_operands;
     MemoryValue base_address;
-    const ExecInstructionSpec* spec = nullptr;
     std::optional<AddressingException> error;
 };
 

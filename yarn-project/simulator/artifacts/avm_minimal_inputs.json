@@ -895,6 +895,7 @@
       }
     },
     "feePayer": "0x000000000000000000000000000000000000000000000000000000000000002a",
+    "publicCallRequestArrayLengths": { "setupCalls": 0, "appLogicCalls": 1, "teardownCall": false },
     "publicSetupCallRequests": [
       {
         "msgSender": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -1710,6 +1711,13 @@
       }
     },
     "endGasUsed": { "daGas": 0, "l2Gas": 63 },
+    "accumulatedDataArrayLengths": {
+      "noteHashes": 64,
+      "nullifiers": 64,
+      "l2ToL1Msgs": 8,
+      "publicLogs": 8,
+      "publicDataWrites": 64
+    },
     "accumulatedData": {
       "noteHashes": [
         "0x0000000000000000000000000000000000000000000000000000000000000000",
