@@ -148,7 +148,10 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
         std::swap(result.accumulator->proving_key.log_circuit_size, keys[1]->proving_key.log_circuit_size);
     }
 
-    ASSERT(DeciderProvingKeys::NUM == 2); // this mechanism is not supported for the folding of multiple keys
+    // This algorithm does not support the folding of multiple keys
+    // Commit hash bf97805331e003552d2efbd427c8e2e3743b1579 contains a
+    // more expensive algorithm that applies for any number of folds
+    ASSERT(DeciderProvingKeys::NUM == 2);
 
     auto accumulator_polys = result.accumulator->proving_key.polynomials.get_unshifted();
     auto key_polys = keys[1]->proving_key.polynomials.get_unshifted();
