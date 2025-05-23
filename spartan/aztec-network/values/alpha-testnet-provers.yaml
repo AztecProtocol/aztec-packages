@@ -71,7 +71,7 @@ proverBroker:
   storageSize: "10Gi"
 
 proverAgent:
-  replicas: 30
+  replicas: 15
   bb:
     hardwareConcurrency: 31
   gke:
