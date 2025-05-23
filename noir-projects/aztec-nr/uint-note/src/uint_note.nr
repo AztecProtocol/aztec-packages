@@ -207,7 +207,7 @@ impl NoteType for PrivateUintPartialNotePrivateLogContent {
 /// slot, but the value field has not yet been set. A partial note can be completed in public with the `complete`
 /// function (revealing the value to the public), resulting in a UintNote that can be used like any other one (except
 /// of course that its value is known).
-#[derive(Packable, Serialize, Deserialize)]
+#[derive(Packable, Serialize, Deserialize, Eq)]
 pub struct PartialUintNote {
     commitment: Field,
 }
@@ -265,6 +265,13 @@ impl PartialUintNote {
             [self.commitment, value.to_field()],
             GENERATOR_INDEX__NOTE_HASH,
         )
+    }
+}
+
+// We implement ToField for PartialUintNote to allow it to be used as a key in a Map (e.g. in the Orderbook contract).
+impl ToField for PartialUintNote {
+    fn to_field(self) -> Field {
+        self.commitment
     }
 }
 
