@@ -303,24 +303,13 @@ export interface AztecNode
   getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
-   * Gets all private logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
    * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
    * array implies no logs match that tag. There can be multiple logs for 1 tag because tag reuse can happen
    * --> e.g. when sending a note from multiple unsynched devices.
    */
-  getPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
-
-  /**
-   * Gets all public logs that match any of the received tags (i.e. logs with their first field equal to a tag) for
-   * a given contract.
-   * @param tags - The tags to filter the logs by.
-   * @param contractAddress - The address of the contract to filter the logs by.
-   * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
-   * array implies no logs match that tag. There can be multiple logs for 1 tag because tag reuse can happen
-   * --> e.g. when sending a note from multiple unsynched devices.
-   */
-  getPublicLogsByTagsFromContract(tags: Fr[], contractAddress: AztecAddress): Promise<TxScopedL2Log[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -517,14 +506,9 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
 
-  getPrivateLogsByTags: z
+  getLogsByTags: z
     .function()
     .args(z.array(schemas.Fr))
-    .returns(z.array(z.array(TxScopedL2Log.schema))),
-
-  getPublicLogsByTagsFromContract: z
-    .function()
-    .args(z.array(schemas.Fr), schemas.AztecAddress)
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   sendTx: z.function().args(Tx.schema).returns(z.void()),
