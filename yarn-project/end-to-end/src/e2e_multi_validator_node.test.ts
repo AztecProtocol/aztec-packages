@@ -14,6 +14,7 @@ import {
   type ExtendedViemWalletClient,
   RollupContract,
   createExtendedL1Client,
+  getAddressFromPrivateKey,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
@@ -56,9 +57,19 @@ describe('e2e_multi_validator_node', () => {
       { length: VALIDATOR_COUNT },
       (_, i) => `0x${getPrivateKeyFromIndex(i)!.toString('hex')}` as `0x${string}`,
     );
+    const publisherPrivateKey = initialValidatorPrivateKeys[0];
     validatorAddresses = initialValidatorPrivateKeys.map(pk => {
       const account = privateKeyToAccount(pk);
       return EthAddress.fromString(account.address).toString();
+    });
+    const initialValidators = validatorAddresses.map(pk => {
+      const account = privateKeyToAccount(pk);
+      return {
+        attester: account.address,
+        proposerEOA: getAddressFromPrivateKey(publisherPrivateKey),
+        withdrawer: account.address,
+        privateKey: pk,
+      };
     });
     const { aztecSlotDuration: _aztecSlotDuration } = getL1ContractsConfigEnvVars();
 
@@ -70,8 +81,8 @@ describe('e2e_multi_validator_node', () => {
       config,
       deployL1ContractsValues,
     } = await setup(1, {
-      initialValidatorPrivateKeys,
-      usePublisherAsProposer: true,
+      initialValidators,
+      publisherPrivateKey,
       minTxsPerBlock: 1,
       archiverPollingIntervalMS: 200,
       transactionPollingIntervalMS: 200,
