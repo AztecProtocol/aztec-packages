@@ -202,6 +202,16 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     _testBlock("mixed_block_1", true, 2, false);
   }
 
+  function testInsufficientSigsBypass() public setup(4) progressEpochs(2) {
+    // By adding `0xdead` to the GSE, the configs moved, and the proposer
+    // becomes `address(0)` which is free-for-all, no attestations needed.
+    // Note that the committee is NOT empty, but the proposer config is "gone".
+    rollup.getGSE().addRollup(address(0xdead));
+
+    assertEq(rollup.getCurrentEpochCommittee().length, 4);
+    _testBlock("mixed_block_1", true, 0, false);
+  }
+
   function _testBlock(
     string memory _name,
     bool _expectRevert,
@@ -240,6 +250,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       txHashes: txHashes
     });
 
+    skipBlobCheck(address(rollup));
+
     if (_signatureCount > 0 && ree.proposer != address(0)) {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       ree.needed = validators.length * 2 / 3 + 1;
@@ -274,7 +286,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         // @todo Handle ValidatorSelection__InsufficientAttestations case
       }
 
-      skipBlobCheck(address(rollup));
       if (_expectRevert && _invalidProposer) {
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
