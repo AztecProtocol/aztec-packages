@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/gas_tracker.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -61,13 +62,17 @@ void Execution::call(ContextInterface& context,
 
     // TODO(ilyas): How will we tag check these?
 
+    // TODO clamp the gas limits based on available gas
+
     // Cd size and cd offset loads are deferred to (possible) calldatacopy
-    auto nested_context = execution_components.make_nested_context(contract_address,
-                                                                   /*msg_sender=*/context.get_address(),
-                                                                   /*parent_context=*/context,
-                                                                   /*cd_offset_addr=*/cd_offset,
-                                                                   /*cd_size_addr=*/cd_size,
-                                                                   /*is_static=*/false);
+    auto nested_context = execution_components.make_nested_context(
+        contract_address,
+        /*msg_sender=*/context.get_address(),
+        /*parent_context=*/context,
+        /*cd_offset_addr=*/cd_offset,
+        /*cd_size_addr=*/cd_size,
+        /*is_static=*/false,
+        /*gas_limit=*/Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
 
     // We do not recurse. This context will be use on the next cycle of execution.
     handle_enter_call(context, std::move(nested_context));
@@ -80,7 +85,8 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
     set_inputs({ get_ret_size });
     // TODO(ilyas): check this is a U32
     auto rd_size = get_ret_size.as<uint32_t>();
-    set_execution_result({ .rd_offset = ret_offset, .rd_size = rd_size, .success = true });
+    set_execution_result(
+        { .rd_offset = ret_offset, .rd_size = rd_size, .gas_used = context.get_gas_used(), .success = true });
 
     context.halt();
 }
@@ -92,7 +98,8 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
     set_inputs({ get_rev_size });
     // TODO(ilyas): check this is a U32
     auto rd_size = get_rev_size.as<uint32_t>();
-    set_execution_result({ .rd_offset = rev_offset, .rd_size = rd_size, .success = false });
+    set_execution_result(
+        { .rd_offset = rev_offset, .rd_size = rd_size, .gas_used = context.get_gas_used(), .success = false });
 
     context.halt();
 }
@@ -127,6 +134,9 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         // We'll be filling in the event as we go. And we always emit at the end.
         ExecutionEvent ex_event;
 
+        // We'll be filling this with gas data as we go.
+        init_gas_tracker(context);
+
         try {
             // State before doing anything.
             ex_event.before_context_event = context.serialize_context_event();
@@ -140,6 +150,8 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             Instruction instruction = context.get_bytecode_manager().read_instruction(pc);
             ex_event.wire_instruction = instruction;
 
+            get_gas_tracker().set_instruction(instruction);
+
             // Go from a wire instruction to an execution opcode.
             const WireInstructionSpec& wire_spec = instruction_info_db.get(instruction.opcode);
             context.set_next_pc(pc + wire_spec.size_in_bytes);
@@ -147,8 +159,11 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             ExecutionOpCode opcode = wire_spec.exec_opcode;
             ex_event.opcode = opcode;
 
-            // Resolve the operands.
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
+
+            get_gas_tracker().consume_base_gas();
+
+            // Resolve the operands.
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
             ex_event.resolved_operands = resolved_operands;
 
@@ -167,6 +182,8 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
         ex_event.inputs = get_inputs();
         ex_event.output = get_output();
+
+        ex_event.gas_event = finish_gas_tracker();
 
         // State after the opcode.
         ex_event.after_context_event = context.serialize_context_event();
@@ -190,7 +207,9 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
                             .next_pc = parent_context.get_next_pc(),
                             .msg_sender = parent_context.get_msg_sender(),
                             .contract_addr = parent_context.get_address(),
-                            .is_static = parent_context.get_is_static() });
+                            .is_static = parent_context.get_is_static(),
+                            .parent_gas_used = parent_context.get_parent_gas_used(),
+                            .parent_gas_limit = parent_context.get_parent_gas_limit() });
 
     external_call_stack.push(std::move(child_context));
 }
@@ -209,6 +228,8 @@ void Execution::handle_exit_call()
         parent_context.set_last_rd_size(result.rd_size);
         parent_context.set_last_success(result.success);
         parent_context.set_child_context(std::move(child_context));
+        // Safe since the nested context gas limit should be clamped to the available gas.
+        parent_context.set_gas_used(result.gas_used + parent_context.get_gas_used());
     }
     // Else: was top level. ExecutionResult is already set and that will be returned.
 }
@@ -262,6 +283,26 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
         // FIXME(fcarreiro): we go through FF here.
         (this->*f)(context, static_cast<Ts>(resolved_operands.at(Is).as_ff())...);
     }(operand_indices);
+}
+
+void Execution::init_gas_tracker(ContextInterface& context)
+{
+    assert(gas_tracker == nullptr);
+    gas_tracker = execution_components.make_gas_tracker(context);
+}
+
+GasTrackerInterface& Execution::get_gas_tracker()
+{
+    assert(gas_tracker != nullptr);
+    return *gas_tracker;
+}
+
+GasEvent Execution::finish_gas_tracker()
+{
+    assert(gas_tracker != nullptr);
+    GasEvent event = gas_tracker->finish();
+    gas_tracker = nullptr;
+    return event;
 }
 
 } // namespace bb::avm2::simulation

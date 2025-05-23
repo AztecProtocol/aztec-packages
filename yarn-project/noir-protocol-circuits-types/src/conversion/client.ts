@@ -25,6 +25,8 @@ import {
   type NoteHashReadRequestHints,
   Nullifier,
   type NullifierReadRequestHints,
+  PaddedSideEffectAmounts,
+  PaddedSideEffects,
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
   PendingReadHint,
@@ -70,6 +72,8 @@ import type {
   Nullifier as NullifierNoir,
   NullifierReadRequestHints as NullifierReadRequestHintsNoir,
   NullifierSettledReadHint as NullifierSettledReadHintNoir,
+  PaddedSideEffectAmounts as PaddedSideEffectAmountsNoir,
+  PaddedSideEffects as PaddedSideEffectsNoir,
   PendingReadHint as PendingReadHintNoir,
   PrivateAccumulatedData as PrivateAccumulatedDataNoir,
   PrivateCallDataWithoutPublicInputs as PrivateCallDataWithoutPublicInputsNoir,
@@ -709,6 +713,27 @@ export function mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(
     mapAztecAddressFromNoir(inputs.fee_payer),
     forPublic,
   );
+}
+
+export function mapPaddedSideEffectsToNoir(paddedSideEffects: PaddedSideEffects): PaddedSideEffectsNoir {
+  return {
+    note_hashes: mapTuple(paddedSideEffects.noteHashes, mapFieldToNoir),
+    nullifiers: mapTuple(paddedSideEffects.nullifiers, mapFieldToNoir),
+    private_logs: mapTuple(paddedSideEffects.privateLogs, mapPrivateLogToNoir),
+  };
+}
+
+export function mapPaddedSideEffectAmountsToNoir(
+  paddedSideEffectAmounts: PaddedSideEffectAmounts,
+): PaddedSideEffectAmountsNoir {
+  return {
+    non_revertible_note_hashes: mapNumberToNoir(paddedSideEffectAmounts.nonRevertibleNoteHashes),
+    revertible_note_hashes: mapNumberToNoir(paddedSideEffectAmounts.revertibleNoteHashes),
+    non_revertible_nullifiers: mapNumberToNoir(paddedSideEffectAmounts.nonRevertibleNullifiers),
+    revertible_nullifiers: mapNumberToNoir(paddedSideEffectAmounts.revertibleNullifiers),
+    non_revertible_private_logs: mapNumberToNoir(paddedSideEffectAmounts.nonRevertiblePrivateLogs),
+    revertible_private_logs: mapNumberToNoir(paddedSideEffectAmounts.revertiblePrivateLogs),
+  };
 }
 
 function mapTransientDataIndexHintToNoir(indexHint: TransientDataIndexHint): TransientDataIndexHintNoir {

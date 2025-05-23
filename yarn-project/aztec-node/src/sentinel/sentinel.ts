@@ -5,6 +5,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
+import type { SlasherConfig, Watcher, WatcherEmitter } from '@aztec/slasher/config';
+import { Offence, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   L2BlockStream,
@@ -12,18 +14,22 @@ import {
   type L2BlockStreamEventHandler,
   getAttestationsFromPublishedL2Block,
 } from '@aztec/stdlib/block';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   ValidatorStats,
   ValidatorStatusHistory,
   ValidatorStatusInSlot,
   ValidatorStatusType,
+  ValidatorsEpochPerformance,
   ValidatorsStats,
 } from '@aztec/stdlib/validators';
 
+import EventEmitter from 'node:events';
+import { isAddress } from 'viem';
+
 import { SentinelStore } from './store.js';
 
-export class Sentinel implements L2BlockStreamEventHandler {
+export class Sentinel extends (EventEmitter as new () => WatcherEmitter) implements L2BlockStreamEventHandler, Watcher {
   protected runningPromise: RunningPromise;
   protected blockStream!: L2BlockStream;
   protected l2TipsStore: L2TipsStore;
@@ -38,8 +44,16 @@ export class Sentinel implements L2BlockStreamEventHandler {
     protected archiver: L2BlockSource,
     protected p2p: P2PClient,
     protected store: SentinelStore,
+    protected config: Pick<
+      SlasherConfig,
+      | 'slashInactivityCreateTargetPercentage'
+      | 'slashInactivityCreatePenalty'
+      | 'slashInactivitySignalTargetPercentage'
+      | 'slashPayloadTtlSeconds'
+    >,
     protected logger = createLogger('node:sentinel'),
   ) {
+    super();
     this.l2TipsStore = new L2TipsMemoryStore();
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
@@ -84,7 +98,87 @@ export class Sentinel implements L2BlockStreamEventHandler {
           this.slotNumberToBlock.delete(key);
         }
       }
+    } else if (event.type === 'chain-proven') {
+      await this.handleChainProven(event);
     }
+  }
+
+  protected async handleChainProven(event: L2BlockStreamEvent) {
+    if (event.type !== 'chain-proven') {
+      return;
+    }
+    const blockNumber = event.block.number;
+    const block = await this.archiver.getBlock(blockNumber);
+    if (!block) {
+      this.logger.error(`Failed to get block ${blockNumber}`, { block });
+      return;
+    }
+
+    const epoch = getEpochAtSlot(block.header.getSlot(), await this.archiver.getL1Constants());
+    this.logger.info(`Computing proven performance for epoch ${epoch}`);
+    const performance = await this.computeProvenPerformance(epoch);
+    this.logger.info(`Proven performance for epoch ${epoch}`, performance);
+
+    await this.updateProvenPerformance(epoch, performance);
+    this.handleProvenPerformance(performance);
+  }
+
+  protected async computeProvenPerformance(epoch: bigint) {
+    const headers = await this.archiver.getBlockHeadersForEpoch(epoch);
+    const provenSlots = headers.map(h => h.getSlot());
+    const fromSlot = provenSlots[0];
+    const toSlot = provenSlots[provenSlots.length - 1];
+    const stats = await this.computeStats({ fromSlot, toSlot });
+
+    const performance: ValidatorsEpochPerformance = {};
+    for (const validator of Object.keys(stats.stats)) {
+      if (!isAddress(validator)) {
+        continue;
+      }
+      let missed = 0;
+      for (const history of stats.stats[validator].history) {
+        if (provenSlots.includes(history.slot) && history.status === 'attestation-missed') {
+          missed++;
+        }
+      }
+      performance[validator] = { missed, total: provenSlots.length };
+    }
+    return performance;
+  }
+
+  protected updateProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
+    return this.store.updateProvenPerformance(epoch, performance);
+  }
+
+  protected handleProvenPerformance(performance: ValidatorsEpochPerformance) {
+    const criminals = Object.entries(performance)
+      .filter(([_, { missed, total }]) => {
+        return missed / total >= this.config.slashInactivityCreateTargetPercentage;
+      })
+      .map(([address]) => address as `0x${string}`);
+
+    const amounts = Array(criminals.length).fill(this.config.slashInactivityCreatePenalty);
+    const offenses = Array(criminals.length).fill(Offence.INACTIVITY);
+
+    this.logger.info(`Criminals: ${criminals.length}`, { criminals, amounts, offenses });
+
+    if (criminals.length > 0) {
+      this.emit(WANT_TO_SLASH_EVENT, { validators: criminals, amounts, offenses });
+    }
+  }
+
+  public async shouldSlash(validator: `0x${string}`, _amount: bigint, _offense: Offence): Promise<boolean> {
+    const l1Constants = this.epochCache.getL1Constants();
+    const ttlL2Slots = this.config.slashPayloadTtlSeconds / l1Constants.slotDuration;
+    const ttlEpochs = BigInt(Math.ceil(ttlL2Slots / l1Constants.epochDuration));
+
+    const currentEpoch = this.epochCache.getEpochAndSlotNow().epoch;
+    const performance = await this.store.getProvenPerformance(validator);
+    return (
+      performance
+        .filter(p => p.epoch >= currentEpoch - ttlEpochs)
+        .findIndex(p => p.missed / p.total >= this.config.slashInactivitySignalTargetPercentage) !== -1
+    );
   }
 
   /**
@@ -232,14 +326,18 @@ export class Sentinel implements L2BlockStreamEventHandler {
   }
 
   /** Computes stats to be returned based on stored data. */
-  public async computeStats(): Promise<ValidatorsStats> {
+  public async computeStats({
+    fromSlot: _fromSlot,
+    toSlot: _toSlot,
+  }: { fromSlot?: bigint; toSlot?: bigint } = {}): Promise<ValidatorsStats> {
     const histories = await this.store.getHistories();
     const slotNow = this.epochCache.getEpochAndSlotNow().slot;
-    const fromSlot = (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
+    const fromSlot = _fromSlot ?? (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
+    const toSlot = _toSlot ?? this.lastProcessedSlot ?? slotNow;
     const result: Record<`0x${string}`, ValidatorStats> = {};
     for (const [address, history] of Object.entries(histories)) {
       const validatorAddress = address as `0x${string}`;
-      result[validatorAddress] = this.computeStatsForValidator(validatorAddress, history, fromSlot);
+      result[validatorAddress] = this.computeStatsForValidator(validatorAddress, history, fromSlot, toSlot);
     }
     return {
       stats: result,
@@ -253,8 +351,10 @@ export class Sentinel implements L2BlockStreamEventHandler {
     address: `0x${string}`,
     allHistory: ValidatorStatusHistory,
     fromSlot?: bigint,
+    toSlot?: bigint,
   ): ValidatorStats {
-    const history = fromSlot ? allHistory.filter(h => h.slot >= fromSlot) : allHistory;
+    let history = fromSlot ? allHistory.filter(h => h.slot >= fromSlot) : allHistory;
+    history = toSlot ? history.filter(h => h.slot <= toSlot) : history;
     return {
       address: EthAddress.fromString(address),
       lastProposal: this.computeFromSlot(
