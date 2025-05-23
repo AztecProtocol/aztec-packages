@@ -147,12 +147,12 @@ describe('e2e_p2p_validators_sentinel', () => {
       await retryUntil(
         async () => {
           const currentProposer = await rollup.getCurrentProposer();
-          t.logger.info(`Current proposer is ${currentProposer}`);
+          t.logger.verbose(`Current proposer is ${currentProposer}`);
           const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
           const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
           const leaderVotes = await slashingProposer.getProposalVotes(rollup.address, round, roundInfo.leader);
-          t.logger.info(`Currently in round ${round}`);
-          t.logger.info(`Leader votes: ${leaderVotes}`);
+          t.logger.verbose(`Currently in round ${round}`);
+          t.logger.verbose(`Leader votes: ${leaderVotes}`);
 
           const slashEvents = await rollupRaw.getEvents.Slashed();
           return slashEvents.length >= 1;

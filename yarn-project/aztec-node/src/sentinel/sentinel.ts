@@ -128,9 +128,8 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const fromSlot = provenSlots[0];
     const toSlot = provenSlots[provenSlots.length - 1];
     const { committee } = await this.epochCache.getCommittee(fromSlot);
-    this.logger.info(`Committee for epoch ${epoch}`, committee);
     const stats = await this.computeStats({ fromSlot, toSlot });
-    this.logger.info(`Stats for epoch ${epoch}`, stats);
+    this.logger.debug(`Stats for epoch ${epoch}`, stats);
 
     const performance: ValidatorsEpochPerformance = {};
     for (const validator of Object.keys(stats.stats)) {
@@ -141,9 +140,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
         this.logger.error(`Invalid validator address ${validator}`, e);
         continue;
       }
-      this.logger.info(`Processing validator ${validator}`);
       if (!committee.find(v => v.equals(address))) {
-        this.logger.info(`Validator ${validator} is not in the committee`);
         continue;
       }
       let missed = 0;
