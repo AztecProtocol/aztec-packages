@@ -180,7 +180,7 @@ template <typename TranscriptParams> class BaseTranscript {
     static constexpr size_t HASH_OUTPUT_SIZE = 32;
 
     std::ptrdiff_t proof_start = 0;
-    size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover or the verifier
+    size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover
     size_t num_frs_read = 0;    // the number of bb::frs read from proof_data by the verifier
     size_t round_number = 0;    // current round for manifest
 

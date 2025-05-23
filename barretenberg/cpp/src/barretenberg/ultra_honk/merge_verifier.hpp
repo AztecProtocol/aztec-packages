@@ -36,7 +36,7 @@ class MergeVerifier {
     std::shared_ptr<Transcript> transcript;
     std::array<Commitment, NUM_WIRES> T_commitments;
 
-    explicit MergeVerifier();
+    explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     bool verify_proof(const HonkProof& proof);
 };
 

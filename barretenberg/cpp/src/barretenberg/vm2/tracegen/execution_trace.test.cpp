@@ -30,9 +30,6 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
     ExecutionTraceBuilder builder;
 
     // Some inputs
-    ExecInstructionSpec spec = {
-        .num_addresses = 3, .gas_cost = { .base_l2 = AVM_ADD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 }
-    };
     // Use the instruction builder - we can make the operands more complex
     const auto instr = InstructionBuilder(WireOpCode::ADD_8)
                            // All operands are direct - for simplicity
@@ -42,10 +39,9 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
                            .build();
     simulation::AddressingEvent addressing_event{
         .instruction = instr,
-        .spec = &spec,
     };
 
-    auto ex_event = simulation::ExecutionEvent::allocate();
+    simulation::ExecutionEvent ex_event;
     ex_event.inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) };
     ex_event.output = { TaggedValue::from_tag(ValueTag::U16, 8) };
     ex_event.opcode = ExecutionOpCode::ADD;
@@ -77,10 +73,6 @@ TEST(ExecutionTraceGenTest, Call)
     ExecutionTraceBuilder builder;
 
     // Inputs
-    ExecInstructionSpec call_spec = {
-        .num_addresses = 5,
-        .gas_cost = { .base_l2 = AVM_CALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_CALL_DYN_L2_GAS, .dyn_da = 0 }
-    };
     const auto call_instr = InstructionBuilder(WireOpCode::CALL)
                                 .operand<uint8_t>(2)
                                 .operand<uint8_t>(4)
@@ -91,7 +83,6 @@ TEST(ExecutionTraceGenTest, Call)
 
     simulation::AddressingEvent addressing_event{
         .instruction = call_instr,
-        .spec = &call_spec,
     };
 
     simulation::ContextEvent context_event{
@@ -99,10 +90,10 @@ TEST(ExecutionTraceGenTest, Call)
         .contract_addr = 0xdeadbeef,
     };
 
-    auto ex_event = simulation::ExecutionEvent::allocate();
+    simulation::ExecutionEvent ex_event;
     ex_event.opcode = ExecutionOpCode::CALL;
     ex_event.addressing_event = addressing_event;
-    ex_event.context_event = context_event;
+    ex_event.after_context_event = context_event;
     ex_event.next_context_id = 2;
     ex_event.inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(10),
                         /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(11),
@@ -143,14 +134,10 @@ TEST(ExecutionTraceGenTest, Return)
     ExecutionTraceBuilder builder;
 
     // Inputs
-    const ExecInstructionSpec return_spec = {
-        .num_addresses = 2, .gas_cost = { .base_l2 = AVM_RETURN_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 }
-    };
     const auto return_instr = InstructionBuilder(WireOpCode::RETURN).operand<uint8_t>(4).operand<uint8_t>(20).build();
 
     simulation::AddressingEvent addressing_event{
         .instruction = return_instr,
-        .spec = &return_spec,
     };
 
     simulation::ContextEvent context_event{
@@ -158,10 +145,10 @@ TEST(ExecutionTraceGenTest, Return)
         .contract_addr = 0xdeadbeef,
     };
 
-    auto ex_event = simulation::ExecutionEvent::allocate();
+    simulation::ExecutionEvent ex_event;
     ex_event.opcode = ExecutionOpCode::RETURN;
     ex_event.addressing_event = addressing_event;
-    ex_event.context_event = context_event;
+    ex_event.after_context_event = context_event;
     ex_event.next_context_id = 2;
     ex_event.inputs = { /*rd_size=*/MemoryValue::from<uint32_t>(2) };
     ex_event.resolved_operands = { /*rd_size_offset=*/MemoryValue::from<uint32_t>(4),

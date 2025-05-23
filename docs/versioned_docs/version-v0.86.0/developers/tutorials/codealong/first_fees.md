@@ -82,7 +82,7 @@ Now you can use the alias for future commands: `aztec-wallet-node ...`
 
 #### Aztec.js
 
-<General.node_ver />
+When using Aztec libraries you will need Node.js version {">="} v18.xx.x and {"<="} v20.17.x (lts/iron). You can use [nvm](https://github.com/nvm-sh/nvm) to help manage node versions.
 
 If you are using the sandbox for this step, it should be running with it's pxe. Otherwise if connecting to testnet, start a local PXE that your app connects to. The parameters for the `aztec start` command are:
 

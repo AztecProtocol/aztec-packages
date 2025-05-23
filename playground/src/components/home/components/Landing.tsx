@@ -267,7 +267,7 @@ export function Landing() {
     pxe,
     currentTx,
     isPXEInitialized,
-    isNetworkCongested,
+    network,
     setWallet,
   } = useContext(AztecContext);
 
@@ -380,7 +380,11 @@ export function Landing() {
       });
 
       const { prepareForFeePayment } = await import('../../../utils/sponsoredFPC');
-      const feePaymentMethod = await prepareForFeePayment(pxe);
+      const feePaymentMethod = await prepareForFeePayment(
+        pxe,
+        network.sponsoredFPC?.address,
+        network.sponsoredFPC?.version,
+      );
 
       const deployMethod = await accountManager.getDeployMethod();
       const opts = {
