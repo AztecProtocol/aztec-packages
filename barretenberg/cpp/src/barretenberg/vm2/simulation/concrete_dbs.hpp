@@ -84,7 +84,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     uint32_t l2_to_l1_msg_counter = 0;
     // Set for semantics.
     using Slot = FF;
-    std::set<Slot> storage_set;
+    std::unordered_set<Slot> storage_set;
 };
 
 } // namespace bb::avm2::simulation

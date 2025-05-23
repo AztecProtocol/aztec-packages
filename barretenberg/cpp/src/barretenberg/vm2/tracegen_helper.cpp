@@ -313,7 +313,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
 
     // Now we can compute lookups and permutations.
     {
-        auto jobs_interactions = concatenate_jobs(Poseidon2TraceBuilder::lookup_jobs(),
+        auto jobs_interactions = concatenate_jobs(TxTraceBuilder::lookup_jobs(),
+                                                  Poseidon2TraceBuilder::lookup_jobs(),
                                                   RangeCheckTraceBuilder::lookup_jobs(),
                                                   BitwiseTraceBuilder::lookup_jobs(),
                                                   Sha256TraceBuilder::lookup_jobs(),

@@ -117,6 +117,7 @@ void MerkleDB::nullifier_write(const FF& nullifier)
     nullifier_counter++;
 }
 
+// TODO: These are not current implemented - this needs to be once we have a note hash gadget
 bool MerkleDB::note_hash_exists(const FF& note_hash) const
 {
     auto [present, low_leaf_index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NOTE_HASH_TREE, note_hash);
@@ -127,9 +128,9 @@ bool MerkleDB::note_hash_exists(const FF& note_hash) const
     return true;
 }
 
+// TODO: These are not current implemented - this needs to be once we have a note hash gadget
 void MerkleDB::note_hash_write([[maybe_unused]] const FF& note_hash)
 {
-    // TODO: Do write
     // AppendOnlyTreeSnapshot snapshot_after = note_hash_tree_check.write(
     //     note_hash, low_leaf_hint.leaf, low_leaf_hint.index, low_leaf_hint.path, snapshot_before,
     //     insertion_hint.path);

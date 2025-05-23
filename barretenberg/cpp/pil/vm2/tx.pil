@@ -27,7 +27,7 @@ namespace tx;
     pol commit remaining_phase_inv;
     pol commit remaining_phase_events;
     
-    #[LOOKUP_GET_PHASE_TABLE]
+    #[READ_PHASE_TABLE]
     start_phase { 
         phase_value, 
         is_public_call_request, 
@@ -62,13 +62,13 @@ namespace tx;
         precomputed.sel_revertible_append_nullifier
     };
 
-    #[LOOKUP_JUMP_ON_REVERT]
+    #[PHASE_JUMP_ON_REVERT]
     reverted { phase_value, phase_value' } in
     precomputed.phase_sel { precomputed.phase_value, precomputed.next_phase_on_revert};
 
     // === LENGTH STUFF === Read the number of steps in the phase
-    #[LOOKUP_PHASE_LENGTH]
-    start_phase { read_pi_length_offset, remaining_phase_events } is
+    #[READ_PHASE_LENGTH]
+    start_phase { read_pi_length_offset, remaining_phase_events } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     #[DECR_REM_PHASE_EVENTS]
@@ -79,14 +79,14 @@ namespace tx;
 
     // === Public Call Request Phase ===
     pol commit is_public_call_request;
-    #[LOOKUP_READ_PUBLIC_CALL_REQUEST_PHASE]
+    #[READ_PUBLIC_CALL_REQUEST_PHASE]
     is_public_call_request {
         read_pi_offset,
         msg_sender,
         contract_addr,
         is_static,
         calldata_hash
-    } is
+    } in
     public_inputs.sel { 
         precomputed.clk,
         public_inputs.cols[0],
@@ -103,12 +103,12 @@ namespace tx;
     pol commit context_id; // Constrain
     pol commit next_context_id;
 
-    #[LOOKUP_DISPATCH_EXEC]
-    is_public_call_request { context_id, next_context_id, msg_sender, contract_addr, is_static } is
+    #[DISPATCH_EXEC_START]
+    is_public_call_request { context_id, next_context_id, msg_sender, contract_addr, is_static } in
     execution.enqueued_call_start { execution.context_id, execution.next_context_id, execution.msg_sender, execution.contract_address, execution.is_static };
 
-    #[LOOKUP_DISPATCH_GET_REVERT]
-    is_public_call_request { context_id, reverted } is
+    #[DISPATCH_EXEC_GET_REVERT]
+    is_public_call_request { context_id, reverted } in
     execution.enqueued_call_end { execution.context_id, execution.sel_error };
 
     // === Tree Insertion Values for tree
@@ -121,7 +121,7 @@ namespace tx;
     is_tree_insert_phase  = sel_revertible_append_note_hash + sel_non_revertible_append_note_hash + sel_revertible_append_nullifier + sel_non_revertible_append_nullifier;
     pol commit leaf_value;
 
-    #[LOOKUP_GET_TREE_INSERT_VALUE]
+    #[READ_TREE_INSERT_VALUE]
     is_tree_insert_phase { read_pi_offset, leaf_value } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
@@ -164,8 +164,8 @@ namespace tx;
     pol commit l2_l1_msg_content;
     pol commit l2_l1_msg_counter;
 
-    #[LOOKUP_L2_L1_MSG]
-    is_l2_l1_msg_phase { read_pi_offset, l2_l1_msg_contract_address, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_counter } is
+    #[READ_L2_L1_MSG]
+    is_l2_l1_msg_phase { read_pi_offset, l2_l1_msg_contract_address, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_counter } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2], public_inputs.cols[3] };
 
     // Collect Gas

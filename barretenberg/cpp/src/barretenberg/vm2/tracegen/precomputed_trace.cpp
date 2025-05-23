@@ -329,10 +329,9 @@ void PrecomputedTraceBuilder::process_addressing_gas(TraceContainer& trace)
 void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 {
     using C = Column;
-    const TxPhaseOffsetsTable& offsets_table = TxPhaseOffsetsTable::get();
 
     // Non Revertible Note Hash
-    auto nr_note_hash = offsets_table.get_offsets(TransactionPhase::NR_NOTE_INSERTION);
+    auto nr_note_hash = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_NOTE_INSERTION);
     trace.set(0,
               {
                   {
@@ -347,7 +346,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                   },
               });
     // Non Revertible Nullifiers
-    auto nr_nullifiers = offsets_table.get_offsets(TransactionPhase::NR_NULLIFIER_INSERTION);
+    auto nr_nullifiers = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_NULLIFIER_INSERTION);
     trace.set(1,
               {
                   {
@@ -362,7 +361,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                   },
               });
     // Non Revertible L2 to L1 Messages
-    auto nr_l2_to_l1_msgs = offsets_table.get_offsets(TransactionPhase::NR_L2_TO_L1_MESSAGE);
+    auto nr_l2_to_l1_msgs = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_L2_TO_L1_MESSAGE);
     trace.set(2,
               {
                   {
@@ -377,7 +376,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                   },
               });
     // Setup
-    auto setup = offsets_table.get_offsets(TransactionPhase::SETUP);
+    auto setup = TxPhaseOffsetsTable::get_offsets(TransactionPhase::SETUP);
     trace.set(3,
               {
                   {
@@ -392,7 +391,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                   },
               });
     // Revertible Note Hash
-    auto r_note_hash = offsets_table.get_offsets(TransactionPhase::R_NOTE_INSERTION);
+    auto r_note_hash = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_NOTE_INSERTION);
     trace.set(4,
               {
                   {
@@ -407,7 +406,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                   },
               });
     // Revertible Nullifiers
-    auto r_nullifiers = offsets_table.get_offsets(TransactionPhase::R_NULLIFIER_INSERTION);
+    auto r_nullifiers = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_NULLIFIER_INSERTION);
     trace.set(5,
               {
                   {
@@ -422,7 +421,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                   },
               });
     // Revertible L2 to L1 Messages
-    auto r_l2_to_l1_msgs = offsets_table.get_offsets(TransactionPhase::R_L2_TO_L1_MESSAGE);
+    auto r_l2_to_l1_msgs = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_L2_TO_L1_MESSAGE);
     trace.set(6,
               {
                   {
@@ -437,7 +436,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                   },
               });
     // App Logic
-    auto app_logic = offsets_table.get_offsets(TransactionPhase::APP_LOGIC);
+    auto app_logic = TxPhaseOffsetsTable::get_offsets(TransactionPhase::APP_LOGIC);
     trace.set(7,
               {
                   {
@@ -452,7 +451,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                   },
               });
     // Teardown
-    auto teardown = offsets_table.get_offsets(TransactionPhase::TEARDOWN);
+    auto teardown = TxPhaseOffsetsTable::get_offsets(TransactionPhase::TEARDOWN);
     trace.set(8,
               {
                   {
