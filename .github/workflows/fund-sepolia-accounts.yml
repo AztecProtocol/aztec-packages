@@ -91,6 +91,7 @@ jobs:
           echo "Funding accounts..."
           $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ inputs.values_file }} 30 "$MNEMONIC_FILE"
           mnemonic=$(cat "$MNEMONIC_FILE")
+          rm "$MNEMONIC_FILE"
           echo "::add-mask::$mnemonic"
           echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"
 
@@ -99,6 +100,10 @@ jobs:
         run: |
           echo "Saving mnemonic to GCP"
           echo "::add-mask::${{ steps.fund-accounts.outputs.mnemonic }}"
-          gcloud secrets versions add latest --secret=${{ inputs.sepolia_accounts_mnemonic_secret_name }} --data-file="$MNEMONIC_FILE"
+          echo "Creating new secret ${{ inputs.sepolia_accounts_mnemonic_secret_name }}"
+          gcloud secrets create ${{ inputs.sepolia_accounts_mnemonic_secret_name }}
+          TMP_FILE=$(mktemp)
+          echo "${{ steps.fund-accounts.outputs.mnemonic }}" > "$TMP_FILE"
+          gcloud secrets versions add ${{ inputs.sepolia_accounts_mnemonic_secret_name }} --data-file="$TMP_FILE"
+          rm "$TMP_FILE"
           echo "Saved mnemonic to GCP secret ${{ inputs.sepolia_accounts_mnemonic_secret_name }}"
-          rm "$MNEMONIC_FILE"
