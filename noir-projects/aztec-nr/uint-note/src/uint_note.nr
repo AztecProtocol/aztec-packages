@@ -268,7 +268,6 @@ impl PartialUintNote {
     }
 }
 
-// We implement ToField for PartialUintNote to allow it to be used as a key in a Map (e.g. in the Orderbook contract).
 impl ToField for PartialUintNote {
     fn to_field(self) -> Field {
         self.commitment
