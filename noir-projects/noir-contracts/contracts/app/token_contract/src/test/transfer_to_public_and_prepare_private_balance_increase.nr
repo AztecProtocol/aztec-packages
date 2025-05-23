@@ -23,10 +23,8 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
         transfer_call_interface,
     );
 
-    // Impersonate recipient
+    // Impersonate the recipient of the public transfer (the sender of the change note) and initiate the transfer
     env.impersonate(recipient);
-
-    // Execute transfer
     let partial_note = transfer_call_interface.call(&mut env.private());
 
     // Check balances before the partial note is finalized
@@ -41,10 +39,9 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
     // --> this should send the `change_amount` from recipient's public balance to sender's private balance
     let change_amount = transfer_amount / (2 as u128);
 
-    // Impersonate the recipient and try to finalize the transfer
+    // Impersonate the recipient of the public transfer (the sender of the change note) and try to finalize
+    // the transfer of the change note
     env.impersonate(recipient);
-
-    // Finalize the transfer
     Token::at(token_contract_address)
         .finalize_transfer_to_private(change_amount, partial_note)
         .call(&mut env.public());
