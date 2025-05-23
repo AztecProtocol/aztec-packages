@@ -5,7 +5,7 @@ import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC
 import { jest } from '@jest/globals';
 
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
-import { ProxyLogger, captureProfile } from './utils.js';
+import { captureProfile } from './utils.js';
 
 jest.setTimeout(300_000);
 

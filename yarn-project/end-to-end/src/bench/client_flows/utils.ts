@@ -11,7 +11,7 @@ import type { ProvingTimings, SimulationTimings } from '@aztec/stdlib/tx';
 
 import assert from 'node:assert';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import type { GithubActionBenchmarkResult } from '../utils.js';
 

@@ -6,7 +6,7 @@ import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { jest } from '@jest/globals';
 
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
-import { ProxyLogger, captureProfile } from './utils.js';
+import { captureProfile } from './utils.js';
 
 jest.setTimeout(1_600_000);
 
