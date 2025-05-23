@@ -12,8 +12,6 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
-#include <type_traits>
 namespace bb {
 
 template <typename FF_> class ECCVMLookupRelationImpl {
