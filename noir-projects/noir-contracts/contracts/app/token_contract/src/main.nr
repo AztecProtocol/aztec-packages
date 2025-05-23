@@ -441,18 +441,14 @@ pub contract Token {
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
     ) -> PartialUintNote {
-        let partial_note = UintNote::partial(
+        let partial_note = UintNote::setup_partial_note(
             to,
             storage.balances.at(to).set.storage_slot,
             context,
             to,
             from,
+            context.msg_sender(),
         );
-
-        // We insert the partial note validity commitment into the nullifier tree to be later on able to verify that
-        // the partial note and completer are legitimate. See function docs of `insert_validity_commitment` for more
-        // details.
-        partial_note.insert_validity_commitment(context, context.msg_sender());
 
         partial_note
     }

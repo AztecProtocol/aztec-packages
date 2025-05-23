@@ -199,19 +199,15 @@ pub contract NFT {
     ) -> PartialNFTNote {
         let sender_and_completer = context.msg_sender();
 
-        // We create a partial note with unpopulated/zero token id for 'to'
-        let partial_note = NFTNote::partial(
+        // We setup a partial note with unpopulated/zero token id for 'to'.
+        let partial_note = NFTNote::setup_partial_note(
             to,
             storage.private_nfts.at(to).storage_slot,
             context,
             to,
             sender_and_completer,
+            sender_and_completer,
         );
-
-        // We insert the partial note validity commitment into the nullifier tree to be later on able to verify that
-        // the partial note and completer are legitimate. See function docs of `insert_validity_commitment` for more
-        // details.
-        partial_note.insert_validity_commitment(context, sender_and_completer);
 
         partial_note
     }
