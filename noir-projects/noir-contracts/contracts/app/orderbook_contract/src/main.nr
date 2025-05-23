@@ -136,6 +136,8 @@ pub contract Orderbook {
             (config.token1, config.token0)
         };
 
+        // TODO(#14362): Once we allow partial note completion in private we can skip the transfer to public here and
+        // just finalize the maker's partial note straight away here.
         // Transfer the amount_out from taker to the contract
         Token::at(token_out)
             .transfer_to_public(taker, context.this_address(), order.amount_out, nonce)
