@@ -13,23 +13,13 @@ rm -rf build-coverage/profdata
 mkdir -p build-coverage/profdata
 export LLVM_PROFILE_FILE="$(pwd)/build-coverage/profdata/%m.%p.profraw"
 
-function cpp_test_cmds {
-  # Run all direct C++ tests with coverage
-  # exclude the one test that does not complete within 15 minutes
-  ./bootstrap.sh test_cmds
-}
-function acir_test_cmds {
-  ../acir_tests/bootstrap.sh test_cmds | grep -v wasm | grep -v browser
-}
-function bench_test_cmds {
-   echo "disabled-cache NO_WASM=1 barretenberg/cpp/bootstrap.sh bench_ivc origin/next"
-}
 function test_cmds {
-  cpp_test_cmds
-  acir_test_cmds
-  bench_test_cmds
+  # Note that HEAVY_TEST marked tests wont run with coverage
+  ./bootstrap.sh test_cmds
+  ../acir_tests/bootstrap.sh test_cmds | grep -v main.js | grep -v browser
+  echo "disabled-cache NO_WASM=1 barretenberg/cpp/bootstrap.sh bench_ivc origin/next"
 }
-test_cmds #| echo #parallelise
+(test_cmds || exit 1) | parallelise
 # Run llvm-profdata to merge raw profiles
 llvm-profdata-16 merge -sparse build-coverage/profdata/*.profraw -o build-coverage/coverage.profdata
 

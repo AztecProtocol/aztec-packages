@@ -161,7 +161,7 @@ function test_cmds {
 
   # barretenberg-acir-tests-bb:
   # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-  echo "$prefix BIN="" FLOW=prove_then_verify_tube $run_test 6_array"
+  echo "$prefix FLOW=prove_then_verify_tube $run_test 6_array"
 
   # barretenberg-acir-tests-bb-ultra-honk:
   for t in $honk_tests; do
