@@ -169,14 +169,14 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
 fi
 
 function track_test {
-  local test_hash=$1
-  local line=$2
+  # We track tests in CI on in merge queues (TARGET_BRANCH will be set).
+  if [[ "$CI" -eq 1 && -n "${TARGET_BRANCH:-}" ]]; then
+    local key=${1}_$TARGET_BRANCH
+    local line="$2 (target: $TARGET_BRANCH)"
 
-  # We track tests in CI, and only on master or master merge queue.
-  if [[ "$CI" -eq 1 && ( "$REF_NAME" == "master" || "$REF_NAME" =~ ^gh-readonly-queue/master/ ) ]]; then
-    redis_cli LPUSH $test_hash "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
+    redis_cli LPUSH $key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
     # Keeps only the last 1000 lines.
-    redis_cli RTRIM $test_hash -1000 -1 &>/dev/null
+    redis_cli RTRIM $key -1000 -1 &>/dev/null
   fi
 }
 
@@ -208,7 +208,8 @@ function flake {
   track_test "failed_tests" "$line"
   echo -e "$line"
 
-  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [[ "$REF_NAME" != "master" && ! "$REF_NAME" =~ ^gh-readonly-queue/master/ ]]; then
+  # Early out if no token or not in merge queue.
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [[ ! "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
     return
   fi
 
@@ -220,7 +221,7 @@ function flake {
   read -r -d '' data <<EOF
   {
     "channel": "#aztec3-ci",
-    "text": "${slack_uids% }: Test flaked on *$REF_NAME*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
+    "text": "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
   }
 EOF
   curl -X POST https://slack.com/api/chat.postMessage \
