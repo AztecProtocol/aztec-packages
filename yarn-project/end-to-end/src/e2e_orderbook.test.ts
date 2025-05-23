@@ -52,9 +52,7 @@ describe('Orderbook', () => {
   afterAll(() => teardown());
 
   describe('full flow - happy path', () => {
-    let orderId: {
-      commitment: FieldLike;
-    };
+    let orderId: FieldLike;
 
     it('creates an order', async () => {
       const nonceForAuthwits = Fr.random();

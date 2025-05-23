@@ -40,7 +40,7 @@ pub contract Orderbook {
             storage::storage,
         },
         prelude::{AztecAddress, Map, PublicImmutable},
-        protocol_types::traits::{Serialize, ToField},
+        protocol_types::traits::{FromField, Serialize, ToField},
         unencrypted_logs::unencrypted_event_emission::encode_event,
     };
 
@@ -51,19 +51,19 @@ pub contract Orderbook {
     #[derive(Serialize)]
     #[event]
     struct OrderCreated {
-        order_id: PartialUintNote,
+        order_id: Field,
     }
 
     #[derive(Serialize)]
     #[event]
     struct OrderFulfilled {
-        order_id: PartialUintNote,
+        order_id: Field,
     }
 
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
-        orders: Map<PartialUintNote, PublicImmutable<Order, Context>, Context>,
+        orders: Map<Field, PublicImmutable<Order, Context>, Context>,
     }
 
     #[public]
@@ -104,18 +104,18 @@ pub contract Orderbook {
         // Create the order and store it in public storage
         let order = Order { amount_in, amount_out, zero_to_one: token_in == config.token0 };
 
-        Orderbook::at(context.this_address())._create_order(maker_partial_note, order).enqueue(
-            &mut context,
-        );
-    }
-
-    #[public]
-    #[internal]
-    fn _create_order(order_id: PartialUintNote, order: Order) {
         // The partial note serves as a natural unique identifier for the order. While a maker could theoretically
         // create duplicate order IDs by manipulating the randomness, this would be self-defeating - only one order
         // with a given ID can be fulfilled, meaning any duplicates would result in the maker's tokens being
         // irretrievably locked in the public balance of this contract.
+        let order_id = maker_partial_note.to_field();
+
+        Orderbook::at(context.this_address())._create_order(order_id, order).enqueue(&mut context);
+    }
+
+    #[public]
+    #[internal]
+    fn _create_order(order_id: Field, order: Order) {
         storage.orders.at(order_id).initialize(order);
 
         OrderCreated { order_id }.emit(encode_event(&mut context));
@@ -124,7 +124,7 @@ pub contract Orderbook {
     /// Privately fulfills an existing order in the orderbook
     /// The taker provides the order ID they want to fulfill
     #[private]
-    fn fulfill_order(order_id: PartialUintNote, nonce: Field) {
+    fn fulfill_order(order_id: Field, nonce: Field) {
         let config = storage.config.read();
         let order = storage.orders.at(order_id).read();
         let taker = context.msg_sender();
@@ -157,7 +157,7 @@ pub contract Orderbook {
         // the taker's transaction. While this vulnerability exists in this simplified demonstration, a production
         // implementation would typically employ a privileged matchmaker service to securely pair makers and takers,
         // thereby ensuring order execution integrity.
-        context.push_nullifier(order_id.to_field());
+        context.push_nullifier(order_id);
 
         // Enqueue the fulfillment to finalize both partial notes
         Orderbook::at(context.this_address())
@@ -175,15 +175,20 @@ pub contract Orderbook {
     #[public]
     #[internal]
     fn _fulfill_order(
-        order_id: PartialUintNote, // maker partial note is used as `order_id`
+        order_id: Field,
         taker_partial_note: PartialUintNote,
         token_in: AztecAddress,
         token_out: AztecAddress,
         amount_in: u128,
         amount_out: u128,
     ) {
+        // The `order_id` is a serialized form of the maker's partial note.
+        let maker_partial_note = PartialUintNote::from_field(order_id);
+
         // Finalize transfer of amount_out of token_out to maker
-        Token::at(token_out).finalize_transfer_to_private(amount_out, order_id).call(&mut context);
+        Token::at(token_out).finalize_transfer_to_private(amount_out, maker_partial_note).call(
+            &mut context,
+        );
 
         // Finalize transfer of of amount_in of token_in to taker
         Token::at(token_in).finalize_transfer_to_private(amount_in, taker_partial_note).call(
@@ -194,7 +199,7 @@ pub contract Orderbook {
     }
 
     #[utility]
-    unconstrained fn get_order(order_id: PartialUintNote) -> pub Order {
+    unconstrained fn get_order(order_id: Field) -> pub Order {
         storage.orders.at(order_id).read()
     }
 }
