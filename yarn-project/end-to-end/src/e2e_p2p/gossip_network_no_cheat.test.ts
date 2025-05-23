@@ -126,9 +126,9 @@ describe('e2e_p2p_network', () => {
     // Check that the validators are added correctly
     const withdrawer = await stakingAssetHandler.read.withdrawer();
     for (const validator of validators) {
-      const info = await rollup.read.getInfo([validator.attester]);
-      expect(info.proposer).toBe(validator.proposer);
-      expect(info.withdrawer).toBe(withdrawer);
+      const info = await rollup.read.getAttesterView([validator.attester]);
+      expect(info.config.proposer).toBe(validator.proposer);
+      expect(info.config.withdrawer).toBe(withdrawer);
     }
 
     // Wait for the validators to be added to the rollup

@@ -70,6 +70,12 @@ jobs:
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
+          TARGET_BRANCH: >-
+            ${{
+              github.event_name == 'pull_request' && github.event.pull_request.base.ref
+              || github.event_name == 'merge_group' && github.event.merge_group.base_ref
+              || github.ref_name
+            }}
         run: |
           if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_FULL:-0}" -eq 1 ]; then
             exec ./ci.sh merge-queue
@@ -90,7 +96,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks
-          benchmark-data-dir-path: "bench/master"
+          benchmark-data-dir-path: "bench/${{ github.event.merge_group.base_ref }}"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}

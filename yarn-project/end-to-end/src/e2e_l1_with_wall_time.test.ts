@@ -1,8 +1,9 @@
-import type { Logger, PXE, Wallet } from '@aztec/aztec.js';
+import { EthAddress, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { PXEService } from '@aztec/pxe/server';
 
 import { jest } from '@jest/globals';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 import { submitTxsTo } from './shared/submit-transactions.js';
@@ -19,11 +20,20 @@ describe('e2e_l1_with_wall_time', () => {
   const numberOfBlocks = 4;
 
   beforeEach(async () => {
-    const initialValidatorPrivateKeys = [`0x${getPrivateKeyFromIndex(0)!.toString('hex')}` as `0x${string}`];
+    const privateKey = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}` as `0x${string}`;
+    const account = privateKeyToAccount(privateKey);
+    const initialValidators = [
+      {
+        attester: EthAddress.fromString(account.address),
+        proposerEOA: EthAddress.fromString(account.address),
+        withdrawer: EthAddress.fromString(account.address),
+        privateKey,
+      },
+    ];
     const { ethereumSlotDuration } = getL1ContractsConfigEnvVars();
 
     ({ teardown, logger, wallet, pxe } = await setup(1, {
-      initialValidatorPrivateKeys,
+      initialValidators,
       ethereumSlotDuration,
       salt: 420,
     }));

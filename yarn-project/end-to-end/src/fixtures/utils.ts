@@ -33,6 +33,7 @@ import {
   type DeployL1ContractsReturnType,
   ForwarderContract,
   NULL_KEY,
+  type Operator,
   createExtendedL1Client,
   deployL1Contracts,
   getL1ContractsConfigEnvVars,
@@ -280,9 +281,7 @@ export type SetupOptions = {
   /** Salt to use in L1 contract deployment */
   salt?: number;
   /** An initial set of validators */
-  initialValidatorPrivateKeys?: `0x${string}`[];
-  /** Option to use the publisher as the proposer for the initial validator set. */
-  usePublisherAsProposer?: boolean;
+  initialValidators?: (Operator & { privateKey: `0x${string}` })[];
   /** Anvil Start time */
   l1StartTime?: number;
   /** The anvil time where we should at the earliest be seeing L2 blocks */
@@ -355,13 +354,7 @@ export async function setup(
   try {
     const config = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
-    config.validatorPrivateKeys = opts.initialValidatorPrivateKeys;
-    // use the same publisher as the 'proposer' for the validators, if provided
-
-    const initialValidators = opts.initialValidatorPrivateKeys?.map(privateKey => {
-      const account = privateKeyToAccount(privateKey);
-      return EthAddress.fromString(account.address);
-    });
+    config.validatorPrivateKeys = opts.initialValidators?.map(v => v.privateKey);
 
     config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
     // For tests we only want proving enabled if specifically requested
@@ -424,9 +417,6 @@ export async function setup(
       config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
     }
 
-    // Made as separate values such that keys can change, but for test they will be the same.
-    config.validatorPrivateKeys = opts.initialValidatorPrivateKeys;
-
     if (PXE_URL) {
       // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
       return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
@@ -451,11 +441,7 @@ export async function setup(
           ...opts,
           genesisArchiveRoot,
           feeJuicePortalInitialBalance: fundingNeeded,
-          initialValidators,
-          initialValidatorsProposer: opts.usePublisherAsProposer
-            ? // Proposer for all validators is the publisher's forwarder address
-              EthAddress.fromString(ForwarderContract.expectedAddress(publisherHdAccount!.address))
-            : undefined,
+          initialValidators: opts.initialValidators,
         },
         chain,
       ));

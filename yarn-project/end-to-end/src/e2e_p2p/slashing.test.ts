@@ -296,7 +296,7 @@ describe('e2e_p2p_slashing', () => {
     const attestersPre = await rollup.getAttesters();
 
     for (const attester of attestersPre) {
-      const attesterInfo = await rollup.getInfo(attester);
+      const attesterInfo = await rollup.getAttesterView(attester);
       // Check that status isValidating
       expect(attesterInfo.status).toEqual(1);
     }
@@ -356,7 +356,7 @@ describe('e2e_p2p_slashing', () => {
     await t.sendDummyTx();
 
     for (const attester of attestersPre) {
-      const attesterInfo = await rollup.getInfo(attester);
+      const attesterInfo = await rollup.getAttesterView(attester);
       // Check that status is Living
       expect(attesterInfo.status).toEqual(2);
     }

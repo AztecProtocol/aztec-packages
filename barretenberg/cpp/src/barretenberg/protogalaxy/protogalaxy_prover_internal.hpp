@@ -456,7 +456,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         };
 
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping result;
-        RelationUtils::template apply_to_tuple_of_tuples<0, 0>(result, deoptimise);
+        RelationUtils::template apply_to_tuple_of_tuples(result, deoptimise);
         return result;
     }
 
@@ -468,13 +468,17 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             std::get<0>(std::get<0>(univariate_accumulators)).template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
         size_t idx = 0;
         const auto scale_and_sum = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            if constexpr (outer_idx == 0 && inner_idx == 0) {
+                return;
+            }
+
             auto extended = element.template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
             extended *= alpha[idx];
             result += extended;
             idx++;
         };
 
-        RelationUtils::template apply_to_tuple_of_tuples<0, 1>(univariate_accumulators, scale_and_sum);
+        RelationUtils::template apply_to_tuple_of_tuples(univariate_accumulators, scale_and_sum);
         RelationUtils::zero_univariates(univariate_accumulators);
 
         return result;

@@ -468,6 +468,11 @@ pub contract Token {
     /// Finalizes a transfer of token `amount` from public balance of `msg_sender` to a private balance of `to`.
     /// The transfer must be prepared by calling `prepare_private_balance_increase` from `msg_sender` account and
     /// the resulting `partial_note` must be passed as an argument to this function.
+    ///
+    /// Note that this contract does not protect against a `partial_note` being used multiple times and it is up to
+    /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
+    /// times, the token `amount` would most likely get lost (the partial note log processing functionality would fail
+    /// to find the pending partial note when trying to complete it).
     #[public]
     fn finalize_transfer_to_private(amount: u128, partial_note: PartialUintNote) {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the account
@@ -521,8 +526,10 @@ pub contract Token {
 
         // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
         // state variable's storage slot, and it is internally consistent). We *could* clear the storage since each
-        // partial note should only be used once, but since the AVM offers no gas refunds for doing so this would
-        // just make the transaction be more expensive.
+        // partial note should only be used once, but since the AVM offers no gas refunds for doing so this would just
+        // make the transaction be more expensive. We don't worry about the validity commitment being checked against
+        // multiple times because it is up to the caller to ensure that a partial note is used only once (see function
+        // docs of `finalize_transfer_to_private`).
         assert(
             context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
             "Invalid partial note or completer",
