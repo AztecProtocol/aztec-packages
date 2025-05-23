@@ -4,31 +4,38 @@ use crate::{
 };
 use dep::types::{constants::MAX_NULLIFIER_READ_REQUESTS_PER_TX, traits::Empty};
 
-pub struct NullifierReadRequestHintsBuilder<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
+pub struct NullifierReadRequestHintsBuilder<let PENDING_HINTS_LEN: u32, let SETTLED_HINTS_LEN: u32> {
     pub read_request_statuses: [ReadRequestStatus; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-    pub pending_read_hints: BoundedVec<PendingReadHint, NUM_PENDING_HINTS>,
-    pub settled_read_hints: BoundedVec<NullifierSettledReadHint, NUM_SETTLED_HINTS>,
+    pub pending_read_hints: BoundedVec<PendingReadHint, PENDING_HINTS_LEN>,
+    pub settled_read_hints: BoundedVec<NullifierSettledReadHint, SETTLED_HINTS_LEN>,
 }
 
-impl<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> NullifierReadRequestHintsBuilder<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
+impl<let PENDING_HINTS_LEN: u32, let SETTLED_HINTS_LEN: u32> NullifierReadRequestHintsBuilder<PENDING_HINTS_LEN, SETTLED_HINTS_LEN> {
     pub fn new() -> Self {
         NullifierReadRequestHintsBuilder {
             read_request_statuses: [ReadRequestStatus::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX],
             pending_read_hints: BoundedVec::from_parts_unchecked(
-                [PendingReadHint::nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX); NUM_PENDING_HINTS],
+                [PendingReadHint::nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX); PENDING_HINTS_LEN],
                 0,
             ),
             settled_read_hints: BoundedVec::from_parts_unchecked(
                 [
                     NullifierSettledReadHint::nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX);
-                         NUM_SETTLED_HINTS
+                         SETTLED_HINTS_LEN
                     ],
                     0,
                 ),
             }
         }
 
-    pub fn to_hints(self) -> NullifierReadRequestHints<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
+    pub fn add_pending_read_hint(&mut self, read_request_index: u32, nullifier_index: u32) {
+        let hint_index = self.pending_read_hints.len();
+        let hint = PendingReadHint { read_request_index, pending_value_index: nullifier_index };
+        self.pending_read_hints.push(hint);
+        self.read_request_statuses[read_request_index] = ReadRequestStatus::pending(hint_index);
+    }
+
+    pub fn to_hints(self) -> NullifierReadRequestHints<PENDING_HINTS_LEN, SETTLED_HINTS_LEN> {
         NullifierReadRequestHints {
             read_request_statuses: self.read_request_statuses,
             pending_read_hints: self.pending_read_hints.storage(),

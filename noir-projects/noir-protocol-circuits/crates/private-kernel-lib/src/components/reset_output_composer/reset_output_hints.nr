@@ -28,9 +28,9 @@ pub struct ResetOutputHints {
     pub sorted_private_log_indexes: [u32; MAX_PRIVATE_LOGS_PER_TX],
 }
 
-pub unconstrained fn generate_reset_output_hints<let NUM_TRANSIENT_DATA_INDEX_HINTS: u32>(
+pub unconstrained fn generate_reset_output_hints<let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32>(
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
+    transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
 ) -> ResetOutputHints {
     let (kept_note_hashes, kept_nullifiers, kept_private_logs) = squash_transient_data(
         previous_kernel.end.note_hashes,
