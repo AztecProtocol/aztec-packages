@@ -698,7 +698,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     tag: Fr,
     contractAddress: AztecAddress,
   ): Promise<PublicLogWithTxData | null> {
-    const logs = await this.aztecNode.getPublicLogsByTagsForContract([tag], contractAddress);
+    const logs = await this.aztecNode.getPublicLogsByTagsFromContract([tag], contractAddress);
     const logsForTag = logs[0];
 
     this.log.debug(`Got ${logsForTag.length} logs for tag ${tag}`);

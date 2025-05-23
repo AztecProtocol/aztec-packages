@@ -320,7 +320,7 @@ export interface AztecNode
    * array implies no logs match that tag. There can be multiple logs for 1 tag because tag reuse can happen
    * --> e.g. when sending a note from multiple unsynched devices.
    */
-  getPublicLogsByTagsForContract(tags: Fr[], contractAddress: AztecAddress): Promise<TxScopedL2Log[][]>;
+  getPublicLogsByTagsFromContract(tags: Fr[], contractAddress: AztecAddress): Promise<TxScopedL2Log[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -522,7 +522,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(z.array(schemas.Fr))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
-  getPublicLogsByTagsForContract: z
+  getPublicLogsByTagsFromContract: z
     .function()
     .args(z.array(schemas.Fr), schemas.AztecAddress)
     .returns(z.array(z.array(TxScopedL2Log.schema))),
