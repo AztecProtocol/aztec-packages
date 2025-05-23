@@ -140,6 +140,10 @@ contract RollupCore is
   /*                          CHEAT CODES END HERE                              */
   /* -------------------------------------------------------------------------- */
 
+  function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
+    StakingLib.setSlasher(_slasher);
+  }
+
   function setProvingCostPerMana(EthValue _provingCostPerMana)
     external
     override(IRollupCore)
