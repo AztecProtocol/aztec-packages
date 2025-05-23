@@ -1723,7 +1723,7 @@
         "nextAvailableLeafIndex": 129
       }
     },
-    "endGasUsed": { "daGas": 0, "l2Gas": 63 },
+    "endGasUsed": { "daGas": 0, "l2Gas": 18 },
     "accumulatedDataArrayLengths": {
       "noteHashes": 64,
       "nullifiers": 64,
