@@ -28,7 +28,7 @@ function build {
 
 function test {
   echo_header "boxes test"
-  test_cmds | filter_test_cmds | parallelise
+  (test_cmds || exit 1) | filter_test_cmds | parallelise
 }
 
 function test_cmds {

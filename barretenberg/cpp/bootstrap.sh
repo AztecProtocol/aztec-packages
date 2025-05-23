@@ -220,7 +220,7 @@ function test_cmds {
 # This is not called in ci. It is just for a developer to run the tests.
 function test {
   echo_header "bb test"
-  test_cmds | filter_test_cmds | parallelise
+  (test_cmds || exit 1) | filter_test_cmds | parallelise
 }
 
 function build_bench {
@@ -255,7 +255,7 @@ function bench_cmds {
 function bench {
   echo_header "bb bench"
   rm -rf bench-out && mkdir -p bench-out
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  (bench_cmds || exit 1) | STRICT_SCHEDULING=1 parallelise
 }
 
 # Upload assets to release.
@@ -304,7 +304,7 @@ case "$cmd" in
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
-    ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh | STRICT_SCHEDULING=1 parallelise
+    ../../yarn-project/end-to-end/bootstrap.sh (bench_cmds || exit 1) | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh | STRICT_SCHEDULING=1 parallelise
     ;;
   "hash")
     echo $hash

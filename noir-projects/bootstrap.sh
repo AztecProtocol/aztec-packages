@@ -35,7 +35,7 @@ function test_cmds {
 
 function test {
   echo_header "noir-projects test"
-  test_cmds | filter_test_cmds | parallelise
+  (test_cmds || exit 1) | filter_test_cmds | parallelise
 }
 
 function format {
