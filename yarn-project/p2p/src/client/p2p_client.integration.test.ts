@@ -49,6 +49,17 @@ describe('p2p client integration', () => {
     txPool.getAllTxs.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
+
+    worldState.status.mockResolvedValue({
+      state: mock(),
+      syncSummary: {
+        latestBlockNumber: 0,
+        latestBlockHash: '',
+        finalisedBlockNumber: 0,
+        treesAreSynched: false,
+        oldestHistoricBlockNumber: 0,
+      },
+    });
   });
 
   afterEach(async () => {

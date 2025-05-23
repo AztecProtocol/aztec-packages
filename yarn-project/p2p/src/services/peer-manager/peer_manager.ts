@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
-import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -13,6 +13,7 @@ import { PeerEvent } from '../../types/index.js';
 import type { PubSubLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
+import { StatusMessage } from '../reqresp/protocols/status.js';
 import type { ReqResp } from '../reqresp/reqresp.js';
 import { ReqRespStatus } from '../reqresp/status.js';
 import type { PeerDiscoveryService } from '../service.js';
@@ -63,6 +64,8 @@ export class PeerManager {
     private logger = createLogger('p2p:peer-manager'),
     private peerScoring: PeerScoring,
     private reqresp: ReqResp,
+    private readonly worldStateSynchronizer: WorldStateSynchronizer,
+    private readonly procolVersion: string,
   ) {
     this.metrics = new PeerManagerMetrics(telemetryClient, 'PeerManager');
 
@@ -163,6 +166,7 @@ export class PeerManager {
     } else {
       this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
     }
+    void this.exchangeStatusHandshake(peerId);
   }
 
   /**
@@ -611,6 +615,33 @@ export class PeerManager {
       if (peersToDelete <= 0) {
         break;
       }
+    }
+  }
+
+  private async exchangeStatusHandshake(peerId: PeerId) {
+    const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
+    const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.procolVersion, syncSummary);
+
+    const { status, data } = await this.reqresp.sendRequestToPeer(
+      peerId,
+      ReqRespSubProtocol.STATUS,
+      ourStatus.toBuffer(),
+    );
+    if (status !== ReqRespStatus.SUCCESS) {
+      this.logger.info(`Peer ${peerId} failed to respond`);
+      await this.disconnectPeer(peerId);
+    }
+
+    try {
+      const peerStatusMessage = StatusMessage.fromBuffer(data);
+      if (!ourStatus.validate(peerStatusMessage)) {
+        this.logger.warn(`Status handshake with peer ${peerId} failed`);
+        await this.disconnectPeer(peerId);
+      }
+      this.logger.info(`Status handshake with peer ${peerId} was success`);
+    } catch {
+      this.logger.info(`Peer ${peerId} sent invalid status message`);
+      await this.disconnectPeer(peerId);
     }
   }
 
