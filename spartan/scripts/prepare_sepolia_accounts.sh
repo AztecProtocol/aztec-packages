@@ -95,7 +95,7 @@ max_index=$((max_index > bot_max_index ? max_index : bot_max_index))
 total_accounts=$((num_validators + num_provers + num_bots))
 
 # Check if mnemonic is provided
-if [ -z "$MNEMONIC" ]; then
+if [ "${MNEMONIC:-}" = "" ]; then
   # Create a new mnemonic
   echo "Creating mnemonic..."
   cast wallet new-mnemonic --json >"$tmp_filename"
