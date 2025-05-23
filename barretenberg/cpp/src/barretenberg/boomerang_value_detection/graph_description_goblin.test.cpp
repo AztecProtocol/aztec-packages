@@ -86,7 +86,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
         info("variables in one gate is empty");
     } else {
         info("size of variables in one gate == ", variables_in_one_gate.size());
-        auto first_var = std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[4];
+        auto first_var = std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[0];
         info("first var == ", first_var);
         graph.print_variable_in_one_gate(builder, first_var);
     }

@@ -92,7 +92,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
 {
     variables.emplace_back(in);
     const uint32_t index = static_cast<uint32_t>(variables.size()) - 1U;
-    if (index == 92094) {
+    if (index == 453210) {
         info("AAAAAAAAAAAAAAAA");
     }
     real_variable_index.emplace_back(index);

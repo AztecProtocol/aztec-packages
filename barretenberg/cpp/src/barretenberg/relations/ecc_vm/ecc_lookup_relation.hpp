@@ -163,35 +163,13 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         // | 6 |  3[P].x |  3[P].y
         // | 7 |  1[P].x |  1[P].y | 7, -[P].x, -[P].y | 8 , [P].x, [P].y |
 
-        /*      const auto negative_term = precompute_pc + gamma + precompute_round * beta + tx * beta_sqr - ty *
-           beta_cube; const auto positive_slice_value = -(precompute_round) + 15; const auto positive_term =
-           precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube; */
-
-        /*      using NegativeTermT = decltype(negative_term);
-                using PositiveTermT = decltype(positive_term); */
-        // In this function Prover and Verifier use field<Bn254FqParams> and bigfield<Ultra<UltraExecutionTracle,
-        // Bn254FqParams> respectively. If this function returns positive_term, negative_term won't be used in the
-        // circuit, and its 2nd binary basis limb will be only in one gate So we can remove this variable from the
-        // static analyzer's scope. N.B. can we calculate positive and negative terms in constexpr if below? Because we
-        // create unnecessary bigfield elements => create more unnecessary gates....
-        //  todo optimize this?
+        // todo optimize this?
         if constexpr (write_index == 0) {
-            /*             if constexpr
-               (std::is_same_v<stdlib::bigfield<bb::UltraCircuitBuilder_<bb::UltraExecutionTraceBlocks>,
-               bb::Bn254FqParams>, std::decay_t<NegativeTermT>>) {
-                            negative_term.get_context()->update_used_witnesses(negative_term.binary_basis_limbs[2].element.witness_index);
-                        }
-                        return positive_term; // degree 1 */
             const auto positive_slice_value = -(precompute_round) + 15;
             return precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube;
         }
         if constexpr (write_index == 1) {
             return precompute_pc + gamma + precompute_round * beta + tx * beta_sqr - ty * beta_cube;
-            /*             if constexpr
-               (std::is_same_v<stdlib::bigfield<bb::UltraCircuitBuilder_<bb::UltraExecutionTraceBlocks>,
-               bb::Bn254FqParams>, std::decay_t<PositiveTermT>>) {
-                            positive_term.get_context()->update_used_witnesses(negative_term.binary_basis_limbs[2].element.witness_index);
-                        } */
         }
         return Accumulator(1);
     }
@@ -231,22 +209,17 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         // value of current pc = msm_pc - msm_size_of_msm + msm_count + (0,1,2,3)
         const auto current_pc = msm_pc - msm_count;
 
-        const auto read_term1 = (current_pc) + gamma + msm_slice1 * beta + msm_x1 * beta_sqr + msm_y1 * beta_cube;
-        const auto read_term2 = (current_pc - 1) + gamma + msm_slice2 * beta + msm_x2 * beta_sqr + msm_y2 * beta_cube;
-        const auto read_term3 = (current_pc - 2) + gamma + msm_slice3 * beta + msm_x3 * beta_sqr + msm_y3 * beta_cube;
-        const auto read_term4 = (current_pc - 3) + gamma + msm_slice4 * beta + msm_x4 * beta_sqr + msm_y4 * beta_cube;
-
         if constexpr (read_index == 0) {
-            return read_term1; // degree 1
+            return (current_pc) + gamma + msm_slice1 * beta + msm_x1 * beta_sqr + msm_y1 * beta_cube;
         }
         if constexpr (read_index == 1) {
-            return read_term2; // degree 1
+            return (current_pc - 1) + gamma + msm_slice2 * beta + msm_x2 * beta_sqr + msm_y2 * beta_cube;
         }
         if constexpr (read_index == 2) {
-            return read_term3; // degree 1
+            return (current_pc - 2) + gamma + msm_slice3 * beta + msm_x3 * beta_sqr + msm_y3 * beta_cube;
         }
         if constexpr (read_index == 3) {
-            return read_term4; // degree 1
+            return (current_pc - 3) + gamma + msm_slice4 * beta + msm_x4 * beta_sqr + msm_y4 * beta_cube;
         }
         return Accumulator(1);
     }
