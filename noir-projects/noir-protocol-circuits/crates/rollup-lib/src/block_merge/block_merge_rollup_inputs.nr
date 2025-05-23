@@ -49,8 +49,6 @@ impl BlockMergeRollupInputs {
         // ^ Where instead of num_txs, use num_blocks = (end_global_variables.block_number - start_global_variables.block_number) + 1
         components::assert_prev_block_rollups_follow_on_from_each_other(left, right);
 
-        let out_hash = components::compute_blocks_out_hash(self.previous_rollup_data);
-
         let proposed_block_header_hashes =
             components::accumulate_proposed_block_header_hashes(left, right);
 
@@ -67,7 +65,7 @@ impl BlockMergeRollupInputs {
             new_archive: right.new_archive,
             start_global_variables: left.start_global_variables,
             end_global_variables: right.end_global_variables,
-            out_hash,
+            out_hash: 0, // Not needed for block merge. This is only required for block root since the value is inserted on L1 per block.
             proposed_block_header_hashes,
             fees,
             vk_tree_root: left.vk_tree_root,
@@ -83,7 +81,6 @@ mod tests {
     use dep::types::constants::{
         BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_INDEX, ROOT_PARITY_INDEX,
     };
-    use dep::types::hash::accumulate_sha256;
     use dep::types::tests::fixtures;
     use types::merkle_tree::merkle_tree::MerkleTree;
 
@@ -120,15 +117,6 @@ mod tests {
         inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.block_number =
             1;
         let _output = inputs.block_merge_rollup_circuit();
-    }
-
-    #[test]
-    fn out_hash() {
-        let mut inputs = default_block_merge_rollup_inputs();
-        let expected_hash = accumulate_sha256([1, 2]);
-        let outputs = inputs.block_merge_rollup_circuit();
-
-        assert_eq(outputs.out_hash, expected_hash);
     }
 
     #[test]

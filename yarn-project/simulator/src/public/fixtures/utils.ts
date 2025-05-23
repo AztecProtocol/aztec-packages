@@ -57,13 +57,11 @@ export function createTxForPublicCalls(
   // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
   forPublic.nonRevertibleAccumulatedData.nullifiers[0] = firstNullifier;
 
-  // We reverse order because the simulator expects it to be like a "stack" of calls to pop from
-  for (let i = setupCallRequests.length - 1; i >= 0; i--) {
-    forPublic.nonRevertibleAccumulatedData.publicCallRequests[setupCallRequests.length - i - 1] =
-      setupCallRequests[i].request;
+  for (let i = 0; i < setupCallRequests.length; i++) {
+    forPublic.nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i].request;
   }
-  for (let i = appCallRequests.length - 1; i >= 0; i--) {
-    forPublic.revertibleAccumulatedData.publicCallRequests[appCallRequests.length - i - 1] = appCallRequests[i].request;
+  for (let i = 0; i < appCallRequests.length; i++) {
+    forPublic.revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i].request;
   }
   if (teardownCallRequest) {
     forPublic.publicTeardownCallRequest = teardownCallRequest.request;

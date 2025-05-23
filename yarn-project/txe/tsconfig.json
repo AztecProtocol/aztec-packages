@@ -13,10 +13,10 @@
       "path": "../archiver"
     },
     {
-      "path": "../aztec.js"
+      "path": "../aztec-node"
     },
     {
-      "path": "../aztec-node"
+      "path": "../aztec.js"
     },
     {
       "path": "../bb-prover"

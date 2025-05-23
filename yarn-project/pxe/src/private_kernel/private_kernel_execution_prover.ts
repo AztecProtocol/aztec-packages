@@ -10,6 +10,7 @@ import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
 import { hashVK } from '@aztec/stdlib/hash';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
+  PaddedSideEffectAmounts,
   PrivateCallData,
   type PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
@@ -268,7 +269,9 @@ export class PrivateKernelExecutionProver {
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );
 
-    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
+    // TODO: Enable padding when we have a better what are the final amounts we should pad to.
+    const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
+    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData, paddedSideEffectAmounts);
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
 

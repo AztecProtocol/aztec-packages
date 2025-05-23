@@ -22,6 +22,7 @@ import {
   OptionalNumber,
   PrivateToRollupAccumulatedData,
   PublicCallRequest,
+  PublicCallRequestArrayLengths,
   ScopedCountedLogHash,
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
@@ -72,6 +73,7 @@ import type {
   PartialStateReference as PartialStateReferenceNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
   ProtocolContractLeafPreimage as ProtocolContractLeafPreimageNoir,
+  PublicCallRequestArrayLengths as PublicCallRequestArrayLengthsNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
@@ -504,6 +506,16 @@ export function mapPublicCallRequestToNoir(request: PublicCallRequest): PublicCa
     contract_address: mapAztecAddressToNoir(request.contractAddress),
     is_static_call: request.isStaticCall,
     calldata_hash: mapFieldToNoir(request.calldataHash),
+  };
+}
+
+export function mapPublicCallRequestArrayLengthsToNoir(
+  lengths: PublicCallRequestArrayLengths,
+): PublicCallRequestArrayLengthsNoir {
+  return {
+    setup_calls: mapNumberToNoir(lengths.setupCalls),
+    app_logic_calls: mapNumberToNoir(lengths.appLogicCalls),
+    teardown_call: lengths.teardownCall,
   };
 }
 

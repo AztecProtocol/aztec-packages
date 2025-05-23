@@ -24,14 +24,14 @@ pub struct ProposedBlockHeader {
 
 impl Eq for ProposedBlockHeader {
     fn eq(self, other: Self) -> bool {
-        self.last_archive_root.eq(other.last_archive_root)
-            & self.content_commitment.eq(other.content_commitment)
-            & (self.slot_number == 0)
-            & (self.timestamp == 0)
-            & (self.coinbase.is_zero())
-            & (self.fee_recipient.is_zero())
-            & (self.gas_fees.is_empty())
-            & self.total_mana_used.eq(other.total_mana_used)
+        (self.last_archive_root == other.last_archive_root)
+            & (self.content_commitment == other.content_commitment)
+            & (self.slot_number == other.slot_number)
+            & (self.timestamp == other.timestamp)
+            & (self.coinbase == other.coinbase)
+            & (self.fee_recipient == other.fee_recipient)
+            & (self.gas_fees == other.gas_fees)
+            & (self.total_mana_used == other.total_mana_used)
     }
 }
 

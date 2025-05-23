@@ -10,6 +10,8 @@ class ExecutionTraceBuilder final {
   public:
     void process(const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& ex_events,
                  TraceContainer& trace);
+
+    static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs();
 };
 
 } // namespace bb::avm2::tracegen

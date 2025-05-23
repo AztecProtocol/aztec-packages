@@ -12,8 +12,8 @@ export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
     url = `${filePath}/${fileName}${suffix}.${extensions.join('.')}`;
   } else {
     url = multithreaded
-      ? (await import(/* webpackIgnore: true */ './barretenberg-threads.js')).default
-      : (await import(/* webpackIgnore: true */ './barretenberg.js')).default;
+      ? (await import('./barretenberg-threads.js')).default
+      : (await import('./barretenberg.js')).default;
   }
   const res = await fetch(url);
   // Default bb wasm is compressed, but user could point it to a non-compressed version
@@ -27,7 +27,7 @@ export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
     buffer[2] === 0x08;
   if (isGzip) {
     const decompressedData = pako.ungzip(buffer);
-    return decompressedData.buffer;
+    return decompressedData.buffer as unknown as Uint8Array<ArrayBuffer>;
   } else {
     return buffer;
   }

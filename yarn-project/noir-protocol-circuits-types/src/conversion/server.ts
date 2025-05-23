@@ -1,7 +1,7 @@
 import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/blob-lib';
 import {
-  type AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  type AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
@@ -16,7 +16,13 @@ import { toHex } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
-import { type AvmAccumulatedData, type AvmCircuitPublicInputs, PublicDataHint, RevertCode } from '@aztec/stdlib/avm';
+import {
+  type AvmAccumulatedData,
+  AvmAccumulatedDataArrayLengths,
+  type AvmCircuitPublicInputs,
+  PublicDataHint,
+  RevertCode,
+} from '@aztec/stdlib/avm';
 import {
   type PrivateToAvmAccumulatedData,
   type PrivateToAvmAccumulatedDataArrayLengths,
@@ -53,6 +59,7 @@ import {
 import { TreeSnapshots, TxConstantData } from '@aztec/stdlib/tx';
 
 import type {
+  AvmAccumulatedDataArrayLengths as AvmAccumulatedDataArrayLengthsNoir,
   AvmAccumulatedData as AvmAccumulatedDataNoir,
   AvmCircuitPublicInputs as AvmCircuitPublicInputsNoir,
   AvmProofData as AvmProofDataNoir,
@@ -126,6 +133,7 @@ import {
   mapPrivateLogToNoir,
   mapPrivateToRollupAccumulatedDataFromNoir,
   mapPrivateToRollupAccumulatedDataToNoir,
+  mapPublicCallRequestArrayLengthsToNoir,
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
   mapPublicDataWriteToNoir,
@@ -412,11 +420,8 @@ export function mapRootRollupPublicInputsFromNoir(
   rootRollupPublicInputs: RootRollupPublicInputsNoir,
 ): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
-    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.previous_archive),
-    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_archive),
-    mapFieldFromNoir(rootRollupPublicInputs.end_timestamp),
-    mapFieldFromNoir(rootRollupPublicInputs.end_block_number),
-    mapFieldFromNoir(rootRollupPublicInputs.out_hash),
+    mapFieldFromNoir(rootRollupPublicInputs.previous_archive_root),
+    mapFieldFromNoir(rootRollupPublicInputs.end_archive_root),
     mapTupleFromNoir(rootRollupPublicInputs.proposed_block_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
     mapTupleFromNoir(rootRollupPublicInputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
     mapFieldFromNoir(rootRollupPublicInputs.chain_id),
@@ -539,6 +544,18 @@ function mapAvmAccumulatedDataToNoir(data: AvmAccumulatedData): AvmAccumulatedDa
   };
 }
 
+function mapAvmAccumulatedDataArrayLengthsToNoir(
+  data: AvmAccumulatedDataArrayLengths,
+): AvmAccumulatedDataArrayLengthsNoir {
+  return {
+    note_hashes: mapNumberToNoir(data.noteHashes),
+    nullifiers: mapNumberToNoir(data.nullifiers),
+    l2_to_l1_msgs: mapNumberToNoir(data.l2ToL1Msgs),
+    public_logs: mapNumberToNoir(data.publicLogs),
+    public_data_writes: mapNumberToNoir(data.publicDataWrites),
+  };
+}
+
 export function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs): AvmCircuitPublicInputsNoir {
   return {
     global_variables: mapGlobalVariablesToNoir(inputs.globalVariables),
@@ -546,6 +563,7 @@ export function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs):
     start_gas_used: mapGasToNoir(inputs.startGasUsed),
     gas_settings: mapGasSettingsToNoir(inputs.gasSettings),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    public_call_request_array_lengths: mapPublicCallRequestArrayLengthsToNoir(inputs.publicCallRequestArrayLengths),
     public_setup_call_requests: mapTuple(inputs.publicSetupCallRequests, mapPublicCallRequestToNoir),
     public_app_logic_call_requests: mapTuple(inputs.publicAppLogicCallRequests, mapPublicCallRequestToNoir),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
@@ -563,6 +581,7 @@ export function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs):
     ),
     end_tree_snapshots: mapTreeSnapshotsToNoir(inputs.endTreeSnapshots),
     end_gas_used: mapGasToNoir(inputs.endGasUsed),
+    accumulated_data_array_lengths: mapAvmAccumulatedDataArrayLengthsToNoir(inputs.accumulatedDataArrayLengths),
     accumulated_data: mapAvmAccumulatedDataToNoir(inputs.accumulatedData),
     transaction_fee: mapFieldToNoir(inputs.transactionFee),
     reverted: inputs.reverted,
@@ -819,8 +838,8 @@ function mapPublicTubeDataToNoir(data: PublicTubeData): PublicTubeDataNoir {
 function mapAvmProofDataToNoir(data: AvmProofData): AvmProofDataNoir {
   return {
     public_inputs: mapAvmCircuitPublicInputsToNoir(data.publicInputs),
-    proof: mapRecursiveProofToNoir<typeof AVM_PROOF_LENGTH_IN_FIELDS>(data.proof),
-    vk_data: mapVkDataToNoir(data.vkData, AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    proof: mapRecursiveProofToNoir<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>(data.proof),
+    vk_data: mapVkDataToNoir(data.vkData, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
   };
 }
 

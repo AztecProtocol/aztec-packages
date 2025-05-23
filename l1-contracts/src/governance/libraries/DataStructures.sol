@@ -49,7 +49,7 @@ library DataStructures {
     Configuration config;
     ProposalState state;
     IPayload payload;
-    address governanceProposer;
+    address proposer;
     Timestamp creation;
     Ballot summedBallot;
   }

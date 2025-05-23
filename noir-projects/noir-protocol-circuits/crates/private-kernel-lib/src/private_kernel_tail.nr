@@ -63,13 +63,13 @@ mod tests {
         address::{AztecAddress, EthAddress},
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         point::Point,
-        tests::fixture_builder::FixtureBuilder,
+        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
         traits::{Empty, FromField},
     };
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_CONTRACT_CLASS_LOG,
-        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
-        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
+        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
@@ -282,6 +282,55 @@ mod tests {
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);
         builder.failed();
+    }
+
+    #[test]
+    fn private_kernel_tail__side_effects_with_padded_items() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+
+        builder.previous_kernel.append_siloed_note_hashes(2);
+        builder.previous_kernel.append_siloed_nullifiers(2); // First nullifier is added by default.
+        builder.previous_kernel.append_siloed_private_logs(1);
+
+        // Padded.
+        builder.previous_kernel.append_padded_note_hashes(2);
+        builder.previous_kernel.append_padded_nullifiers(1);
+        builder.previous_kernel.append_padded_private_logs(3);
+
+        let public_inputs = builder.execute();
+
+        // Note hashes.
+        let note_hashes = builder.previous_kernel.note_hashes.storage().map(|n| n.note_hash.value);
+        assert_array_eq(
+            public_inputs.end.note_hashes,
+            [note_hashes[0], note_hashes[1], note_hashes[2], note_hashes[3]],
+        );
+
+        // Nullifiers.
+        let nullifiers = builder.previous_kernel.nullifiers.storage().map(|n| n.nullifier.value);
+        assert_array_eq(
+            public_inputs.end.nullifiers,
+            [nullifiers[0], nullifiers[1], nullifiers[2], nullifiers[3]],
+        );
+
+        // Private logs.
+        let private_logs = builder.previous_kernel.private_logs.storage().map(|l| l.inner.log);
+        assert_array_eq(
+            public_inputs.end.private_logs,
+            [private_logs[0], private_logs[1], private_logs[2], private_logs[3]],
+        );
+
+        // Gas.
+        let num_note_hashes = 4;
+        let num_nullifiers = 4;
+        let num_private_logs = 4;
+        let num_private_log_fields = num_private_logs * (PRIVATE_LOG_SIZE_IN_FIELDS + 1); // +1 for the length field
+        let num_da_fields = num_note_hashes + num_nullifiers + num_private_log_fields;
+        let da_gas = num_da_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+        let l2_gas = num_note_hashes * L2_GAS_PER_NOTE_HASH
+            + num_nullifiers * L2_GAS_PER_NULLIFIER
+            + num_private_logs * L2_GAS_PER_PRIVATE_LOG;
+        assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
 
     #[test]
