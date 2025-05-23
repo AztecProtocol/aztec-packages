@@ -361,19 +361,6 @@ PublicContext::storage_write(self, storage_slot, value);
 
 ## Standalone Functions
 
-### gas_for_call
-
-```rust
-gas_for_call(user_gas);
-```
-
-Helper functions
-
-#### Parameters
-| Name | Type |
-| --- | --- |
-| user_gas | GasOpts |
-
 ### address
 
 ```rust
@@ -427,28 +414,32 @@ send_l2_to_l1_msg(recipient, content);
 ### call
 
 ```rust
-call(gas, address, args);
+call(l2_gas_allocation, da_gas_allocation, address, args, );
 ```
 
 #### Parameters
 | Name | Type |
 | --- | --- |
-| gas | [Field; 2] |
+| l2_gas_allocation | Field |
+| da_gas_allocation | Field |
 | address | AztecAddress |
 | args | [Field] |
+|  |  |
 
 ### call_static
 
 ```rust
-call_static(gas, address, args);
+call_static(l2_gas_allocation, da_gas_allocation, address, args, );
 ```
 
 #### Parameters
 | Name | Type |
 | --- | --- |
-| gas | [Field; 2] |
+| l2_gas_allocation | Field |
+| da_gas_allocation | Field |
 | address | AztecAddress |
 | args | [Field] |
+|  |  |
 
 ### calldata_copy
 
@@ -754,34 +745,30 @@ revert_opcode(revertdata);
 ### call_opcode
 
 ```rust
-call_opcode(gas, // gas allocation, da_gas]
-    address, args, );
+call_opcode(l2_gas_allocation, da_gas_allocation, address, args, );
 ```
 
 #### Parameters
 | Name | Type |
 | --- | --- |
-| gas | [Field; 2] |
-| // gas allocation | [l2_gas |
-| da_gas]
-    address | AztecAddress |
+| l2_gas_allocation | Field |
+| da_gas_allocation | Field |
+| address | AztecAddress |
 | args | [Field] |
 |  |  |
 
 ### call_static_opcode
 
 ```rust
-call_static_opcode(gas, // gas allocation, da_gas]
-    address, args, );
+call_static_opcode(l2_gas_allocation, da_gas_allocation, address, args, );
 ```
 
 #### Parameters
 | Name | Type |
 | --- | --- |
-| gas | [Field; 2] |
-| // gas allocation | [l2_gas |
-| da_gas]
-    address | AztecAddress |
+| l2_gas_allocation | Field |
+| da_gas_allocation | Field |
+| address | AztecAddress |
 | args | [Field] |
 |  |  |
 

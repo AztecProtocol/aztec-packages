@@ -119,20 +119,20 @@ In the sandbox pre-loaded test accounts can be used to cover fee juice when depl
 
 First import them:
 
-```bash title="import-test-accounts" showLineNumbers 
+```bash title="import-test-accounts" showLineNumbers
 aztec-wallet import-test-accounts
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/cli-wallet/test/flows/basic.sh#L9-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/basic.sh#L9-L11</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/cli-wallet/test/flows/basic.sh#L9-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/basic.sh#L9-L11</a></sub></sup>
 
 Then use the alias (test0, test1...) when paying in fee juice. Eg to create accounts:
 
-```bash title="declare-accounts" showLineNumbers 
+```bash title="declare-accounts" showLineNumbers
 aztec-wallet create-account -a alice --payment method=fee_juice,feePayer=test0
 aztec-wallet create-account -a bob --payment method=fee_juice,feePayer=test0
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/end-to-end/src/guides/up_quick_start.sh#L21-L24" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/up_quick_start.sh#L21-L24</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/end-to-end/src/guides/up_quick_start.sh#L21-L24" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/up_quick_start.sh#L21-L24</a></sub></sup>
 
 ### Mint and Bridge Fee Juice
 
@@ -140,12 +140,12 @@ aztec-wallet create-account -a bob --payment method=fee_juice,feePayer=test0
 
 First register an account, mint the fee asset on L1 and bridge it to fee juice:
 
-```bash title="bridge-fee-juice" showLineNumbers 
+```bash title="bridge-fee-juice" showLineNumbers
 aztec-wallet create-account -a main --register-only
 aztec-wallet bridge-fee-juice 1000000000000000000 main --mint --no-wait
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11</a></sub></sup>
 
 You'll have to wait for two blocks to pass for bridged fee juice to be ready on Aztec.
 For the sandbox you do this by putting through two arbitrary transactions. Eg:
@@ -160,11 +160,11 @@ aztec-wallet send increment -ca counter --args accounts:test0 accounts:test0 -f 
 
 Now the funded account can deploy itself with the bridged fees, claiming the bridged fee juice and deploying the contract in one transaction:
 
-```bash title="claim-deploy-account" showLineNumbers 
+```bash title="claim-deploy-account" showLineNumbers
 aztec-wallet deploy-account -f main --payment method=fee_juice,claim
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L25-L27" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L25-L27</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L25-L27" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L25-L27</a></sub></sup>
 
 #### Minting on Testnet
 
@@ -180,7 +180,7 @@ To connect to the testnet, pass the `AZTEC_NODE_URL` to the wallet with the `--n
 
 ```bash
 export AZTEC_NODE_URL=<testnet-ip-address>
-export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
+export SPONSORED_FPC_ADDRESS=0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047
 # Register a new account
 aztec-wallet create-account --register-only -a main -n $AZTEC_NODE_URL
 aztec-wallet register-contract $SPONSORED_FPC_ADDRESS SponsoredFPC --from main -n $AZTEC_NODE_URL --salt 0 -a sponsoredfpc
