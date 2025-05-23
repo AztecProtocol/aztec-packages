@@ -76,17 +76,19 @@ export class SimulationProviderRecorderWrapper implements SimulationProvider {
     const recording = await this.recorder.finish();
 
     if ((result as ACIRExecutionResult).partialWitness !== undefined) {
-      (result as ACIRExecutionResult).oracles = recording.oracleCalls?.reduce(
-        (acc, { time, name, stackDepth }) => {
-          const oracleName = `${stackDepth}.${name}`;
-          if (!acc[oracleName]) {
-            acc[oracleName] = { times: [] };
-          }
-          acc[oracleName].times.push(time);
-          return acc;
-        },
-        {} as Record<string, ACIRCallbackStats>,
-      );
+      const minimumDepth = Math.min(...(recording.oracleCalls?.map(call => call.stackDepth) ?? [0]));
+      (result as ACIRExecutionResult).oracles = recording.oracleCalls
+        ?.filter(call => call.stackDepth === minimumDepth)
+        .reduce(
+          (acc, { time, name }) => {
+            if (!acc[name]) {
+              acc[name] = { times: [] };
+            }
+            acc[name].times.push(time);
+            return acc;
+          },
+          {} as Record<string, ACIRCallbackStats>,
+        );
     }
 
     return result;
