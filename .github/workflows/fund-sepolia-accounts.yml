@@ -17,6 +17,16 @@ on:
         required: false
         type: string
         default: master
+    secrets:
+      GCP_SA_KEY:
+        required: true
+      SEPOLIA_FUNDING_PRIVATE_KEY:
+        required: true
+      GCP_SEPOLIA_URL:
+        required: true
+      GCP_SEPOLIA_API_KEY:
+        required: true
+
   workflow_dispatch:
     inputs:
       values_file:
