@@ -360,10 +360,13 @@ template <typename TranscriptParams> class BaseTranscript {
                 TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[0]);
         }
 
+        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
         if constexpr (in_circuit) {
+            // We are in challenge generation mode
             if (reception_phase) {
                 reception_phase = false;
             }
+            // Assign origin tags to the challenges
             for (size_t i = 0; i < num_challenges; i++) {
                 challenges[i].set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/false));
             }
@@ -407,16 +410,21 @@ template <typename TranscriptParams> class BaseTranscript {
     template <class T> void add_to_hash_buffer(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
+        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
         if constexpr (in_circuit) {
+            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+            // then we need to increment the round index
             if (!reception_phase) {
                 reception_phase = true;
                 round_index++;
             }
+            // If the element is iterable, then we need to assign origin tags to all the elements
             if constexpr (is_iterable_v<T>) {
                 for (const auto& subelement : element) {
                     subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
                 }
             } else {
+                // If the element is not iterable, then we need to assign an origin tag to the element
                 element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
             }
         }
@@ -465,16 +473,21 @@ template <typename TranscriptParams> class BaseTranscript {
         }
 #endif
         BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
         if constexpr (in_circuit) {
+            // The prover is sending data to the verifier. If before this we were in the challenge generation phase,
+            // then we need to increment the round index
             if (!reception_phase) {
                 reception_phase = true;
                 round_index++;
             }
+            // If the element is iterable, then we need to assign origin tags to all the elements
             if constexpr (is_iterable_v<T>) {
                 for (const auto& subelement : element) {
                     subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
                 }
             } else {
+                // If the element is not iterable, then we need to assign an origin tag to the element
                 element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
             }
         }
@@ -506,16 +519,21 @@ template <typename TranscriptParams> class BaseTranscript {
         }
 #endif
 
+        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
         if constexpr (in_circuit) {
+            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+            // then we need to increment the round index
             if (!reception_phase) {
                 reception_phase = true;
                 round_index++;
             }
+            // If the element is iterable, then we need to assign origin tags to all the elements
             if constexpr (is_iterable_v<T>) {
                 for (auto& subelement : element) {
                     subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
                 }
             } else {
+                // If the element is not iterable, then we need to assign an origin tag to the element
                 element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
             }
         }
