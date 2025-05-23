@@ -17,6 +17,22 @@ on:
         required: false
         type: string
         default: master
+  workflow_dispatch:
+    inputs:
+      values_file:
+        description: The values file to use, e.g. 1-validators.yaml
+        required: true
+        type: string
+      sepolia_accounts_mnemonic_secret_name:
+        description: The name of the secret which holds the sepolia accounts mnemonic. Will create a new one if it doesn't exist.
+        required: true
+        type: string
+        default: sepolia-accounts-mnemonic
+      ref:
+        description: The branch or tag to checkout
+        required: false
+        type: string
+        default: master
 
 jobs:
   fund-sepolia-accounts:
