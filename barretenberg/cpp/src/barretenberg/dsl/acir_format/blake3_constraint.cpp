@@ -35,11 +35,18 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
     }
 
     byte_array_ct output_bytes = bb::stdlib::blake3s<Builder>(arr);
-
     // Convert byte array to vector of field_t
     auto bytes = output_bytes.bytes();
 
     for (size_t i = 0; i < bytes.size(); ++i) {
+        info("bytes[",
+             i,
+             "].normalize().witness_index = ",
+             bytes[i].normalize().witness_index,
+             ", result[",
+             i,
+             "] = ",
+             constraint.result[i]);
         builder.assert_equal(bytes[i].normalize().witness_index, constraint.result[i]);
     }
 }

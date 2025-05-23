@@ -247,7 +247,8 @@ using namespace blake3_internal;
 template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder>& input)
 {
     if constexpr (HasPlookup<Builder>) {
-        return blake3s_plookup::blake3s<Builder>(input);
+        auto return_data = blake3s_plookup::blake3s<Builder>(input);
+        return return_data;
     }
 
     blake3_hasher<Builder> hasher = {};

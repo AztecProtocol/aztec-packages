@@ -90,6 +90,9 @@ std::vector<typename CircuitBuilderBase<FF_>::FF> CircuitBuilderBase<FF_>::get_p
 
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF& in)
 {
+    if (variables.size() == 680996) {
+        info("variables.size() = ", variables.size());
+    }
     variables.emplace_back(in);
     const uint32_t index = static_cast<uint32_t>(variables.size()) - 1U;
     real_variable_index.emplace_back(index);

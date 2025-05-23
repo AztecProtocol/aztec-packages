@@ -217,6 +217,7 @@ void blake3_hasher_update(blake3_hasher<Builder>* self, const byte_array<Builder
     }
 
     size_t start_counter = 0;
+    size_t loop_counter = 0;
     while (input_len > BLAKE3_BLOCK_LEN) {
         blake3_compress_in_place<Builder>(self->cv,
                                           input.slice(start_counter, BLAKE3_BLOCK_LEN),
@@ -225,8 +226,9 @@ void blake3_hasher_update(blake3_hasher<Builder>* self, const byte_array<Builder
         self->blocks_compressed = static_cast<uint8_t>(self->blocks_compressed + 1);
         start_counter += BLAKE3_BLOCK_LEN;
         input_len -= BLAKE3_BLOCK_LEN;
+        loop_counter++;
     }
-
+    info("loop_counter = ", loop_counter);
     size_t take = BLAKE3_BLOCK_LEN - ((size_t)self->buf_len);
     if (take > input_len) {
         take = input_len;
