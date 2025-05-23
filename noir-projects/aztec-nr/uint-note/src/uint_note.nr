@@ -12,7 +12,7 @@ use dep::aztec::{
             GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         },
         hash::poseidon2_hash_with_separator,
-        traits::{Deserialize, Hash, Packable, Serialize, ToField},
+        traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
         utils::arrays::array_concat,
     },
 };
@@ -271,6 +271,12 @@ impl PartialUintNote {
 impl ToField for PartialUintNote {
     fn to_field(self) -> Field {
         self.commitment
+    }
+}
+
+impl FromField for PartialUintNote {
+    fn from_field(field: Field) -> Self {
+        Self { commitment: field }
     }
 }
 
