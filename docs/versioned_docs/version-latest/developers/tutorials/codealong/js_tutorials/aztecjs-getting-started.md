@@ -15,7 +15,7 @@ This tutorial is for the sandbox and will need adjustments if deploying to testn
 
 ## Prerequisites
 
-- A running Aztec sandbox at version 0.87.2. Install with `aztec-up 0.87.2`.
+- A running Aztec sandbox at version latest. Install with `aztec-up latest`.
 
 ## Set up the project
 
@@ -40,7 +40,7 @@ mkdir src
 3. Add necessary yarn packages
 
 ```sh
-yarn add @aztec/aztec.js@0.87.2 @aztec/accounts@0.87.2 @aztec/noir-contracts.js@0.87.2 typescript @types/node
+yarn add @aztec/aztec.js@latest @aztec/accounts@latest @aztec/noir-contracts.js@latest typescript @types/node
 ```
 
 :::note Match tool and dependency versions
