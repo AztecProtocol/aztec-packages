@@ -173,7 +173,7 @@ jobs:
           $REPO/spartan/scripts/generate_devnet_config.sh ${{ env.VALUES_FILE }}
 
       - name: Fund sepolia accounts
-        uses: ./.github/workflows/fund-sepolia-accounts.yml
+        uses: AztecProtocol/aztec-packages/.github/workflows/fund-sepolia-accounts.yml
         if: ${{ inputs.sepolia_deployment == 'true' }}
         with:
           values_file: ${{ env.VALUES_FILE }}
