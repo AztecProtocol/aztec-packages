@@ -148,7 +148,7 @@ mod tests {
         abis::PaddedSideEffects,
         private_kernel_reset::{
             ALLOWED_PREVIOUS_CIRCUITS, PrivateKernelResetCircuitPrivateInputs,
-            PrivateKernelResetHints, PrivateKernelResetDimensions
+            PrivateKernelResetDimensions, PrivateKernelResetHints,
         },
     };
     use dep::reset_kernel_lib::{
@@ -169,10 +169,11 @@ mod tests {
             side_effect::{Ordered, OrderedValue, scoped::Scoped},
         },
         address::AztecAddress,
-        hash::{
-            compute_app_secret_key, compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier,
-            silo_private_log,
         constants::{MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS},
+        hash::{
+            compute_app_secret_key, compute_siloed_nullifier, compute_unique_siloed_note_hash,
+            silo_note_hash, silo_nullifier, silo_private_log,
+        },
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, pad_end, swap_items}},
         traits::{Empty, FromField, is_empty_array},
