@@ -128,7 +128,78 @@ Due to the rigidity of zk-SNARK circuits, there are upper bounds on the amount o
 
 Here are the current constants:
 
-#include_code constants /noir-projects/noir-protocol-circuits/crates/types/src/constants.nr rust
+```rust title="constants" showLineNumbers 
+// "PER CALL" CONSTANTS
+pub global MAX_NOTE_HASHES_PER_CALL: u32 = 16;
+pub global MAX_NULLIFIERS_PER_CALL: u32 = 16;
+pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 5;
+pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = 16;
+pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = 2;
+pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u32 = 63;
+pub global MAX_PUBLIC_DATA_READS_PER_CALL: u32 = 64;
+pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = 16;
+pub global MAX_PUBLIC_LOGS_PER_CALL: u32 = 4;
+pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
+
+// TREES RELATED CONSTANTS
+pub global ARCHIVE_HEIGHT: u32 = 29;
+pub global VK_TREE_HEIGHT: u32 = 6;
+pub global PROTOCOL_CONTRACT_TREE_HEIGHT: u32 = 3;
+pub global FUNCTION_TREE_HEIGHT: u32 = 5;
+pub global NOTE_HASH_TREE_HEIGHT: u32 = 40;
+pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40;
+pub global NULLIFIER_TREE_HEIGHT: u32 = 40;
+pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 39;
+pub global ARTIFACT_FUNCTION_TREE_MAX_HEIGHT: u32 = 5;
+pub global NULLIFIER_TREE_ID: Field = 0;
+pub global NOTE_HASH_TREE_ID: Field = 1;
+pub global PUBLIC_DATA_TREE_ID: Field = 2;
+pub global L1_TO_L2_MESSAGE_TREE_ID: Field = 3;
+pub global ARCHIVE_TREE_ID: Field = 4;
+
+// SUB-TREES RELATED CONSTANTS
+pub global NOTE_HASH_SUBTREE_HEIGHT: u32 = 6;
+pub global NULLIFIER_SUBTREE_HEIGHT: u32 = 6;
+// Deprecated: to be removed after removal of legacy ts trees
+pub global PUBLIC_DATA_SUBTREE_HEIGHT: u32 = 6;
+pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 4;
+pub global NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH: u32 =
+    NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT;
+pub global NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH: u32 =
+    NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT;
+pub global L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH: u32 =
+    L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT;
+
+// "PER TRANSACTION" CONSTANTS
+pub global MAX_NOTE_HASHES_PER_TX: u32 = (1 as u8 << NOTE_HASH_SUBTREE_HEIGHT as u8) as u32;
+pub global MAX_NULLIFIERS_PER_TX: u32 = (1 as u8 << NULLIFIER_SUBTREE_HEIGHT as u8) as u32;
+pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX: u32 = 8;
+pub global MAX_ENQUEUED_CALLS_PER_TX: u32 = 32;
+pub global PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u32 = 1;
+pub global MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u32 =
+    (1 as u8 << PUBLIC_DATA_SUBTREE_HEIGHT as u8) as u32;
+pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u32 =
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX - PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
+pub global MAX_PUBLIC_DATA_READS_PER_TX: u32 = 64;
+pub global MAX_L2_TO_L1_MSGS_PER_TX: u32 = 8;
+pub global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u32 = 64;
+pub global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u32 = 64;
+pub global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX: u32 = 64;
+pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX: u32 = 64;
+// TODO: for large multisends we might run out of key validation requests here but not dealing with this now as
+// databus will hopefully make the issue go away.
+pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = 64;
+pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 32;
+pub global MAX_PUBLIC_LOGS_PER_TX: u32 = 8;
+pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L28-L97" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L28-L97</a></sub></sup>
+
 
 #### What are the consequences?
 

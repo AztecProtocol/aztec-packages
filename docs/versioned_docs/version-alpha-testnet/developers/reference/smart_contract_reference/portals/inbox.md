@@ -11,7 +11,7 @@ The `Inbox` is a contract deployed on L1 that handles message passing from L1 to
 
 Sends a message from L1 to L2.
 
-```solidity title="send_l1_to_l2_message" showLineNumbers
+```solidity title="send_l1_to_l2_message" showLineNumbers 
 /**
  * @notice Inserts a new message into the Inbox
  * @dev Emits `MessageSent` with data for easy access by the sequencer
@@ -26,15 +26,16 @@ function sendL2Message(
   bytes32 _secretHash
 ) external returns (bytes32, uint256);
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L21-L35" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L21-L35</a></sub></sup>
 
-| Name        | Type                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ----------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Recipient   | `L2Actor`           | The recipient of the message. This **MUST** match the rollup version and an Aztec contract that is **attached** to the contract making this call. If the recipient is not attached to the caller, the message cannot be consumed by it.                                                                                                                                                                                                                         |
-| Content     | `field` (~254 bits) | The content of the message. This is the data that will be passed to the recipient. The content is limited to be a single field for rollup purposes. If the content is small enough it can just be passed along, otherwise it should be hashed and the hash passed along (you can use our [`Hash` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Hash.sol) utilities with `sha256ToField` functions) |
-| Secret Hash | `field` (~254 bits) | A hash of a secret that is used when consuming the message on L2. Keep this preimage a secret to make the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so make sure your app keeps track of the pre-images! Use [`computeSecretHash` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret.        |
-| ReturnValue | `bytes32`           | The message hash, used as an identifier                                                                                                                                                                                                                                                                                                                                                                                                                         |
+
+| Name           | Type    | Description |
+| -------------- | ------- | ----------- |
+| Recipient      | `L2Actor` | The recipient of the message. This **MUST** match the rollup version and an Aztec contract that is **attached** to the contract making this call. If the recipient is not attached to the caller, the message cannot be consumed by it. |
+| Content        | `field` (~254 bits) | The content of the message. This is the data that will be passed to the recipient. The content is limited to be a single field for rollup purposes. If the content is small enough it can just be passed along, otherwise it should be hashed and the hash passed along (you can use our [`Hash` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Hash.sol) utilities with `sha256ToField` functions)  |
+| Secret Hash    | `field` (~254 bits)  | A hash of a secret that is used when consuming the message on L2. Keep this preimage a secret to make the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so make sure your app keeps track of the pre-images! Use [`computeSecretHash` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret. |
+| ReturnValue         | `bytes32` | The message hash, used as an identifier |
 
 #### Edge cases
 
@@ -46,7 +47,7 @@ function sendL2Message(
 
 Allows the `Rollup` to consume multiple messages in a single transaction.
 
-```solidity title="consume" showLineNumbers
+```solidity title="consume" showLineNumbers 
 /**
  * @notice Consumes the current tree, and starts a new one if needed
  * @dev Only callable by the rollup contract
@@ -59,13 +60,13 @@ Allows the `Rollup` to consume multiple messages in a single transaction.
  */
 function consume(uint256 _toConsume) external returns (bytes32);
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L51-L63" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L51-L63</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L37-L49" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L37-L49</a></sub></sup>
 
-| Name        | Type      | Description                |
-| ----------- | --------- | -------------------------- |
-| ReturnValue | `bytes32` | Root of the consumed tree. |
+| Name           | Type        | Description                |
+| -------------- | ----------- | -------------------------- |
+| ReturnValue    | `bytes32`   | Root of the consumed tree. | 
 
 #### Edge cases
 
-- Will revert with `Inbox__Unauthorized()` if `msg.sender != ROLLUP` (rollup contract is sometimes referred to as state transitioner in the docs).
+- Will revert with `Inbox__Unauthorized()` if `msg.sender != ROLLUP` (rollup contract is sometimes referred to as state transitioner in the docs). 
