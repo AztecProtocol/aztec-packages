@@ -57,6 +57,10 @@ if ! command -v yq &>/dev/null; then
 fi
 
 # Convert ETH to wei
+if [[ ! "$eth_amount" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+  echo "Error: Invalid ETH amount: $eth_amount"
+  exit 1
+fi
 wei_amount=$(cast to-wei "$eth_amount" ether)
 
 value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
