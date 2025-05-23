@@ -64,6 +64,10 @@ export type P2PApi<T extends P2PClientType = P2PClientType.Full> = T extends P2P
   ? P2PApiWithAttestations
   : P2PApiWithoutAttestations;
 
+export type P2PApiFull<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full
+  ? P2PApiWithAttestations & P2PClient
+  : P2PApiWithoutAttestations;
+
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getAttestationsForSlot: z
     .function()
