@@ -65,7 +65,7 @@ void Execution::call(ContextInterface& context,
     // TODO clamp the gas limits based on available gas
 
     // Cd size and cd offset loads are deferred to (possible) calldatacopy
-    auto nested_context = execution_components.make_nested_context(
+    auto nested_context = context_provider.make_nested_context(
         contract_address,
         /*msg_sender=*/context.get_address(),
         /*parent_context=*/context,
