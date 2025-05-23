@@ -208,7 +208,8 @@ function flake {
   track_test "failed_tests" "$line"
   echo -e "$line"
 
-  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [[ "$REF_NAME" != "master" && ! "$REF_NAME" =~ ^gh-readonly-queue/master/ ]]; then
+  # Early out if no token or not in merge queue.
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [[ ! "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
     return
   fi
 
@@ -220,7 +221,7 @@ function flake {
   read -r -d '' data <<EOF
   {
     "channel": "#aztec3-ci",
-    "text": "${slack_uids% }: Test flaked on *$REF_NAME*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
+    "text": "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
   }
 EOF
   curl -X POST https://slack.com/api/chat.postMessage \
