@@ -35,7 +35,10 @@ class TxExecution final {
 
     void insert_non_revertibles(const Tx& tx);
     void insert_revertibles(const Tx& tx);
-    void emit_public_call_request(ContextInterface& context, ExecutionResult& result, TransactionPhase phase);
+    void emit_public_call_request(ContextInterface& context,
+                                  const ExecutionResult& result,
+                                  TreeStates&& prev_tree_state,
+                                  TransactionPhase phase);
     void emit_private_append_tree(const FF& leaf_value, uint64_t size, TransactionPhase phase);
 };
 

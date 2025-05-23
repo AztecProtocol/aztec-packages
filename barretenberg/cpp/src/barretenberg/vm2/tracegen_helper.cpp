@@ -34,6 +34,7 @@
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
+#include "barretenberg/vm2/tracegen/tx_trace.hpp"
 #include "barretenberg/vm2/tracegen/update_check_trace.hpp"
 
 namespace bb::avm2 {
@@ -74,6 +75,7 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/memory_tag_ranges",
                            precomputed_builder.process_memory_tag_range(trace));
             AVM_TRACK_TIME("tracegen/precomputed/addressing_gas", precomputed_builder.process_addressing_gas(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/phase_table", precomputed_builder.process_phase_table(trace));
         },
     };
 }
@@ -182,6 +184,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
             build_public_inputs_columns_jobs(trace, public_inputs),
             // Subtrace jobs.
             std::vector<std::function<void()>>{
+                [&]() {
+                    TxTraceBuilder tx_builder;
+                    AVM_TRACK_TIME("tracegen/tx", tx_builder.process(events.tx, trace));
+                    clear_events(events.tx);
+                },
                 [&]() {
                     ExecutionTraceBuilder exec_builder;
                     AVM_TRACK_TIME("tracegen/execution", exec_builder.process(events.execution, trace));

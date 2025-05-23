@@ -111,7 +111,8 @@ TEST_F(TxExecutionTest, simulateTx)
 
     // Get PrivateAppendTreeEvent from tx event dump events
     auto events = tx_event_emitter.get_events();
-    for (const auto& event : events) {
+    for (const auto& tx_event : events) {
+        auto event = tx_event.event;
         if (std::holds_alternative<PrivateAppendTreeEvent>(event)) {
             actual_private_append_tree_events++;
         }
