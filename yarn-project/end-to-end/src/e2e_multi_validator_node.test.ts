@@ -62,7 +62,7 @@ describe('e2e_multi_validator_node', () => {
       const account = privateKeyToAccount(pk);
       return EthAddress.fromString(account.address).toString();
     });
-    const initialValidators = validatorAddresses.map(pk => {
+    const initialValidators = initialValidatorPrivateKeys.map(pk => {
       const account = privateKeyToAccount(pk);
       return {
         attester: account.address,
