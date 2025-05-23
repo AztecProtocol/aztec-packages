@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { retryUntil, sleep } from '@aztec/aztec.js';
+import { RollupContract } from '@aztec/ethereum';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { ValidatorsStats } from '@aztec/stdlib/validators';
 
@@ -11,16 +12,18 @@ import path from 'path';
 import { getContract } from 'viem';
 
 import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
+import { P2PNetworkTest } from './p2p_network.js';
 
 const NUM_NODES = 4;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
 const BOOT_NODE_UDP_PORT = 4500;
 const BLOCK_COUNT = 3;
-const EPOCH_DURATION = 5;
-const SLASHING_QUORUM = 6;
-const SLASHING_ROUND_SIZE = 10;
+const EPOCH_DURATION = 10;
+const SLASHING_QUORUM = 3;
+const SLASHING_ROUND_SIZE = 5;
 const SLASH_AMOUNT = 10n ** 18n;
+const AZTEC_SLOT_DURATION = 12;
+const ETHEREUM_SLOT_DURATION = 4;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 
@@ -37,7 +40,9 @@ describe('e2e_p2p_validators_sentinel', () => {
       basePort: BOOT_NODE_UDP_PORT,
       startProverNode: true,
       initialConfig: {
-        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecProofSubmissionWindow: 640,
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
         aztecEpochDuration: EPOCH_DURATION,
@@ -46,8 +51,8 @@ describe('e2e_p2p_validators_sentinel', () => {
         slashingQuorum: SLASHING_QUORUM,
         slashingRoundSize: SLASHING_ROUND_SIZE,
         slashInactivityCreatePenalty: SLASH_AMOUNT,
-        slashInactivityCreateTargetPercentage: 0.6,
-        slashInactivitySignalTargetPercentage: 0.5,
+        slashInactivityCreateTargetPercentage: 0.5,
+        slashInactivitySignalTargetPercentage: 0.1,
         slashProposerRoundPollingIntervalSeconds: 1,
       },
     });
@@ -83,7 +88,7 @@ describe('e2e_p2p_validators_sentinel', () => {
     beforeAll(async () => {
       const currentBlock = t.monitor.l2BlockNumber;
       const blockCount = BLOCK_COUNT;
-      const timeout = SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * blockCount * 8;
+      const timeout = AZTEC_SLOT_DURATION * blockCount * 8;
       t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
       await retryUntil(() => t.monitor.l2BlockNumber >= currentBlock + blockCount, 'blocks mined', timeout);
 
@@ -104,7 +109,7 @@ describe('e2e_p2p_validators_sentinel', () => {
           );
         },
         'sentinel processed blocks',
-        SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * 8,
+        AZTEC_SLOT_DURATION * 8,
         1,
       );
 
@@ -123,7 +128,7 @@ describe('e2e_p2p_validators_sentinel', () => {
           return tips.proven.number > 1;
         },
         'proven blocks',
-        EPOCH_DURATION * SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * 2,
+        EPOCH_DURATION * AZTEC_SLOT_DURATION * 2,
         1,
       );
 
@@ -133,15 +138,29 @@ describe('e2e_p2p_validators_sentinel', () => {
         client: t.ctx.deployL1ContractsValues.l1Client,
       });
 
+      const rollup = new RollupContract(
+        t.ctx.deployL1ContractsValues.l1Client,
+        t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      );
+      const slashingProposer = await rollup.getSlashingProposer();
+
       await retryUntil(
         async () => {
+          const currentProposer = await rollup.getCurrentProposer();
+          t.logger.verbose(`Current proposer is ${currentProposer}`);
+          const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
+          const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
+          const leaderVotes = await slashingProposer.getProposalVotes(rollup.address, round, roundInfo.leader);
+          t.logger.verbose(`Currently in round ${round}`);
+          t.logger.verbose(`Leader votes: ${leaderVotes}`);
+
           const slashEvents = await rollupRaw.getEvents.Slashed();
           return slashEvents.length >= 1;
         },
         'slash event',
-        // wait up to 2 full rounds plus 2 ethereum blocks
-        SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * SLASHING_ROUND_SIZE * 3 +
-          SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.ethereumSlotDuration * 2,
+        // wait up to 10 full rounds, because we know that 1/5 validators are not voting
+        // so give us some time to make sure we get a round that is majority honest
+        AZTEC_SLOT_DURATION * SLASHING_ROUND_SIZE * 10,
         1,
       );
       const slashEvents = await rollupRaw.getEvents.Slashed();
@@ -203,7 +222,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
 
       t.logger.info(`Waiting for a few more blocks to be mined`);
-      const timeout = SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * 4 * 12;
+      const timeout = AZTEC_SLOT_DURATION * 4 * 12;
       await retryUntil(() => t.monitor.l2BlockNumber > l2BlockNumber + 3, 'more blocks mined', timeout);
       await sleep(1000);
 
@@ -211,7 +230,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       await retryUntil(
         () => newNode.getValidatorsStats().then(s => Object.keys(s.stats).length > 1),
         'sentinel stats',
-        SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * 2,
+        AZTEC_SLOT_DURATION * 2,
         1,
       );
 

@@ -221,10 +221,6 @@ tests:
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
-  - regex: "yarn-project/end-to-end/src/e2e_p2p/validators_sentinel.test.ts"
-    error_regex: "Timeout awaiting slash event"
-    owners:
-      - *mitch
 
   # boxes
   - regex: "BOX=vite BROWSER=webkit run_compose_test vite-webkit box boxes"

@@ -25,7 +25,6 @@ import type {
 } from '@aztec/stdlib/validators';
 
 import EventEmitter from 'node:events';
-import { isAddress } from 'viem';
 
 import { SentinelStore } from './store.js';
 
@@ -128,11 +127,20 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const provenSlots = headers.map(h => h.getSlot());
     const fromSlot = provenSlots[0];
     const toSlot = provenSlots[provenSlots.length - 1];
+    const { committee } = await this.epochCache.getCommittee(fromSlot);
     const stats = await this.computeStats({ fromSlot, toSlot });
+    this.logger.debug(`Stats for epoch ${epoch}`, stats);
 
     const performance: ValidatorsEpochPerformance = {};
     for (const validator of Object.keys(stats.stats)) {
-      if (!isAddress(validator)) {
+      let address;
+      try {
+        address = EthAddress.fromString(validator);
+      } catch (e) {
+        this.logger.error(`Invalid validator address ${validator}`, e);
+        continue;
+      }
+      if (!committee.find(v => v.equals(address))) {
         continue;
       }
       let missed = 0;
@@ -141,7 +149,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
           missed++;
         }
       }
-      performance[validator] = { missed, total: provenSlots.length };
+      performance[address.toString()] = { missed, total: provenSlots.length };
     }
     return performance;
   }
