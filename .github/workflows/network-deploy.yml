@@ -109,7 +109,6 @@ jobs:
       SEPOLIA_FUNDING_PRIVATE_KEY: ${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
       GCP_SEPOLIA_URL: ${{ secrets.GCP_SEPOLIA_URL }}
       GCP_SEPOLIA_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
-      QUICKNODE_SEPOLIA_URL: ${{ secretsQUICKNODE_SEPOLIA_URL }}
 
   network_deployment:
     needs: fund_sepolia_accounts
