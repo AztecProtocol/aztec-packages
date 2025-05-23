@@ -248,7 +248,7 @@ function validator_costs {
 
   file_no="no_validators.tmp"          # without validators
   file_yes="with_validators.tmp"       # with    validators
-  report="gas_benchmark.new.md"       # will be overwritten each run
+  report="gas_benchmark.new.md"        # will be overwritten each run
 
   # keep ONLY these functions, in this order
   wanted_funcs="forward setupEpoch submitEpochRootProof"

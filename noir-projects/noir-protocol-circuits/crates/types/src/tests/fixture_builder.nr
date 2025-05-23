@@ -72,6 +72,7 @@ use crate::{
     proof::{
         recursive_proof::NestedRecursiveProof,
         verification_key::{ClientIVCVerificationKey, HonkVerificationKey, VerificationKey},
+        vk_data::VkData,
     },
     public_keys::PublicKeys,
     shared_mutable::{
@@ -620,9 +621,11 @@ impl FixtureBuilder {
         let public_inputs = self.to_private_kernel_circuit_public_inputs();
         PrivateKernelData {
             public_inputs,
-            vk: self.client_ivc_vk,
-            vk_index: self.vk_index,
-            vk_path: self.vk_path,
+            vk_data: VkData {
+                vk: self.client_ivc_vk,
+                leaf_index: self.vk_index,
+                sibling_path: self.vk_path,
+            },
         }
     }
 

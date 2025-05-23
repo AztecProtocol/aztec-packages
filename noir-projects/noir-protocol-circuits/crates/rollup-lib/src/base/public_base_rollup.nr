@@ -100,7 +100,7 @@ impl PublicBaseRollupInputs {
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
-        tube_data_validator.verify_proof();
+        tube_data_validator.validate_proof();
         tube_data_validator.validate_with_rollup_data(self.constants);
 
         // TODO(#8470)

@@ -141,6 +141,7 @@ import {
   mapTxContextFromNoir,
   mapTxContextToNoir,
   mapVerificationKeyToNoir,
+  mapVkDataToNoir,
   mapWrappedFieldToNoir,
 } from './common.js';
 
@@ -664,12 +665,7 @@ export function mapPrivateKernelDataToNoir(
   privateKernelInnerData: PrivateKernelData,
 ): PrivateKernelDataWithoutPublicInputsNoir {
   return {
-    vk: mapVerificationKeyToNoir(
-      privateKernelInnerData.verificationKey.keyAsFields,
-      CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-    ),
-    vk_index: mapFieldToNoir(new Fr(privateKernelInnerData.vkIndex)),
-    vk_path: mapTuple(privateKernelInnerData.vkPath, mapFieldToNoir),
+    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }
 

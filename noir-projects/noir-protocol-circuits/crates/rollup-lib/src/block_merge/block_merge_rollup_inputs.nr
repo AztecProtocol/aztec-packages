@@ -165,39 +165,45 @@ mod tests {
     #[test]
     fn valid_previous_circuit_block_root() {
         let mut inputs = default_block_merge_rollup_inputs();
+
+        let vk_index = BLOCK_ROOT_ROLLUP_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(BLOCK_ROOT_ROLLUP_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_ROOT_ROLLUP_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(BLOCK_ROOT_ROLLUP_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
+
         let _outputs = inputs.block_merge_rollup_circuit();
     }
 
     #[test]
     fn valid_previous_circuit_block_merge() {
         let mut inputs = default_block_merge_rollup_inputs();
+
+        let vk_index = BLOCK_MERGE_ROLLUP_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(BLOCK_MERGE_ROLLUP_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_MERGE_ROLLUP_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(BLOCK_MERGE_ROLLUP_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
+
         let _outputs = inputs.block_merge_rollup_circuit();
     }
 
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_circuit() {
         let mut inputs = default_block_merge_rollup_inputs();
+
+        let vk_index = ROOT_PARITY_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(ROOT_PARITY_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(ROOT_PARITY_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
+
         let _outputs = inputs.block_merge_rollup_circuit();
     }
 }
