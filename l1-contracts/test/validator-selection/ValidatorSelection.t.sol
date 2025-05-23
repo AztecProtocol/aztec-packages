@@ -202,12 +202,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     _testBlock("mixed_block_1", true, 2, false);
   }
 
-  function testInsufficientSigsBypass() public setup(4) progressEpochs(2) {
-    // By adding `0xdead` to the GSE, the configs moved, and the proposer
-    // becomes `address(0)` which is free-for-all, no attestations needed.
-    // Note that the committee is NOT empty, but the proposer config is "gone".
+  function testInsufficientSigsMove() public setup(4) progressEpochs(2) {
     rollup.getGSE().addRollup(address(0xdead));
-
     assertEq(rollup.getCurrentEpochCommittee().length, 4);
     _testBlock("mixed_block_1", true, 0, false);
   }
@@ -300,16 +296,21 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       emit log("Time to propose");
       vm.prank(ree.proposer);
       rollup.propose(args, signatures, full.block.blobInputs);
-
-      if (ree.shouldRevert) {
-        return;
-      }
     } else {
       Signature[] memory signatures = new Signature[](0);
+
+      if (_expectRevert) {
+        vm.expectRevert(Errors.Staking__InvalidProposer.selector);
+        ree.shouldRevert = true;
+      }
       rollup.propose(args, signatures, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
+
+    if (ree.shouldRevert) {
+      return;
+    }
 
     bytes32 l2ToL1MessageTreeRoot;
     {
