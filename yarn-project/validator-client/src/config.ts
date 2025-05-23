@@ -25,7 +25,6 @@ export interface ValidatorClientConfig {
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
   validatorPrivateKeys: {
     env: 'VALIDATOR_PRIVATE_KEYS',
-    // parseEnv: (val: string) => (val ? `0x${val.replace('0x', '')}` : NULL_KEY),
     parseEnv: (val: string) => val.split(',').map(key => `0x${key.replace('0x', '')}`),
     description: 'List of private keys of the validators participating in attestation duties',
   },
