@@ -248,8 +248,8 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
-  it('getPublicLogsByTagsForContract', async () => {
-    const response = await context.client.getPublicLogsByTagsForContract([Fr.random()], await AztecAddress.random());
+  it('getPublicLogsByTagsFromContract', async () => {
+    const response = await context.client.getPublicLogsByTagsFromContract([Fr.random()], await AztecAddress.random());
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
@@ -587,7 +587,7 @@ class MockAztecNode implements AztecNode {
     expect(tags[0]).toBeInstanceOf(Fr);
     return [[await TxScopedL2Log.random(false)]];
   }
-  async getPublicLogsByTagsForContract(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  async getPublicLogsByTagsFromContract(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(Fr);
     return [[await TxScopedL2Log.random(true)]];
