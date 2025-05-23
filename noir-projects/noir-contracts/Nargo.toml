@@ -16,6 +16,7 @@ members = [
     "contracts/app/escrow_contract",
     "contracts/app/lending_contract",
     "contracts/app/nft_contract",
+    "contracts/app/orderbook_contract",
     "contracts/app/price_feed_contract",
     "contracts/app/token_blacklist_contract",
     "contracts/app/token_bridge_contract",
