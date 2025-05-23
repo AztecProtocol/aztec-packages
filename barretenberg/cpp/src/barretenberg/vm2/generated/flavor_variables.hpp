@@ -53,80 +53,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 25317e64b6 (Theta xor operations with simulation, tracegen, unit test)
-=======
->>>>>>> bb70cfc5b8 (Theta left rotated by 1 values)
-=======
->>>>>>> 07fe657679 (Theta xor combined values)
-=======
->>>>>>> 8413122a5d (Finish theta function)
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2315;
-<<<<<<< HEAD
-=======
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2212;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2456;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2429;
->>>>>>> 06c527d238 (keccakf1600: firs pil relations for theta xoring)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2315;
->>>>>>> 434948a93a (Theta xor operations with simulation, tracegen, unit test)
-<<<<<<< HEAD
->>>>>>> 25317e64b6 (Theta xor operations with simulation, tracegen, unit test)
-=======
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2222;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2439;
->>>>>>> 79b3f35b1a (Theta left rotated by 1 values)
-<<<<<<< HEAD
->>>>>>> bb70cfc5b8 (Theta left rotated by 1 values)
-=======
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2237;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2454;
->>>>>>> dda4dca536 (Theta xor combined values)
-<<<<<<< HEAD
->>>>>>> 07fe657679 (Theta xor combined values)
-=======
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2312;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2529;
->>>>>>> 2360fdf1ee (Finish theta function)
->>>>>>> 8413122a5d (Finish theta function)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2292;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2507;
->>>>>>> dfbb7caa4f (Generate pil after rebase on next branch)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2436;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2651;
->>>>>>> 8e04d84b73 (Pil relations for rho function and addressing review comments)
+    static constexpr size_t NUM_ALL_ENTITIES = 2673;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
