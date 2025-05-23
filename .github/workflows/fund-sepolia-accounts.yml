@@ -96,7 +96,7 @@ jobs:
           echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"
 
       - name: Save mnemonic to GCP
-        if: ${{ steps.fund-accounts.outputs.new_mnemonic == 'true' }}
+        if: ${{ steps.get-mnemonic.outputs.new_mnemonic == 'true' }}
         run: |
           echo "Saving mnemonic to GCP"
           echo "::add-mask::${{ steps.fund-accounts.outputs.mnemonic }}"
