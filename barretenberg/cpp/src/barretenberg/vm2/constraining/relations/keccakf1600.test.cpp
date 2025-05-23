@@ -135,6 +135,32 @@ using lookup_state_pi_and_41 = lookup_keccakf1600_state_pi_and_41_relation<FF>;
 using lookup_state_pi_and_42 = lookup_keccakf1600_state_pi_and_42_relation<FF>;
 using lookup_state_pi_and_43 = lookup_keccakf1600_state_pi_and_43_relation<FF>;
 using lookup_state_pi_and_44 = lookup_keccakf1600_state_pi_and_44_relation<FF>;
+// chi values
+using lookup_state_chi_00 = lookup_keccakf1600_state_chi_00_relation<FF>;
+using lookup_state_chi_01 = lookup_keccakf1600_state_chi_01_relation<FF>;
+using lookup_state_chi_02 = lookup_keccakf1600_state_chi_02_relation<FF>;
+using lookup_state_chi_03 = lookup_keccakf1600_state_chi_03_relation<FF>;
+using lookup_state_chi_04 = lookup_keccakf1600_state_chi_04_relation<FF>;
+using lookup_state_chi_10 = lookup_keccakf1600_state_chi_10_relation<FF>;
+using lookup_state_chi_11 = lookup_keccakf1600_state_chi_11_relation<FF>;
+using lookup_state_chi_12 = lookup_keccakf1600_state_chi_12_relation<FF>;
+using lookup_state_chi_13 = lookup_keccakf1600_state_chi_13_relation<FF>;
+using lookup_state_chi_14 = lookup_keccakf1600_state_chi_14_relation<FF>;
+using lookup_state_chi_20 = lookup_keccakf1600_state_chi_20_relation<FF>;
+using lookup_state_chi_21 = lookup_keccakf1600_state_chi_21_relation<FF>;
+using lookup_state_chi_22 = lookup_keccakf1600_state_chi_22_relation<FF>;
+using lookup_state_chi_23 = lookup_keccakf1600_state_chi_23_relation<FF>;
+using lookup_state_chi_24 = lookup_keccakf1600_state_chi_24_relation<FF>;
+using lookup_state_chi_30 = lookup_keccakf1600_state_chi_30_relation<FF>;
+using lookup_state_chi_31 = lookup_keccakf1600_state_chi_31_relation<FF>;
+using lookup_state_chi_32 = lookup_keccakf1600_state_chi_32_relation<FF>;
+using lookup_state_chi_33 = lookup_keccakf1600_state_chi_33_relation<FF>;
+using lookup_state_chi_34 = lookup_keccakf1600_state_chi_34_relation<FF>;
+using lookup_state_chi_40 = lookup_keccakf1600_state_chi_40_relation<FF>;
+using lookup_state_chi_41 = lookup_keccakf1600_state_chi_41_relation<FF>;
+using lookup_state_chi_42 = lookup_keccakf1600_state_chi_42_relation<FF>;
+using lookup_state_chi_43 = lookup_keccakf1600_state_chi_43_relation<FF>;
+using lookup_state_chi_44 = lookup_keccakf1600_state_chi_44_relation<FF>;
 } // namespace
 
 TEST(KeccakF1600ConstrainingTest, EmptyRow)
@@ -274,6 +300,32 @@ TEST(KeccakF1600ConstrainingTest, withSimulationAndTraceGenInteractions)
     LookupIntoDynamicTableSequential<lookup_state_pi_and_42::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_state_pi_and_43::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_state_pi_and_44::Settings>().process(trace);
+    // chi values
+    LookupIntoDynamicTableSequential<lookup_state_chi_00::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_01::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_02::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_03::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_04::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_10::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_11::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_12::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_13::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_14::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_20::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_21::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_22::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_23::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_24::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_30::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_31::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_32::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_33::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_34::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_40::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_41::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_42::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_43::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_state_chi_44::Settings>().process(trace);
 
     // Check relations
     check_relation<keccakf1600_relation>(trace);

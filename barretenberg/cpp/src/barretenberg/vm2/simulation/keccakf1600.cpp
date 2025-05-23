@@ -126,14 +126,16 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
 
     // state "pi and" values
     std::array<std::array<MemoryValue, 5>, 5> state_pi_and_values;
+    // state chi values
+    std::array<std::array<MemoryValue, 5>, 5> state_chi_values;
     for (size_t i = 0; i < 5; ++i) {
         for (size_t j = 0; j < 5; ++j) {
             state_pi_and_values[i][j] =
                 bitwise.and_op(state_pi_not_values[(i + 1) % 5][j], state_pi_values[(i + 2) % 5][j]);
+            state_chi_values[i][j] = bitwise.xor_op(state_pi_values[i][j], state_pi_and_values[i][j]);
         }
     }
 
-    // TODO: Add Pi and Chi rounds
     // TODO: Add Iota round
 
     perm_events.emit({
@@ -145,6 +147,7 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
         .state_rho = two_dim_array_to_uint64(state_rho_values),
         .state_pi_not = two_dim_array_to_uint64(state_pi_not_values),
         .state_pi_and = two_dim_array_to_uint64(state_pi_and_values),
+        .state_chi = two_dim_array_to_uint64(state_chi_values),
     });
 
     // TODO: return real keccakf1600 output

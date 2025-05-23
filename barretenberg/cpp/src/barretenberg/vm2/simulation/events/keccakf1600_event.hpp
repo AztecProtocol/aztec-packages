@@ -16,6 +16,7 @@ struct KeccakF1600Event {
     KeccakF1600State state_rho;
     KeccakF1600State state_pi_not;
     KeccakF1600State state_pi_and;
+    KeccakF1600State state_chi;
 };
 
 } // namespace bb::avm2::simulation
