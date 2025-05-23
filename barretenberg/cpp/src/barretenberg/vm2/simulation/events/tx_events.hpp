@@ -47,6 +47,13 @@ struct CollectGasFeeEvent {
     TreeStates tree_state;
 };
 
-using TxEvent = std::variant<PhaseEvent, PrivateAppendTreeEvent, PrivateEmitL2L1MessageEvent, CollectGasFeeEvent>;
+using TxEventType = std::variant<PhaseEvent, PrivateAppendTreeEvent, PrivateEmitL2L1MessageEvent, CollectGasFeeEvent>;
+
+struct TxEvent {
+    TransactionPhase phase;
+    TreeStates prev_tree_state;
+    TreeStates next_tree_state;
+    TxEventType event;
+};
 
 } // namespace bb::avm2::simulation
