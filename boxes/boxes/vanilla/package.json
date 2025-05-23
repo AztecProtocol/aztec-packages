@@ -1,37 +1,44 @@
 {
-  "name": "@aztec/vanilla",
-  "description": "Vanilla HTML/JS App",
+  "name": "@aztec-examples/vanilla",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
-    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile --silence-warnings",
-    "codegen": "${AZTEC_BUILDER:-aztec} codegen src/contracts/target -o artifacts",
-    "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./src/contracts/target",
-    "prep": "yarn clean && yarn compile && yarn codegen && tsc -b",
-    "dev": "yarn prep && webpack serve --mode development",
-    "build": "yarn prep && webpack",
-    "serve": "webpack serve --no-open --mode development --watch-files ./src/*",
-    "test": "npx playwright test",
-    "formatting": "prettier --check ./src && eslint ./src",
-    "formatting:fix": "prettier -w ./src"
+    "clean": "rm -rf contracts/target codegenCache.json",
+    "compile-contracts": "cd contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
+    "codegen-contracts": "cd contracts && ${AZTEC_BUILDER:-aztec} codegen ./target -o ./target",
+    "copy-artifacts": "mkdir -p app/artifacts && cp contracts/target/*.{json,ts} app/artifacts",
+    "build-contracts": "yarn clean && yarn compile-contracts && yarn codegen-contracts && yarn copy-artifacts",
+    "deploy-contracts": "tsx scripts/deploy.ts",
+    "dev": "vite",
+    "build": "yarn build-contracts && yarn deploy-contracts && tsc && vite build",
+    "serve": "vite preview --port ${PORT:-3000} --host 0.0.0.0",
+    "test": "playwright test",
+    "lint": "prettier --check ./src"
   },
   "dependencies": {
     "@aztec/accounts": "latest",
-    "@aztec/aztec.js": "latest"
+    "@aztec/aztec.js": "latest",
+    "@aztec/noir-contracts.js": "latest",
+    "@aztec/pxe": "latest"
   },
   "devDependencies": {
-    "@playwright/test": "1.49.0",
-    "@types/node": "^22.15.17",
-    "assert": "^2.1.0",
-    "html-webpack-plugin": "^5.6.0",
-    "stream-browserify": "^3.0.0",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.3.3",
-    "util": "^0.12.5",
-    "webpack": "^5.99.6",
-    "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.1"
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^22.15.21",
+    "prettier": "^3.5.3",
+    "tsx": "^4.19.4",
+    "typescript": "~5.7.2",
+    "vite": "^6.2.0",
+    "vite-plugin-node-polyfills": "^0.23.0"
   },
-  "packageManager": "yarn@4.5.2"
+  "prettier": {
+    "semi": true,
+    "tabWidth": 2,
+    "singleQuote": true,
+    "trailingComma": "es5"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

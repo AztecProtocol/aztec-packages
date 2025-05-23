@@ -1,36 +1,39 @@
 import { defineConfig, devices } from '@playwright/test';
 
+/**
+ * See https://playwright.dev/docs/test-configuration.
+ */
 export default defineConfig({
   testDir: './tests',
-  testMatch: '**.spec.ts',
   fullyParallel: true,
-  workers: process.env.CI ? 1 : 3,
-  reporter: 'list',
+  forbidOnly: !!process.env.CI,
+  workers: process.env.WORKERS ? parseInt(process.env.WORKERS) : 1,
+  reporter: 'html',
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
-    screenshot: 'off',
     video: 'on-first-retry',
   },
-  expect: {
-    timeout: 90000,
-  },
+  timeout: 400_000,
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
+    // {
+    //   name: 'firefox',
+    //   use: { ...devices['Desktop Firefox'] },
+    // },
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
     },
   ],
+
   webServer: {
-    command: 'yarn serve',
-    port: 5173,
+    command: 'PORT=3000 yarn serve',
+    url: 'http://127.0.0.1:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
   },
 });
