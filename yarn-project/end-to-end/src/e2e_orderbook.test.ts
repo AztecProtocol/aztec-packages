@@ -81,6 +81,13 @@ describe('Orderbook', () => {
       expect(order.amount_in).toEqual(amountIn);
       expect(order.amount_out).toEqual(amountOut);
       expect(order.zero_to_one).toBeTruthy();
+
+      // At this point, amountIn of token0 should be transferred to the public balance of the orderbook and maker
+      // should have 0.
+      const orderbookBalances0 = await token0.withWallet(maker).methods.balance_of_public(orderbook.address).simulate();
+      const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
+      expect(orderbookBalances0).toEqual(amountIn);
+      expect(makerBalances0).toEqual(0n);
     });
 
     it('fulfills an order', async () => {
@@ -110,6 +117,19 @@ describe('Orderbook', () => {
       expect(orderFulfilledEvents[0].order_id).toEqual(orderId);
 
       // Verify balances after order fulfillment
+      const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
+      const makerBalances1 = await token1.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
+      const takerBalances0 = await token0.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate();
+      const takerBalances1 = await token1.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate();
+
+      // Full maker token 0 balance should be transferred to taker and hence maker should have 0
+      expect(makerBalances0).toEqual(0n);
+      // amountOut of token1 should be transferred to maker
+      expect(makerBalances1).toEqual(amountOut);
+      // amountIn of token0 should be transferred to taker
+      expect(takerBalances0).toEqual(amountIn);
+      // Full taker token 1 balance should be transferred to maker and hence taker should have 0
+      expect(takerBalances1).toEqual(0n);
     });
   });
 });
