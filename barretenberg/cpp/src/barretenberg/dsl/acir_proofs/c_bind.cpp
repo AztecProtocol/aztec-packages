@@ -192,6 +192,29 @@ WASM_EXPORT void acir_prove_ultra_starknet_honk([[maybe_unused]] uint8_t const* 
 #endif
 }
 
+WASM_EXPORT void acir_prove_ultra_starknet_zk_honk([[maybe_unused]] uint8_t const* acir_vec,
+                                                   [[maybe_unused]] uint8_t const* witness_vec,
+                                                   [[maybe_unused]] uint8_t** out)
+{
+#ifdef STARKNET_GARAGA_FLAVORS
+    // Lambda function to ensure things get freed before proving.
+    UltraStarknetZKProver prover = [&] {
+        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
+        acir_format::AcirProgram program{
+            acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
+            acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
+        };
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+
+        return UltraStarknetZKProver(builder);
+    }();
+    auto proof = prover.construct_proof();
+    *out = to_heap_buffer(to_buffer(proof));
+#else
+    throw_or_abort("bb wasm was not compiled with starknet garaga flavors!");
+#endif
+}
+
 WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     using VerificationKey = UltraFlavor::VerificationKey;
@@ -240,6 +263,25 @@ WASM_EXPORT void acir_verify_ultra_starknet_honk([[maybe_unused]] uint8_t const*
     using Verifier = UltraVerifier_<UltraStarknetFlavor>;
 
     auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
+
+    Verifier verifier{ verification_key };
+
+    *result = verifier.verify_proof(proof);
+#else
+    throw_or_abort("bb wasm was not compiled with starknet garaga flavors!");
+#endif
+}
+
+WASM_EXPORT void acir_verify_ultra_starknet_zk_honk([[maybe_unused]] uint8_t const* proof_buf,
+                                                    [[maybe_unused]] uint8_t const* vk_buf,
+                                                    [[maybe_unused]] bool* result)
+{
+#ifdef STARKNET_GARAGA_FLAVORS
+    using VerificationKey = UltraStarknetZKFlavor::VerificationKey;
+    using Verifier = UltraVerifier_<UltraStarknetZKFlavor>;
+
+    auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
 
     Verifier verifier{ verification_key };
@@ -320,6 +362,29 @@ WASM_EXPORT void acir_write_vk_ultra_starknet_honk([[maybe_unused]] uint8_t cons
     }();
     VerificationKey vk(proving_key.proving_key);
     vinfo("Constructed UltraStarknetHonk verification key");
+    *out = to_heap_buffer(to_buffer(vk));
+#else
+    throw_or_abort("bb wasm was not compiled with starknet garaga flavors!");
+#endif
+}
+
+WASM_EXPORT void acir_write_vk_ultra_starknet_zk_honk([[maybe_unused]] uint8_t const* acir_vec,
+                                                      [[maybe_unused]] uint8_t** out)
+{
+#ifdef STARKNET_GARAGA_FLAVORS
+    using DeciderProvingKey = DeciderProvingKey_<UltraStarknetZKFlavor>;
+    using VerificationKey = UltraStarknetZKFlavor::VerificationKey;
+
+    // lambda to free the builder
+    DeciderProvingKey proving_key = [&] {
+        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
+        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
+            from_buffer<std::vector<uint8_t>>(acir_vec)) };
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        return DeciderProvingKey(builder);
+    }();
+    VerificationKey vk(proving_key.proving_key);
+    vinfo("Constructed UltraStarknetZKHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
 #else
     throw_or_abort("bb wasm was not compiled with starknet garaga flavors!");

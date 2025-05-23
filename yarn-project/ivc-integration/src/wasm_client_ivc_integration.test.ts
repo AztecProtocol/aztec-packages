@@ -4,7 +4,6 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 /* eslint-disable camelcase */
-import createDebug from 'debug';
 import { ungzip } from 'pako';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -36,8 +35,6 @@ import { proveClientIVC as proveClientIVCNative } from './prove_native.js';
 import { proveClientIVC as proveClientIVCWasm, proveThenVerifyAztecClient } from './prove_wasm.js';
 
 const logger = createLogger('ivc-integration:test:wasm');
-
-createDebug.enable('*');
 
 jest.setTimeout(120_000);
 

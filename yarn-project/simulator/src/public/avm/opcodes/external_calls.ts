@@ -38,9 +38,9 @@ abstract class ExternalCall extends Instruction {
 
     const operands = [this.l2GasOffset, this.daGasOffset, this.addrOffset, this.argsSizeOffset, this.argsOffset];
     const [l2GasOffset, daGasOffset, addrOffset, argsSizeOffset, argsOffset] = addressing.resolve(operands, memory);
-    // TODO: Should be U32
-    memory.checkTags(TypeTag.FIELD, l2GasOffset);
-    memory.checkTags(TypeTag.FIELD, daGasOffset);
+
+    memory.checkTags(TypeTag.UINT32, l2GasOffset);
+    memory.checkTags(TypeTag.UINT32, daGasOffset);
     memory.checkTag(TypeTag.FIELD, addrOffset);
     memory.checkTag(TypeTag.UINT32, argsSizeOffset);
 
