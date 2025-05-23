@@ -3,6 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type L2BlockSourceEvent, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
 
 import EventEmitter from 'node:events';
+import type { Hex } from 'viem';
 
 import { Offence, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './config.js';
 
@@ -55,7 +56,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       });
   }
 
-  private addToPrunedEpochs(epochNumber: bigint, validators: `0x${string}`[]) {
+  private addToPrunedEpochs(epochNumber: bigint, validators: Hex[]) {
     this.prunedEpochs.set(epochNumber, validators);
     if (this.prunedEpochs.size > this.maxPrunedEpochs) {
       this.prunedEpochs.delete(this.prunedEpochs.keys().next().value!);

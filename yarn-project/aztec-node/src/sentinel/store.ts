@@ -1,6 +1,10 @@
 import { BufferReader, numToUInt8, numToUInt32BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import type { ValidatorStatusHistory, ValidatorStatusInSlot } from '@aztec/stdlib/validators';
+import type {
+  ValidatorStatusHistory,
+  ValidatorStatusInSlot,
+  ValidatorsEpochPerformance,
+} from '@aztec/stdlib/validators';
 
 import { isAddress } from 'viem';
 
@@ -26,10 +30,7 @@ export class SentinelStore {
     return this.config.historyLength;
   }
 
-  public async updateProvenPerformance(
-    epoch: bigint,
-    performance: Record<`0x${string}`, { missed: number; total: number }>,
-  ) {
+  public async updateProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
     await this.store.transactionAsync(async () => {
       for (const [who, { missed, total }] of Object.entries(performance)) {
         if (!isAddress(who)) {
@@ -64,7 +65,14 @@ export class SentinelStore {
       currentPerformance.push({ missed, total, epoch });
     }
 
-    await this.provenMap.set(who, this.serializePerformance(currentPerformance));
+    // This should be sorted by epoch, but just in case.
+    // Since we keep the size small, this is not a big deal.
+    currentPerformance.sort((a, b) => Number(a.epoch - b.epoch));
+
+    // keep the most recent `historyLength` entries.
+    const performanceToKeep = currentPerformance.slice(-this.config.historyLength);
+
+    await this.provenMap.set(who, this.serializePerformance(performanceToKeep));
   }
 
   public async updateValidators(slot: bigint, statuses: Record<`0x${string}`, ValidatorStatusInSlot | undefined>) {

@@ -20,7 +20,7 @@ const BLOCK_COUNT = 3;
 const EPOCH_DURATION = 5;
 const SLASHING_QUORUM = 6;
 const SLASHING_ROUND_SIZE = 10;
-const SLASH_AMOUNT = 1n;
+const SLASH_AMOUNT = 10n ** 18n;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 

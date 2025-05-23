@@ -2,7 +2,6 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
-import { Offence, OffenceToBigInt } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -33,7 +32,7 @@ describe('e2e_p2p_slashing', () => {
 
   const slashingQuorum = 3;
   const slashingRoundSize = 5;
-  const slashingAmount = 1n;
+  const slashingAmount = 10n ** 18n;
   const aztecSlotDuration = 12;
 
   beforeEach(async () => {
@@ -50,6 +49,7 @@ describe('e2e_p2p_slashing', () => {
         aztecProofSubmissionWindow: 1,
         slashingQuorum,
         slashingRoundSize,
+        slashPrunePenalty: slashingAmount,
       },
     });
 
@@ -125,17 +125,6 @@ describe('e2e_p2p_slashing', () => {
       shouldCollectMetrics(),
     );
 
-    // We are overriding the slashing amount to 1, such that the slashing will "really" happen.
-    for (const node of nodes) {
-      const seqClient = node.getSequencer();
-      if (!seqClient) {
-        throw new Error('Sequencer not found');
-      }
-      const sequencer = (seqClient as any).sequencer;
-      const slasher = (sequencer as any).slasherClient;
-      slasher.slashingAmount = slashingAmount;
-    }
-
     await debugRollup();
 
     // wait a bit for peers to discover each other
@@ -168,14 +157,9 @@ describe('e2e_p2p_slashing', () => {
 
     t.logger.info(`Waiting for slash payload to be deployed`);
     const expectedSlashes = Array.from({ length: committee.length }, () => slashingAmount);
-    const expectedOffenses = Array.from({ length: committee.length }, () => OffenceToBigInt[Offence.EPOCH_PRUNE]);
     await retryUntil(
       async () => {
-        const [address, isDeployed] = await slashFactory.read.getAddressAndIsDeployed([
-          committee,
-          expectedSlashes,
-          expectedOffenses,
-        ]);
+        const [address, _, isDeployed] = await slashFactory.read.getAddressAndIsDeployed([committee, expectedSlashes]);
         return address && isDeployed;
       },
       'slash payload deployed',

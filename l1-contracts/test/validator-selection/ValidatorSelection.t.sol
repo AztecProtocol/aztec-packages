@@ -169,14 +169,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     address[] memory attesters = rollup.getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
     uint256[] memory offenses = new uint256[](attesters.length);
-    uint256[] memory amounts = new uint256[](attesters.length);
+    uint96[] memory amounts = new uint96[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
-    uint256 slashAmount = 10e18;
+    uint96 slashAmount = 10e18;
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       stakes[i] = attesterView.effectiveBalance;
-      offenses[i] = 0;
       amounts[i] = slashAmount;
       assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
     }

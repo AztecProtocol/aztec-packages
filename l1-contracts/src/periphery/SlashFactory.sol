@@ -16,7 +16,7 @@ contract SlashFactory is ISlashFactory {
 
   function createSlashPayload(
     address[] memory _validators,
-    uint256[] memory _amounts,
+    uint96[] memory _amounts,
     uint256[] memory _offences
   ) external override(ISlashFactory) returns (IPayload) {
     require(
@@ -28,48 +28,49 @@ contract SlashFactory is ISlashFactory {
       ISlashFactory.SlashPayloadOffencesLengthMismatch(_validators.length, _offences.length)
     );
 
-    (address predictedAddress, bool isDeployed) =
-      getAddressAndIsDeployed(_validators, _amounts, _offences);
+    (address predictedAddress, bytes32 salt, bool isDeployed) =
+      getAddressAndIsDeployed(_validators, _amounts);
 
     if (isDeployed) {
       return IPayload(predictedAddress);
     }
 
-    // Use a salt so that validators don't create many payloads for the same slash.
-    bytes32 salt = keccak256(abi.encodePacked(_validators, _amounts, _offences));
-
-    // Don't need to pass _offences as they are not used in the payload.
-    SlashPayload payload = new SlashPayload{salt: salt}(_validators, VALIDATOR_SELECTION, _amounts);
+    // _offences are not used in the SlashPayload constructor, only in the event.
+    SlashPayload payload = new SlashPayload{salt: salt}(_validators, _amounts, VALIDATOR_SELECTION);
 
     emit SlashPayloadCreated(address(payload), _validators, _amounts, _offences);
     return IPayload(address(payload));
   }
 
-  function getAddressAndIsDeployed(
-    address[] memory _validators,
-    uint256[] memory _amounts,
-    uint256[] memory _offences
-  ) public view override(ISlashFactory) returns (address, bool) {
-    address predictedAddress = _computeSlashPayloadAddress(_validators, _amounts, _offences);
+  function getAddressAndIsDeployed(address[] memory _validators, uint96[] memory _amounts)
+    public
+    view
+    override(ISlashFactory)
+    returns (address, bytes32, bool)
+  {
+    (address predictedAddress, bytes32 salt) = _computeSlashPayloadAddress(_validators, _amounts);
     bool isDeployed = predictedAddress.code.length > 0;
-    return (predictedAddress, isDeployed);
+    return (predictedAddress, salt, isDeployed);
   }
 
-  function _computeSlashPayloadAddress(
-    address[] memory _validators,
-    uint256[] memory _amounts,
-    uint256[] memory _offences
-  ) internal view returns (address) {
-    bytes32 salt = keccak256(abi.encodePacked(_validators, _amounts, _offences));
+  function _computeSlashPayloadAddress(address[] memory _validators, uint96[] memory _amounts)
+    internal
+    view
+    returns (address, bytes32)
+  {
+    bytes32 salt = keccak256(abi.encodePacked(_validators, _amounts));
 
-    bytes memory constructorArgs = abi.encode(_validators, VALIDATOR_SELECTION, _amounts);
+    bytes memory constructorArgs = abi.encode(_validators, _amounts, VALIDATOR_SELECTION);
     bytes32 creationCodeHash =
       keccak256(abi.encodePacked(type(SlashPayload).creationCode, constructorArgs));
 
-    return address(
-      uint160(
-        uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, creationCodeHash)))
-      )
+    return (
+      address(
+        uint160(
+          uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, creationCodeHash)))
+        )
+      ),
+      salt
     );
   }
 }

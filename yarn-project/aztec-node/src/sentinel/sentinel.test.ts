@@ -16,7 +16,12 @@ import {
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { BlockAttestation } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, randomPublishedL2Block } from '@aztec/stdlib/testing';
-import type { ValidatorStats, ValidatorStatusHistory, ValidatorsStats } from '@aztec/stdlib/validators';
+import type {
+  ValidatorStats,
+  ValidatorStatusHistory,
+  ValidatorsEpochPerformance,
+  ValidatorsStats,
+} from '@aztec/stdlib/validators';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock, mockDeep } from 'jest-mock-extended';
@@ -384,14 +389,11 @@ class TestSentinel extends Sentinel {
     return super.computeStats(opts);
   }
 
-  public override handleProvenPerformance(performance: Record<`0x${string}`, { missed: number; total: number }>) {
+  public override handleProvenPerformance(performance: ValidatorsEpochPerformance) {
     return super.handleProvenPerformance(performance);
   }
 
-  public override updateProvenPerformance(
-    epoch: bigint,
-    performance: Record<`0x${string}`, { missed: number; total: number }>,
-  ) {
+  public override updateProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
     return super.updateProvenPerformance(epoch, performance);
   }
 }

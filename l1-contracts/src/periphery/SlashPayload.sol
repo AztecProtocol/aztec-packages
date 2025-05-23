@@ -12,32 +12,28 @@ import {ISlashFactory} from "./interfaces/ISlashFactory.sol";
  */
 contract SlashPayload is IPayload {
   IValidatorSelection public immutable VALIDATOR_SELECTION;
-
-  address[] public validators;
-  uint256[] public amounts;
-  uint256[] public offenses;
+  ISlashFactory.Offender[] public offenders;
 
   constructor(
     address[] memory _validators,
-    IValidatorSelection _validatorSelection,
-    uint256[] memory _amounts
+    uint96[] memory _amounts,
+    IValidatorSelection _validatorSelection
   ) {
-    if (_validators.length != _amounts.length) {
-      revert ISlashFactory.SlashPayloadAmountsLengthMismatch(_validators.length, _amounts.length);
+    for (uint256 i = 0; i < _validators.length; i++) {
+      offenders.push(ISlashFactory.Offender({validator: _validators[i], amount: _amounts[i]}));
     }
-
-    validators = _validators;
     VALIDATOR_SELECTION = _validatorSelection;
-    amounts = _amounts;
   }
 
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
-    IPayload.Action[] memory actions = new IPayload.Action[](validators.length);
+    IPayload.Action[] memory actions = new IPayload.Action[](offenders.length);
 
-    for (uint256 i = 0; i < validators.length; i++) {
+    for (uint256 i = 0; i < offenders.length; i++) {
       actions[i] = IPayload.Action({
         target: address(VALIDATOR_SELECTION),
-        data: abi.encodeWithSelector(IStakingCore.slash.selector, validators[i], amounts[i])
+        data: abi.encodeWithSelector(
+          IStakingCore.slash.selector, offenders[i].validator, offenders[i].amount
+        )
       });
     }
     return actions;

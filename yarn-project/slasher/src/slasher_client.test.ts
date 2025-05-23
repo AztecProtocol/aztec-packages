@@ -141,7 +141,7 @@ describe('SlasherClient', () => {
       1,
     );
 
-    const slashAmount = 42n;
+    const slashAmount = depositAmount - 1n;
     const committee = await rollup.getCurrentEpochCommittee();
     const amounts = Array.from({ length: committee.length }, () => slashAmount);
     const offenses = Array.from({ length: committee.length }, () => Offence.UNKNOWN);
@@ -191,8 +191,6 @@ describe('SlasherClient', () => {
             }
             throw err;
           });
-        // const l1Time = await cheatCodes.timestamp();
-        // await cheatCodes.warp(l1Time + aztecSlotDuration);
 
         // Check if the payload is cleared
         const slot = await rollup.getSlotNumber();

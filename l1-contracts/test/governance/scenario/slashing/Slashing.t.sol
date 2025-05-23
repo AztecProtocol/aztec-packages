@@ -90,13 +90,12 @@ contract SlashingTest is TestBase {
     timeCheater.cheat__jumpToSlot(desiredSlot);
     uint256 round = slashingProposer.computeRound(rollup.getCurrentSlot());
 
-    uint256 slashAmount = 10e18;
+    uint96 slashAmount = 10e18;
     address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
-    uint256[] memory amounts = new uint256[](attesters.length);
+    uint96[] memory amounts = new uint96[](attesters.length);
     uint256[] memory offenses = new uint256[](attesters.length);
     for (uint256 i = 0; i < attesters.length; i++) {
       amounts[i] = slashAmount;
-      offenses[i] = 0;
     }
 
     IPayload payload = slashFactory.createSlashPayload(attesters, amounts, offenses);

@@ -20,6 +20,7 @@ import type {
   ValidatorStatusHistory,
   ValidatorStatusInSlot,
   ValidatorStatusType,
+  ValidatorsEpochPerformance,
   ValidatorsStats,
 } from '@aztec/stdlib/validators';
 
@@ -129,7 +130,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const toSlot = provenSlots[provenSlots.length - 1];
     const stats = await this.computeStats({ fromSlot, toSlot });
 
-    const performance: Record<`0x${string}`, { missed: number; total: number }> = {};
+    const performance: ValidatorsEpochPerformance = {};
     for (const validator of Object.keys(stats.stats)) {
       if (!isAddress(validator)) {
         continue;
@@ -145,14 +146,11 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     return performance;
   }
 
-  protected updateProvenPerformance(
-    epoch: bigint,
-    performance: Record<`0x${string}`, { missed: number; total: number }>,
-  ) {
+  protected updateProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
     return this.store.updateProvenPerformance(epoch, performance);
   }
 
-  protected handleProvenPerformance(performance: Record<`0x${string}`, { missed: number; total: number }>) {
+  protected handleProvenPerformance(performance: ValidatorsEpochPerformance) {
     const criminals = Object.entries(performance)
       .filter(([_, { missed, total }]) => {
         return missed / total >= this.config.slashInactivityCreateTargetPercentage;

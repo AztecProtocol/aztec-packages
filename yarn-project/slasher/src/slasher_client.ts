@@ -186,7 +186,7 @@ export class SlasherClient {
    * @param args - the arguments from the watcher, including the validators, amounts, and offenses
    */
   private wantToSlash(args: WantToSlashArgs) {
-    // TODO: need to sort the payloads by attester address
+    // TODO(#14489): need to sort the payloads by attester address
     this.log.info('Wants to slash', args);
     this.l1TxUtils
       .sendAndMonitorTransaction({
@@ -213,7 +213,7 @@ export class SlasherClient {
    *
    * @returns a callback to remove the watcher
    */
-  private watchSlashFactoryEvents() {
+  private watchSlashFactoryEvents(): () => void {
     return this.slashFactoryContract.watchEvent.SlashPayloadCreated({
       onLogs: logs => {
         for (const payload of this.factoryEventsToMonitoredPayloads(logs)) {
@@ -309,7 +309,10 @@ export class SlasherClient {
    * Sort the monitored payloads by total amount in descending order
    */
   private sortMonitoredPayloads() {
-    this.monitoredPayloads.sort((a, b) => Number(b.totalAmount) - Number(a.totalAmount));
+    this.monitoredPayloads.sort((a, b) => {
+      const diff = b.totalAmount - a.totalAmount;
+      return diff > 0n ? 1 : -1;
+    });
   }
 
   /**
