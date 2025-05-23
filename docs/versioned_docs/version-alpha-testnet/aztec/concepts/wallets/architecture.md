@@ -19,14 +19,13 @@ In code, this translates to a wallet implementing an **AccountInterface** interf
 
 The account interface is used for creating an _execution request_ out of one or more _function calls_ requested by a dapp, as well as creating an _auth witness_ for a given message hash. Account contracts are expected to handle multiple function calls per transaction, since dapps may choose to batch multiple actions into a single request to the wallet.
 
-```typescript title="account-interface" showLineNumbers
+```typescript title="account-interface" showLineNumbers 
+
 /**
  * Handler for interfacing with an account. Knows how to create transaction execution
  * requests and authorize actions for its corresponding account.
  */
-export interface AccountInterface
-  extends EntrypointInterface,
-    AuthWitnessProvider {
+export interface AccountInterface extends EntrypointInterface, AuthWitnessProvider {
   /** Returns the complete address for this account. */
   getCompleteAddress(): CompleteAddress;
 
@@ -40,14 +39,14 @@ export interface AccountInterface
   getVersion(): Fr;
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/aztec.js/src/account/interface.ts#L6-L25" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/account/interface.ts#L6-L25</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/aztec.js/src/account/interface.ts#L6-L25" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/account/interface.ts#L6-L25</a></sub></sup>
 
 ## PXE interface
 
 A wallet exposes the PXE interface to dapps by running a PXE instance. The PXE requires a keystore and a database implementation for storing keys, private state, and recipient encryption public keys.
 
-```typescript title="pxe-interface" showLineNumbers
+```typescript title="pxe-interface" showLineNumbers 
 /**
  * Private eXecution Environment (PXE) runs locally for each user, providing functionality for all the operations
  * needed to interact with the Aztec network, including account management, private data management,
@@ -72,10 +71,7 @@ export interface PXE {
    * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
    * @returns The complete address of the account.
    */
-  registerAccount(
-    secretKey: Fr,
-    partialAddress: PartialAddress
-  ): Promise<CompleteAddress>;
+  registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
    * Retrieves the user accounts registered on this PXE Service.
@@ -120,10 +116,7 @@ export interface PXE {
    *
    * @param contract - A contract instance to register, with an optional artifact which can be omitted if the contract class has already been registered.
    */
-  registerContract(contract: {
-    instance: ContractInstanceWithAddress;
-    artifact?: ContractArtifact;
-  }): Promise<void>;
+  registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }): Promise<void>;
 
   /**
    * Updates a deployed contract in the PXE Service. This is used to update the contract artifact when
@@ -132,10 +125,7 @@ export interface PXE {
    * @param contractAddress - The address of the contract to update.
    * @param artifact - The updated artifact for the contract.
    */
-  updateContract(
-    contractAddress: AztecAddress,
-    artifact: ContractArtifact
-  ): Promise<void>;
+  updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void>;
 
   /**
    * Retrieves the addresses of contracts added to this PXE Service.
@@ -148,15 +138,13 @@ export interface PXE {
    * (where validators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
-   * @param privateExecutionResult - The result of the private execution of the transaction
+   * @param privateExecutionResult - (optional) The result of the private execution of the transaction. The txRequest
+   * will be executed if not provided
    * @returns A result containing the proof and public inputs of the tail circuit.
    * @throws If contract code not found, or public simulation reverts.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  proveTx(
-    txRequest: TxExecutionRequest,
-    privateExecutionResult: PrivateExecutionResult
-  ): Promise<TxProvingResult>;
+  proveTx(txRequest: TxExecutionRequest, privateExecutionResult?: PrivateExecutionResult): Promise<TxProvingResult>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.
@@ -185,7 +173,7 @@ export interface PXE {
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
-    scopes?: AztecAddress[]
+    scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
 
   /**
@@ -199,8 +187,9 @@ export interface PXE {
    */
   profileTx(
     txRequest: TxExecutionRequest,
-    profileMode: "gates" | "execution-steps" | "full",
-    msgSender?: AztecAddress
+    profileMode: 'gates' | 'execution-steps' | 'full',
+    skipProofGeneration?: boolean,
+    msgSender?: AztecAddress,
   ): Promise<TxProfileResult>;
 
   /**
@@ -258,7 +247,7 @@ export interface PXE {
   getL1ToL2MembershipWitness(
     contractAddress: AztecAddress,
     messageHash: Fr,
-    secret: Fr
+    secret: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]>;
 
   /**
@@ -267,10 +256,7 @@ export interface PXE {
    * @param l2Tol1Message - The message to search for
    * @returns The membership witness for the message
    */
-  getL2ToL1MembershipWitness(
-    blockNumber: number,
-    l2Tol1Message: Fr
-  ): Promise<[bigint, SiblingPath<number>]>;
+  getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]>;
 
   /**
    * Get the given block.
@@ -303,8 +289,8 @@ export interface PXE {
     to: AztecAddress,
     authwits?: AuthWitness[],
     from?: AztecAddress,
-    scopes?: AztecAddress[]
-  ): Promise<AbiDecoded>;
+    scopes?: AztecAddress[],
+  ): Promise<UtilitySimulationResult>;
 
   /**
    * Gets public logs based on the provided filter.
@@ -318,9 +304,7 @@ export interface PXE {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(
-    filter: LogFilter
-  ): Promise<GetContractClassLogsResponse>;
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
    * Fetches the current block number.
@@ -373,10 +357,7 @@ export interface PXE {
    * during a public deployment. We probably want a nicer and more general API for this, but it'll have to
    * do for the time being.
    */
-  getContractClassMetadata(
-    id: Fr,
-    includeArtifact?: boolean
-  ): Promise<ContractClassMetadata>;
+  getContractClassMetadata(id: Fr, includeArtifact?: boolean): Promise<ContractClassMetadata>;
 
   /**
    * Returns the private events given search parameters.
@@ -392,7 +373,7 @@ export interface PXE {
     eventMetadata: EventMetadataDefinition,
     from: number,
     numBlocks: number,
-    recipients: AztecAddress[]
+    recipients: AztecAddress[],
   ): Promise<T[]>;
 
   /**
@@ -402,12 +383,8 @@ export interface PXE {
    * @param limit - The amount of blocks to search.
    * @returns - The deserialized events.
    */
-  getPublicEvents<T>(
-    eventMetadata: EventMetadataDefinition,
-    from: number,
-    limit: number
-  ): Promise<T[]>;
+  getPublicEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>;
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/stdlib/src/interfaces/pxe.ts#L49-L388" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/interfaces/pxe.ts#L49-L388</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/stdlib/src/interfaces/pxe.ts#L50-L387" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/interfaces/pxe.ts#L50-L387</a></sub></sup>

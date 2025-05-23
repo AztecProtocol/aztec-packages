@@ -16,6 +16,14 @@ get_side_effects_counter();
 
 Takes no parameters.
 
+### get_contract_address
+
+```rust
+get_contract_address();
+```
+
+Takes no parameters.
+
 ### set_contract_address
 
 ```rust
@@ -155,6 +163,39 @@ assert_private_call_fails(target_address, function_selector, argsHash, sideEffec
 | isStaticCall | bool |
 |  |  |
 
+### private_call_new_flow
+
+```rust
+private_call_new_flow(from, contract_address, function_selector, args, args_hash, is_static_call, );
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| from | AztecAddress |
+| contract_address | AztecAddress |
+| function_selector | FunctionSelector |
+| args | [Field] |
+| args_hash | Field |
+| is_static_call | bool |
+|  |  |
+
+### disable_oracles
+
+```rust
+disable_oracles();
+```
+
+Takes no parameters.
+
+### enable_oracles
+
+```rust
+enable_oracles();
+```
+
+Takes no parameters.
+
 ### oracle_reset
 
 ```rust
@@ -173,6 +214,14 @@ oracle_set_contract_address(address);
 | Name | Type |
 | --- | --- |
 | address | AztecAddress |
+
+### oracle_get_contract_address
+
+```rust
+oracle_get_contract_address();
+```
+
+Takes no parameters.
 
 ### oracle_get_side_effects_counter
 
@@ -309,4 +358,37 @@ oracle_assert_private_call_fails(target_address, function_selector, argsHash, si
 | sideEffectsCounter | Field |
 | isStaticCall | bool |
 |  |  |
+
+### oracle_private_call_new_flow
+
+```rust
+oracle_private_call_new_flow(_from, _contract_address, _function_selector, _args, _args_hash, _is_static_call, );
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| _from | AztecAddress |
+| _contract_address | AztecAddress |
+| _function_selector | FunctionSelector |
+| _args | [Field] |
+| _args_hash | Field |
+| _is_static_call | bool |
+|  |  |
+
+### oracle_disable_oracles
+
+```rust
+oracle_disable_oracles();
+```
+
+Takes no parameters.
+
+### oracle_enable_oracles
+
+```rust
+oracle_enable_oracles();
+```
+
+Takes no parameters.
 

@@ -59,7 +59,7 @@ Aztec uses account abstraction, which means:
 
 ```bash
 export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
-export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
+export SPONSORED_FPC_ADDRESS=0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047
 ```
 
 1. Create a new account:
