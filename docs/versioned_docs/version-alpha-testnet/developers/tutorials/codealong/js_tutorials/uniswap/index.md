@@ -9,6 +9,10 @@ import Image from "@theme/IdealImage";
 
 This smart contract example allows someone with funds on L2 to be able to swap using L1 Uniswap and then get the swapped assets back to L2. In this example, L1 will refer to Ethereum and L2 will refer to Aztec.
 
+:::note
+This JavaScript in this tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../../getting_started.md).
+:::
+
 The flow will be:
 
 1. The user withdraws their “input” assets to L1 (i.e. burn them on L2 and create a L2 to L1 message to withdraw)
@@ -23,10 +27,6 @@ This reference will cover:
 
 1. Uniswap Portal - a contract on L1 that talks to the input token portal to withdraw the assets, executes the swap, and deposits the swapped tokens back to L2
 2. Uniswap L2 contract - a contract on L2 that creates the needed messages to perform the swap on L1
-
-:::note
-The JavaScript in this tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../../getting_started.md).
-:::
 
 <Image img={require("@site/static/img/tutorials/uniswap_flow.png")} />
 

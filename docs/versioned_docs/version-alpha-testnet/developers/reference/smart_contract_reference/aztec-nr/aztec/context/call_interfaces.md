@@ -895,3 +895,121 @@ get_is_static(self);
 | --- | --- |
 | self |  |
 
+### new
+
+```rust
+new(target_contract, selector, name, args, );
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| target_contract | AztecAddress |
+| selector | FunctionSelector |
+| name | str&lt;N&gt; |
+| args | [Field] |
+|  |  |
+
+### get_args
+
+```rust
+get_args(self);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| self |  |
+
+### get_selector
+
+```rust
+get_selector(self);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| self |  |
+
+### get_name
+
+```rust
+get_name(self);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| self |  |
+
+### get_contract_address
+
+```rust
+get_contract_address(self);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| self |  |
+
+### new
+
+```rust
+new(target_contract, selector, name, args, );
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| target_contract | AztecAddress |
+| selector | FunctionSelector |
+| name | str&lt;N&gt; |
+| args | [Field] |
+|  |  |
+
+### get_args
+
+```rust
+get_args(self);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| self |  |
+
+### get_selector
+
+```rust
+get_selector(self);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| self |  |
+
+### get_name
+
+```rust
+get_name(self);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| self |  |
+
+### get_contract_address
+
+```rust
+get_contract_address(self);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| self |  |
+
