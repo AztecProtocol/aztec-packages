@@ -651,8 +651,9 @@ describe('PXEOracleInterface', () => {
     it('throws if multiple logs found for tag', async () => {
       const scopedLog = await TxScopedL2Log.random(true);
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLog, scopedLog]]);
+      const logContractAddress = (scopedLog.log as PublicLog).contractAddress;
 
-      await expect(pxeOracleInterface.getPublicLogByTagFromContract(tag, contractAddress)).rejects.toThrow(
+      await expect(pxeOracleInterface.getPublicLogByTagFromContract(tag, logContractAddress)).rejects.toThrow(
         /Got 2 logs for tag/,
       );
     });
@@ -661,17 +662,19 @@ describe('PXEOracleInterface', () => {
       const scopedLog = await TxScopedL2Log.random(true);
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
       aztecNode.getTxEffect.mockResolvedValue(undefined);
+      const logContractAddress = (scopedLog.log as PublicLog).contractAddress;
 
-      await expect(pxeOracleInterface.getPublicLogByTagFromContract(tag, contractAddress)).rejects.toThrow(
+      await expect(pxeOracleInterface.getPublicLogByTagFromContract(tag, logContractAddress)).rejects.toThrow(
         /failed to retrieve tx effects/,
       );
     });
 
     it('returns log fields that are actually emitted', async () => {
       const logContent = [Fr.random(), Fr.random()];
+      const logContractAddress = await AztecAddress.random();
 
       const log = PublicLog.from({
-        contractAddress: await AztecAddress.random(),
+        contractAddress: logContractAddress,
         fields: padArrayEnd(logContent, Fr.ZERO, PUBLIC_LOG_SIZE_IN_FIELDS),
         emittedLength: logContent.length,
       });
@@ -686,7 +689,7 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLogWithPadding]]);
       aztecNode.getTxEffect.mockResolvedValue(await randomIndexedTxEffect());
 
-      const result = await pxeOracleInterface.getPublicLogByTagFromContract(tag, contractAddress);
+      const result = await pxeOracleInterface.getPublicLogByTagFromContract(tag, logContractAddress);
 
       expect(result?.logContent).toEqual([log.contractAddress.toField(), ...logContent]);
     });

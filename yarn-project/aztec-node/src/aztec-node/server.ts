@@ -67,7 +67,7 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { LogFilter, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
