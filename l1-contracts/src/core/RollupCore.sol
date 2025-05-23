@@ -64,6 +64,9 @@ contract RollupCore is
   // @note  Always true, exists to override to false for testing only
   bool public checkBlob = true;
 
+  // @note  This is only a temporary and should be too deeply ingrained into the rollup library
+  bool public isRewardsClaimable = false;
+
   constructor(
     IERC20 _feeAsset,
     IRewardDistributor _rewardDistributor,
@@ -140,6 +143,11 @@ contract RollupCore is
   /*                          CHEAT CODES END HERE                              */
   /* -------------------------------------------------------------------------- */
 
+  function setRewardsClaimable(bool _isRewardsClaimable) external override(IRollupCore) onlyOwner {
+    isRewardsClaimable = _isRewardsClaimable;
+    emit RewardsClaimableUpdated(_isRewardsClaimable);
+  }
+
   function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
     StakingLib.setSlasher(_slasher);
   }
@@ -157,6 +165,7 @@ contract RollupCore is
     override(IRollupCore)
     returns (uint256)
   {
+    require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
     return RewardLib.claimSequencerRewards(_recipient);
   }
 
@@ -165,6 +174,7 @@ contract RollupCore is
     override(IRollupCore)
     returns (uint256)
   {
+    require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
     return RewardLib.claimProverRewards(_recipient, _epochs);
   }
 
