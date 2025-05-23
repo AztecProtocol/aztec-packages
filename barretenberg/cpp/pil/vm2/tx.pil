@@ -9,9 +9,10 @@ namespace tx;
     sel = 0;
 
     pol commit phase_value;
+    pol commit is_active; // remaining_phase != 0;
     pol commit start_phase;
     pol commit end_phase;
-    // end_phase = 1 when remaining_phase == 0; or remaining_phase - 1 = 0;
+    // end_phase = 1, remaining_phase - 1 = 0;
     pol commit is_revertible;
     pol commit reverted;
     // phase_value stays the same unless we are at end_phase or reverted
@@ -124,18 +125,37 @@ namespace tx;
     is_tree_insert_phase { read_pi_offset, leaf_value } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
-    // Tree State
-    pol commit note_hash_tree_root;
-    pol commit note_hash_tree_size;
-    pol commit num_note_hashes_emitted;
+    // Previous Tree State
+    pol commit prev_note_hash_tree_root;
+    pol commit prev_note_hash_tree_size;
+    pol commit prev_num_note_hashes_emitted;
 
-    pol commit nullifier_tree_root;
-    pol commit nullifier_tree_size;
-    pol commit num_nullifiers_emitted;
+    pol commit prev_nullifier_tree_root;
+    pol commit prev_nullifier_tree_size;
+    pol commit prev_num_nullifiers_emitted;
 
-    pol commit public_data_tree_root;
-    pol commit public_data_tree_size;
-    pol commit num_pub_data_writes_emitted;
+    pol commit prev_public_data_tree_root;
+    pol commit prev_public_data_tree_size;
+    pol commit prev_num_pub_data_writes_emitted;
+
+    pol commit prev_l1_l2_tree_root;
+    pol commit prev_l1_l2_tree_size;
+
+    // Next Tree State
+    pol commit next_note_hash_tree_root;
+    pol commit next_note_hash_tree_size;
+    pol commit next_num_note_hashes_emitted;
+
+    pol commit next_nullifier_tree_root;
+    pol commit next_nullifier_tree_size;
+    pol commit next_num_nullifiers_emitted;
+
+    pol commit next_public_data_tree_root;
+    pol commit next_public_data_tree_size;
+    pol commit next_num_pub_data_writes_emitted;
+
+    pol commit next_l1_l2_tree_root;
+    pol commit next_l1_l2_tree_size;
 
     // L2 - L1 Messages
     pol commit is_l2_l1_msg_phase;

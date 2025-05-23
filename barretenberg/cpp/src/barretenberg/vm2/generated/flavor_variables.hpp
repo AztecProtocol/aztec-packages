@@ -60,6 +60,7 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 73;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2168;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 154;
@@ -69,13 +70,19 @@ struct AvmFlavorVariables {
 =======
     static constexpr size_t NUM_ALL_ENTITIES = 2386;
 =======
+=======
+>>>>>>> c7676162ca (fix: update scoped msg serialisation)
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 89;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2241;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 151;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2231;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 157;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2481;
 >>>>>>> 433a257f9e (wip)
 >>>>>>> c24d3feeee (wip)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2477;
+>>>>>>> c7676162ca (fix: update scoped msg serialisation)
 
     // Need to be templated for recursive verifier
     template <typename FF_>

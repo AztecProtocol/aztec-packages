@@ -8,6 +8,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { Gas } from '../gas/gas.js';
 import { GasSettings } from '../gas/gas_settings.js';
 import { PublicKeys } from '../keys/public_keys.js';
+import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
@@ -413,11 +414,13 @@ export class AvmTxHint {
     public readonly nonRevertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
+      l2ToL1Messages: ScopedL2ToL1Message[];
       // TODO: add as needed.
     },
     public readonly revertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
+      l2ToL1Messages: ScopedL2ToL1Message[];
       // TODO: add as needed.
     },
     public readonly setupEnqueuedCalls: AvmEnqueuedCallHint[],
@@ -444,10 +447,12 @@ export class AvmTxHint {
       {
         noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
+        l2ToL1Messages: tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs.filter(x => !x.isEmpty()),
       },
       {
         noteHashes: tx.data.forPublic!.revertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.revertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
+        l2ToL1Messages: tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs.filter(x => !x.isEmpty()),
       },
       setupCallRequests.map(
         call =>
@@ -484,8 +489,8 @@ export class AvmTxHint {
       '',
       GlobalVariables.empty(),
       GasSettings.empty(),
-      { noteHashes: [], nullifiers: [] },
-      { noteHashes: [], nullifiers: [] },
+      { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
+      { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
       [],
       [],
       null,
@@ -502,10 +507,12 @@ export class AvmTxHint {
         nonRevertibleAccumulatedData: z.object({
           noteHashes: schemas.Fr.array(),
           nullifiers: schemas.Fr.array(),
+          l2ToL1Messages: ScopedL2ToL1Message.schema.array(),
         }),
         revertibleAccumulatedData: z.object({
           noteHashes: schemas.Fr.array(),
           nullifiers: schemas.Fr.array(),
+          l2ToL1Messages: ScopedL2ToL1Message.schema.array(),
         }),
         setupEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
         appLogicEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),

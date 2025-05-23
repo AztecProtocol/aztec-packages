@@ -30,17 +30,5 @@ TEST(TxExecutionConstrainingTest, Basic)
     check_relation<tx>(trace);
 }
 
-TEST(TxExecutionConstrainingTest, Continuity)
-{
-    // clang-format off
-    TestTraceContainer trace({
-        {{ C::precomputed_first_row, 1 }},
-        {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }, {C::execution_last, 1}},
-    });
-    // clang-format on
-}
-
 } // namespace
 } // namespace bb::avm2::constraining
