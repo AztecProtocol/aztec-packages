@@ -53,10 +53,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2456;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2557;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2673;
+    static constexpr size_t NUM_ALL_ENTITIES = 2774;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -129,6 +129,31 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_00_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_01_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_02_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_03_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_04_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_10_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_11_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_12_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_13_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_14_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_20_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_21_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_22_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_23_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_24_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_30_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_31_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_32_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_33_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_34_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_40_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_41_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_42_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_43_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_44_relation<FF_>,
         lookup_keccakf1600_state_theta_00_relation<FF_>,
         lookup_keccakf1600_state_theta_01_relation<FF_>,
         lookup_keccakf1600_state_theta_02_relation<FF_>,

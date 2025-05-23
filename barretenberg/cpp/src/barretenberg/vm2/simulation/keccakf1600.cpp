@@ -108,6 +108,31 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
         }
     }
 
+    // state pi values
+    std::array<std::array<MemoryValue, 5>, 5> state_pi_values;
+    for (size_t i = 0; i < 5; ++i) {
+        for (size_t j = 0; j < 5; ++j) {
+            state_pi_values[i][j] = state_rho_values[pi_rho_x_coords[i][j]][i];
+        }
+    }
+
+    // state "not pi" values
+    std::array<std::array<MemoryValue, 5>, 5> state_pi_not_values;
+    for (size_t i = 0; i < 5; ++i) {
+        for (size_t j = 0; j < 5; ++j) {
+            state_pi_not_values[i][j] = ~state_pi_values[i][j];
+        }
+    }
+
+    // state "pi and" values
+    std::array<std::array<MemoryValue, 5>, 5> state_pi_and_values;
+    for (size_t i = 0; i < 5; ++i) {
+        for (size_t j = 0; j < 5; ++j) {
+            state_pi_and_values[i][j] =
+                bitwise.and_op(state_pi_not_values[(i + 1) % 5][j], state_pi_values[(i + 2) % 5][j]);
+        }
+    }
+
     // TODO: Add Pi and Chi rounds
     // TODO: Add Iota round
 
@@ -118,6 +143,8 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
         .theta_combined_xor = array_to_uint64(theta_combined_xor_values),
         .state_theta = two_dim_array_to_uint64(state_theta_values),
         .state_rho = two_dim_array_to_uint64(state_rho_values),
+        .state_pi_not = two_dim_array_to_uint64(state_pi_not_values),
+        .state_pi_and = two_dim_array_to_uint64(state_pi_and_values),
     });
 
     // TODO: return real keccakf1600 output

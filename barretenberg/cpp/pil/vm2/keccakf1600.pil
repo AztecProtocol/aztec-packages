@@ -773,3 +773,257 @@ sel {state_theta_low_42, rot_64_min_len_42} in range_check.sel { range_check.val
 //#############################################################################
 //                      Pi round function
 //#############################################################################
+// Pi function is purely permuting the state rho elements among each other so that
+// there is no constraints to be added here. Namely, we will have to re-map the
+// state elements correctly for the next function chi.
+// The permutation is defined as: OUT[j][2*i + 3*j % 5] = IN[i][j]
+// The inverse operation is: OUT[i][j] = IN[i + 3*j % 5][i]
+// If we apply this permutation to state_rho_ij and denote the output STATE_PI_ij, we get:
+
+pol STATE_PI_00 = STATE_RHO_00;
+pol STATE_PI_01 = state_rho_30;
+pol STATE_PI_02 = state_rho_10;
+pol STATE_PI_03 = state_rho_40;
+pol STATE_PI_04 = state_rho_20;
+
+pol STATE_PI_10 = state_rho_11;
+pol STATE_PI_11 = state_rho_41;
+pol STATE_PI_12 = state_rho_21;
+pol STATE_PI_13 = state_rho_01;
+pol STATE_PI_14 = state_rho_31;
+
+pol STATE_PI_20 = state_rho_22;
+pol STATE_PI_21 = state_rho_02;
+pol STATE_PI_22 = state_rho_32;
+pol STATE_PI_23 = state_rho_12;
+pol STATE_PI_24 = state_rho_42;
+
+pol STATE_PI_30 = state_rho_33;
+pol STATE_PI_31 = state_rho_13;
+pol STATE_PI_32 = state_rho_43;
+pol STATE_PI_33 = state_rho_23;
+pol STATE_PI_34 = state_rho_03;
+
+pol STATE_PI_40 = state_rho_44;
+pol STATE_PI_41 = state_rho_24;
+pol STATE_PI_42 = state_rho_04;
+pol STATE_PI_43 = state_rho_34;
+pol STATE_PI_44 = state_rho_14;
+
+//#############################################################################
+//                      Chi round function
+//#############################################################################
+// For each i,j, Chi function computes:
+// state_chi_ij = state_pi_ij ^ ((NOT state_pi_{i+1,j}) & state_pi_{i+2,j})
+//
+// We will use the following intermediate states:
+// state_pi_not_ij = NOT state_pi_ij
+// state_pi_and_ij = state_pi_not_ij AND state_pi_{i+2,j}
+// state_chi_ij = state_pi_ij ^ state_pi_and_ij
+//
+//#################### NOT Computation ########################################
+// NOT computation for a 64-bit integer x amounts to: 2^64 - 1 - x
+pol POW_64_MIN_1 = 2**64 - 1;
+
+pol commit state_pi_not_00, state_pi_not_01, state_pi_not_02, state_pi_not_03, state_pi_not_04,
+           state_pi_not_10, state_pi_not_11, state_pi_not_12, state_pi_not_13, state_pi_not_14,
+           state_pi_not_20, state_pi_not_21, state_pi_not_22, state_pi_not_23, state_pi_not_24,
+           state_pi_not_30, state_pi_not_31, state_pi_not_32, state_pi_not_33, state_pi_not_34,
+           state_pi_not_40, state_pi_not_41, state_pi_not_42, state_pi_not_43, state_pi_not_44;
+
+// As state_pi_ij are not committed columns
+
+#[STATE_PI_NOT_00]
+state_pi_not_00 = sel * (POW_64_MIN_1 - STATE_PI_00);
+#[STATE_PI_NOT_01]
+state_pi_not_01 = sel * (POW_64_MIN_1 - STATE_PI_01);
+#[STATE_PI_NOT_02]
+state_pi_not_02 = sel * (POW_64_MIN_1 - STATE_PI_02);
+#[STATE_PI_NOT_03]
+state_pi_not_03 = sel * (POW_64_MIN_1 - STATE_PI_03);
+#[STATE_PI_NOT_04]
+state_pi_not_04 = sel * (POW_64_MIN_1 - STATE_PI_04);
+
+#[STATE_PI_NOT_10]
+state_pi_not_10 = sel * (POW_64_MIN_1 - STATE_PI_10);
+#[STATE_PI_NOT_11]
+state_pi_not_11 = sel * (POW_64_MIN_1 - STATE_PI_11);
+#[STATE_PI_NOT_12]
+state_pi_not_12 = sel * (POW_64_MIN_1 - STATE_PI_12);
+#[STATE_PI_NOT_13]
+state_pi_not_13 = sel * (POW_64_MIN_1 - STATE_PI_13);
+#[STATE_PI_NOT_14]
+state_pi_not_14 = sel * (POW_64_MIN_1 - STATE_PI_14);
+
+#[STATE_PI_NOT_20]
+state_pi_not_20 = sel * (POW_64_MIN_1 - STATE_PI_20);
+#[STATE_PI_NOT_21]
+state_pi_not_21 = sel * (POW_64_MIN_1 - STATE_PI_21);
+#[STATE_PI_NOT_22]
+state_pi_not_22 = sel * (POW_64_MIN_1 - STATE_PI_22);
+#[STATE_PI_NOT_23]
+state_pi_not_23 = sel * (POW_64_MIN_1 - STATE_PI_23);
+#[STATE_PI_NOT_24]
+state_pi_not_24 = sel * (POW_64_MIN_1 - STATE_PI_24);
+
+#[STATE_PI_NOT_30]
+state_pi_not_30 = sel * (POW_64_MIN_1 - STATE_PI_30);
+#[STATE_PI_NOT_31]
+state_pi_not_31 = sel * (POW_64_MIN_1 - STATE_PI_31);
+#[STATE_PI_NOT_32]
+state_pi_not_32 = sel * (POW_64_MIN_1 - STATE_PI_32);
+#[STATE_PI_NOT_33]
+state_pi_not_33 = sel * (POW_64_MIN_1 - STATE_PI_33);
+#[STATE_PI_NOT_34]
+state_pi_not_34 = sel * (POW_64_MIN_1 - STATE_PI_34);
+
+#[STATE_PI_NOT_40]
+state_pi_not_40 = sel * (POW_64_MIN_1 - STATE_PI_40);
+#[STATE_PI_NOT_41]
+state_pi_not_41 = sel * (POW_64_MIN_1 - STATE_PI_41);
+#[STATE_PI_NOT_42]
+state_pi_not_42 = sel * (POW_64_MIN_1 - STATE_PI_42);
+#[STATE_PI_NOT_43]
+state_pi_not_43 = sel * (POW_64_MIN_1 - STATE_PI_43);
+#[STATE_PI_NOT_44]
+state_pi_not_44 = sel * (POW_64_MIN_1 - STATE_PI_44);
+
+//#################### AND Computation ########################################
+// state_pi_and_ij = state_pi_not_{i+1,j} AND state_pi_{i+2,j}
+//
+// We do not support aliases in lookups and therefore we need to manually
+// re-map the term state_pi_{i+2,j} as state_rho_XX according.
+
+pol commit bitwise_and_op_id;
+sel * (bitwise_and_op_id - constants.AVM_BITWISE_AND_OP_ID) = 0; // TODO: Remove once we support constants in lookups
+
+pol commit state_pi_and_00, state_pi_and_01, state_pi_and_02, state_pi_and_03, state_pi_and_04,
+           state_pi_and_10, state_pi_and_11, state_pi_and_12, state_pi_and_13, state_pi_and_14,
+           state_pi_and_20, state_pi_and_21, state_pi_and_22, state_pi_and_23, state_pi_and_24,
+           state_pi_and_30, state_pi_and_31, state_pi_and_32, state_pi_and_33, state_pi_and_34,
+           state_pi_and_40, state_pi_and_41, state_pi_and_42, state_pi_and_43, state_pi_and_44;
+
+// STATE_PI_20 = state_rho_22
+#[STATE_PI_AND_00]
+sel {bitwise_and_op_id, state_pi_not_10, state_rho_22, state_pi_and_00} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_21 = state_rho_02
+#[STATE_PI_AND_01]
+sel {bitwise_and_op_id, state_pi_not_11, state_rho_02, state_pi_and_01} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_22 = state_rho_32
+#[STATE_PI_AND_02]
+sel {bitwise_and_op_id, state_pi_not_12, state_rho_32, state_pi_and_02} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_23 = state_rho_12
+#[STATE_PI_AND_03]
+sel {bitwise_and_op_id, state_pi_not_13, state_rho_12, state_pi_and_03} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_24 = state_rho_42
+#[STATE_PI_AND_04]
+sel {bitwise_and_op_id, state_pi_not_14, state_rho_42, state_pi_and_04} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_30 = state_rho_33
+#[STATE_PI_AND_10]
+sel {bitwise_and_op_id, state_pi_not_20, state_rho_33, state_pi_and_10} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_31 = state_rho_13
+#[STATE_PI_AND_11]
+sel {bitwise_and_op_id, state_pi_not_21, state_rho_13, state_pi_and_11} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_32 = state_rho_43
+#[STATE_PI_AND_12]
+sel {bitwise_and_op_id, state_pi_not_22, state_rho_43, state_pi_and_12} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_33 = state_rho_23
+#[STATE_PI_AND_13]
+sel {bitwise_and_op_id, state_pi_not_23, state_rho_23, state_pi_and_13} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_34 = state_rho_03
+#[STATE_PI_AND_14]
+sel {bitwise_and_op_id, state_pi_not_24, state_rho_03, state_pi_and_14} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_40 = state_rho_44
+#[STATE_PI_AND_20]
+sel {bitwise_and_op_id, state_pi_not_30, state_rho_44, state_pi_and_20} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_41 = state_rho_24
+#[STATE_PI_AND_21]
+sel {bitwise_and_op_id, state_pi_not_31, state_rho_24, state_pi_and_21} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_42 = state_rho_04
+#[STATE_PI_AND_22]
+sel {bitwise_and_op_id, state_pi_not_32, state_rho_04, state_pi_and_22} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_43 = state_rho_34
+#[STATE_PI_AND_23]
+sel {bitwise_and_op_id, state_pi_not_33, state_rho_34, state_pi_and_23} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_44 = state_rho_14
+#[STATE_PI_AND_24]
+sel {bitwise_and_op_id, state_pi_not_34, state_rho_14, state_pi_and_24} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_00 = STATE_RHO_00 = state_theta_00
+#[STATE_PI_AND_30]
+sel {bitwise_and_op_id, state_pi_not_40, state_theta_00, state_pi_and_30} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_01 = state_rho_30
+#[STATE_PI_AND_31]
+sel {bitwise_and_op_id, state_pi_not_41, state_rho_30, state_pi_and_31} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_02 = state_rho_10
+#[STATE_PI_AND_32]
+sel {bitwise_and_op_id, state_pi_not_42, state_rho_10, state_pi_and_32} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_03 = state_rho_40
+#[STATE_PI_AND_33]
+sel {bitwise_and_op_id, state_pi_not_43, state_rho_40, state_pi_and_33} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_04 = state_rho_20
+#[STATE_PI_AND_34]
+sel {bitwise_and_op_id, state_pi_not_44, state_rho_20, state_pi_and_34} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_10 = state_rho_11
+#[STATE_PI_AND_40]
+sel {bitwise_and_op_id, state_pi_not_00, state_rho_11, state_pi_and_40} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_11 = state_rho_41
+#[STATE_PI_AND_41]
+sel {bitwise_and_op_id, state_pi_not_01, state_rho_41, state_pi_and_41} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_12 = state_rho_21
+#[STATE_PI_AND_42]
+sel {bitwise_and_op_id, state_pi_not_02, state_rho_21, state_pi_and_42} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_13 = state_rho_01
+#[STATE_PI_AND_43]
+sel {bitwise_and_op_id, state_pi_not_03, state_rho_01, state_pi_and_43} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
+
+// STATE_PI_14 = state_rho_31
+#[STATE_PI_AND_44]
+sel {bitwise_and_op_id, state_pi_not_04, state_rho_31, state_pi_and_44} in
+bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};

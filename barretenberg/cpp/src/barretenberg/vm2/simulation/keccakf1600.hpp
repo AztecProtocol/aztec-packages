@@ -20,6 +20,17 @@ constexpr std::array<std::array<uint8_t, 5>, 5> rotation_len = { {
     { 27, 20, 39, 8, 14 },
 } };
 
+// Pi permutation: state_pi[x][y] = state_rho[(x + 3*y) % 5][x]
+// This table, pi_rho_x_coords[x_pi][y_pi], stores the x-coordinate for state_rho,
+// i.e., (x_pi + 3*y_pi) % 5. The y-coordinate for state_rho is simply x_pi.
+constexpr std::array<std::array<uint8_t, 5>, 5> pi_rho_x_coords = { {
+    { 0, 3, 1, 4, 2 }, // x_pi = 0
+    { 1, 4, 2, 0, 3 }, // x_pi = 1
+    { 2, 0, 3, 1, 4 }, // x_pi = 2
+    { 3, 1, 4, 2, 0 }, // x_pi = 3
+    { 4, 2, 0, 3, 1 }, // x_pi = 4
+} };
+
 class KeccakF1600Interface {
   public:
     virtual ~KeccakF1600Interface() = default;

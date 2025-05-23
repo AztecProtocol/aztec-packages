@@ -13,10 +13,11 @@ template <typename FF_> class keccakf1600Impl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 91> SUBRELATION_PARTIAL_LENGTHS = {
-        2, 2, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+    static constexpr std::array<size_t, 117> SUBRELATION_PARTIAL_LENGTHS = {
+        2, 2, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -33,6 +34,7 @@ template <typename FF_> class keccakf1600Impl {
     {
         using C = ColumnAndShifts;
 
+        const auto constants_AVM_BITWISE_AND_OP_ID = FF(0);
         const auto constants_AVM_BITWISE_XOR_OP_ID = FF(2);
         const auto keccakf1600_ROT_LEN_01 = FF(36);
         const auto keccakf1600_POW_ROT_LEN_01 = FF(68719476736UL);
@@ -106,6 +108,33 @@ template <typename FF_> class keccakf1600Impl {
         const auto keccakf1600_ROT_LEN_44 = FF(14);
         const auto keccakf1600_POW_ROT_LEN_44 = FF(16384);
         const auto keccakf1600_POW_ROT_64_MIN_LEN_44 = FF(1125899906842624UL);
+        const auto keccakf1600_STATE_RHO_00 = in.get(C::keccakf1600_state_theta_00);
+        const auto keccakf1600_STATE_PI_00 = keccakf1600_STATE_RHO_00;
+        const auto keccakf1600_STATE_PI_01 = in.get(C::keccakf1600_state_rho_30);
+        const auto keccakf1600_STATE_PI_02 = in.get(C::keccakf1600_state_rho_10);
+        const auto keccakf1600_STATE_PI_03 = in.get(C::keccakf1600_state_rho_40);
+        const auto keccakf1600_STATE_PI_04 = in.get(C::keccakf1600_state_rho_20);
+        const auto keccakf1600_STATE_PI_10 = in.get(C::keccakf1600_state_rho_11);
+        const auto keccakf1600_STATE_PI_11 = in.get(C::keccakf1600_state_rho_41);
+        const auto keccakf1600_STATE_PI_12 = in.get(C::keccakf1600_state_rho_21);
+        const auto keccakf1600_STATE_PI_13 = in.get(C::keccakf1600_state_rho_01);
+        const auto keccakf1600_STATE_PI_14 = in.get(C::keccakf1600_state_rho_31);
+        const auto keccakf1600_STATE_PI_20 = in.get(C::keccakf1600_state_rho_22);
+        const auto keccakf1600_STATE_PI_21 = in.get(C::keccakf1600_state_rho_02);
+        const auto keccakf1600_STATE_PI_22 = in.get(C::keccakf1600_state_rho_32);
+        const auto keccakf1600_STATE_PI_23 = in.get(C::keccakf1600_state_rho_12);
+        const auto keccakf1600_STATE_PI_24 = in.get(C::keccakf1600_state_rho_42);
+        const auto keccakf1600_STATE_PI_30 = in.get(C::keccakf1600_state_rho_33);
+        const auto keccakf1600_STATE_PI_31 = in.get(C::keccakf1600_state_rho_13);
+        const auto keccakf1600_STATE_PI_32 = in.get(C::keccakf1600_state_rho_43);
+        const auto keccakf1600_STATE_PI_33 = in.get(C::keccakf1600_state_rho_23);
+        const auto keccakf1600_STATE_PI_34 = in.get(C::keccakf1600_state_rho_03);
+        const auto keccakf1600_STATE_PI_40 = in.get(C::keccakf1600_state_rho_44);
+        const auto keccakf1600_STATE_PI_41 = in.get(C::keccakf1600_state_rho_24);
+        const auto keccakf1600_STATE_PI_42 = in.get(C::keccakf1600_state_rho_04);
+        const auto keccakf1600_STATE_PI_43 = in.get(C::keccakf1600_state_rho_34);
+        const auto keccakf1600_STATE_PI_44 = in.get(C::keccakf1600_state_rho_14);
+        const auto keccakf1600_POW_64_MIN_1 = FF(uint256_t{ 18446744073709551615UL, 0UL, 0UL, 0UL });
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -790,6 +819,188 @@ template <typename FF_> class keccakf1600Impl {
             tmp *= scaling_factor;
             std::get<90>(evals) += typename Accumulator::View(tmp);
         }
+        { // STATE_PI_NOT_00
+            using Accumulator = typename std::tuple_element_t<91, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_00) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_00));
+            tmp *= scaling_factor;
+            std::get<91>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_01
+            using Accumulator = typename std::tuple_element_t<92, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_01) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_01));
+            tmp *= scaling_factor;
+            std::get<92>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_02
+            using Accumulator = typename std::tuple_element_t<93, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_02) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_02));
+            tmp *= scaling_factor;
+            std::get<93>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_03
+            using Accumulator = typename std::tuple_element_t<94, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_03) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_03));
+            tmp *= scaling_factor;
+            std::get<94>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_04
+            using Accumulator = typename std::tuple_element_t<95, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_04) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_04));
+            tmp *= scaling_factor;
+            std::get<95>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_10
+            using Accumulator = typename std::tuple_element_t<96, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_10) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_10));
+            tmp *= scaling_factor;
+            std::get<96>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_11
+            using Accumulator = typename std::tuple_element_t<97, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_11) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_11));
+            tmp *= scaling_factor;
+            std::get<97>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_12
+            using Accumulator = typename std::tuple_element_t<98, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_12) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_12));
+            tmp *= scaling_factor;
+            std::get<98>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_13
+            using Accumulator = typename std::tuple_element_t<99, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_13) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_13));
+            tmp *= scaling_factor;
+            std::get<99>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_14
+            using Accumulator = typename std::tuple_element_t<100, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_14) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_14));
+            tmp *= scaling_factor;
+            std::get<100>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_20
+            using Accumulator = typename std::tuple_element_t<101, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_20) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_20));
+            tmp *= scaling_factor;
+            std::get<101>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_21
+            using Accumulator = typename std::tuple_element_t<102, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_21) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_21));
+            tmp *= scaling_factor;
+            std::get<102>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_22
+            using Accumulator = typename std::tuple_element_t<103, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_22) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_22));
+            tmp *= scaling_factor;
+            std::get<103>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_23
+            using Accumulator = typename std::tuple_element_t<104, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_23) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_23));
+            tmp *= scaling_factor;
+            std::get<104>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_24
+            using Accumulator = typename std::tuple_element_t<105, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_24) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_24));
+            tmp *= scaling_factor;
+            std::get<105>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_30
+            using Accumulator = typename std::tuple_element_t<106, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_30) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_30));
+            tmp *= scaling_factor;
+            std::get<106>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_31
+            using Accumulator = typename std::tuple_element_t<107, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_31) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_31));
+            tmp *= scaling_factor;
+            std::get<107>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_32
+            using Accumulator = typename std::tuple_element_t<108, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_32) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_32));
+            tmp *= scaling_factor;
+            std::get<108>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_33
+            using Accumulator = typename std::tuple_element_t<109, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_33) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_33));
+            tmp *= scaling_factor;
+            std::get<109>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_34
+            using Accumulator = typename std::tuple_element_t<110, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_34) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_34));
+            tmp *= scaling_factor;
+            std::get<110>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_40
+            using Accumulator = typename std::tuple_element_t<111, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_40) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_40));
+            tmp *= scaling_factor;
+            std::get<111>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_41
+            using Accumulator = typename std::tuple_element_t<112, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_41) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_41));
+            tmp *= scaling_factor;
+            std::get<112>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_42
+            using Accumulator = typename std::tuple_element_t<113, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_42) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_42));
+            tmp *= scaling_factor;
+            std::get<113>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_43
+            using Accumulator = typename std::tuple_element_t<114, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_43) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_43));
+            tmp *= scaling_factor;
+            std::get<114>(evals) += typename Accumulator::View(tmp);
+        }
+        { // STATE_PI_NOT_44
+            using Accumulator = typename std::tuple_element_t<115, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_state_pi_not_44) -
+                        in.get(C::keccakf1600_sel) * (keccakf1600_POW_64_MIN_1 - keccakf1600_STATE_PI_44));
+            tmp *= scaling_factor;
+            std::get<115>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<116, ContainerOverSubrelations>;
+            auto tmp = in.get(C::keccakf1600_sel) *
+                       (in.get(C::keccakf1600_bitwise_and_op_id) - constants_AVM_BITWISE_AND_OP_ID);
+            tmp *= scaling_factor;
+            std::get<116>(evals) += typename Accumulator::View(tmp);
+        }
     }
 };
 
@@ -926,6 +1137,56 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
             return "STATE_THETA_44_DECOMPOSE";
         case 66:
             return "STATE_RHO_44";
+        case 91:
+            return "STATE_PI_NOT_00";
+        case 92:
+            return "STATE_PI_NOT_01";
+        case 93:
+            return "STATE_PI_NOT_02";
+        case 94:
+            return "STATE_PI_NOT_03";
+        case 95:
+            return "STATE_PI_NOT_04";
+        case 96:
+            return "STATE_PI_NOT_10";
+        case 97:
+            return "STATE_PI_NOT_11";
+        case 98:
+            return "STATE_PI_NOT_12";
+        case 99:
+            return "STATE_PI_NOT_13";
+        case 100:
+            return "STATE_PI_NOT_14";
+        case 101:
+            return "STATE_PI_NOT_20";
+        case 102:
+            return "STATE_PI_NOT_21";
+        case 103:
+            return "STATE_PI_NOT_22";
+        case 104:
+            return "STATE_PI_NOT_23";
+        case 105:
+            return "STATE_PI_NOT_24";
+        case 106:
+            return "STATE_PI_NOT_30";
+        case 107:
+            return "STATE_PI_NOT_31";
+        case 108:
+            return "STATE_PI_NOT_32";
+        case 109:
+            return "STATE_PI_NOT_33";
+        case 110:
+            return "STATE_PI_NOT_34";
+        case 111:
+            return "STATE_PI_NOT_40";
+        case 112:
+            return "STATE_PI_NOT_41";
+        case 113:
+            return "STATE_PI_NOT_42";
+        case 114:
+            return "STATE_PI_NOT_43";
+        case 115:
+            return "STATE_PI_NOT_44";
         }
         return std::to_string(index);
     }
@@ -994,6 +1255,31 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
     static constexpr size_t SR_STATE_RHO_43 = 64;
     static constexpr size_t SR_STATE_THETA_44_DECOMPOSE = 65;
     static constexpr size_t SR_STATE_RHO_44 = 66;
+    static constexpr size_t SR_STATE_PI_NOT_00 = 91;
+    static constexpr size_t SR_STATE_PI_NOT_01 = 92;
+    static constexpr size_t SR_STATE_PI_NOT_02 = 93;
+    static constexpr size_t SR_STATE_PI_NOT_03 = 94;
+    static constexpr size_t SR_STATE_PI_NOT_04 = 95;
+    static constexpr size_t SR_STATE_PI_NOT_10 = 96;
+    static constexpr size_t SR_STATE_PI_NOT_11 = 97;
+    static constexpr size_t SR_STATE_PI_NOT_12 = 98;
+    static constexpr size_t SR_STATE_PI_NOT_13 = 99;
+    static constexpr size_t SR_STATE_PI_NOT_14 = 100;
+    static constexpr size_t SR_STATE_PI_NOT_20 = 101;
+    static constexpr size_t SR_STATE_PI_NOT_21 = 102;
+    static constexpr size_t SR_STATE_PI_NOT_22 = 103;
+    static constexpr size_t SR_STATE_PI_NOT_23 = 104;
+    static constexpr size_t SR_STATE_PI_NOT_24 = 105;
+    static constexpr size_t SR_STATE_PI_NOT_30 = 106;
+    static constexpr size_t SR_STATE_PI_NOT_31 = 107;
+    static constexpr size_t SR_STATE_PI_NOT_32 = 108;
+    static constexpr size_t SR_STATE_PI_NOT_33 = 109;
+    static constexpr size_t SR_STATE_PI_NOT_34 = 110;
+    static constexpr size_t SR_STATE_PI_NOT_40 = 111;
+    static constexpr size_t SR_STATE_PI_NOT_41 = 112;
+    static constexpr size_t SR_STATE_PI_NOT_42 = 113;
+    static constexpr size_t SR_STATE_PI_NOT_43 = 114;
+    static constexpr size_t SR_STATE_PI_NOT_44 = 115;
 };
 
 } // namespace bb::avm2

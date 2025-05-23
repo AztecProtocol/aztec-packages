@@ -240,6 +240,88 @@ constexpr std::array<C, 24> rho_rotation_len_cols = {
     },
 };
 
+// Mapping indices of "pi not" values to their columns
+constexpr std::array<std::array<C, 5>, 5> state_pi_not_cols = {
+    {
+        {
+            C::keccakf1600_state_pi_not_00,
+            C::keccakf1600_state_pi_not_01,
+            C::keccakf1600_state_pi_not_02,
+            C::keccakf1600_state_pi_not_03,
+            C::keccakf1600_state_pi_not_04,
+        },
+        {
+            C::keccakf1600_state_pi_not_10,
+            C::keccakf1600_state_pi_not_11,
+            C::keccakf1600_state_pi_not_12,
+            C::keccakf1600_state_pi_not_13,
+            C::keccakf1600_state_pi_not_14,
+        },
+        {
+            C::keccakf1600_state_pi_not_20,
+            C::keccakf1600_state_pi_not_21,
+            C::keccakf1600_state_pi_not_22,
+            C::keccakf1600_state_pi_not_23,
+            C::keccakf1600_state_pi_not_24,
+        },
+        {
+            C::keccakf1600_state_pi_not_30,
+            C::keccakf1600_state_pi_not_31,
+            C::keccakf1600_state_pi_not_32,
+            C::keccakf1600_state_pi_not_33,
+            C::keccakf1600_state_pi_not_34,
+        },
+        {
+            C::keccakf1600_state_pi_not_40,
+            C::keccakf1600_state_pi_not_41,
+            C::keccakf1600_state_pi_not_42,
+            C::keccakf1600_state_pi_not_43,
+            C::keccakf1600_state_pi_not_44,
+        },
+    },
+};
+
+// Mapping indices of "pi and" values to their columns
+constexpr std::array<std::array<C, 5>, 5> state_pi_and_cols = {
+    {
+        {
+            C::keccakf1600_state_pi_and_00,
+            C::keccakf1600_state_pi_and_01,
+            C::keccakf1600_state_pi_and_02,
+            C::keccakf1600_state_pi_and_03,
+            C::keccakf1600_state_pi_and_04,
+        },
+        {
+            C::keccakf1600_state_pi_and_10,
+            C::keccakf1600_state_pi_and_11,
+            C::keccakf1600_state_pi_and_12,
+            C::keccakf1600_state_pi_and_13,
+            C::keccakf1600_state_pi_and_14,
+        },
+        {
+            C::keccakf1600_state_pi_and_20,
+            C::keccakf1600_state_pi_and_21,
+            C::keccakf1600_state_pi_and_22,
+            C::keccakf1600_state_pi_and_23,
+            C::keccakf1600_state_pi_and_24,
+        },
+        {
+            C::keccakf1600_state_pi_and_30,
+            C::keccakf1600_state_pi_and_31,
+            C::keccakf1600_state_pi_and_32,
+            C::keccakf1600_state_pi_and_33,
+            C::keccakf1600_state_pi_and_34,
+        },
+        {
+            C::keccakf1600_state_pi_and_40,
+            C::keccakf1600_state_pi_and_41,
+            C::keccakf1600_state_pi_and_42,
+            C::keccakf1600_state_pi_and_43,
+            C::keccakf1600_state_pi_and_44,
+        },
+    },
+};
+
 void KeccakF1600TraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
@@ -319,6 +401,15 @@ void KeccakF1600TraceBuilder::process(
             const size_t i = k / 5;
             const size_t j = k % 5;
             trace.set(state_rho_cols[k - 1], row, event.state_rho[i][j]);
+        }
+
+        // Setting "pi not" values
+        // Setting "pi and" values
+        for (size_t i = 0; i < 5; i++) {
+            for (size_t j = 0; j < 5; j++) {
+                trace.set(state_pi_not_cols[i][j], row, event.state_pi_not[i][j]);
+                trace.set(state_pi_and_cols[i][j], row, event.state_pi_and[i][j]);
+            }
         }
 
         row++;
@@ -405,7 +496,33 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> KeccakF1600TraceBuilde
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_41_range_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_42_range_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_43_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_44_range_settings>>());
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_limb_44_range_settings>>(),
+        // "pi and" values
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_00_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_01_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_02_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_03_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_04_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_10_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_11_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_12_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_13_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_14_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_20_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_21_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_22_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_23_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_24_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_30_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_31_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_32_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_33_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_34_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_40_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_41_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_42_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_43_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_44_settings>>());
 }
 
 } // namespace bb::avm2::tracegen
