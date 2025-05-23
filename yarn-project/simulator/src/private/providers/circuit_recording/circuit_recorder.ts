@@ -137,16 +137,19 @@ export abstract class CircuitRecorder {
         let result;
         if (isExternalCall) {
           this.stackDepth++;
-          result = fn.call(callback, ...args);
-          this.stackDepth--;
-        } else {
-          result = fn.call(callback, ...args);
         }
+        result = fn.call(callback, ...args);
         if (result instanceof Promise) {
           return result.then(async r => {
+            if (isExternalCall) {
+              this.stackDepth--;
+            }
             await this.recordCall(name, args, r, timer.ms(), this.stackDepth);
             return r;
           }) as ReturnType<typeof fn>;
+        }
+        if (isExternalCall) {
+          this.stackDepth--;
         }
         void this.recordCall(name, args, result, timer.ms(), this.stackDepth);
         return result;
