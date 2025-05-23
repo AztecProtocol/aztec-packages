@@ -98,9 +98,9 @@ pol public input;
 sel {
     ex_opcode,
     opcode_gas,
-    da_base_gas,
-    l2_dynamic_gas,
-    da_dynamic_gas
+    base_da_gas,
+    dynamic_l2_gas,
+    dynamic_da_gas
     // Mem ops, subtrace selectors, etc
 } in
 precomputed.sel_exec_spec {

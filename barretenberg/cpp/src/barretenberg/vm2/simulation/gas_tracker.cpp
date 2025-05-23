@@ -11,7 +11,7 @@ void GasTracker::set_instruction(const Instruction& instruction)
     indirect = instruction.indirect;
 
     const ExecInstructionSpec& spec = instruction_info_db.get(exec_opcode);
-    gas_event.opcode_gas = spec.gas_cost.base_l2;
+    gas_event.opcode_gas = spec.gas_cost.opcode_gas;
     gas_event.addressing_gas = compute_addressing_gas(indirect);
 
     gas_event.base_gas = Gas{
@@ -30,13 +30,13 @@ void GasTracker::consume_base_gas()
 
     Gas gas_used = prev_gas_used + gas_event.base_gas;
 
-    gas_event.oog_l2_base = gas_used.l2Gas > gas_limit.l2Gas;
-    gas_event.oog_da_base = gas_used.daGas > gas_limit.daGas;
+    gas_event.oog_base_l2 = gas_used.l2Gas > gas_limit.l2Gas;
+    gas_event.oog_base_da = gas_used.daGas > gas_limit.daGas;
 
-    if (gas_event.oog_l2_base || gas_event.oog_da_base) {
+    if (gas_event.oog_base_l2 || gas_event.oog_base_da) {
         context.set_gas_used(gas_limit);
 
-        throw OutOfGasException(GasPhase::BASE, gas_event.oog_l2_base ? GasDimension::L2 : GasDimension::DA);
+        throw OutOfGasException(GasPhase::BASE, gas_event.oog_base_l2 ? GasDimension::L2 : GasDimension::DA);
     }
     context.set_gas_used(gas_used);
 }
@@ -54,12 +54,12 @@ void GasTracker::consume_dynamic_gas(Gas dynamic_gas_factor)
 
     Gas gas_used = prev_gas_used + gas_event.dynamic_gas_used;
 
-    gas_event.oog_l2_dynamic = gas_used.l2Gas > gas_limit.l2Gas;
-    gas_event.oog_da_dynamic = gas_used.daGas > gas_limit.daGas;
+    gas_event.oog_dynamic_l2 = gas_used.l2Gas > gas_limit.l2Gas;
+    gas_event.oog_dynamic_da = gas_used.daGas > gas_limit.daGas;
 
-    if (gas_event.oog_l2_dynamic || gas_event.oog_da_dynamic) {
+    if (gas_event.oog_dynamic_l2 || gas_event.oog_dynamic_da) {
         context.set_gas_used(gas_limit);
-        throw OutOfGasException(GasPhase::DYNAMIC, gas_event.oog_l2_dynamic ? GasDimension::L2 : GasDimension::DA);
+        throw OutOfGasException(GasPhase::DYNAMIC, gas_event.oog_dynamic_l2 ? GasDimension::L2 : GasDimension::DA);
     }
     context.set_gas_used(gas_used);
 }

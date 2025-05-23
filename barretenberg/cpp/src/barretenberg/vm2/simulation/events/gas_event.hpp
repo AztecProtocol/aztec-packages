@@ -68,11 +68,11 @@ struct GasEvent {
     Gas dynamic_gas = { 0, 0 };
     Gas dynamic_gas_used = { 0, 0 };
 
-    bool oog_l2_base = false;
-    bool oog_da_base = false;
+    bool oog_base_l2 = false;
+    bool oog_base_da = false;
 
-    bool oog_l2_dynamic = false;
-    bool oog_da_dynamic = false;
+    bool oog_dynamic_l2 = false;
+    bool oog_dynamic_da = false;
 
     bool operator==(const GasEvent& other) const = default;
 };

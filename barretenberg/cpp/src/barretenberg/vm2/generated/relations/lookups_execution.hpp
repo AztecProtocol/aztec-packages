@@ -24,9 +24,9 @@ struct lookup_execution_exec_spec_read_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_ex_opcode,
         ColumnAndShifts::execution_opcode_gas,
-        ColumnAndShifts::execution_da_base_gas,
-        ColumnAndShifts::execution_l2_dynamic_gas,
-        ColumnAndShifts::execution_da_dynamic_gas
+        ColumnAndShifts::execution_base_da_gas,
+        ColumnAndShifts::execution_dynamic_l2_gas,
+        ColumnAndShifts::execution_dynamic_da_gas
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk,

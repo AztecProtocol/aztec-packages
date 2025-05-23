@@ -28,65 +28,65 @@ template <typename FF_> class gasImpl {
         const auto execution_SWITCH_CTX = in.get(C::execution_sel_enter_call) + in.get(C::execution_sel_exit_call);
         const auto execution_DEFAULT_CTX_ROW = (FF(1) - execution_SWITCH_CTX);
         const auto execution_L2_GAS_USED_AFTER_BASE =
-            in.get(C::execution_prev_l2_gas_used) + in.get(C::execution_l2_base_gas);
-        const auto execution_LIMIT_GTE_USED_L2_BASE =
+            in.get(C::execution_prev_l2_gas_used) + in.get(C::execution_base_l2_gas);
+        const auto execution_LIMIT_GTE_USED_BASE_L2 =
             (in.get(C::execution_l2_gas_limit) - execution_L2_GAS_USED_AFTER_BASE);
-        const auto execution_LIMIT_LT_USED_L2_BASE =
+        const auto execution_LIMIT_LT_USED_BASE_L2 =
             ((execution_L2_GAS_USED_AFTER_BASE - in.get(C::execution_l2_gas_limit)) - FF(1));
         const auto execution_TWO_POW_16 = FF(65536);
         const auto execution_DA_GAS_USED_AFTER_BASE =
-            in.get(C::execution_prev_da_gas_used) + in.get(C::execution_da_base_gas);
-        const auto execution_LIMIT_GTE_USED_DA_BASE =
+            in.get(C::execution_prev_da_gas_used) + in.get(C::execution_base_da_gas);
+        const auto execution_LIMIT_GTE_USED_BASE_DA =
             (in.get(C::execution_da_gas_limit) - execution_DA_GAS_USED_AFTER_BASE);
-        const auto execution_LIMIT_LT_USED_DA_BASE =
+        const auto execution_LIMIT_LT_USED_BASE_DA =
             ((execution_DA_GAS_USED_AFTER_BASE - in.get(C::execution_da_gas_limit)) - FF(1));
         const auto execution_L2_GAS_USED_AFTER_DYNAMIC = in.get(C::execution_prev_l2_gas_used) +
-                                                         in.get(C::execution_l2_base_gas) +
-                                                         in.get(C::execution_l2_dynamic_gas_used);
-        const auto execution_LIMIT_GTE_USED_L2_DYNAMIC =
+                                                         in.get(C::execution_base_l2_gas) +
+                                                         in.get(C::execution_dynamic_l2_gas_used);
+        const auto execution_LIMIT_GTE_USED_DYNAMIC_L2 =
             (in.get(C::execution_l2_gas_limit) - execution_L2_GAS_USED_AFTER_DYNAMIC);
-        const auto execution_LIMIT_LT_USED_L2_DYNAMIC =
+        const auto execution_LIMIT_LT_USED_DYNAMIC_L2 =
             ((execution_L2_GAS_USED_AFTER_DYNAMIC - in.get(C::execution_l2_gas_limit)) - FF(1));
         const auto execution_DA_GAS_USED_AFTER_DYNAMIC = in.get(C::execution_prev_da_gas_used) +
-                                                         in.get(C::execution_da_base_gas) +
-                                                         in.get(C::execution_da_dynamic_gas_used);
-        const auto execution_LIMIT_GTE_USED_DA_DYNAMIC =
+                                                         in.get(C::execution_base_da_gas) +
+                                                         in.get(C::execution_dynamic_da_gas_used);
+        const auto execution_LIMIT_GTE_USED_DYNAMIC_DA =
             (in.get(C::execution_da_gas_limit) - execution_DA_GAS_USED_AFTER_DYNAMIC);
-        const auto execution_LIMIT_LT_USED_DA_DYNAMIC =
+        const auto execution_LIMIT_LT_USED_DYNAMIC_DA =
             ((execution_DA_GAS_USED_AFTER_DYNAMIC - in.get(C::execution_da_gas_limit)) - FF(1));
         const auto execution_OUT_OF_GAS =
             in.get(C::execution_out_of_gas_base) + in.get(C::execution_out_of_gas_dynamic);
         const auto execution_PREV_GAS_PLUS_USAGE_L2 = in.get(C::execution_prev_l2_gas_used) +
-                                                      in.get(C::execution_l2_base_gas) +
-                                                      in.get(C::execution_l2_dynamic_gas_used);
+                                                      in.get(C::execution_base_l2_gas) +
+                                                      in.get(C::execution_dynamic_l2_gas_used);
         const auto execution_PREV_GAS_PLUS_USAGE_DA = in.get(C::execution_prev_da_gas_used) +
-                                                      in.get(C::execution_da_base_gas) +
-                                                      in.get(C::execution_da_dynamic_gas_used);
+                                                      in.get(C::execution_base_da_gas) +
+                                                      in.get(C::execution_dynamic_da_gas_used);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_l2_base_gas) -
+            auto tmp = (in.get(C::execution_base_l2_gas) -
                         (in.get(C::execution_opcode_gas) + in.get(C::execution_addressing_gas)));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_out_of_gas_l2_base) * (FF(1) - in.get(C::execution_out_of_gas_l2_base));
+            auto tmp = in.get(C::execution_out_of_gas_base_l2) * (FF(1) - in.get(C::execution_out_of_gas_base_l2));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_out_of_gas_da_base) * (FF(1) - in.get(C::execution_out_of_gas_da_base));
+            auto tmp = in.get(C::execution_out_of_gas_base_da) * (FF(1) - in.get(C::execution_out_of_gas_base_da));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_out_of_gas_base) -
-                        (FF(1) - (FF(1) - in.get(C::execution_out_of_gas_l2_base)) *
-                                     (FF(1) - in.get(C::execution_out_of_gas_da_base))));
+                        (FF(1) - (FF(1) - in.get(C::execution_out_of_gas_base_l2)) *
+                                     (FF(1) - in.get(C::execution_out_of_gas_base_da))));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
@@ -136,35 +136,35 @@ template <typename FF_> class gasImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = (((execution_LIMIT_LT_USED_L2_BASE - execution_LIMIT_GTE_USED_L2_BASE) *
-                             in.get(C::execution_out_of_gas_l2_base) +
-                         execution_LIMIT_GTE_USED_L2_BASE) -
-                        in.get(C::execution_limit_used_l2_base_cmp_diff));
+            auto tmp = (((execution_LIMIT_LT_USED_BASE_L2 - execution_LIMIT_GTE_USED_BASE_L2) *
+                             in.get(C::execution_out_of_gas_base_l2) +
+                         execution_LIMIT_GTE_USED_BASE_L2) -
+                        in.get(C::execution_limit_used_base_l2_cmp_diff));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = ((in.get(C::execution_limit_used_l2_base_cmp_diff_lo) +
-                         in.get(C::execution_limit_used_l2_base_cmp_diff_hi) * execution_TWO_POW_16) -
-                        in.get(C::execution_limit_used_l2_base_cmp_diff));
+            auto tmp = ((in.get(C::execution_limit_used_base_l2_cmp_diff_lo) +
+                         in.get(C::execution_limit_used_base_l2_cmp_diff_hi) * execution_TWO_POW_16) -
+                        in.get(C::execution_limit_used_base_l2_cmp_diff));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (((execution_LIMIT_LT_USED_DA_BASE - execution_LIMIT_GTE_USED_DA_BASE) *
-                             in.get(C::execution_out_of_gas_da_base) +
-                         execution_LIMIT_GTE_USED_DA_BASE) -
-                        in.get(C::execution_limit_used_da_base_cmp_diff));
+            auto tmp = (((execution_LIMIT_LT_USED_BASE_DA - execution_LIMIT_GTE_USED_BASE_DA) *
+                             in.get(C::execution_out_of_gas_base_da) +
+                         execution_LIMIT_GTE_USED_BASE_DA) -
+                        in.get(C::execution_limit_used_base_da_cmp_diff));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = ((in.get(C::execution_limit_used_da_base_cmp_diff_lo) +
-                         in.get(C::execution_limit_used_da_base_cmp_diff_hi) * execution_TWO_POW_16) -
-                        in.get(C::execution_limit_used_da_base_cmp_diff));
+            auto tmp = ((in.get(C::execution_limit_used_base_da_cmp_diff_lo) +
+                         in.get(C::execution_limit_used_base_da_cmp_diff_hi) * execution_TWO_POW_16) -
+                        in.get(C::execution_limit_used_base_da_cmp_diff));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
@@ -178,50 +178,50 @@ template <typename FF_> class gasImpl {
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp =
-                (FF(1) - in.get(C::execution_should_run_dyn_gas_check)) * in.get(C::execution_l2_dynamic_gas_factor);
+                (FF(1) - in.get(C::execution_should_run_dyn_gas_check)) * in.get(C::execution_dynamic_l2_gas_factor);
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp =
-                (FF(1) - in.get(C::execution_should_run_dyn_gas_check)) * in.get(C::execution_da_dynamic_gas_factor);
+                (FF(1) - in.get(C::execution_should_run_dyn_gas_check)) * in.get(C::execution_dynamic_da_gas_factor);
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_l2_dynamic_gas_used) -
-                        in.get(C::execution_l2_dynamic_gas) * in.get(C::execution_l2_dynamic_gas_factor));
+            auto tmp = (in.get(C::execution_dynamic_l2_gas_used) -
+                        in.get(C::execution_dynamic_l2_gas) * in.get(C::execution_dynamic_l2_gas_factor));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_da_dynamic_gas_used) -
-                        in.get(C::execution_da_dynamic_gas) * in.get(C::execution_da_dynamic_gas_factor));
+            auto tmp = (in.get(C::execution_dynamic_da_gas_used) -
+                        in.get(C::execution_dynamic_da_gas) * in.get(C::execution_dynamic_da_gas_factor));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::execution_out_of_gas_l2_dynamic) * (FF(1) - in.get(C::execution_out_of_gas_l2_dynamic));
+                in.get(C::execution_out_of_gas_dynamic_l2) * (FF(1) - in.get(C::execution_out_of_gas_dynamic_l2));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::execution_out_of_gas_da_dynamic) * (FF(1) - in.get(C::execution_out_of_gas_da_dynamic));
+                in.get(C::execution_out_of_gas_dynamic_da) * (FF(1) - in.get(C::execution_out_of_gas_dynamic_da));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_out_of_gas_dynamic) -
-                        (FF(1) - (FF(1) - in.get(C::execution_out_of_gas_l2_dynamic)) *
-                                     (FF(1) - in.get(C::execution_out_of_gas_da_dynamic))));
+                        (FF(1) - (FF(1) - in.get(C::execution_out_of_gas_dynamic_l2)) *
+                                     (FF(1) - in.get(C::execution_out_of_gas_dynamic_da))));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
@@ -234,36 +234,36 @@ template <typename FF_> class gasImpl {
         {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_should_run_dyn_gas_check) *
-                       (((execution_LIMIT_LT_USED_L2_DYNAMIC - execution_LIMIT_GTE_USED_L2_DYNAMIC) *
-                             in.get(C::execution_out_of_gas_l2_dynamic) +
-                         execution_LIMIT_GTE_USED_L2_DYNAMIC) -
-                        in.get(C::execution_limit_used_l2_dynamic_cmp_diff));
+                       (((execution_LIMIT_LT_USED_DYNAMIC_L2 - execution_LIMIT_GTE_USED_DYNAMIC_L2) *
+                             in.get(C::execution_out_of_gas_dynamic_l2) +
+                         execution_LIMIT_GTE_USED_DYNAMIC_L2) -
+                        in.get(C::execution_limit_used_dynamic_l2_cmp_diff));
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-            auto tmp = ((in.get(C::execution_limit_used_l2_dynamic_cmp_diff_lo) +
-                         in.get(C::execution_limit_used_l2_dynamic_cmp_diff_hi) * execution_TWO_POW_16) -
-                        in.get(C::execution_limit_used_l2_dynamic_cmp_diff));
+            auto tmp = ((in.get(C::execution_limit_used_dynamic_l2_cmp_diff_lo) +
+                         in.get(C::execution_limit_used_dynamic_l2_cmp_diff_hi) * execution_TWO_POW_16) -
+                        in.get(C::execution_limit_used_dynamic_l2_cmp_diff));
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_should_run_dyn_gas_check) *
-                       (((execution_LIMIT_LT_USED_DA_DYNAMIC - execution_LIMIT_GTE_USED_DA_DYNAMIC) *
-                             in.get(C::execution_out_of_gas_da_dynamic) +
-                         execution_LIMIT_GTE_USED_DA_DYNAMIC) -
-                        in.get(C::execution_limit_used_da_dynamic_cmp_diff));
+                       (((execution_LIMIT_LT_USED_DYNAMIC_DA - execution_LIMIT_GTE_USED_DYNAMIC_DA) *
+                             in.get(C::execution_out_of_gas_dynamic_da) +
+                         execution_LIMIT_GTE_USED_DYNAMIC_DA) -
+                        in.get(C::execution_limit_used_dynamic_da_cmp_diff));
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = ((in.get(C::execution_limit_used_da_dynamic_cmp_diff_lo) +
-                         in.get(C::execution_limit_used_da_dynamic_cmp_diff_hi) * execution_TWO_POW_16) -
-                        in.get(C::execution_limit_used_da_dynamic_cmp_diff));
+            auto tmp = ((in.get(C::execution_limit_used_dynamic_da_cmp_diff_lo) +
+                         in.get(C::execution_limit_used_dynamic_da_cmp_diff_hi) * execution_TWO_POW_16) -
+                        in.get(C::execution_limit_used_dynamic_da_cmp_diff));
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }

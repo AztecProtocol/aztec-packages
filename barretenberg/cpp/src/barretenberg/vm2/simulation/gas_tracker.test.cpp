@@ -136,10 +136,10 @@ TEST_F(GasTrackerTest, GasEvent)
                   .dynamic_gas_factor = (Gas{ 10, 0 }),
                   .dynamic_gas = (Gas{ AVM_CALLDATACOPY_DYN_L2_GAS, 0 }),
                   .dynamic_gas_used = (Gas{ AVM_CALLDATACOPY_DYN_L2_GAS * 10, 0 }),
-                  .oog_l2_base = false,
-                  .oog_da_base = false,
-                  .oog_l2_dynamic = false,
-                  .oog_da_dynamic = false,
+                  .oog_base_l2 = false,
+                  .oog_base_da = false,
+                  .oog_dynamic_l2 = false,
+                  .oog_dynamic_da = false,
               }));
 }
 

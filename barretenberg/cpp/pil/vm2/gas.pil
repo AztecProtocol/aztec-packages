@@ -11,21 +11,21 @@ namespace execution;
     pol commit opcode_gas;
     pol commit addressing_gas;
 
-    pol commit l2_base_gas;
-    l2_base_gas = opcode_gas + addressing_gas;
+    pol commit base_l2_gas;
+    base_l2_gas = opcode_gas + addressing_gas;
 
     // Looked up in execution.pil
-    pol commit da_base_gas;
+    pol commit base_da_gas;
 
-    pol commit out_of_gas_l2_base;
-    out_of_gas_l2_base * (1 - out_of_gas_l2_base) = 0;
+    pol commit out_of_gas_base_l2;
+    out_of_gas_base_l2 * (1 - out_of_gas_base_l2) = 0;
 
-    pol commit out_of_gas_da_base;
-    out_of_gas_da_base * (1 - out_of_gas_da_base) = 0;
+    pol commit out_of_gas_base_da;
+    out_of_gas_base_da * (1 - out_of_gas_base_da) = 0;
 
-    // out_of_gas_base = out_of_gas_l2_base OR out_of_gas_da_base
+    // out_of_gas_base = out_of_gas_base_l2 OR out_of_gas_base_da
     pol commit out_of_gas_base;
-    out_of_gas_base = 1 - (1 - out_of_gas_l2_base) * (1 - out_of_gas_da_base);
+    out_of_gas_base = 1 - (1 - out_of_gas_base_l2) * (1 - out_of_gas_base_da);
 
     #[ADDRESSING_GAS_READ]
     sel { indirect, addressing_gas }
@@ -54,56 +54,56 @@ namespace execution;
 
     // Check l2 base gas
 
-    pol L2_GAS_USED_AFTER_BASE = prev_l2_gas_used + l2_base_gas;
+    pol L2_GAS_USED_AFTER_BASE = prev_l2_gas_used + base_l2_gas;
     // Assumes both l2_gas_limit and L2_GAS_USED_AFTER_BASE are 32 bit
-    pol LIMIT_GTE_USED_L2_BASE = l2_gas_limit - L2_GAS_USED_AFTER_BASE;
-    pol LIMIT_LT_USED_L2_BASE =  L2_GAS_USED_AFTER_BASE - l2_gas_limit - 1;
-    pol commit limit_used_l2_base_cmp_diff;
-    (LIMIT_LT_USED_L2_BASE - LIMIT_GTE_USED_L2_BASE) * out_of_gas_l2_base + LIMIT_GTE_USED_L2_BASE - limit_used_l2_base_cmp_diff = 0;
+    pol LIMIT_GTE_USED_BASE_L2 = l2_gas_limit - L2_GAS_USED_AFTER_BASE;
+    pol LIMIT_LT_USED_BASE_L2 =  L2_GAS_USED_AFTER_BASE - l2_gas_limit - 1;
+    pol commit limit_used_base_l2_cmp_diff;
+    (LIMIT_LT_USED_BASE_L2 - LIMIT_GTE_USED_BASE_L2) * out_of_gas_base_l2 + LIMIT_GTE_USED_BASE_L2 - limit_used_base_l2_cmp_diff = 0;
 
     // This is an optimization pattern: instead of doing a full 32 bit range check using the gadget, we
-    // decompose inline limit_used_l2_base_cmp_diff and range check it by limbs. This avoids generating rows in the range check gadget
+    // decompose inline limit_used_base_l2_cmp_diff and range check it by limbs. This avoids generating rows in the range check gadget
     // for every row in the execution trace.
     pol TWO_POW_16 = 65536;
-    pol commit limit_used_l2_base_cmp_diff_lo;
-    pol commit limit_used_l2_base_cmp_diff_hi;
+    pol commit limit_used_base_l2_cmp_diff_lo;
+    pol commit limit_used_base_l2_cmp_diff_hi;
 
-    limit_used_l2_base_cmp_diff_lo + limit_used_l2_base_cmp_diff_hi * TWO_POW_16 - limit_used_l2_base_cmp_diff = 0;
+    limit_used_base_l2_cmp_diff_lo + limit_used_base_l2_cmp_diff_hi * TWO_POW_16 - limit_used_base_l2_cmp_diff = 0;
 
-    #[LIMIT_USED_L2_BASE_RANGE_LO]
-    sel { limit_used_l2_base_cmp_diff_lo }
+    #[LIMIT_USED_BASE_L2_RANGE_LO]
+    sel { limit_used_base_l2_cmp_diff_lo }
     in
     precomputed.sel_range_16
         { precomputed.clk };
 
-    #[LIMIT_USED_L2_BASE_RANGE_HI]
-    sel { limit_used_l2_base_cmp_diff_hi }
+    #[LIMIT_USED_BASE_L2_RANGE_HI]
+    sel { limit_used_base_l2_cmp_diff_hi }
     in
     precomputed.sel_range_16
         { precomputed.clk };
 
     // Check da base gas
 
-    pol DA_GAS_USED_AFTER_BASE = prev_da_gas_used + da_base_gas;
+    pol DA_GAS_USED_AFTER_BASE = prev_da_gas_used + base_da_gas;
     // Assumes both da_gas_limit and DA_GAS_USED_AFTER_BASE are 32 bit
-    pol LIMIT_GTE_USED_DA_BASE = da_gas_limit - DA_GAS_USED_AFTER_BASE;
-    pol LIMIT_LT_USED_DA_BASE =  DA_GAS_USED_AFTER_BASE - da_gas_limit - 1;
-    pol commit limit_used_da_base_cmp_diff;
-    (LIMIT_LT_USED_DA_BASE - LIMIT_GTE_USED_DA_BASE) * out_of_gas_da_base + LIMIT_GTE_USED_DA_BASE - limit_used_da_base_cmp_diff = 0;
+    pol LIMIT_GTE_USED_BASE_DA = da_gas_limit - DA_GAS_USED_AFTER_BASE;
+    pol LIMIT_LT_USED_BASE_DA =  DA_GAS_USED_AFTER_BASE - da_gas_limit - 1;
+    pol commit limit_used_base_da_cmp_diff;
+    (LIMIT_LT_USED_BASE_DA - LIMIT_GTE_USED_BASE_DA) * out_of_gas_base_da + LIMIT_GTE_USED_BASE_DA - limit_used_base_da_cmp_diff = 0;
 
-    pol commit limit_used_da_base_cmp_diff_lo;
-    pol commit limit_used_da_base_cmp_diff_hi;
+    pol commit limit_used_base_da_cmp_diff_lo;
+    pol commit limit_used_base_da_cmp_diff_hi;
 
-    limit_used_da_base_cmp_diff_lo + limit_used_da_base_cmp_diff_hi * TWO_POW_16 - limit_used_da_base_cmp_diff = 0;
+    limit_used_base_da_cmp_diff_lo + limit_used_base_da_cmp_diff_hi * TWO_POW_16 - limit_used_base_da_cmp_diff = 0;
 
-    #[LIMIT_USED_DA_BASE_RANGE_LO]
-    sel { limit_used_da_base_cmp_diff_lo }
+    #[LIMIT_USED_BASE_DA_RANGE_LO]
+    sel { limit_used_base_da_cmp_diff_lo }
     in
     precomputed.sel_range_16
         { precomputed.clk };
 
-    #[LIMIT_USED_DA_BASE_RANGE_HI]
-    sel { limit_used_da_base_cmp_diff_hi }
+    #[LIMIT_USED_BASE_DA_RANGE_HI]
+    sel { limit_used_base_da_cmp_diff_hi }
     in
     precomputed.sel_range_16
         { precomputed.clk };
@@ -114,82 +114,82 @@ namespace execution;
     pol commit should_run_dyn_gas_check;
     sel * (1 - out_of_gas_base) - should_run_dyn_gas_check = 0;
 
-    pol commit l2_dynamic_gas_factor;
-    (1 - should_run_dyn_gas_check) * l2_dynamic_gas_factor = 0;
-    pol commit da_dynamic_gas_factor;
-    (1 - should_run_dyn_gas_check) * da_dynamic_gas_factor = 0;
+    pol commit dynamic_l2_gas_factor;
+    (1 - should_run_dyn_gas_check) * dynamic_l2_gas_factor = 0;
+    pol commit dynamic_da_gas_factor;
+    (1 - should_run_dyn_gas_check) * dynamic_da_gas_factor = 0;
     // Looked up in execution.pil
-    pol commit l2_dynamic_gas;
+    pol commit dynamic_l2_gas;
     // Looked up in execution.pil
-    pol commit da_dynamic_gas;
+    pol commit dynamic_da_gas;
 
     // Dynamic gas is computed by multiplying the gas spec by the dynamic factor.
-    pol commit l2_dynamic_gas_used;
-    l2_dynamic_gas_used = l2_dynamic_gas * l2_dynamic_gas_factor;
-    pol commit da_dynamic_gas_used;
-    da_dynamic_gas_used = da_dynamic_gas * da_dynamic_gas_factor;
+    pol commit dynamic_l2_gas_used;
+    dynamic_l2_gas_used = dynamic_l2_gas * dynamic_l2_gas_factor;
+    pol commit dynamic_da_gas_used;
+    dynamic_da_gas_used = dynamic_da_gas * dynamic_da_gas_factor;
 
-    pol commit out_of_gas_l2_dynamic;
-    out_of_gas_l2_dynamic * (1 - out_of_gas_l2_dynamic) = 0;
+    pol commit out_of_gas_dynamic_l2;
+    out_of_gas_dynamic_l2 * (1 - out_of_gas_dynamic_l2) = 0;
 
-    pol commit out_of_gas_da_dynamic;
-    out_of_gas_da_dynamic * (1 - out_of_gas_da_dynamic) = 0;
+    pol commit out_of_gas_dynamic_da;
+    out_of_gas_dynamic_da * (1 - out_of_gas_dynamic_da) = 0;
 
-    // out_of_gas_dynamic = out_of_gas_l2_dynamic OR out_of_gas_da_dynamic
+    // out_of_gas_dynamic = out_of_gas_dynamic_l2 OR out_of_gas_dynamic_da
     pol commit out_of_gas_dynamic;
-    out_of_gas_dynamic = 1 - (1 - out_of_gas_l2_dynamic) * (1 - out_of_gas_da_dynamic);
+    out_of_gas_dynamic = 1 - (1 - out_of_gas_dynamic_l2) * (1 - out_of_gas_dynamic_da);
 
     // out_of_gas_dynamic and out_of_gas_base are mutually exclusive
     out_of_gas_dynamic * out_of_gas_base = 0;
 
     // Check l2 dynamic gas
 
-    pol L2_GAS_USED_AFTER_DYNAMIC = prev_l2_gas_used + l2_base_gas + l2_dynamic_gas_used;
+    pol L2_GAS_USED_AFTER_DYNAMIC = prev_l2_gas_used + base_l2_gas + dynamic_l2_gas_used;
     // Assumes both l2_gas_limit and L2_GAS_USED_AFTER_DYNAMIC are 32 bit
-    pol LIMIT_GTE_USED_L2_DYNAMIC = l2_gas_limit - L2_GAS_USED_AFTER_DYNAMIC;
-    pol LIMIT_LT_USED_L2_DYNAMIC =  L2_GAS_USED_AFTER_DYNAMIC - l2_gas_limit - 1;
-    pol commit limit_used_l2_dynamic_cmp_diff;
-    should_run_dyn_gas_check * ((LIMIT_LT_USED_L2_DYNAMIC - LIMIT_GTE_USED_L2_DYNAMIC) * out_of_gas_l2_dynamic + LIMIT_GTE_USED_L2_DYNAMIC - limit_used_l2_dynamic_cmp_diff) = 0;
+    pol LIMIT_GTE_USED_DYNAMIC_L2 = l2_gas_limit - L2_GAS_USED_AFTER_DYNAMIC;
+    pol LIMIT_LT_USED_DYNAMIC_L2 =  L2_GAS_USED_AFTER_DYNAMIC - l2_gas_limit - 1;
+    pol commit limit_used_dynamic_l2_cmp_diff;
+    should_run_dyn_gas_check * ((LIMIT_LT_USED_DYNAMIC_L2 - LIMIT_GTE_USED_DYNAMIC_L2) * out_of_gas_dynamic_l2 + LIMIT_GTE_USED_DYNAMIC_L2 - limit_used_dynamic_l2_cmp_diff) = 0;
 
-    pol commit limit_used_l2_dynamic_cmp_diff_lo;
-    pol commit limit_used_l2_dynamic_cmp_diff_hi;
+    pol commit limit_used_dynamic_l2_cmp_diff_lo;
+    pol commit limit_used_dynamic_l2_cmp_diff_hi;
 
-    limit_used_l2_dynamic_cmp_diff_lo + limit_used_l2_dynamic_cmp_diff_hi * TWO_POW_16 - limit_used_l2_dynamic_cmp_diff = 0;
+    limit_used_dynamic_l2_cmp_diff_lo + limit_used_dynamic_l2_cmp_diff_hi * TWO_POW_16 - limit_used_dynamic_l2_cmp_diff = 0;
 
-    #[LIMIT_USED_L2_DYNAMIC_RANGE_LO]
-    should_run_dyn_gas_check { limit_used_l2_dynamic_cmp_diff_lo }
+    #[LIMIT_USED_DYNAMIC_L2_RANGE_LO]
+    should_run_dyn_gas_check { limit_used_dynamic_l2_cmp_diff_lo }
     in
     precomputed.sel_range_16
         { precomputed.clk };
 
-    #[LIMIT_USED_L2_DYNAMIC_RANGE_HI]
-    should_run_dyn_gas_check { limit_used_l2_dynamic_cmp_diff_hi }
+    #[LIMIT_USED_DYNAMIC_L2_RANGE_HI]
+    should_run_dyn_gas_check { limit_used_dynamic_l2_cmp_diff_hi }
     in
     precomputed.sel_range_16
         { precomputed.clk };
 
     // Check da dynamic gas
 
-    pol DA_GAS_USED_AFTER_DYNAMIC = prev_da_gas_used + da_base_gas + da_dynamic_gas_used;
+    pol DA_GAS_USED_AFTER_DYNAMIC = prev_da_gas_used + base_da_gas + dynamic_da_gas_used;
     // Assumes both da_gas_limit and DA_GAS_USED_AFTER_DYNAMIC are 32 bit
-    pol LIMIT_GTE_USED_DA_DYNAMIC = da_gas_limit - DA_GAS_USED_AFTER_DYNAMIC;
-    pol LIMIT_LT_USED_DA_DYNAMIC =  DA_GAS_USED_AFTER_DYNAMIC - da_gas_limit - 1;
-    pol commit limit_used_da_dynamic_cmp_diff;
-    should_run_dyn_gas_check * ((LIMIT_LT_USED_DA_DYNAMIC - LIMIT_GTE_USED_DA_DYNAMIC) * out_of_gas_da_dynamic + LIMIT_GTE_USED_DA_DYNAMIC - limit_used_da_dynamic_cmp_diff) = 0;
+    pol LIMIT_GTE_USED_DYNAMIC_DA = da_gas_limit - DA_GAS_USED_AFTER_DYNAMIC;
+    pol LIMIT_LT_USED_DYNAMIC_DA =  DA_GAS_USED_AFTER_DYNAMIC - da_gas_limit - 1;
+    pol commit limit_used_dynamic_da_cmp_diff;
+    should_run_dyn_gas_check * ((LIMIT_LT_USED_DYNAMIC_DA - LIMIT_GTE_USED_DYNAMIC_DA) * out_of_gas_dynamic_da + LIMIT_GTE_USED_DYNAMIC_DA - limit_used_dynamic_da_cmp_diff) = 0;
 
-    pol commit limit_used_da_dynamic_cmp_diff_lo;
-    pol commit limit_used_da_dynamic_cmp_diff_hi;
+    pol commit limit_used_dynamic_da_cmp_diff_lo;
+    pol commit limit_used_dynamic_da_cmp_diff_hi;
 
-    limit_used_da_dynamic_cmp_diff_lo + limit_used_da_dynamic_cmp_diff_hi * TWO_POW_16 - limit_used_da_dynamic_cmp_diff = 0;
+    limit_used_dynamic_da_cmp_diff_lo + limit_used_dynamic_da_cmp_diff_hi * TWO_POW_16 - limit_used_dynamic_da_cmp_diff = 0;
 
-    #[LIMIT_USED_DA_DYNAMIC_RANGE_LO]
-    should_run_dyn_gas_check { limit_used_da_dynamic_cmp_diff_lo }
+    #[LIMIT_USED_DYNAMIC_DA_RANGE_LO]
+    should_run_dyn_gas_check { limit_used_dynamic_da_cmp_diff_lo }
     in
     precomputed.sel_range_16
         { precomputed.clk };
 
-    #[LIMIT_USED_DA_DYNAMIC_RANGE_HI]
-    should_run_dyn_gas_check { limit_used_da_dynamic_cmp_diff_hi }
+    #[LIMIT_USED_DYNAMIC_DA_RANGE_HI]
+    should_run_dyn_gas_check { limit_used_dynamic_da_cmp_diff_hi }
     in
     precomputed.sel_range_16
         { precomputed.clk };
@@ -198,8 +198,8 @@ namespace execution;
     // ==== GAS USED CONSTRAINING ====
     // Safe since they are mutually exclusive
     pol OUT_OF_GAS = out_of_gas_base + out_of_gas_dynamic;
-    pol PREV_GAS_PLUS_USAGE_L2 = prev_l2_gas_used + l2_base_gas + l2_dynamic_gas_used;
-    pol PREV_GAS_PLUS_USAGE_DA = prev_da_gas_used + da_base_gas + da_dynamic_gas_used;
+    pol PREV_GAS_PLUS_USAGE_L2 = prev_l2_gas_used + base_l2_gas + dynamic_l2_gas_used;
+    pol PREV_GAS_PLUS_USAGE_DA = prev_da_gas_used + base_da_gas + dynamic_da_gas_used;
 
     // If out of gas, gas_used is set to limit. Otherwise, gas_used is updated based on the gas usage of the previous row.
     (l2_gas_limit - PREV_GAS_PLUS_USAGE_L2) * OUT_OF_GAS + PREV_GAS_PLUS_USAGE_L2 - l2_gas_used = 0;
