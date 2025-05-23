@@ -51,9 +51,14 @@ describe('In-Memory P2P Client', () => {
     client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
   });
 
-  const advanceToProvenBlock = async (getProvenBlockNumber: number) => {
-    blockSource.setProvenBlockNumber(getProvenBlockNumber);
-    await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= getProvenBlockNumber, 'synced', 10, 0.1);
+  const advanceToProvenBlock = async (blockNumber: number) => {
+    blockSource.setProvenBlockNumber(blockNumber);
+    await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= blockNumber, 'synced', 10, 0.1);
+  };
+
+  const advanceToFinalizedBlock = async (blockNumber: number) => {
+    blockSource.setFinalizedBlockNumber(blockNumber);
+    await retryUntil(async () => (await client.getSyncedFinalizedBlockNum()) >= blockNumber, 'synced', 10, 0.1);
   };
 
   afterEach(async () => {
@@ -107,32 +112,19 @@ describe('In-Memory P2P Client', () => {
     await expect(client2.getSyncedLatestBlockNum()).resolves.toEqual(synchedBlock);
   });
 
-  it('deletes txs once block is proven', async () => {
+  it('deletes txs once block is finalized', async () => {
     blockSource.setProvenBlockNumber(0);
     await client.start();
     expect(txPool.deleteTxs).not.toHaveBeenCalled();
 
     await advanceToProvenBlock(5);
+    expect(txPool.deleteTxs).not.toHaveBeenCalled();
+
+    await advanceToFinalizedBlock(5);
     expect(txPool.deleteTxs).toHaveBeenCalledTimes(5);
-    await client.stop();
-  });
 
-  it('deletes txs after waiting the set number of blocks', async () => {
-    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
-      keepProvenTxsInPoolFor: 10,
-    });
-    blockSource.setProvenBlockNumber(0);
-    await client.start();
-    expect(txPool.deleteTxs).not.toHaveBeenCalled();
-
-    await advanceToProvenBlock(5);
-    expect(txPool.deleteTxs).not.toHaveBeenCalled();
-
-    await advanceToProvenBlock(12);
-    expect(txPool.deleteTxs).toHaveBeenCalledTimes(2);
-
-    await advanceToProvenBlock(20);
-    expect(txPool.deleteTxs).toHaveBeenCalledTimes(10);
+    await advanceToFinalizedBlock(8);
+    expect(txPool.deleteTxs).toHaveBeenCalledTimes(8);
     await client.stop();
   });
 
@@ -193,9 +185,7 @@ describe('In-Memory P2P Client', () => {
 
   describe('Chain prunes', () => {
     it('deletes transactions mined in pruned blocks', async () => {
-      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
-        keepProvenTxsInPoolFor: 10,
-      });
+      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
@@ -221,16 +211,18 @@ describe('In-Memory P2P Client', () => {
       expect(txPool.deleteTxs).toHaveBeenCalledWith([await txMinedInPrunedBlock.getTxHash()]);
       await client.stop();
     });
+
     it('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
       await advanceToProvenBlock(90);
+      await advanceToFinalizedBlock(50);
 
       await expect(client.getL2Tips()).resolves.toEqual({
         latest: { number: 100, hash: expect.any(String) },
         proven: { number: 90, hash: expect.any(String) },
-        finalized: { number: 90, hash: expect.any(String) },
+        finalized: { number: 50, hash: expect.any(String) },
       });
 
       blockSource.removeBlocks(10);
@@ -240,7 +232,7 @@ describe('In-Memory P2P Client', () => {
       await expect(client.getL2Tips()).resolves.toEqual({
         latest: { number: 90, hash: expect.any(String) },
         proven: { number: 90, hash: expect.any(String) },
-        finalized: { number: 90, hash: expect.any(String) },
+        finalized: { number: 50, hash: expect.any(String) },
       });
 
       blockSource.addBlocks([await L2Block.random(91), await L2Block.random(92)]);
@@ -250,14 +242,12 @@ describe('In-Memory P2P Client', () => {
       await expect(client.getL2Tips()).resolves.toEqual({
         latest: { number: 92, hash: expect.any(String) },
         proven: { number: 90, hash: expect.any(String) },
-        finalized: { number: 90, hash: expect.any(String) },
+        finalized: { number: 50, hash: expect.any(String) },
       });
     });
 
     it('deletes txs created from a pruned block', async () => {
-      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
-        keepProvenTxsInPoolFor: 10,
-      });
+      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
@@ -281,9 +271,7 @@ describe('In-Memory P2P Client', () => {
     // NOTE: skipping as we currently delete all mined txs within the epoch when pruning
     // TODO: bring back once fixed: #13770
     it.skip('moves mined and valid txs back to the pending set', async () => {
-      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
-        keepProvenTxsInPoolFor: 10,
-      });
+      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
@@ -314,23 +302,56 @@ describe('In-Memory P2P Client', () => {
   });
 
   describe('Attestation pool pruning', () => {
-    it('deletes attestations older than the number of slots we want to keep in the pool', async () => {
-      const advanceToProvenBlockNumber = 20;
-      const keepAttestationsInPoolFor = 12;
-
+    it('deletes attestations for finalized blocks', async () => {
       const deleteAttestationsOlderThanSpy = jest.spyOn(attestationPool, 'deleteAttestationsOlderThan');
 
       blockSource.setProvenBlockNumber(0);
-      (client as any).config.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
       await client.start();
       expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
 
-      await advanceToProvenBlock(advanceToProvenBlockNumber);
+      await advanceToProvenBlock(10);
+      expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
 
+      await advanceToFinalizedBlock(10);
       expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(1);
-      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(
-        BigInt(advanceToProvenBlockNumber - keepAttestationsInPoolFor),
-      );
+      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(10n);
+
+      await advanceToFinalizedBlock(15);
+      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(2);
+      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(15n);
+    });
+  });
+
+  describe('Chain events', () => {
+    beforeEach(() => {
+      // P2P client skips syncing first 100 blocks if tx pool is empty
+      txPool.isEmpty.mockResolvedValue(true);
+    });
+
+    it('syncs new blocks', async () => {
+      await client.start();
+      blockSource.addBlocks([await L2Block.random(101), await L2Block.random(102)]);
+      await client.sync();
+      expect(await client.getSyncedLatestBlockNum()).toEqual(102);
+    });
+
+    it('handles proven and finalized chain behind starting point', async () => {
+      blockSource.setProvenBlockNumber(0);
+      blockSource.setFinalizedBlockNumber(0);
+
+      await client.start();
+
+      const provenBlock = await client.getSyncedProvenBlockNum();
+      const finalizedBlock = await client.getSyncedFinalizedBlockNum();
+
+      expect(provenBlock).toEqual(0);
+      expect(finalizedBlock).toEqual(0);
+
+      await advanceToProvenBlock(10);
+      await advanceToFinalizedBlock(5);
+
+      expect(await client.getSyncedProvenBlockNum()).toEqual(10);
+      expect(await client.getSyncedFinalizedBlockNum()).toEqual(5);
     });
   });
 });

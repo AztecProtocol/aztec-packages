@@ -50,15 +50,6 @@ void set_public_call_request_array_in_cols(const std::array<PublicCallRequest, M
     }
 }
 
-void set_previous_accumulated_data_lengths_in_cols(const PrivateToAvmAccumulatedDataArrayLengths& lengths,
-                                                   std::vector<std::vector<FF>>& cols,
-                                                   size_t row_idx)
-{
-    cols[0][row_idx] = lengths.noteHashes;
-    cols[1][row_idx] = lengths.nullifiers;
-    cols[2][row_idx] = lengths.l2ToL1Msgs;
-}
-
 template <size_t SIZE>
 void set_field_array_in_cols(const std::array<FF, SIZE>& arr,
                              std::vector<std::vector<FF>>& cols,
@@ -186,15 +177,21 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     set_public_call_request_in_cols(
         publicTeardownCallRequest, cols, AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX);
 
-    // Previous non-revertible & revertible accumulated data lengths
-    set_previous_accumulated_data_lengths_in_cols(
-        previousNonRevertibleAccumulatedDataArrayLengths,
-        cols,
-        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX);
-    set_previous_accumulated_data_lengths_in_cols(
-        previousRevertibleAccumulatedDataArrayLengths,
-        cols,
-        AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX);
+    // Previous non-revertible accumulated data array lengths
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+        previousNonRevertibleAccumulatedDataArrayLengths.noteHashes;
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+        previousNonRevertibleAccumulatedDataArrayLengths.nullifiers;
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+        previousNonRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs;
+
+    // Previous revertible accumulated data array lengths
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+        previousRevertibleAccumulatedDataArrayLengths.noteHashes;
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+        previousRevertibleAccumulatedDataArrayLengths.nullifiers;
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+        previousRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs;
 
     // Previous non-revertible accumulated data
     set_field_array_in_cols(previousNonRevertibleAccumulatedData.noteHashes,

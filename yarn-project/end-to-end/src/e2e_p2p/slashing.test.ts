@@ -132,10 +132,7 @@ describe('e2e_p2p_slashing', () => {
     t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
 
     // Jump forward to an epoch in the future such that the validator set is not empty
-    const slotsInEpoch = await rollup.getEpochDuration();
-    const epochToJumpInto = 4n;
-    const timestamp = await rollup.getTimestampForSlot(slotsInEpoch * epochToJumpInto);
-    await t.ctx.cheatCodes.eth.warp(Number(timestamp));
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(4n);
     // Send tx
     await t.sendDummyTx();
 
@@ -299,7 +296,7 @@ describe('e2e_p2p_slashing', () => {
     const attestersPre = await rollup.getAttesters();
 
     for (const attester of attestersPre) {
-      const attesterInfo = await rollup.getInfo(attester);
+      const attesterInfo = await rollup.getAttesterView(attester);
       // Check that status isValidating
       expect(attesterInfo.status).toEqual(1);
     }
@@ -359,7 +356,7 @@ describe('e2e_p2p_slashing', () => {
     await t.sendDummyTx();
 
     for (const attester of attestersPre) {
-      const attesterInfo = await rollup.getInfo(attester);
+      const attesterInfo = await rollup.getAttesterView(attester);
       // Check that status is Living
       expect(attesterInfo.status).toEqual(2);
     }

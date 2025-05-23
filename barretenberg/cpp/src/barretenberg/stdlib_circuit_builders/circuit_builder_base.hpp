@@ -8,8 +8,8 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/execution_trace/gate_data.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <utility>
@@ -22,7 +22,7 @@ static constexpr uint32_t DUMMY_TAG = 0;
 template <typename FF_> class CircuitBuilderBase {
   public:
     using FF = FF_;
-    using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
+    using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::Fq>, curve::BN254, curve::Grumpkin>;
 
     size_t num_gates = 0;
     // true if we have dummy witnesses (in the write_vk case)
@@ -215,16 +215,6 @@ template <typename FF_> class CircuitBuilderBase {
     void assert_valid_variables(const std::vector<uint32_t>& variable_indices);
     bool is_valid_variable(uint32_t variable_index) { return variable_index < variables.size(); };
 
-    /**
-     * @brief PLONK only: Add information about which witnesses contain the recursive proof computation information
-     *
-     * @param circuit_constructor Object with the circuit
-     * @param proof_output_witness_indices Witness indices that need to become public and stored as recurisve proof
-     * specific
-     */
-    void add_pairing_point_accumulator_for_plonk(
-        const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
-
     bool failed() const;
     const std::string& err() const;
 
@@ -262,6 +252,10 @@ template <typename FF> struct CircuitSchemaInternal {
     std::vector<std::vector<std::vector<FF>>> lookup_tables;
     std::vector<uint32_t> real_variable_tags;
     std::unordered_map<uint32_t, uint64_t> range_tags;
+    std::vector<std::vector<std::vector<uint32_t>>> rom_records;
+    std::vector<std::vector<std::array<uint32_t, 2>>> rom_states;
+    std::vector<std::vector<std::vector<uint32_t>>> ram_records;
+    std::vector<std::vector<uint32_t>> ram_states;
     bool circuit_finalized;
     MSGPACK_FIELDS(modulus,
                    public_inps,
@@ -273,6 +267,10 @@ template <typename FF> struct CircuitSchemaInternal {
                    lookup_tables,
                    real_variable_tags,
                    range_tags,
+                   rom_records,
+                   rom_states,
+                   ram_records,
+                   ram_states,
                    circuit_finalized);
 };
 } // namespace bb

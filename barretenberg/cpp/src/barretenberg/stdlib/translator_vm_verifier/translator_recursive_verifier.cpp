@@ -91,6 +91,7 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
                                        commitment_labels.get_wires_and_ordered_range_constraints())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
+    op_queue_commitments = { commitments.op, commitments.x_lo_y_hi, commitments.x_hi_z_1, commitments.y_lo_z_2 };
 
     // Get permutation challenges
     FF beta = transcript->template get_challenge<FF>("beta");
@@ -150,13 +151,6 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
     return { pairing_points[0], pairing_points[1] };
 }
 
-/**
- * @brief
- *
- * @tparam Flavor
- * @param translation_evaluations
- * @param translation_masking_term_eval
- */
 template <typename Flavor>
 void TranslatorRecursiveVerifier_<Flavor>::verify_translation(
     const TranslationEvaluations_<BF>& translation_evaluations, const BF& translation_masking_term_eval)
@@ -180,6 +174,30 @@ void TranslatorRecursiveVerifier_<Flavor>::verify_translation(
     const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
     // multiply by x here to deal with shift
     eccvm_opening.assert_equal(x * accumulated_result);
+}
+
+template <typename Flavor>
+void TranslatorRecursiveVerifier_<Flavor>::verify_consistency_with_final_merge(
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments)
+{
+    // Check the consistency with final merge
+    for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {
+        // These are witness commitments sent as part of the proof, so their coordinates are already in reduced form.
+        // This approach is preferred over implementing assert_equal for biggroup, as it avoids the need to handle
+        // constants within biggroup logic.
+        bool consistency_check_failed = (merge_commitment.y.get_value() != translator_commitment.y.get_value()) ||
+                                        (merge_commitment.y.get_value() != translator_commitment.y.get_value()) ||
+                                        (merge_commitment.is_point_at_infinity().get_value() !=
+                                         translator_commitment.is_point_at_infinity().get_value());
+
+        if (consistency_check_failed) {
+            vinfo("translator commitments are inconsistent with the final merge commitments");
+        }
+
+        merge_commitment.x.assert_equal(translator_commitment.x);
+        merge_commitment.y.assert_equal(translator_commitment.y);
+        merge_commitment.is_point_at_infinity().assert_equal(translator_commitment.is_point_at_infinity());
+    }
 }
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;

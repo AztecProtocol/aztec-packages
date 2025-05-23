@@ -42,11 +42,15 @@ use crate::{
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_SLOT_NUMBER_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX,
-        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
-        AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
@@ -58,8 +62,8 @@ use crate::{
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX,
-        AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-        MAX_ENQUEUED_CALLS_PER_TX, PUBLIC_LOG_SIZE_IN_FIELDS,
+        AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
+        MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM, PUBLIC_LOG_SIZE_IN_FIELDS,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
@@ -277,16 +281,6 @@ fn set_public_call_request_array_in_cols<let SIZE: u32>(
     }
 }
 
-fn set_previous_accumulated_data_lengths_in_cols(
-    lengths: PrivateToAvmAccumulatedDataArrayLengths,
-    cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
-    row_idx: u32,
-) {
-    cols[0][row_idx] = lengths.note_hashes as Field;
-    cols[1][row_idx] = lengths.nullifiers as Field;
-    cols[2][row_idx] = lengths.l2_to_l1_msgs as Field;
-}
-
 fn set_field_array_in_cols<let SIZE: u32>(
     arr: [Field; SIZE],
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
@@ -442,17 +436,21 @@ impl AvmCircuitPublicInputs {
             AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX,
         );
 
-        // Previous non-revertible & revertible accumulated data lengths
-        set_previous_accumulated_data_lengths_in_cols(
-            self.previous_non_revertible_accumulated_data_array_lengths,
-            &mut cols,
-            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX,
-        );
-        set_previous_accumulated_data_lengths_in_cols(
-            self.previous_revertible_accumulated_data_array_lengths,
-            &mut cols,
-            AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX,
-        );
+        // Previous non-revertible accumulated data array lengths
+        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+            self.previous_non_revertible_accumulated_data_array_lengths.note_hashes as Field;
+        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+            self.previous_non_revertible_accumulated_data_array_lengths.nullifiers as Field;
+        cols[0][
+    AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+            self.previous_non_revertible_accumulated_data_array_lengths.l2_to_l1_msgs as Field;
+        // Previous revertible accumulated data array lengths
+        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+            self.previous_revertible_accumulated_data_array_lengths.note_hashes as Field;
+        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+            self.previous_revertible_accumulated_data_array_lengths.nullifiers as Field;
+        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+            self.previous_revertible_accumulated_data_array_lengths.l2_to_l1_msgs as Field;
 
         // Previous non-revertible accumulated data
         set_field_array_in_cols(
@@ -571,12 +569,18 @@ impl AvmCircuitPublicInputs {
 pub struct AvmProofData {
     pub public_inputs: AvmCircuitPublicInputs,
     pub proof: AvmProof,
-    pub vk_data: VkData<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED>,
 }
 
 impl Verifiable for AvmProofData {
     fn verify(self) {
-        // TODO(#8470)
+        std::verify_proof_with_type(
+            self.vk_data.vk.key,
+            self.proof.fields,
+            self.public_inputs.to_columns_flat(),
+            0,
+            PROOF_TYPE_AVM,
+        );
     }
 }
 

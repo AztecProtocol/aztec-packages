@@ -498,11 +498,11 @@ export function getDefaultInitializer(contractArtifact: ContractArtifact): Funct
   const functionAbis = getAllFunctionAbis(contractArtifact);
   const initializers = functionAbis.filter(f => f.isInitializer);
   return initializers.length > 1
-    ? initializers.find(f => f.name === 'constructor') ??
+    ? (initializers.find(f => f.name === 'constructor') ??
         initializers.find(f => f.name === 'initializer') ??
         initializers.find(f => f.parameters?.length === 0) ??
         initializers.find(f => f.functionType === FunctionType.PRIVATE) ??
-        initializers[0]
+        initializers[0])
     : initializers[0];
 }
 
@@ -532,4 +532,41 @@ export function getInitializer(
     }
     return initializerNameOrArtifact;
   }
+}
+
+export function emptyFunctionAbi(): FunctionAbi {
+  return {
+    name: '',
+    functionType: FunctionType.PRIVATE,
+    isInternal: false,
+    isStatic: false,
+    parameters: [],
+    returnTypes: [],
+    errorTypes: {},
+    isInitializer: false,
+  };
+}
+
+export function emptyFunctionArtifact(): FunctionArtifact {
+  const abi = emptyFunctionAbi();
+  return {
+    ...abi,
+    bytecode: Buffer.from([]),
+    debugSymbols: '',
+  };
+}
+
+export function emptyContractArtifact(): ContractArtifact {
+  return {
+    name: '',
+    functions: [emptyFunctionArtifact()],
+    nonDispatchPublicFunctions: [emptyFunctionAbi()],
+    outputs: {
+      structs: {},
+      globals: {},
+    },
+    storageLayout: {},
+    fileMap: {},
+    notes: {},
+  };
 }

@@ -22,7 +22,7 @@ pub unconstrained fn setup(
 
     // Deploy contract and initialize
     let initializer = TXETest::interface().initialize(initial_value as u64, owner);
-    let counter_contract = env.deploy_self("TXETest").with_private_initializer(initializer);
+    let counter_contract = env.deploy_self("TXETest").with_private_initializer(owner, initializer);
     let contract_address = counter_contract.to_address();
     (&mut env, contract_address, owner, sender)
 }
@@ -34,15 +34,14 @@ unconstrained fn new_calling_flow_increment_self_and_other() {
     let sender = env.create_account(2);
     let third = env.create_account(3);
 
-    env.impersonate(owner);
-
     let initial_value: Field = 2;
     let initializer = TXETest::interface().initialize(initial_value as u64, owner);
-    let counter_contract = env.deploy_self("TXETest").with_private_initializer(initializer);
+    let counter_contract = env.deploy_self("TXETest").with_private_initializer(owner, initializer);
     let contract_address = counter_contract.to_address();
 
     let initializer2 = TXETest::interface().initialize(initial_value as u64, third);
-    let counter_contract2 = env.deploy_self("TXETest").with_private_initializer(initializer2);
+    let counter_contract2 =
+        env.deploy_self("TXETest").with_private_initializer(owner, initializer2);
     let contract_address2 = counter_contract2.to_address();
 
     let _ = env.call_private_void(
@@ -52,7 +51,7 @@ unconstrained fn new_calling_flow_increment_self_and_other() {
 
     env.impersonate(contract_address);
 
-    TXETest::sync_notes();
+    TXETest::sync_private_state();
     let mut options = NoteViewerOptions::new();
     let counter_slot = TXETest::storage_layout().counters.slot;
 
@@ -66,7 +65,7 @@ unconstrained fn new_calling_flow_increment_self_and_other() {
 
     env.impersonate(contract_address2);
 
-    TXETest::sync_notes();
+    TXETest::sync_private_state();
     let counter_slot = TXETest::storage_layout().counters.slot;
 
     let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
@@ -87,14 +86,14 @@ unconstrained fn new_calling_flow_increment_with_new_call_flow() {
 
     let initial_value: Field = 2;
     let initializer = TXETest::interface().initialize(initial_value as u64, owner);
-    let counter_contract = env.deploy_self("TXETest").with_private_initializer(initializer);
+    let counter_contract = env.deploy_self("TXETest").with_private_initializer(owner, initializer);
     let contract_address = counter_contract.to_address();
 
     let _ = env.call_private_void(owner, TXETest::at(contract_address).increment(owner, sender));
 
     env.impersonate(contract_address);
 
-    TXETest::sync_notes();
+    TXETest::sync_private_state();
     let mut options = NoteViewerOptions::new();
     let counter_slot = TXETest::storage_layout().counters.slot;
 

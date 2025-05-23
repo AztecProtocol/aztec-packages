@@ -17,7 +17,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/plonk/proof_system/constants.hpp"
+
 #include <cstddef>
 namespace bb {
 
@@ -521,10 +521,25 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         return;
     }
 
+    // Process the first UltraOp - a no-op - and populate with zeros the beginning of all other wires to ensure all wire
+    // polynomials in translator start with 0 (required for shifted polynomials in the proving system). Technically,
+    // we'd need only first index to be a zero but, given each "real" UltraOp populates two indices in a polynomial we
+    // add two zeros for consistency.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
+    // data in the merge protocol (added for zero knowledge)/
+    populate_wires_from_ultra_op(ultra_ops[0]);
+    for (auto& wire : wires) {
+        if (wire.empty()) {
+            wire.push_back(zero_idx);
+            wire.push_back(zero_idx);
+        }
+    }
+    num_gates += 2;
+
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 0; i < ultra_ops.size(); i++) {
-        const auto& ultra_op = ultra_ops[ultra_ops.size() - 1 - i];
+    for (size_t i = 1; i < ultra_ops.size(); i++) {
+        const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
         current_accumulator *= evaluation_input_x;
         const auto [x_256, y_256] = ultra_op.get_base_point_standard_form();
         current_accumulator +=
@@ -539,7 +554,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // We don't care about the last value since we'll recompute it during witness generation anyway
     accumulator_trace.pop_back();
 
-    for (const auto& ultra_op : ultra_ops) {
+    // Generate witness values from all the UltraOps
+    for (size_t i = 1; i < ultra_ops.size(); i++) {
+        const auto& ultra_op = ultra_ops[i];
         Fq previous_accumulator = 0;
         // Pop the last value from accumulator trace and use it as previous accumulator
         if (!accumulator_trace.empty()) {

@@ -106,7 +106,7 @@ TEST(AvmInputsTest, ValuesInColumns)
     pi.publicTeardownCallRequest.isStaticCall = true;
     pi.publicTeardownCallRequest.calldataHash = 9999;
 
-    // Set accumulated data array lengths (using 3 columns)
+    // Set accumulated data array lengths
     pi.previousNonRevertibleAccumulatedDataArrayLengths.noteHashes = 10;
     pi.previousNonRevertibleAccumulatedDataArrayLengths.nullifiers = 20;
     pi.previousNonRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs = 30;
@@ -253,20 +253,26 @@ TEST(AvmInputsTest, ValuesInColumns)
     EXPECT_EQ(flat[col2_offset + teardown_row], static_cast<uint8_t>(pi.publicTeardownCallRequest.isStaticCall));
     EXPECT_EQ(flat[col3_offset + teardown_row], pi.publicTeardownCallRequest.calldataHash);
 
-    // Test accumulated data array lengths (using 3 columns)
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX],
+    // Test accumulated data array lengths
+    EXPECT_EQ(flat[col0_offset +
+                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX],
               pi.previousNonRevertibleAccumulatedDataArrayLengths.noteHashes);
-    EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX],
-              pi.previousNonRevertibleAccumulatedDataArrayLengths.nullifiers);
-    EXPECT_EQ(flat[col2_offset + AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX],
+    EXPECT_EQ(
+        flat[col0_offset + AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX],
+        pi.previousNonRevertibleAccumulatedDataArrayLengths.nullifiers);
+    EXPECT_EQ(flat[col0_offset +
+                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX],
               pi.previousNonRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs);
 
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX],
-              pi.previousRevertibleAccumulatedDataArrayLengths.noteHashes);
-    EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX],
-              pi.previousRevertibleAccumulatedDataArrayLengths.nullifiers);
-    EXPECT_EQ(flat[col2_offset + AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX],
-              pi.previousRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs);
+    EXPECT_EQ(
+        flat[col0_offset + AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX],
+        pi.previousRevertibleAccumulatedDataArrayLengths.noteHashes);
+    EXPECT_EQ(
+        flat[col0_offset + AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX],
+        pi.previousRevertibleAccumulatedDataArrayLengths.nullifiers);
+    EXPECT_EQ(
+        flat[col0_offset + AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX],
+        pi.previousRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs);
 
     // Test l2ToL1Msgs (which use 4 columns)
     size_t l2_to_l1_msg_row = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;

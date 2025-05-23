@@ -1,6 +1,6 @@
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
@@ -302,14 +302,16 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public getAvmProof(_inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
+  public getAvmProof(
+    _inputs: AvmCircuitInputs,
+  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
     // We just return an empty proof and VK data.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
     return this.applyDelay(ProvingRequestType.PUBLIC_VM, () =>
       makeProofAndVerificationKey(
-        makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),
-        VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+        makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
+        VerificationKeyData.makeFake(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
       ),
     );
   }

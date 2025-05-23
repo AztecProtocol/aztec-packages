@@ -13,7 +13,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import EcdsaRAccountContractJson from '../../../artifacts/EcdsaRAccount.json' assert { type: 'json' };
+import EcdsaRAccountContractJson from '../../../artifacts/EcdsaRAccount.json' with { type: 'json' };
 import { EcdsaRBaseAccountContract } from './account_contract.js';
 
 export const EcdsaRAccountContractArtifact: ContractArtifact = loadContractArtifact(

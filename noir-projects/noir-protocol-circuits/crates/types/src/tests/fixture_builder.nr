@@ -53,7 +53,8 @@ use crate::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, PRIVATE_CALL_REQUEST_LENGTH,
         PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
-        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_SIZE_IN_FIELDS, UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_SIZE_IN_FIELDS, SIDE_EFFECT_MASKING_ADDRESS,
+        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -61,8 +62,8 @@ use crate::{
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     },
     hash::{
-        compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
-        compute_unique_siloed_note_hash, silo_note_hash,
+        compute_l2_to_l1_hash, compute_siloed_note_hash, compute_siloed_nullifier,
+        compute_siloed_private_log_field, compute_unique_siloed_note_hash,
     },
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
@@ -359,6 +360,7 @@ impl FixtureBuilder {
             args_hash: self.args_hash,
             tx_context: self.tx_context,
             function_data: self.function_data,
+            salt: 54321,
         }
     }
 
@@ -713,16 +715,14 @@ impl FixtureBuilder {
     }
 
     pub fn add_siloed_note_hash(&mut self, value: Field) {
-        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
-        let siloed_value = silo_note_hash(note_hash_to_silo);
+        let siloed_value = compute_siloed_note_hash(self.contract_address, value);
         self.note_hashes.push(NoteHash { value: siloed_value, counter: self.next_counter() }.scope(
             AztecAddress::zero(),
         ));
     }
 
     pub fn add_siloed_unique_note_hash(&mut self, value: Field) {
-        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
-        let siloed_value = silo_note_hash(note_hash_to_silo);
+        let siloed_value = compute_siloed_note_hash(self.contract_address, value);
         let current_index = self.note_hashes.len();
         let unique_siloed_value = compute_unique_siloed_note_hash(
             siloed_value,
@@ -780,11 +780,12 @@ impl FixtureBuilder {
         for i in 0..self.note_hashes.max_len() {
             if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
-                self.note_hashes.push(NoteHash { value, counter: MAX_U32_VALUE }.scope(
-                    // The padded note hashes are siloed when added in the reset circuit.
-                    // So the contract address is always zero.
-                    AztecAddress::zero(),
-                ));
+                // Silo and clear the contract address here
+                // because the padded note hashes are siloed when added in the reset circuit.
+                // We can only see the siloed version of it in the public inputs.
+                let siloed_value = compute_siloed_note_hash(SIDE_EFFECT_MASKING_ADDRESS, value);
+                self.note_hashes.push(NoteHash { value: siloed_value, counter: MAX_U32_VALUE }
+                    .scope(AztecAddress::zero()));
             }
         }
     }

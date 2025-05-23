@@ -7,7 +7,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 
@@ -27,8 +27,10 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     std::shared_ptr<Transcript> transcript;
 
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+    std::array<Commitment, NUM_WIRES> T_commitments;
 
-    explicit MergeRecursiveVerifier_(CircuitBuilder* builder);
+    explicit MergeRecursiveVerifier_(CircuitBuilder* builder,
+                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
         const StdlibProof<CircuitBuilder>& proof);

@@ -8,7 +8,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/groups/affine_element.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
+#include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
 namespace acir_format {

@@ -6,8 +6,6 @@
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 
-#define SHOW_SYMBOLIC_SET_MEMBERS
-
 namespace smt_solver {
 
 /**
@@ -117,7 +115,7 @@ class Solver {
             solver.setOption("output", "post-asserts");
             solver.setOption("output", "trusted-proof-steps");
             solver.setOption("output", "deep-restart");
-            solver.setOption("output", "timout-core-benchmark");
+            solver.setOption("output", "timeout-core-benchmark");
             solver.setOption("output", "unsat-core-benchmark");
             solver.setOption("stats-all", "true");
             solver.setOption("stats-internal", "true");
