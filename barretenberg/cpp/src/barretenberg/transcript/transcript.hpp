@@ -139,7 +139,7 @@ template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
 
 // A static counter for the number of transcripts created
 // This is used to generate unique labels for the transcript origin tags
-static size_t unique_transcript_index = 0;
+static std::atomic<size_t> unique_transcript_index = 0;
 /**
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
@@ -173,7 +173,7 @@ template <typename TranscriptParams> class BaseTranscript {
         : proof_data(proof_data.begin(), proof_data.end())
     {
         if constexpr (in_circuit) {
-            transcript_index = unique_transcript_index++;
+            transcript_index = unique_transcript_index.fetch_add(1);
         }
     }
 
