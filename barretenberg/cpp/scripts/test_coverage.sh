@@ -2,12 +2,13 @@
 source "$(git rev-parse --show-toplevel)/ci3/source"
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+cd ..
+# For more verbose logging
+export CI=1
 # Affects meaning of 'native' in bootstrap and run_test.sh
 export NATIVE_PRESET=clang16-coverage
-# Override default of 600s
-# target max time of 15 minutes with some wiggle room
-export TIMEOUT=20m
+# target max time of 15 minutes, but timing out at all is painful so bump high
+export TIMEOUT=40m
 # ./bootstrap.sh build_native
 rm -rf build-coverage/profdata
 mkdir -p build-coverage/profdata
@@ -17,7 +18,7 @@ function test_cmds {
   # Note that HEAVY_TEST marked tests wont run with coverage
   ./bootstrap.sh test_cmds
   ../acir_tests/bootstrap.sh test_cmds | grep -v main.js | grep -v browser
-  echo "disabled-cache NO_WASM=1 barretenberg/cpp/bootstrap.sh bench_ivc origin/next"
+  echo "disabled-cache NO_WASM=1 barretenberg/cpp/bootstrap.sh bench_ivc origin/master"
 }
 (test_cmds || exit 1) | parallelise
 # Run llvm-profdata to merge raw profiles
