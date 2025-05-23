@@ -137,7 +137,7 @@ class ECCVMCircuitBuilder {
             op_idx++;
         }
         // if last op is a mul we have not correctly computed the total number of msms
-        if (eccvm_ops.back().op_code.mul && active_mul_count > 0) {
+        if (!eccvm_ops.empty() && eccvm_ops.back().op_code.mul && active_mul_count > 0) {
             msm_sizes.push_back(active_mul_count);
             msm_count++;
         }

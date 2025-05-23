@@ -434,7 +434,7 @@
       "name": "clang16-coverage",
       "displayName": "Build with coverage",
       "description": "Build clang16 preset but with coverage enabled",
-      "inherits": "clang16-debug",
+      "inherits": "clang16-dbg-fast",
       "binaryDir": "build-coverage",
       "cacheVariables": {
         "COVERAGE": "ON",
@@ -733,7 +733,7 @@
     },
     {
       "name": "clang16-coverage",
-      "inherits": "clang16-debug",
+      "inherits": "clang16-dbg-fast",
       "configurePreset": "clang16-coverage"
     },
     {
@@ -849,7 +849,7 @@
     },
     {
       "name": "clang16-coverage",
-      "inherits": "clang16-debug",
+      "inherits": "default",
       "configurePreset": "clang16-coverage"
     },
     {

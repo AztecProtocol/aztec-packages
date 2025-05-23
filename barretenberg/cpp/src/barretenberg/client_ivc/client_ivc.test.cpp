@@ -2,6 +2,7 @@
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
 #include "barretenberg/common/mem.hpp"
+#include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/protogalaxy/folding_test_utils.hpp"
@@ -453,7 +454,7 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
  * prover. Before this test was added, we spend more than 50% of the benchmarking time running an entire IVC prover
  * protocol just to precompute valid verification keys.
  */
-TEST(ClientIVCBenchValidation, Full6)
+HEAVY_TEST(ClientIVCBenchValidation, Full6)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
@@ -470,7 +471,7 @@ TEST(ClientIVCBenchValidation, Full6)
 /**
  * @brief Test that running the benchmark suite with mocked verification keys will not error out.
  */
-TEST(ClientIVCBenchValidation, Full6MockedVKs)
+HEAVY_TEST(ClientIVCBenchValidation, Full6MockedVKs)
 {
     const auto run_test = []() {
         bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
@@ -486,7 +487,7 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
     ASSERT_NO_FATAL_FAILURE(run_test());
 }
 
-TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
+HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
@@ -500,7 +501,7 @@ TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     EXPECT_TRUE(verified);
 }
 
-TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
+HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 

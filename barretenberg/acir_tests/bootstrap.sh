@@ -3,7 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
-export bb=$(realpath ../cpp/build/bin/bb)
+native_build_dir=$(../cpp/scripts/native-preset-build-dir)
+export bb=$(realpath ../cpp/$native_build_dir)
 
 tests_tar=barretenberg-acir-tests-$(hash_str \
   $(../../noir/bootstrap.sh hash-tests) \
@@ -160,7 +161,7 @@ function test_cmds {
 
   # barretenberg-acir-tests-bb:
   # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-  echo "$prefix FLOW=prove_then_verify_tube $run_test 6_array"
+  echo "$prefix BIN="" FLOW=prove_then_verify_tube $run_test 6_array"
 
   # barretenberg-acir-tests-bb-ultra-honk:
   for t in $honk_tests; do

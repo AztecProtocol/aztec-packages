@@ -1,16 +1,35 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source
-set -eu
+source "$(git rev-parse --show-toplevel)/ci3/source"
+set -euo pipefail
 
-cd $(dirname $0)/..
+cd "$(dirname "$0")/.."
 # Affects meaning of 'native' in bootstrap and run_test.sh
 export NATIVE_PRESET=clang16-coverage
-./bootstrap.sh build_native
+# Override default of 600s
+# target max time of 15 minutes with some wiggle room
+export TIMEOUT=20m
+# ./bootstrap.sh build_native
 rm -rf build-coverage/profdata
 mkdir -p build-coverage/profdata
 export LLVM_PROFILE_FILE="$(pwd)/build-coverage/profdata/%m.%p.profraw"
-# Run all direct C++ tests with coverage
-./bootstrap.sh test_cmds | grep run_test.sh | parallelise
+
+function cpp_test_cmds {
+  # Run all direct C++ tests with coverage
+  # exclude the one test that does not complete within 15 minutes
+  ./bootstrap.sh test_cmds
+}
+function acir_test_cmds {
+  ../acir_tests/bootstrap.sh test_cmds | grep -v wasm | grep -v browser
+}
+function bench_test_cmds {
+   echo "disabled-cache NO_WASM=1 barretenberg/cpp/bootstrap.sh bench_ivc origin/next"
+}
+function test_cmds {
+  cpp_test_cmds
+  acir_test_cmds
+  bench_test_cmds
+}
+test_cmds #| echo #parallelise
 # Run llvm-profdata to merge raw profiles
 llvm-profdata-16 merge -sparse build-coverage/profdata/*.profraw -o build-coverage/coverage.profdata
 

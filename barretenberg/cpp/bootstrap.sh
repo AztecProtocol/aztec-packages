@@ -181,8 +181,8 @@ function build {
 # Paths are relative to repo root.
 # We prefix the hash. This ensures the test harness and cache and skip future runs.
 function test_cmds {
-  # Enter build directory. We resolve this in case native_preset is non-standard e.g. clang16-coverage
-  cd $(scripts/cmake/preset-build-dir $native_preset)
+  # E.g. build, build-debug or build-coverage
+  cd $(scripts/native-preset-build-dir)
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
 
@@ -307,7 +307,14 @@ case "$cmd" in
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
-    ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh | STRICT_SCHEDULING=1 parallelise
+    function ivc_bench_cmds {
+      if [ -z ${NO_WASM:-} ]; then
+        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
+      else
+        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
+      fi
+    }
+    ivc_bench_cmds | STRICT_SCHEDULING=1 parallelise
     ;;
   "hash")
     echo $hash

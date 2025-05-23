@@ -142,7 +142,6 @@ function(barretenberg_module MODULE_NAME)
             target_compile_definitions(
                 ${MODULE_NAME}_test_objects
                 PRIVATE
-                -DDISABLE_HEAVY_TESTS=1
             )
         endif()
 
