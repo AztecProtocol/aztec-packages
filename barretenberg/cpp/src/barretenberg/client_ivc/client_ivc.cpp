@@ -404,6 +404,7 @@ HonkProof ClientIVC::decider_prove() const
     vinfo("prove decider...");
     fold_output.accumulator->proving_key.commitment_key = bn254_commitment_key;
     MegaDeciderProver decider_prover(fold_output.accumulator);
+    vinfo("finished decider proving.");
     return decider_prover.construct_proof();
 }
 
