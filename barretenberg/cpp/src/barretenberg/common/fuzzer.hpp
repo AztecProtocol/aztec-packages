@@ -640,8 +640,6 @@ class ArithmeticFuzzHelper {
 #endif
         }
         bool check_result = bb::CircuitChecker::check(composer) && final_value_check;
-        info("check_result", check_result);
-        info("circuit_should_fail", circuit_should_fail);
         // If the circuit is correct, but it should fail, abort
         if (check_result && circuit_should_fail) {
             abort();
