@@ -1,8 +1,4 @@
-import createDebug from 'debug';
-
-import { proveThenVerifyStack } from './index.js';
-
-createDebug.enable('*'); // needed for logging in Firefox but not Chrome
+import { logger, proveThenVerifyStack } from './index.js';
 
 /* eslint-disable no-console */
 
@@ -90,10 +86,10 @@ function setupConsoleOutput() {
  */
 function overrideCreateDebugLog(addLogMessage: (message: string) => void): void {
   // Preserve the original createDebug log function
-  const originalDebugLog = createDebug.log.bind(createDebug);
+  const originalDebugLog = logger.debug.bind(logger);
 
   // Override the createDebug log function
-  createDebug.log = (...args: any[]) => {
+  logger.debug = (...args: any[]) => {
     // Call the original createDebug log function
     originalDebugLog(...args);
 
@@ -109,6 +105,7 @@ function overrideCreateDebugLog(addLogMessage: (message: string) => void): void 
       )
       .join(' ');
     addLogMessage(message);
+    return undefined;
   };
 }
 
