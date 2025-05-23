@@ -100,7 +100,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS ON)
 
-add_compile_options(-ftemplate-depth=2048) # Required for both clang and gcc
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fbracket-depth=512)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14")

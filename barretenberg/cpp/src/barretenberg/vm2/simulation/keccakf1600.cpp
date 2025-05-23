@@ -103,7 +103,7 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
             if (len > 0 && len <= 32) {
                 range_check.assert_range(state_theta_values[i][j].as<uint64_t>() >> (64 - len), len);
             } else if (len > 32) {
-                range_check.assert_range(state_theta_values[i][j].as<uint64_t>() & ((1 << (64 - len)) - 1), 64 - len);
+                range_check.assert_range(state_theta_values[i][j].as<uint64_t>() & ((1U << (64 - len)) - 1), 64 - len);
             }
         }
     }
