@@ -476,8 +476,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const allLogs = await this.logsSource.getLogsByTags(tags);
     // TODO(#14460): Have logSource implement getPublicLogsByTagsForContract and skip the filtering here.
     const allPublicLogs = allLogs.map(logs => logs.filter(log => log.isFromPublic));
-    return allPublicLogs.filter(logs =>
-      logs.some(log => (log.log as PublicLog).contractAddress.equals(contractAddress)),
+    return allPublicLogs.map(logs =>
+      logs.filter(log => (log.log as PublicLog).contractAddress.equals(contractAddress)),
     );
   }
 
