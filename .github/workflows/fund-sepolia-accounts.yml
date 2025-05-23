@@ -12,6 +12,11 @@ on:
         required: true
         type: string
         default: sepolia-accounts-mnemonic
+      ref:
+        description: The branch or tag to checkout
+        required: false
+        type: string
+        default: master
 
 jobs:
   fund-sepolia-accounts:
@@ -20,7 +25,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ inputs.ref || github.ref || 'master' }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
