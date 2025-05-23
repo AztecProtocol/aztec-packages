@@ -47,12 +47,12 @@ import {
 import { inspect } from 'util';
 
 import {
-  buildBaseRollupHints,
   buildHeaderAndBodyFromTxs,
   getLastSiblingPath,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
+  insertSideEffectsAndBuildBaseRollupHints,
   validatePartialState,
   validateTx,
 } from './block-building-helpers.js';
@@ -489,7 +489,7 @@ export class ProvingOrchestrator implements EpochProver {
     // We build the base rollup inputs using a mock proof and verification key.
     // These will be overwritten later once we have proven the tube circuit and any public kernels
     const [ms, hints] = await elapsed(
-      buildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState),
+      insertSideEffectsAndBuildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState),
     );
 
     this.metrics.recordBaseRollupInputs(ms);
