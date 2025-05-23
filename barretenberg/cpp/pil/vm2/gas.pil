@@ -140,6 +140,8 @@ namespace execution;
     out_of_gas_dynamic = 1 - (1 - out_of_gas_dynamic_l2) * (1 - out_of_gas_dynamic_da);
 
     // out_of_gas_dynamic and out_of_gas_base are mutually exclusive
+    // If out of gas in the base phase, should_run_dyn_gas_check is off,
+    // the dynamic phase is "not run" and its factors are constrained to be zero
     out_of_gas_dynamic * out_of_gas_base = 0;
 
     // Check l2 dynamic gas
