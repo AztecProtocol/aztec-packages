@@ -53,14 +53,19 @@ contract SamplingTest is Test {
   }
 
   function testSimpleSample() public {
-    bool saw1 = false;
+    uint256 saw0 = 0;
+    uint256 saw1 = 0;
+
     for (uint256 i = 0; i < 1000; i++) {
       uint256[] memory committee = sampler.computeCommittee(1, 2, i);
       assertEq(committee.length, 1, "committee length is 1");
-      if (committee[0] == 1) {
-        saw1 = true;
+      if (committee[0] == 0) {
+        saw0++;
+      } else {
+        saw1++;
       }
     }
-    assertEq(saw1, true, "should have seen 1");
+    assertGt(saw0, 400, "should have seen more 0s");
+    assertGt(saw1, 400, "should have seen more 1s");
   }
 }
