@@ -1,8 +1,11 @@
 #include "barretenberg/vm2/tracegen/tx_trace.hpp"
 
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_tx.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 #include "barretenberg/vm2/tracegen/lib/phase_spec.hpp"
 #include <cstdint>
 #include <unordered_map>
@@ -19,8 +22,6 @@ template <class... Ts> struct overloaded : Ts... {
 template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 constexpr size_t NUM_PHASES = 10; // See TransactionPhase enum
-
-} // namespace
 
 // This is a helper to insert the previous and next tree state
 std::vector<std::pair<Column, FF>> insert_tree_state(const TreeStates& prev_tree_state,
@@ -68,7 +69,7 @@ std::vector<std::pair<Column, FF>> handle_read_write(TransactionPhase phase,
                                                      uint32_t write_counter)
 
 {
-    auto [read_offset, write_offset, length_offset] = TxPhaseOffsetsTable::get().get_offsets(phase);
+    auto [read_offset, write_offset, length_offset] = TxPhaseOffsetsTable::get_offsets(phase);
 
     return {
         { Column::tx_read_pi_offset, read_offset + read_counter },
@@ -132,6 +133,7 @@ std::vector<std::pair<Column, FF>> handle_collect_gas_fee_phase(const simulation
         { Column::tx_max_priority_fees_per_da_gas, event.max_priority_fees_per_da_gas },
     };
 }
+} // namespace
 
 void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation::TxEvent>::Container& events,
                              TraceContainer& trace)
@@ -140,13 +142,13 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     uint32_t row = 1; // Shifts
 
     // A nuance of the tracegen for the tx trace is that if there are no events in a phase, we still need to emit a row
-    // for this "skipped "row. This row is needed to simplify the circuit constraints and ensure that we have continuity
+    // for this "skipped" row. This row is needed to simplify the circuit constraints and ensure that we have continuity
     // in the tree state propagation
 
     // We bucket the events by phase to make it easier to detect phases with no events
-    std::array<std::vector<simulation::TxEvent>, NUM_PHASES> phase_array = {};
+    std::array<std::vector<const simulation::TxEvent*>, NUM_PHASES> phase_array = {};
     for (const auto& tx_event : events) {
-        phase_array[static_cast<uint8_t>(tx_event.phase)].push_back(tx_event);
+        phase_array[static_cast<uint8_t>(tx_event.phase)].push_back(&tx_event);
     }
 
     // We keep the msg counter across the phases since it is not tracked in the event
@@ -174,46 +176,61 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             // Count the number of steps in this phase
             uint32_t phase_counter = 0;
             // We alway set the tree state
-            trace.set(row, insert_tree_state(tx_event.prev_tree_state, tx_event.next_tree_state));
-            trace.set(row, { { { C::tx_phase_value, static_cast<uint8_t>(tx_event.phase) }, { C::tx_is_active, 1 } } });
+            trace.set(row, insert_tree_state(tx_event->prev_tree_state, tx_event->next_tree_state));
+            trace.set(row,
+                      { { { C::tx_phase_value, static_cast<uint8_t>(tx_event->phase) }, { C::tx_is_active, 1 } } });
 
             std::visit(
-                overloaded{
-                    [&](const simulation::PhaseEvent& event) {
-                        trace.set(row, handle_public_call_phase(event));
-                        // No explicit write counter for this phase
-                        trace.set(row, handle_read_write(tx_event.phase, phase_counter, /*write_counter=*/0));
-                    },
-                    [&](const simulation::PrivateAppendTreeEvent& event) {
-                        trace.set(row, handle_append_tree_phase(event, tx_event.phase));
+                overloaded{ [&](const simulation::PhaseEvent& event) {
+                               trace.set(row, handle_public_call_phase(event));
+                               // No explicit write counter for this phase
+                               trace.set(row, handle_read_write(tx_event->phase, phase_counter, /*write_counter=*/0));
+                           },
+                            [&](const simulation::PrivateAppendTreeEvent& event) {
+                                trace.set(row, handle_append_tree_phase(event, tx_event->phase));
 
-                        // The read/write counter differs if we are inserting note hashes or nullifiers
-                        auto tree_state = tx_event.next_tree_state;
-                        if (TransactionPhase::NR_NOTE_INSERTION == tx_event.phase ||
-                            TransactionPhase::R_NOTE_INSERTION == tx_event.phase) {
-                            trace.set(
-                                row, handle_read_write(tx_event.phase, phase_counter, tree_state.noteHashTree.counter));
-                        } else {
-                            trace.set(
-                                row,
-                                handle_read_write(tx_event.phase, phase_counter, tree_state.nullifierTree.counter));
-                        }
-                    },
-                    [&](const simulation::PrivateEmitL2L1MessageEvent& event) {
-                        trace.set(row, handle_l2_l1_msg_phase(event, l2_l1_msg_counter));
-                        trace.set(row, handle_read_write(tx_event.phase, phase_counter, l2_l1_msg_counter));
-                        l2_l1_msg_counter++;
-                    },
-                    [&](const simulation::CollectGasFeeEvent& event) {
-                        // TODO: Decide what to read and write
-                        trace.set(row, handle_collect_gas_fee_phase(event));
-                    } },
-                tx_event.event);
+                                // The read/write counter differs if we are inserting note hashes or nullifiers
+                                auto tree_state = tx_event->next_tree_state;
+                                if (TransactionPhase::NR_NOTE_INSERTION == tx_event->phase ||
+                                    TransactionPhase::R_NOTE_INSERTION == tx_event->phase) {
+                                    trace.set(row,
+                                              handle_read_write(
+                                                  tx_event->phase, phase_counter, tree_state.noteHashTree.counter));
+                                } else {
+                                    trace.set(row,
+                                              handle_read_write(
+                                                  tx_event->phase, phase_counter, tree_state.nullifierTree.counter));
+                                }
+                            },
+                            [&](const simulation::PrivateEmitL2L1MessageEvent& event) {
+                                trace.set(row, handle_l2_l1_msg_phase(event, l2_l1_msg_counter));
+                                trace.set(row, handle_read_write(tx_event->phase, phase_counter, l2_l1_msg_counter));
+                                l2_l1_msg_counter++;
+                            },
+                            [&](const simulation::CollectGasFeeEvent& event) {
+                                // TODO: Decide what to read and write
+                                trace.set(row, handle_collect_gas_fee_phase(event));
+                            } },
+                tx_event->event);
             phase_counter++;
         }
         // In case we encounter another skip row
-        propagated_tree_state = phase.back().next_tree_state;
+        propagated_tree_state = phase.back()->next_tree_state;
         row++;
     }
 }
+
+std::vector<std::unique_ptr<class InteractionBuilderInterface>> TxTraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_tx_read_phase_table_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_tx_phase_jump_on_revert_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_tx_read_phase_length_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_tx_read_public_call_request_phase_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_tx_dispatch_exec_start_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_tx_dispatch_exec_get_revert_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_tx_read_tree_insert_value_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_tx_read_l2_l1_msg_settings>>());
+}
+
 } // namespace bb::avm2::tracegen
