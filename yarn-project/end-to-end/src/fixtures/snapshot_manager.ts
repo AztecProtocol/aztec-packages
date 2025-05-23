@@ -8,7 +8,6 @@ import {
   type CompleteAddress,
   type ContractFunctionInteraction,
   DefaultWaitForProvenOpts,
-  EthAddress,
   type Logger,
   type PXE,
   type Wallet,
@@ -44,7 +43,7 @@ import getPort from 'get-port';
 import { tmpdir } from 'os';
 import path, { join } from 'path';
 import { type Hex, getContract } from 'viem';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
