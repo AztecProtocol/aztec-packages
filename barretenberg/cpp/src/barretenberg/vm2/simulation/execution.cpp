@@ -65,13 +65,13 @@ void Execution::call(ContextInterface& context,
         Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
 
     // Cd size and cd offset loads are deferred to (possible) calldatacopy
-    auto nested_context = execution_components.make_nested_context(contract_address,
-                                                                   /*msg_sender=*/context.get_address(),
-                                                                   /*parent_context=*/context,
-                                                                   /*cd_offset_addr=*/cd_offset,
-                                                                   /*cd_size_addr=*/cd_size,
-                                                                   /*is_static=*/false,
-                                                                   gas_limit);
+    auto nested_context = context_provider.make_nested_context(contract_address,
+                                                               /*msg_sender=*/context.get_address(),
+                                                               /*parent_context=*/context,
+                                                               /*cd_offset_addr=*/cd_offset,
+                                                               /*cd_size_addr=*/cd_size,
+                                                               /*is_static=*/false,
+                                                               /*gas_limit=*/gas_limit);
 
     // We do not recurse. This context will be use on the next cycle of execution.
     handle_enter_call(context, std::move(nested_context));

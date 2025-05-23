@@ -88,7 +88,7 @@ TEST_F(TxExecutionTest, simulateTx)
     EXPECT_CALL(*teardown_context, get_address()).WillOnce(ReturnRef(tx.teardownEnqueuedCall->contractAddress));
     EXPECT_CALL(*teardown_context, get_is_static()).WillOnce(Return(tx.teardownEnqueuedCall->isStaticCall));
 
-    EXPECT_CALL(context_provider, make_enqueued_context(_, _, _, _))
+    EXPECT_CALL(context_provider, make_enqueued_context(_, _, _, _, _, _))
         .WillOnce(Return(std::move(setup_context)))
         .WillOnce(Return(std::move(app_logic_context)))
         .WillOnce(Return(std::move(teardown_context)));
