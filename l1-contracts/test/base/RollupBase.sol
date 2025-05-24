@@ -19,7 +19,7 @@ import {
 } from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 
@@ -29,7 +29,7 @@ contract RollupBase is DecoderBase {
   Outbox internal outbox;
   MerkleTestUtil internal merkleTestUtil = new MerkleTestUtil();
 
-  Signature[] internal signatures;
+  CommitteeAttestation[] internal attestations;
 
   mapping(uint256 => uint256) internal blockFees;
 
@@ -189,7 +189,7 @@ contract RollupBase is DecoderBase {
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);
     }
-    rollup.propose(args, signatures, blobInputs);
+    rollup.propose(args, attestations, blobInputs);
 
     if (_revertMsg.length > 0) {
       return;

@@ -65,9 +65,13 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     address[] memory committee = rollup.getEpochCommittee(e);
     address[] memory committee2 = rollup.getCommitteeAt(t);
     address[] memory committee3 = rollup.getCurrentEpochCommittee();
+    (bytes32 committeeCommitment, uint256 committeeSize) = rollup.getCommitteeCommitmentAt(t);
+
     assertEq(committee.length, expectedSize, "invalid getEpochCommittee");
     assertEq(committee2.length, expectedSize, "invalid getCommitteeAt");
     assertEq(committee3.length, expectedSize, "invalid getCurrentEpochCommittee");
+    assertEq(committeeSize, expectedSize, "invalid getCommitteeCommittmentAt size");
+    assertNotEq(committeeCommitment, bytes32(0), "invalid committee commitment");
 
     (, bytes32[] memory writes) = vm.accesses(address(rollup));
     assertEq(writes.length, 0, "No writes should be done");
@@ -89,9 +93,13 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     address[] memory committee = rollup.getEpochCommittee(e);
     address[] memory committee2 = rollup.getCommitteeAt(t);
     address[] memory committee3 = rollup.getCurrentEpochCommittee();
+    (bytes32 committeeCommitment, uint256 committeeSize) = rollup.getCommitteeCommitmentAt(t);
+
     assertEq(committee.length, expectedSize, "invalid getEpochCommittee");
     assertEq(committee2.length, expectedSize, "invalid getCommitteeAt");
     assertEq(committee3.length, expectedSize, "invalid getCurrentEpochCommittee");
+    assertEq(committeeSize, expectedSize, "invalid getCommitteeCommittmentAt size");
+    assertNotEq(committeeCommitment, bytes32(0), "invalid committee commitment");
 
     (, bytes32[] memory writes) = vm.accesses(address(rollup));
     assertEq(writes.length, 0, "No writes should be done");

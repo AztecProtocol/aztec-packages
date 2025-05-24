@@ -17,7 +17,7 @@ import { type InBlock, inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from '../block/l2_block_number.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
-import { PublishedL2BlockSchema } from '../block/published_l2_block.js';
+import { PublishedL2Block } from '../block/published_l2_block.js';
 import {
   type ContractClassPublic,
   ContractClassPublicSchema,
@@ -484,7 +484,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getBlocks: z.function().args(z.number(), z.number()).returns(z.array(L2Block.schema)),
 
-  getPublishedBlocks: z.function().args(z.number(), z.number()).returns(z.array(PublishedL2BlockSchema)),
+  getPublishedBlocks: z.function().args(z.number(), z.number()).returns(z.array(PublishedL2Block.schema)),
 
   getCurrentBaseFees: z.function().returns(GasFees.schema),
 
