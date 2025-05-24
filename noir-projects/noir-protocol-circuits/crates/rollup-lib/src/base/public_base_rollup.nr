@@ -19,6 +19,7 @@ use dep::types::{
     hash::{silo_contract_class_log, silo_l2_to_l1_message},
     merkle_tree::MembershipWitness,
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    proof::traits::Verifiable,
     traits::{Empty, Hash},
     utils::arrays::array_merge,
 };
@@ -99,14 +100,15 @@ impl PublicBaseRollupInputs {
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
-        tube_data_validator.verify_proof();
+        tube_data_validator.validate_proof();
         tube_data_validator.validate_with_rollup_data(self.constants);
 
         // TODO(#8470)
-        // if !dep::std::runtime::is_unconstrained() {
-        //     self.avm_proof_data.verify();
-        //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
-        // }
+        if !dep::std::runtime::is_unconstrained() {
+            self.avm_proof_data.verify();
+            //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
+        }
+
         // TODO: Validate tube_data.public_inputs vs avm_proof_data.public_inputs
         let reverted = self.avm_proof_data.public_inputs.reverted;
 

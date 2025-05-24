@@ -162,16 +162,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
       proposerToAttester[proposer] = attester;
 
-      initialValidators[i - 1] = CheatDepositArgs({
-        attester: attester,
-        proposer: proposer,
-        withdrawer: address(this),
-        amount: TestConstants.AZTEC_MINIMUM_STAKE
-      });
+      initialValidators[i - 1] =
+        CheatDepositArgs({attester: attester, proposer: proposer, withdrawer: address(this)});
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    asset.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
+    asset.mint(address(multiAdder), rollup.getMinimumStake() * _validatorCount);
     multiAdder.addValidators(initialValidators);
 
     _;
@@ -352,8 +348,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         PublicInputArgs memory args = PublicInputArgs({
           previousArchive: rollup.getBlock(start).archive,
           endArchive: rollup.getBlock(start + epochSize - 1).archive,
-          endTimestamp: Timestamp.wrap(0),
-          outHash: bytes32(0),
           proverId: address(0)
         });
 

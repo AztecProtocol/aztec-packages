@@ -135,3 +135,11 @@ fn serialization_of_empty_private_to_public_accumulated_data() {
     let deserialized = PrivateToAvmAccumulatedData::deserialize(serialized);
     assert_eq(item, deserialized);
 }
+
+#[test]
+fn serialization_of_empty_private_to_avm_accumulated_data_array_lengths() {
+    let item = PrivateToAvmAccumulatedDataArrayLengths::empty();
+    let serialized = item.serialize();
+    let deserialized = PrivateToAvmAccumulatedDataArrayLengths::deserialize(serialized);
+    assert_eq(item, deserialized);
+}

@@ -743,19 +743,27 @@ WorldStateStatusFull WorldState::unwind_blocks(const index_t& toBlockNumber)
     populate_status_summary(status);
     return status;
 }
+
 WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlockNumber)
 {
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
-    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
-    if (toBlockNumber <= archive_state.meta.oldestHistoricBlock) {
+    std::array<TreeMeta, NUM_TREES> responses;
+    get_all_tree_info(revision, responses);
+    std::array<index_t, NUM_TREES> historicalBlockNumbers{ responses[NULLIFIER_TREE].oldestHistoricBlock,
+                                                           responses[NOTE_HASH_TREE].oldestHistoricBlock,
+                                                           responses[PUBLIC_DATA_TREE].oldestHistoricBlock,
+                                                           responses[L1_TO_L2_MESSAGE_TREE].oldestHistoricBlock,
+                                                           responses[ARCHIVE].oldestHistoricBlock };
+    auto* const it = std::min_element(std::begin(historicalBlockNumbers), std::end(historicalBlockNumbers));
+    index_t oldestHistoricBlock = *it;
+    if (toBlockNumber <= oldestHistoricBlock) {
         throw std::runtime_error(format("Unable to remove historical blocks to block number ",
                                         toBlockNumber,
                                         ", blocks not found. Current oldest block: ",
-                                        archive_state.meta.oldestHistoricBlock));
+                                        oldestHistoricBlock));
     }
     WorldStateStatusFull status;
-    for (block_number_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber;
-         blockNumber++) {
+    for (block_number_t blockNumber = oldestHistoricBlock; blockNumber < toBlockNumber; blockNumber++) {
         // This will throw if it fails
         remove_historical_block(blockNumber, status);
     }
