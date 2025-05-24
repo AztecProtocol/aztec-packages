@@ -20,6 +20,10 @@
 
 #define HAVOC_TESTING
 
+// This is a global variable, so that the execution handling class could alter it and signal to the input tester
+// that the input should fail
+bool circuit_should_fail = false;
+
 #include "barretenberg/common/fuzzer.hpp"
 
 // #define SHOW_INFORMATION
@@ -46,10 +50,6 @@
 #endif
 
 FastRandom VarianceRNG(0);
-
-// This is a global variable, so that the execution handling class could alter it and signal to the input tester
-// that the input should fail
-bool circuit_should_fail = false;
 
 #define MINIMUM_MUL_ELEMENTS 0
 #define MAXIMUM_MUL_ELEMENTS 8
