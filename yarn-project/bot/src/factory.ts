@@ -257,13 +257,24 @@ export class BotFactory {
       `Minting ${MINT_BALANCE} tokens of each BotToken0 and BotToken1. Current private balances of ${wallet.getAddress()}: token0=${t0Bal}, token1=${t1Bal}, lp=${lpBal}`,
     );
 
+    // Add authwitnesses for the transfers in AMM::add_liquidity function
     const token0Authwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: token0.methods.transfer_to_public(wallet.getAddress(), amm.address, amount0Max, nonce),
+      action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
+        wallet.getAddress(),
+        amm.address,
+        amount0Max,
+        nonce,
+      ),
     });
     const token1Authwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: token1.methods.transfer_to_public(wallet.getAddress(), amm.address, amount1Max, nonce),
+      action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
+        wallet.getAddress(),
+        amm.address,
+        amount1Max,
+        nonce,
+      ),
     });
 
     const mintTx = new BatchCall(wallet, [
