@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.0.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.2...v1.0.0) (2025-05-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* Removes normalize() calls on pairing points ([#14285](https://github.com/AztecProtocol/aztec-packages/issues/14285))
+
+### Features
+
+* Adds StarknetZK WASM bindings to bb.js ([#14372](https://github.com/AztecProtocol/aztec-packages/issues/14372)) ([224b219](https://github.com/AztecProtocol/aztec-packages/commit/224b219356f8094853e817d6a00e10b7ae5f887d))
+* Removes normalize() calls on pairing points ([#14285](https://github.com/AztecProtocol/aztec-packages/issues/14285)) ([942b948](https://github.com/AztecProtocol/aztec-packages/commit/942b94825d019279e93c26732f45d0b82fd8998d))
+* unbundled bb.js ([#14401](https://github.com/AztecProtocol/aztec-packages/issues/14401)) ([e0d9662](https://github.com/AztecProtocol/aztec-packages/commit/e0d96625c97dc95d90b533968ec42626e6d88618))
+* validating partial note sender ([#14379](https://github.com/AztecProtocol/aztec-packages/issues/14379)) ([de9880c](https://github.com/AztecProtocol/aztec-packages/commit/de9880c3d564f1315c59dcd5a252e5461c69e897)), closes [#14363](https://github.com/AztecProtocol/aztec-packages/issues/14363)
+
+
+### Bug Fixes
+
+* bump defaults ([#14474](https://github.com/AztecProtocol/aztec-packages/issues/14474)) ([ade9a56](https://github.com/AztecProtocol/aztec-packages/commit/ade9a56aeb7c0adaeb72ff518858ad152228baed))
+* eccvm_circuit_builder overrun ([#14484](https://github.com/AztecProtocol/aztec-packages/issues/14484)) ([5e01c07](https://github.com/AztecProtocol/aztec-packages/commit/5e01c07afa22e04c0c4554a9acbf22d8a8f90f70))
+* issues with syncNotes --&gt; syncPrivateState renaming ([#14442](https://github.com/AztecProtocol/aztec-packages/issues/14442)) ([78de410](https://github.com/AztecProtocol/aztec-packages/commit/78de4109fdda96180a549cc22a2134057bbc784d))
+* **playground:** fix sfpc version when creating account ([#14481](https://github.com/AztecProtocol/aztec-packages/issues/14481)) ([5486a22](https://github.com/AztecProtocol/aztec-packages/commit/5486a22ae7777b2c3a6187f3439d722032aded3b))
+* update sponsored fpc address in playground ([#14472](https://github.com/AztecProtocol/aztec-packages/issues/14472)) ([4c14bc9](https://github.com/AztecProtocol/aztec-packages/commit/4c14bc906c248cb9b2597af84a1129d35f8b6e0e))
+* wip merge master to next ([249ab4c](https://github.com/AztecProtocol/aztec-packages/commit/249ab4c966d31e1c3fe3a4b33b2b0614abb032ae))
+* wip merge master to next ([b7850c9](https://github.com/AztecProtocol/aztec-packages/commit/b7850c94a796ddcef1a8a4a524b2577e6c499212))
+
 ## [0.87.2](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.1...v0.87.2) (2025-05-21)
 
 
