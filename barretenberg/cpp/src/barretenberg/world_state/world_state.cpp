@@ -508,7 +508,8 @@ void WorldState::update_archive(const StateReference& block_state_ref,
                                 Fork::Id fork_id)
 {
     if (is_same_state_reference(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true }, block_state_ref)) {
-        append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_header_hash }, fork_id);
+        auto [sibling_paths, roots] = append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_header_hash }, fork_id);
+        // We don't need to do anything with the sibling paths and roots here
     } else {
         throw std::runtime_error("Can't update archive tree: Block state does not match world state");
     }

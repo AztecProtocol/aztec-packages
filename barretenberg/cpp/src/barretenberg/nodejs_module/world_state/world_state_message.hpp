@@ -194,6 +194,12 @@ template <typename T> struct AppendLeavesRequest {
     MSGPACK_FIELDS(treeId, leaves, forkId);
 };
 
+struct AppendLeavesResponse {
+    std::vector<crypto::merkle_tree::fr_sibling_path> siblingPaths;
+    std::vector<bb::fr> roots;
+    MSGPACK_FIELDS(siblingPaths, roots);
+};
+
 template <typename T> struct BatchInsertRequest {
     MerkleTreeId treeId;
     std::vector<T> leaves;
