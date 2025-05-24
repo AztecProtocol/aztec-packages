@@ -3,6 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { PeerId } from '@libp2p/interface';
 
 import type { PeerManager } from '../../peer-manager/peer_manager.js';
+import type { AggressiveReqResp } from '../agg_reqresp.js';
 import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../interface.js';
 import type { ReqResp } from '../reqresp.js';
 
@@ -68,7 +69,7 @@ export function prettyGoodbyeReason(reason: GoodByeReason): string {
 export class GoodbyeProtocolHandler {
   private logger = createLogger('p2p:goodbye-protocol');
 
-  constructor(private reqresp: ReqResp) {}
+  constructor(private reqresp: ReqResp | AggressiveReqResp) {}
 
   public async sendGoodbye(peerId: PeerId, reason: GoodByeReason): Promise<void> {
     try {
