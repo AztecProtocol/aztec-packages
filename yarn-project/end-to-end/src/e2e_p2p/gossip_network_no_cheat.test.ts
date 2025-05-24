@@ -120,8 +120,8 @@ describe('e2e_p2p_network', () => {
       });
     }
 
-    const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
-    expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
+    const attestersImmediatelyAfterAdding = await rollup.read.getAttesters();
+    expect(attestersImmediatelyAfterAdding.length).toBe(validators.length);
 
     // Check that the validators are added correctly
     const withdrawer = await stakingAssetHandler.read.withdrawer();
@@ -203,8 +203,8 @@ describe('e2e_p2p_network', () => {
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
-    const validatorAddresses = nodes.map(node =>
-      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddress?.toString(),
+    const validatorAddresses = nodes.flatMap(node =>
+      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(v => v.toString()),
     );
     t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
     for (const signer of signers) {

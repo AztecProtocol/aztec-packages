@@ -66,8 +66,10 @@ spec:
             # Key generation
             - name: KEY_INDEX_START
               value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
-            - name: NUMBER_OF_VALIDATORS
+            - name: NUMBER_OF_VALIDATOR_NODES
               value: {{ .Values.validator.replicas | quote }}
+            - name: VALIDATORS_PER_NODE
+              value: {{ .Values.validator.keysPerNode | quote }}
 
             # Deployment
             - name: ACCELERATED_TEST_DEPLOYMENTS

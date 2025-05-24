@@ -124,8 +124,8 @@ export class Sequencer {
     return this.metrics.tracer;
   }
 
-  public getValidatorAddress() {
-    return this.validatorClient?.getValidatorAddress();
+  public getValidatorAddresses() {
+    return this.validatorClient?.getValidatorAddresses();
   }
 
   /**

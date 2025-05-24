@@ -11,7 +11,7 @@ import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@az
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
@@ -30,7 +30,7 @@ describe('ValidatorClient', () => {
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource>;
   let epochCache: MockProxy<EpochCache>;
-  let validatorAccount: PrivateKeyAccount;
+  let validatorAccounts: PrivateKeyAccount[];
   let dateProvider: TestDateProvider;
 
   beforeEach(() => {
@@ -40,11 +40,11 @@ describe('ValidatorClient', () => {
     blockSource = mock<L2BlockSource>();
     dateProvider = new TestDateProvider();
 
-    const validatorPrivateKey = generatePrivateKey();
-    validatorAccount = privateKeyToAccount(validatorPrivateKey);
+    const validatorPrivateKeys = [generatePrivateKey(), generatePrivateKey()];
+    validatorAccounts = validatorPrivateKeys.map(privateKey => privateKeyToAccount(privateKey));
 
     config = {
-      validatorPrivateKey: validatorPrivateKey,
+      validatorPrivateKeys: validatorPrivateKeys,
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       validatorReexecute: false,
@@ -53,7 +53,7 @@ describe('ValidatorClient', () => {
   });
 
   it('Should throw error if an invalid private key is provided', () => {
-    config.validatorPrivateKey = '0x1234567890123456789';
+    config.validatorPrivateKeys = ['0x1234567890123456789'];
     expect(() => ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
       InvalidValidatorPrivateKeyError,
     );
@@ -73,7 +73,12 @@ describe('ValidatorClient', () => {
     const header = makeHeader();
     const archive = Fr.random();
     const txs = await Promise.all([Tx.random(), Tx.random(), Tx.random(), Tx.random(), Tx.random()]);
-
+    epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
+      currentProposer: EthAddress.fromString(validatorAccounts[0].address),
+      nextProposer: EthAddress.fromString(validatorAccounts[1].address),
+      currentSlot: header.globalVariables.slotNumber.toBigInt(),
+      nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
+    });
     const blockProposal = await validatorClient.createBlockProposal(
       header.globalVariables.blockNumber,
       header.toPropose(),
@@ -85,7 +90,7 @@ describe('ValidatorClient', () => {
 
     expect(blockProposal).toBeDefined();
 
-    const validatorAddress = EthAddress.fromString(validatorAccount.address);
+    const validatorAddress = EthAddress.fromString(validatorAccounts[0].address);
     expect(blockProposal?.getSender()).toEqual(validatorAddress);
 
     expect(blockProposal!.txs).toBeDefined();
@@ -96,7 +101,12 @@ describe('ValidatorClient', () => {
     const header = makeHeader();
     const archive = Fr.random();
     const txs = await Promise.all([Tx.random(), Tx.random(), Tx.random(), Tx.random(), Tx.random()]);
-
+    epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
+      currentProposer: EthAddress.fromString(validatorAccounts[0].address),
+      nextProposer: EthAddress.fromString(validatorAccounts[1].address),
+      currentSlot: header.globalVariables.slotNumber.toBigInt(),
+      nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
+    });
     const blockProposal = await validatorClient.createBlockProposal(
       header.globalVariables.blockNumber,
       header.toPropose(),
@@ -108,10 +118,24 @@ describe('ValidatorClient', () => {
 
     expect(blockProposal).toBeDefined();
 
-    const validatorAddress = EthAddress.fromString(validatorAccount.address);
+    const validatorAddress = EthAddress.fromString(validatorAccounts[0].address);
     expect(blockProposal?.getSender()).toEqual(validatorAddress);
 
     expect(blockProposal!.txs).toBeUndefined();
+  });
+
+  it('Should collect attestations from its own validators', async () => {
+    epochCache.filterInCommittee.mockResolvedValueOnce(
+      validatorAccounts.map(account => EthAddress.fromString(account.address)),
+    );
+    const addAttestationsSpy = jest.spyOn(p2pClient, 'addAttestations');
+    const proposal = makeBlockProposal();
+    // collectAttestations still throws as we don't have a real p2pClient
+    await expect(validatorClient.collectAttestations(proposal, 3, new Date(dateProvider.now() + 100))).rejects.toThrow(
+      AttestationTimeoutError,
+    );
+    expect(addAttestationsSpy).toHaveBeenCalled();
+    expect(addAttestationsSpy.mock.calls[0][0]).toHaveLength(2);
   });
 
   it('Should a timeout if we do not collect enough attestations in time', async () => {
@@ -143,7 +167,7 @@ describe('ValidatorClient', () => {
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockResolvedValue(undefined);
     p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
-    epochCache.getProposerInCurrentOrNextSlot.mockResolvedValue({
+    epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
       currentProposer: proposal.getSender(),
       nextProposer: proposal.getSender(),
       currentSlot: proposal.slotNumber.toBigInt(),
@@ -159,7 +183,7 @@ describe('ValidatorClient', () => {
 
   describe('constructor', () => {
     it('should throw error if an invalid private key is provided', () => {
-      config.validatorPrivateKey = '0x1234567890123456789';
+      config.validatorPrivateKeys = ['0x1234567890123456789'];
       expect(() => ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
         InvalidValidatorPrivateKeyError,
       );
@@ -182,7 +206,12 @@ describe('ValidatorClient', () => {
       const header = makeHeader();
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
-
+      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
+        currentProposer: EthAddress.fromString(validatorAccounts[0].address),
+        nextProposer: EthAddress.fromString(validatorAccounts[1].address),
+        currentSlot: header.globalVariables.slotNumber.toBigInt(),
+        nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
+      });
       const blockProposal = await validatorClient.createBlockProposal(
         header.globalVariables.blockNumber,
         header.toPropose(),
@@ -194,7 +223,7 @@ describe('ValidatorClient', () => {
 
       expect(blockProposal).toBeDefined();
 
-      const validatorAddress = EthAddress.fromString(validatorAccount.address);
+      const validatorAddress = EthAddress.fromString(validatorAccounts[0].address);
       expect(blockProposal?.getSender()).toEqual(validatorAddress);
     });
   });
@@ -263,12 +292,13 @@ describe('ValidatorClient', () => {
       );
 
       epochCache.isInCommittee.mockResolvedValue(true);
-      epochCache.getProposerInCurrentOrNextSlot.mockResolvedValue({
+      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
         currentProposer: proposal.getSender(),
         nextProposer: proposal.getSender(),
         currentSlot: proposal.slotNumber.toBigInt(),
         nextSlot: proposal.slotNumber.toBigInt() + 1n,
       });
+      epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
 
       blockSource.getBlock.mockResolvedValue({
         archive: new AppendOnlyTreeSnapshot(proposal.payload.header.lastArchiveRoot, proposal.blockNumber.toNumber()),
@@ -276,8 +306,10 @@ describe('ValidatorClient', () => {
     });
 
     it('should attest to proposal', async () => {
-      const attestation = await validatorClient.attestToProposal(proposal);
-      expect(attestation).toBeDefined();
+      epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+      const attestations = await validatorClient.attestToProposal(proposal);
+      expect(attestations).toBeDefined();
+      expect(attestations?.length).toBe(1);
     });
 
     it('should re-execute and attest to proposal', async () => {
@@ -295,8 +327,8 @@ describe('ValidatorClient', () => {
         }),
       );
 
-      const attestation = await validatorClient.attestToProposal(proposal);
-      expect(attestation).toBeDefined();
+      const attestations = await validatorClient.attestToProposal(proposal);
+      expect(attestations?.length).toBeGreaterThan(0);
     });
 
     it('should throw an error if the transactions are not available', async () => {
@@ -311,8 +343,8 @@ describe('ValidatorClient', () => {
         TransactionsNotAvailableError,
       );
 
-      const attestation = await validatorClient.attestToProposal(proposal);
-      expect(attestation).toBeUndefined();
+      const attestations = await validatorClient.attestToProposal(proposal);
+      expect(attestations).toBeUndefined();
     });
 
     it('should not return an attestation if re-execution fails', async () => {
@@ -321,19 +353,19 @@ describe('ValidatorClient', () => {
         throw new Error('Failed to build block');
       });
 
-      const attestation = await validatorClient.attestToProposal(proposal);
-      expect(attestation).toBeUndefined();
+      const attestations = await validatorClient.attestToProposal(proposal);
+      expect(attestations).toBeUndefined();
     });
 
-    it('should not return an attestation if the validator is not in the committee', async () => {
-      epochCache.isInCommittee.mockImplementation(() => Promise.resolve(false));
+    it('should not return an attestation if no validators are in the committee', async () => {
+      epochCache.filterInCommittee.mockResolvedValueOnce([]);
 
-      const attestation = await validatorClient.attestToProposal(proposal);
-      expect(attestation).toBeUndefined();
+      const attestations = await validatorClient.attestToProposal(proposal);
+      expect(attestations).toBeUndefined();
     });
 
     it('should not return an attestation if the proposer is not the current proposer', async () => {
-      epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
+      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockImplementation(() =>
         Promise.resolve({
           currentProposer: EthAddress.random(),
           nextProposer: EthAddress.random(),
@@ -342,12 +374,21 @@ describe('ValidatorClient', () => {
         }),
       );
 
-      const attestation = await validatorClient.attestToProposal(proposal);
-      expect(attestation).toBeUndefined();
+      const attestations = await validatorClient.attestToProposal(proposal);
+      expect(attestations).toBeUndefined();
+    });
+
+    it('should attest with all validator keys that are in the committee', async () => {
+      epochCache.filterInCommittee.mockResolvedValueOnce(
+        validatorAccounts.map(account => EthAddress.fromString(account.address)),
+      );
+
+      const attestations = await validatorClient.attestToProposal(proposal);
+      expect(attestations?.length).toBe(validatorAccounts.length);
     });
 
     it('should not return an attestation if the proposal is not for the current or next slot', async () => {
-      epochCache.getProposerInCurrentOrNextSlot.mockResolvedValue({
+      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
         currentProposer: proposal.getSender(),
         nextProposer: proposal.getSender(),
         currentSlot: proposal.slotNumber.toBigInt() + 20n,

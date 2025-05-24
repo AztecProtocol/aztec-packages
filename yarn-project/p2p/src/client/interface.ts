@@ -50,7 +50,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
    */
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
-  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
+  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>): void;
 
   /**
    * Request a list of transactions from another peer by their tx hashes.

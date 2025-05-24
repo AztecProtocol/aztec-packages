@@ -8,7 +8,7 @@ import type { BlockAttestation } from '@aztec/stdlib/p2p';
  */
 export interface AttestationPool {
   /**
-   * AddAttestation
+   * AddAttestations
    *
    * @param attestations - Attestations to add into the pool
    */

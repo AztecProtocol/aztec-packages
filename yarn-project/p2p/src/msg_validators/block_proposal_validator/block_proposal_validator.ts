@@ -13,7 +13,7 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
 
   async validate(block: BlockProposal): Promise<PeerErrorSeverity | undefined> {
     const { currentProposer, nextProposer, currentSlot, nextSlot } =
-      await this.epochCache.getProposerInCurrentOrNextSlot();
+      await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
 
     // Check that the attestation is for the current or next slot
     const slotNumberBigInt = block.payload.header.slotNumber.toBigInt();
