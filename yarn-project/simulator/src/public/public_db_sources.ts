@@ -89,12 +89,8 @@ export class PublicContractsDB implements PublicContractsDBInterface {
    */
   private async addNonRevertibleContractClasses(tx: Tx) {
     const siloedContractClassLogs = tx.data.forPublic
-      ? await tx.filterContractClassLogs(
-          tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes,
-          /*siloed=*/ true,
-        )
-      : await tx.filterContractClassLogs(tx.data.forRollup!.end.contractClassLogsHashes, /*siloed=*/ true);
-
+      ? tx.getSplitContractClassLogs(false /* revertible */)
+      : tx.getContractClassLogs();
     await this.addContractClassesFromLogs(siloedContractClassLogs, this.currentTxNonRevertibleCache, 'non-revertible');
   }
 
@@ -104,13 +100,7 @@ export class PublicContractsDB implements PublicContractsDBInterface {
    * @param tx - The transaction to add revertible contract classes from.
    */
   private async addRevertibleContractClasses(tx: Tx) {
-    const siloedContractClassLogs = tx.data.forPublic
-      ? await tx.filterContractClassLogs(
-          tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes,
-          /*siloed=*/ true,
-        )
-      : [];
-
+    const siloedContractClassLogs = tx.data.forPublic ? tx.getSplitContractClassLogs(true /* revertible */) : [];
     await this.addContractClassesFromLogs(siloedContractClassLogs, this.currentTxRevertibleCache, 'revertible');
   }
 

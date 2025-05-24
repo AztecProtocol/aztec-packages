@@ -1,6 +1,7 @@
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS,
+  REGISTERER_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE,
 } from '@aztec/constants';
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
@@ -10,7 +11,7 @@ import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 import type { UtilityFunction, UtilityFunctionWithMembershipProof } from '@aztec/stdlib/contract';
 import type { ContractClassLog } from '@aztec/stdlib/logs';
 
-import { REGISTERER_UTILITY_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
+import { ProtocolContractAddress } from '../protocol_contract_data.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class UtilityFunctionBroadcastedEvent {
@@ -24,7 +25,10 @@ export class UtilityFunctionBroadcastedEvent {
   ) {}
 
   static isUtilityFunctionBroadcastedEvent(log: ContractClassLog) {
-    return log.fields.fields[0].equals(REGISTERER_UTILITY_FUNCTION_BROADCASTED_TAG);
+    return (
+      log.contractAddress.equals(ProtocolContractAddress.ContractClassRegisterer) &&
+      log.fields.fields[0].toBigInt() === REGISTERER_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE
+    );
   }
 
   static fromLog(log: ContractClassLog) {
