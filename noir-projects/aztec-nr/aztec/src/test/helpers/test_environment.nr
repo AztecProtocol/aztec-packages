@@ -7,7 +7,8 @@ use dep::protocol_types::{
 
 use crate::context::{
     call_interfaces::CallInterface, PrivateCallInterface, PrivateContext, PrivateVoidCallInterface,
-    PublicContext, ReturnsHash, UtilityCallInterface, UtilityContext,
+    PublicCallInterface, PublicContext, PublicVoidCallInterface, ReturnsHash, UtilityCallInterface,
+    UtilityContext,
 };
 use crate::hash::hash_args;
 use crate::test::helpers::{cheatcodes, utils::Deployer};
@@ -18,6 +19,7 @@ use crate::oracle::{
     execution_cache,
     notes::notify_created_note,
 };
+use super::cheatcodes::public_call_new_flow;
 
 pub struct TestEnvironment {}
 
@@ -285,6 +287,45 @@ impl TestEnvironment {
         );
 
         ReturnsHash::new(returns_hash).assert_empty();
+    }
+
+    pub unconstrained fn call_public<T, let N: u32, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: PublicCallInterface<M, T>,
+    ) -> CallResult<T>
+    where
+        T: Deserialize<N>,
+    {
+        let (returns_hash, tx_hash) = public_call_new_flow(
+            from,
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            false,
+        );
+
+        // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
+        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
+        CallResult { return_value: returns, tx_hash }
+    }
+
+    pub unconstrained fn call_public_void<T, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: PublicVoidCallInterface<M>,
+    ) -> CallResult<()> {
+        let (returns_hash, tx_hash) = public_call_new_flow(
+            from,
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            false,
+        );
+
+        ReturnsHash::new(returns_hash).assert_empty();
+
+        CallResult { return_value: (), tx_hash }
     }
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note

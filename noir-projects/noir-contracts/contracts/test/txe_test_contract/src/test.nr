@@ -105,3 +105,21 @@ unconstrained fn new_calling_flow_increment_with_new_call_flow() {
     assert_eq(notes.len(), 2);
     assert_eq(current_value_for_owner, 3);
 }
+
+#[test]
+unconstrained fn new_public_calling_flow() {
+    let mut env = TestEnvironment::new();
+    let owner = env.create_account(1);
+
+    let initial_value: Field = 2;
+    let initializer = TXETest::interface().initialize(initial_value as u64, owner);
+    let contract_address =
+        env.deploy_self("TXETest").with_private_initializer(owner, initializer).to_address();
+
+    let expected_value = 69420;
+
+    let call_result =
+        env.call_public(owner, TXETest::at(contract_address).return_public(expected_value));
+
+    assert_eq(call_result.return_value, expected_value);
+}
