@@ -1,9 +1,14 @@
 import type { Fr } from '@aztec/foundation/fields';
+import type { Timer } from '@aztec/foundation/timer';
 
 import type { L2Block } from '../block/l2_block.js';
+import type { AllowedElement } from '../config/index.js';
+import type { Gas } from '../gas/gas.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { GlobalVariables } from '../tx/global_variables.js';
-import type { ProcessedTx } from '../tx/processed_tx.js';
+import type { FailedTx, ProcessedTx } from '../tx/processed_tx.js';
+import type { ProposedBlockHeader } from '../tx/proposed_block_header.js';
+import { Tx } from '../tx/tx.js';
 import type { ProcessedTxHandler } from './processed-tx-handler.js';
 
 /** The interface to a block builder. Generates an L2 block out of a set of processed txs. */
@@ -30,4 +35,40 @@ export interface BlockBuilder extends ProcessedTxHandler {
    * Assembles the block and updates the archive tree.
    */
   setBlockCompleted(expectedBlockHeader?: BlockHeader): Promise<L2Block>;
+}
+
+export interface BuildBlockOptions {
+  validateOnly?: boolean;
+  txPublicSetupAllowList?: AllowedElement[];
+  minTxsPerBlock?: number;
+  maxTxsPerBlock?: number;
+  maxBlockSizeInBytes?: number;
+  maxBlockGas?: Gas;
+  deadline?: Date;
+}
+
+export interface BuildBlockResult {
+  block: L2Block;
+  publicGas: Gas;
+  publicProcessorDuration: number;
+  numMsgs: number;
+  numTxs: number;
+  failedTxs: FailedTx[];
+  blockBuildingTimer: Timer;
+  usedTxs: Tx[];
+}
+
+export interface FullNodeBlockBuilder {
+  buildBlockAsProposer(
+    txs: Iterable<Tx> | AsyncIterable<Tx>,
+    globalVariables: GlobalVariables,
+    options: BuildBlockOptions,
+  ): Promise<BuildBlockResult>;
+
+  buildBlockAsValidator(
+    txs: Iterable<Tx> | AsyncIterable<Tx>,
+    blockNumber: Fr,
+    header: ProposedBlockHeader,
+    options: BuildBlockOptions,
+  ): Promise<BuildBlockResult>;
 }

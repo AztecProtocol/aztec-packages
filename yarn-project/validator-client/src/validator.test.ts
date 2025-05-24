@@ -6,6 +6,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import { Gas } from '@aztec/stdlib/gas';
+import type { FullNodeBlockBuilder } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -30,12 +32,14 @@ describe('ValidatorClient', () => {
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource>;
   let epochCache: MockProxy<EpochCache>;
+  let blockBuilder: MockProxy<FullNodeBlockBuilder>;
   let validatorAccount: PrivateKeyAccount;
   let dateProvider: TestDateProvider;
 
   beforeEach(() => {
     p2pClient = mock<P2P>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
+    blockBuilder = mock<FullNodeBlockBuilder>();
     epochCache = mock<EpochCache>();
     blockSource = mock<L2BlockSource>();
     dateProvider = new TestDateProvider();
@@ -49,12 +53,12 @@ describe('ValidatorClient', () => {
       disableValidator: false,
       validatorReexecute: false,
     };
-    validatorClient = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
+    validatorClient = ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider);
   });
 
   it('Should throw error if an invalid private key is provided', () => {
     config.validatorPrivateKey = '0x1234567890123456789';
-    expect(() => ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
+    expect(() => ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
       InvalidValidatorPrivateKeyError,
     );
   });
@@ -63,7 +67,7 @@ describe('ValidatorClient', () => {
     config.validatorReexecute = true;
     const fakeTx = await mockTx();
     p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(fakeTx));
-    const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
+    const val = ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider);
     await expect(
       val.reExecuteTransactions(makeBlockProposal({ txs: [fakeTx], txHashes: [await fakeTx.getTxHash()] }), [fakeTx]),
     ).rejects.toThrow(BlockBuilderNotProvidedError);
@@ -137,7 +141,7 @@ describe('ValidatorClient', () => {
     );
   });
 
-  it('Should not return an attestation if re-execution fails', () => {
+  it('Should not return an attestation if re-execution fails', async () => {
     const proposal = makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
@@ -150,17 +154,19 @@ describe('ValidatorClient', () => {
       nextSlot: proposal.slotNumber.toBigInt() + 1n,
     });
     epochCache.isInCommittee.mockResolvedValue(true);
-
-    const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
-    val.registerBlockBuilder(() => {
+    blockBuilder.buildBlockAsValidator.mockImplementation(() => {
       throw new Error('Failed to build block');
     });
+
+    const val = ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider);
+    const attestation = await val.attestToProposal(proposal);
+    expect(attestation).toBeUndefined();
   });
 
   describe('constructor', () => {
     it('should throw error if an invalid private key is provided', () => {
       config.validatorPrivateKey = '0x1234567890123456789';
-      expect(() => ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
+      expect(() => ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
         InvalidValidatorPrivateKeyError,
       );
     });
@@ -170,7 +176,7 @@ describe('ValidatorClient', () => {
       const tx = await mockTx();
       const txHashes = await Promise.all([tx.getTxHash()]);
       p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(tx));
-      const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource);
+      const val = ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider);
       await expect(val.reExecuteTransactions(makeBlockProposal({ txs: [tx], txHashes }), [tx])).rejects.toThrow(
         BlockBuilderNotProvidedError,
       );
@@ -282,12 +288,15 @@ describe('ValidatorClient', () => {
 
     it('should re-execute and attest to proposal', async () => {
       (validatorClient as any).config.validatorReexecute = true;
-      validatorClient.registerBlockBuilder(() =>
+      blockBuilder.buildBlockAsValidator.mockImplementation(() =>
         Promise.resolve({
           publicProcessorDuration: 0,
           numTxs: proposal.payload.txHashes.length,
           blockBuildingTimer: new Timer(),
-          numFailedTxs: 0,
+          failedTxs: [],
+          publicGas: Gas.empty(),
+          numMsgs: 0,
+          usedTxs: [],
           block: {
             body: { txEffects: times(proposal.payload.txHashes.length, () => ({})) },
             archive: new AppendOnlyTreeSnapshot(proposal.archive, proposal.blockNumber.toNumber()),
@@ -317,7 +326,7 @@ describe('ValidatorClient', () => {
 
     it('should not return an attestation if re-execution fails', async () => {
       (validatorClient as any).config.validatorReexecute = true;
-      validatorClient.registerBlockBuilder(() => {
+      blockBuilder.buildBlockAsValidator.mockImplementation(() => {
         throw new Error('Failed to build block');
       });
 
