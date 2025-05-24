@@ -12,6 +12,11 @@ import type { PXEServiceConfig } from '../../config/index.js';
 import { PXEService } from '../../pxe_service/pxe_service.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
 
+type PXEConfigWithoutDefaults = Omit<
+  PXEServiceConfig,
+  'l1Contracts' | 'l1ChainId' | 'l2BlockBatchSize' | 'rollupVersion'
+>;
+
 /**
  * Create and start an PXEService instance with the given AztecNode and config.
  *
@@ -22,7 +27,7 @@ import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
  */
 export function createPXEService(
   aztecNode: AztecNode,
-  config: PXEServiceConfig,
+  config: PXEConfigWithoutDefaults,
   useLogSuffix: string | boolean | undefined = undefined,
   store?: AztecAsyncKVStore,
 ) {
@@ -43,19 +48,21 @@ export function createPXEService(
 export async function createPXEServiceWithSimulationProvider(
   aztecNode: AztecNode,
   simulationProvider: SimulationProvider,
-  config: PXEServiceConfig,
+  config: PXEConfigWithoutDefaults,
   useLogSuffix: string | boolean | undefined = undefined,
   store?: AztecAsyncKVStore,
 ) {
   const logSuffix =
     typeof useLogSuffix === 'boolean' ? (useLogSuffix ? randomBytes(3).toString('hex') : undefined) : useLogSuffix;
 
-  const l1Contracts = await aztecNode.getL1ContractAddresses();
-  const configWithContracts = {
+  const { l1ChainId, l1ContractAddresses: l1Contracts, rollupVersion } = await aztecNode.getNodeInfo();
+  const configWithContracts: PXEServiceConfig = {
     ...config,
     l1Contracts,
+    l1ChainId,
+    rollupVersion,
     l2BlockBatchSize: 200,
-  } as PXEServiceConfig;
+  };
 
   if (!store) {
     // TODO once https://github.com/AztecProtocol/aztec-packages/issues/13656 is fixed, we can remove this and always
@@ -72,13 +79,17 @@ export async function createPXEServiceWithSimulationProvider(
     prover,
     simulationProvider,
     protocolContractsProvider,
-    config,
+    configWithContracts,
     logSuffix,
   );
   return pxe;
 }
 
-function createProver(config: PXEServiceConfig, simulationProvider: SimulationProvider, logSuffix?: string) {
+function createProver(
+  config: Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>,
+  simulationProvider: SimulationProvider,
+  logSuffix?: string,
+) {
   if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
     return new BBWASMBundlePrivateKernelProver(simulationProvider, 16);
   } else {

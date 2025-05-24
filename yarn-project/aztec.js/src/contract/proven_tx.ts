@@ -16,8 +16,8 @@ export class ProvenTx extends Tx {
     super(tx.data, tx.clientIvcProof, tx.contractClassLogs, tx.publicFunctionCalldata);
   }
 
-  // Clone the TX data to get a serializable object.
-  protected getPlainDataTx(): Tx {
+  /** Clone the TX data to get a serializable object. */
+  public getPlainDataTx(): Tx {
     return new Tx(this.data, this.clientIvcProof, this.contractClassLogs, this.publicFunctionCalldata);
   }
 
