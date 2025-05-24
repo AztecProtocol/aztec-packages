@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "chart.name" . }}-node
+  name: {{ include "chart.fullname" . }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 spec:
-  serviceName: {{ include "chart.name" . }}-node
+  serviceName: {{ include "chart.fullname" . }}
   replicas: {{ .Values.node.replicas }}
   podManagementPolicy: {{ .Values.podManagementPolicy }}
   updateStrategy:
@@ -23,6 +23,7 @@ spec:
       serviceAccountName: {{ include "chart.serviceAccountName" . }}
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: {{ .Values.hostNetwork }}
+      {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -34,6 +35,7 @@ spec:
                       - node
               topologyKey: kubernetes.io/hostname
               namespaceSelector: {}
+      {{- end }}
       initContainers:
       {{- if .Values.initContainers }}
         {{- tpl (toYaml .Values.initContainers | nindent 8) $ }}
@@ -77,7 +79,7 @@ spec:
               mountPath: /env
       {{- end }}
       containers:
-        - name: node
+        - name: aztec
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
@@ -119,6 +121,11 @@ spec:
               {{- end }}
 
               start_cmd+=({{ join " " .Values.node.startCmd }})
+
+              {{- if .Values.node.preStartScript }}
+              {{ .Values.node.preStartScript | nindent 14 }}
+
+              {{- end }}
               "${start_cmd[@]}"
           startupProbe:
             httpGet:
@@ -197,7 +204,7 @@ spec:
               value: {{ .Values.node.remoteUrl.archiver | quote }}
             {{- end }}
             {{- if .Values.node.remoteUrl.proverBroker }}
-            - name: PROVER_BROKER_URL
+            - name: PROVER_BROKER_HOST
               value: {{ .Values.node.remoteUrl.proverBroker | quote }}
             {{- end }}
             {{- if .Values.node.remoteUrl.blobSink }}
@@ -251,19 +258,25 @@ spec:
           ports:
             - containerPort: {{ .Values.service.httpPort }}
               name: http-rpc
+            {{- if .Values.service.admin.enabled }}
             - containerPort: {{ .Values.service.admin.port }}
               name: admin
+            {{- end }}
+            {{- if .Values.service.p2p.enabled }}
             - containerPort: {{ .Values.service.p2p.port }}
               name: p2p-tcp
             - containerPort: {{ .Values.service.p2p.port }}
               protocol: UDP
               name: p2p-udp
+            {{- end }}
           resources:
             {{- toYaml .Values.node.resources | nindent 12 }}
       volumes:
+        {{- if or (has "--sequencer" .Values.node.startCmd) (has "--prover-node" .Values.node.startCmd) }}
         - name: l1-publisher
           secret:
-            secretName: {{ include "chart.name" . }}-l1-publisher
+            secretName: {{ include "chart.fullname" . }}-l1-publisher
+        {{- end }}
         {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
         - name: init-nodeport
           emptyDir: {}

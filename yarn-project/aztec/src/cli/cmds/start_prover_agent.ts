@@ -11,6 +11,7 @@ import {
   proverAgentConfigMappings,
 } from '@aztec/prover-client/broker';
 import { getProverNodeAgentConfigFromEnv } from '@aztec/prover-node';
+import { ProverAgentApiSchema } from '@aztec/stdlib/interfaces/server';
 import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions, preloadCrsDataForServerSideProving } from '../util.js';
@@ -33,10 +34,12 @@ export async function startProverAgent(
   };
 
   if (config.realProofs && (!config.bbBinaryPath || !config.acvmBinaryPath)) {
+    userLog(`Requested real proving but no path to bb or acvm binaries provided`);
     process.exit(1);
   }
 
   if (!config.proverBrokerUrl) {
+    userLog(`Missing prover broker URL. Pass --proverAgent.proverBrokerUrl <value>`);
     process.exit(1);
   }
 
@@ -60,6 +63,16 @@ export async function startProverAgent(
         telemetry,
       ),
   );
+
+  // expose all agents as individual services
+  for (let i = 0; i < agents.length; i++) {
+    services[`agent${i}`] = [agents[i], ProverAgentApiSchema, () => agents[i].getStatus().status !== 'stopped'];
+  }
+
+  // shortcut in the most common case of having a single running agent
+  if (agents.length === 1) {
+    services[`agent`] = [agents[0], ProverAgentApiSchema, () => agents[0].getStatus().status !== 'stopped'];
+  }
 
   await Promise.all(agents.map(agent => agent.start()));
 
