@@ -652,12 +652,13 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
 
     const size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::INTERLEAVING_GROUP_SIZE;
     auto& engine = numeric::get_debug_randomness();
-    const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t full_masking_offset = 2 * NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
 
     TranslatorProvingKey key{};
     key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
     const size_t real_circuit_size = full_circuit_size - full_masking_offset;
+    const size_t real_last_index = full_circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
 
     // Fill required relation parameters
     RelationParameters<FF> params{ .beta = FF::random_element(), .gamma = FF::random_element() };
@@ -665,7 +666,14 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     // Populate the group polynomials with appropriate values and also enough random values to mask their commitment
     // and evaluation
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        for (size_t i = polynomial.start_index(); i < polynomial.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i++) {
+        for (size_t i = polynomial.start_index();
+             i < polynomial.start_index() + NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+             i++) {
+            polynomial.at(i) = FF::random_element();
+        }
+        for (size_t i = polynomial.start_index() + NUM_DISABLED_ROWS_IN_SUMCHECK;
+             i < polynomial.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK;
+             i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
         }
         for (size_t i = polynomial.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < polynomial.end_index(); i++) {
@@ -681,9 +689,9 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
 
     // Fill in lagrange polynomials used in the permutation relation
     prover_polynomials.lagrange_first.at(0) = 1;
-    prover_polynomials.lagrange_real_last.at(real_circuit_size - 1) = 1;
+    prover_polynomials.lagrange_real_last.at(real_last_index - 1) = 1;
     prover_polynomials.lagrange_last.at(full_circuit_size - 1) = 1;
-    for (size_t i = real_circuit_size; i < full_circuit_size; i++) {
+    for (size_t i = real_last_index; i < full_circuit_size; i++) {
         prover_polynomials.lagrange_masking.at(i) = 1;
     }
 
@@ -695,13 +703,19 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     for (size_t i = 0; i < 4; i++) {
         auto& ordered = prover_polynomials.get_ordered_range_constraints()[i];
         auto& interleaved = prover_polynomials.get_interleaved()[i];
-        for (size_t j = real_circuit_size; j < full_circuit_size; j++) {
+        // assign beginning of interleaved to ordered
+        for (size_t j = interleaved.start_index();
+             j < interleaved.start_index() + NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+             j++) {
+            ordered.at(j) = interleaved.at(j);
+        }
+        for (size_t j = real_last_index; j < full_circuit_size; j++) {
             ordered.at(j) = interleaved.at(j);
         }
     }
 
     // Populate the last ordered range constraint and the extra polynomial in the numerator with random values
-    for (size_t i = real_circuit_size; i < full_circuit_size; i++) {
+    for (size_t i = real_last_index; i < full_circuit_size; i++) {
         FF random_value = FF::random_element();
         prover_polynomials.ordered_extra_range_constraints_numerator.at(i) = random_value;
         prover_polynomials.ordered_range_constraints_4.at(i) = random_value;
