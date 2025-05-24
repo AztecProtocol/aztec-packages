@@ -2616,407 +2616,244 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         ++max_hi_bits;
     }
 
-    if constexpr (HasPlookup<Builder>) {
-        // The plookup custom bigfield gate requires inputs are witnesses.
-        // If we're using constant values, instantiate them as circuit variables
+    // The plookup custom bigfield gate requires inputs are witnesses.
+    // If we're using constant values, instantiate them as circuit variables
+    //
+    // Explanation:
+    // The bigfield multiplication gate expects witnesses and disallows circuit constants
+    // because allowing circuit constants would lead to complex circuit logic to support
+    // different combinations of constant and witness inputs. Particularly, bigfield multiplication
+    // gate enforces constraints of the form: a * b - q * p + r = 0, where:
+    //
+    // input left  a = (a3 || a2 || a1 || a0)
+    // input right b = (b3 || b2 || b1 || b0)
+    // quotient    q = (q3 || q2 || q1 || q0)
+    // remainder   r = (r3 || r2 || r1 || r0)
+    //
+    // | a1 | b1 | r0 | lo_0 | <-- product gate 1: check lo_0
+    // | a0 | b0 | a3 | b3   |
+    // | a2 | b2 | r3 | hi_0 |
+    // | a1 | b1 | r2 | hi_1 |
+    //
+    // Example constaint: lo_0 = (a1 * b0 + a0 * b1) * 2^b   + (a0 * b0)   - r0
+    //                 ==>  w4 = (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2) - w3
+    //
+    // If a, b both are witnesses, this special gate performs 3 field multiplications per gate.
+    // If b was a constant, then we would need to no field multiplications, but instead update the
+    // the limbs of a with multiplicative and additive constants. This just makes the circuit logic
+    // more complex, so we disallow constants. If there are constants, we convert them to fixed witnesses (at the
+    // expense of 1 extra gate per constant).
+    //
+    const auto convert_constant_to_fixed_witness = [ctx](const bigfield& input) {
+        bigfield output(input);
+        output.prime_basis_limb =
+            field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(input.prime_basis_limb.get_value()));
+        output.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(
+            ctx, ctx->put_constant_variable(input.binary_basis_limbs[0].element.get_value()));
+        output.binary_basis_limbs[1].element = field_t<Builder>::from_witness_index(
+            ctx, ctx->put_constant_variable(input.binary_basis_limbs[1].element.get_value()));
+        output.binary_basis_limbs[2].element = field_t<Builder>::from_witness_index(
+            ctx, ctx->put_constant_variable(input.binary_basis_limbs[2].element.get_value()));
+        output.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(
+            ctx, ctx->put_constant_variable(input.binary_basis_limbs[3].element.get_value()));
+        output.context = ctx;
+        return output;
+    };
 
-        const auto convert_constant_to_fixed_witness = [ctx](const bigfield& input) {
-            bigfield output(input);
-            output.prime_basis_limb = field_t<Builder>::from_witness_index(
-                ctx, ctx->put_constant_variable(input.prime_basis_limb.get_value()));
-            output.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(
-                ctx, ctx->put_constant_variable(input.binary_basis_limbs[0].element.get_value()));
-            output.binary_basis_limbs[1].element = field_t<Builder>::from_witness_index(
-                ctx, ctx->put_constant_variable(input.binary_basis_limbs[1].element.get_value()));
-            output.binary_basis_limbs[2].element = field_t<Builder>::from_witness_index(
-                ctx, ctx->put_constant_variable(input.binary_basis_limbs[2].element.get_value()));
-            output.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(
-                ctx, ctx->put_constant_variable(input.binary_basis_limbs[3].element.get_value()));
-            output.context = ctx;
-            return output;
-        };
+    // evalaute a nnf mul and add into existing lohi output for our extra product terms
+    // we need to add the result of (left_b * right_b) into lo_1_idx and hi_1_idx
+    // our custom gate evaluates: ((a * b) + (q * neg_modulus) - r) / 2^{136} = lo + hi * 2^{136}
+    // where q is a 'quotient' bigfield and neg_modulus is defined by selector polynomial values
+    // The custom gate costs 7 constraints, which is cheaper than computing `a * b` using multiplication +
+    // addition gates But....we want to obtain `left_a * right_b + lo_1 + hi_1 * 2^{136} = lo + hi * 2^{136}` If
+    // we set `neg_modulus = [2^{136}, 0, 0, 0]` and `q = [lo_1, 0, hi_1, 0]`, then we will add `lo_1` into
+    // `lo`, and `lo_1/2^{136} + hi_1` into `hi`. we can then subtract off `lo_1/2^{136}` from `hi`, by setting
+    // `r = [0, 0, lo_1, 0]` This saves us 2 addition gates as we don't have to add together the outputs of two
+    // calls to `evaluate_non_native_field_multiplication`
+    std::vector<field_t<Builder>> limb_0_accumulator;
+    std::vector<field_t<Builder>> limb_2_accumulator;
+    std::vector<field_t<Builder>> prime_limb_accumulator;
 
-        // evalaute a nnf mul and add into existing lohi output for our extra product terms
-        // we need to add the result of (left_b * right_b) into lo_1_idx and hi_1_idx
-        // our custom gate evaluates: ((a * b) + (q * neg_modulus) - r) / 2^{136} = lo + hi * 2^{136}
-        // where q is a 'quotient' bigfield and neg_modulus is defined by selector polynomial values
-        // The custom gate costs 7 constraints, which is cheaper than computing `a * b` using multiplication +
-        // addition gates But....we want to obtain `left_a * right_b + lo_1 + hi_1 * 2^{136} = lo + hi * 2^{136}` If
-        // we set `neg_modulus = [2^{136}, 0, 0, 0]` and `q = [lo_1, 0, hi_1, 0]`, then we will add `lo_1` into
-        // `lo`, and `lo_1/2^{136} + hi_1` into `hi`. we can then subtract off `lo_1/2^{136}` from `hi`, by setting
-        // `r = [0, 0, lo_1, 0]` This saves us 2 addition gates as we don't have to add together the outputs of two
-        // calls to `evaluate_non_native_field_multiplication`
-        std::vector<field_t<Builder>> limb_0_accumulator;
-        std::vector<field_t<Builder>> limb_2_accumulator;
-        std::vector<field_t<Builder>> prime_limb_accumulator;
-
-        for (size_t i = 0; i < num_multiplications; ++i) {
-            if (i == 0 && left[0].is_constant()) {
-                left[0] = convert_constant_to_fixed_witness(left[0]);
-            }
-            if (i == 0 && right[0].is_constant()) {
-                right[0] = convert_constant_to_fixed_witness(right[0]);
-            }
-            if (i > 0 && left[i].is_constant()) {
-                left[i] = convert_constant_to_fixed_witness(left[i]);
-            }
-            if (i > 0 && right[i].is_constant()) {
-                right[i] = convert_constant_to_fixed_witness(right[i]);
-            }
-
-            if (i > 0) {
-                bb::non_native_field_witnesses<bb::fr> mul_witnesses = {
-                    {
-                        left[i].binary_basis_limbs[0].element.get_normalized_witness_index(),
-                        left[i].binary_basis_limbs[1].element.get_normalized_witness_index(),
-                        left[i].binary_basis_limbs[2].element.get_normalized_witness_index(),
-                        left[i].binary_basis_limbs[3].element.get_normalized_witness_index(),
-                    },
-                    {
-                        right[i].binary_basis_limbs[0].element.get_normalized_witness_index(),
-                        right[i].binary_basis_limbs[1].element.get_normalized_witness_index(),
-                        right[i].binary_basis_limbs[2].element.get_normalized_witness_index(),
-                        right[i].binary_basis_limbs[3].element.get_normalized_witness_index(),
-                    },
-                    {
-                        ctx->zero_idx,
-                        ctx->zero_idx,
-                        ctx->zero_idx,
-                        ctx->zero_idx,
-                    },
-                    {
-                        ctx->zero_idx,
-                        ctx->zero_idx,
-                        ctx->zero_idx,
-                        ctx->zero_idx,
-                    },
-                    { 0, 0, 0, 0 },
-                    modulus,
-                };
-
-                const auto [lo_2_idx, hi_2_idx] = ctx->queue_partial_non_native_field_multiplication(mul_witnesses);
-
-                field_t<Builder> lo_2 = field_t<Builder>::from_witness_index(ctx, lo_2_idx);
-                field_t<Builder> hi_2 = field_t<Builder>::from_witness_index(ctx, hi_2_idx);
-
-                limb_0_accumulator.emplace_back(-lo_2);
-                limb_2_accumulator.emplace_back(-hi_2);
-                prime_limb_accumulator.emplace_back(-(left[i].prime_basis_limb * right[i].prime_basis_limb));
-            }
+    for (size_t i = 0; i < num_multiplications; ++i) {
+        if (i == 0 && left[0].is_constant()) {
+            left[0] = convert_constant_to_fixed_witness(left[0]);
         }
-        if (quotient.is_constant()) {
-            quotient = convert_constant_to_fixed_witness(quotient);
+        if (i == 0 && right[0].is_constant()) {
+            right[0] = convert_constant_to_fixed_witness(right[0]);
+        }
+        if (i > 0 && left[i].is_constant()) {
+            left[i] = convert_constant_to_fixed_witness(left[i]);
+        }
+        if (i > 0 && right[i].is_constant()) {
+            right[i] = convert_constant_to_fixed_witness(right[i]);
         }
 
-        bool no_remainders = remainders.size() == 0;
-        if (!no_remainders) {
-            limb_0_accumulator.emplace_back(remainders[0].binary_basis_limbs[0].element);
-            limb_2_accumulator.emplace_back(remainders[0].binary_basis_limbs[2].element);
-            prime_limb_accumulator.emplace_back(remainders[0].prime_basis_limb);
-        }
-        for (size_t i = 1; i < remainders.size(); ++i) {
-            limb_0_accumulator.emplace_back(remainders[i].binary_basis_limbs[0].element);
-            limb_0_accumulator.emplace_back(remainders[i].binary_basis_limbs[1].element * shift_1);
-            limb_2_accumulator.emplace_back(remainders[i].binary_basis_limbs[2].element);
-            limb_2_accumulator.emplace_back(remainders[i].binary_basis_limbs[3].element * shift_1);
-            prime_limb_accumulator.emplace_back(remainders[i].prime_basis_limb);
-        }
-        for (const auto& add : to_add) {
-            limb_0_accumulator.emplace_back(-add.binary_basis_limbs[0].element);
-            limb_0_accumulator.emplace_back(-add.binary_basis_limbs[1].element * shift_1);
-            limb_2_accumulator.emplace_back(-add.binary_basis_limbs[2].element);
-            limb_2_accumulator.emplace_back(-add.binary_basis_limbs[3].element * shift_1);
-            prime_limb_accumulator.emplace_back(-add.prime_basis_limb);
-        }
+        if (i > 0) {
+            bb::non_native_field_witnesses<bb::fr> mul_witnesses = {
+                {
+                    left[i].binary_basis_limbs[0].element.get_normalized_witness_index(),
+                    left[i].binary_basis_limbs[1].element.get_normalized_witness_index(),
+                    left[i].binary_basis_limbs[2].element.get_normalized_witness_index(),
+                    left[i].binary_basis_limbs[3].element.get_normalized_witness_index(),
+                },
+                {
+                    right[i].binary_basis_limbs[0].element.get_normalized_witness_index(),
+                    right[i].binary_basis_limbs[1].element.get_normalized_witness_index(),
+                    right[i].binary_basis_limbs[2].element.get_normalized_witness_index(),
+                    right[i].binary_basis_limbs[3].element.get_normalized_witness_index(),
+                },
+                {
+                    ctx->zero_idx,
+                    ctx->zero_idx,
+                    ctx->zero_idx,
+                    ctx->zero_idx,
+                },
+                {
+                    ctx->zero_idx,
+                    ctx->zero_idx,
+                    ctx->zero_idx,
+                    ctx->zero_idx,
+                },
+                { 0, 0, 0, 0 },
+                modulus,
+            };
 
-        field_t<Builder> accumulated_lo = field_t<Builder>::accumulate(limb_0_accumulator);
-        field_t<Builder> accumulated_hi = field_t<Builder>::accumulate(limb_2_accumulator);
-        if (accumulated_lo.is_constant()) {
-            accumulated_lo =
-                field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(accumulated_lo.get_value()));
-        }
-        if (accumulated_hi.is_constant()) {
-            accumulated_hi =
-                field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(accumulated_hi.get_value()));
-        }
-        field_t<Builder> remainder1 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
-                                                    : remainders[0].binary_basis_limbs[1].element;
-        if (remainder1.is_constant()) {
-            remainder1 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder1.get_value()));
-        }
-        field_t<Builder> remainder3 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
-                                                    : remainders[0].binary_basis_limbs[3].element;
-        if (remainder3.is_constant()) {
-            remainder3 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder3.get_value()));
-        }
-        field_t<Builder> remainder_limbs[4]{
-            accumulated_lo,
-            remainder1,
-            accumulated_hi,
-            remainder3,
-        };
-        field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
+            const auto [lo_2_idx, hi_2_idx] = ctx->queue_partial_non_native_field_multiplication(mul_witnesses);
 
-        bb::non_native_field_witnesses<bb::fr> witnesses{
-            {
-                left[0].binary_basis_limbs[0].element.get_normalized_witness_index(),
-                left[0].binary_basis_limbs[1].element.get_normalized_witness_index(),
-                left[0].binary_basis_limbs[2].element.get_normalized_witness_index(),
-                left[0].binary_basis_limbs[3].element.get_normalized_witness_index(),
-            },
-            {
-                right[0].binary_basis_limbs[0].element.get_normalized_witness_index(),
-                right[0].binary_basis_limbs[1].element.get_normalized_witness_index(),
-                right[0].binary_basis_limbs[2].element.get_normalized_witness_index(),
-                right[0].binary_basis_limbs[3].element.get_normalized_witness_index(),
-            },
-            {
-                quotient.binary_basis_limbs[0].element.get_normalized_witness_index(),
-                quotient.binary_basis_limbs[1].element.get_normalized_witness_index(),
-                quotient.binary_basis_limbs[2].element.get_normalized_witness_index(),
-                quotient.binary_basis_limbs[3].element.get_normalized_witness_index(),
-            },
-            {
-                remainder_limbs[0].get_normalized_witness_index(),
-                remainder_limbs[1].get_normalized_witness_index(),
-                remainder_limbs[2].get_normalized_witness_index(),
-                remainder_limbs[3].get_normalized_witness_index(),
-            },
-            { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
-            modulus,
-        };
-
-        const auto [lo_1_idx, hi_1_idx] = ctx->evaluate_non_native_field_multiplication(witnesses);
-
-        bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
-
-        field_t<Builder>::evaluate_polynomial_identity(left[0].prime_basis_limb,
-                                                       right[0].prime_basis_limb,
-                                                       quotient.prime_basis_limb * neg_prime,
-                                                       -remainder_prime_limb);
-
-        field_t lo = field_t<Builder>::from_witness_index(ctx, lo_1_idx) + borrow_lo;
-        field_t hi = field_t<Builder>::from_witness_index(ctx, hi_1_idx);
-
-        uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
-        uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
-
-        if (max_lo_bits < (2 * NUM_LIMB_BITS)) {
-            carry_lo_msb = 0;
-        }
-        if (max_hi_bits < (2 * NUM_LIMB_BITS)) {
-            carry_hi_msb = 0;
-        }
-
-        // if both the hi and lo output limbs have less than 70 bits, we can use our custom
-        // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
-        if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
-            ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
-                                           lo.get_normalized_witness_index(),
-                                           (size_t)carry_hi_msb,
-                                           (size_t)carry_lo_msb);
-        } else {
-            ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
-            ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
-        }
-        /*  NOTE TO AUDITOR: An extraneous block
-               if constexpr (HasPlookup<Builder>) {
-                   carry_lo = carry_lo.normalize();
-                   carry_hi = carry_hi.normalize();
-                   ctx->decompose_into_default_range(carry_lo.witness_index, static_cast<size_t>(carry_lo_msb));
-                   ctx->decompose_into_default_range(carry_hi.witness_index, static_cast<size_t>(carry_hi_msb));
-               }
-            was removed from the `else` block below. See  the conversation at
-               https://github.com/AztecProtocol/aztec2-internal/pull/1023
-            We should make sure that no constraint like this is needed but missing (e.g., an equivalent constraint
-            was just imposed?). */
-    } else {
-        field_t b0 = left[0].binary_basis_limbs[1].element.madd(
-            right[0].binary_basis_limbs[0].element, quotient.binary_basis_limbs[1].element * neg_modulus_limbs[0]);
-        field_t b1 = left[0].binary_basis_limbs[0].element.madd(
-            right[0].binary_basis_limbs[1].element, quotient.binary_basis_limbs[0].element * neg_modulus_limbs[1]);
-        field_t c0 = left[0].binary_basis_limbs[1].element.madd(
-            right[0].binary_basis_limbs[1].element, quotient.binary_basis_limbs[1].element * neg_modulus_limbs[1]);
-        field_t c1 = left[0].binary_basis_limbs[2].element.madd(
-            right[0].binary_basis_limbs[0].element, quotient.binary_basis_limbs[2].element * neg_modulus_limbs[0]);
-        field_t c2 = left[0].binary_basis_limbs[0].element.madd(
-            right[0].binary_basis_limbs[2].element, quotient.binary_basis_limbs[0].element * neg_modulus_limbs[2]);
-        field_t d0 = left[0].binary_basis_limbs[3].element.madd(
-            right[0].binary_basis_limbs[0].element, quotient.binary_basis_limbs[3].element * neg_modulus_limbs[0]);
-        field_t d1 = left[0].binary_basis_limbs[2].element.madd(
-            right[0].binary_basis_limbs[1].element, quotient.binary_basis_limbs[2].element * neg_modulus_limbs[1]);
-        field_t d2 = left[0].binary_basis_limbs[1].element.madd(
-            right[0].binary_basis_limbs[2].element, quotient.binary_basis_limbs[1].element * neg_modulus_limbs[2]);
-        field_t d3 = left[0].binary_basis_limbs[0].element.madd(
-            right[0].binary_basis_limbs[3].element, quotient.binary_basis_limbs[0].element * neg_modulus_limbs[3]);
-
-        /**
-         * Compute "limb accumulators"
-         * `limb_0_accumulator` contains contributions in the range 0 - 2^{3t}
-         * `limb_2_accumulator` contains contributiosn in the range 2^{2t} - 2^{5t} (t = MAX_NUM_LIMB_BITS)
-         * Actual range will vary a few bits because of lazy reduction techniques
-         *
-         * We store these values in an "accumulator" vector in order to efficiently add them into a sum.
-         * i.e. limb_0 =- field_t::accumulate(limb_0_accumulator)
-         * This costs us fewer gates than addition operations because we can add 2 values into a sum in a single
-         * custom gate.
-         **/
-
-        std::vector<field_t<Builder>> limb_0_accumulator;
-        std::vector<field_t<Builder>> limb_2_accumulator;
-        std::vector<field_t<Builder>> prime_limb_accumulator;
-
-        // Add remaining products into the limb accumulators.
-        // We negate the product values because the accumulator values itself will be negated
-        // TODO: why do we do this double negation exactly? seems a bit pointless. I think it stems from the fact
-        // that the accumulators originaly tracked the remainder term (which is negated)
-
-        for (size_t i = 1; i < num_multiplications; ++i) {
-            field_t lo_2 = left[i].binary_basis_limbs[0].element * right[i].binary_basis_limbs[0].element;
-            lo_2 = left[i].binary_basis_limbs[1].element.madd(right[i].binary_basis_limbs[0].element * shift_1, lo_2);
-            lo_2 = left[i].binary_basis_limbs[0].element.madd(right[i].binary_basis_limbs[1].element * shift_1, lo_2);
-            field_t hi_2 = left[i].binary_basis_limbs[1].element * right[i].binary_basis_limbs[1].element;
-            hi_2 = left[i].binary_basis_limbs[2].element.madd(right[i].binary_basis_limbs[0].element, hi_2);
-            hi_2 = left[i].binary_basis_limbs[0].element.madd(right[i].binary_basis_limbs[2].element, hi_2);
-            hi_2 = left[i].binary_basis_limbs[3].element.madd(right[i].binary_basis_limbs[0].element * shift_1, hi_2);
-            hi_2 = left[i].binary_basis_limbs[2].element.madd(right[i].binary_basis_limbs[1].element * shift_1, hi_2);
-            hi_2 = left[i].binary_basis_limbs[1].element.madd(right[i].binary_basis_limbs[2].element * shift_1, hi_2);
-            hi_2 = left[i].binary_basis_limbs[0].element.madd(right[i].binary_basis_limbs[3].element * shift_1, hi_2);
+            field_t<Builder> lo_2 = field_t<Builder>::from_witness_index(ctx, lo_2_idx);
+            field_t<Builder> hi_2 = field_t<Builder>::from_witness_index(ctx, hi_2_idx);
 
             limb_0_accumulator.emplace_back(-lo_2);
             limb_2_accumulator.emplace_back(-hi_2);
             prime_limb_accumulator.emplace_back(-(left[i].prime_basis_limb * right[i].prime_basis_limb));
         }
-        // add cached products into the limb accumulators.
-        // We negate the cache values because the accumulator values itself will be negated
-        // TODO: why do we do this double negation exactly? seems a bit pointless. I think it stems from the fact
-        // that the accumulators originaly tracked the remainder term (which is negated)
-
-        // Update the accumulators with the remainder terms. First check we actually have remainder terms!
-        //(not present when we're checking a product is 0 mod p). See `assert_is_in_field`
-
-        bool no_remainders = remainders.size() == 0;
-        if (!no_remainders) {
-            limb_0_accumulator.emplace_back(remainders[0].binary_basis_limbs[0].element);
-            limb_2_accumulator.emplace_back(remainders[0].binary_basis_limbs[2].element);
-            prime_limb_accumulator.emplace_back(remainders[0].prime_basis_limb);
-        }
-        for (size_t i = 1; i < remainders.size(); ++i) {
-            limb_0_accumulator.emplace_back(remainders[i].binary_basis_limbs[0].element);
-            limb_0_accumulator.emplace_back(remainders[i].binary_basis_limbs[1].element * shift_1);
-            limb_2_accumulator.emplace_back(remainders[i].binary_basis_limbs[2].element);
-            limb_2_accumulator.emplace_back(remainders[i].binary_basis_limbs[3].element * shift_1);
-            prime_limb_accumulator.emplace_back(remainders[i].prime_basis_limb);
-        }
-        for (const auto& add : to_add) {
-            limb_0_accumulator.emplace_back(-add.binary_basis_limbs[0].element);
-            limb_0_accumulator.emplace_back(-add.binary_basis_limbs[1].element * shift_1);
-            limb_2_accumulator.emplace_back(-add.binary_basis_limbs[2].element);
-            limb_2_accumulator.emplace_back(-add.binary_basis_limbs[3].element * shift_1);
-            prime_limb_accumulator.emplace_back(-add.prime_basis_limb);
-        }
-
-        field_t<Builder> accumulated_lo = field_t<Builder>::accumulate(limb_0_accumulator);
-        field_t<Builder> accumulated_hi = field_t<Builder>::accumulate(limb_2_accumulator);
-        if (accumulated_lo.is_constant()) {
-            accumulated_lo =
-                field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(accumulated_lo.get_value()));
-        }
-        if (accumulated_hi.is_constant()) {
-            accumulated_hi =
-                field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(accumulated_hi.get_value()));
-        }
-        field_t<Builder> remainder1 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
-                                                    : remainders[0].binary_basis_limbs[1].element;
-        if (remainder1.is_constant()) {
-            remainder1 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder1.get_value()));
-        }
-        field_t<Builder> remainder3 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
-                                                    : remainders[0].binary_basis_limbs[3].element;
-        if (remainder3.is_constant()) {
-            remainder3 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder3.get_value()));
-        }
-        field_t<Builder> remainder_limbs[4]{
-            accumulated_lo,
-            remainder1,
-            accumulated_hi,
-            remainder3,
-        };
-        field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
-
-        // We wish to show that left*right - quotient*remainder = 0 mod 2^t, we do this by collecting the limb
-        // products into two separate variables - carry_lo and carry_hi, which are still small enough not to wrap
-        // mod r Their first t/2 bits will equal, respectively, the first and second t/2 bits of the expresssion
-        // Thus it will suffice to check that each of them begins with t/2 zeroes. We do this by in fact assigning
-        // to these variables those expressions divided by 2^{t/2}. Since we have bounds on their ranage that are
-        // smaller than r, We can range check the divisions by the original range bounds divided by 2^{t/2}
-
-        field_t r0 = left[0].binary_basis_limbs[0].element.madd(
-            right[0].binary_basis_limbs[0].element, quotient.binary_basis_limbs[0].element * neg_modulus_limbs[0]);
-        field_t r1 = b0.add_two(b1, -remainder_limbs[1]);
-        const field_t r2 = c0.add_two(c1, c2);
-        const field_t r3 = d0 + d1.add_two(d2, d3);
-
-        field_t carry_lo_0 = r0 * shift_right_2;
-        field_t carry_lo_1 = r1 * (shift_1 * shift_right_2);
-        field_t carry_lo_2 = -(remainder_limbs[0] * shift_right_2);
-        field_t carry_lo = carry_lo_0.add_two(carry_lo_1, carry_lo_2);
-
-        field_t t1 = carry_lo.add_two(-remainder_limbs[2], -(remainder_limbs[3] * shift_1));
-        carry_lo += borrow_lo;
-        field_t carry_hi_0 = r2 * shift_right_2;
-        field_t carry_hi_1 = r3 * (shift_1 * shift_right_2);
-        field_t carry_hi_2 = t1 * shift_right_2;
-        field_t carry_hi = carry_hi_0.add_two(carry_hi_1, carry_hi_2);
-
-        bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
-
-        field_t<Builder> linear_terms(ctx, bb::fr(0));
-
-        linear_terms += -remainder_prime_limb;
-
-        // This is where we show our identity is zero mod r (to use CRT we show it's zero mod r and mod 2^t)
-        field_t<Builder>::evaluate_polynomial_identity(
-            left[0].prime_basis_limb, right[0].prime_basis_limb, quotient.prime_basis_limb * neg_prime, linear_terms);
-
-        const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
-        const uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
-
-        const bb::fr carry_lo_shift(uint256_t(uint256_t(1) << carry_lo_msb));
-
-        if constexpr (HasPlookup<Builder>) {
-            carry_lo = carry_lo.normalize();
-            carry_hi = carry_hi.normalize();
-            ctx->decompose_into_default_range(carry_lo.get_normalized_witness_index(),
-                                              static_cast<size_t>(carry_lo_msb));
-            ctx->decompose_into_default_range(carry_hi.get_normalized_witness_index(),
-                                              static_cast<size_t>(carry_hi_msb));
-
-        } else {
-            if ((carry_hi_msb + carry_lo_msb) < field_t<Builder>::modulus.get_msb()) {
-                field_t carry_combined = carry_lo + (carry_hi * carry_lo_shift);
-                carry_combined = carry_combined.normalize();
-                const auto accumulators = ctx->decompose_into_base4_accumulators(
-                    carry_combined.get_normalized_witness_index(),
-                    static_cast<size_t>(carry_lo_msb + carry_hi_msb),
-                    "bigfield: carry_combined too large in unsafe_evaluate_multiple_multiply_add.");
-                field_t<Builder> accumulator_midpoint = field_t<Builder>::from_witness_index(
-                    ctx, accumulators[static_cast<size_t>((carry_hi_msb / 2) - 1)]);
-                carry_hi.assert_equal(accumulator_midpoint, "bigfield multiply range check failed");
-            } else {
-                carry_lo = carry_lo.normalize();
-                carry_hi = carry_hi.normalize();
-                ctx->decompose_into_base4_accumulators(
-                    carry_lo.get_normalized_witness_index(),
-                    static_cast<size_t>(carry_lo_msb),
-                    "bigfield: carry_lo too large in unsafe_evaluate_multiple_multiply_add.");
-                ctx->decompose_into_base4_accumulators(
-                    carry_hi.get_normalized_witness_index(),
-                    static_cast<size_t>(carry_hi_msb),
-                    "bigfield: carry_hi too large in unsafe_evaluate_multiple_multiply_add.");
-            }
-        }
     }
+    if (quotient.is_constant()) {
+        quotient = convert_constant_to_fixed_witness(quotient);
+    }
+
+    bool no_remainders = remainders.size() == 0;
+    if (!no_remainders) {
+        limb_0_accumulator.emplace_back(remainders[0].binary_basis_limbs[0].element);
+        limb_2_accumulator.emplace_back(remainders[0].binary_basis_limbs[2].element);
+        prime_limb_accumulator.emplace_back(remainders[0].prime_basis_limb);
+    }
+    for (size_t i = 1; i < remainders.size(); ++i) {
+        limb_0_accumulator.emplace_back(remainders[i].binary_basis_limbs[0].element);
+        limb_0_accumulator.emplace_back(remainders[i].binary_basis_limbs[1].element * shift_1);
+        limb_2_accumulator.emplace_back(remainders[i].binary_basis_limbs[2].element);
+        limb_2_accumulator.emplace_back(remainders[i].binary_basis_limbs[3].element * shift_1);
+        prime_limb_accumulator.emplace_back(remainders[i].prime_basis_limb);
+    }
+    for (const auto& add : to_add) {
+        limb_0_accumulator.emplace_back(-add.binary_basis_limbs[0].element);
+        limb_0_accumulator.emplace_back(-add.binary_basis_limbs[1].element * shift_1);
+        limb_2_accumulator.emplace_back(-add.binary_basis_limbs[2].element);
+        limb_2_accumulator.emplace_back(-add.binary_basis_limbs[3].element * shift_1);
+        prime_limb_accumulator.emplace_back(-add.prime_basis_limb);
+    }
+
+    field_t<Builder> accumulated_lo = field_t<Builder>::accumulate(limb_0_accumulator);
+    field_t<Builder> accumulated_hi = field_t<Builder>::accumulate(limb_2_accumulator);
+    if (accumulated_lo.is_constant()) {
+        accumulated_lo =
+            field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(accumulated_lo.get_value()));
+    }
+    if (accumulated_hi.is_constant()) {
+        accumulated_hi =
+            field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(accumulated_hi.get_value()));
+    }
+    field_t<Builder> remainder1 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
+                                                : remainders[0].binary_basis_limbs[1].element;
+    if (remainder1.is_constant()) {
+        remainder1 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder1.get_value()));
+    }
+    field_t<Builder> remainder3 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
+                                                : remainders[0].binary_basis_limbs[3].element;
+    if (remainder3.is_constant()) {
+        remainder3 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder3.get_value()));
+    }
+    field_t<Builder> remainder_limbs[4]{
+        accumulated_lo,
+        remainder1,
+        accumulated_hi,
+        remainder3,
+    };
+    field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
+
+    bb::non_native_field_witnesses<bb::fr> witnesses{
+        {
+            left[0].binary_basis_limbs[0].element.get_normalized_witness_index(),
+            left[0].binary_basis_limbs[1].element.get_normalized_witness_index(),
+            left[0].binary_basis_limbs[2].element.get_normalized_witness_index(),
+            left[0].binary_basis_limbs[3].element.get_normalized_witness_index(),
+        },
+        {
+            right[0].binary_basis_limbs[0].element.get_normalized_witness_index(),
+            right[0].binary_basis_limbs[1].element.get_normalized_witness_index(),
+            right[0].binary_basis_limbs[2].element.get_normalized_witness_index(),
+            right[0].binary_basis_limbs[3].element.get_normalized_witness_index(),
+        },
+        {
+            quotient.binary_basis_limbs[0].element.get_normalized_witness_index(),
+            quotient.binary_basis_limbs[1].element.get_normalized_witness_index(),
+            quotient.binary_basis_limbs[2].element.get_normalized_witness_index(),
+            quotient.binary_basis_limbs[3].element.get_normalized_witness_index(),
+        },
+        {
+            remainder_limbs[0].get_normalized_witness_index(),
+            remainder_limbs[1].get_normalized_witness_index(),
+            remainder_limbs[2].get_normalized_witness_index(),
+            remainder_limbs[3].get_normalized_witness_index(),
+        },
+        { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
+        modulus,
+    };
+
+    const auto [lo_1_idx, hi_1_idx] = ctx->evaluate_non_native_field_multiplication(witnesses);
+
+    bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
+
+    field_t<Builder>::evaluate_polynomial_identity(left[0].prime_basis_limb,
+                                                   right[0].prime_basis_limb,
+                                                   quotient.prime_basis_limb * neg_prime,
+                                                   -remainder_prime_limb);
+
+    field_t lo = field_t<Builder>::from_witness_index(ctx, lo_1_idx) + borrow_lo;
+    field_t hi = field_t<Builder>::from_witness_index(ctx, hi_1_idx);
+
+    uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
+    uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
+
+    if (max_lo_bits < (2 * NUM_LIMB_BITS)) {
+        carry_lo_msb = 0;
+    }
+    if (max_hi_bits < (2 * NUM_LIMB_BITS)) {
+        carry_hi_msb = 0;
+    }
+
+    // if both the hi and lo output limbs have less than 70 bits, we can use our custom
+    // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
+    if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
+        ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
+                                       lo.get_normalized_witness_index(),
+                                       (size_t)carry_hi_msb,
+                                       (size_t)carry_lo_msb);
+    } else {
+        ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
+        ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
+    }
+    /*  NOTE TO AUDITOR: An extraneous block
+           if constexpr (HasPlookup<Builder>) {
+               carry_lo = carry_lo.normalize();
+               carry_hi = carry_hi.normalize();
+               ctx->decompose_into_default_range(carry_lo.witness_index, static_cast<size_t>(carry_lo_msb));
+               ctx->decompose_into_default_range(carry_hi.witness_index, static_cast<size_t>(carry_hi_msb));
+           }
+        was removed from the `else` block below. See  the conversation at
+           https://github.com/AztecProtocol/aztec2-internal/pull/1023
+        We should make sure that no constraint like this is needed but missing (e.g., an equivalent constraint
+        was just imposed?). */
 }
 
 template <typename Builder, typename T>
