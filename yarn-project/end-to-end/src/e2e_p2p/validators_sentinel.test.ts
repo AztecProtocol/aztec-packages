@@ -117,59 +117,6 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Collected validator stats at block ${t.monitor.l2BlockNumber}`, { stats });
     });
 
-    it("tries to slash the validator that didn't sign proven blocks", async () => {
-      // turn back on block building
-      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
-
-      // wait until we're beyond the second epoch
-      await retryUntil(
-        async () => {
-          const tips = await nodes[0].getL2Tips();
-          return tips.proven.number > 1;
-        },
-        'proven blocks',
-        EPOCH_DURATION * AZTEC_SLOT_DURATION * 2,
-        1,
-      );
-
-      const rollupRaw = getContract({
-        address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        abi: RollupAbi,
-        client: t.ctx.deployL1ContractsValues.l1Client,
-      });
-
-      const rollup = new RollupContract(
-        t.ctx.deployL1ContractsValues.l1Client,
-        t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-      );
-      const slashingProposer = await rollup.getSlashingProposer();
-
-      await retryUntil(
-        async () => {
-          const currentProposer = await rollup.getCurrentProposer();
-          t.logger.verbose(`Current proposer is ${currentProposer}`);
-          const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
-          const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
-          const leaderVotes = await slashingProposer.getProposalVotes(rollup.address, round, roundInfo.leader);
-          t.logger.verbose(`Currently in round ${round}`);
-          t.logger.verbose(`Leader votes: ${leaderVotes}`);
-
-          const slashEvents = await rollupRaw.getEvents.Slashed();
-          return slashEvents.length >= 1;
-        },
-        'slash event',
-        // wait up to 10 full rounds, because we know that 1/5 validators are not voting
-        // so give us some time to make sure we get a round that is majority honest
-        AZTEC_SLOT_DURATION * SLASHING_ROUND_SIZE * 10,
-        1,
-      );
-      const slashEvents = await rollupRaw.getEvents.Slashed();
-      const { attester, amount } = slashEvents[0].args;
-      expect(slashEvents.length).toBe(1);
-      expect(attester?.toLowerCase()).toBe(t.validators.at(-1)!.attester.toLowerCase());
-      expect(amount).toBe(SLASH_AMOUNT);
-    });
-
     it('collects stats on offline validator', () => {
       const offlineValidator = t.validators.at(-1)!.attester.toLowerCase();
       t.logger.info(`Asserting stats for offline validator ${offlineValidator}`);
@@ -240,6 +187,59 @@ describe('e2e_p2p_validators_sentinel', () => {
       expect(stats.stats[newNodeValidator]).toBeDefined();
       expect(stats.stats[newNodeValidator].history.length).toBeGreaterThanOrEqual(1);
       expect(Object.keys(stats.stats).length).toBeGreaterThan(1);
+    });
+
+    it("tries to slash the validator that didn't sign proven blocks", async () => {
+      // turn back on block building
+      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
+
+      // wait until we're beyond the second epoch
+      await retryUntil(
+        async () => {
+          const tips = await nodes[0].getL2Tips();
+          return tips.proven.number > 1;
+        },
+        'proven blocks',
+        EPOCH_DURATION * AZTEC_SLOT_DURATION * 2,
+        1,
+      );
+
+      const rollupRaw = getContract({
+        address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+        abi: RollupAbi,
+        client: t.ctx.deployL1ContractsValues.l1Client,
+      });
+
+      const rollup = new RollupContract(
+        t.ctx.deployL1ContractsValues.l1Client,
+        t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      );
+      const slashingProposer = await rollup.getSlashingProposer();
+
+      await retryUntil(
+        async () => {
+          const currentProposer = await rollup.getCurrentProposer();
+          t.logger.verbose(`Current proposer is ${currentProposer}`);
+          const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
+          const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
+          const leaderVotes = await slashingProposer.getProposalVotes(rollup.address, round, roundInfo.leader);
+          t.logger.verbose(`Currently in round ${round}`);
+          t.logger.verbose(`Leader votes: ${leaderVotes}`);
+
+          const slashEvents = await rollupRaw.getEvents.Slashed();
+          return slashEvents.length >= 1;
+        },
+        'slash event',
+        // wait up to 10 full rounds, because we know that 1/5 validators are not voting
+        // so give us some time to make sure we get a round that is majority honest
+        AZTEC_SLOT_DURATION * SLASHING_ROUND_SIZE * 10,
+        1,
+      );
+      const slashEvents = await rollupRaw.getEvents.Slashed();
+      const { attester, amount } = slashEvents[0].args;
+      expect(slashEvents.length).toBe(1);
+      expect(attester?.toLowerCase()).toBe(t.validators.at(-1)!.attester.toLowerCase());
+      expect(amount).toBe(SLASH_AMOUNT);
     });
   });
 });
