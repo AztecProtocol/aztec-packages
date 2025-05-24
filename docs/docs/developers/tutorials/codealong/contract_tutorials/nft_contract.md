@@ -122,7 +122,6 @@ These functions are useful for getting contract information in another contract 
 
 Internal functions are functions that can only be called by the contract itself. These can be used when the contract needs to call one of it's public functions from one of it's private functions.
 
-- [`_store_payload_in_transient_storage_unsafe`](#_store_payload_in_transient_storage_unsafe) - a public function that is called when preparing a private balance increase. This function handles the needed public state updates.
 - [`finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) - finalizes a transfer from public to private state
 
 ### Utility functions
@@ -261,8 +260,6 @@ This function calls `_prepare_private_balance_increase` which is marked as `#[co
 
 :::
 
-It also calls [`_store_payload_in_transient_storage_unsafe`](#_store_payload_in_transient_storage_unsafe) to store the partial note in "transient storage" (more below)
-
 #include_code prepare_private_balance_increase /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `cancel_authwit`
@@ -286,14 +283,6 @@ Transfers and NFT from private storage to public storage. The private call enque
 ### Internal function implementations
 
 Internal functions are functions that can only be called by this contract. The following 3 functions are public functions that are called from the [private execution context](#execution-contexts). Marking these as `internal` ensures that only the desired private functions in this contract are able to call them. Private functions defer execution to public functions because private functions cannot update public state directly.
-
-#### `_store_payload_in_transient_storage_unsafe`
-
-It is labeled unsafe because the public function does not check the value of the storage slot before writing, but it is safe because of the private execution preceding this call.
-
-This is transient storage since the storage is not permanent, but is scoped to the current transaction only, after which it will be reset. The partial note is stored the "hiding point slot" value (computed in `_prepare_private_balance_increase()`) in public storage. However subsequent enqueued call to `_finalize_transfer_to_private_unsafe()` will read the partial note in this slot, complete it and emit it. Since the note is completed, there is no use of storing the hiding point slot anymore so we will reset to empty. This saves a write to public storage too.
-
-#include_code store_payload_in_transient_storage_unsafe /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `_finalize_transfer_to_private_unsafe`
 
