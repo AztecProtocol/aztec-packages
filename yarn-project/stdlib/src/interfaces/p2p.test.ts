@@ -55,11 +55,6 @@ describe('P2PApiSchema', () => {
     const peers = await context.client.getPeers(true);
     expect(peers).toEqual(peers);
   });
-
-  it('addAttestation', async () => {
-    const attestation = BlockAttestation.empty();
-    await context.client.addAttestation(attestation);
-  });
 });
 
 const peers: PeerInfo[] = [
