@@ -1,21 +1,22 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "useDefineForClassFields": true,
-    "module": "ESNext",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "skipLibCheck": true,
-
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "isolatedModules": true,
-    "moduleDetection": "force",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "noEmit": true,
-
-    /* Linting */
-    "strict": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "composite": true,
+    "verbatimModuleSyntax": true,
+    "useDefineForClassFields": true,
+    "allowImportingTsExtensions": true,
     "allowArbitraryExtensions": true
   },
-  "include": ["app"]
+  "include": [
+    "app/**/*.ts",
+    "tests/**/*.ts",
+    "scripts/**/*.ts"
+  ],
+  "exclude": ["app/vite.config.ts"]
 }

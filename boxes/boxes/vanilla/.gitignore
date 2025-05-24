@@ -23,10 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
-app/scripts/.store
-app/deployed-contract.json
-app/wallet-info.json
-app/artifacts
+tsconfig.tsbuildinfo
+
+scripts/.store
+deployed-contract.json
+wallet-info.json
 
 contracts/target
 codegenCache.json

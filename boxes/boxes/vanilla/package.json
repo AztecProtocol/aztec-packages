@@ -7,23 +7,29 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "clean": "rm -rf contracts/target codegenCache.json",
+    "clean": "rm -rf app/dist contracts/target contracts/codegenCache.json",
     "compile-contracts": "cd contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
     "codegen-contracts": "cd contracts && ${AZTEC_BUILDER:-aztec} codegen ./target -o ./target",
-    "copy-artifacts": "mkdir -p app/artifacts && cp contracts/target/*.{json,ts} app/artifacts",
+    "copy-artifacts": "cp contracts/target/*.json contracts/target/*.ts app/artifacts",
     "build-contracts": "yarn clean && yarn compile-contracts && yarn codegen-contracts && yarn copy-artifacts",
-    "deploy-contracts": "tsx scripts/deploy.ts",
-    "dev": "vite",
-    "build": "yarn build-contracts && yarn deploy-contracts && tsc && vite build",
+    "deploy-contracts": "tsx scripts/deploy.ts && cp deployed-contract.json app/public",
+    "dev": "vite --config app/vite.config.ts",
+    "build-app": "tsc && vite --config app/vite.config.ts build",
+    "build": "yarn build-contracts && yarn build-app",
     "serve": "vite preview --port ${PORT:-3000} --host 0.0.0.0",
-    "test": "playwright test",
+    "pretest": "yarn playwright install",
+    "test": "PROVER_ENABLED=false yarn deploy-contracts && playwright test",
     "lint": "prettier --check ./src"
   },
   "dependencies": {
     "@aztec/accounts": "latest",
     "@aztec/aztec.js": "latest",
+    "@aztec/constants": "latest",
+    "@aztec/foundation": "latest",
+    "@aztec/kv-store": "latest",
     "@aztec/noir-contracts.js": "latest",
-    "@aztec/pxe": "latest"
+    "@aztec/pxe": "latest",
+    "@aztec/stdlib": "latest"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
@@ -31,7 +37,7 @@
     "prettier": "^3.5.3",
     "tsx": "^4.19.4",
     "typescript": "~5.7.2",
-    "vite": "^6.2.0",
+    "vite": "^6.3.2",
     "vite-plugin-node-polyfills": "^0.23.0"
   },
   "prettier": {

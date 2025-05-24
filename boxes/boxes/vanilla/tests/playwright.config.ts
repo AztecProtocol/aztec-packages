@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  testDir: './tests',
+  testDir: './',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   workers: process.env.WORKERS ? parseInt(process.env.WORKERS) : 1,

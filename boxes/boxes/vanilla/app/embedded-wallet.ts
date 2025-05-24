@@ -14,7 +14,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { getEcdsaRAccount } from '@aztec/accounts/ecdsa/lazy';
 import { getPXEServiceConfig } from '@aztec/pxe/config';
 import { createPXEService } from '@aztec/pxe/client/lazy';
-import { ContractArtifact, getDefaultInitializer } from '@aztec/stdlib/abi';
+import { type ContractArtifact, getDefaultInitializer } from '@aztec/stdlib/abi';
 
 const logger = createLogger('wallet');
 const LocalStorageKey = 'aztec-account';
@@ -34,7 +34,7 @@ export class EmbeddedWallet {
     // Create PXE Service
     const config = getPXEServiceConfig();
     config.l1Contracts = await aztecNode.getL1ContractAddresses();
-    // config.proverEnabled = false;
+    config.proverEnabled = false;
     this.pxe = await createPXEService(aztecNode, config);
 
     // Register Sponsored FPC Contract with PXE

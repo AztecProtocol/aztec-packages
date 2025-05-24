@@ -7,16 +7,15 @@ import {
   Fr,
   getContractInstanceFromDeployParams,
   PublicKeys,
-  PXE,
+  type PXE,
   SponsoredFeePaymentMethod,
-  Wallet,
+  type Wallet,
 } from '@aztec/aztec.js';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { getEcdsaRAccount } from '@aztec/accounts/ecdsa/lazy';
 import { createStore } from '@aztec/kv-store/lmdb';
-import { randomBytes } from '@aztec/foundation/crypto';
 import { getDefaultInitializer } from '@aztec/stdlib/abi';
-import { EasyPrivateVotingContract } from '../artifacts/EasyPrivateVoting.js';
+import { EasyPrivateVotingContract } from '../app/artifacts/EasyPrivateVoting.js';
 import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 
@@ -62,9 +61,9 @@ async function getSponsoredPFCContract() {
 }
 
 async function createAccount(pxe: PXE) {
-  const salt = Fr.random();
-  const secretKey = Fr.random();
-  const signingKey = randomBytes(32);
+  const salt = Fr.fromString('0x1');
+  const secretKey = Fr.fromString('0x1');
+  const signingKey = Buffer.alloc(32, 1);
   const ecdsaAccount = await getEcdsaRAccount(pxe, secretKey, signingKey, salt);
 
   const deployMethod = await ecdsaAccount.getDeployMethod();
@@ -168,7 +167,7 @@ async function createAccountAndDeployContract() {
   // Deploy the contract
   const deploymentInfo = await deployContract(pxe, wallet);
 
-  // Save the deployment info
+  // Save the deployment info to app/public
   const outputPath = path.join(
     import.meta.dirname,
     '../deployed-contract.json'

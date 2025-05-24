@@ -1,14 +1,11 @@
-import { AztecAddress, Fr, Wallet, type AccountWallet } from '@aztec/aztec.js';
-import { EmbeddedWallet } from './embedded-wallet.ts';
-import { EasyPrivateVotingContract } from '../artifacts/EasyPrivateVoting.ts';
-import deploymentInfo from '../deployed-contract.json';
-
-// Local variables
-let wallet: EmbeddedWallet;
-const nodeUrl = import.meta.env.VITE_AZTEC_NODE_URL;
-const votingContractDeployer = deploymentInfo.deployerAddress;
-const votingContractSalt = deploymentInfo.deploymentSalt;
-const votingContractAddress = deploymentInfo.contractAddress;
+import {
+  AztecAddress,
+  Fr,
+  type Wallet,
+  type AccountWallet,
+} from '@aztec/aztec.js';
+import { EmbeddedWallet } from './embedded-wallet';
+import { EasyPrivateVotingContract } from './artifacts/EasyPrivateVoting';
 
 // DOM Elements
 const createAccountButton =
@@ -22,6 +19,11 @@ const statusMessage =
   document.querySelector<HTMLDivElement>('#status-message')!;
 const voteResults = document.querySelector<HTMLDivElement>('#vote-results')!;
 
+// Local variables
+let wallet: EmbeddedWallet;
+let votingContractAddress: string;
+const nodeUrl = "http://localhost:8080";
+
 // On page load
 document.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -31,12 +33,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     await wallet.initialize();
 
     // Register voting contract with wallet/PXE
-    displayStatusMessage('Registering Private Counter...');
+    displayStatusMessage('Registering contracts...');
+    const response = await fetch('./deployed-contract.json');
+    const deployedContracts = await response.json();
+    if (!deployedContracts) {
+      throw new Error('Failed to fetch deployment data');
+    }
+    votingContractAddress = deployedContracts.contractAddress;
+
     await wallet.registerContract(
       EasyPrivateVotingContract.artifact,
-      AztecAddress.fromString(votingContractDeployer),
-      Fr.fromString(votingContractSalt),
-      [AztecAddress.fromString(votingContractDeployer)]
+      AztecAddress.fromString(deployedContracts.deployerAddress),
+      Fr.fromString(deployedContracts.deploymentSalt),
+      [AztecAddress.fromString(deployedContracts.contractAddress)]
     );
 
     // Get existing account
