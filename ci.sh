@@ -270,7 +270,7 @@ case "$cmd" in
       echo "Not connected to CI redis."
       exit 1
     fi
-    ./bootstrap.sh test_cmds | \
+    (./bootstrap.sh test_cmds || exit 1) | \
        grep -Ev -f <(yq e '.tests[] | select(.skip == true) | .regex' $root/.test_patterns.yml) | \
        USE_TEST_CACHE=1 filter_cached_test_cmd
     ;;

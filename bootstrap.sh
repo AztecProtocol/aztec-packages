@@ -275,7 +275,7 @@ function bench {
   fi
   echo_header "bench all"
   find . -type d -iname bench-out | xargs rm -rf
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  (bench_cmds || exit 1) | STRICT_SCHEDULING=1 parallelise
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
