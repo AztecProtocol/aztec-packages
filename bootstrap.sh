@@ -253,8 +253,7 @@ function build_bench {
     return
   fi
   parallel --line-buffer --tag --halt now,fail=1 'denoise "{}/bootstrap.sh build_bench"' ::: \
-    barretenberg/cpp \
-    yarn-project/end-to-end
+    barretenberg/cpp
 }
 export -f build_bench
 
