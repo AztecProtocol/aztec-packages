@@ -1,0 +1,180 @@
+include "public_inputs.pil";
+include "execution.pil";
+
+namespace tx;
+
+    pol commit sel;
+    sel * (1 - sel) = 0;
+    #[skippable_if]
+    sel = 0;
+
+    pol commit phase_value;
+    pol commit is_active; // remaining_phase != 0;
+    pol commit start_phase;
+    pol commit end_phase;
+    // end_phase = 1, remaining_phase - 1 = 0;
+    pol commit is_revertible;
+    pol commit reverted;
+    // phase_value stays the same unless we are at end_phase or reverted
+    (1 - reverted) * (1 - end_phase) * (phase_value' - phase_value) = 0;
+    (1 - reverted) * end_phase * (phase_value' - phase_value - 1) = 0;
+    // If reverted == 1, is_revertible == 1
+
+    // Control flow
+    pol commit read_pi_offset;
+    pol commit write_pi_offset;
+    pol commit read_pi_length_offset;
+    pol commit remaining_phase_inv;
+    pol commit remaining_phase_events;
+    
+    #[READ_PHASE_TABLE]
+    start_phase { 
+        phase_value, 
+        is_public_call_request, 
+        is_l2_l1_msg_phase,
+        /* Tree Padding Phase */
+        is_collect_fee,
+
+        is_revertible,
+        read_pi_offset,
+        read_pi_length_offset,
+        write_pi_offset,
+        sel_non_revertible_append_note_hash,
+        sel_non_revertible_append_nullifier,
+        sel_revertible_append_note_hash,
+        sel_revertible_append_nullifier
+    }
+    in
+    precomputed.phase_sel {
+        precomputed.phase_value, 
+        precomputed.is_public_call_request_phase,
+        precomputed.is_l2_l1_message_phase,
+        /* Tree Padding Phase */
+        precomputed.sel_collect_fee,
+
+        precomputed.is_revertible,
+        precomputed.read_public_input_offset,
+        precomputed.read_public_input_length_offset,
+        precomputed.write_public_input_offset,
+        precomputed.sel_non_revertible_append_note_hash,
+        precomputed.sel_non_revertible_append_nullifier,
+        precomputed.sel_revertible_append_note_hash,
+        precomputed.sel_revertible_append_nullifier
+    };
+
+    #[PHASE_JUMP_ON_REVERT]
+    reverted { phase_value, phase_value' } in
+    precomputed.phase_sel { precomputed.phase_value, precomputed.next_phase_on_revert};
+
+    // === LENGTH STUFF === Read the number of steps in the phase
+    #[READ_PHASE_LENGTH]
+    start_phase { read_pi_length_offset, remaining_phase_events } in
+    public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+
+    #[DECR_REM_PHASE_EVENTS]
+    sel * (1 - end_phase) * (remaining_phase_events' - (remaining_phase_events - 1)) = 0;
+
+    #[INCR_READ_PI_OFFSET]
+    sel * (1 - end_phase) * (read_pi_offset' - (read_pi_offset + 1)) = 0;
+
+    // === Public Call Request Phase ===
+    pol commit is_public_call_request;
+    #[READ_PUBLIC_CALL_REQUEST_PHASE]
+    is_public_call_request {
+        read_pi_offset,
+        msg_sender,
+        contract_addr,
+        is_static,
+        calldata_hash
+    } in
+    public_inputs.sel { 
+        precomputed.clk,
+        public_inputs.cols[0],
+        public_inputs.cols[1],
+        public_inputs.cols[2],
+        public_inputs.cols[3]
+    };
+
+    pol commit msg_sender;
+    pol commit contract_addr;
+    pol commit is_static;
+    pol commit calldata_hash;
+
+    pol commit context_id; // Constrain
+    pol commit next_context_id;
+
+    #[DISPATCH_EXEC_START]
+    is_public_call_request { context_id, next_context_id, msg_sender, contract_addr, is_static } in
+    execution.enqueued_call_start { execution.context_id, execution.next_context_id, execution.msg_sender, execution.contract_address, execution.is_static };
+
+    #[DISPATCH_EXEC_GET_REVERT]
+    is_public_call_request { context_id, reverted } in
+    execution.enqueued_call_end { execution.context_id, execution.sel_error };
+
+    // === Tree Insertion Values for tree
+    pol commit sel_revertible_append_note_hash;
+    pol commit sel_non_revertible_append_note_hash;
+    pol commit sel_revertible_append_nullifier;
+    pol commit sel_non_revertible_append_nullifier;
+    // A tree selector means we need to get the tree value
+    pol commit is_tree_insert_phase;
+    is_tree_insert_phase  = sel_revertible_append_note_hash + sel_non_revertible_append_note_hash + sel_revertible_append_nullifier + sel_non_revertible_append_nullifier;
+    pol commit leaf_value;
+
+    #[READ_TREE_INSERT_VALUE]
+    is_tree_insert_phase { read_pi_offset, leaf_value } in
+    public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+
+    // Previous Tree State
+    pol commit prev_note_hash_tree_root;
+    pol commit prev_note_hash_tree_size;
+    pol commit prev_num_note_hashes_emitted;
+
+    pol commit prev_nullifier_tree_root;
+    pol commit prev_nullifier_tree_size;
+    pol commit prev_num_nullifiers_emitted;
+
+    pol commit prev_public_data_tree_root;
+    pol commit prev_public_data_tree_size;
+    pol commit prev_num_pub_data_writes_emitted;
+
+    pol commit prev_l1_l2_tree_root;
+    pol commit prev_l1_l2_tree_size;
+
+    // Next Tree State
+    pol commit next_note_hash_tree_root;
+    pol commit next_note_hash_tree_size;
+    pol commit next_num_note_hashes_emitted;
+
+    pol commit next_nullifier_tree_root;
+    pol commit next_nullifier_tree_size;
+    pol commit next_num_nullifiers_emitted;
+
+    pol commit next_public_data_tree_root;
+    pol commit next_public_data_tree_size;
+    pol commit next_num_pub_data_writes_emitted;
+
+    pol commit next_l1_l2_tree_root;
+    pol commit next_l1_l2_tree_size;
+
+    // L2 - L1 Messages
+    pol commit is_l2_l1_msg_phase;
+    pol commit l2_l1_msg_contract_address;
+    pol commit l2_l1_msg_recipient;
+    pol commit l2_l1_msg_content;
+    pol commit l2_l1_msg_counter;
+
+    #[READ_L2_L1_MSG]
+    is_l2_l1_msg_phase { read_pi_offset, l2_l1_msg_contract_address, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_counter } in
+    public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2], public_inputs.cols[3] };
+
+    // Collect Gas
+    pol commit is_collect_fee;
+    pol commit fee_per_da_gas;
+    pol commit fee_per_l2_gas;
+
+    pol commit max_fee_per_da_gas;
+    pol commit max_fee_per_l2_gas;
+
+    pol commit max_priority_fees_per_l2_gas;
+    pol commit max_priority_fees_per_da_gas;

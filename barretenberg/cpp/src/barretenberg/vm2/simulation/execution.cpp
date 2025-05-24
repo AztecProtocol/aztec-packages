@@ -65,7 +65,7 @@ void Execution::call(ContextInterface& context,
     // TODO clamp the gas limits based on available gas
 
     // Cd size and cd offset loads are deferred to (possible) calldatacopy
-    auto nested_context = execution_components.make_nested_context(
+    auto nested_context = context_provider.make_nested_context(
         contract_address,
         /*msg_sender=*/context.get_address(),
         /*parent_context=*/context,
@@ -140,7 +140,7 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         try {
             // State before doing anything.
             ex_event.before_context_event = context.serialize_context_event();
-            ex_event.next_context_id = execution_components.get_next_context_id();
+            ex_event.next_context_id = context_provider.get_next_context_id();
 
             // Basic pc and bytecode setup.
             auto pc = context.get_pc();
@@ -203,7 +203,7 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
 {
     ctx_stack_events.emit({ .id = parent_context.get_context_id(),
                             .parent_id = parent_context.get_parent_id(),
-                            .entered_context_id = execution_components.get_next_context_id(),
+                            .entered_context_id = context_provider.get_next_context_id(),
                             .next_pc = parent_context.get_next_pc(),
                             .msg_sender = parent_context.get_msg_sender(),
                             .contract_addr = parent_context.get_address(),

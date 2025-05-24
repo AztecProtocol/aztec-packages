@@ -1,9 +1,53 @@
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
+
 #include <algorithm>
+
+#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/events/tx_events.hpp"
 
 namespace bb::avm2::simulation {
 
+void TxExecution::emit_public_call_request(ContextInterface& context,
+                                           const ExecutionResult& result,
+                                           TreeStates&& prev_tree_state,
+                                           TransactionPhase phase)
+{
+    events.emit(TxEvent{ .phase = phase,
+                         .prev_tree_state = std::move(prev_tree_state),
+                         .next_tree_state = merkle_db.get_tree_state(),
+                         .event = PhaseEvent{
+                             .msg_sender = context.get_msg_sender(),
+                             .contract_address = context.get_address(),
+                             .is_static = context.get_is_static(),
+                             .calldata_hash = FF(0), // TODO: This should be the hash of the calldata
+                             .success = result.success,
+                             // We need more things here
+                             // Gas
+                             // PublicLogs counter
+                         } });
+}
+
+void TxExecution::emit_private_append_tree(const FF& leaf_value, uint64_t size, TransactionPhase phase)
+{
+    events.emit(TxEvent{
+        .phase = phase,
+        .prev_tree_state = merkle_db.get_tree_state(),
+        .next_tree_state = merkle_db.get_tree_state(),
+        .event =
+            PrivateAppendTreeEvent{
+                .leaf_value = leaf_value,
+                .size = size,
+            },
+    });
+}
+
+// Simulates the entire transaction execution phases.
+// There are multiple distinct transaction phases that are executed in order:
+// (1) Non-revertible insertions of nullifiers, note hashes, and L2 to L1 messages.
+// (2) Setup phase, where the setup enqueued calls are executed.
+// (3) Revertible insertions of nullifiers, note hashes, and L2 to L1 messages.
+// (4) App logic phase, where the app logic enqueued calls are executed.
 void TxExecution::simulate(const Tx& tx)
 {
     Gas tx_gas_limit = tx.gasSettings.gasLimits;
@@ -23,9 +67,7 @@ void TxExecution::simulate(const Tx& tx)
          " app logic enqueued calls, and ",
          tx.teardownEnqueuedCall ? "1 teardown enqueued call" : "no teardown enqueued call");
 
-    // TODO: This method is currently wrong. We need to lift the context to this level.
     // TODO: Checkpointing is not yet correctly implemented.
-
     try {
         // Insert non-revertibles.
         insert_non_revertibles(tx);
@@ -33,10 +75,12 @@ void TxExecution::simulate(const Tx& tx)
         // Setup.
         for (const auto& call : tx.setupEnqueuedCalls) {
             info("[SETUP] Executing enqueued call to ", call.contractAddress);
-            auto context = make_enqueued_context(
+            TreeStates prev_tree_state = merkle_db.get_tree_state();
+            auto context = context_provider.make_enqueued_context(
                 call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
             ExecutionResult result = call_execution.execute(std::move(context));
             gas_used = result.gas_used;
+            emit_public_call_request(*context, result, std::move(prev_tree_state), TransactionPhase::SETUP);
         }
 
         try {
@@ -48,10 +92,12 @@ void TxExecution::simulate(const Tx& tx)
             // App logic.
             for (const auto& call : tx.appLogicEnqueuedCalls) {
                 info("[APP_LOGIC] Executing enqueued call to ", call.contractAddress);
-                auto context = make_enqueued_context(
+                TreeStates prev_tree_state = merkle_db.get_tree_state();
+                auto context = context_provider.make_enqueued_context(
                     call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
                 ExecutionResult result = call_execution.execute(std::move(context));
                 gas_used = result.gas_used;
+                emit_public_call_request(*context, result, std::move(prev_tree_state), TransactionPhase::APP_LOGIC);
             }
         } catch (const std::exception& e) {
             // TODO: revert the checkpoint.
@@ -62,13 +108,15 @@ void TxExecution::simulate(const Tx& tx)
         if (tx.teardownEnqueuedCall) {
             try {
                 info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->contractAddress);
-                auto context = make_enqueued_context(tx.teardownEnqueuedCall->contractAddress,
-                                                     tx.teardownEnqueuedCall->msgSender,
-                                                     tx.teardownEnqueuedCall->calldata,
-                                                     tx.teardownEnqueuedCall->isStaticCall,
-                                                     tx.gasSettings.teardownGasLimits,
-                                                     Gas{ 0, 0 });
-                call_execution.execute(std::move(context));
+                TreeStates prev_tree_state = merkle_db.get_tree_state();
+                auto context = context_provider.make_enqueued_context(tx.teardownEnqueuedCall->contractAddress,
+                                                                      tx.teardownEnqueuedCall->msgSender,
+                                                                      tx.teardownEnqueuedCall->calldata,
+                                                                      tx.teardownEnqueuedCall->isStaticCall,
+                                                                      tx.gasSettings.teardownGasLimits,
+                                                                      Gas{ 0, 0 });
+                ExecutionResult result = call_execution.execute(std::move(context));
+                emit_public_call_request(*context, result, std::move(prev_tree_state), TransactionPhase::TEARDOWN);
             } catch (const std::exception& e) {
                 info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
             }
@@ -82,33 +130,79 @@ void TxExecution::simulate(const Tx& tx)
     }
 }
 
-// This is effectively just calling into the execution provider
-std::unique_ptr<ContextInterface> TxExecution::make_enqueued_context(AztecAddress address,
-                                                                     AztecAddress msg_sender,
-                                                                     std::span<const FF> calldata,
-                                                                     bool is_static,
-                                                                     Gas gas_limit,
-                                                                     Gas gas_used)
-{
-    auto& execution_provider = call_execution.get_provider();
-    return execution_provider.make_enqueued_context(address, msg_sender, calldata, is_static, gas_limit, gas_used);
-}
-
+// TODO: How to increment the context id here?
 void TxExecution::insert_non_revertibles(const Tx& tx)
 {
+    auto prev_tree_state = merkle_db.get_tree_state();
     // 1. Write the already siloed nullifiers.
     for (const auto& nullifier : tx.nonRevertibleAccumulatedData.nullifiers) {
         merkle_db.nullifier_write(nullifier);
+
+        auto next_tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::NR_NULLIFIER_INSERTION,
+                             .prev_tree_state = prev_tree_state,
+                             .next_tree_state = next_tree_state,
+                             .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
+        prev_tree_state = next_tree_state;
     }
-    // 2. Write the note hashes.
-    // 3. Write the new contracts.
+
+    // 2. Write already unique note hashes.
+    for (const auto& note_hash : tx.nonRevertibleAccumulatedData.noteHashes) {
+        merkle_db.note_hash_write(note_hash);
+
+        auto next_tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::NR_NOTE_INSERTION,
+                             .prev_tree_state = prev_tree_state,
+                             .next_tree_state = next_tree_state,
+                             .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
+        prev_tree_state = next_tree_state;
+    }
+    // 3. Write l2_l1 messages
+    for (const auto& l2_to_l1_msg : tx.nonRevertibleAccumulatedData.l2ToL1Messages) {
+        // Tree state does not change when writing L2 to L1 messages.
+        auto tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::NR_L2_TO_L1_MESSAGE,
+                             .prev_tree_state = tree_state,
+                             .next_tree_state = tree_state,
+                             .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_msg } });
+    }
 }
 
-void TxExecution::insert_revertibles(const Tx&)
+// TODO: Error Handling
+void TxExecution::insert_revertibles(const Tx& tx)
 {
+    auto prev_tree_state = merkle_db.get_tree_state();
     // 1. Write the nullifiers.
+    for (const auto& nullifier : tx.revertibleAccumulatedData.nullifiers) {
+        merkle_db.nullifier_write(nullifier);
+
+        auto next_tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::R_NULLIFIER_INSERTION,
+                             .prev_tree_state = prev_tree_state,
+                             .next_tree_state = next_tree_state,
+                             .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
+        prev_tree_state = next_tree_state;
+    }
     // 2. Write the note hashes.
-    // 3. Write the new contracts.
+    for (const auto& note_hash : tx.revertibleAccumulatedData.noteHashes) {
+        merkle_db.note_hash_write(note_hash);
+
+        auto next_tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::R_NOTE_INSERTION,
+                             .prev_tree_state = prev_tree_state,
+                             .next_tree_state = next_tree_state,
+                             .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
+        prev_tree_state = next_tree_state;
+    }
+    // 3. Write L2 to L1 messages.
+    for (const auto& l2_to_l1_msg : tx.revertibleAccumulatedData.l2ToL1Messages) {
+        // Tree state does not change when writing L2 to L1 messages.
+        auto tree_state = merkle_db.get_tree_state();
+        events.emit(TxEvent{ .phase = TransactionPhase::R_L2_TO_L1_MESSAGE,
+                             .prev_tree_state = tree_state,
+                             .next_tree_state = tree_state,
+                             .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_msg } });
+    }
 }
 
 } // namespace bb::avm2::simulation
