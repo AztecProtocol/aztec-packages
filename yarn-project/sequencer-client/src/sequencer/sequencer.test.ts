@@ -12,6 +12,7 @@ import { TestDateProvider, type Timer } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import type { SlasherClient } from '@aztec/slasher';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
@@ -30,8 +31,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockAttestation, BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { MerkleTreeId } from '@aztec/stdlib/trees';
-import { type Tx, TxHash, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
-import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, type Tx, TxHash, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
@@ -39,7 +39,6 @@ import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import type { SlasherClient } from '../slasher/index.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 

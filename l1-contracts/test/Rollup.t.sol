@@ -588,8 +588,6 @@ contract RollupTest is RollupBase {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: blockLog.archive,
       endArchive: data.archive,
-      endTimestamp: Timestamp.wrap(0),
-      outHash: bytes32(0),
       proverId: address(0)
     });
 
@@ -781,13 +779,8 @@ contract RollupTest is RollupBase {
     address _coinbase,
     uint256 _fee
   ) internal {
-    PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: _prevArchive,
-      endArchive: _archive,
-      endTimestamp: Timestamp.wrap(0),
-      outHash: bytes32(0),
-      proverId: _prover
-    });
+    PublicInputArgs memory args =
+      PublicInputArgs({previousArchive: _prevArchive, endArchive: _archive, proverId: _prover});
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     fees[0] = bytes32(uint256(uint160(bytes20(_coinbase)))); // Need the address to be left padded within the bytes32

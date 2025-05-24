@@ -5,17 +5,17 @@
 ## Fields
 | Field | Type |
 | --- | --- |
-| pub log_content | BoundedVec&lt;Field, PUBLIC_LOG_DATA_SIZE_IN_FIELDS&gt; |
+| pub log_content | BoundedVec&lt;Field, PUBLIC_LOG_SIZE_IN_FIELDS + 1&gt; |
 | pub tx_hash | Field |
 | pub unique_note_hashes_in_tx | BoundedVec&lt;Field, MAX_NOTE_HASHES_PER_TX&gt; |
 | pub first_nullifier_in_tx | Field |
 
 ## Standalone Functions
 
-### sync_notes
+### sync_private_state
 
 ```rust
-sync_notes(pending_tagged_log_array_base_slot);
+sync_private_state(pending_tagged_log_array_base_slot);
 ```
 
 #### Parameters
@@ -23,10 +23,10 @@ sync_notes(pending_tagged_log_array_base_slot);
 | --- | --- |
 | pending_tagged_log_array_base_slot | Field |
 
-### sync_notes_oracle
+### sync_private_state_oracle
 
 ```rust
-sync_notes_oracle(pending_tagged_log_array_base_slot);
+sync_private_state_oracle(pending_tagged_log_array_base_slot);
 ```
 
 #### Parameters

@@ -79,6 +79,7 @@ library Errors {
   error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
   error Rollup__ManaLimitExceeded();
+  error Rollup__RewardsNotClaimable();
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247

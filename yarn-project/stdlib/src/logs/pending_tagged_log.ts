@@ -5,7 +5,7 @@ import type { AztecAddress } from '../aztec-address/index.js';
 import type { TxHash } from '../tx/tx_hash.js';
 
 /**
- * Represents a pending tagged log as it is stored in the pending tagged log array to which the syncNotes oracle
+ * Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle
  * inserts found private logs. A TS version of `pending_tagged_log.nr`.
  */
 export class PendingTaggedLog {

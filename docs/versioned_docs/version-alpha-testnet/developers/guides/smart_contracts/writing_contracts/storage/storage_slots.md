@@ -7,15 +7,15 @@ From the description of storage slots [in the Concepts](../../../../../aztec/con
 
 For the case of the example, we will look at what is inserted into the note hashes tree when adding a note in the Token contract. Specifically, we are looking at the last part of the `transfer` function:
 
-```rust title="increase_private_balance" showLineNumbers
+```rust title="increase_private_balance" showLineNumbers 
 storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
     &mut context,
     from,
     from,
 ));
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L374-L380" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L374-L380</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L374-L380" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L374-L380</a></sub></sup>
 
 This function is creating a new note and inserting it into the balance set of the recipient `to`. Recall that to ensure privacy, only the note hash is really inserted into the note hashes tree. To share the contents of the note with `to` the contract can emit an encrypted log (which this one does), or it can require an out-of-band data transfer sharing the information. Below, we will walk through the steps of how the note hash is computed and inserted into the tree. For this, we don't care about the encrypted log, so we are going to ignore that part of the function call for now.
 
@@ -56,7 +56,7 @@ siloed_note_hash = H(contract_address, H(H(tx_hash, note_index_in_tx), note_hash
 siloed_note_hash = H(contract_address, H(H(tx_hash, note_index_in_tx), MSM([G_amt, G_to, G_rand, G_slot], [amount, to, randomness, derived_slot]).x))
 ```
 
-MSM is a multi scalar multiplication on a grumpkin curve and G\_\* values are generators.
+MSM is a multi scalar multiplication on a grumpkin curve and G_* values are generators.
 
 And `to` is the actor who receives the note, `amount` of the note and `randomness` is the randomness used to make the note hiding. Without the `randomness` the note could just as well be plaintext (computational cost of a preimage attack would be trivial in such a case).
 
