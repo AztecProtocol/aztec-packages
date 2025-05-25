@@ -35,6 +35,10 @@ export class DebugLog extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
+
     const operands = [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
     const [messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.UINT32, fieldsSizeOffset);
@@ -60,9 +64,5 @@ export class DebugLog extends Instruction {
 
       DebugLog.logger.verbose(formattedStr);
     }
-
-    // Despite having dynamic "size" operands, the gas cost is fixed because
-    // this opcode is a no-op except during client-initiated simulation
-    context.machineState.consumeGas(this.gasCost());
   }
 }

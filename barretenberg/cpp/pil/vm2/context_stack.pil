@@ -20,3 +20,9 @@ namespace context_stack;
 
     pol commit parent_calldata_offset_addr;
     pol commit parent_calldata_size_addr;
+
+    pol commit parent_l2_gas_limit;
+    pol commit parent_da_gas_limit;
+
+    pol commit parent_l2_gas_used;
+    pol commit parent_da_gas_used;

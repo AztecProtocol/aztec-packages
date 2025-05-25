@@ -3,15 +3,15 @@ import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { AvmProvingTesterV2 } from './avm_proving_tester.js';
+import { AvmProvingTester } from './avm_proving_tester.js';
 
-describe('AVM v2', () => {
+describe('AVM bulk test', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
-  let tester: AvmProvingTesterV2;
+  let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTesterV2.new();
+    tester = await AvmProvingTester.new();
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),
@@ -19,7 +19,7 @@ describe('AVM v2', () => {
     );
   });
 
-  it('bulk_testing v2', async () => {
+  it('Prove and verify', async () => {
     // Get a deployed contract instance to pass to the contract
     // for it to use as "expected" values when testing contract instance retrieval.
     const expectContractInstance = avmTestContractInstance;
@@ -34,7 +34,7 @@ describe('AVM v2', () => {
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
     ];
 
-    await tester.simProveVerifyV2(
+    await tester.simProveVerify(
       sender,
       /*setupCalls=*/ [],
       /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'bulk_testing', args }],
