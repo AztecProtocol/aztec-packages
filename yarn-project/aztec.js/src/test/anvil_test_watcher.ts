@@ -22,10 +22,7 @@ export class AnvilTestWatcher {
 
   private rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
   private rollupCheatCodes: RollupCheatCodes;
-  private config!: {
-    epochDuration: bigint;
-    slotDuration: bigint;
-  };
+  private l2SlotDuration!: bigint;
 
   private filledRunningPromise?: RunningPromise;
   private syncDateProviderPromise?: RunningPromise;
@@ -67,7 +64,8 @@ export class AnvilTestWatcher {
       throw new Error('Watcher already watching for filled slot');
     }
 
-    this.config = await this.rollupCheatCodes.getConfig();
+    const config = await this.rollupCheatCodes.getConfig();
+    this.l2SlotDuration = config.slotDuration;
 
     // If auto mining is not supported (e.g., we are on a real network), then we
     // will simple do nothing. But if on an anvil or the like, this make sure that
@@ -118,7 +116,7 @@ export class AnvilTestWatcher {
     if (l1Time > wallTime) {
       this.logger.warn(`L1 is ahead of wall time. Syncing wall time to L1 time`);
       this.dateProvider.setTime(l1Time);
-    } else if (l1Time + Number(this.config.slotDuration) * 1000 < wallTime) {
+    } else if (l1Time + Number(this.l2SlotDuration) * 1000 < wallTime) {
       this.logger.warn(`L1 is more than 1 L2 slot behind wall time. Warping to wall time`);
       await this.cheatcodes.warp(Math.ceil(wallTime / 1000));
     }
