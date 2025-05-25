@@ -20,7 +20,9 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup();
+    test = await EpochsTestContext.setup({
+      ethereumSlotDuration: 4,
+    });
     ({ context, rollup, logger, monitor, L1_BLOCK_TIME_IN_S } = test);
   });
 
