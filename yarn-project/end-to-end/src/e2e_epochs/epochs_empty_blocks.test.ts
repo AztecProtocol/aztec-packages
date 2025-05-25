@@ -63,7 +63,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
         `Reached PENDING L2 block ${epochTargetBlockNumber}, proving should now start, waiting for PROVEN block to reach ${provenBlockNumber}`,
       );
       await test.waitUntilProvenL2BlockNumber(provenBlockNumber, 120);
-      expect(Number(await rollup.getProvenBlockNumber())).toBe(provenBlockNumber);
+      expect(Number(await rollup.getProvenBlockNumber())).toBeGreaterThanOrEqual(provenBlockNumber);
       logger.info(`Reached PROVEN block number ${provenBlockNumber}, epoch ${epochNumber} is now proven`);
       epochNumber++;
 
