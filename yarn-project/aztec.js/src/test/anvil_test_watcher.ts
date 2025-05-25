@@ -112,6 +112,9 @@ export class AnvilTestWatcher {
     if (l1Time > wallTime) {
       this.logger.warn(`L1 is ahead of wall time. Syncing wall time to L1 time`);
       this.dateProvider.setTime(l1Time);
+    } else if (l1Time + 24 * 1000 < wallTime) {
+      this.logger.warn(`L1 is more than 24 seconds behind wall time. Warping to wall time`);
+      await this.cheatcodes.warp(Math.ceil(wallTime / 1000));
     }
   }
 
