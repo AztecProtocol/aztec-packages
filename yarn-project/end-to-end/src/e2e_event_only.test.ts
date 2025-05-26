@@ -7,7 +7,7 @@ import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
-/// In this test we check that a private event can be obtained for a contract that does not work with notes.
+/// Tests that a private event can be obtained for a contract that does not work with notes.
 describe('EventOnly', () => {
   let eventOnlyContract: EventOnlyContract;
   jest.setTimeout(TIMEOUT);
