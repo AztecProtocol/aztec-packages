@@ -33,115 +33,6 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/example-react@workspace:boxes/react":
-  version: 0.0.0-use.local
-  resolution: "@aztec/example-react@workspace:boxes/react"
-  dependencies:
-    "@aztec/accounts": "npm:latest"
-    "@aztec/aztec.js": "npm:latest"
-    "@playwright/test": "npm:1.49.0"
-    "@types/jest": "npm:^29.5.0"
-    "@types/node": "npm:^22.15.17"
-    "@types/react": "npm:^18.2.15"
-    "@types/react-dom": "npm:^18.2.7"
-    "@typescript-eslint/eslint-plugin": "npm:^6.0.0"
-    "@typescript-eslint/parser": "npm:^6.0.0"
-    assert: "npm:^2.1.0"
-    autoprefixer: "npm:^10.4.15"
-    classnames: "npm:^2.3.2"
-    css-loader: "npm:^6.8.1"
-    eslint: "npm:^9.26.0"
-    eslint-config-prettier: "npm:^9.0.0"
-    eslint-import-resolver-typescript: "npm:^3.5.5"
-    eslint-plugin-import: "npm:^2.27.5"
-    eslint-plugin-prettier: "npm:^5.0.1"
-    eslint-plugin-react-hooks: "npm:^4.6.0"
-    eslint-plugin-react-refresh: "npm:^0.4.3"
-    formik: "npm:^2.4.3"
-    html-webpack-plugin: "npm:^5.6.0"
-    jest: "npm:^29.6.4"
-    postcss: "npm:^8.4.29"
-    postcss-loader: "npm:^7.3.3"
-    prettier: "npm:^3.5.3"
-    react: "npm:^18.2.0"
-    react-dom: "npm:^18.2.0"
-    react-toastify: "npm:^10.0.4"
-    resolve-typescript-plugin: "npm:^2.0.1"
-    serve: "npm:^14.2.1"
-    stream-browserify: "npm:^3.0.0"
-    style-loader: "npm:^3.3.3"
-    ts-jest: "npm:^29.1.0"
-    ts-loader: "npm:^9.4.4"
-    ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.3.3"
-    util: "npm:^0.12.5"
-    webpack: "npm:^5.99.6"
-    webpack-cli: "npm:^6.0.1"
-    webpack-dev-server: "npm:^5.2.1"
-    yup: "npm:^1.2.0"
-  languageName: unknown
-  linkType: soft
-
-"@aztec/example-vanilla@workspace:boxes/vanilla":
-  version: 0.0.0-use.local
-  resolution: "@aztec/example-vanilla@workspace:boxes/vanilla"
-  dependencies:
-    "@aztec/accounts": "npm:latest"
-    "@aztec/aztec.js": "npm:latest"
-    "@aztec/constants": "npm:latest"
-    "@aztec/foundation": "npm:latest"
-    "@aztec/kv-store": "npm:latest"
-    "@aztec/noir-contracts.js": "npm:latest"
-    "@aztec/pxe": "npm:latest"
-    "@aztec/stdlib": "npm:latest"
-    "@playwright/test": "npm:1.49.0"
-    "@types/node": "npm:^22.15.17"
-    assert: "npm:^2.1.0"
-    buffer: "npm:^6.0.3"
-    css-loader: "npm:^6.10.0"
-    dotenv-webpack: "npm:^8.0.1"
-    html-webpack-plugin: "npm:^5.6.0"
-    http-server: "npm:^14.1.1"
-    path-browserify: "npm:^1.0.1"
-    prettier: "npm:^3.5.3"
-    stream-browserify: "npm:^3.0.0"
-    style-loader: "npm:^3.3.4"
-    ts-loader: "npm:^9.5.1"
-    tsx: "npm:^4.19.4"
-    typescript: "npm:^5.3.3"
-    util: "npm:^0.12.5"
-    webpack: "npm:^5.99.6"
-    webpack-cli: "npm:^6.0.1"
-    webpack-dev-server: "npm:^5.2.1"
-  languageName: unknown
-  linkType: soft
-
-"@aztec/example-vite@workspace:boxes/vite":
-  version: 0.0.0-use.local
-  resolution: "@aztec/example-vite@workspace:boxes/vite"
-  dependencies:
-    "@aztec/accounts": "npm:latest"
-    "@aztec/aztec.js": "npm:latest"
-    "@aztec/pxe": "npm:latest"
-    "@aztec/stdlib": "npm:latest"
-    "@eslint/js": "npm:^9.13.0"
-    "@types/react": "npm:^18.3.12"
-    "@types/react-dom": "npm:^18.3.1"
-    "@vitejs/plugin-react-swc": "npm:^3.7.2"
-    eslint: "npm:^9.26.0"
-    eslint-plugin-react-hooks: "npm:^5.1.0"
-    eslint-plugin-react-refresh: "npm:^0.4.16"
-    globals: "npm:^15.11.0"
-    react: "npm:^18.3.1"
-    react-dom: "npm:^18.3.1"
-    react-toastify: "npm:^10.0.6"
-    typescript: "npm:~5.6.2"
-    typescript-eslint: "npm:^8.11.0"
-    vite: "npm:^6.0.3"
-    vite-plugin-node-polyfills: "npm:^0.23.0"
-  languageName: unknown
-  linkType: soft
-
 "@aztec/examples@workspace:.":
   version: 0.0.0-use.local
   resolution: "@aztec/examples@workspace:."
@@ -3497,6 +3388,115 @@ __metadata:
   checksum: 10c0/9371a56886c2e43e4ff5647b5c2c3c046ed0a3d13482ef1d0135b994a628c41fbad459796f101c655e62f0c161d03883454474d2e435b2e021b1924d9f24994c
   languageName: node
   linkType: hard
+
+"aztec-example-react@workspace:boxes/react":
+  version: 0.0.0-use.local
+  resolution: "aztec-example-react@workspace:boxes/react"
+  dependencies:
+    "@aztec/accounts": "npm:latest"
+    "@aztec/aztec.js": "npm:latest"
+    "@playwright/test": "npm:1.49.0"
+    "@types/jest": "npm:^29.5.0"
+    "@types/node": "npm:^22.15.17"
+    "@types/react": "npm:^18.2.15"
+    "@types/react-dom": "npm:^18.2.7"
+    "@typescript-eslint/eslint-plugin": "npm:^6.0.0"
+    "@typescript-eslint/parser": "npm:^6.0.0"
+    assert: "npm:^2.1.0"
+    autoprefixer: "npm:^10.4.15"
+    classnames: "npm:^2.3.2"
+    css-loader: "npm:^6.8.1"
+    eslint: "npm:^9.26.0"
+    eslint-config-prettier: "npm:^9.0.0"
+    eslint-import-resolver-typescript: "npm:^3.5.5"
+    eslint-plugin-import: "npm:^2.27.5"
+    eslint-plugin-prettier: "npm:^5.0.1"
+    eslint-plugin-react-hooks: "npm:^4.6.0"
+    eslint-plugin-react-refresh: "npm:^0.4.3"
+    formik: "npm:^2.4.3"
+    html-webpack-plugin: "npm:^5.6.0"
+    jest: "npm:^29.6.4"
+    postcss: "npm:^8.4.29"
+    postcss-loader: "npm:^7.3.3"
+    prettier: "npm:^3.5.3"
+    react: "npm:^18.2.0"
+    react-dom: "npm:^18.2.0"
+    react-toastify: "npm:^10.0.4"
+    resolve-typescript-plugin: "npm:^2.0.1"
+    serve: "npm:^14.2.1"
+    stream-browserify: "npm:^3.0.0"
+    style-loader: "npm:^3.3.3"
+    ts-jest: "npm:^29.1.0"
+    ts-loader: "npm:^9.4.4"
+    ts-node: "npm:^10.9.1"
+    typescript: "npm:^5.3.3"
+    util: "npm:^0.12.5"
+    webpack: "npm:^5.99.6"
+    webpack-cli: "npm:^6.0.1"
+    webpack-dev-server: "npm:^5.2.1"
+    yup: "npm:^1.2.0"
+  languageName: unknown
+  linkType: soft
+
+"aztec-example-vanilla@workspace:boxes/vanilla":
+  version: 0.0.0-use.local
+  resolution: "aztec-example-vanilla@workspace:boxes/vanilla"
+  dependencies:
+    "@aztec/accounts": "npm:latest"
+    "@aztec/aztec.js": "npm:latest"
+    "@aztec/constants": "npm:latest"
+    "@aztec/foundation": "npm:latest"
+    "@aztec/kv-store": "npm:latest"
+    "@aztec/noir-contracts.js": "npm:latest"
+    "@aztec/pxe": "npm:latest"
+    "@aztec/stdlib": "npm:latest"
+    "@playwright/test": "npm:1.49.0"
+    "@types/node": "npm:^22.15.17"
+    assert: "npm:^2.1.0"
+    buffer: "npm:^6.0.3"
+    css-loader: "npm:^6.10.0"
+    dotenv-webpack: "npm:^8.0.1"
+    html-webpack-plugin: "npm:^5.6.0"
+    http-server: "npm:^14.1.1"
+    path-browserify: "npm:^1.0.1"
+    prettier: "npm:^3.5.3"
+    stream-browserify: "npm:^3.0.0"
+    style-loader: "npm:^3.3.4"
+    ts-loader: "npm:^9.5.1"
+    tsx: "npm:^4.19.4"
+    typescript: "npm:^5.3.3"
+    util: "npm:^0.12.5"
+    webpack: "npm:^5.99.6"
+    webpack-cli: "npm:^6.0.1"
+    webpack-dev-server: "npm:^5.2.1"
+  languageName: unknown
+  linkType: soft
+
+"aztec-example-vite@workspace:boxes/vite":
+  version: 0.0.0-use.local
+  resolution: "aztec-example-vite@workspace:boxes/vite"
+  dependencies:
+    "@aztec/accounts": "npm:latest"
+    "@aztec/aztec.js": "npm:latest"
+    "@aztec/pxe": "npm:latest"
+    "@aztec/stdlib": "npm:latest"
+    "@eslint/js": "npm:^9.13.0"
+    "@types/react": "npm:^18.3.12"
+    "@types/react-dom": "npm:^18.3.1"
+    "@vitejs/plugin-react-swc": "npm:^3.7.2"
+    eslint: "npm:^9.26.0"
+    eslint-plugin-react-hooks: "npm:^5.1.0"
+    eslint-plugin-react-refresh: "npm:^0.4.16"
+    globals: "npm:^15.11.0"
+    react: "npm:^18.3.1"
+    react-dom: "npm:^18.3.1"
+    react-toastify: "npm:^10.0.6"
+    typescript: "npm:~5.6.2"
+    typescript-eslint: "npm:^8.11.0"
+    vite: "npm:^6.0.3"
+    vite-plugin-node-polyfills: "npm:^0.23.0"
+  languageName: unknown
+  linkType: soft
 
 "babel-jest@npm:^29.7.0":
   version: 29.7.0
