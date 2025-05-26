@@ -46,7 +46,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
   });
 
   it('successfully proves multiple epochs', async () => {
-    const targetProvenEpochs = process.env.TARGET_PROVEN_EPOCHS ? parseInt(process.env.TARGET_PROVEN_EPOCHS) : 2;
+    const targetProvenEpochs = process.env.TARGET_PROVEN_EPOCHS ? parseInt(process.env.TARGET_PROVEN_EPOCHS) : 3;
     const targetProvenBlockNumber = targetProvenEpochs * test.epochDuration;
 
     let provenBlockNumber = 0;
