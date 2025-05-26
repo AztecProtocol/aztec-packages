@@ -182,7 +182,7 @@ To bootstrap first use, a sponsored fee paying contract (the canonical sponsored
 In the case of the canonical sponsored FPC, the only criteria is an upper bound on how much it sponsors an account's transactions. This will be enough to at least deploy an account.
 
 The PXE can be queried for the canonical sponsored FPC address, and then specified as the payment method.
-For testnet this is `0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5`, which can be verified with the command: `aztec get-canonical-sponsored-fpc-address`
+For testnet this is `0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047`, which can be verified with the command: `aztec get-canonical-sponsored-fpc-address`
 
 Via the CLI:
 
@@ -194,7 +194,7 @@ aztec-wallet register-contract $SPONSORED_FPC_ADDRESS SponsoredFPC --salt 0 --fr
 aztec-wallet deploy-account --from main --payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS
 ```
 
-The equivalent using aztec.js - get sponsored fpc address (helper functions [here](https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/aztec/src/sandbox/sponsored_fpc.ts)) and use payment method:
+The equivalent using aztec.js - get sponsored fpc address (helper functions [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/aztec/src/sandbox/sponsored_fpc.ts)) and use payment method:
 
 ```javascript
 import { getSponsoredFPCInstance } from "../src/utils/sponsored_fpc.js"; // helper functions linked above
@@ -333,7 +333,7 @@ aztec-wallet deploy-account --from accBFJ --payment method=fee_juice,claim
 
 The equivalent using aztec.js - bridge fee juice, (pass two txs), create and use payment method:
 
-(See also the [aztec-wallet](https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/cli-wallet/src/cmds/bridge_fee_juice.ts#L32) implementation to initialise a fee juice portal manager)
+(See also the [aztec-wallet](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/cli-wallet/src/cmds/bridge_fee_juice.ts#L32) implementation to initialise a fee juice portal manager)
 
 ```javascript
 import {
@@ -536,7 +536,7 @@ Please refer to the snippets in the sections above, and report any discrepancies
 
 - [`aztec` CLI tool](../../reference/environment_reference/cli_reference)
 - [`aztec-wallet` CLI tool](../../reference/environment_reference/cli_wallet_reference)
-- [`aztec.js` source](https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/aztec.js)
+- [`aztec.js` source](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/aztec.js)
 - [Glossary](../../../glossary)
 - Search bar and AI above
 - Tags below :)

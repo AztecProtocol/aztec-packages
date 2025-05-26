@@ -48,8 +48,8 @@ import {
   FeeJuicePortalTestingHarnessFactory,
   type GasBridgingTestHarness,
 } from '../../shared/gas_portal_test_harness.js';
+import { ProxyLogger } from './benchmark.js';
 import { type ClientFlowsConfig, FULL_FLOWS_CONFIG, KEY_FLOWS_CONFIG } from './config.js';
-import { ProxyLogger } from './utils.js';
 
 const { E2E_DATA_PATH: dataPath, BENCHMARK_CONFIG } = process.env;
 
