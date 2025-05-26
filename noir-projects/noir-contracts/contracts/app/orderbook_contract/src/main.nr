@@ -94,7 +94,8 @@ pub contract Orderbook {
             .transfer_to_public(maker, context.this_address(), amount_in, nonce)
             .call(&mut context);
 
-        // Prepare a partial note that will get completed once the order is fulfilled.
+        // Prepare a partial note that will get completed once the order is fulfilled. Note that only we can complete the partial
+        // note.
         let maker_partial_note =
             Token::at(token_out).prepare_private_balance_increase(maker, maker).call(&mut context);
 
