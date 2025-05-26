@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_context_ctx_stack_call_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_CALL";
     static constexpr std::string_view RELATION_NAME = "context";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
     static constexpr Column DST_SELECTOR = Column::context_stack_sel;
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_call_counts;
@@ -30,7 +30,11 @@ struct lookup_context_ctx_stack_call_settings_ {
         ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_is_static,
         ColumnAndShifts::execution_parent_calldata_offset_addr,
-        ColumnAndShifts::execution_parent_calldata_size_addr
+        ColumnAndShifts::execution_parent_calldata_size_addr,
+        ColumnAndShifts::execution_parent_l2_gas_limit,
+        ColumnAndShifts::execution_parent_da_gas_limit,
+        ColumnAndShifts::execution_parent_l2_gas_used,
+        ColumnAndShifts::execution_parent_da_gas_used
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::context_stack_entered_context_id,
@@ -41,7 +45,11 @@ struct lookup_context_ctx_stack_call_settings_ {
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
         ColumnAndShifts::context_stack_parent_calldata_offset_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size_addr
+        ColumnAndShifts::context_stack_parent_calldata_size_addr,
+        ColumnAndShifts::context_stack_parent_l2_gas_limit,
+        ColumnAndShifts::context_stack_parent_da_gas_limit,
+        ColumnAndShifts::context_stack_parent_l2_gas_used,
+        ColumnAndShifts::context_stack_parent_da_gas_used
     };
 };
 
@@ -54,7 +62,7 @@ using lookup_context_ctx_stack_call_relation = lookup_relation_base<FF_, lookup_
 struct lookup_context_ctx_stack_rollback_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_ROLLBACK";
     static constexpr std::string_view RELATION_NAME = "context";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
     static constexpr Column SRC_SELECTOR = Column::execution_rollback_context;
     static constexpr Column DST_SELECTOR = Column::context_stack_sel;
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_rollback_counts;
@@ -68,7 +76,11 @@ struct lookup_context_ctx_stack_rollback_settings_ {
         ColumnAndShifts::execution_contract_address_shift,
         ColumnAndShifts::execution_is_static_shift,
         ColumnAndShifts::execution_parent_calldata_offset_addr_shift,
-        ColumnAndShifts::execution_parent_calldata_size_addr_shift
+        ColumnAndShifts::execution_parent_calldata_size_addr_shift,
+        ColumnAndShifts::execution_parent_l2_gas_limit_shift,
+        ColumnAndShifts::execution_parent_da_gas_limit_shift,
+        ColumnAndShifts::execution_parent_l2_gas_used_shift,
+        ColumnAndShifts::execution_parent_da_gas_used_shift
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::context_stack_entered_context_id,
@@ -79,7 +91,11 @@ struct lookup_context_ctx_stack_rollback_settings_ {
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
         ColumnAndShifts::context_stack_parent_calldata_offset_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size_addr
+        ColumnAndShifts::context_stack_parent_calldata_size_addr,
+        ColumnAndShifts::context_stack_parent_l2_gas_limit,
+        ColumnAndShifts::context_stack_parent_da_gas_limit,
+        ColumnAndShifts::context_stack_parent_l2_gas_used,
+        ColumnAndShifts::context_stack_parent_da_gas_used
     };
 };
 
@@ -93,7 +109,7 @@ using lookup_context_ctx_stack_rollback_relation =
 struct lookup_context_ctx_stack_return_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_RETURN";
     static constexpr std::string_view RELATION_NAME = "context";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 12;
     static constexpr Column SRC_SELECTOR = Column::execution_nested_return;
     static constexpr Column DST_SELECTOR = Column::context_stack_sel;
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_return_counts;
@@ -106,7 +122,11 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::execution_contract_address_shift,
         ColumnAndShifts::execution_is_static_shift,
         ColumnAndShifts::execution_parent_calldata_offset_addr_shift,
-        ColumnAndShifts::execution_parent_calldata_size_addr_shift
+        ColumnAndShifts::execution_parent_calldata_size_addr_shift,
+        ColumnAndShifts::execution_parent_l2_gas_limit,
+        ColumnAndShifts::execution_parent_da_gas_limit,
+        ColumnAndShifts::execution_parent_l2_gas_used,
+        ColumnAndShifts::execution_parent_da_gas_used
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::context_stack_context_id,
@@ -116,7 +136,11 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
         ColumnAndShifts::context_stack_parent_calldata_offset_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size_addr
+        ColumnAndShifts::context_stack_parent_calldata_size_addr,
+        ColumnAndShifts::context_stack_parent_l2_gas_limit,
+        ColumnAndShifts::context_stack_parent_da_gas_limit,
+        ColumnAndShifts::context_stack_parent_l2_gas_used,
+        ColumnAndShifts::context_stack_parent_da_gas_used
     };
 };
 

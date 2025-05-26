@@ -48,7 +48,6 @@ namespace execution;
     pol commit last_child_success; // Careful with this for now...
 
     // ==== Gas ====
-    // TODO: Constrain the evolution of these columns with calls and returns
     pol commit l2_gas_limit;
     pol commit da_gas_limit;
     pol commit l2_gas_used;
@@ -159,6 +158,48 @@ namespace execution;
     NOT_LAST_EXEC * NESTED_RET_REV_ONLY  * (last_child_returndata_size' - reg1) = 0;
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
 
+    // nested_exit_call = 1 <==> l2_gas_limit' = parent_l2_gas_limit
+    // sel_enter_call   = 1 <==> constraints come from call logic
+    // otherwise        = 0 <==> l2_gas_limit' = l2_gas_limit
+    #[L2_GAS_LIMIT_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_limit' - l2_gas_limit) = 0;
+    NOT_LAST_EXEC * nested_exit_call   * (l2_gas_limit' - parent_l2_gas_limit) = 0;
+
+    // nested_exit_call = 1 <==> da_gas_limit' = parent_da_gas_limit
+    // sel_enter_call   = 1 <==> constraints come from call logic
+    // otherwise        = 0 <==> da_gas_limit' = da_gas_limit
+    #[DA_GAS_LIMIT_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (da_gas_limit' - da_gas_limit) = 0;
+    NOT_LAST_EXEC * nested_exit_call   * (da_gas_limit' - parent_da_gas_limit) = 0;
+
+    // nested_exit_call = 1 <==> constraints come from lookup
+    // sel_enter_call   = 1 <==> parent_l2_gas_limit' = l2_gas_limit
+    // otherwise        = 0 <==> parent_l2_gas_limit' = parent_l2_gas_limit
+    #[PARENT_L2_GAS_LIMIT_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_l2_gas_limit' - parent_l2_gas_limit) = 0;
+    NOT_LAST_EXEC * sel_enter_call   * (parent_l2_gas_limit' - l2_gas_limit) = 0;
+
+    // nested_exit_call = 1 <==> constraints come from lookup
+    // sel_enter_call   = 1 <==> parent_da_gas_limit' = da_gas_limit
+    // otherwise        = 0 <==> parent_da_gas_limit' = parent_da_gas_limit
+    #[PARENT_DA_GAS_LIMIT_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_da_gas_limit' - parent_da_gas_limit) = 0;
+    NOT_LAST_EXEC * sel_enter_call   * (parent_da_gas_limit' - da_gas_limit) = 0;
+
+    // nested_exit_call = 1 <==> constraints come from lookup
+    // sel_enter_call   = 1 <==> parent_l2_gas_used' = l2_gas_used
+    // otherwise        = 0 <==> parent_l2_gas_used' = parent_l2_gas_used
+    #[PARENT_L2_GAS_USED_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_l2_gas_used' - parent_l2_gas_used) = 0;
+    NOT_LAST_EXEC * sel_enter_call   * (parent_l2_gas_used' - l2_gas_used) = 0;
+
+    // nested_exit_call = 1 <==> constraints come from lookup
+    // sel_enter_call   = 1 <==> parent_da_gas_used' = da_gas_used
+    // otherwise        = 0 <==> parent_da_gas_used' = parent_da_gas_used
+    #[PARENT_DA_GAS_USED_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_da_gas_used' - parent_da_gas_used) = 0;
+    NOT_LAST_EXEC * sel_enter_call   * (parent_da_gas_used' - da_gas_used) = 0;
+
     #[CTX_STACK_CALL]
     sel_enter_call {
         next_context_id,
@@ -169,7 +210,11 @@ namespace execution;
         contract_address,
         is_static,
         parent_calldata_offset_addr,
-        parent_calldata_size_addr
+        parent_calldata_size_addr,
+        parent_l2_gas_limit,
+        parent_da_gas_limit,
+        parent_l2_gas_used,
+        parent_da_gas_used
     } in
     context_stack.sel {
         context_stack.entered_context_id,
@@ -180,7 +225,11 @@ namespace execution;
         context_stack.contract_address,
         context_stack.is_static,
         context_stack.parent_calldata_offset_addr,
-        context_stack.parent_calldata_size_addr
+        context_stack.parent_calldata_size_addr,
+        context_stack.parent_l2_gas_limit,
+        context_stack.parent_da_gas_limit,
+        context_stack.parent_l2_gas_used,
+        context_stack.parent_da_gas_used
     };
 
     // If we are reverting or erroring a nested call, we restore the entire ctx from the stack
@@ -199,7 +248,11 @@ namespace execution;
         contract_address',
         is_static',
         parent_calldata_offset_addr',
-        parent_calldata_size_addr'
+        parent_calldata_size_addr',
+        parent_l2_gas_limit',
+        parent_da_gas_limit',
+        parent_l2_gas_used',
+        parent_da_gas_used'
         // Tree Snapshots
         // Counters
     } in
@@ -212,7 +265,11 @@ namespace execution;
         context_stack.contract_address,
         context_stack.is_static,
         context_stack.parent_calldata_offset_addr,
-        context_stack.parent_calldata_size_addr
+        context_stack.parent_calldata_size_addr,
+        context_stack.parent_l2_gas_limit,
+        context_stack.parent_da_gas_limit,
+        context_stack.parent_l2_gas_used,
+        context_stack.parent_da_gas_used
         // Tree Snapshots
         // Counters
     };
@@ -228,7 +285,11 @@ namespace execution;
         contract_address',
         is_static',
         parent_calldata_offset_addr',
-        parent_calldata_size_addr'
+        parent_calldata_size_addr',
+        parent_l2_gas_limit,
+        parent_da_gas_limit,
+        parent_l2_gas_used,
+        parent_da_gas_used
     } in
     context_stack.sel {
         context_stack.context_id,
@@ -238,6 +299,10 @@ namespace execution;
         context_stack.contract_address,
         context_stack.is_static,
         context_stack.parent_calldata_offset_addr,
-        context_stack.parent_calldata_size_addr
+        context_stack.parent_calldata_size_addr,
+        context_stack.parent_l2_gas_limit,
+        context_stack.parent_da_gas_limit,
+        context_stack.parent_l2_gas_used,
+        context_stack.parent_da_gas_used
     };
 
