@@ -4,6 +4,8 @@ sidebar_position: 1
 tags: [functions, context]
 ---
 
+import Image from '@theme/IdealImage';
+
 ## What is the context
 
 The context is an object that is made available within every function in `Aztec.nr`. As mentioned in the [kernel circuit documentation](../../concepts/advanced/circuits/kernels/private_kernel.md). At the beginning of a function's execution, the context contains all of the kernel information that application needs to execute. During the lifecycle of a transaction, the function will update the context with each of its side effects (created notes, nullifiers etc.). At the end of a function's execution the mutated context is returned to the kernel to be checked for validity.
@@ -32,7 +34,7 @@ The following section will cover both contexts.
 ## The Private Context
 
 The code snippet below shows what is contained within the private context.
-```rust title="private-context" showLineNumbers 
+```rust title="private-context" showLineNumbers
 pub inputs: PrivateContextInputs,
 pub side_effect_counter: u32,
 
@@ -65,7 +67,7 @@ pub l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
 
 The context inputs includes all of the information that is passed from the kernel circuit into the application circuit. It contains the following values.
 
-```rust title="private-context-inputs" showLineNumbers 
+```rust title="private-context-inputs" showLineNumbers
 pub struct PrivateContextInputs {
     pub call_context: CallContext,
     pub historical_header: BlockHeader,
@@ -80,7 +82,7 @@ As shown in the snippet, the application context is made up of 4 main structures
 
 First of all, the call context.
 
-```rust title="call-context" showLineNumbers 
+```rust title="call-context" showLineNumbers
 pub struct CallContext {
     pub msg_sender: AztecAddress,
     pub contract_address: AztecAddress,
@@ -98,7 +100,7 @@ The call context contains information about the current call being made:
 
 > The graphic below illustrates how the message sender changes throughout the kernel circuit iterations.
 
-<img src="@site/static/img/context/sender_context_change.png" />
+<Image img={require("@site/static/img/context/sender_context_change.png")} />
 
 2. Storage contract address
 
@@ -113,7 +115,7 @@ The call context contains information about the current call being made:
 
 Another structure that is contained within the context is the `BlockHeader` object, which is the header of the block used to generate proofs against.
 
-```rust title="block-header" showLineNumbers 
+```rust title="block-header" showLineNumbers
 pub struct BlockHeader {
     pub last_archive: AppendOnlyTreeSnapshot,
     pub content_commitment: ContentCommitment,
@@ -130,7 +132,7 @@ pub struct BlockHeader {
 
 The private context provides access to the transaction context as well, which are user-defined values for the transaction in general that stay constant throughout its execution.
 
-```rust title="tx-context" showLineNumbers 
+```rust title="tx-context" showLineNumbers
 pub struct TxContext {
     pub chain_id: Field,
     pub version: Field,
@@ -157,7 +159,7 @@ return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
 
 Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_tx_max_block_number` function can be used to set this property:
 
-```rust title="max-block-number" showLineNumbers 
+```rust title="max-block-number" showLineNumbers
 pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230</a></sub></sup>
@@ -203,7 +205,7 @@ The Public Context includes all of the information passed from the `Public VM` i
 
 The public global variables are provided by the rollup sequencer and consequently contain some more values than the private global variables.
 
-```rust title="global-variables" showLineNumbers 
+```rust title="global-variables" showLineNumbers
 pub struct GlobalVariables {
     pub chain_id: Field,
     pub version: Field,
