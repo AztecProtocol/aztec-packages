@@ -9,9 +9,9 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
-// We test only a happy path here since this is just a demonstration of the orderbook contract and writing here more
-// thorough tests seems unnecessary. Also hopefully we will migrate this to TXE eventually. Didn't write it in TXE
-// now as there is no way to obtain public events and all of TXE will be rewritten soon.
+// TODO(#14525): Write thorough Orderbook tests. Currently we test only a happy path here because we will migrate these
+// tests to TXE once TXE 2.0 is ready. Didn't write it in TXE now as there is no way to obtain public events and all of
+// TXE will be rewritten soon.
 describe('Orderbook', () => {
   jest.setTimeout(TIMEOUT);
 
