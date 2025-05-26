@@ -7,6 +7,17 @@ tags: [migration, updating, sandbox]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+## [Aztec.nr] Modified `getLogByTag` oracle
+
+`getLogByTag` oracle has been renamed to `getPublicLogByTagFromContract` and now it accepts contract address along with a tag as input:
+
+```diff
+- let maybe_log = get_log_by_tag(pending_partial_note.note_completion_log_tag);
++ let maybe_log = get_public_log_by_tag_from_contract(pending_partial_note.note_completion_log_tag, contract_address);
+```
+
 ## 0.87.0
 
 ## [Aztec.js/TS libraries]
