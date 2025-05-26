@@ -195,6 +195,8 @@ function test {
   # and also that half the cpus are logical, not physical.
   echo "Gathering tests to run..."
   tests=$(test_cmds $@)
+  tests+=('build_bench')
+
   # Note: Capturing strips last newline. The echo re-adds it.
   local num
   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
@@ -229,7 +231,6 @@ function build {
     release-image/bootstrap.sh
     spartan/bootstrap.sh
     aztec-up/bootstrap.sh
-    build_bench
   )
 
   for project in "${serial_projects[@]}"; do
