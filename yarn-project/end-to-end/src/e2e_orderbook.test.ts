@@ -84,7 +84,7 @@ describe('Orderbook', () => {
       const order = await orderbook.methods.get_order(orderId).simulate();
       expect(order.amount_in).toEqual(amountIn);
       expect(order.amount_out).toEqual(amountOut);
-      expect(order.zero_to_one).toBeTruthy();
+      expect(order.token_in_is_zero).toBeTruthy();
 
       // At this point, amountIn of token0 should be transferred to the public balance of the orderbook and maker
       // should have 0.

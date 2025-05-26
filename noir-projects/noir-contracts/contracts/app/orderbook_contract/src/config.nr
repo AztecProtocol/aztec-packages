@@ -27,8 +27,8 @@ impl Config {
         token_in == self.token0
     }
 
-    pub fn get_tokens(self, zero_to_one: bool) -> (AztecAddress, AztecAddress) {
-        if zero_to_one {
+    pub fn get_tokens(self, token_in_is_zero: bool) -> (AztecAddress, AztecAddress) {
+        if token_in_is_zero {
             (self.token0, self.token1)
         } else {
             (self.token1, self.token0)

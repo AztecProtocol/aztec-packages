@@ -126,8 +126,8 @@ pub contract Orderbook {
         let order = storage.orders.at(order_id).read();
         let taker = context.msg_sender();
 
-        // Determine which tokens are being exchanged based on zero_to_one flag
-        let (token_in, token_out) = config.get_tokens(order.zero_to_one);
+        // Determine which tokens are being exchanged based on token_in_is_zero flag
+        let (token_in, token_out) = config.get_tokens(order.token_in_is_zero);
 
         // TODO(#14362): Once we allow partial note completion in private we can skip the transfer to public here and
         // just finalize the maker's partial note straight away here.
