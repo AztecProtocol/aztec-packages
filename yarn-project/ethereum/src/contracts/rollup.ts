@@ -382,13 +382,7 @@ export class RollupContract {
 
       return [slot, blockNumber];
     } catch (err: unknown) {
-      const error = formatViemError(err);
-      // ugly hack in the event that the rollup is in "free-for-all" mode,
-      // and the expected proposer is the zero address, we return the current slot and block number
-      if (error.message.includes('ValidatorSelection__InvalidProposer(0x0000000000000000000000000000000000000000')) {
-        return await Promise.all([this.getSlotAt(timeOfNextL1Slot), this.getBlockNumber().then(bn => bn + 1n)]);
-      }
-      throw error;
+      throw formatViemError(err);
     }
   }
 
