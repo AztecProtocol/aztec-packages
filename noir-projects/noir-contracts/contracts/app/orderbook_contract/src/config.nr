@@ -35,3 +35,84 @@ impl Config {
         }
     }
 }
+
+mod test {
+    use crate::config::Config;
+    use aztec::{prelude::AztecAddress, protocol_types::traits::FromField};
+
+    #[test]
+    unconstrained fn new_config_valid_inputs() {
+        let token0 = AztecAddress::from_field(1);
+        let token1 = AztecAddress::from_field(2);
+        let config = Config::new(token0, token1);
+
+        let (got_token0, got_token1) = config.get_tokens(true);
+        assert(got_token0 == token0);
+        assert(got_token1 == token1);
+    }
+
+    #[test(should_fail_with = "Tokens must be different")]
+    unconstrained fn new_config_same_tokens() {
+        let token = AztecAddress::from_field(1);
+        let _ = Config::new(token, token);
+    }
+
+    #[test]
+    unconstrained fn validate_input_tokens_valid() {
+        let token0 = AztecAddress::from_field(1);
+        let token1 = AztecAddress::from_field(2);
+        let config = Config::new(token0, token1);
+
+        // Test token0 to token1 direction
+        let is_zero = config.validate_input_tokens_and_get_direction(token0, token1);
+        assert(is_zero);
+
+        // Test token1 to token0 direction
+        let is_zero = config.validate_input_tokens_and_get_direction(token1, token0);
+        assert(!is_zero);
+    }
+
+    #[test(should_fail_with = "BID_TOKEN_IS_INVALID")]
+    unconstrained fn validate_input_tokens_invalid_bid() {
+        let token0 = AztecAddress::from_field(1);
+        let token1 = AztecAddress::from_field(2);
+        let token2 = AztecAddress::from_field(3);
+        let config = Config::new(token0, token1);
+
+        let _ = config.validate_input_tokens_and_get_direction(token2, token1);
+    }
+
+    #[test(should_fail_with = "ASK_TOKEN_IS_INVALID")]
+    unconstrained fn validate_input_tokens_invalid_ask() {
+        let token0 = AztecAddress::from_field(1);
+        let token1 = AztecAddress::from_field(2);
+        let token2 = AztecAddress::from_field(3);
+        let config = Config::new(token0, token1);
+
+        let _ = config.validate_input_tokens_and_get_direction(token0, token2);
+    }
+
+    #[test(should_fail_with = "SAME_TOKEN_TRADE")]
+    unconstrained fn validate_input_tokens_same_token() {
+        let token0 = AztecAddress::from_field(1);
+        let token1 = AztecAddress::from_field(2);
+        let config = Config::new(token0, token1);
+
+        let _ = config.validate_input_tokens_and_get_direction(token0, token0);
+    }
+
+    #[test]
+    unconstrained fn get_tokens_correct_order() {
+        let token0 = AztecAddress::from_field(1);
+        let token1 = AztecAddress::from_field(2);
+        let config = Config::new(token0, token1);
+
+        let (bid, ask) = config.get_tokens(true);
+        assert(bid == token0);
+        assert(ask == token1);
+
+        let (bid, ask) = config.get_tokens(false);
+        assert(bid == token1);
+        assert(ask == token0);
+    }
+}
