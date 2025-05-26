@@ -1,11 +1,11 @@
 ---
-title: Getting Started with Aztec.js
+title: Getting started with Aztec.js
 sidebar_position: 0
 ---
 
 import Image from "@theme/IdealImage";
 
-In this guide, we will retrieving the Sandbox and deploy a pre-written contract to it using Aztec.js.
+In this guide, we will retrieving the Sandbox and deploy a pre-written token contract to it using Aztec.js. We will then use Aztec.js to interact with this contract and transfer tokens.
 
 This guide assumes you have followed the [quickstart](../../../../developers/getting_started.md).
 
@@ -15,7 +15,7 @@ This tutorial is for the sandbox and will need adjustments if deploying to testn
 
 ## Prerequisites
 
-- A running Aztec sandbox at version `alpha-testnet`. Install with `aztec-up alpha-testnet`.
+- A running Aztec sandbox at version 0.87.2. Install with `aztec-up 0.87.2`.
 
 ## Set up the project
 
@@ -40,14 +40,21 @@ mkdir src
 3. Add necessary yarn packages
 
 ```sh
-yarn add @aztec/aztec.js@alpha-testnet @aztec/accounts@alpha-testnet @aztec/noir-contracts.js@alpha-testnet typescript @types/node
+yarn add @aztec/aztec.js@0.87.2 @aztec/accounts@0.87.2 @aztec/noir-contracts.js@0.87.2 typescript @types/node
 ```
+
+:::note Match tool and dependency versions
+The version returned from `aztec -V` should match the `@aztec/...` dependencies in package.json
+
+:::
 
 and yarn config:
 
 ```sh
 echo "nodeLinker: node-modules" > .yarnrc.yml
 ```
+
+Then run: `yarn install`
 
 4. Add a `tsconfig.json` file into the project root and paste this:
 
@@ -92,8 +99,8 @@ echo "nodeLinker: node-modules" > .yarnrc.yml
 6. Create an `index.ts` file in the `src` directory with the following sandbox connection setup:
 
 ```ts
-import { getSchnorrAccount } from "@aztec/accounts/schnorr";
-import { getDeployedTestAccountsWallets } from "@aztec/accounts/testing";
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   Fr,
   GrumpkinScalar,
@@ -103,39 +110,24 @@ import {
   createPXEClient,
   getFeeJuiceBalance,
   waitForPXE,
-} from "@aztec/aztec.js";
-import { TokenContract } from "@aztec/noir-contracts.js/Token";
+} from '@aztec/aztec.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { format } from "util";
-import type { AztecAddress, Logger, Wallet } from "@aztec/aztec.js";
+import { format } from 'util';
+import type { AztecAddress, Logger, Wallet } from '@aztec/aztec.js';
 
-export async function deployToken(
-  adminWallet: Wallet,
-  initialAdminBalance: bigint,
-  logger: Logger
-) {
+export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: Logger) {
   logger.info(`Deploying Token contract...`);
-  const contract = await TokenContract.deploy(
-    adminWallet,
-    adminWallet.getAddress(),
-    "TokenName",
-    "TokenSymbol",
-    18
-  )
+  const contract = await TokenContract.deploy(adminWallet, adminWallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
     .send()
     .deployed();
 
   if (initialAdminBalance > 0n) {
     // Minter is minting to herself so contract as minter is the same as contract as recipient
-    await mintTokensToPrivate(
-      contract,
-      adminWallet,
-      adminWallet.getAddress(),
-      initialAdminBalance
-    );
+    await mintTokensToPrivate(contract, adminWallet, adminWallet.getAddress(), initialAdminBalance);
   }
 
-  logger.info("L2 contract deployed");
+  logger.info('L2 contract deployed');
 
   return contract;
 }
@@ -144,30 +136,27 @@ export async function mintTokensToPrivate(
   token: TokenContract,
   minterWallet: Wallet,
   recipient: AztecAddress,
-  amount: bigint
+  amount: bigint,
 ) {
   const tokenAsMinter = await TokenContract.at(token.address, minterWallet);
   const from = minterWallet.getAddress(); // we are setting from to minter here because we need a sender to calculate the tag
-  await tokenAsMinter.methods
-    .mint_to_private(from, recipient, amount)
-    .send()
-    .wait();
+  await tokenAsMinter.methods.mint_to_private(from, recipient, amount).send().wait();
 }
 
-const { PXE_URL = "http://localhost:8080" } = process.env;
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function main() {
-  ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE SANDBOX //////////////
-  const logger = createLogger("e2e:token");
+////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE SANDBOX //////////////
+const logger = createLogger('e2e:token');
 
-  // We create PXE client connected to the sandbox URL
-  const pxe = createPXEClient(PXE_URL);
-  // Wait for sandbox to be ready
-  await waitForPXE(pxe, logger);
+// We create PXE client connected to the sandbox URL
+const pxe = createPXEClient(PXE_URL);
+// Wait for sandbox to be ready
+await waitForPXE(pxe, logger);
 
-  const nodeInfo = await pxe.getNodeInfo();
+const nodeInfo = await pxe.getNodeInfo();
 
-  logger.info(format("Aztec Sandbox Info ", nodeInfo));
+logger.info(format('Aztec Sandbox Info ', nodeInfo));
 }
 
 main();
@@ -219,7 +208,7 @@ Great! The Sandbox is running and we are able to interact with it.
 
 The sandbox is preloaded with multiple accounts so you don't have to sit and create them. Let's load these accounts. Add this code to the `main()` function in `index.ts` below the code that's there:
 
-```typescript title="load_accounts" showLineNumbers
+```typescript title="load_accounts" showLineNumbers 
 ////////////// LOAD SOME ACCOUNTS FROM THE SANDBOX //////////////
 // The sandbox comes with a set of created accounts. Load them
 const accounts = await getDeployedTestAccountsWallets(pxe);
@@ -230,8 +219,8 @@ const bob = bobWallet.getAddress();
 logger.info(`Loaded alice's account at ${alice.toString()}`);
 logger.info(`Loaded bob's account at ${bob.toString()}`);
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120</a></sub></sup>
 
 An explanation on accounts on Aztec can be found [here](../../../../aztec/concepts/accounts/index.md).
 
@@ -239,19 +228,15 @@ An explanation on accounts on Aztec can be found [here](../../../../aztec/concep
 
 Now that we have our accounts loaded, let's move on to deploy our pre-compiled token smart contract. You can find the full code for the contract [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/app/token_contract/src). Add this to `index.ts` below the code you added earlier:
 
-```typescript title="Deployment" showLineNumbers
+```typescript title="Deployment" showLineNumbers 
 ////////////// DEPLOY OUR TOKEN CONTRACT //////////////
 
 const initialSupply = 1_000_000n;
 
-const tokenContractAlice = await deployToken(
-  aliceWallet,
-  initialSupply,
-  logger
-);
+const tokenContractAlice = await deployToken(aliceWallet, initialSupply, logger);
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128</a></sub></sup>
 
 `yarn start` will now give something like this:
 
@@ -278,25 +263,22 @@ A token contract wouldn't be very useful if you aren't able to query the balance
 
 Call the `balance_of_private` function using the following code (paste this):
 
-```typescript title="Balance" showLineNumbers
+```typescript title="Balance" showLineNumbers 
+
 ////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////
 
 // Bob wants to mint some funds, the contract is already deployed, create an abstraction and link it his wallet
 // Since we already have a token link, we can simply create a new instance of the contract linked to Bob's wallet
 const tokenContractBob = tokenContractAlice.withWallet(bobWallet);
 
-let aliceBalance = await tokenContractAlice.methods
-  .balance_of_private(alice)
-  .simulate();
+let aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
 logger.info(`Alice's balance ${aliceBalance}`);
 
-let bobBalance = await tokenContractBob.methods
-  .balance_of_private(bob)
-  .simulate();
+let bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
 logger.info(`Bob's balance ${bobBalance}`);
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147</a></sub></sup>
 
 Running now should yield output:
 
@@ -331,7 +313,7 @@ Now lets transfer some funds from Alice to Bob by calling the `transfer` functio
 
 Here is the Typescript code to call the `transfer` function, add this to your `index.ts` at the bottom of the `main` function:
 
-```typescript title="Transfer" showLineNumbers
+```typescript title="Transfer" showLineNumbers 
 ////////////// TRANSFER FUNDS FROM ALICE TO BOB //////////////
 
 // We will now transfer tokens from ALice to Bob
@@ -340,16 +322,14 @@ logger.info(`Transferring ${transferQuantity} tokens from Alice to Bob...`);
 await tokenContractAlice.methods.transfer(bob, transferQuantity).send().wait();
 
 // Check the new balances
-aliceBalance = await tokenContractAlice.methods
-  .balance_of_private(alice)
-  .simulate();
+aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
 logger.info(`Alice's balance ${aliceBalance}`);
 
 bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
 logger.info(`Bob's balance ${bobBalance}`);
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166</a></sub></sup>
 
 Our output should now look like this:
 
@@ -376,7 +356,7 @@ This function starts as private to set up the creation of a [partial note](../..
 
 Let's now use these functions to mint some tokens to Bob's account using Typescript, add this to `index.ts`:
 
-```typescript title="Mint" showLineNumbers
+```typescript title="Mint" showLineNumbers 
 ////////////// MINT SOME MORE TOKENS TO BOB'S ACCOUNT //////////////
 
 // Now mint some further funds for Bob
@@ -388,16 +368,14 @@ const mintQuantity = 10_000n;
 await mintTokensToPrivate(tokenContractBob, bobWallet, bob, mintQuantity);
 
 // Check the new balances
-aliceBalance = await tokenContractAlice.methods
-  .balance_of_private(alice)
-  .simulate();
+aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
 logger.info(`Alice's balance ${aliceBalance}`);
 
 bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
 logger.info(`Bob's balance ${bobBalance}`);
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188</a></sub></sup>
 
 Our complete output should now be something like:
 

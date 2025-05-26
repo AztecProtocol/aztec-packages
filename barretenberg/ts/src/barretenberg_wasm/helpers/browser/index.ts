@@ -21,6 +21,15 @@ export function killSelf() {
   self.close();
 }
 
+export function getAvailableThreads(logger: (msg: string) => void): number {
+  if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
+    return navigator.hardwareConcurrency;
+  } else {
+    logger(`Could not detect environment to query number of threads. Falling back to one thread.`);
+    return 1;
+  }
+}
+
 // Solution to async initialization of workers, taken from
 // https://github.com/GoogleChromeLabs/comlink/issues/635#issuecomment-1598913044
 

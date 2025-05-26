@@ -23,7 +23,7 @@ When finished, one can call .finish() to convert back to the abi
 | pub l2_to_l1_msgs | BoundedVec&lt;L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL&gt; |
 | pub historical_header | BlockHeader |
 | pub private_logs | BoundedVec&lt;PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL&gt; |
-| pub contract_class_logs_hashes | BoundedVec&lt;LogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL&gt; |
+| pub contract_class_logs_hashes | BoundedVec&lt;Counted&lt;LogHash&gt;, MAX_CONTRACT_CLASS_LOGS_PER_CALL&gt; |
 | pub last_key_validation_requests | Option&lt;KeyValidationRequest&gt;; NUM_KEY_TYPES] |
 
 ## Methods
@@ -331,7 +331,7 @@ PrivateContext::consume_l1_to_l2_message(&mut self, content, secret, sender, lea
 ### emit_private_log
 
 ```rust
-PrivateContext::emit_private_log(&mut self, log);
+PrivateContext::emit_private_log(&mut self, log, length);
 ```
 
 #### Parameters
@@ -339,11 +339,12 @@ PrivateContext::emit_private_log(&mut self, log);
 | --- | --- |
 | &mut self |  |
 | log | [Field; PRIVATE_LOG_SIZE_IN_FIELDS] |
+| length | u32 |
 
 ### emit_raw_note_log
 
 ```rust
-PrivateContext::emit_raw_note_log(&mut self, log, note_hash_counter, );
+PrivateContext::emit_raw_note_log(&mut self, log, length, note_hash_counter, );
 ```
 
 #### Parameters
@@ -351,6 +352,7 @@ PrivateContext::emit_raw_note_log(&mut self, log, note_hash_counter, );
 | --- | --- |
 | &mut self |  |
 | log | [Field; PRIVATE_LOG_SIZE_IN_FIELDS] |
+| length | u32 |
 | note_hash_counter | u32 |
 |  |  |
 

@@ -8,14 +8,14 @@ In this section, we'll write the logic in our app that will interact with the co
 
 Let's start by showing our user's private balance for the token across their accounts. To do this, we can leverage the `balance_of_private` utility function of the token contract:
 
-```rust title="balance_of_private" showLineNumbers
+```rust title="balance_of_private" showLineNumbers 
 #[utility]
 pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
     storage.balances.at(owner).balance_of()
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L621-L626" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L621-L626</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L621-L626" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L621-L626</a></sub></sup>
 
 :::info
 Note that this function will only return a valid response for accounts registered in the Private eXecution Environment (PXE), since it requires access to the [user's private state](../../../../../aztec/concepts/wallets/index.md#private-state). In other words, you cannot query the private balance of another user for the token contract.
@@ -26,18 +26,14 @@ To do this, let's first initialize a new `Contract` instance using `aztec.js` th
 ```js
 // src/contracts.mjs
 import { AztecAddress, Contract, loadContractArtifact } from "@aztec/aztec.js";
-import TokenContractJson from "../contracts/token/target/token-Token.json" assert { type: "json" };
+import TokenContractJson from "../contracts/token/target/token-Token.json" with { type: "json" };
 
 import { readFileSync } from "fs";
 const TokenContractArtifact = loadContractArtifact(TokenContractJson);
 
 export async function getToken(wallet) {
-  const addresses = JSON.parse(readFileSync("addresses.json"));
-  return Contract.at(
-    AztecAddress.fromString(addresses.token),
-    TokenContractArtifact,
-    wallet
-  );
+  const addresses = JSON.parse(readFileSync('addresses.json'));
+  return Contract.at(AztecAddress.fromString(addresses.token), TokenContractArtifact, wallet);
 }
 ```
 
@@ -45,16 +41,16 @@ We can now get the token instance in our main code in `src/index.mjs`, by import
 
 ```js
 // src/index.mjs
-import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
-import { createPXEClient, waitForPXE } from "@aztec/aztec.js";
-import { fileURLToPath } from "@aztec/foundation/url";
+import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { fileURLToPath } from '@aztec/foundation/url';
 
-import { getToken } from "./contracts.mjs";
+import { getToken } from './contracts.mjs';
 ```
 
 and query the private balance for each of the user accounts. To query a function, without sending a transaction, use the `simulate` function of the method:
 
-```javascript title="showPrivateBalances" showLineNumbers
+```javascript title="showPrivateBalances" showLineNumbers 
 async function showPrivateBalances(pxe) {
   const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
@@ -63,15 +59,13 @@ async function showPrivateBalances(pxe) {
 
   for (const account of accounts) {
     // highlight-next-line
-    const balance = await token.methods
-      .balance_of_private(account.address)
-      .simulate();
+    const balance = await token.methods.balance_of_private(account.address).simulate();
     console.log(`Balance of ${account.address}: ${balance}`);
   }
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/sample-dapp/index.mjs#L19-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L19-L32</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/sample-dapp/index.mjs#L19-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L19-L32</a></sub></sup>
 
 Call the function in `main` and run this with `node src/index.mjs` and you should now see the following output:
 
@@ -85,7 +79,7 @@ Balance of 0x0e1f60e8566e2c6d32378bdcadb7c63696e853281be798c107266b8c3a88ea9b: 0
 
 Before we can transfer tokens, we need to mint some tokens to our user accounts. Add the following function to `src/index.mjs`:
 
-```javascript title="mintPrivateFunds" showLineNumbers
+```javascript title="mintPrivateFunds" showLineNumbers 
 async function mintPrivateFunds(pxe) {
   const [ownerWallet] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(ownerWallet);
@@ -95,16 +89,13 @@ async function mintPrivateFunds(pxe) {
   // We mint tokens to the owner
   const mintAmount = 20n;
   const from = ownerWallet.getAddress(); // we are setting from to owner here because we need a sender to calculate the tag
-  await token.methods
-    .mint_to_private(from, ownerWallet.getAddress(), mintAmount)
-    .send()
-    .wait();
+  await token.methods.mint_to_private(from, ownerWallet.getAddress(), mintAmount).send().wait();
 
   await showPrivateBalances(pxe);
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/sample-dapp/index.mjs#L34-L48" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L34-L48</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/sample-dapp/index.mjs#L34-L48" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L34-L48</a></sub></sup>
 
 Call the function in `main`, run the script and after printing the balances of each account it will then privately mint tokens. After that completes, you should then see 20 tokens in the balance of the first account.
 
@@ -126,26 +117,21 @@ import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 
 We'll use one of these wallets to initialize the `TokenContract` instance that represents our private token contract, so every transaction sent through it will be sent through that wallet.
 
-```javascript title="transferPrivateFunds" showLineNumbers
+```javascript title="transferPrivateFunds" showLineNumbers 
 async function transferPrivateFunds(pxe) {
   const [owner, recipient] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
 
   await showPrivateBalances(pxe);
   console.log(`Sending transaction, awaiting transaction to be mined`);
-  const receipt = await token.methods
-    .transfer(recipient.getAddress(), 1)
-    .send()
-    .wait();
+  const receipt = await token.methods.transfer(recipient.getAddress(), 1).send().wait();
 
-  console.log(
-    `Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`
-  );
+  console.log(`Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`);
   await showPrivateBalances(pxe);
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/sample-dapp/index.mjs#L50-L62" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L50-L62</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/sample-dapp/index.mjs#L50-L62" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L50-L62</a></sub></sup>
 
 Let's go step-by-step on this snippet. We first get wallets for two of the Sandbox accounts, and name them `owner` and `recipient`. Then, we initialize the private token `Contract` instance using the `owner` wallet, meaning that any transactions sent through it will have the `owner` as sender.
 
@@ -176,7 +162,7 @@ At the time of this writing, there are no events emitted when new private notes 
 
 While [private and public state](../../../../../aztec/concepts/storage/index.md) are fundamentally different, the API for working with private and public functions and state from `aztec.js` is equivalent. To query the balance in public tokens for our user accounts, we can just call the `balance_of_public` view function in the contract:
 
-```javascript title="showPublicBalances" showLineNumbers
+```javascript title="showPublicBalances" showLineNumbers 
 async function showPublicBalances(pxe) {
   const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
@@ -185,15 +171,13 @@ async function showPublicBalances(pxe) {
 
   for (const account of accounts) {
     // highlight-next-line
-    const balance = await token.methods
-      .balance_of_public(account.address)
-      .simulate();
+    const balance = await token.methods.balance_of_public(account.address).simulate();
     console.log(`Balance of ${account.address}: ${balance}`);
   }
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/sample-dapp/index.mjs#L64-L77" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L64-L77</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/sample-dapp/index.mjs#L64-L77" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L64-L77</a></sub></sup>
 
 :::info
 Since this we are working with public balances, we can now query the balance for any address, not just those registered in our local PXE. We can also send funds to addresses for which we don't know their [public encryption key](../../../../../aztec/concepts/accounts/keys.md#keys-generation).
@@ -202,7 +186,7 @@ Since this we are working with public balances, we can now query the balance for
 Here, since the token contract does not mint any initial funds upon deployment, the balances for all of our user's accounts will be zero.
 But we can send a transaction to mint tokens, using very similar code to the one for sending private funds:
 
-```javascript title="mintPublicFunds" showLineNumbers
+```javascript title="mintPublicFunds" showLineNumbers 
 async function mintPublicFunds(pxe) {
   const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
@@ -210,26 +194,19 @@ async function mintPublicFunds(pxe) {
   await showPublicBalances(pxe);
 
   console.log(`Sending transaction, awaiting transaction to be mined`);
-  const receipt = await token.methods
-    .mint_to_public(owner.getAddress(), 100)
-    .send()
-    .wait();
-  console.log(
-    `Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`
-  );
+  const receipt = await token.methods.mint_to_public(owner.getAddress(), 100).send().wait();
+  console.log(`Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`);
 
   await showPublicBalances(pxe);
 
   const blockNumber = await pxe.getBlockNumber();
   const logs = (await pxe.getPublicLogs({ fromBlock: blockNumber - 1 })).logs;
-  const textLogs = logs.map((extendedLog) =>
-    extendedLog.toHumanReadable().slice(0, 200)
-  );
+  const textLogs = logs.map(extendedLog => extendedLog.toHumanReadable().slice(0, 200));
   for (const log of textLogs) console.log(`Log emitted: ${log}`);
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/sample-dapp/index.mjs#L79-L99" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L79-L99</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/sample-dapp/index.mjs#L79-L99" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L79-L99</a></sub></sup>
 
 And get the expected results:
 

@@ -5,7 +5,7 @@ tags: [sandbox, testnet]
 
 import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
-This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started on testnet guide](./developers/guides/getting_started_on_testnet.md).
+This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started on testnet guide](./developers/getting_started.md).
 
 ## Main differences
 
@@ -35,7 +35,7 @@ export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
 aztec-wallet create-account -a main --register-only --node-url $NODE_URL
 ```
 
-You can find a full flow in the [getting started on testnet](./developers/guides/getting_started_on_testnet.md) guide.
+You can find a full flow in the [getting started on testnet](./developers/getting_started.md) guide.
 
 Instead of running a PXE locally, you can also use one directly with AztecJS in your app. For this, you will need to connect to an Aztec node and initialize the PXE.
 
@@ -83,7 +83,7 @@ const pxe = await createPXEService(node, fullConfig, true, store);
 
 There are multiple ways to pay for fees on testnet:
 
-- The user pays for their own (in which case you will need to send them tokens, or get them to use the faucet).
+- The user pays for their own (in which case you will need to send them tokens, or get them to use the faucet)
 - It is sponsored by your own contract
 - It is sponsored by the canonical sponsored fee payment contract (FPC) deployed to testnet. Read more about using a Sponsored FPC in Aztec.js [here](./developers/guides/js_apps/pay_fees.md#sponsored-fee-paying-contract) or via the [CLI here](./developers/reference/environment_reference/cli_wallet_reference#sponsored-fee-paying-contract).
 
@@ -104,6 +104,8 @@ const receiptForBob = await bananaCoin
   .send({ fee: { paymentMethod: sponsoredPaymentMethod } })
   .wait();
 ```
+
+To learn more about using the faucet or the sponsored fee payment method, read the full fees guide [here](./developers/tutorials/codealong/first_fees.md).
 
 ## Portals
 
