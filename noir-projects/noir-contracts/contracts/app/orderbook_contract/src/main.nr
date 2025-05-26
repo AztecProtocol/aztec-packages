@@ -69,7 +69,7 @@ pub contract Orderbook {
     #[public]
     #[initializer]
     fn constructor(token0: AztecAddress, token1: AztecAddress) {
-        storage.config.initialize(Config { token0, token1 });
+        storage.config.initialize(Config::new(token0, token1));
     }
 
     /// Privately creates a new order in the orderbook
@@ -84,15 +84,12 @@ pub contract Orderbook {
     ) -> Field {
         let config = storage.config.read();
 
-        assert((token_in == config.token0) | (token_in == config.token1), "TOKEN_IN_IS_INVALID");
-        assert((token_out == config.token0) | (token_out == config.token1), "TOKEN_OUT_IS_INVALID");
-        assert(token_in != token_out, "SAME_TOKEN_TRADE");
-        assert(amount_in > 0 as u128, "ZERO_AMOUNT_IN");
-        assert(amount_out > 0 as u128, "ZERO_AMOUNT_OUT");
+        // Create the order (this validates the input tokens and amounts).
+        let order = Order::new(config, amount_in, amount_out, token_in, token_out);
 
         let maker = context.msg_sender();
 
-        // Transfer tokens from maker to the public balance of this contract
+        // Transfer tokens from maker to the public balance of this contract.
         Token::at(token_in)
             .transfer_to_public(maker, context.this_address(), amount_in, nonce)
             .call(&mut context);
@@ -101,15 +98,13 @@ pub contract Orderbook {
         let maker_partial_note =
             Token::at(token_out).prepare_private_balance_increase(maker, maker).call(&mut context);
 
-        // Create the order and store it in public storage
-        let order = Order { amount_in, amount_out, zero_to_one: token_in == config.token0 };
-
         // The partial note serves as a natural unique identifier for the order. While a maker could theoretically
         // create duplicate order IDs by manipulating the randomness, this would be self-defeating - only one order
         // with a given ID can be fulfilled, meaning any duplicates would result in the maker's tokens being
         // irretrievably locked in the public balance of this contract.
         let order_id = maker_partial_note.to_field();
 
+        // Store the order in public storage and emit an event.
         Orderbook::at(context.this_address())._create_order(order_id, order).enqueue(&mut context);
 
         order_id
@@ -132,11 +127,7 @@ pub contract Orderbook {
         let taker = context.msg_sender();
 
         // Determine which tokens are being exchanged based on zero_to_one flag
-        let (token_in, token_out) = if order.zero_to_one {
-            (config.token0, config.token1)
-        } else {
-            (config.token1, config.token0)
-        };
+        let (token_in, token_out) = config.get_tokens(order.zero_to_one);
 
         // TODO(#14362): Once we allow partial note completion in private we can skip the transfer to public here and
         // just finalize the maker's partial note straight away here.

@@ -74,6 +74,9 @@ describe('Orderbook', () => {
       const orderCreatedEvents = await pxe.getPublicEvents<OrderCreated>(OrderbookContract.events.OrderCreated, 0, 100);
       expect(orderCreatedEvents.length).toBe(1);
 
+      // TODO: Check that the order ID returned from create_order matches the one in the event. It's currently not
+      // supported by Aztec.js to get a return value from a sent transaction.
+
       // Get order ID from emitted event
       orderId = orderCreatedEvents[0].order_id;
 

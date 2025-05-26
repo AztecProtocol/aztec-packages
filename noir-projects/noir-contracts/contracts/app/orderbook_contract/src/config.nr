@@ -5,6 +5,33 @@ use std::meta::derive;
 /// merkle proof.
 #[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct Config {
-    pub token0: AztecAddress,
-    pub token1: AztecAddress,
+    token0: AztecAddress,
+    token1: AztecAddress,
+}
+
+impl Config {
+    pub fn new(token0: AztecAddress, token1: AztecAddress) -> Self {
+        assert(!token0.eq(token1), "Tokens must be different");
+        Self { token0, token1 }
+    }
+
+    pub fn validate_input_tokens_and_get_direction(
+        self,
+        token_in: AztecAddress,
+        token_out: AztecAddress,
+    ) -> bool {
+        assert((token_in == self.token0) | (token_in == self.token1), "TOKEN_IN_IS_INVALID");
+        assert((token_out == self.token0) | (token_out == self.token1), "TOKEN_OUT_IS_INVALID");
+        assert(token_in != token_out, "SAME_TOKEN_TRADE");
+
+        token_in == self.token0
+    }
+
+    pub fn get_tokens(self, zero_to_one: bool) -> (AztecAddress, AztecAddress) {
+        if zero_to_one {
+            (self.token0, self.token1)
+        } else {
+            (self.token1, self.token0)
+        }
+    }
 }
