@@ -22,6 +22,7 @@ tags:
   - tutorial
   - infrastructure
 ---
+import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
 ## Background
 
