@@ -195,7 +195,6 @@ function test {
   # and also that half the cpus are logical, not physical.
   echo "Gathering tests to run..."
   tests=$(test_cmds $@)
-  tests+=('build_bench')
 
   # Note: Capturing strips last newline. The echo re-adds it.
   local num
@@ -275,6 +274,7 @@ function bench {
     return
   fi
   echo_header "bench all"
+  build_bench
   find . -type d -iname bench-out | xargs rm -rf
   bench_cmds | STRICT_SCHEDULING=1 parallelise
   rm -rf bench-out
