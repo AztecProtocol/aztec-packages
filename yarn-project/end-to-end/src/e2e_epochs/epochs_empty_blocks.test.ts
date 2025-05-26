@@ -20,9 +20,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({
-      ethereumSlotDuration: 4,
-    });
+    test = await EpochsTestContext.setup();
     ({ context, rollup, logger, monitor, L1_BLOCK_TIME_IN_S } = test);
   });
 
@@ -65,7 +63,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
         `Reached PENDING L2 block ${epochTargetBlockNumber}, proving should now start, waiting for PROVEN block to reach ${provenBlockNumber}`,
       );
       await test.waitUntilProvenL2BlockNumber(provenBlockNumber, 120);
-      expect(Number(await rollup.getProvenBlockNumber())).toBeGreaterThanOrEqual(provenBlockNumber);
+      expect(Number(await rollup.getProvenBlockNumber())).toBe(provenBlockNumber);
       logger.info(`Reached PROVEN block number ${provenBlockNumber}, epoch ${epochNumber} is now proven`);
       epochNumber++;
 
