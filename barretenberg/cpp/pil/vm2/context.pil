@@ -292,10 +292,10 @@ namespace execution;
         is_static',
         parent_calldata_offset_addr',
         parent_calldata_size_addr',
-        parent_l2_gas_limit,
-        parent_da_gas_limit,
-        parent_l2_gas_used,
-        parent_da_gas_used
+        parent_l2_gas_limit',
+        parent_da_gas_limit',
+        parent_l2_gas_used',
+        parent_da_gas_used'
     } in
     context_stack.sel {
         context_stack.context_id,
