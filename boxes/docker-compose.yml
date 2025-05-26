@@ -46,7 +46,6 @@ services:
     command: "yarn workspace @aztec/example-$BOX test"
     environment:
       HARDWARE_CONCURRENCY: 4
-      WORKERS: 3
       DEBUG: "aztec:*"
       DEBUG_COLORS: "true"
       L1_CHAIN_ID: 31337
