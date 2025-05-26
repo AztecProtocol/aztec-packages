@@ -123,10 +123,10 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::execution_is_static_shift,
         ColumnAndShifts::execution_parent_calldata_offset_addr_shift,
         ColumnAndShifts::execution_parent_calldata_size_addr_shift,
-        ColumnAndShifts::execution_parent_l2_gas_limit,
-        ColumnAndShifts::execution_parent_da_gas_limit,
-        ColumnAndShifts::execution_parent_l2_gas_used,
-        ColumnAndShifts::execution_parent_da_gas_used
+        ColumnAndShifts::execution_parent_l2_gas_limit_shift,
+        ColumnAndShifts::execution_parent_da_gas_limit_shift,
+        ColumnAndShifts::execution_parent_l2_gas_used_shift,
+        ColumnAndShifts::execution_parent_da_gas_used_shift
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::context_stack_context_id,
