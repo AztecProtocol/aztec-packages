@@ -43,18 +43,15 @@ services:
     volumes:
       - ../:/root/aztec-packages
     working_dir: /root/aztec-packages/boxes
-    command: "yarn workspace @aztec/$BOX test --project=$BROWSER"
+    command: "yarn workspace @aztec/example-$BOX test"
     environment:
       HARDWARE_CONCURRENCY: 4
       DEBUG: "aztec:*"
       DEBUG_COLORS: "true"
-      ETHEREUM_HOSTS: http://ethereum:8545
       L1_CHAIN_ID: 31337
       FORCE_COLOR: ${FORCE_COLOR:-1}
-      PXE_URL: http://aztec:8080
       AZTEC_NODE_URL: http://aztec:8080
-      BOX: ${BOX:-vanilla}
-      BROWSER: ${BROWSER:-chromium}
+      BOX: ${BOX}
     depends_on:
       aztec:
         condition: service_healthy
