@@ -156,7 +156,7 @@ export function generateBenchmark(
   try {
     minimumTrace = getMinimumTrace(logs);
     maxMemory = getMaxMemory(logs);
-  } catch (e) {
+  } catch {
     logger.warn(`Failed obtain minimum trace and max memory for ${flow}. Did you run with REAL_PROOFS=1?`);
   }
 
