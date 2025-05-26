@@ -38,9 +38,7 @@ test('create account and cast vote', async ({ page }, testInfo) => {
 
   // Cast vote
   // Choose the candidate to vote for based on the browser used to run the test.
-  // This is a hack to avoid race conditions as test are run in parallel with
-  // multiple browsers against the same network (sandbox) and contract.
-  // Ideally we should deploy contracts for each test, but this will result in a slow CI.
+  // This is a hack to avoid race conditions when tests are run in parallel against the same network.
   const candidateId = {
     'chromium': 1,
     'firefox': 2,

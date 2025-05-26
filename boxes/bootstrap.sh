@@ -32,8 +32,10 @@ function test {
 }
 
 function test_cmds {
-  for box in vanilla react vite; do
-      echo "$hash:ONLY_TERM_PARENT=1 BOX=$box run_compose_test $box box boxes"
+  for browser in chromium webkit firefox; do
+    for box in vanilla react vite; do
+      echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
+    done
   done
 }
 
