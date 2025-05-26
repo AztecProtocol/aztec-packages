@@ -210,7 +210,7 @@ export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): Git
       unit: 'ms',
     },
     {
-      name: `${benchmark.name}/unaccounte`,
+      name: `${benchmark.name}/unaccounted`,
       value: benchmark.timings.unaccounted,
       unit: 'ms',
     },
