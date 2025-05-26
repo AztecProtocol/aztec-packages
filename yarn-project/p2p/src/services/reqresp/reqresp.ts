@@ -596,6 +596,7 @@ export class ReqResp {
   }))
   private async streamHandler(protocol: ReqRespSubProtocol, { stream, connection }: IncomingStreamData) {
     this.metrics.recordRequestReceived(protocol);
+    let streamAlreadyClosed = false;
 
     try {
       // Store a reference to from this for the async generator
@@ -621,8 +622,11 @@ export class ReqResp {
             const response = await handler(connection.remotePeer, msg);
 
             if (protocol === ReqRespSubProtocol.GOODBYE) {
+              // NOTE: The stream was already closed by Goodbye handler
+              // peerManager.goodbyeReceived(peerId, reason); will call libp2p.hangUp closing all active streams and connections
+              streamAlreadyClosed = true;
+
               // Don't respond
-              await stream.close();
               return;
             }
 
@@ -656,7 +660,9 @@ export class ReqResp {
         stream,
       );
     } finally {
-      await stream.close();
+      if (!streamAlreadyClosed) {
+        await stream.close();
+      }
     }
   }
 
