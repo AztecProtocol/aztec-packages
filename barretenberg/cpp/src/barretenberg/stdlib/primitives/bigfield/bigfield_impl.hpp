@@ -415,7 +415,6 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
     // gate 3: z.limb_2 = x.limb_2 + y.limb_2
     // gate 4: z.limb_3 = x.limb_3 + y.limb_3
     //
-    // TODO(suyash): does prime_basis_limb need a "normalize" check?
     bool both_witness = !is_constant() && !other.is_constant();
     bool both_prime_limb_multiplicative_constant_one =
         (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1);
