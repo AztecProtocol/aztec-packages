@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.2...v1.0.0) (2025-05-22)
+## [0.88.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.2...v0.88.0) (2025-05-22)
 
 
 ### ⚠ BREAKING CHANGES
