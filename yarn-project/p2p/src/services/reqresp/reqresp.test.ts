@@ -392,6 +392,8 @@ describe('ReqResp', () => {
         return originalStreamHandler.call(this, protocol, data);
       };
 
+      const warnSpy = jest.spyOn((receivingNode.req as any).logger, 'warn');
+
       await startNodes(nodes, protocolHandlers);
       await sleep(500);
       await connectToPeers(nodes);
@@ -419,6 +421,9 @@ describe('ReqResp', () => {
       expect(streamCloseCallCount).toBe(0);
       expect(capturedStream).not.toBeNull();
       expect(capturedStream.close).toHaveBeenCalledTimes(0);
+
+      // make sure warn was NOT called
+      expect(warnSpy).not.toHaveBeenCalled();
     });
   });
 
