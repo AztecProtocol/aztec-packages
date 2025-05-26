@@ -82,9 +82,9 @@ describe('Orderbook', () => {
 
       // Get order from orderbook and verify details
       const [order, isFulfilled] = await orderbook.methods.get_order(orderId).simulate();
-      expect(order.amount_in).toEqual(bidAmount);
-      expect(order.amount_out).toEqual(askAmount);
-      expect(order.token_in_is_zero).toBeTrue();
+      expect(order.bid_amount).toEqual(bidAmount);
+      expect(order.ask_amount).toEqual(askAmount);
+      expect(order.bid_token_is_zero).toBeTrue();
       expect(isFulfilled).toBeFalse();
 
       // At this point, bidAmount of token0 should be transferred to the public balance of the orderbook and maker
@@ -95,6 +95,7 @@ describe('Orderbook', () => {
       expect(makerBalances0).toEqual(0n);
     });
 
+    // Note that this test case depends on the previous one.
     it('fulfills an order', async () => {
       const nonceForAuthwits = Fr.random();
 
