@@ -28,8 +28,8 @@ describe('Orderbook', () => {
   let token1: TokenContract;
   let orderbook: OrderbookContract;
 
-  const amountIn = 1000n;
-  const amountOut = 2000n;
+  const bidAmount = 1000n;
+  const askAmount = 2000n;
 
   beforeAll(async () => {
     ({
@@ -45,8 +45,8 @@ describe('Orderbook', () => {
     orderbook = await OrderbookContract.deploy(adminWallet, token0.address, token1.address).send().deployed();
 
     // Mint tokens to maker and taker
-    await mintTokensToPrivate(token0, adminWallet, maker.getAddress(), amountIn);
-    await mintTokensToPrivate(token1, adminWallet, taker.getAddress(), amountOut);
+    await mintTokensToPrivate(token0, adminWallet, maker.getAddress(), bidAmount);
+    await mintTokensToPrivate(token1, adminWallet, taker.getAddress(), askAmount);
   });
 
   afterAll(() => teardown());
@@ -57,16 +57,16 @@ describe('Orderbook', () => {
     it('creates an order', async () => {
       const nonceForAuthwits = Fr.random();
 
-      // Create authwit for maker to allow orderbook to transfer amountIn of token0 to itself
+      // Create authwit for maker to allow orderbook to transfer bidAmount of token0 to itself
       const makerAuthwit = await maker.createAuthWit({
         caller: orderbook.address,
-        action: token0.methods.transfer_to_public(maker.getAddress(), orderbook.address, amountIn, nonceForAuthwits),
+        action: token0.methods.transfer_to_public(maker.getAddress(), orderbook.address, bidAmount, nonceForAuthwits),
       });
 
       // Create order
       await orderbook
         .withWallet(maker)
-        .methods.create_order(token0.address, token1.address, amountIn, amountOut, nonceForAuthwits)
+        .methods.create_order(token0.address, token1.address, bidAmount, askAmount, nonceForAuthwits)
         .with({ authWitnesses: [makerAuthwit] })
         .send()
         .wait();
@@ -82,26 +82,26 @@ describe('Orderbook', () => {
 
       // Get order from orderbook and verify details
       const [order, isFulfilled] = await orderbook.methods.get_order(orderId).simulate();
-      expect(order.amount_in).toEqual(amountIn);
-      expect(order.amount_out).toEqual(amountOut);
+      expect(order.amount_in).toEqual(bidAmount);
+      expect(order.amount_out).toEqual(askAmount);
       expect(order.token_in_is_zero).toBeTrue();
       expect(isFulfilled).toBeFalse();
 
-      // At this point, amountIn of token0 should be transferred to the public balance of the orderbook and maker
+      // At this point, bidAmount of token0 should be transferred to the public balance of the orderbook and maker
       // should have 0.
       const orderbookBalances0 = await token0.withWallet(maker).methods.balance_of_public(orderbook.address).simulate();
       const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
-      expect(orderbookBalances0).toEqual(amountIn);
+      expect(orderbookBalances0).toEqual(bidAmount);
       expect(makerBalances0).toEqual(0n);
     });
 
     it('fulfills an order', async () => {
       const nonceForAuthwits = Fr.random();
 
-      // Create authwit for taker to allow orderbook to transfer amountOut of token1 to itself
+      // Create authwit for taker to allow orderbook to transfer askAmount of token1 to itself
       const takerAuthwit = await taker.createAuthWit({
         caller: orderbook.address,
-        action: token1.methods.transfer_to_public(taker.getAddress(), orderbook.address, amountOut, nonceForAuthwits),
+        action: token1.methods.transfer_to_public(taker.getAddress(), orderbook.address, askAmount, nonceForAuthwits),
       });
 
       // Fulfill order
@@ -129,10 +129,10 @@ describe('Orderbook', () => {
 
       // Full maker token 0 balance should be transferred to taker and hence maker should have 0
       expect(makerBalances0).toEqual(0n);
-      // amountOut of token1 should be transferred to maker
-      expect(makerBalances1).toEqual(amountOut);
-      // amountIn of token0 should be transferred to taker
-      expect(takerBalances0).toEqual(amountIn);
+      // askAmount of token1 should be transferred to maker
+      expect(makerBalances1).toEqual(askAmount);
+      // bidAmount of token0 should be transferred to taker
+      expect(takerBalances0).toEqual(bidAmount);
       // Full taker token 1 balance should be transferred to maker and hence taker should have 0
       expect(takerBalances1).toEqual(0n);
 

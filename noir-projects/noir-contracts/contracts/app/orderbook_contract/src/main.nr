@@ -77,28 +77,28 @@ pub contract Orderbook {
     /// The maker specifies the tokens and amounts they want to trade
     #[private]
     fn create_order(
-        token_in: AztecAddress,
-        token_out: AztecAddress,
-        amount_in: u128,
-        amount_out: u128,
+        bid_token: AztecAddress,
+        ask_token: AztecAddress,
+        bid_amount: u128,
+        ask_amount: u128,
         nonce: Field,
     ) -> Field {
         let config = storage.config.read();
 
         // Create the order (this validates the input tokens and amounts).
-        let order = Order::new(config, amount_in, amount_out, token_in, token_out);
+        let order = Order::new(config, bid_amount, ask_amount, bid_token, ask_token);
 
         let maker = context.msg_sender();
 
         // Transfer tokens from maker to the public balance of this contract.
-        Token::at(token_in)
-            .transfer_to_public(maker, context.this_address(), amount_in, nonce)
+        Token::at(bid_token)
+            .transfer_to_public(maker, context.this_address(), bid_amount, nonce)
             .call(&mut context);
 
         // Prepare a partial note that will get completed once the order is fulfilled. Note that only the Orderbook
         // contract can complete the partial note.
         let maker_partial_note =
-            Token::at(token_out).prepare_private_balance_increase(maker, maker).call(&mut context);
+            Token::at(ask_token).prepare_private_balance_increase(maker, maker).call(&mut context);
 
         // We use the partial note's commitment as the order ID. Because partial notes emit a nullifier with their
         // commitment when created they are unique, and so this guarantees that our order IDs are also unique without
@@ -127,19 +127,19 @@ pub contract Orderbook {
         let order = storage.orders.at(order_id).read();
         let taker = context.msg_sender();
 
-        // Determine which tokens are being exchanged based on token_in_is_zero flag
-        let (token_in, token_out) = config.get_tokens(order.token_in_is_zero);
+        // Determine which tokens are being exchanged based on bid_token_is_zero flag
+        let (bid_token, ask_token) = config.get_tokens(order.bid_token_is_zero);
 
         // TODO(#14362): Once we allow partial note completion in private we can skip the transfer to public here and
         // just finalize the maker's partial note straight away here.
-        // Transfer the amount_out from taker to the contract
-        Token::at(token_out)
-            .transfer_to_public(taker, context.this_address(), order.amount_out, nonce)
+        // Transfer the ask_amount from taker to the contract
+        Token::at(ask_token)
+            .transfer_to_public(taker, context.this_address(), order.ask_amount, nonce)
             .call(&mut context);
 
-        // Prepare partial note for taker to receive token_in
+        // Prepare partial note for taker to receive bid_token
         let taker_partial_note =
-            Token::at(token_in).prepare_private_balance_increase(taker, taker).call(&mut context);
+            Token::at(bid_token).prepare_private_balance_increase(taker, taker).call(&mut context);
 
         // Nullify the order such that it cannot be fulfilled again. We emit a nullifier instead of deleting the order
         // from public storage because we get no refund for resetting public storage to zero and just emitting
@@ -153,10 +153,10 @@ pub contract Orderbook {
             ._fulfill_order(
                 order_id,
                 taker_partial_note,
-                token_in,
-                token_out,
-                order.amount_in,
-                order.amount_out,
+                bid_token,
+                ask_token,
+                order.bid_amount,
+                order.ask_amount,
             )
             .enqueue(&mut context);
     }
@@ -166,21 +166,21 @@ pub contract Orderbook {
     fn _fulfill_order(
         order_id: Field,
         taker_partial_note: PartialUintNote,
-        token_in: AztecAddress,
-        token_out: AztecAddress,
-        amount_in: u128,
-        amount_out: u128,
+        bid_token: AztecAddress,
+        ask_token: AztecAddress,
+        bid_amount: u128,
+        ask_amount: u128,
     ) {
         // The `order_id` is a serialized form of the maker's partial note.
         let maker_partial_note = PartialUintNote::from_field(order_id);
 
-        // Finalize transfer of amount_out of token_out to maker
-        Token::at(token_out).finalize_transfer_to_private(amount_out, maker_partial_note).call(
+        // Finalize transfer of ask_amount of ask_token to maker
+        Token::at(ask_token).finalize_transfer_to_private(ask_amount, maker_partial_note).call(
             &mut context,
         );
 
-        // Finalize transfer of of amount_in of token_in to taker
-        Token::at(token_in).finalize_transfer_to_private(amount_in, taker_partial_note).call(
+        // Finalize transfer of bid_amount of bid_token to taker
+        Token::at(bid_token).finalize_transfer_to_private(bid_amount, taker_partial_note).call(
             &mut context,
         );
 
