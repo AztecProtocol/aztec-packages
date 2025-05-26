@@ -36,6 +36,6 @@ describe('EventOnly', () => {
     );
 
     expect(events.length).toBe(1);
-    expect(events[0].value).toBe(value);
+    expect(events[0].value).toBe(value.toBigInt());
   });
 });
