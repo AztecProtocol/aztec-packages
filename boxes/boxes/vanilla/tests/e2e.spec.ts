@@ -1,6 +1,27 @@
 import { test, expect } from '@playwright/test';
 
-const proofTimeout = 200_000;
+const proofTimeout = 120_000;
+
+test.beforeAll(async ({ }, { config }) => {
+  // Make sure the node is running
+  const nodeUrl = process.env.AZTEC_NODE_URL;
+  if (!nodeUrl) {
+    throw new Error('AZTEC_NODE_URL is not set');
+  }
+
+  const nodeResp = await fetch(nodeUrl + "/status");
+  if (!nodeResp.ok) {
+    throw new Error(`Failed to connect to node. This test assumes you have a Sandbox running at ${nodeUrl}.`);
+  }
+
+  // Make sure the dev server is running
+  const devServerUrl = config.webServer.url;
+  const serverResp = await fetch(devServerUrl);
+  if (!serverResp.ok) {
+    throw new Error(`Failed to connect to app server at ${devServerUrl}.`);
+  }
+});
+
 
 test('create account and cast vote', async ({ page }, testInfo) => {
   await page.goto('/');
@@ -21,7 +42,7 @@ test('create account and cast vote', async ({ page }, testInfo) => {
 
   // Cast vote
   // Choose the candidate to vote for based on the browser used to run the test.
-  // This is a hack to avoid race conditions as test are run in parallel with 
+  // This is a hack to avoid race conditions as test are run in parallel with
   // multiple browsers against the same network (sandbox) and contract.
   // Ideally we should deploy contracts for each test, but this will result in a slow CI.
   const candidateId = {
@@ -32,16 +53,16 @@ test('create account and cast vote', async ({ page }, testInfo) => {
 
   // Get the current vote count for the candidate
   await expect(voteResults).toHaveText(/.+/, { timeout: 10_000 });
-  const currentResults = await voteResults.textContent();
-  
+  const currentResults = (await voteResults.textContent())!;
+
   const match = currentResults.match(new RegExp(`Candidate ${candidateId}: (\\d+) votes`));
-  const currentResultsNumber = parseInt(match?.[1]);
+  const currentResultsNumber = parseInt(match?.[1] ?? "");
 
   expect(currentResultsNumber).toBeGreaterThanOrEqual(0);
 
   await expect(voteInput).toBeVisible();
   await expect(voteButton).toBeVisible();
-  await voteInput.selectOption(candidateId.toString());
+  await voteInput.selectOption(candidateId!.toString());
   await voteButton.click();
   await expect(voteButton).toBeEnabled({
     enabled: true,

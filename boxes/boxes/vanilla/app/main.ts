@@ -1,3 +1,4 @@
+import './style.css';
 import {
   AztecAddress,
   Fr,
@@ -21,12 +22,18 @@ const voteResults = document.querySelector<HTMLDivElement>('#vote-results')!;
 
 // Local variables
 let wallet: EmbeddedWallet;
-let votingContractAddress: string;
-const nodeUrl = "http://localhost:8080";
+let contractAddress = process.env.CONTRACT_ADDRESS;
+let deployerAddress = process.env.DEPLOYER_ADDRESS;
+let deploymentSalt = process.env.DEPLOYMENT_SALT;
+let nodeUrl = process.env.AZTEC_NODE_URL;
 
 // On page load
 document.addEventListener('DOMContentLoaded', async () => {
   try {
+    if (!contractAddress) {
+      throw new Error('Missing required environment variables');
+    }
+
     // Initialize the PXE and the wallet
     displayStatusMessage('Connecting to node and initializing wallet...');
     wallet = new EmbeddedWallet(nodeUrl);
@@ -34,18 +41,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Register voting contract with wallet/PXE
     displayStatusMessage('Registering contracts...');
-    const response = await fetch('./deployed-contract.json');
-    const deployedContracts = await response.json();
-    if (!deployedContracts) {
-      throw new Error('Failed to fetch deployment data');
-    }
-    votingContractAddress = deployedContracts.contractAddress;
-
     await wallet.registerContract(
       EasyPrivateVotingContract.artifact,
-      AztecAddress.fromString(deployedContracts.deployerAddress),
-      Fr.fromString(deployedContracts.deploymentSalt),
-      [AztecAddress.fromString(deployedContracts.contractAddress)]
+      AztecAddress.fromString(deployerAddress),
+      Fr.fromString(deploymentSalt),
+      [AztecAddress.fromString(deployerAddress)]
     );
 
     // Get existing account
@@ -76,10 +76,9 @@ createAccountButton.addEventListener('click', async (e) => {
 
   try {
     const account = await wallet.createAccount();
+    displayAccount(account);
 
     await updateVoteTally(account);
-
-    displayAccount(account);
   } catch (error) {
     displayError(
       error instanceof Error ? error.message : 'An unknown error occurred'
@@ -108,7 +107,7 @@ voteButton.addEventListener('click', async (e) => {
     // Prepare contract interaction
     const account = await wallet.getAccount();
     const votingContract = await EasyPrivateVotingContract.at(
-      AztecAddress.fromString(votingContractAddress),
+      AztecAddress.fromString(contractAddress),
       account!
     );
     const interaction = votingContract.methods.cast_vote(candidate);
@@ -132,12 +131,13 @@ voteButton.addEventListener('click', async (e) => {
 async function updateVoteTally(account: Wallet) {
   let results: { [key: number]: number } = {};
 
+  // Prepare contract interaction
+  const votingContract = await EasyPrivateVotingContract.at(
+    AztecAddress.fromString(contractAddress),
+    account
+  );
+
   for (let i = 0; i < 5; i++) {
-    // Prepare contract interaction
-    const votingContract = await EasyPrivateVotingContract.at(
-      AztecAddress.fromString(votingContractAddress),
-      account
-    );
     const interaction = votingContract.methods.get_vote(i);
 
     // Simulate the transaction

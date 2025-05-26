@@ -26,8 +26,8 @@ dist-ssr
 tsconfig.tsbuildinfo
 
 scripts/.store
-deployed-contract.json
-wallet-info.json
+./deployed-contract.json
+./wallet-info.json
 
 contracts/target
 codegenCache.json

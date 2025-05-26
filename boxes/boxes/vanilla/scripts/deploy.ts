@@ -19,17 +19,19 @@ import { EasyPrivateVotingContract } from '../app/artifacts/EasyPrivateVoting.js
 import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 
-const NODE_URL = process.env.NODE_URL || 'http://localhost:8080';
+const AZTEC_NODE_URL = process.env.AZTEC_NODE_URL || 'http://localhost:8080';
 const PROVER_ENABLED = process.env.PROVER_ENABLED === 'false' ? false : true;
+const WRITE_ENV_FILE = process.env.WRITE_ENV_FILE === 'false' ? false : true;
+
+const PXE_STORE_DIR = path.join(import.meta.dirname, '.store');
 
 async function setupPXE() {
-  const aztecNode = createAztecNodeClient(NODE_URL);
+  const aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
 
-  const pxeDataDirectory = path.join(import.meta.dirname, '.store');
-  fs.rmSync(pxeDataDirectory, { recursive: true, force: true });
+  fs.rmSync(PXE_STORE_DIR, { recursive: true, force: true });
 
   const store = await createStore('pxe', {
-    dataDirectory: pxeDataDirectory,
+    dataDirectory: PXE_STORE_DIR,
     dataStoreMapSizeKB: 1e6,
   });
 
@@ -61,9 +63,9 @@ async function getSponsoredPFCContract() {
 }
 
 async function createAccount(pxe: PXE) {
-  const salt = Fr.fromString('0x1');
-  const secretKey = Fr.fromString('0x1');
-  const signingKey = Buffer.alloc(32, 1);
+  const salt = Fr.random();
+  const secretKey = Fr.random();
+  const signingKey = Buffer.alloc(32, Fr.random().toBuffer());
   const ecdsaAccount = await getEcdsaRAccount(pxe, secretKey, signingKey, salt);
 
   const deployMethod = await ecdsaAccount.getDeployMethod();
@@ -139,6 +141,27 @@ async function deployContract(pxe: PXE, deployer: Wallet) {
   };
 }
 
+async function writeEnvFile(deploymentInfo) {
+  const envFilePath = path.join(import.meta.dirname, '../.env');
+  const envConfig = Object.entries({
+    CONTRACT_ADDRESS: deploymentInfo.contractAddress,
+    DEPLOYER_ADDRESS: deploymentInfo.deployerAddress,
+    DEPLOYMENT_SALT: deploymentInfo.deploymentSalt,
+    AZTEC_NODE_URL,
+  })
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n');
+
+  fs.writeFileSync(envFilePath, envConfig);
+
+  console.log(`
+      \n\n\n
+      Contract deployed successfully. Config saved to ${envFilePath}
+      IMPORTANT: Do not lose this file as you will not be able to recover the contract address if you lose it.
+      \n\n\n
+    `);
+}
+
 async function createAccountAndDeployContract() {
   const pxe = await setupPXE();
 
@@ -149,33 +172,31 @@ async function createAccountAndDeployContract() {
   });
 
   // Create a new account
-  const { wallet, signingKey } = await createAccount(pxe);
+  const { wallet, /* signingKey */ } = await createAccount(pxe);
 
-  // Save the wallet info
-  const walletInfo = {
-    address: wallet.getAddress().toString(),
-    salt: wallet.salt.toString(),
-    secretKey: wallet.getSecretKey().toString(),
-    signingKey: Buffer.from(signingKey).toString('hex'),
-  };
-  fs.writeFileSync(
-    path.join(import.meta.dirname, '../wallet-info.json'),
-    JSON.stringify(walletInfo, null, 2)
-  );
-  console.log('\n\n\nWallet info saved to wallet-info.json\n\n\n');
+  // // Save the wallet info
+  // const walletInfo = {
+  //   address: wallet.getAddress().toString(),
+  //   salt: wallet.salt.toString(),
+  //   secretKey: wallet.getSecretKey().toString(),
+  //   signingKey: Buffer.from(signingKey).toString('hex'),
+  // };
+  // fs.writeFileSync(
+  //   path.join(import.meta.dirname, '../wallet-info.json'),
+  //   JSON.stringify(walletInfo, null, 2)
+  // );
+  // console.log('\n\n\nWallet info saved to wallet-info.json\n\n\n');
 
   // Deploy the contract
   const deploymentInfo = await deployContract(pxe, wallet);
 
   // Save the deployment info to app/public
-  const outputPath = path.join(
-    import.meta.dirname,
-    '../deployed-contract.json'
-  );
-  fs.writeFileSync(outputPath, JSON.stringify(deploymentInfo, null, 2));
-  console.log(
-    '\n\n\nContract deployed successfully. All info saved to deployed-contract.json\n\n\nIMPORTANT: Do not lose this file as you will not be able to recover the contract address if you lose it.\n\n\n'
-  );
+  if (WRITE_ENV_FILE) {
+    await writeEnvFile(deploymentInfo);
+  }
+
+  // Clean up the PXE store
+  fs.rmSync(PXE_STORE_DIR, { recursive: true, force: true });
 }
 
 createAccountAndDeployContract().catch((error) => {

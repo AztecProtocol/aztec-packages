@@ -1,5 +1,5 @@
 {
-  "name": "@aztec-examples/vanilla",
+  "name": "@aztec/example-vanilla",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,13 +12,13 @@
     "codegen-contracts": "cd contracts && ${AZTEC_BUILDER:-aztec} codegen ./target -o ./target",
     "copy-artifacts": "cp contracts/target/*.json contracts/target/*.ts app/artifacts",
     "build-contracts": "yarn clean && yarn compile-contracts && yarn codegen-contracts && yarn copy-artifacts",
-    "deploy-contracts": "tsx scripts/deploy.ts && cp deployed-contract.json app/public",
-    "dev": "vite --config app/vite.config.ts",
-    "build-app": "tsc && vite --config app/vite.config.ts build",
+    "deploy-contracts": "tsx scripts/deploy.ts",
+    "dev": "webpack serve --config app/webpack.config.js",
+    "build-app": "webpack --config app/webpack.config.js --mode production",
     "build": "yarn build-contracts && yarn build-app",
-    "serve": "vite preview --port ${PORT:-3000} --host 0.0.0.0",
-    "pretest": "yarn playwright install",
-    "test": "PROVER_ENABLED=false yarn deploy-contracts && playwright test",
+    "serve": "webpack serve --config app/webpack.config.js --port ${PORT:-3000} --host 0.0.0.0",
+    "prep-test": "yarn playwright install --with-deps && PROVER_ENABLED=false yarn deploy-contracts && yarn build-app",
+    "test": "yarn prep-test && yarn playwright test",
     "lint": "prettier --check ./src"
   },
   "dependencies": {
@@ -32,19 +32,29 @@
     "@aztec/stdlib": "latest"
   },
   "devDependencies": {
-    "@playwright/test": "^1.52.0",
-    "@types/node": "^22.15.21",
+    "@playwright/test": "1.49.0",
+    "@types/node": "^22.15.17",
+    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
+    "css-loader": "^6.10.0",
+    "dotenv-webpack": "^8.0.1",
+    "html-webpack-plugin": "^5.6.0",
+    "path-browserify": "^1.0.1",
     "prettier": "^3.5.3",
+    "stream-browserify": "^3.0.0",
+    "style-loader": "^3.3.4",
+    "ts-loader": "^9.5.1",
     "tsx": "^4.19.4",
-    "typescript": "~5.7.2",
-    "vite": "^6.3.2",
-    "vite-plugin-node-polyfills": "^0.23.0"
+    "typescript": "^5.3.3",
+    "util": "^0.12.5",
+    "webpack": "^5.99.6",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.1"
   },
   "prettier": {
     "semi": true,
     "tabWidth": 2,
     "singleQuote": true,
     "trailingComma": "es5"
-  },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  }
 }
