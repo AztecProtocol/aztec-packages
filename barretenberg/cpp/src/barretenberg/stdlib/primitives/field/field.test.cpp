@@ -298,24 +298,57 @@ template <typename Builder> class stdlib_field : public testing::Test {
         b *= fr::random_element();
         b += fr::random_element();
 
-        // numerator constant
+        // Case 0: Numerator = const, denominator != const
         field_ct out = field_ct(&builder, b.get_value()) / a;
         EXPECT_EQ(out.get_value(), b.get_value() / a.get_value());
+        EXPECT_FALSE(out.is_constant());
 
+        // Case 1: Numerator and denominator != const
         out = b / a;
         EXPECT_EQ(out.get_value(), b.get_value() / a.get_value());
 
-        // denominator constant
+        // Case 2: Numerator != const, denominator = const,
         out = a / b.get_value();
         EXPECT_EQ(out.get_value(), a.get_value() / b.get_value());
+        EXPECT_EQ(out.witness_index, a.witness_index);
 
-        // numerator 0
+        // Case 3: Numerator = const 0.
         out = field_ct(0) / b;
         EXPECT_EQ(out.get_value(), 0);
         EXPECT_EQ(out.is_constant(), true);
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
+    }
+
+    static void test_div_edge_cases()
+    {
+        // Case 0. Numerator = const, denominator = const. Check the correctness of the value and that the result is
+        // constant.
+        field_ct a(bb::fr::random_element());
+        field_ct b(bb::fr::random_element());
+        field_ct q = a / b;
+        EXPECT_TRUE(q.is_constant());
+        EXPECT_EQ(a.get_value() / b.get_value(), q.get_value());
+
+        { // Case 1. Numerator = const, denominator = const 0. Check that the division is aborted
+            b = 0;
+            EXPECT_DEATH(a / b, ".*");
+        }
+        { // Case 2. Numerator = const, denominator = const 0. Check that the division is aborted
+            Builder builder = Builder();
+            field_ct a = witness_ct(&builder, bb::fr::random_element());
+            b = 0;
+            EXPECT_DEATH(a / b, ".*");
+        }
+        {
+            // Case 3. Numerator != const, denominator = witness 0 . Check that the circuit fails.
+            Builder builder = Builder();
+            field_ct a = witness_ct(&builder, bb::fr::random_element());
+            b = witness_ct(&builder, bb::fr::zero());
+            q = a / b;
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
     }
 
     static void test_postfix_increment()
@@ -1187,10 +1220,17 @@ TYPED_TEST(stdlib_field, test_bool_conversion_regression)
 {
     TestFixture::test_bool_conversion_regression();
 }
-
 TYPED_TEST(stdlib_field, test_div)
 {
     TestFixture::test_div();
+}
+TYPED_TEST(stdlib_field, test_div_edge_cases)
+{
+    TestFixture::test_div_edge_cases();
+}
+TYPED_TEST(stdlib_field, test_div_no_zero_check_edge_cases)
+{
+    TestFixture::test_div_no_zero_check_edge_cases();
 }
 TYPED_TEST(stdlib_field, test_postfix_increment)
 {

@@ -209,8 +209,8 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         /**
          * Both inputs are circuit variables: create a * b constraint.
          *
-         * Value of this   = a.value * a.mul + a.add;
-         * Value of other  = b.value * b.mul + b.add;
+         * Value of this   = a.v * a.mul + a.add;
+         * Value of other  = b.v * b.mul + b.add;
          * Value of result = a * b
          *            = [a.v * b.v] * [a.mul * b.mul] + a.v * [a.mul * b.add] + b.v * [a.add * b.mul] + [a.ac * b.add]
          *            = [a.v * b.v] * [     q_m     ] + a.v * [     q_l     ] + b.v * [     q_r     ] + [    q_c     ]
@@ -265,47 +265,80 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
     return result;
 }
 
-// Since in divide_no_zero_check, we check a/b=c by the constraint a=b*c, if a=b=0, we can set c to *any value*
-// and it will pass the constraint. Hence, when not having prior knowledge of b not being zero it is essential to check.
+/**
+ * @brief Since in divide_no_zero_check, we check \f$ a / b=c \f$ by the constraint \f$ a= b \cdot c\f$, if \f$ a = b =
+ * 0\f$, we can set \f$ c \f$ to *any value* and it will pass the constraint. Hence, when not having prior knowledge of
+ * \f$ b \f$ not being zero it is essential to check.
+ *
+ */
 template <typename Builder> field_t<Builder> field_t<Builder>::operator/(const field_t& other) const
 {
+    // If the denominator is a constant 0, the division is aborted. Otherwise, it is constrained to be non-zero.
     other.assert_is_not_zero("field_t::operator/ divisor is 0");
     return divide_no_zero_check(other);
 }
+
+/**
+ * @brief Given field elements `a` = `*this` and `b` = `other`, output \f$ a / b \f$ without checking whether \f$  b = 0
+ * \f$.
+ *
+ * Note that If `b`== 0, this method triggers a std::runtime_error ("Trying to invert zero in the field") in invert()
+ * method of the native field.
+ */
 template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_check(const field_t& other) const
 {
+
+    // Let
+    //    a := this;
+    //    b := other;
+    //    q = a / b;
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
-    ASSERT(ctx || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
+    // Ensure that non-constant circuit elements can not be divided without context
+    ASSERT(ctx || (this->is_constant() && other.is_constant()));
 
     bb::fr additive_multiplier = bb::fr::one();
 
-    if (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT) {
-        // both inputs are constant - don't add a gate
-        if (!(other.additive_constant == bb::fr::zero())) {
-            additive_multiplier = other.additive_constant.invert();
-        }
+    if (this->is_constant() && other.is_constant()) {
+        // Both inputs are constant, the result if given by
+        //      q = a.add / b.add, if b != 0.
+        //      q = a.add        , if b == 0
+        additive_multiplier = other.additive_constant.invert();
         result.additive_constant = additive_constant * additive_multiplier;
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
-        // one input is constant - don't add a gate, but update scaling factors
-        if (!(other.additive_constant == bb::fr::zero())) {
-            additive_multiplier = other.additive_constant.invert();
-        }
+    } else if (!this->is_constant() && other.is_constant()) {
+        // The numerator is a circuit variable, the denominator is a constant.
+        // The result is obtained by updating the circuit variable `a`
+        //      q = a.v * [a.mul / b.add] + a.add / b.add, if b != 0.
+        //      q = a                                    , if b == 0
+        // with q.witness_index = a.witness_index.
+        additive_multiplier = other.additive_constant.invert();
         result.additive_constant = additive_constant * additive_multiplier;
         result.multiplicative_constant = multiplicative_constant * additive_multiplier;
         result.witness_index = witness_index;
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
-        // numerator 0?
+    } else if (this->is_constant() && !other.is_constant()) {
+        // The numerator is a constant, the denominator is a circuit variable.
+        // If a == 0, the result is a constant 0, otherwise the result is a new variable that has to be constrained.
         if (get_value() == 0) {
             result.additive_constant = 0;
             result.multiplicative_constant = 1;
             result.witness_index = IS_CONSTANT;
         } else {
+            bb::fr numerator = get_value();
+            bb::fr denominator_inv = other.get_value().invert();
+
+            bb::fr out(numerator * denominator_inv);
+            result.witness_index = ctx->add_variable(out);
+            // Define non-zero selector values for a `poly` gate
+            // q_m := b.mul
+            // q_l := b.add
+            // q_c := a     (= a.add, since a is constant)
             bb::fr q_m = other.multiplicative_constant;
             bb::fr q_l = other.additive_constant;
             bb::fr q_c = -get_value();
-            bb::fr out_value = get_value() / other.get_value();
-            result.witness_index = ctx->add_variable(out_value);
+            // The value of the quotient q = a / b has to satisfy
+            //      q * (b.v * b.mul +  b.add) = a
+            // Create a `poly` gate to constrain the quotient.
+            // q * b.v * q_m +  q * q_l + 0 * b + 0 * c + q_c = 0
             ctx->create_poly_gate({ .a = result.witness_index,
                                     .b = other.witness_index,
                                     .c = result.witness_index,
@@ -316,35 +349,22 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
                                     .q_c = q_c });
         }
     } else {
-        // TODO SHOULD WE CARE ABOUT IF THE DIVISOR IS ZERO?
-        bb::fr left = ctx->get_variable(witness_index);
-        bb::fr right = ctx->get_variable(other.witness_index);
-        bb::fr out;
-
-        // even if LHS is constant, if divisor is not constant we need a gate to compute the inverse
-        // bb::fr witness_multiplier = other.witness.invert();
-        // m1.x1 + a1 / (m2.x2 + a2) = x3
-        bb::fr T0;
-        T0 = multiplicative_constant * left;
-        T0 += additive_constant;
-        bb::fr T1;
-        T1 = other.multiplicative_constant * right;
-        T1 += other.additive_constant;
-
-        T1 = T1.is_zero() ? 0 : T1.invert();
-        out = T0 * T1;
+        // Both numerator and denominator are circuit variables. Create a new circuit variable with the value a / b.
+        bb::fr numerator = get_value();
+        bb::fr denominator_inv = other.get_value().invert();
+        bb::fr out(numerator * denominator_inv);
         result.witness_index = ctx->add_variable(out);
 
-        // m2.x2.x3 + a2.x3 = m1.x1 + a1
-        // m2.x2.x3 + a2.x3 - m1.x1 - a1 = 0
-        // left = x3
-        // right = x2
-        // out = x1
-        // qm = m2
-        // ql = a2
-        // qr = 0
-        // qo = -m1
-        // qc = -a1
+        // The value of the quotient q = a / b has to satisfy
+        //      q * (b.v * b.mul +  b.add) = a.v * a.mul + a.add
+        // Create a `poly` gate to constrain the quotient
+        //  	q * b.v * q_m +  q * q_l + 0 * c + a.v * q_o + q_c = 0,
+        // where the `poly_gate` selector values are defined as follows:
+        //  	q_m = b.mul;
+        //      q_l = b.add;
+        //      q_r = 0;
+        //      q_o = - a.mul;
+        //      q_c = - a.add.
         bb::fr q_m = other.multiplicative_constant;
         bb::fr q_l = other.additive_constant;
         bb::fr q_r = bb::fr::zero();
@@ -607,17 +627,13 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
 
 template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::string const& msg) const
 {
-    if (get_value() == bb::fr(0)) {
-        context->failure(msg);
-        // We don't return; we continue with the function, for debugging purposes.
-    }
 
     if (witness_index == IS_CONSTANT) {
-        ASSERT(additive_constant != bb::fr(0));
+        ASSERT(additive_constant != bb::fr(0), msg);
         return;
     }
 
-    if (get_value() == 0 && context) {
+    if (get_value() == 0) {
         context->failure(msg);
     }
 
