@@ -94,15 +94,14 @@ pub contract Orderbook {
             .transfer_to_public(maker, context.this_address(), amount_in, nonce)
             .call(&mut context);
 
-        // Prepare a partial note that will get completed once the order is fulfilled. Note that only we can complete the partial
-        // note.
+        // Prepare a partial note that will get completed once the order is fulfilled. Note that only the Orderbook
+        // contract can complete the partial note.
         let maker_partial_note =
             Token::at(token_out).prepare_private_balance_increase(maker, maker).call(&mut context);
 
-        // The partial note serves as a natural unique identifier for the order. While a maker could theoretically
-        // create duplicate order IDs by manipulating the randomness, this would be self-defeating - only one order
-        // with a given ID can be fulfilled, meaning any duplicates would result in the maker's tokens being
-        // irretrievably locked in the public balance of this contract.
+        // We use the partial note's commitment as the order ID. Because partial notes emit a nullifier with their
+        // commitment when created they are unique, and so this guarantees that our order IDs are also unique without
+        // having to keep track of past ones.
         let order_id = maker_partial_note.to_field();
 
         // Store the order in public storage and emit an event.
