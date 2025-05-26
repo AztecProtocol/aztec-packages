@@ -81,7 +81,7 @@ pub contract Orderbook {
         amount_in: u128,
         amount_out: u128,
         nonce: Field,
-    ) {
+    ) -> Field {
         let config = storage.config.read();
 
         assert((token_in == config.token0) | (token_in == config.token1), "TOKEN_IN_IS_INVALID");
@@ -111,6 +111,8 @@ pub contract Orderbook {
         let order_id = maker_partial_note.to_field();
 
         Orderbook::at(context.this_address())._create_order(order_id, order).enqueue(&mut context);
+
+        order_id
     }
 
     #[public]
