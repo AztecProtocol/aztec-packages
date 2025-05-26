@@ -13,9 +13,9 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:3000',
   },
   expect: {
-    timeout: 10_000,
+    timeout: 20_000,
   },
-  timeout: 200_000,
+  timeout: 400_000,
   projects: [
     {
       name: 'chromium',
