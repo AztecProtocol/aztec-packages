@@ -419,7 +419,6 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
     bool both_prime_limb_multiplicative_constant_one =
         (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1);
     if (both_prime_limb_multiplicative_constant_one && both_witness) {
-        // TODO(suyash): add is_constant check for bigfield instead of checking each limb
         bool limbconst = binary_basis_limbs[0].element.is_constant();
         limbconst = limbconst || binary_basis_limbs[1].element.is_constant();
         limbconst = limbconst || binary_basis_limbs[2].element.is_constant();
