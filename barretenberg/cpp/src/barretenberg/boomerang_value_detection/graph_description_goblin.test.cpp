@@ -37,16 +37,24 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
     static ProverOutput create_goblin_prover_output(const size_t NUM_CIRCUITS = 3)
     {
         Goblin goblin;
-
         // Construct and accumulate multiple circuits
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < NUM_CIRCUITS - 1; ++idx) {
             MegaCircuitBuilder builder{ goblin.op_queue };
-            GoblinMockCircuits::construct_simple_circuit(builder, idx == NUM_CIRCUITS - 1);
+            GoblinMockCircuits::construct_simple_circuit(builder);
             goblin.prove_merge();
         }
 
+        auto goblin_transcript = std::make_shared<Goblin::Transcript>();
+
+        Goblin goblin_final;
+        goblin_final.op_queue = goblin.op_queue;
+        MegaCircuitBuilder builder{ goblin_final.op_queue };
+        builder.queue_ecc_no_op();
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        auto merge_proof = goblin_final.prove_final_merge();
+
         // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin.prove(), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
+        return { goblin_final.prove(merge_proof), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
     }
 };
 
@@ -62,9 +70,6 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput output = verifier.verify(proof);
     output.points_accumulator.set_public();
-    auto translator_pairing_points = output.translator_pairing_points;
-    translator_pairing_points.P0.fix_witness();
-    translator_pairing_points.P1.fix_witness();
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
@@ -76,6 +81,11 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 
         ASSERT(verified);
     }
+    auto translator_pairing_points = output.points_accumulator;
+    translator_pairing_points.P0.x.fix_witness();
+    translator_pairing_points.P0.y.fix_witness();
+    translator_pairing_points.P1.x.fix_witness();
+    translator_pairing_points.P1.y.fix_witness();
     info("Recursive Verifier: num gates = ", builder.num_gates);
     auto graph = cdg::Graph(builder, false);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -83,7 +93,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
         info("variables in one gate is empty");
     } else {
         info("size of variables in one gate == ", variables_in_one_gate.size());
-        auto first_var = std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[4];
+        auto first_var = std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[1];
         info("first var == ", first_var);
         graph.print_variable_in_one_gate(builder, first_var);
     }
