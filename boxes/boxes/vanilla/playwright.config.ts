@@ -11,8 +11,9 @@ export default defineConfig({
   reporter: 'html',
   use: {
     baseURL: 'http://127.0.0.1:3000',
-    trace: 'on-first-retry',
-    video: 'on-first-retry',
+  },
+  expect: {
+    timeout: 10_000,
   },
   timeout: 200_000,
   projects: [

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const proofTimeout = 120_000;
+const proofTimeout = 150_000;
 
 test.beforeAll(async ({ }, { config }) => {
   // Make sure the node is running
