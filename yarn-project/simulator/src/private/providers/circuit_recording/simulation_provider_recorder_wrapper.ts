@@ -75,21 +75,16 @@ export class SimulationProviderRecorderWrapper implements SimulationProvider {
     // Witness generation is complete so we finish the circuit recorder
     const recording = await this.recorder.finish();
 
-    if ((result as ACIRExecutionResult).partialWitness !== undefined) {
-      const minimumDepth = Math.min(...(recording.oracleCalls?.map(call => call.stackDepth) ?? [0]));
-      (result as ACIRExecutionResult).oracles = recording.oracleCalls
-        ?.filter(call => call.stackDepth === minimumDepth)
-        .reduce(
-          (acc, { time, name }) => {
-            if (!acc[name]) {
-              acc[name] = { times: [] };
-            }
-            acc[name].times.push(time);
-            return acc;
-          },
-          {} as Record<string, ACIRCallbackStats>,
-        );
-    }
+    (result as ACIRExecutionResult).oracles = recording.oracleCalls?.reduce(
+      (acc, { time, name }) => {
+        if (!acc[name]) {
+          acc[name] = { times: [] };
+        }
+        acc[name].times.push(time);
+        return acc;
+      },
+      {} as Record<string, ACIRCallbackStats>,
+    );
 
     return result;
   }

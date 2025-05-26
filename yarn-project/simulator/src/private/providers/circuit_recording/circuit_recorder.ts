@@ -15,15 +15,31 @@ export type OracleCall = {
   stackDepth: number;
 };
 
-export type CircuitRecording = {
+export class CircuitRecording {
   circuitName: string;
   functionName: string;
   bytecodeSHA512Hash: string;
   timestamp: number;
   inputs: Record<string, string>;
-  oracleCalls?: OracleCall[];
+  oracleCalls: OracleCall[];
+  nested: CircuitRecording[];
   error?: string;
-};
+  parent?: CircuitRecording;
+
+  constructor(circuitName: string, functionName: string, bytecodeSHA512Hash: string, inputs: Record<string, string>) {
+    this.circuitName = circuitName;
+    this.functionName = functionName;
+    this.bytecodeSHA512Hash = bytecodeSHA512Hash;
+    this.timestamp = Date.now();
+    this.inputs = inputs;
+    this.oracleCalls = [];
+    this.nested = [];
+  }
+
+  setParent(recording: CircuitRecording): void {
+    this.parent = recording;
+  }
+}
 
 /**
  * Class responsible for recording circuit inputs necessary to replay the circuit. These inputs are the initial witness
@@ -80,6 +96,9 @@ export abstract class CircuitRecorder {
   protected recording!: CircuitRecording;
 
   private stackDepth: number = 0;
+  private newCircuit: boolean = true;
+
+  protected constructor() {}
 
   /**
    * Initializes a new circuit recording session.
@@ -90,9 +109,20 @@ export abstract class CircuitRecorder {
    * @param functionName - Name of the circuit function (defaults to 'main'). This is meaningful only for
    * contracts as protocol circuits artifacts always contain a single entrypoint function called 'main'.
    */
-  protected constructor() {}
+  start(input: ACVMWitness, circuitBytecode: Buffer, circuitName: string, functionName: string): Promise<void> {
+    const parentRef = this.recording;
+    if (this.newCircuit) {
+      this.recording = new CircuitRecording(
+        circuitName,
+        functionName,
+        sha512(circuitBytecode).toString('hex'),
+        Object.fromEntries(input),
+      );
+    }
+    this.recording.setParent(parentRef);
 
-  abstract start(input: ACVMWitness, circuitBytecode: Buffer, circuitName: string, functionName: string): Promise<void>;
+    return Promise.resolve();
+  }
 
   /**
    * Wraps a callback to record all oracle/foreign calls.
@@ -131,18 +161,22 @@ export abstract class CircuitRecorder {
         throw new Error(`Oracle method ${name} not found when setting up recording callback`);
       }
 
+      const isExternalCall = (name as keyof ACIRCallback) === 'callPrivateFunction';
+
       recordingCallback[name as keyof ACIRCallback] = (...args: ForeignCallInput[]): ReturnType<typeof fn> => {
         const timer = new Timer();
-        const isExternalCall = (name as keyof ACIRCallback) === 'callPrivateFunction';
         let result;
         if (isExternalCall) {
           this.stackDepth++;
+          this.newCircuit = true;
         }
         result = fn.call(callback, ...args);
         if (result instanceof Promise) {
           return result.then(async r => {
             if (isExternalCall) {
               this.stackDepth--;
+              this.newCircuit = false;
+              this.recording = this.recording.parent!;
             }
             await this.recordCall(name, args, r, timer.ms(), this.stackDepth);
             return r;
@@ -150,6 +184,8 @@ export abstract class CircuitRecorder {
         }
         if (isExternalCall) {
           this.stackDepth--;
+          this.newCircuit = false;
+          this.recording = this.recording.parent!;
         }
         void this.recordCall(name, args, result, timer.ms(), this.stackDepth);
         return result;
@@ -187,9 +223,6 @@ export abstract class CircuitRecorder {
       time,
       stackDepth,
     };
-    if (!this.recording.oracleCalls) {
-      this.recording.oracleCalls = [];
-    }
     this.recording.oracleCalls.push(entry);
     return Promise.resolve(entry);
   }

@@ -1,5 +1,3 @@
-import { sha512 } from '@aztec/foundation/crypto';
-
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -23,14 +21,13 @@ export class FileCircuitRecorder extends CircuitRecorder {
    * @param functionName - Name of the circuit function (defaults to 'main'). This is meaningful only for
    * contracts as protocol circuits artifacts always contain a single entrypoint function called 'main'.
    */
-  async start(input: ACVMWitness, circuitBytecode: Buffer, circuitName: string, functionName: string = 'main') {
-    this.recording = {
-      circuitName: circuitName,
-      functionName: functionName,
-      bytecodeSHA512Hash: sha512(circuitBytecode).toString('hex'),
-      timestamp: Date.now(),
-      inputs: Object.fromEntries(input),
-    };
+  override async start(
+    input: ACVMWitness,
+    circuitBytecode: Buffer,
+    circuitName: string,
+    functionName: string = 'main',
+  ) {
+    super.start(input, circuitBytecode, circuitName, functionName);
 
     const recordingStringWithoutClosingBracket = JSON.stringify(this.recording, null, 2).slice(0, -2);
 
