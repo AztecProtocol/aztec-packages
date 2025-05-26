@@ -81,10 +81,11 @@ describe('Orderbook', () => {
       orderId = orderCreatedEvents[0].order_id;
 
       // Get order from orderbook and verify details
-      const order = await orderbook.methods.get_order(orderId).simulate();
+      const [order, isFulfilled] = await orderbook.methods.get_order(orderId).simulate();
       expect(order.amount_in).toEqual(amountIn);
       expect(order.amount_out).toEqual(amountOut);
-      expect(order.token_in_is_zero).toBeTruthy();
+      expect(order.token_in_is_zero).toBeTrue();
+      expect(isFulfilled).toBeFalse();
 
       // At this point, amountIn of token0 should be transferred to the public balance of the orderbook and maker
       // should have 0.
@@ -134,6 +135,10 @@ describe('Orderbook', () => {
       expect(takerBalances0).toEqual(amountIn);
       // Full taker token 1 balance should be transferred to maker and hence taker should have 0
       expect(takerBalances1).toEqual(0n);
+
+      // Verify that the order is fulfilled
+      const [_, isFulfilled] = await orderbook.methods.get_order(orderId).simulate();
+      expect(isFulfilled).toBeTrue();
     });
   });
 });

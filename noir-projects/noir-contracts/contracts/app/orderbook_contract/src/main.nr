@@ -39,6 +39,7 @@ pub contract Orderbook {
             functions::{initializer, internal, private, public, utility},
             storage::storage,
         },
+        oracle::notes::check_nullifier_exists,
         prelude::{AztecAddress, Map, PublicImmutable},
         protocol_types::traits::{FromField, Serialize, ToField},
         unencrypted_logs::unencrypted_event_emission::encode_event,
@@ -186,8 +187,12 @@ pub contract Orderbook {
         OrderFulfilled { order_id }.emit(encode_event(&mut context));
     }
 
+    /// Returns the order and whether it has been fulfilled.
     #[utility]
-    unconstrained fn get_order(order_id: Field) -> pub Order {
-        storage.orders.at(order_id).read()
+    unconstrained fn get_order(order_id: Field) -> pub (Order, bool) {
+        let order = storage.orders.at(order_id).read();
+        let is_fulfilled = check_nullifier_exists(order_id);
+
+        (order, is_fulfilled)
     }
 }
