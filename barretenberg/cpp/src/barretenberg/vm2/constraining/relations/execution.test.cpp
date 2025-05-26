@@ -354,13 +354,13 @@ TEST(ExecutionConstrainingTest, ContextGasNextRow)
                             context::SR_DA_GAS_LIMIT_NEXT_ROW,
                             context::SR_DA_GAS_LIMIT_RESTORE_ON_EXIT,
                             context::SR_PARENT_L2_GAS_LIMIT_NEXT_ROW,
-                            context::SR_PARENT_L2_GAS_LIMIT_STORE_ON_CALL,
+                            context::SR_PARENT_L2_GAS_LIMIT_STORE_ON_ENTER,
                             context::SR_PARENT_DA_GAS_LIMIT_NEXT_ROW,
-                            context::SR_PARENT_DA_GAS_LIMIT_STORE_ON_CALL,
+                            context::SR_PARENT_DA_GAS_LIMIT_STORE_ON_ENTER,
                             context::SR_PARENT_L2_GAS_USED_NEXT_ROW,
-                            context::SR_PARENT_L2_GAS_USED_STORE_ON_CALL,
+                            context::SR_PARENT_L2_GAS_USED_STORE_ON_ENTER,
                             context::SR_PARENT_DA_GAS_USED_NEXT_ROW,
-                            context::SR_PARENT_DA_GAS_USED_STORE_ON_CALL);
+                            context::SR_PARENT_DA_GAS_USED_STORE_ON_ENTER);
 
     // Negative test: after return, restore wrong limits
     trace.set(C::execution_l2_gas_limit, 4, 1001);
@@ -372,17 +372,17 @@ TEST(ExecutionConstrainingTest, ContextGasNextRow)
 
     // Negative test: inside a nested call, store wrong parent limit and used
     trace.set(C::execution_parent_l2_gas_limit, 3, 2001);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_LIMIT_STORE_ON_CALL),
-                              "PARENT_L2_GAS_LIMIT_STORE_ON_CALL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_LIMIT_STORE_ON_ENTER),
+                              "PARENT_L2_GAS_LIMIT_STORE_ON_ENTER");
     trace.set(C::execution_parent_da_gas_limit, 3, 4001);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_LIMIT_STORE_ON_CALL),
-                              "PARENT_DA_GAS_LIMIT_STORE_ON_CALL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_LIMIT_STORE_ON_ENTER),
+                              "PARENT_DA_GAS_LIMIT_STORE_ON_ENTER");
     trace.set(C::execution_parent_l2_gas_used, 3, 201);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_USED_STORE_ON_CALL),
-                              "PARENT_L2_GAS_USED_STORE_ON_CALL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_USED_STORE_ON_ENTER),
+                              "PARENT_L2_GAS_USED_STORE_ON_ENTER");
     trace.set(C::execution_parent_da_gas_used, 3, 301);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_USED_STORE_ON_CALL),
-                              "PARENT_DA_GAS_USED_STORE_ON_CALL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_USED_STORE_ON_ENTER),
+                              "PARENT_DA_GAS_USED_STORE_ON_ENTER");
 
     // Negative test: when no calls have been made, limits, parent limits, and parent used shouldn't change
     trace.set(C::execution_l2_gas_limit, 2, 1001);
