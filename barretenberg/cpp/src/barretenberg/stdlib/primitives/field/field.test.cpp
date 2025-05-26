@@ -302,6 +302,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct out = field_ct(&builder, b.get_value()) / a;
         EXPECT_EQ(out.get_value(), b.get_value() / a.get_value());
         EXPECT_FALSE(out.is_constant());
+        // Check that the result is normalized in this case
+        EXPECT_TRUE(out.multiplicative_constant == 1 && out.additive_constant == 0);
 
         // Case 1: Numerator and denominator != const
         out = b / a;
@@ -330,6 +332,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct q = a / b;
         EXPECT_TRUE(q.is_constant());
         EXPECT_EQ(a.get_value() / b.get_value(), q.get_value());
+        // Check that the result is normalized in this case
+        EXPECT_TRUE(q.multiplicative_constant == 1 && q.additive_constant == 0);
 
         { // Case 1. Numerator = const, denominator = const 0. Check that the division is aborted
             b = 0;
@@ -1228,10 +1232,7 @@ TYPED_TEST(stdlib_field, test_div_edge_cases)
 {
     TestFixture::test_div_edge_cases();
 }
-TYPED_TEST(stdlib_field, test_div_no_zero_check_edge_cases)
-{
-    TestFixture::test_div_no_zero_check_edge_cases();
-}
+
 TYPED_TEST(stdlib_field, test_postfix_increment)
 {
     TestFixture::test_postfix_increment();
