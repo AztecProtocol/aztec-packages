@@ -2,14 +2,11 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <stack>
 
 using namespace bb::plookup;
 using namespace bb;
 
-using Clock = std::chrono::high_resolution_clock;
-using time_point = std::chrono::time_point<Clock>;
 namespace cdg {
 
 /**
@@ -578,9 +575,6 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
             continue;
         }
         std::vector<uint32_t> sorted_variables;
-        [[maybe_unused]] time_point start;
-        [[maybe_unused]] time_point end;
-        // start = Clock::now();
         for (size_t gate_idx = 0; gate_idx < block_data[blk_idx].size(); gate_idx++) {
             auto arithmetic_gates_variables = get_arithmetic_gate_connected_component(
                 ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
@@ -626,8 +620,6 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
                 }
             }
         }
-        // end = Clock::now();
-        // info("time for block with index", blk_idx, " == ", (end - start).count());
     }
 
     const auto& rom_arrays = ultra_circuit_constructor.rom_arrays;
