@@ -4,14 +4,12 @@ use aztec::macros::aztec;
 /// notes.
 #[aztec]
 contract EventOnly {
-    use aztec::event::event_interface::EventInterface;
-    use aztec::macros::{
-        events::event,
-        functions::{initializer, private, public, utility},
-        storage::storage,
+    use aztec::{
+        event::event_interface::EventInterface,
+        macros::{events::event, functions::private},
+        messages::logs::event::encode_and_encrypt_event_unconstrained,
+        protocol_types::traits::Serialize,
     };
-    use aztec::messages::logs::event::encode_and_encrypt_event_unconstrained;
-    use aztec::protocol_types::traits::Serialize;
     use std::meta::derive;
 
     #[derive(Serialize)]
@@ -21,9 +19,9 @@ contract EventOnly {
     }
 
     #[private]
-    fn emit_event_for_msg_sender() {
+    fn emit_event_for_msg_sender(value: Field) {
         let sender = context.msg_sender();
-        TestEvent { value: 42 }.emit(encode_and_encrypt_event_unconstrained(
+        TestEvent { value }.emit(encode_and_encrypt_event_unconstrained(
             &mut context,
             sender,
             sender,
