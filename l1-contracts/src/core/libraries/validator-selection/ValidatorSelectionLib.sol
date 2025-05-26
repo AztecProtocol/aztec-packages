@@ -90,21 +90,19 @@ library ValidatorSelectionLib {
     bytes32 _digest,
     BlockHeaderValidationFlags memory _flags
   ) internal {
-    // Same logic as we got in getProposerAt
-    // Done do avoid duplicate computing the committee
     address[] memory committee = getCommitteeAt(_epochNumber);
-    address attester = committee.length == 0
-      ? address(0)
-      : committee[computeProposerIndex(
-        _epochNumber, _slot, getSampleSeed(_epochNumber), committee.length
-      )];
-    address proposer = StakingLib.getProposerForAttester(attester);
 
     // @todo Consider getting rid of this option.
     // If the proposer is open, we allow anyone to propose without needing any signatures
-    if (proposer == address(0)) {
+    if (committee.length == 0) {
       return;
     }
+
+    address attester = committee[computeProposerIndex(
+      _epochNumber, _slot, getSampleSeed(_epochNumber), committee.length
+    )];
+    address proposer = StakingLib.getProposerForAttester(attester);
+    require(proposer != address(0), Errors.Staking__InvalidProposer());
 
     require(
       proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
