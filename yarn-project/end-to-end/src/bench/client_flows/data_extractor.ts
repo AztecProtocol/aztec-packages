@@ -11,7 +11,7 @@ import { Decoder } from 'msgpackr';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { type Log, type ProverType, ProxyLogger, generateBenchmark } from './utils.js';
+import { type Log, type ProverType, ProxyLogger, generateBenchmark } from './benchmark.js';
 
 type NativeProverConfig = { bbBinaryPath?: string; bbWorkingDirectory?: string };
 

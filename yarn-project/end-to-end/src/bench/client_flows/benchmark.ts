@@ -111,6 +111,7 @@ function getMinimumTrace(logs: Log[]): StructuredTrace {
   const minimumMessage = 'Minimum required block sizes for structured trace';
   const minimumMessageIndex = logs.findIndex(log => log.message.includes(minimumMessage));
   const candidateLogs = logs.slice(minimumMessageIndex - GATE_TYPES.length, minimumMessageIndex + 5);
+
   const traceLogs = candidateLogs
     .filter(log => GATE_TYPES.some(type => log.message.includes(type)))
     .map(log => log.message.split(/\t|\n/))
@@ -150,8 +151,14 @@ export function generateBenchmark(
   proverType: ProverType,
   error: string | undefined,
 ): ClientFlowBenchmark {
-  const minimumTrace = getMinimumTrace(logs);
-  const maxMemory = getMaxMemory(logs);
+  let maxMemory = 0;
+  let minimumTrace: StructuredTrace;
+  try {
+    minimumTrace = getMinimumTrace(logs);
+    maxMemory = getMaxMemory(logs);
+  } catch (e) {
+    logger.warn(`Failed obtain minimum trace and max memory for ${flow}. Did you run with REAL_PROOFS=1?`);
+  }
 
   const steps = privateExecutionSteps.reduce<Step[]>((acc, step, i) => {
     const previousAccGateCount = i === 0 ? 0 : acc[i - 1].accGateCount!;
@@ -177,7 +184,7 @@ export function generateBenchmark(
     },
     maxMemory,
     proverType,
-    minimumTrace,
+    minimumTrace: minimumTrace!,
     totalGateCount: totalGateCount!,
     steps,
     error,
@@ -185,17 +192,13 @@ export function generateBenchmark(
 }
 
 export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): GithubActionBenchmarkResult[] {
-  return [
+  const benches = [
     {
       name: 'witgen',
       value: benchmark.timings.witgen,
       unit: 'ms',
     },
-    {
-      name: 'proving',
-      value: benchmark.timings.proving!,
-      unit: 'ms',
-    },
+
     {
       name: 'total',
       value: benchmark.timings.total,
@@ -211,17 +214,28 @@ export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): Git
       value: benchmark.timings.unaccounted,
       unit: 'ms',
     },
-    {
-      name: 'max_memory',
-      value: benchmark.maxMemory,
-      unit: 'MiB',
-    },
+
     {
       name: 'total_gate_count',
       value: benchmark.totalGateCount,
       unit: 'gates',
     },
   ];
+  if (benchmark.timings.proving) {
+    benches.push({
+      name: 'proving',
+      value: benchmark.timings.proving,
+      unit: 'ms',
+    });
+  }
+  if (benchmark.maxMemory) {
+    benches.push({
+      name: 'max_memory',
+      value: benchmark.maxMemory,
+      unit: 'MiB',
+    });
+  }
+  return benches;
 }
 
 export async function captureProfile(

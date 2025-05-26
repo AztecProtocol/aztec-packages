@@ -7,8 +7,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { jest } from '@jest/globals';
 
 import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
+import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
-import { captureProfile } from './utils.js';
 
 jest.setTimeout(300_000);
 

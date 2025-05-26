@@ -7,8 +7,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
+import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
-import { captureProfile } from './utils.js';
 
 jest.setTimeout(1_600_000);
 
