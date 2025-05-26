@@ -270,18 +270,10 @@ export class Sequencer {
     // If we cannot find a tip archive, assume genesis.
     const chainTipArchive = chainTip.archive;
 
-    const { slot } = this.publisher.epochCache.getEpochAndSlotInNextSlot();
+    const slot = await this.slotForProposal(chainTipArchive.toBuffer(), BigInt(newBlockNumber));
     this.metrics.observeSlotChange(slot, this.publisher.getSenderAddress().toString());
-
-    const proposerInNextSlot = await this.publisher.epochCache.getProposerInNextSlot();
-
-    // If get proposer in next slot is undefined, then there is no proposer set, and it is in free for all (sandbox) so we continue
-    // If we calculate a proposer in the next slot, and it is not us, then stop
-    if (proposerInNextSlot !== undefined && !proposerInNextSlot.equals(this.validatorClient!.getValidatorAddress())) {
-      this.log.debug(`Cannot propose block ${newBlockNumber}`, {
-        us: this.validatorClient!.getValidatorAddress(),
-        proposer: proposerInNextSlot,
-      });
+    if (!slot) {
+      this.log.debug(`Cannot propose block ${newBlockNumber}`);
       return;
     }
 
@@ -384,6 +376,29 @@ export class Sequencer {
 
   public getForwarderAddress() {
     return this.publisher.getForwarderAddress();
+  }
+
+  /**
+   * Checks if we can propose at the next block and returns the slot number if we can.
+   * @param tipArchive - The archive of the previous block.
+   * @param proposalBlockNumber - The block number of the proposal.
+   * @returns The slot number if we can propose at the next block, otherwise undefined.
+   */
+  async slotForProposal(tipArchive: Buffer, proposalBlockNumber: bigint): Promise<bigint | undefined> {
+    const result = await this.publisher.canProposeAtNextEthBlock(tipArchive);
+
+    if (!result) {
+      return undefined;
+    }
+
+    const [slot, blockNumber] = result;
+
+    if (proposalBlockNumber !== blockNumber) {
+      const msg = `Sequencer block number mismatch. Expected ${proposalBlockNumber} but got ${blockNumber}.`;
+      this.log.warn(msg);
+      throw new Error(msg);
+    }
+    return slot;
   }
 
   /**
