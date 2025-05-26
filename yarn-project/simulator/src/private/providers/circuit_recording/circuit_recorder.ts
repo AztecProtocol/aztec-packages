@@ -22,7 +22,6 @@ export class CircuitRecording {
   timestamp: number;
   inputs: Record<string, string>;
   oracleCalls: OracleCall[];
-  nested: CircuitRecording[];
   error?: string;
   parent?: CircuitRecording;
 
@@ -33,10 +32,9 @@ export class CircuitRecording {
     this.timestamp = Date.now();
     this.inputs = inputs;
     this.oracleCalls = [];
-    this.nested = [];
   }
 
-  setParent(recording: CircuitRecording): void {
+  setParent(recording?: CircuitRecording): void {
     this.parent = recording;
   }
 }
@@ -45,11 +43,7 @@ export class CircuitRecording {
  * Class responsible for recording circuit inputs necessary to replay the circuit. These inputs are the initial witness
  * map and the oracle calls made during the circuit execution/witness generation.
  *
- * The recording is stored in a JSON file called `circuit_name_circuit_function_name_YYYY-MM-DD_N.json` where N is
- * a counter to ensure unique filenames. The file is stored in the `recordDir` directory provided as a parameter to
- * CircuitRecorder.start().
- *
- * Example recording file:
+ * Example recording object:
  * ```json
  * {
  *   "circuitName": "AMM",
@@ -90,10 +84,10 @@ export class CircuitRecording {
  * }
  * ```
  */
-export abstract class CircuitRecorder {
+export class CircuitRecorder {
   protected readonly logger = createLogger('simulator:acvm:recording');
 
-  protected recording!: CircuitRecording;
+  protected recording?: CircuitRecording;
 
   private stackDepth: number = 0;
   private newCircuit: boolean = true;
@@ -119,7 +113,7 @@ export abstract class CircuitRecorder {
         Object.fromEntries(input),
       );
     }
-    this.recording.setParent(parentRef);
+    this.recording!.setParent(parentRef);
 
     return Promise.resolve();
   }
@@ -176,7 +170,7 @@ export abstract class CircuitRecorder {
             if (isExternalCall) {
               this.stackDepth--;
               this.newCircuit = false;
-              this.recording = this.recording.parent!;
+              this.recording = this.recording!.parent;
             }
             await this.recordCall(name, args, r, timer.ms(), this.stackDepth);
             return r;
@@ -185,7 +179,7 @@ export abstract class CircuitRecorder {
         if (isExternalCall) {
           this.stackDepth--;
           this.newCircuit = false;
-          this.recording = this.recording.parent!;
+          this.recording = this.recording!.parent;
         }
         void this.recordCall(name, args, result, timer.ms(), this.stackDepth);
         return result;
@@ -223,20 +217,35 @@ export abstract class CircuitRecorder {
       time,
       stackDepth,
     };
-    this.recording.oracleCalls.push(entry);
+    this.recording!.oracleCalls.push(entry);
     return Promise.resolve(entry);
   }
 
   /**
-   * Finalizes the recording file by adding closing brackets. Without calling this method, the recording file is
-   * incomplete and it fails to parse.
+   * Finalizes the recording by resetting the state and returning the recording object.
    */
-  abstract finish(): Promise<CircuitRecording>;
+  finish(): Promise<CircuitRecording> {
+    const result = this.recording;
+    // If this is the top-level circuit recording, we reset the state for the simulator call
+    if (!result!.parent) {
+      this.newCircuit = true;
+      this.recording = undefined;
+    }
+    return Promise.resolve(result!);
+  }
 
   /**
-   * Finalizes the recording file by adding the error and closing brackets. Without calling this method or `finish`,
-   * the recording file is incomplete and it fails to parse.
+   * Finalizes the recording by resetting the state and returning the recording object with an attached error.
    * @param error - The error that occurred during circuit execution
    */
-  abstract finishWithError(error: unknown): Promise<CircuitRecording>;
+  finishWithError(error: unknown): Promise<CircuitRecording> {
+    const result = this.recording;
+    // If this is the top-level circuit recording, we reset the state for the simulator call
+    if (!result!.parent) {
+      this.newCircuit = true;
+      this.recording = undefined;
+    }
+    result!.error = JSON.stringify(error);
+    return Promise.resolve(result!);
+  }
 }

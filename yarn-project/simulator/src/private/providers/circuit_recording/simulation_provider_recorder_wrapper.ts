@@ -76,11 +76,12 @@ export class SimulationProviderRecorderWrapper implements SimulationProvider {
     const recording = await this.recorder.finish();
 
     (result as ACIRExecutionResult).oracles = recording.oracleCalls?.reduce(
-      (acc, { time, name }) => {
-        if (!acc[name]) {
-          acc[name] = { times: [] };
+      (acc, { time, name, stackDepth }) => {
+        const oracleName = `${stackDepth}:${name}`;
+        if (!acc[oracleName]) {
+          acc[oracleName] = { times: [] };
         }
-        acc[name].times.push(time);
+        acc[oracleName].times.push(time);
         return acc;
       },
       {} as Record<string, ACIRCallbackStats>,

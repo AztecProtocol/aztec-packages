@@ -12,15 +12,6 @@ export class FileCircuitRecorder extends CircuitRecorder {
     super();
   }
 
-  /**
-   * Initializes a new circuit recording session.
-   * @param recordDir - Directory to store the recording
-   * @param input - Circuit input witness
-   * @param circuitBytecode - Compiled circuit bytecode
-   * @param circuitName - Name of the circuit
-   * @param functionName - Name of the circuit function (defaults to 'main'). This is meaningful only for
-   * contracts as protocol circuits artifacts always contain a single entrypoint function called 'main'.
-   */
   override async start(
     input: ACVMWitness,
     circuitBytecode: Buffer,
@@ -48,8 +39,8 @@ export class FileCircuitRecorder extends CircuitRecorder {
 
     this.filePath = await FileCircuitRecorder.#computeFilePathAndStoreInitialRecording(
       this.recordDir,
-      this.recording.circuitName,
-      this.recording.functionName,
+      this.recording!.circuitName,
+      this.recording!.functionName,
       recordingStringWithoutClosingBracket,
     );
   }
@@ -111,13 +102,13 @@ export class FileCircuitRecorder extends CircuitRecorder {
    * Finalizes the recording file by adding closing brackets. Without calling this method, the recording file is
    * incomplete and it fails to parse.
    */
-  async finish(): Promise<CircuitRecording> {
+  override async finish(): Promise<CircuitRecording> {
     try {
       await fs.appendFile(this.filePath, '  ]\n}\n');
     } catch (err) {
       this.logger.error('Failed to finalize recording file', { error: err });
     }
-    return this.recording;
+    return this.recording!;
   }
 
   /**
@@ -125,16 +116,16 @@ export class FileCircuitRecorder extends CircuitRecorder {
    * the recording file is incomplete and it fails to parse.
    * @param error - The error that occurred during circuit execution
    */
-  async finishWithError(error: unknown): Promise<CircuitRecording> {
+  override async finishWithError(error: unknown): Promise<CircuitRecording> {
     try {
-      this.recording.error = JSON.stringify(error);
+      this.recording!.error = JSON.stringify(error);
       await fs.appendFile(this.filePath, '  ],\n');
       await fs.appendFile(this.filePath, `  "error": ${JSON.stringify(error)}\n`);
       await fs.appendFile(this.filePath, '}\n');
     } catch (err) {
       this.logger.error('Failed to finalize recording file with error', { error: err });
     }
-    return this.recording;
+    return this.recording!;
   }
 }
 

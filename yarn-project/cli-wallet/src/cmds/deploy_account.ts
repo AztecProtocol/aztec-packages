@@ -4,6 +4,7 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
+import { DEFAULT_TX_TIMEOUT } from '../utils/pxe_wrapper.js';
 
 export async function deployAccount(
   account: AccountManager,
@@ -95,7 +96,7 @@ export async function deployAccount(
       if (!json) {
         log(`\nWaiting for account contract deployment...`);
       }
-      txReceipt = await tx.wait();
+      txReceipt = await tx.wait({ timeout: DEFAULT_TX_TIMEOUT });
       out.txReceipt = {
         status: txReceipt.status,
         transactionFee: txReceipt.transactionFee,
