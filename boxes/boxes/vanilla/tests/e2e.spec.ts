@@ -4,11 +4,7 @@ const proofTimeout = 120_000;
 
 test.beforeAll(async ({ }, { config }) => {
   // Make sure the node is running
-  const nodeUrl = process.env.AZTEC_NODE_URL;
-  if (!nodeUrl) {
-    throw new Error('AZTEC_NODE_URL is not set');
-  }
-
+  const nodeUrl = process.env.AZTEC_NODE_URL || 'http://localhost:8080';
   const nodeResp = await fetch(nodeUrl + "/status");
   if (!nodeResp.ok) {
     throw new Error(`Failed to connect to node. This test assumes you have a Sandbox running at ${nodeUrl}.`);

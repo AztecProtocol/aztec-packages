@@ -10,19 +10,15 @@ This is an example web app that demonstrates how to interact with an Aztec contr
 
 1. Install the Aztec tools from the first few steps in [Quick Start Guide](https://docs.aztec.network/developers/getting_started).
 
-Please note that this project uses `0.87.2` version of Aztec SDK. If you wish to use a different version, please update the dependencies in the `app/package.json` and in `contracts/Nargo.toml` file to match your version.
+Please note that this project uses `latest` version of Aztec SDK. If you wish to use a different version, please update the dependencies in the `app/package.json` and in `contracts/Nargo.toml` file to match your version.
 
-Alternatively, you can install `0.87.2` version of Aztec tools by running the below commands:
+You can install a specific version of Aztec tools by running `aztec-up 0.X.X`
 
-```sh
-aztec-up 0.87.2
-aztec start --sandbox
-```
 
 2. Compile smart contracts in `/contracts`:
 
 ```sh
-(cd contracts && ./build.sh)
+yarn build-contracts
 ```
 
 The build script compiles the contract and generates the artifacts.
@@ -32,19 +28,20 @@ The build script compiles the contract and generates the artifacts.
 Run the JS deploy script to deploy the contracts (NodeJS v20.0):
 
 ```sh
-(cd app && yarn install)
-(cd app && yarn deploy-contracts)
+yarn install
+yarn deploy-contracts
 ```
 
-This will deploy the contracts and save the deployment info to `app/deployed-contract.json`.
-The full process involves `Generating Client IVC proof`, and may take a few moments. For faster development the sandbox does not verify proofs, so this can optionally be disabled [here](#disable-client-proofs). 
+The deploy script generates a random account and deploys the voting contract with it. It also uses the SponsoredFPC contract for fee payment. This is sufficient for testing with Sandbox, but is not suitable for production setup.
 
-> Important: For a production app, you need to back up the deployment info file to a secure location as without it, you will not be able to recover the contract address.
+The script also writes the deployment info to `.env` (which our web-app reads from).
 
-4. Run the app:
+> Note that the script generates client proofs and it may take a couple of seconds. For faster development, you can disable proving by calling with `PROVER_ENABLED=false` (Sandbox accepts transactions without a valid proof).
+
+4. Run the app (development mode):
 
 ```sh
-(cd app && yarn dev)
+yarn dev
 ```
 
 ### Test the app
@@ -62,7 +59,7 @@ You can now interact with the deployed contract using the web app:
 You can also run the E2E tests:
 
 ```sh
-(cd app && yarn test)
+yarn test
 ```
 
 <br />
