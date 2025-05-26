@@ -48,7 +48,6 @@ describe('e2e_block_building', () => {
   let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
   let dateProvider: TestDateProvider | undefined;
-  let cheatCodes: CheatCodes;
   let watcher: AnvilTestWatcher | undefined;
   let teardown: () => Promise<void>;
 
@@ -73,7 +72,6 @@ describe('e2e_block_building', () => {
         wallets: [owner, minter],
         sequencer: sequencerClient,
         dateProvider,
-        cheatCodes,
       } = await setup(2, {
         archiverPollingIntervalMS: 200,
         transactionPollingIntervalMS: 200,
@@ -204,7 +202,7 @@ describe('e2e_block_building', () => {
       // We also set enforceTimetable so the deadline makes sense, otherwise we may be starting the
       // block too late into the slot, and start processing when the deadline has already passed.
       logger.info(`Updating aztec node config`);
-      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
 
       // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
       const archiver = (aztecNode as AztecNodeService).getContractDataSource();
@@ -224,14 +222,6 @@ describe('e2e_block_building', () => {
       logger.info(`Sending ${TX_COUNT} txs to the node`);
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`All ${TX_COUNT} txs have been sent`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
-
-      // We forcefully mine a block to make the L1 timestamp move and sync to it, otherwise the sequencer will
-      // stay continuously trying to build a block for the same slot, even if the time for it has passed.
-      // Keep in mind the anvil test watcher only moves the anvil blocks when there is a block mined.
-      // This is quite ugly, and took me a very long time to realize it was needed.
-      // Maybe we should change it? And have it always mine a block every 12s even if there is no activity?
-      const [timestamp] = await cheatCodes.rollup.advanceToNextSlot();
-      dateProvider!.setTime(Number(timestamp) * 1000);
 
       // Await txs to be mined and assert they are mined across multiple different blocks.
       const receipts = await Promise.all(txs.map(tx => tx.wait()));

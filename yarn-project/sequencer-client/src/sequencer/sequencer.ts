@@ -12,6 +12,7 @@ import type { P2P } from '@aztec/p2p';
 import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { SlasherClient } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -40,7 +41,6 @@ import type { ValidatorClient } from '@aztec/validator-client';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
-import type { SlasherClient } from '../slasher/slasher_client.js';
 import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -217,7 +217,7 @@ export class Sequencer {
     this.metrics.stop();
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();
-    this.slasherClient.stop();
+    await this.slasherClient.stop();
     this.publisher.interrupt();
     this.setState(SequencerState.STOPPED, 0n, true /** force */);
     this.l1Metrics.stop();
@@ -446,7 +446,9 @@ export class Sequencer {
     // we keep retrying until the reexecution deadline. Note that this could only happen when we are a validator,
     // for if we are the proposer, then world-state should already be caught up, as we check this earlier.
     await retryUntil(
-      () => this.worldState.syncImmediate(blockNumber - 1, true).then(syncedTo => syncedTo >= blockNumber - 1),
+      () =>
+        !opts.validateOnly ||
+        this.worldState.syncImmediate(blockNumber - 1, true).then(syncedTo => syncedTo >= blockNumber - 1),
       'sync to previous block',
       this.timetable.getValidatorReexecTimeEnd(),
       0.1,
@@ -455,15 +457,14 @@ export class Sequencer {
 
     // NB: separating the dbs because both should update the state
     const publicProcessorDBFork = await this.worldState.fork();
-    const orchestratorDBFork = await this.worldState.fork();
 
     const previousBlockHeader =
-      (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? orchestratorDBFork.getInitialHeader();
+      (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? publicProcessorDBFork.getInitialHeader();
 
     try {
       const processor = this.publicProcessorFactory.create(publicProcessorDBFork, newGlobalVariables, true);
       const blockBuildingTimer = new Timer();
-      const blockBuilder = this.blockBuilderFactory.create(orchestratorDBFork);
+      const blockBuilder = this.blockBuilderFactory.create(publicProcessorDBFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages, previousBlockHeader);
 
       // Deadline for processing depends on whether we're proposing a block
@@ -491,9 +492,6 @@ export class Sequencer {
         this.txPublicSetupAllowList,
       );
 
-      // TODO(#11000): Public processor should just handle processing, one tx at a time. It should be responsibility
-      // of the sequencer to update world state and iterate over txs. We should refactor this along with unifying the
-      // publicProcessorFork and orchestratorFork, to avoid doing tree insertions twice when building the block.
       const proposerLimits = {
         maxTransactions: this.maxTxsPerBlock,
         maxBlockSize: this.maxBlockSizeInBytes,
@@ -554,7 +552,6 @@ export class Sequencer {
       setTimeout(async () => {
         try {
           await publicProcessorDBFork.close();
-          await orchestratorDBFork.close();
         } catch (err) {
           // This can happen if the sequencer is stopped before we hit this timeout.
           this.log.warn(`Error closing forks for block processing`, err);
@@ -822,5 +819,9 @@ export class Sequencer {
 
   get maxL2BlockGas(): number | undefined {
     return this.config.maxL2BlockGas;
+  }
+
+  public getSlasherClient(): SlasherClient {
+    return this.slasherClient;
   }
 }
