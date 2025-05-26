@@ -527,11 +527,27 @@ template <typename Builder, typename T> class bigfield {
     static constexpr uint512_t get_maximum_unreduced_value()
     {
         // This = `T * n = 2^272 * |BN(Fr)|` So this equals n*2^t
-
         uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
-        // TODO: compute square root (the following is a lower bound, so good for the CRT use)
-        // We use -1 to stay safer, because it provides additional space to avoid the overflow, but get_msb() by itself
-        // should be enough
+
+        // In multiplying two bigfield elements a and b, we must check that:
+        //
+        // a * b = q * p + r
+        //
+        // where p is the quotient, r is the remainder, and p is the size of the non-native field.
+        // The CRT requires that we check that each side of the equation is less than:
+        // (a) the size of the native field n, and
+        // (b) the max product M = 2^t * n.
+        // Thus, the max value of an unreduced value of a bigfield element is √M. In this case, we use
+        // an even stricter bound. Let n = 2^m + l (where 1 < l < 2^m). Thus, we have:
+        //
+        //     M = 2^t * n = 2^t * (2^m + l) = 2^(t + m) + (2^t * l)
+        // =>  M > 2^(t + m)
+        // => √M > 2^((t + m) / 2)
+        //
+        // Thus the maximum unreduced value of a bigfield element is: 2^((t + m) / 2).
+        //
+        // Note: We use a further safer bound of 2^((t + m) / 2 - 1). We use -1 to stay safer,
+        // because it provides additional space to avoid the overflow, but get_msb() by itself should be enough.
         uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
         return (uint512_t(1) << (maximum_product_bits >> 1));
     }
