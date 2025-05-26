@@ -24,7 +24,7 @@ The .md files in the `docs/` directory are the docs. See the [Docusaurus website
 
 Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not, it allows you to hot-fix previous versions.
 
-When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `alpha-testnet`, and the latest sandbox release e.g. `v0.86.0`. Updating the files in the `docs` folder will update the `Next` version, updating the files in `versioned_docs/version-alpha-testnet` folder will update the `alpha-testnet` version, and updating the files in the `versioned_docs/version-v0.86.0` folder will update the `versioned_docs/v0.86.0` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
+When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `Latest`, and older versions e.g. `v0.86.0`. Updating the files in the `docs` folder will update the `Next` version, updating the files in `versioned_docs/version-latest` folder will update the `latest` version, and updating the files in the `versioned_docs/version-v0.86.0` folder will update the `versioned_docs/v0.86.0` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
 
 The way docs builds work is the following:
 
@@ -39,6 +39,32 @@ COMMIT_TAG=v0.84.0 yarn build
 ```
 
 You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v0.85.0` will render as `0.85.0`.
+
+## Adding A Version
+
+Versions of docs can be created automatically via a github action, or manually.
+
+From earlier, the release github workflow is triggered on pushes to `master` or `next` branches and does two things:
+1. using google's `Release-Please` action to create a new PR and version tag
+2. creates a build artifact for the new version of the docs (a folder in `versioned_docs`)
+
+To manually perform step two locally:
+- Checkout the branch/tag of the version of docs you'd like to create
+- From the desired branch/tag, perform the "cut version" step of the github action ([Release-Please.yml](https://github.com/AztecProtocol/aztec-packages/blob/next/.github%2Fworkflows%2Frelease-please.yml#L72-L78)). Note: you will have to set COMMIT_TAG to "v0.xx.x" or "vlatest"
+- Then the newly created version of docs under `docs/versioned_docs` can be stashed, to later pop on your branch that you want to commit the new versioned docs to.
+
+### A special note about branches
+
+Adding docs: Only the `next` branch will have protocol changes, whereas `master` will not. So any documentation refering to these new protocol changes should only be applied to `next`. All other docs updates should be applied to `master`.
+
+Generating docs: Since `master` does not contain the changes of the next protocol update, then generating a document version from `master` will not correctly show what the docs version `next` is supposed to contain. For this reason, doc releases should come from `next`.
+
+:::info Summary
+- The only place to refer to the latest protocol changes is in the `next` branch under `docs/docs`, shown as the `next` docs version
+- All other docs updates should go to `master` (auto applied to `next`), and when releases are made this will be the `latest` docs tag
+- When a new release is made, the current `latest` version of the docs must be recreated at it's specific version number, and the previous `latest` folder (in `versioned_docs`) be removed to make way for the actual latest
+
+::;
 
 ### How do I change the versions that show in the website
 
