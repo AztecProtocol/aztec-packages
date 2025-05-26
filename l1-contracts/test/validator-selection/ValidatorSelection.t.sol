@@ -202,6 +202,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     _testBlock("mixed_block_1", true, 2, false);
   }
 
+  function testInsufficientSigsMove() public setup(4) progressEpochs(2) {
+    rollup.getGSE().addRollup(address(0xdead));
+    assertEq(rollup.getCurrentEpochCommittee().length, 4);
+    _testBlock("mixed_block_1", true, 0, false);
+  }
+
   function _testBlock(
     string memory _name,
     bool _expectRevert,
@@ -240,6 +246,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       txHashes: txHashes
     });
 
+    skipBlobCheck(address(rollup));
+
     if (_signatureCount > 0 && ree.proposer != address(0)) {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       ree.needed = validators.length * 2 / 3 + 1;
@@ -274,7 +282,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         // @todo Handle ValidatorSelection__InsufficientAttestations case
       }
 
-      skipBlobCheck(address(rollup));
       if (_expectRevert && _invalidProposer) {
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
@@ -289,16 +296,21 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       emit log("Time to propose");
       vm.prank(ree.proposer);
       rollup.propose(args, signatures, full.block.blobInputs);
-
-      if (ree.shouldRevert) {
-        return;
-      }
     } else {
       Signature[] memory signatures = new Signature[](0);
+
+      if (_expectRevert) {
+        vm.expectRevert(Errors.Staking__InvalidProposer.selector);
+        ree.shouldRevert = true;
+      }
       rollup.propose(args, signatures, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
+
+    if (ree.shouldRevert) {
+      return;
+    }
 
     bytes32 l2ToL1MessageTreeRoot;
     {
