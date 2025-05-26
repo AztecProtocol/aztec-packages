@@ -40,6 +40,10 @@ COMMIT_TAG=v0.84.0 yarn build
 
 You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v0.85.0` will render as `0.85.0`.
 
+### How do I change the versions that show in the website
+
+When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
+
 ## Adding A Version
 
 Versions of docs can be created automatically via a github action, or manually.
@@ -59,16 +63,11 @@ Adding docs: Only the `next` branch will have protocol changes, whereas `master`
 
 Generating docs: Since `master` does not contain the changes of the next protocol update, then generating a document version from `master` will not correctly show what the docs version `next` is supposed to contain. For this reason, doc releases should come from `next`.
 
-:::info Summary
+### Summary
 - The only place to refer to the latest protocol changes is in the `next` branch under `docs/docs`, shown as the `next` docs version
 - All other docs updates should go to `master` (auto applied to `next`), and when releases are made this will be the `latest` docs tag
 - When a new release is made, the current `latest` version of the docs must be recreated at it's specific version number, and the previous `latest` folder (in `versioned_docs`) be removed to make way for the actual latest
 
-::;
-
-### How do I change the versions that show in the website
-
-When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
 
 ## Releases
 
