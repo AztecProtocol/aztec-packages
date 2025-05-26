@@ -269,7 +269,7 @@ template <typename FF_> class contextImpl {
             tmp *= scaling_factor;
             std::get<31>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // L2_GAS_LIMIT_RESTORE_ON_EXIT
             using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_nested_exit_call) *
                        (in.get(C::execution_l2_gas_limit_shift) - in.get(C::execution_parent_l2_gas_limit));
@@ -283,7 +283,7 @@ template <typename FF_> class contextImpl {
             tmp *= scaling_factor;
             std::get<33>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // DA_GAS_LIMIT_RESTORE_ON_EXIT
             using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_nested_exit_call) *
                        (in.get(C::execution_da_gas_limit_shift) - in.get(C::execution_parent_da_gas_limit));
@@ -297,7 +297,7 @@ template <typename FF_> class contextImpl {
             tmp *= scaling_factor;
             std::get<35>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PARENT_L2_GAS_LIMIT_STORE_ON_CALL
             using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
                        (in.get(C::execution_parent_l2_gas_limit_shift) - in.get(C::execution_l2_gas_limit));
@@ -311,7 +311,7 @@ template <typename FF_> class contextImpl {
             tmp *= scaling_factor;
             std::get<37>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PARENT_DA_GAS_LIMIT_STORE_ON_CALL
             using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
                        (in.get(C::execution_parent_da_gas_limit_shift) - in.get(C::execution_da_gas_limit));
@@ -325,7 +325,7 @@ template <typename FF_> class contextImpl {
             tmp *= scaling_factor;
             std::get<39>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PARENT_L2_GAS_USED_STORE_ON_CALL
             using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
                        (in.get(C::execution_parent_l2_gas_used_shift) - in.get(C::execution_l2_gas_used));
@@ -339,7 +339,7 @@ template <typename FF_> class contextImpl {
             tmp *= scaling_factor;
             std::get<41>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PARENT_DA_GAS_USED_STORE_ON_CALL
             using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
                        (in.get(C::execution_parent_da_gas_used_shift) - in.get(C::execution_da_gas_used));
@@ -400,16 +400,28 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
             return "RD_SIZE_OFFSET_NEXT_ROW";
         case 31:
             return "L2_GAS_LIMIT_NEXT_ROW";
+        case 32:
+            return "L2_GAS_LIMIT_RESTORE_ON_EXIT";
         case 33:
             return "DA_GAS_LIMIT_NEXT_ROW";
+        case 34:
+            return "DA_GAS_LIMIT_RESTORE_ON_EXIT";
         case 35:
             return "PARENT_L2_GAS_LIMIT_NEXT_ROW";
+        case 36:
+            return "PARENT_L2_GAS_LIMIT_STORE_ON_CALL";
         case 37:
             return "PARENT_DA_GAS_LIMIT_NEXT_ROW";
+        case 38:
+            return "PARENT_DA_GAS_LIMIT_STORE_ON_CALL";
         case 39:
             return "PARENT_L2_GAS_USED_NEXT_ROW";
+        case 40:
+            return "PARENT_L2_GAS_USED_STORE_ON_CALL";
         case 41:
             return "PARENT_DA_GAS_USED_NEXT_ROW";
+        case 42:
+            return "PARENT_DA_GAS_USED_STORE_ON_CALL";
         }
         return std::to_string(index);
     }
@@ -427,11 +439,17 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
     static constexpr size_t SR_RD_OFFSET_NEXT_ROW = 25;
     static constexpr size_t SR_RD_SIZE_OFFSET_NEXT_ROW = 28;
     static constexpr size_t SR_L2_GAS_LIMIT_NEXT_ROW = 31;
+    static constexpr size_t SR_L2_GAS_LIMIT_RESTORE_ON_EXIT = 32;
     static constexpr size_t SR_DA_GAS_LIMIT_NEXT_ROW = 33;
+    static constexpr size_t SR_DA_GAS_LIMIT_RESTORE_ON_EXIT = 34;
     static constexpr size_t SR_PARENT_L2_GAS_LIMIT_NEXT_ROW = 35;
+    static constexpr size_t SR_PARENT_L2_GAS_LIMIT_STORE_ON_CALL = 36;
     static constexpr size_t SR_PARENT_DA_GAS_LIMIT_NEXT_ROW = 37;
+    static constexpr size_t SR_PARENT_DA_GAS_LIMIT_STORE_ON_CALL = 38;
     static constexpr size_t SR_PARENT_L2_GAS_USED_NEXT_ROW = 39;
+    static constexpr size_t SR_PARENT_L2_GAS_USED_STORE_ON_CALL = 40;
     static constexpr size_t SR_PARENT_DA_GAS_USED_NEXT_ROW = 41;
+    static constexpr size_t SR_PARENT_DA_GAS_USED_STORE_ON_CALL = 42;
 };
 
 } // namespace bb::avm2
