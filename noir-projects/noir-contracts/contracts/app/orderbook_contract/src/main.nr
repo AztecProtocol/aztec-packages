@@ -145,11 +145,6 @@ pub contract Orderbook {
         // a nullifier is cheaper (1 Field in DA instead of multiple Fields for the order). We use the `order_id`
         // itself as the nullifier because this contract does not work with notes and hence there is no risk of
         // colliding with a real note nullifier.
-        //
-        // It's worth noting that since nullifier information is public, a malicious actor could potentially frontrun
-        // the taker's transaction. While this vulnerability exists in this simplified demonstration, a production
-        // implementation would typically employ a privileged matchmaker service to securely pair makers and takers,
-        // thereby ensuring order execution integrity.
         context.push_nullifier(order_id);
 
         // Enqueue the fulfillment to finalize both partial notes
