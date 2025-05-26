@@ -198,7 +198,7 @@ template <typename Builder> class field_t {
         return this_before_operation;
     };
 
-    field_t invert() const { return (field_t(1) / field_t(*this)).normalize(); }
+    field_t invert() const { return field_t(fr::one()) / *this; }
 
     field_t operator-() const
     {

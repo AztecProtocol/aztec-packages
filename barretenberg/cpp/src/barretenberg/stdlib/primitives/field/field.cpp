@@ -61,39 +61,52 @@ field_t<Builder> field_t<Builder>::from_witness_index(Builder* ctx, const uint32
     result.witness_index = witness_index;
     return result;
 }
-
+/**
+ * @brief Convert a field_t element to a boolean and enforce bool constraints.
+ *
+ * @tparam Builder
+ * @return bool_t<Builder>
+ */
 template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
 {
-    if (witness_index == IS_CONSTANT) {
+    // If `this` is a constant field_t element, the resulting bool is also constant.
+    // In this case, `additive_constant` uniquely determines the value of `this`.
+    // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
+    // value of `additive_constant`.
+    if (this->is_constant()) {
+        ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero());
         bool_t<Builder> result(context);
         result.witness_bool = (additive_constant == bb::fr::one());
-        result.witness_inverted = false;
-        result.witness_index = IS_CONSTANT;
         result.set_origin_tag(tag);
         return result;
     }
-    bool add_constant_check = (additive_constant == bb::fr::zero());
-    bool mul_constant_check = (multiplicative_constant == bb::fr::one());
-    bool inverted_check = (additive_constant == bb::fr::one()) && (multiplicative_constant == bb::fr::neg_one());
-    if ((!add_constant_check || !mul_constant_check) && !inverted_check) {
-        auto normalized_element = normalize();
-        bb::fr witness = context->get_variable(normalized_element.get_witness_index());
-        ASSERT((witness == bb::fr::zero()) || (witness == bb::fr::one()));
-        bool_t<Builder> result(context);
-        result.witness_bool = (witness == bb::fr::one());
-        result.witness_inverted = false;
-        result.witness_index = normalized_element.get_witness_index();
-        context->create_bool_gate(normalized_element.get_witness_index());
-        return result;
-    }
 
-    bb::fr witness = context->get_variable(witness_index);
-    ASSERT((witness == bb::fr::zero()) || (witness == bb::fr::one()));
+    const bool add_constant_check = (additive_constant == bb::fr::zero());
+    const bool mul_constant_check = (multiplicative_constant == bb::fr::one());
+    const bool inverted_check = (additive_constant == bb::fr::one()) && (multiplicative_constant == bb::fr::neg_one());
     bool_t<Builder> result(context);
+    // Process the elements of the form
+    //      a = a.v * 1 + 0 and a = a.v * (-1) + 1
+    // They do not need to be normalized, as in the first case the value of
+    //      a == a.v,
+    // and in the second case
+    //      a == ¬(a.v).
+    // The distinction between the cases is tracked by the .witness_inverted field of bool_t.
+    uint32_t witness_idx = witness_index;
+    if ((add_constant_check && mul_constant_check) || inverted_check) {
+        result.witness_inverted = inverted_check;
+    } else {
+        // In general, the witness has to be normalized.
+        witness_idx = get_normalized_witness_index();
+    }
+    // Get the normalized value of the witness
+    bb::fr witness = context->get_variable(witness_idx);
+    BB_ASSERT_EQ((witness == bb::fr::zero()) || (witness == bb::fr::one()),
+                 true,
+                 "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
     result.witness_bool = (witness == bb::fr::one());
-    result.witness_inverted = inverted_check;
-    result.witness_index = witness_index;
-    context->create_bool_gate(witness_index);
+    result.witness_index = witness_idx;
+    context->create_bool_gate(witness_idx);
     result.set_origin_tag(tag);
     return result;
 }
@@ -303,7 +316,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
         // Both inputs are constant, the result if given by
         //      q = a.add / b.add, if b != 0.
         //      q = a.add        , if b == 0
-        additive_multiplier = other.additive_constant.invert();
+        if (!(other.additive_constant == bb::fr::zero())) {
+            additive_multiplier = other.additive_constant.invert();
+        }
         result.additive_constant = additive_constant * additive_multiplier;
     } else if (!this->is_constant() && other.is_constant()) {
         // The numerator is a circuit variable, the denominator is a constant.
@@ -311,7 +326,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
         //      q = a.v * [a.mul / b.add] + a.add / b.add, if b != 0.
         //      q = a                                    , if b == 0
         // with q.witness_index = a.witness_index.
-        additive_multiplier = other.additive_constant.invert();
+        if (!(other.additive_constant == bb::fr::zero())) {
+            additive_multiplier = other.additive_constant.invert();
+        }
         result.additive_constant = additive_constant * additive_multiplier;
         result.multiplicative_constant = multiplicative_constant * additive_multiplier;
         result.witness_index = witness_index;
@@ -324,7 +341,8 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
             result.witness_index = IS_CONSTANT;
         } else {
             bb::fr numerator = get_value();
-            bb::fr denominator_inv = other.get_value().invert();
+            bb::fr denominator_inv = other.get_value();
+            denominator_inv = denominator_inv.is_zero() ? 0 : denominator_inv.invert();
 
             bb::fr out(numerator * denominator_inv);
             result.witness_index = ctx->add_variable(out);
@@ -351,7 +369,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     } else {
         // Both numerator and denominator are circuit variables. Create a new circuit variable with the value a / b.
         bb::fr numerator = get_value();
-        bb::fr denominator_inv = other.get_value().invert();
+        bb::fr denominator_inv = other.get_value();
+        denominator_inv = denominator_inv.is_zero() ? 0 : denominator_inv.invert();
+
         bb::fr out(numerator * denominator_inv);
         result.witness_index = ctx->add_variable(out);
 
@@ -514,7 +534,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     Builder* ctx = first_non_null<Builder>(context, add_a.context, add_b.context);
 
     if ((add_a.is_constant()) && (add_b.is_constant()) && (this->is_constant())) {
-        return ((*this) + add_a + add_b).normalize();
+        return (*this) + add_a + add_b;
     }
     bb::fr q_1 = multiplicative_constant;
     bb::fr q_2 = add_a.multiplicative_constant;

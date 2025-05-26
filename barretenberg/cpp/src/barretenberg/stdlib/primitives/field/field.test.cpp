@@ -332,14 +332,12 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct q = a / b;
         EXPECT_TRUE(q.is_constant());
         EXPECT_EQ(a.get_value() / b.get_value(), q.get_value());
-        // Check that the result is normalized in this case
-        EXPECT_TRUE(q.multiplicative_constant == 1 && q.additive_constant == 0);
 
         { // Case 1. Numerator = const, denominator = const 0. Check that the division is aborted
             b = 0;
             EXPECT_DEATH(a / b, ".*");
         }
-        { // Case 2. Numerator = const, denominator = const 0. Check that the division is aborted
+        { // Case 2. Numerator != const, denominator = const 0. Check that the division is aborted
             Builder builder = Builder();
             field_ct a = witness_ct(&builder, bb::fr::random_element());
             b = 0;
@@ -353,8 +351,32 @@ template <typename Builder> class stdlib_field : public testing::Test {
             q = a / b;
             EXPECT_FALSE(CircuitChecker::check(builder));
         }
+        {
+            // Case 4. Numerator = const, denominator = witness 0 . Check that the circuit fails.
+            Builder builder = Builder();
+            field_ct a(bb::fr::random_element());
+            b = witness_ct(&builder, bb::fr::zero());
+            q = a / b;
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
     }
+    static void test_invert()
+    {
+        // Test constant case
+        field_ct a(bb::fr::random_element());
+        field_ct b = a.invert();
+        // Check that the result is constant and correct
+        EXPECT_TRUE(a.is_constant() && (b.get_value() * a.get_value() == 1));
 
+        // Test non-constant case
+        Builder builder = Builder();
+        a = witness_ct(&builder, a.get_value());
+        b = a.invert();
+        // Check that the result is normalized
+        EXPECT_TRUE((b.multiplicative_constant == 1) && (b.additive_constant == 0));
+        // Check that the result is correct
+        EXPECT_TRUE(a.get_value() * b.get_value() == 1);
+    }
     static void test_postfix_increment()
     {
         Builder builder = Builder();
@@ -1232,7 +1254,10 @@ TYPED_TEST(stdlib_field, test_div_edge_cases)
 {
     TestFixture::test_div_edge_cases();
 }
-
+TYPED_TEST(stdlib_field, test_invert)
+{
+    TestFixture::test_invert();
+}
 TYPED_TEST(stdlib_field, test_postfix_increment)
 {
     TestFixture::test_postfix_increment();
