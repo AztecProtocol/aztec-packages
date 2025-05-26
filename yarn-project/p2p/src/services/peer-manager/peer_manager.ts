@@ -65,7 +65,7 @@ export class PeerManager {
     private peerScoring: PeerScoring,
     private reqresp: ReqResp,
     private readonly worldStateSynchronizer: WorldStateSynchronizer,
-    private readonly procolVersion: string,
+    private readonly protocolVersion: string,
   ) {
     this.metrics = new PeerManagerMetrics(telemetryClient, 'PeerManager');
 
@@ -620,7 +620,7 @@ export class PeerManager {
 
   private async exchangeStatusHandshake(peerId: PeerId) {
     const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
-    const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.procolVersion, syncSummary);
+    const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
 
     const { status, data } = await this.reqresp.sendRequestToPeer(
       peerId,
@@ -640,7 +640,7 @@ export class PeerManager {
       }
       this.logger.info(`Status handshake with peer ${peerId} was success`);
     } catch {
-      this.logger.info(`Peer ${peerId} sent invalid status message`);
+      console.log(`Peer ${peerId} sent invalid status message`);
       await this.disconnectPeer(peerId);
     }
   }
