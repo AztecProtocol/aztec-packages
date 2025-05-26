@@ -9,16 +9,30 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 namespace bb::avm2::tracegen {
 namespace {
 
 constexpr size_t operand_columns = 7;
+
+uint32_t gas_comparison_witness(uint32_t limit, uint32_t used)
+{
+    return limit >= used ? limit - used : used - limit - 1;
+}
+
+std::pair<uint16_t, uint16_t> decompose_gas_value(uint32_t value)
+{
+    return { static_cast<uint16_t>(value & 0xFFFF), static_cast<uint16_t>(value >> 16) };
+}
 
 } // namespace
 
@@ -98,6 +112,7 @@ void ExecutionTraceBuilder::process(
             { {
                 { C::execution_sel, 1 }, // active execution trace
                 { C::execution_ex_opcode, static_cast<size_t>(ex_event.opcode) },
+                { C::execution_indirect, ex_event.wire_instruction.indirect },
                 { C::execution_sel_call, is_call ? 1 : 0 },
                 { C::execution_sel_static_call, is_static_call ? 1 : 0 },
                 { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
@@ -218,7 +233,82 @@ void ExecutionTraceBuilder::process(
                 { C::execution_last_child_returndata_offset_addr, ex_event.after_context_event.last_child_rd_addr },
                 { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
                 { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
+                { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
+                { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
+                { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
+                { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
+                { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
+                { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
+                { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
+                { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
                 { C::execution_next_context_id, ex_event.next_context_id },
+            } });
+
+        // Base gas
+        Gas gas_used_after_base = ex_event.before_context_event.gas_used + ex_event.gas_event.base_gas;
+
+        uint32_t limit_used_base_l2_cmp_diff =
+            gas_comparison_witness(ex_event.after_context_event.gas_limit.l2Gas, gas_used_after_base.l2Gas);
+        uint32_t limit_used_base_da_cmp_diff =
+            gas_comparison_witness(ex_event.after_context_event.gas_limit.daGas, gas_used_after_base.daGas);
+
+        auto [limit_used_base_l2_cmp_diff_lo, limit_used_base_l2_cmp_diff_hi] =
+            decompose_gas_value(limit_used_base_l2_cmp_diff);
+        auto [limit_used_base_da_cmp_diff_lo, limit_used_base_da_cmp_diff_hi] =
+            decompose_gas_value(limit_used_base_da_cmp_diff);
+
+        // Dynamic gas
+        Gas gas_used_after_dynamic = gas_used_after_base + ex_event.gas_event.dynamic_gas_used;
+        uint32_t limit_used_dynamic_l2_cmp_diff = 0;
+        uint32_t limit_used_dynamic_da_cmp_diff = 0;
+        if (!ex_event.gas_event.oog_base_l2 || !ex_event.gas_event.oog_base_da) {
+            limit_used_dynamic_l2_cmp_diff =
+                gas_comparison_witness(ex_event.after_context_event.gas_limit.l2Gas, gas_used_after_dynamic.l2Gas);
+            limit_used_dynamic_da_cmp_diff =
+                gas_comparison_witness(ex_event.after_context_event.gas_limit.daGas, gas_used_after_dynamic.daGas);
+        }
+
+        auto [limit_used_dynamic_l2_cmp_diff_lo, limit_used_dynamic_l2_cmp_diff_hi] =
+            decompose_gas_value(limit_used_dynamic_l2_cmp_diff);
+        auto [limit_used_dynamic_da_cmp_diff_lo, limit_used_dynamic_da_cmp_diff_hi] =
+            decompose_gas_value(limit_used_dynamic_da_cmp_diff);
+
+        // Gas
+        trace.set(
+            row,
+            { {
+                { C::execution_opcode_gas, ex_event.gas_event.opcode_gas },
+                { C::execution_addressing_gas, ex_event.gas_event.addressing_gas },
+                { C::execution_base_l2_gas, ex_event.gas_event.base_gas.l2Gas },
+                { C::execution_base_da_gas, ex_event.gas_event.base_gas.daGas },
+                { C::execution_out_of_gas_base_l2, ex_event.gas_event.oog_base_l2 },
+                { C::execution_out_of_gas_base_da, ex_event.gas_event.oog_base_da },
+                { C::execution_out_of_gas_base, ex_event.gas_event.oog_base_l2 || ex_event.gas_event.oog_base_da },
+                { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
+                { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
+                { C::execution_limit_used_base_l2_cmp_diff, limit_used_base_l2_cmp_diff },
+                { C::execution_limit_used_base_l2_cmp_diff_lo, limit_used_base_l2_cmp_diff_lo },
+                { C::execution_limit_used_base_l2_cmp_diff_hi, limit_used_base_l2_cmp_diff_hi },
+                { C::execution_limit_used_base_da_cmp_diff, limit_used_base_da_cmp_diff },
+                { C::execution_limit_used_base_da_cmp_diff_lo, limit_used_base_da_cmp_diff_lo },
+                { C::execution_limit_used_base_da_cmp_diff_hi, limit_used_base_da_cmp_diff_hi },
+                { C::execution_should_run_dyn_gas_check, !ex_event.gas_event.oog_base_l2 },
+                { C::execution_dynamic_l2_gas_factor, ex_event.gas_event.dynamic_gas_factor.l2Gas },
+                { C::execution_dynamic_da_gas_factor, ex_event.gas_event.dynamic_gas_factor.daGas },
+                { C::execution_dynamic_l2_gas, ex_event.gas_event.dynamic_gas.l2Gas },
+                { C::execution_dynamic_da_gas, ex_event.gas_event.dynamic_gas.daGas },
+                { C::execution_dynamic_l2_gas_used, ex_event.gas_event.dynamic_gas_used.l2Gas },
+                { C::execution_dynamic_da_gas_used, ex_event.gas_event.dynamic_gas_used.daGas },
+                { C::execution_out_of_gas_dynamic_l2, ex_event.gas_event.oog_dynamic_l2 },
+                { C::execution_out_of_gas_dynamic_da, ex_event.gas_event.oog_dynamic_da },
+                { C::execution_out_of_gas_dynamic,
+                  ex_event.gas_event.oog_dynamic_l2 || ex_event.gas_event.oog_dynamic_da },
+                { C::execution_limit_used_dynamic_l2_cmp_diff, limit_used_dynamic_l2_cmp_diff },
+                { C::execution_limit_used_dynamic_l2_cmp_diff_lo, limit_used_dynamic_l2_cmp_diff_lo },
+                { C::execution_limit_used_dynamic_l2_cmp_diff_hi, limit_used_dynamic_l2_cmp_diff_hi },
+                { C::execution_limit_used_dynamic_da_cmp_diff, limit_used_dynamic_da_cmp_diff },
+                { C::execution_limit_used_dynamic_da_cmp_diff_lo, limit_used_dynamic_da_cmp_diff_lo },
+                { C::execution_limit_used_dynamic_da_cmp_diff_hi, limit_used_dynamic_da_cmp_diff_hi },
             } });
 
         row++;
@@ -227,6 +317,23 @@ void ExecutionTraceBuilder::process(
     if (!ex_events.empty()) {
         trace.set(C::execution_last, row - 1, 1);
     }
+}
+
+std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        // Execution
+        std::make_unique<LookupIntoIndexedByClk<lookup_execution_exec_spec_read_settings>>(),
+        // Gas
+        std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_gas_limit_used_base_l2_range_lo_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_gas_limit_used_base_l2_range_hi_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_gas_limit_used_base_da_range_lo_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_gas_limit_used_base_da_range_hi_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_gas_limit_used_dynamic_l2_range_lo_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_gas_limit_used_dynamic_l2_range_hi_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_gas_limit_used_dynamic_da_range_lo_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_gas_limit_used_dynamic_da_range_hi_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

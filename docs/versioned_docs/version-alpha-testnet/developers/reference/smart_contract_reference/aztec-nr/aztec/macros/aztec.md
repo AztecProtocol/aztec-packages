@@ -118,26 +118,18 @@ generate_note_exports();
 
 Takes no parameters.
 
-### generate_sync_notes
+### generate_sync_private_state
 
 ```rust
-generate_sync_notes();
+generate_sync_private_state();
 ```
 
 Takes no parameters.
 
-### sync_notes
+### sync_private_state
 
 ```rust
-sync_notes();
-```
-
-Takes no parameters.
-
-### sync_notes
-
-```rust
-sync_notes();
+sync_private_state();
 ```
 
 Takes no parameters.

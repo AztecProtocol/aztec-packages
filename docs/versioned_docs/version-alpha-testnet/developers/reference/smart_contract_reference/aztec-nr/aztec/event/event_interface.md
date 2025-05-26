@@ -11,12 +11,12 @@ Takes no parameters.
 ### emit
 
 ```rust
-emit(self, emit);
+emit(self, _emit);
 ```
 
 #### Parameters
 | Name | Type |
 | --- | --- |
 | self |  |
-| emit | fn[Env](Self |
+| _emit | fn[Env](Self |
 

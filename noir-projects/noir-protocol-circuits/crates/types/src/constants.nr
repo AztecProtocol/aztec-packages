@@ -2,7 +2,7 @@ use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
-pub global MAX_U32_VALUE: u32 = 4294967295;
+pub global MAX_U32_VALUE: u32 = 0xffffffff;
 pub global ARGS_LENGTH: u32 = 16;
 // WARNING: do not change without consulting AVM which this constant affects
 pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
@@ -177,6 +177,7 @@ pub global REGISTERER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
+pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(7);
 
 // Randomly chosen slot for the bytecode capsule.
 pub global REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
@@ -793,7 +794,7 @@ pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
 pub global L2_GAS_DISTRIBUTED_STORAGE_PREMIUM: u32 = 1024;
 
 // All AVM opcode gas costs are below except this one because it is needed for Merkle tree related constants.
-pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 36;
+pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 24;
 
 // Kernel and/or rollup circuits perform a hash per tree-level for insertions and reads.
 // All network participants need to perform tree insertions.
@@ -822,8 +823,6 @@ pub global L2_GAS_PER_NULLIFIER_READ_REQUEST: u32 =
 pub global L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST: u32 =
     L1_TO_L2_MSG_TREE_HEIGHT * L2_GAS_PER_READ_MERKLE_HASH;
 
-// Gas for hashing and validating logs
-pub global L2_GAS_PER_LOG_BYTE: u32 = 4;
 // Zero gas because we don't have to hash and validate the private logs
 pub global L2_GAS_PER_PRIVATE_LOG: u32 = 0;
 pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0;
@@ -840,69 +839,67 @@ pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200;
 
 // Base L2 GAS
 // Note: magic numbers here are derived from each op's AVM circuit trace area
-pub global AVM_ADD_BASE_L2_GAS: u32 = 27;
-pub global AVM_SUB_BASE_L2_GAS: u32 = 27;
-pub global AVM_MUL_BASE_L2_GAS: u32 = 27;
-pub global AVM_DIV_BASE_L2_GAS: u32 = 27;
-pub global AVM_FDIV_BASE_L2_GAS: u32 = 27;
-pub global AVM_EQ_BASE_L2_GAS: u32 = 27;
+pub global AVM_ADD_BASE_L2_GAS: u32 = 9;
+pub global AVM_SUB_BASE_L2_GAS: u32 = 9;
+pub global AVM_MUL_BASE_L2_GAS: u32 = 21;
+pub global AVM_DIV_BASE_L2_GAS: u32 = 9;
+pub global AVM_FDIV_BASE_L2_GAS: u32 = 9;
+pub global AVM_EQ_BASE_L2_GAS: u32 = 9;
 pub global AVM_LT_BASE_L2_GAS: u32 = 30;
 pub global AVM_LTE_BASE_L2_GAS: u32 = 30;
 pub global AVM_AND_BASE_L2_GAS: u32 = 51;
 pub global AVM_OR_BASE_L2_GAS: u32 = 51;
 pub global AVM_XOR_BASE_L2_GAS: u32 = 51;
-pub global AVM_NOT_BASE_L2_GAS: u32 = 18;
-pub global AVM_SHL_BASE_L2_GAS: u32 = 27;
-pub global AVM_SHR_BASE_L2_GAS: u32 = 27;
-pub global AVM_CAST_BASE_L2_GAS: u32 = 18;
-pub global AVM_GETENVVAR_BASE_L2_GAS: u16 = 9;
-pub global AVM_CALLDATACOPY_BASE_L2_GAS: u32 = 24;
+pub global AVM_NOT_BASE_L2_GAS: u32 = 6;
+pub global AVM_SHL_BASE_L2_GAS: u32 = 9;
+pub global AVM_SHR_BASE_L2_GAS: u32 = 9;
+pub global AVM_CAST_BASE_L2_GAS: u32 = 6;
+pub global AVM_GETENVVAR_BASE_L2_GAS: u16 = 3;
+pub global AVM_CALLDATACOPY_BASE_L2_GAS: u32 = 6;
 pub global AVM_SUCCESSCOPY_BASE_L2_GAS: u32 = 24;
-pub global AVM_RETURNDATASIZE_BASE_L2_GAS: u32 = 9;
-pub global AVM_RETURNDATACOPY_BASE_L2_GAS: u32 = 24;
+pub global AVM_RETURNDATASIZE_BASE_L2_GAS: u32 = 3;
+pub global AVM_RETURNDATACOPY_BASE_L2_GAS: u32 = 6;
 pub global AVM_JUMP_BASE_L2_GAS: u32 = 3;
-pub global AVM_JUMPI_BASE_L2_GAS: u32 = 9;
+pub global AVM_JUMPI_BASE_L2_GAS: u32 = 3;
 pub global AVM_INTERNALCALL_BASE_L2_GAS: u32 = 3;
 pub global AVM_INTERNALRETURN_BASE_L2_GAS: u32 = 3;
-pub global AVM_SET_BASE_L2_GAS: u32 = 9;
-pub global AVM_MOV_BASE_L2_GAS: u32 = 18;
-pub global AVM_SLOAD_BASE_L2_GAS: u32 = 18 + L2_GAS_PER_PUBLIC_DATA_READ;
-pub global AVM_SSTORE_BASE_L2_GAS: u32 = 18 + L2_GAS_PER_PUBLIC_DATA_UPDATE;
-pub global AVM_NOTEHASHEXISTS_BASE_L2_GAS: u32 = 27 + L2_GAS_PER_NOTE_HASH_READ_REQUEST;
-pub global AVM_EMITNOTEHASH_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_NOTE_HASH;
-pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 27 + L2_GAS_PER_NULLIFIER_READ_REQUEST;
-pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_NULLIFIER;
-pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 27 + L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST;
-pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 27 + L2_GAS_PER_NULLIFIER_READ_REQUEST; // does a nullifier check
-pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 15;
-pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 18 + L2_GAS_PER_L2_TO_L1_MSG;
+pub global AVM_SET_BASE_L2_GAS: u32 = 3;
+pub global AVM_MOV_BASE_L2_GAS: u32 = 6;
+pub global AVM_SLOAD_BASE_L2_GAS: u32 = 6 + L2_GAS_PER_PUBLIC_DATA_READ;
+pub global AVM_SSTORE_BASE_L2_GAS: u32 = 6 + L2_GAS_PER_PUBLIC_DATA_UPDATE;
+pub global AVM_NOTEHASHEXISTS_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_NOTE_HASH_READ_REQUEST;
+pub global AVM_EMITNOTEHASH_BASE_L2_GAS: u32 = 3 + L2_GAS_PER_NOTE_HASH;
+pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_NULLIFIER_READ_REQUEST;
+pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = 3 + L2_GAS_PER_NULLIFIER;
+pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST;
+pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_NULLIFIER_READ_REQUEST; // does a nullifier check
+pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 3; // TODO: Update this since we won't do dynamic l2 gas
+pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 6 + L2_GAS_PER_L2_TO_L1_MSG;
 // On CALL, AVM performs nullifier checks for contract address & contract class ID
-pub global AVM_CALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
-pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
-pub global AVM_RETURN_BASE_L2_GAS: u32 = 15;
-pub global AVM_REVERT_BASE_L2_GAS: u32 = 15;
-pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 21;
+pub global AVM_CALL_BASE_L2_GAS: u32 = 15 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
+pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 15 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
+pub global AVM_RETURN_BASE_L2_GAS: u32 = 3;
+pub global AVM_REVERT_BASE_L2_GAS: u32 = 3;
+pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 3;
 // For POSEIDON2 see above (constant needed to be set before L2_GAS_PER_READ_MERKLE_HASH)
-pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 114;
-pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 162;
-pub global AVM_ECADD_BASE_L2_GAS: u32 = 69;
-pub global AVM_MSM_BASE_L2_GAS: u32 = 36;
-pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
+pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 96;
+pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 150;
+pub global AVM_ECADD_BASE_L2_GAS: u32 = 27;
+pub global AVM_MSM_BASE_L2_GAS: u32 = 12;
+pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 6;
+
+// Addressing gas
+pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3;
+pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3;
 
 // Dynamic L2 GAS
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;
 pub global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 3;
-// a single increment here corresponds to an entire additional field (hence x32 bytes per field)
-pub global AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS: u32 = 3 + (DA_BYTES_PER_FIELD * L2_GAS_PER_LOG_BYTE);
-pub global AVM_CALL_DYN_L2_GAS: u32 = 4;
-pub global AVM_STATICCALL_DYN_L2_GAS: u32 = 4;
-pub global AVM_RETURN_DYN_L2_GAS: u32 = 3;
-pub global AVM_REVERT_DYN_L2_GAS: u32 = 3;
-pub global AVM_MSM_DYN_L2_GAS: u32 = 6;
 pub global AVM_TORADIXBE_DYN_L2_GAS: u32 = 3;
+pub global AVM_BITWISE_DYN_L2_GAS: u32 = 3; // TODO: Update this
+pub global AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS: u32 = 3; // TODO: Update this
 
 // Base DA Gas
-pub global AVM_SSTORE_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 pub global AVM_EMITNOTEHASH_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 pub global AVM_EMITNULLIFIER_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 pub global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
@@ -910,6 +907,8 @@ pub global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_
 // Dynamic DA Gas
 // a single increment here corresponds to an entire additional field (hence x32 bytes per field)
 pub global AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+// Gets multiplied by 1 if actually publishing, 0 if not. 2 because of it being (slot, value) pair
+pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 
 // BLOB PREFIXES
 // Used when decoding blobs of tightly packed effects

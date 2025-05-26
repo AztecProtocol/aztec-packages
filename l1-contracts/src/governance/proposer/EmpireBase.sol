@@ -27,7 +27,9 @@ abstract contract EmpireBase is IGovernanceProposer {
 
   uint256 public constant LIFETIME_IN_ROUNDS = 5;
 
+  // The quorum size
   uint256 public immutable N;
+  // The round size
   uint256 public immutable M;
 
   mapping(address instance => mapping(uint256 roundNumber => RoundAccounting)) public rounds;
@@ -86,6 +88,10 @@ abstract contract EmpireBase is IGovernanceProposer {
     }
 
     emit VoteCast(_proposal, roundNumber, msg.sender);
+
+    if (round.yeaCount[_proposal] == N) {
+      emit ProposalExecutable(_proposal, roundNumber);
+    }
 
     return true;
   }
@@ -148,6 +154,17 @@ abstract contract EmpireBase is IGovernanceProposer {
     returns (uint256)
   {
     return rounds[_instance][_round].yeaCount[_proposal];
+  }
+
+  /**
+   * @notice  Computes the round at the current slot
+   *
+   * @return The round number
+   */
+  function getCurrentRound() external view returns (uint256) {
+    IValidatorSelection selection = IValidatorSelection(getInstance());
+    Slot currentSlot = selection.getCurrentSlot();
+    return computeRound(currentSlot);
   }
 
   /**

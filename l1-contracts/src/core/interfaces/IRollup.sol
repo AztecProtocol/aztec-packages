@@ -122,7 +122,9 @@ interface IRollupCore {
   );
   event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
+  event RewardsClaimableUpdated(bool isRewardsClaimable);
 
+  function setRewardsClaimable(bool _isRewardsClaimable) external;
   function claimSequencerRewards(address _recipient) external returns (uint256);
   function claimProverRewards(address _recipient, Epoch[] memory _epochs)
     external
