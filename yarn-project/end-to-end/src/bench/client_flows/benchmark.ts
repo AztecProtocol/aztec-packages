@@ -194,43 +194,43 @@ export function generateBenchmark(
 export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): GithubActionBenchmarkResult[] {
   const benches = [
     {
-      name: `${label}/witgen`,
+      name: `${benchmark.name}/witgen`,
       value: benchmark.timings.witgen,
       unit: 'ms',
     },
 
     {
-      name: `${label}/total`,
+      name: `${benchmark.name}/total`,
       value: benchmark.timings.total,
       unit: 'ms',
     },
     {
-      name: `${label}/sync`,
+      name: `${benchmark.name}/sync`,
       value: benchmark.timings.sync!,
       unit: 'ms',
     },
     {
-      name: `${label}/unaccounte`,
+      name: `${benchmark.name}/unaccounte`,
       value: benchmark.timings.unaccounted,
       unit: 'ms',
     },
 
     {
-      name: `${label}/total_gate_count`,
+      name: `${benchmark.name}/total_gate_count`,
       value: benchmark.totalGateCount,
       unit: 'gates',
     },
   ];
   if (benchmark.timings.proving) {
     benches.push({
-      name: `${label}/proving`,
+      name: `${benchmark.name}/proving`,
       value: benchmark.timings.proving,
       unit: 'ms',
     });
   }
   if (benchmark.maxMemory) {
     benches.push({
-      name: `${label}/max_memory`,
+      name: `${benchmark.name}/max_memory`,
       value: benchmark.maxMemory,
       unit: 'MiB',
     });
