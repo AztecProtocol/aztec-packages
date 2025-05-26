@@ -33,85 +33,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/example-vanilla@workspace:boxes/vanilla":
+"@aztec/example-react@workspace:boxes/react":
   version: 0.0.0-use.local
-  resolution: "@aztec/example-vanilla@workspace:boxes/vanilla"
-  dependencies:
-    "@aztec/accounts": "npm:latest"
-    "@aztec/aztec.js": "npm:latest"
-    "@aztec/constants": "npm:latest"
-    "@aztec/foundation": "npm:latest"
-    "@aztec/kv-store": "npm:latest"
-    "@aztec/noir-contracts.js": "npm:latest"
-    "@aztec/pxe": "npm:latest"
-    "@aztec/stdlib": "npm:latest"
-    "@playwright/test": "npm:1.49.0"
-    "@types/node": "npm:^22.15.17"
-    assert: "npm:^2.1.0"
-    buffer: "npm:^6.0.3"
-    css-loader: "npm:^6.10.0"
-    dotenv-webpack: "npm:^8.0.1"
-    html-webpack-plugin: "npm:^5.6.0"
-    path-browserify: "npm:^1.0.1"
-    prettier: "npm:^3.5.3"
-    stream-browserify: "npm:^3.0.0"
-    style-loader: "npm:^3.3.4"
-    ts-loader: "npm:^9.5.1"
-    tsx: "npm:^4.19.4"
-    typescript: "npm:^5.3.3"
-    util: "npm:^0.12.5"
-    webpack: "npm:^5.99.6"
-    webpack-cli: "npm:^6.0.1"
-    webpack-dev-server: "npm:^5.2.1"
-  languageName: unknown
-  linkType: soft
-
-"@aztec/examples@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/examples@workspace:."
-  dependencies:
-    "@inquirer/confirm": "npm:^3.0.0"
-    "@inquirer/input": "npm:^2.0.0"
-    "@inquirer/select": "npm:^2.0.0"
-    axios: "npm:^1.8.2"
-    commander: "npm:^12.1.0"
-    ora: "npm:^8.0.1"
-    pino: "npm:^9.5.0"
-    pino-pretty: "npm:^10.3.1"
-    tiged: "npm:^2.12.6"
-    vitest: "npm:^2.0.5"
-  bin:
-    examples: bin.js
-  languageName: unknown
-  linkType: soft
-
-"@aztec/foundation@link:../yarn-project/foundation::locator=%40aztec%2Fexamples%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/foundation@link:../yarn-project/foundation::locator=%40aztec%2Fexamples%40workspace%3A."
-  languageName: node
-  linkType: soft
-
-"@aztec/kv-store@link:../yarn-project/kv-store::locator=%40aztec%2Fexamples%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/kv-store@link:../yarn-project/kv-store::locator=%40aztec%2Fexamples%40workspace%3A."
-  languageName: node
-  linkType: soft
-
-"@aztec/noir-contracts.js@link:../yarn-project/noir-contracts.js::locator=%40aztec%2Fexamples%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/noir-contracts.js@link:../yarn-project/noir-contracts.js::locator=%40aztec%2Fexamples%40workspace%3A."
-  languageName: node
-  linkType: soft
-
-"@aztec/pxe@link:../yarn-project/pxe::locator=%40aztec%2Fexamples%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/pxe@link:../yarn-project/pxe::locator=%40aztec%2Fexamples%40workspace%3A."
-  languageName: node
-  linkType: soft
-
-"@aztec/react@workspace:boxes/react":
-  version: 0.0.0-use.local
-  resolution: "@aztec/react@workspace:boxes/react"
+  resolution: "@aztec/example-react@workspace:boxes/react"
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
@@ -158,15 +82,42 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fexamples%40workspace%3A.":
+"@aztec/example-vanilla@workspace:boxes/vanilla":
   version: 0.0.0-use.local
-  resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fexamples%40workspace%3A."
-  languageName: node
+  resolution: "@aztec/example-vanilla@workspace:boxes/vanilla"
+  dependencies:
+    "@aztec/accounts": "npm:latest"
+    "@aztec/aztec.js": "npm:latest"
+    "@aztec/constants": "npm:latest"
+    "@aztec/foundation": "npm:latest"
+    "@aztec/kv-store": "npm:latest"
+    "@aztec/noir-contracts.js": "npm:latest"
+    "@aztec/pxe": "npm:latest"
+    "@aztec/stdlib": "npm:latest"
+    "@playwright/test": "npm:1.49.0"
+    "@types/node": "npm:^22.15.17"
+    assert: "npm:^2.1.0"
+    buffer: "npm:^6.0.3"
+    css-loader: "npm:^6.10.0"
+    dotenv-webpack: "npm:^8.0.1"
+    html-webpack-plugin: "npm:^5.6.0"
+    path-browserify: "npm:^1.0.1"
+    prettier: "npm:^3.5.3"
+    stream-browserify: "npm:^3.0.0"
+    style-loader: "npm:^3.3.4"
+    ts-loader: "npm:^9.5.1"
+    tsx: "npm:^4.19.4"
+    typescript: "npm:^5.3.3"
+    util: "npm:^0.12.5"
+    webpack: "npm:^5.99.6"
+    webpack-cli: "npm:^6.0.1"
+    webpack-dev-server: "npm:^5.2.1"
+  languageName: unknown
   linkType: soft
 
-"@aztec/vite@workspace:boxes/vite":
+"@aztec/example-vite@workspace:boxes/vite":
   version: 0.0.0-use.local
-  resolution: "@aztec/vite@workspace:boxes/vite"
+  resolution: "@aztec/example-vite@workspace:boxes/vite"
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
@@ -188,6 +139,55 @@ __metadata:
     vite: "npm:^6.0.3"
     vite-plugin-node-polyfills: "npm:^0.23.0"
   languageName: unknown
+  linkType: soft
+
+"@aztec/examples@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/examples@workspace:."
+  dependencies:
+    "@inquirer/confirm": "npm:^3.0.0"
+    "@inquirer/input": "npm:^2.0.0"
+    "@inquirer/select": "npm:^2.0.0"
+    axios: "npm:^1.8.2"
+    commander: "npm:^12.1.0"
+    ora: "npm:^8.0.1"
+    pino: "npm:^9.5.0"
+    pino-pretty: "npm:^10.3.1"
+    tiged: "npm:^2.12.6"
+    vitest: "npm:^2.0.5"
+  bin:
+    examples: bin.js
+  languageName: unknown
+  linkType: soft
+
+"@aztec/foundation@link:../yarn-project/foundation::locator=%40aztec%2Fexamples%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/foundation@link:../yarn-project/foundation::locator=%40aztec%2Fexamples%40workspace%3A."
+  languageName: node
+  linkType: soft
+
+"@aztec/kv-store@link:../yarn-project/kv-store::locator=%40aztec%2Fexamples%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/kv-store@link:../yarn-project/kv-store::locator=%40aztec%2Fexamples%40workspace%3A."
+  languageName: node
+  linkType: soft
+
+"@aztec/noir-contracts.js@link:../yarn-project/noir-contracts.js::locator=%40aztec%2Fexamples%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/noir-contracts.js@link:../yarn-project/noir-contracts.js::locator=%40aztec%2Fexamples%40workspace%3A."
+  languageName: node
+  linkType: soft
+
+"@aztec/pxe@link:../yarn-project/pxe::locator=%40aztec%2Fexamples%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/pxe@link:../yarn-project/pxe::locator=%40aztec%2Fexamples%40workspace%3A."
+  languageName: node
+  linkType: soft
+
+"@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fexamples%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fexamples%40workspace%3A."
+  languageName: node
   linkType: soft
 
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.12.13, @babel/code-frame@npm:^7.27.1":
