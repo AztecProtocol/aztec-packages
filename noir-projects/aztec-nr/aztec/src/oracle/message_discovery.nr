@@ -60,7 +60,7 @@ pub struct PublicLogWithTxData {
     pub first_nullifier_in_tx: Field,
 }
 
-/// Fetches a public log from the node that has the corresponding `tag`. The tag is the first field in the log's content.
+/// Fetches a public log emitted by `contract_address` that has the corresponding `tag`. The tag is the first field in the log's content.
 /// Returns `Option::none` if no such log exists. Throws if more than one log with that tag exists.
 // TODO(#11627): handle multiple logs with the same tag.
 // TODO(#10273): improve contract siloing of logs, don't introduce an extra field.
