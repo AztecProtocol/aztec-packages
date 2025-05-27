@@ -737,7 +737,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")
     {
-        if (this->variables[a_idx] != b && !this->failed()) {
+        if (this->get_variable(a_idx) != b && !this->failed()) {
             this->failure(msg);
         }
         auto b_idx = put_constant_variable(b);

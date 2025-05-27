@@ -33,6 +33,7 @@ import {
   type DeployL1ContractsReturnType,
   ForwarderContract,
   NULL_KEY,
+  type Operator,
   createExtendedL1Client,
   deployL1Contracts,
   getL1ContractsConfigEnvVars,
@@ -59,8 +60,8 @@ import {
 } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { WASMSimulator } from '@aztec/simulator/client';
-import { SimulationProviderRecorderWrapper } from '@aztec/simulator/testing';
+import { MemoryCircuitRecorder, SimulationProviderRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
+import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -171,12 +172,15 @@ export async function setupPXEService(
   }
 
   const simulationProvider = new WASMSimulator();
-  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider);
+  const recorder = process.env.CIRCUIT_RECORD_DIR
+    ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
+    : new MemoryCircuitRecorder();
+  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider, recorder);
   const pxe = await createPXEServiceWithSimulationProvider(
     aztecNode,
     simulationProviderWithRecorder,
     pxeServiceConfig,
-    useLogSuffix,
+    { useLogSuffix },
   );
 
   const teardown = async () => {
@@ -280,7 +284,7 @@ export type SetupOptions = {
   /** Salt to use in L1 contract deployment */
   salt?: number;
   /** An initial set of validators */
-  initialValidators?: EthAddress[];
+  initialValidators?: Operator[];
   /** Anvil Start time */
   l1StartTime?: number;
   /** The anvil time where we should at the earliest be seeing L2 blocks */

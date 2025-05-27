@@ -1,15 +1,13 @@
 #!/usr/bin/env node
 import 'source-map-support/register.js';
-import { Crs, GrumpkinCrs, Barretenberg, RawBuffer } from './index.js';
-import createDebug from 'debug';
+import { Crs, Barretenberg, RawBuffer } from './index.js';
+import { createDebugLogger, initLogger } from './log/index.js';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { Command } from 'commander';
-import { Timer, writeBenchmark } from './benchmark/index.js';
-import path from 'path';
 import { UltraHonkBackendOptions } from './barretenberg/backend.js';
-createDebug.log = console.error.bind(console);
-const debug = createDebug('bb.js');
+
+let debug: (msg: string) => void;
 
 const threads = +process.env.HARDWARE_CONCURRENCY! || undefined;
 
@@ -25,16 +23,6 @@ function getBytecode(bytecodePath: string): Uint8Array {
   const encodedCircuit = readFileSync(bytecodePath);
   const decompressed = gunzipSync(encodedCircuit);
   return Uint8Array.from(decompressed);
-}
-
-function base64ToUint8Array(base64: string) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): split this into separate Plonk and Honk functions as their gate count differs
@@ -57,7 +45,9 @@ async function computeCircuitSize(bytecodePath: string, recursive: boolean, honk
 }
 
 async function initUltraHonk(bytecodePath: string, crsPath: string) {
-  const api = await Barretenberg.new({ threads });
+  const api = await Barretenberg.new({
+    threads,
+  });
 
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/1248): Get rid of this call to avoid building the circuit twice.
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): use specific UltraHonk function
@@ -73,20 +63,6 @@ async function initUltraHonk(bytecodePath: string, crsPath: string) {
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
   await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
   return { api, circuitSize, dyadicCircuitSize };
-}
-
-async function initClientIVC(crsPath: string) {
-  const api = await Barretenberg.new({ threads });
-
-  debug('Loading CRS for ClientIVC');
-  const crs = await Crs.new(2 ** 21 + 1, crsPath);
-  const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, crsPath);
-
-  // Load CRS into wasm global CRS state.
-  // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
-  await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
-  await api.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
-  return { api };
 }
 
 async function initLite(crsPath: string) {
@@ -184,10 +160,12 @@ export async function proveUltraHonk(
     const acirProveUltraHonk = options?.keccak
       ? api.acirProveUltraKeccakHonk.bind(api)
       : options?.keccakZK
-        ? api.acirProveUltraKeccakZKHonk.bind(api)
+        ? api.acirProveUltraKeccakZkHonk.bind(api)
         : options?.starknet
           ? api.acirProveUltraStarknetHonk.bind(api)
-          : api.acirProveUltraHonk.bind(api);
+          : options?.starknetZK
+            ? api.acirProveUltraStarknetZkHonk.bind(api)
+            : api.acirProveUltraHonk.bind(api);
     const proof = await acirProveUltraHonk(bytecode, witness);
 
     if (outputPath === '-') {
@@ -216,10 +194,12 @@ export async function writeVkUltraHonk(
     const acirWriteVkUltraHonk = options?.keccak
       ? api.acirWriteVkUltraKeccakHonk.bind(api)
       : options?.keccakZK
-        ? api.acirWriteVkUltraKeccakZKHonk.bind(api)
+        ? api.acirWriteVkUltraKeccakZkHonk.bind(api)
         : options?.starknet
           ? api.acirWriteVkUltraStarknetHonk.bind(api)
-          : api.acirWriteVkUltraHonk.bind(api);
+          : options?.starknetZK
+            ? api.acirWriteVkUltraStarknetZkHonk.bind(api)
+            : api.acirWriteVkUltraHonk.bind(api);
     const vk = await acirWriteVkUltraHonk(bytecode);
 
     if (outputPath === '-') {
@@ -245,10 +225,12 @@ export async function verifyUltraHonk(
     const acirVerifyUltraHonk = options?.keccak
       ? api.acirVerifyUltraKeccakHonk.bind(api)
       : options?.keccakZK
-        ? api.acirVerifyUltraKeccakZKHonk.bind(api)
+        ? api.acirVerifyUltraKeccakZkHonk.bind(api)
         : options?.starknet
           ? api.acirVerifyUltraStarknetHonk.bind(api)
-          : api.acirVerifyUltraHonk.bind(api);
+          : options?.starknetZK
+            ? api.acirVerifyUltraStarknetZkHonk.bind(api)
+            : api.acirVerifyUltraHonk.bind(api);
     const verified = await acirVerifyUltraHonk(
       Uint8Array.from(readFileSync(proofPath)),
       new RawBuffer(readFileSync(vkPath)),
@@ -306,9 +288,8 @@ program.option('-v, --verbose', 'enable verbose logging', false);
 program.option('-c, --crs-path <path>', 'set crs path', './crs');
 
 function handleGlobalOptions() {
-  if (program.opts().verbose) {
-    createDebug.enable('bb.js*');
-  }
+  initLogger({ useStdErr: true, level: program.opts().verbose ? 'debug' : 'info' });
+  debug = createDebugLogger('bb');
   return { crsPath: program.opts().crsPath };
 }
 
@@ -390,8 +371,8 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-o, --output-path <path>', 'Specify the path to write the contract', './target/contract.sol')
   .requiredOption('-k, --vk-path <path>', 'Path to a verification key.')
-  .action(async ({ bytecodePath, outputPath, vkPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, outputPath, vkPath }) => {
+    const { crsPath } = handleGlobalOptions();
     await contractUltraHonk(bytecodePath, vkPath, crsPath, outputPath);
   });
 
@@ -436,6 +417,7 @@ program
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
   .action(async ({ bytecodePath, witnessPath, outputPath }) => {
     const { crsPath } = handleGlobalOptions();
+    debug(`Creating UltraHonk proof bytecode=${bytecodePath}`);
     await proveUltraHonk(bytecodePath, witnessPath, crsPath, outputPath);
   });
 
@@ -445,8 +427,8 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
-  .action(async ({ bytecodePath, witnessPath, outputPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, witnessPath, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
     await proveUltraHonk(bytecodePath, witnessPath, crsPath, outputPath, { keccak: true });
   });
 
@@ -457,8 +439,8 @@ program
   .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
-  .action(async ({ bytecodePath, recursive, witnessPath, outputPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, witnessPath, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
     await proveUltraHonk(bytecodePath, witnessPath, crsPath, outputPath, { starknet: true });
   });
 
@@ -469,6 +451,7 @@ program
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
   .action(async ({ bytecodePath, outputPath }) => {
     const { crsPath } = handleGlobalOptions();
+    debug(`Writing verification key to ${outputPath}`);
     await writeVkUltraHonk(bytecodePath, crsPath, outputPath);
   });
 
@@ -477,8 +460,8 @@ program
   .description('Output verification key.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
-  .action(async ({ bytecodePath, outputPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
     await writeVkUltraHonk(bytecodePath, crsPath, outputPath, { keccak: true });
   });
 
@@ -488,8 +471,8 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
-  .action(async ({ bytecodePath, recursive, outputPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
     await writeVkUltraHonk(bytecodePath, crsPath, outputPath, { starknet: true });
   });
 

@@ -43,7 +43,7 @@ function compile {
   local program_hash hash bytecode_hash vk vk_fields
 
   # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
-  local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
+  local program_hash_cmd="ALLOW_EMPTY_INPUT=1 $NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
@@ -53,7 +53,7 @@ function compile {
     SECONDS=0
     rm -f $json_path
     # TODO(#10754): Remove --skip-brillig-constraints-check
-    local compile_cmd="$NARGO compile --package $name --skip-brillig-constraints-check"
+    local compile_cmd="ALLOW_EMPTY_INPUT=1 $NARGO compile --package $name --skip-brillig-constraints-check"
     echo_stderr "$compile_cmd"
     dump_fail "$compile_cmd"
     echo_stderr "Compilation complete for: $name (${SECONDS}s)"
@@ -153,7 +153,7 @@ function build {
 }
 
 function test_cmds {
-  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+  ALLOW_EMPTY_INPUT=1 $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
   done
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
@@ -171,7 +171,7 @@ function test_cmds {
   "
   nargo_root_rel=$(realpath --relative-to=$root $NARGO)
   for circuit in $circuits_to_execute; do
-    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --pedantic-solving --skip-brillig-constraints-check"
+    echo "$circuits_hash ALLOW_EMPTY_INPUT=1 $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --pedantic-solving --skip-brillig-constraints-check"
   done
 }
 

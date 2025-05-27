@@ -157,7 +157,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   it('prunes L2 blocks from pending chain removed from L1 due to an L1 reorg', async () => {
     // Wait until L2_BLOCK_NUMBER is mined and node synced, and stop the sequencer
     const L2_BLOCK_NUMBER = 3;
-    await test.waitUntilL2BlockNumber(L2_BLOCK_NUMBER, 60);
+    await test.waitUntilL2BlockNumber(L2_BLOCK_NUMBER, L2_SLOT_DURATION_IN_S * (L2_BLOCK_NUMBER + 4));
     expect(monitor.l2BlockNumber).toEqual(L2_BLOCK_NUMBER);
     const l1BlockNumber = monitor.l1BlockNumber;
     await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 10, 0.1);
@@ -178,7 +178,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   it('sees new blocks added in an L1 reorg', async () => {
     // Wait until the block *before* L2_BLOCK_NUMBER is mined and node synced
     const L2_BLOCK_NUMBER = 3;
-    await test.waitUntilL2BlockNumber(L2_BLOCK_NUMBER - 1, 60);
+    await test.waitUntilL2BlockNumber(L2_BLOCK_NUMBER - 1, L2_SLOT_DURATION_IN_S * (L2_BLOCK_NUMBER + 4));
     expect(monitor.l2BlockNumber).toEqual(L2_BLOCK_NUMBER - 1);
     const l1BlockNumber = monitor.l1BlockNumber;
     await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER - 1), 'node sync', 5, 0.1);
