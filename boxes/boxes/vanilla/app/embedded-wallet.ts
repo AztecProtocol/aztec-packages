@@ -16,6 +16,8 @@ import { getPXEServiceConfig } from '@aztec/pxe/config';
 import { createPXEService } from '@aztec/pxe/client/lazy';
 import { type ContractArtifact, getDefaultInitializer } from '@aztec/stdlib/abi';
 
+const PROVER_ENABLED = true;
+
 const logger = createLogger('wallet');
 const LocalStorageKey = 'aztec-account';
 
@@ -34,7 +36,7 @@ export class EmbeddedWallet {
     // Create PXE Service
     const config = getPXEServiceConfig();
     config.l1Contracts = await aztecNode.getL1ContractAddresses();
-    // config.proverEnabled = false;
+    config.proverEnabled = PROVER_ENABLED;
     this.pxe = await createPXEService(aztecNode, config, {
       useLogSuffix: true,
     });
@@ -95,8 +97,7 @@ export class EmbeddedWallet {
       skipClassRegistration: true,
       skipPublicDeployment: true,
     };
-    // @ts-ignore
-    this.pxe.proverEnabled = false;
+
     const provenInteraction = await deployMethod.prove(deployOpts);
     const receipt = await provenInteraction.send().wait({ timeout: 120 });
 
