@@ -4,6 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 hash=$(../bootstrap.sh hash)
+bench_fixtures_dir=example-app-ivc-inputs-out
 
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
@@ -18,15 +19,8 @@ function test_cmds {
   echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $run_test_script simple e2e_block_building"
 
   local tests=(
-    src/e2e_blacklist_token_contract/*.test.ts
-    src/e2e_cross_chain_messaging/*.test.ts
-    src/e2e_deploy_contract/*.test.ts
-    src/e2e_fees/*.test.ts
-    src/e2e_nested_contract/*.test.ts
-    src/e2e_p2p/*.test.ts
-    src/e2e_token_contract/*.test.ts
-    src/public-testnet/*.test.ts
-    # Block building has time extended above.
+    # List all standalone and nested tests, except for the ones listed above.
+    src/e2e_!(prover)/*.test.ts
     src/e2e_!(block_building).test.ts
   )
   for test in "${tests[@]}"; do
@@ -63,12 +57,28 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
-# Entrypoint for barretenberg benchmarks that rely on captured e2e inputs.
-function generate_example_app_ivc_inputs {
-  export CAPTURE_IVC_FOLDER=example-app-ivc-inputs-out
+function bench_cmds {
+  echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
+
+  for client_flow in client_flows/bridging client_flows/deployments client_flows/amm client_flows/account_deployments client_flows/transfers; do
+    echo "$hash:ISOLATE=1:CPUS=8:NAME=$client_flow BENCHMARK_CONFIG=key_flows LOG_LEVEL=error BENCH_OUTPUT=bench-out/ yarn-project/end-to-end/scripts/run_test.sh simple $client_flow"
+  done
+
+  for dir in $bench_fixtures_dir/*; do
+    for runtime in native wasm; do
+      echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $runtime ../../yarn-project/end-to-end/$dir"
+    done
+  done
+}
+
+# Builds the benchmark fixtures.
+function build_bench {
+  export CAPTURE_IVC_FOLDER=$bench_fixtures_dir
   export BENCHMARK_CONFIG=key_flows
-  export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER"
-  rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
+  export LOG_LEVEL=error
+  export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER LOG_LEVEL"
+  rm -rf $CAPTURE_IVC_FOLDER && mkdir -p $CAPTURE_IVC_FOLDER
+  rm -rf bench-out && mkdir -p bench-out
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
     return
   fi
@@ -76,36 +86,26 @@ function generate_example_app_ivc_inputs {
     echo "Could not find ivc inputs cached!"
     exit 1
   fi
-  # Running these again separately from tests is a bit of a hack,
-  # but we need to ensure test caching does not get in the way.
-  parallel --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
+  parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
+    client_flows/account_deployments \
     client_flows/deployments \
     client_flows/bridging \
     client_flows/transfers \
     client_flows/amm
-
   cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
 }
 
 function bench {
   rm -rf bench-out
   mkdir -p bench-out
-  if cache_download yarn-project-bench-results-$hash.tar.gz; then
-    return
-  fi
-  docker_isolate "BENCH_OUTPUT=$root/yarn-project/end-to-end/bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block"
-  generate_example_app_ivc_inputs
-  # A bit pattern-breaking, but we need to generate our example app inputs here, then bb folder is the best
-  # place to test them.
-  ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/example-app-ivc-inputs-out $(pwd)/bench-out
-  cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json ./bench-out/ivc-bench.json
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  test|test_cmds|bench|generate_example_app_ivc_inputs)
+  test|test_cmds|bench|bench_cmds|build_bench)
     $cmd
     ;;
   *)

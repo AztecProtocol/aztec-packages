@@ -6,9 +6,9 @@
 
 #include "ivc_recursion_constraint.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
@@ -145,8 +145,9 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t num_public_inputs
     std::vector<FF> proof;
 
     // Populate mock public inputs
+    FF MAGIC_PUBLIC_INPUT = 2; // arbitrary small non-zero value to avoid errors
     for (size_t i = 0; i < num_public_inputs; ++i) {
-        proof.emplace_back(0);
+        proof.emplace_back(MAGIC_PUBLIC_INPUT);
     }
 
     // Populate mock witness polynomial commitments
@@ -199,6 +200,7 @@ std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t
     honk_verification_key->circuit_size = dyadic_size;
     honk_verification_key->num_public_inputs = num_public_inputs;
     honk_verification_key->pub_inputs_offset = pub_inputs_offset; // must be set correctly
+    honk_verification_key->pairing_inputs_public_input_key.start_idx = 0;
 
     for (auto& commitment : honk_verification_key->get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment

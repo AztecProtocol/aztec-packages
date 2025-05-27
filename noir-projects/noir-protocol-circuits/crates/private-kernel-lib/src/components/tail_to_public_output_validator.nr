@@ -6,7 +6,7 @@ use dep::types::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
         },
-        log_hash::ScopedLogHash,
+        log_hash::LogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         private_log::{PrivateLog, PrivateLogData},
@@ -15,8 +15,7 @@ use dep::types::{
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::{
-        assert_split_sorted_transformed_value_arrays_asc,
-        assert_split_sorted_transformed_value_arrays_desc, assert_split_transformed_value_arrays,
+        assert_split_sorted_transformed_value_arrays_asc, assert_split_transformed_value_arrays,
     },
 };
 use tail_to_public_output_hints::{generate_tail_to_public_output_hints, TailToPublicOutputHints};
@@ -91,7 +90,7 @@ impl TailToPublicOutputValidator {
             prev_data.private_logs,
             output_non_revertible.private_logs,
             output_revertible.private_logs,
-            |l: Scoped<PrivateLogData>, out: PrivateLog| out == l.inner.log,
+            |prev: Scoped<PrivateLogData>, out: PrivateLog| out == prev.expose_to_public(),
             split_counter,
         );
     }
@@ -116,7 +115,9 @@ impl TailToPublicOutputValidator {
         // contract_class_logs_hashes
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.contract_class_logs_hashes,
-            prev_data.contract_class_logs_hashes.map(|log: ScopedLogHash| log.expose_to_public()),
+            prev_data.contract_class_logs_hashes.map(|log: Scoped<Counted<LogHash>>| {
+                log.expose_to_public()
+            }),
             split_counter,
             output_non_revertible.contract_class_logs_hashes,
             output_revertible.contract_class_logs_hashes,
@@ -124,7 +125,7 @@ impl TailToPublicOutputValidator {
         );
 
         // public_call_requests
-        assert_split_sorted_transformed_value_arrays_desc(
+        assert_split_sorted_transformed_value_arrays_asc(
             prev_data.public_call_requests,
             prev_data.public_call_requests.map(|cr: Counted<PublicCallRequest>| cr.inner),
             split_counter,

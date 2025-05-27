@@ -1,6 +1,5 @@
 #include "prove_tube.hpp"
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
@@ -17,13 +16,8 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
 
     std::string proof_path = output_path + "/proof";
-
-    // Note: this could be decreased once we optimise the size of the ClientIVC recursive verifier
-    init_bn254_crs(1 << 25);
-    init_grumpkin_crs(1 << 18);
 
     // Read the proof  and verification data from given files
     auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
@@ -45,10 +39,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
-    // This is currently just setting the aggregation object to the default one.
-    PairingPoints::add_default_to_public_inputs(*builder);
-
+    client_ivc_rec_verifier_output.points_accumulator.set_public();
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     client_ivc_rec_verifier_output.opening_claim.set_public();
     builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);

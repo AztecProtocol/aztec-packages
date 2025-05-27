@@ -48,7 +48,7 @@ describe('PeerManager', () => {
 
     // Capture the callback for discovered peers
     mockPeerDiscoveryService.on.mockImplementation((event: string, callback: any) => {
-      if (event === PeerEvent.DISCOVERED) {
+      if ((event as PeerEvent) === PeerEvent.DISCOVERED) {
         discoveredPeerCallback = callback;
       }
     });
@@ -317,6 +317,7 @@ describe('PeerManager', () => {
         bannedPeerId,
         ReqRespSubProtocol.GOODBYE,
         Buffer.from([GoodByeReason.BANNED]),
+        1000,
       );
 
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(disconnectPeerId);
@@ -324,6 +325,7 @@ describe('PeerManager', () => {
         disconnectPeerId,
         ReqRespSubProtocol.GOODBYE,
         Buffer.from([GoodByeReason.LOW_SCORE]),
+        1000,
       );
 
       // Verify that hangUp was not called for the healthy peer
@@ -369,6 +371,7 @@ describe('PeerManager', () => {
         lowScoringPeerId1,
         ReqRespSubProtocol.GOODBYE,
         Buffer.from([GoodByeReason.MAX_PEERS]),
+        1000,
       );
 
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(lowScoringPeerId2);
@@ -376,6 +379,7 @@ describe('PeerManager', () => {
         lowScoringPeerId2,
         ReqRespSubProtocol.GOODBYE,
         Buffer.from([GoodByeReason.MAX_PEERS]),
+        1000,
       );
 
       // Verify that hangUp was not called for connected peers
@@ -685,11 +689,13 @@ describe('PeerManager', () => {
         regularPeerId2,
         ReqRespSubProtocol.GOODBYE,
         Buffer.from([GoodByeReason.MAX_PEERS]),
+        1000,
       );
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         regularPeerId3,
         ReqRespSubProtocol.GOODBYE,
         Buffer.from([GoodByeReason.MAX_PEERS]),
+        1000,
       );
     });
   });

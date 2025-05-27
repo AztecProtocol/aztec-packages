@@ -27,7 +27,7 @@ import { DefaultMnemonic } from '../mnemonic.js';
 export interface AztecStartOption {
   flag: string;
   description: string;
-  defaultValue: any | undefined;
+  defaultValue: any;
   printDefault?: (val: any) => string;
   envVar: EnvVar | undefined;
   parseVal?: (val: string) => any;
@@ -69,12 +69,24 @@ export const NETWORK_FLAG = 'network';
 
 // Define categories and options
 export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
-  NETWORK: [
+  MISC: [
     {
       flag: `--${NETWORK_FLAG} <value>`,
       description: 'Network to run Aztec on',
       defaultValue: undefined,
       envVar: 'NETWORK',
+    },
+    {
+      flag: `--auto-update <value>`,
+      description: 'Configure auto updates',
+      envVar: 'AUTO_UPDATE',
+      defaultValue: 'disabled',
+    },
+    {
+      flag: `--auto-update-url <value>`,
+      description: 'Configure where to get updates from',
+      envVar: 'AUTO_UPDATE_URL',
+      defaultValue: undefined,
     },
   ],
   SANDBOX: [

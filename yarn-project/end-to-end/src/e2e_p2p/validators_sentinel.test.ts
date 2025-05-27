@@ -9,7 +9,7 @@ import os from 'os';
 import path from 'path';
 
 import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 const NUM_NODES = 4;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
@@ -30,10 +30,9 @@ describe('e2e_p2p_validators_sentinel', () => {
       numberOfNodes: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       initialConfig: {
-        ...SHORTENED_BLOCK_TIME_CONFIG,
+        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
-        aztecEpochDuration: 48,
         validatorReexecute: false,
         sentinelEnabled: true,
       },
@@ -71,9 +70,30 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       const currentBlock = t.monitor.l2BlockNumber;
       const blockCount = BLOCK_COUNT;
-      const timeout = SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * blockCount * 8;
+      const timeout = SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * blockCount * 8;
       t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
       await retryUntil(() => t.monitor.l2BlockNumber >= currentBlock + blockCount, 'blocks mined', timeout);
+
+      t.logger.info(`Shutting down sequencers to ensure at least a block is missed`);
+      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 100 })));
+
+      t.logger.info(`Waiting until sentinel processed at least ${blockCount - 1} slots and a missed and a mined block`);
+      await retryUntil(
+        async () => {
+          const { initialSlot, lastProcessedSlot, stats } = await nodes[0].getValidatorsStats();
+          t.logger.verbose(`Testing validator stats`, { initialSlot, lastProcessedSlot, stats });
+          return (
+            initialSlot &&
+            lastProcessedSlot &&
+            lastProcessedSlot - initialSlot >= blockCount - 1 &&
+            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-mined')) &&
+            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-missed'))
+          );
+        },
+        'sentinel processed blocks',
+        SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * 8,
+        1,
+      );
 
       stats = await nodes[0].getValidatorsStats();
       t.logger.info(`Collected validator stats at block ${t.monitor.l2BlockNumber}`, { stats });
@@ -98,7 +118,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Asserting stats for proposer validator ${proposerValidator}`);
       expect(proposerStats).toBeDefined();
       expect(t.validators.map(v => v.attester.toLowerCase())).toContain(proposerValidator);
-      expect(proposerStats.history.length).toBeGreaterThanOrEqual(BLOCK_COUNT - 1);
+      expect(proposerStats.history.length).toBeGreaterThanOrEqual(1);
       expect(proposerStats.missedProposals.rate).toBeLessThan(1);
     });
 
@@ -109,7 +129,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Asserting stats for attestor validator ${attestorValidator}`);
       expect(attestorStats).toBeDefined();
       expect(t.validators.map(v => v.attester.toLowerCase())).toContain(attestorValidator);
-      expect(attestorStats.history.length).toBeGreaterThanOrEqual(BLOCK_COUNT - 1);
+      expect(attestorStats.history.length).toBeGreaterThanOrEqual(1);
       expect(attestorStats.missedAttestations.rate).toBeLessThan(1);
     });
 
@@ -127,10 +147,21 @@ describe('e2e_p2p_validators_sentinel', () => {
         `${DATA_DIR}-i`,
       );
 
+      t.logger.info(`Reenabling block building`);
+      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
+
       t.logger.info(`Waiting for a few more blocks to be mined`);
-      const timeout = SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * 4 * 8;
+      const timeout = SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * 4 * 12;
       await retryUntil(() => t.monitor.l2BlockNumber > l2BlockNumber + 3, 'more blocks mined', timeout);
       await sleep(1000);
+
+      t.logger.info(`Waiting for sentinel to collect history`);
+      await retryUntil(
+        () => newNode.getValidatorsStats().then(s => Object.keys(s.stats).length > 1),
+        'sentinel stats',
+        SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecSlotDuration * 2,
+        1,
+      );
 
       const stats = await newNode.getValidatorsStats();
       t.logger.info(`Collected validator stats from new node at block ${t.monitor.l2BlockNumber}`, { stats });

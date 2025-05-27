@@ -5,7 +5,7 @@ import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
-import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
+import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(1_600_000);
@@ -49,9 +49,7 @@ describe('Deployment benchmark', () => {
 
           beforeEach(async () => {
             isClassRegistered = !!(await node.getContractClass(
-              (
-                await getContractClassFromArtifact(EasyPrivateVotingContract.artifact)
-              ).id,
+              (await getContractClassFromArtifact(EasyPrivateVotingContract.artifact)).id,
             ));
           });
 
@@ -63,7 +61,7 @@ describe('Deployment benchmark', () => {
 
             const deploymentInteraction = EasyPrivateVotingContract.deploy(benchysWallet, benchysWallet.getAddress());
 
-            await capturePrivateExecutionStepsIfEnvSet(
+            await captureProfile(
               `${accountType}+deploy_tokenContract_${
                 isClassRegistered ? 'no_registration' : 'with_registration'
               }+${benchmarkingPaymentMethod}`,
@@ -79,8 +77,11 @@ describe('Deployment benchmark', () => {
                 1, // Kernel tail
             );
 
-            const tx = await deploymentInteraction.send(options).wait();
-            expect(tx.transactionFee!).toBeGreaterThan(0n);
+            if (process.env.SANITY_CHECKS) {
+              // Ensure we paid a fee
+              const tx = await deploymentInteraction.send(options).wait();
+              expect(tx.transactionFee!).toBeGreaterThan(0n);
+            }
           });
         });
       }

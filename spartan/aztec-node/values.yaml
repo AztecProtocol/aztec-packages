@@ -1,0 +1,195 @@
+# -- Overrides the chart name
+nameOverride: ""
+# -- Overrides the chart computed fullname
+fullnameOverride: ""
+
+# -- Image to use for the container
+image:
+  # -- Image repository
+  repository: aztecprotocol/aztec
+  # -- Image tag
+  tag: alpha-testnet
+  # -- Container pull policy
+  pullPolicy: IfNotPresent
+
+# -- Pod management policy
+podManagementPolicy: Parallel
+
+# -- Network name - this is a predefined network - alpha-testnet, devnet
+network:
+
+# -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
+customNetwork:
+  l1ChainId:
+  registryContractAddress:
+  slashFactoryAddress:
+  feeAssetHandlerContractAddress:
+
+# Which rollup contract we want to follow from the registry
+rollupVersion: "canonical"
+
+# -- Use host network - this will disable nodePort service and use host networking instead
+hostNetwork: false
+
+# -- Aztec node configuration
+node:
+  # -- Number of replicas
+  replicas: 1
+  # -- Log level - info, verbose, debug, trace
+  logLevel: "info"
+
+  l1Publisher:
+    privateKeys: []
+    mnemonic:
+    mnemonicStartIndex:
+
+  # -- Ethereum configuration
+  # -- Ethereum hosts - comma separated list of hosts (geth, reth are currently supported)
+  l1ExecutionUrls: []
+  # -- L1 consensus host urls - comma separated list of urls
+  l1ConsensusUrls: []
+  ## Only when api key is required via header, otherwise just provide in l1ConsensusHostUrls
+  ## Example: "1234abcd"
+  l1ConsensusHostApiKeys: []
+  ## Example: "X-API-KEY"
+  l1ConsensusHostApiKeyHeaders: []
+
+  preStartScript: ""
+
+  startCmd:
+    - --node
+    - --archiver
+
+  remoteUrl:
+    archiver:
+    proverBroker:
+    proverCoordinationNodes: []
+    blobSink:
+
+  # the address that will receive block or proof rewards
+  coinbase:
+
+  # -- Sentinel configuration - gathers slashing information
+  sentinel:
+    enabled: false
+
+  # -- Metrics configuration
+  metrics:
+    # -- Exclude metrics - comma separated list of metrics to exclude
+    otelExcludeMetrics: ""
+    # -- Collector endpoint - e.g. http://localhost:4318
+    otelCollectorEndpoint: ""
+    # -- Use GCP logging
+    useGcloudLogging: false
+
+  storage:
+    # -- Data directory
+    dataDirectory: /data
+    # -- Data store map size (kB)
+    dataStoreMapSize:
+    # -- World state map size (kB)
+    worldStateMapSize:
+    # -- P2P storage map size (kB)
+    p2pStorageMapSize:
+    # -- Archive storage map size (kB)
+    archiveStorageMapSize:
+
+  nodeJsOptions:
+      - --no-warnings
+      - --max-old-space-size=4096
+
+  startupProbe:
+    # -- Period seconds
+    periodSeconds: 30
+    # -- Failure threshold
+    failureThreshold: 3
+  resources: {}
+
+persistence:
+  # -- Uses an emptyDir when not enabled
+  enabled: false
+  # -- Use an existing PVC
+  existingClaim: null
+  # -- AccessModes
+  accessModes:
+  - ReadWriteOnce
+  # -- Requested size
+  size: 100Gi
+  # -- Use a specific storage class
+  storageClassName: null
+  # -- Annotations for volume claim template
+  annotations: {}
+  # -- Selector for volume claim template
+  selector: {}
+
+# -- Update strategy for the statefulset
+updateStrategy:
+  type: RollingUpdate
+
+# -- Additional init containers
+initContainers: []
+# - name: my-init-container
+#   image: busybox:latest
+#   command: ['sh', '-c', 'echo hello']
+
+service:
+  ingress:
+    enabled: false
+    annotations: {}
+    # kubernetes.io/ingress.global-static-ip-name: my-static-ip
+    hosts: []
+    # - node.example.com
+
+  headless:
+    enabled: true
+
+  p2p:
+    enabled: true
+    nodePortEnabled: true
+    port: 40400
+    announcePort: 40400
+  admin:
+    enabled: true
+    port: 8081
+  httpPort: 8080
+
+# Certificate configuration
+certificate:
+  enabled: false
+  domains: []
+  # - example.com
+  # - api.example.com
+
+rbac:
+  # -- Specifies whether RBAC resources are to be created
+  create: true
+  # -- Required ClusterRole rules
+  # @default -- See `values.yaml`
+  clusterRules:
+     # Required to obtain the nodes external IP
+    - apiGroups: [""]
+      resources:
+      - "nodes"
+      verbs:
+      - "get"
+      - "list"
+      - "watch"
+  # -- Required ClusterRole rules
+  # @default -- See `values.yaml`
+  rules:
+    # Required to get information about the services nodePort.
+    - apiGroups: [""]
+      resources:
+      - "services"
+      verbs:
+      - "get"
+      - "list"
+      - "watch"
+
+serviceAccount:
+  # -- Create a service account
+  create: true
+  # -- Name of the service account - if not set, the fullname will be used
+  name: ""
+  # -- Annotations for the service account
+  annotations: {}

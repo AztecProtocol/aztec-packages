@@ -22,7 +22,6 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 #include <cstddef>
@@ -59,7 +58,7 @@ template <class Curve> class CommitmentKey {
   public:
     scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
     std::shared_ptr<srs::factories::CrsFactory<Curve>> crs_factory;
-    std::shared_ptr<srs::factories::ProverCrs<Curve>> srs;
+    std::shared_ptr<srs::factories::Crs<Curve>> srs;
     size_t dyadic_size;
 
     CommitmentKey() = delete;
@@ -74,14 +73,7 @@ template <class Curve> class CommitmentKey {
     CommitmentKey(const size_t num_points)
         : pippenger_runtime_state(get_num_needed_srs_points(num_points))
         , crs_factory(srs::get_crs_factory<Curve>())
-        , srs(crs_factory->get_prover_crs(get_num_needed_srs_points(num_points)))
-        , dyadic_size(get_num_needed_srs_points(num_points))
-    {}
-
-    // Note: This constructor is to be used only by Plonk; For Honk the srs lives in the CommitmentKey
-    CommitmentKey(const size_t num_points, std::shared_ptr<srs::factories::ProverCrs<Curve>> prover_crs)
-        : pippenger_runtime_state(num_points)
-        , srs(prover_crs)
+        , srs(crs_factory->get_crs(get_num_needed_srs_points(num_points)))
         , dyadic_size(get_num_needed_srs_points(num_points))
     {}
 
@@ -109,7 +101,7 @@ template <class Curve> class CommitmentKey {
         // index.
         size_t relative_start_index = polynomial.start_index - actual_start_index;
         const size_t consumed_srs = actual_start_index + dyadic_poly_size;
-        auto srs = srs::get_crs_factory<Curve>()->get_prover_crs(consumed_srs);
+        auto srs = srs::get_crs_factory<Curve>()->get_crs(consumed_srs);
         // We only need the
         if (consumed_srs > srs->get_monomial_size()) {
             throw_or_abort(format("Attempting to commit to a polynomial that needs ",

@@ -24,7 +24,7 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import { PublicDataHint } from '@aztec/stdlib/avm';
 import { Body } from '@aztec/stdlib/block';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { ContractClassLog } from '@aztec/stdlib/logs';
+import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -140,7 +140,7 @@ export const buildBaseRollupHints = runInSpan(
 
     const contractClassLogsPreimages = makeTuple(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
-      i => tx.txEffect.contractClassLogs[i]?.toUnsiloed() || ContractClassLog.empty(),
+      i => tx.txEffect.contractClassLogs[i]?.toUnsiloed().fields || ContractClassLogFields.empty(),
     );
 
     if (tx.avmProvingRequest) {
@@ -269,10 +269,10 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
       previousRollupData.length === 0
         ? Fr.ZERO.toBuffer()
         : previousRollupData.length === 1
-        ? previousRollupData[0].outHash.toBuffer()
-        : sha256Trunc(
-            Buffer.concat([previousRollupData[0].outHash.toBuffer(), previousRollupData[1].outHash.toBuffer()]),
-          );
+          ? previousRollupData[0].outHash.toBuffer()
+          : sha256Trunc(
+              Buffer.concat([previousRollupData[0].outHash.toBuffer(), previousRollupData[1].outHash.toBuffer()]),
+            );
     const contentCommitment = new ContentCommitment(
       new Fr(numTxs),
       blobsHash,
@@ -324,16 +324,21 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       numTxs === 0
         ? Fr.ZERO.toBuffer()
         : numTxs === 1
-        ? body.txEffects[0].txOutHash()
-        : computeUnbalancedMerkleRoot(
-            body.txEffects.map(tx => tx.txOutHash()),
-            TxEffect.empty().txOutHash(),
-          );
+          ? body.txEffects[0].txOutHash()
+          : computeUnbalancedMerkleRoot(
+              body.txEffects.map(tx => tx.txOutHash()),
+              TxEffect.empty().txOutHash(),
+            );
 
     l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    const hasher = (left: Buffer, right: Buffer) => Promise.resolve(sha256Trunc(Buffer.concat([left, right])));
+    const hasher = (left: Buffer, right: Buffer) =>
+      Promise.resolve(sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>);
     const parityHeight = Math.ceil(Math.log2(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
-    const parityCalculator = await MerkleTreeCalculator.create(parityHeight, Fr.ZERO.toBuffer(), hasher);
+    const parityCalculator = await MerkleTreeCalculator.create(
+      parityHeight,
+      Fr.ZERO.toBuffer() as Buffer<ArrayBuffer>,
+      hasher,
+    );
     const parityShaRoot = await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
     const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobs(body.toBlobFields()));
 

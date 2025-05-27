@@ -86,3 +86,38 @@ export function arrayToBoundedVec(bVecStorage: ACVMField[], maxLen: number): [AC
   const len = toACVMField(BigInt(bVecStorage.length));
   return [storage, len];
 }
+
+/**
+ * Converts an array of arrays representing Noir BoundedVec of nested arrays into its Noir serialized form.
+ * @param bVecStorage - The array underlying the BoundedVec.
+ * @param maxLen - The max length of the BoundedVec (max num of the nested arrays in the BoundedVec).
+ * @param nestedArrayLength - The length of the nested arrays (each nested array has to have the same length).
+ * @returns Serialized BoundedVec following Noir intrinsic serialization.
+ */
+export function arrayOfArraysToBoundedVecOfArrays(
+  bVecStorage: ACVMField[][],
+  maxLen: number,
+  nestedArrayLength: number,
+): [ACVMField[], ACVMField] {
+  if (bVecStorage.length > maxLen) {
+    throw new Error(`Array of length ${bVecStorage.length} larger than maxLen ${maxLen}`);
+  }
+
+  // Check that all nested arrays have length nestedArrayLength
+  if (!bVecStorage.every(nestedArray => nestedArray.length === nestedArrayLength)) {
+    throw new Error(
+      `Nested array length passed in from Noir does not correspond to the length obtained in TS: ${nestedArrayLength} !== ${bVecStorage[0].length}`,
+    );
+  }
+
+  // Flatten the array of arrays
+  const flattenedStorage = bVecStorage.flat();
+
+  // Calculate and add padding
+  const numFieldsToPad = maxLen * nestedArrayLength - flattenedStorage.length;
+  const flattenedStorageWithPadding = flattenedStorage.concat(Array(numFieldsToPad).fill(toACVMField(BigInt(0))));
+
+  // Return flattened array with padding and length
+  const len = toACVMField(BigInt(bVecStorage.length));
+  return [flattenedStorageWithPadding, len];
+}

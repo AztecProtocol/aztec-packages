@@ -6,6 +6,7 @@ import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
+import pidusage from 'pidusage';
 
 import type { UltraHonkFlavor } from '../honk.js';
 
@@ -97,11 +98,23 @@ export function executeBB(
 
     bb.stdout.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
-      logger(message);
+      pidusage(bb.pid!, (err, stats) => {
+        if (err) {
+          logger(message);
+        } else {
+          logger(`${message} (mem: ${(stats.memory / 1024 / 1024).toFixed(2)}MiB)`);
+        }
+      });
     });
     bb.stderr.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
-      logger(message);
+      pidusage(bb.pid!, (err, stats) => {
+        if (err) {
+          logger(message);
+        } else {
+          logger(`${message} (mem: ${(stats.memory / 1024 / 1024).toFixed(2)}MiB)`);
+        }
+      });
     });
     bb.on('close', (exitCode: number, signal?: string) => {
       if (timeoutId) {
@@ -126,7 +139,7 @@ export async function executeBbClientIvcProof(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -217,7 +230,7 @@ export async function generateProof(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -295,7 +308,7 @@ export async function generateTubeProof(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -366,7 +379,7 @@ export async function generateAvmProofV2(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -446,7 +459,7 @@ export async function generateAvmProof(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -765,7 +778,7 @@ export async function computeGateCountForCircuit(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -857,7 +870,7 @@ async function fsCache<T>(
 
   try {
     await fs.writeFile(cacheFilePath, expectedCacheKey);
-  } catch (err) {
+  } catch {
     logger(`Couldn't write cache data to ${cacheFilePath}. Skipping cache...`);
     // ignore
   }

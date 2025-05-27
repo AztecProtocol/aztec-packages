@@ -91,7 +91,15 @@ export async function executePrivateFunction(
     rawReturnValues,
     nestedExecutions,
     contractClassLogs,
-    { timings: { witgen: duration } },
+    {
+      timings: {
+        witgen:
+          // Due to the recursive nature of execution, we have to subtract the time taken by the first level of
+          // child executions
+          duration - nestedExecutions.reduce((acc, nested) => acc + (nested.profileResult?.timings.witgen ?? 0), 0),
+        oracles: acirExecutionResult.oracles,
+      },
+    },
   );
 }
 

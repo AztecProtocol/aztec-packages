@@ -14,21 +14,20 @@ import { createPXEClient } from '../pxe_client.js';
  * @param host - The URL of the host.
  * @param rpcMethod - The RPC method to call.
  * @param body - The body of the request.
- * @param useApiEndpoints - Whether to use the API endpoints or inject the method in the body.
  * @returns The response data.
  */
-async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) {
+async function axiosFetch(host: string, body: unknown) {
   const request = new Axios({
     headers: { 'content-type': 'application/json' },
     transformRequest: [(data: any) => jsonStringify(data)],
     transformResponse: [(data: any) => JSON.parse(data)],
   });
-  const [url, content] = useApiEndpoints ? [`${host}/${rpcMethod}`, body] : [host, { ...body, method: rpcMethod }];
+  const [url, content] = [host, body];
   const resp = await request.post(url, content).catch((error: AxiosError) => {
     if (error.response) {
       return error.response;
     }
-    const errorMessage = `Error fetching from host ${host} with method ${rpcMethod}: ${inspect(error)}`;
+    const errorMessage = `Error fetching from host ${host}: ${inspect(error)}`;
     throw new Error(errorMessage);
   });
 
@@ -36,11 +35,12 @@ async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndp
   if (isOK) {
     const headers = {
       get: (header: string) =>
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         typeof resp.headers.get === 'function' ? resp.headers.get(header)?.toString() : undefined,
     };
     return { response: resp.data, headers };
   } else {
-    const errorMessage = `Error ${resp.status} from json-rpc server ${host} on ${rpcMethod}: ${resp.data.error.message}`;
+    const errorMessage = `Error ${resp.status} from json-rpc server ${host}: ${resp.data}`;
     if (resp.status >= 400 && resp.status < 500) {
       throw new NoRetryError(errorMessage);
     } else {
@@ -62,10 +62,10 @@ export function createCompatibleClient(
   versions: Partial<ComponentsVersions> = {},
 ): Promise<PXE> {
   // Use axios due to timeout issues with fetch when proving TXs.
-  const fetch = async (host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) => {
+  const fetch = async (host: string, body: unknown) => {
     return await retry(
-      () => axiosFetch(host, rpcMethod, body, useApiEndpoints),
-      `JsonRpcClient request ${rpcMethod} to ${host}`,
+      () => axiosFetch(host, body),
+      `JsonRpcClient request to ${host}`,
       makeBackoff([1, 2, 3]),
       logger,
       false,

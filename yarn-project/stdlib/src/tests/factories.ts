@@ -4,7 +4,7 @@ import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
-  CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   FIELDS_PER_BLOB,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
@@ -36,7 +36,7 @@ import {
   NUM_MSGS_PER_BASE_PARITY,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+  PUBLIC_LOG_SIZE_IN_FIELDS,
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
@@ -108,7 +108,7 @@ import {
   PrivateToRollupAccumulatedData,
   mergeAccumulatedData,
 } from '../kernel/index.js';
-import { LogHash, ScopedLogHash } from '../kernel/log_hash.js';
+import { CountedLogHash, LogHash, ScopedLogHash } from '../kernel/log_hash.js';
 import { NoteHash } from '../kernel/note_hash.js';
 import { Nullifier } from '../kernel/nullifier.js';
 import { PrivateCallRequest } from '../kernel/private_call_request.js';
@@ -117,7 +117,7 @@ import { PrivateLogData } from '../kernel/private_log_data.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from '../kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 import { CountedPublicCallRequest, PublicCallRequest } from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
-import { ContractClassLog } from '../logs/contract_class_log.js';
+import { ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { PublicLog } from '../logs/public_log.js';
 import { L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
@@ -178,7 +178,11 @@ import { mockTx } from './mocks.js';
  * @returns A side effect object.
  */
 function makeLogHash(seed: number) {
-  return new LogHash(fr(seed), seed + 1, seed + 2);
+  return new LogHash(fr(seed), seed + 1);
+}
+
+function makeCountedLogHash(seed: number) {
+  return new CountedLogHash(makeLogHash(seed), seed + 0x10);
 }
 
 function makeScopedLogHash(seed: number) {
@@ -193,16 +197,8 @@ function makeNullifier(seed: number) {
   return new Nullifier(fr(seed), seed + 1, fr(seed + 2));
 }
 
-function makeContractClassLog(seed: number) {
-  // The '* 1' removes the 'Type instantiation is excessively deep and possibly infinite. ts(2589)' err
-  return new ContractClassLog(
-    makeAztecAddress(seed),
-    makeTuple(CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS * 1, fr, seed + 1),
-  );
-}
-
 function makePrivateLog(seed: number) {
-  return new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, fr, seed));
+  return new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, fr, seed), PRIVATE_LOG_SIZE_IN_FIELDS);
 }
 
 function makePrivateLogData(seed: number) {
@@ -210,7 +206,11 @@ function makePrivateLogData(seed: number) {
 }
 
 function makePublicLog(seed: number) {
-  return new PublicLog(makeAztecAddress(seed), makeTuple(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, fr, seed + 1));
+  return new PublicLog(
+    makeAztecAddress(seed),
+    makeTuple(PUBLIC_LOG_SIZE_IN_FIELDS, fr, seed + 1),
+    PUBLIC_LOG_SIZE_IN_FIELDS,
+  );
 }
 
 /**
@@ -548,6 +548,7 @@ export function makeTxRequest(seed = 1): TxRequest {
     functionData: new FunctionData(makeSelector(seed + 0x100), /*isPrivate=*/ true),
     argsHash: fr(seed + 0x200),
     txContext: makeTxContext(seed + 0x400),
+    salt: fr(seed + 0x500),
   });
 }
 
@@ -577,7 +578,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     publicTeardownCallRequest: makePublicCallRequest(seed + 0x800),
     l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
     privateLogs: makeTuple(MAX_PRIVATE_LOGS_PER_CALL, makePrivateLogData, seed + 0x875),
-    contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeLogHash, seed + 0xa00),
+    contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeCountedLogHash, seed + 0xa00),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
@@ -1081,6 +1082,10 @@ function makePrivateTubeData(seed = 1, kernelPublicInputs?: PrivateToRollupKerne
   );
 }
 
+function makeContractClassLogFields(seed = 1) {
+  return new ContractClassLogFields(makeArray(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, fr, seed));
+}
+
 function makePrivateBaseRollupHints(seed = 1) {
   const start = makePartialStateReference(seed + 0x100);
 
@@ -1090,7 +1095,11 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const contractClassLogsPreimages = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLog, seed + 0x800);
+  const contractClassLogsPreimages = makeTuple(
+    MAX_CONTRACT_CLASS_LOGS_PER_TX,
+    makeContractClassLogFields,
+    seed + 0x800,
+  );
 
   const constants = makeConstantRollupData(0x100);
 
@@ -1112,7 +1121,11 @@ function makePublicBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const contractClassLogsPreimages = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLog, seed + 0x800);
+  const contractClassLogsPreimages = makeTuple(
+    MAX_CONTRACT_CLASS_LOGS_PER_TX,
+    makeContractClassLogFields,
+    seed + 0x800,
+  );
 
   const constants = makeConstantRollupData(0x100);
 

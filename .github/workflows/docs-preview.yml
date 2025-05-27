@@ -25,15 +25,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Include previous commit for master history comparisons.
+          fetch-depth: 2
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "22"
 
       - name: Enable Corepack
         run: corepack enable
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5
 
       - name: Configure Git
         run: |
@@ -42,7 +50,8 @@ jobs:
 
       - name: Build dependencies
         run: |
-          for project in noir barretenberg l1-contracts yarn-project; do
+          export NOIR_HASH=$(./noir/bootstrap.sh hash)
+          for project in noir barretenberg l1-contracts noir-projects yarn-project; do
             $project/bootstrap.sh
           done
 

@@ -9,11 +9,7 @@ template <typename Curve> class RecursiveVeriferCommitmentKeyTest : public testi
     using NativeEmbeddedCurve = Builder::EmbeddedCurve;
     using native_VK = VerifierCommitmentKey<NativeEmbeddedCurve>;
     using VK = VerifierCommitmentKey<Curve>;
-    static void SetUpTestSuite()
-    {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
      * @brief Instantiante a recursive verifier commitment key from a Grumpkin native key and check consistency.

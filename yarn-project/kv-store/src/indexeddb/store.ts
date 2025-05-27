@@ -38,7 +38,6 @@ export interface AztecIDBSchema extends DBSchema {
  */
 
 export class AztecIndexedDBStore implements AztecAsyncKVStore {
-  #log: Logger;
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #name: string;
 
@@ -50,9 +49,12 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     | IndexedDBAztecSingleton<any>
   >();
 
-  constructor(rootDB: IDBPDatabase<AztecIDBSchema>, public readonly isEphemeral: boolean, log: Logger, name: string) {
+  constructor(
+    rootDB: IDBPDatabase<AztecIDBSchema>,
+    public readonly isEphemeral: boolean,
+    name: string,
+  ) {
     this.#rootDB = rootDB;
-    this.#log = log;
     this.#name = name;
   }
   /**
@@ -66,7 +68,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @returns The store
    */
   static async open(log: Logger, name?: string, ephemeral: boolean = false): Promise<AztecIndexedDBStore> {
-    name = name && !ephemeral ? name : self.crypto.getRandomValues(new Uint8Array(16)).join('');
+    name = name && !ephemeral ? name : globalThis.crypto.getRandomValues(new Uint8Array(16)).join('');
     log.debug(`Opening IndexedDB ${ephemeral ? 'temp ' : ''}database with name ${name}`);
     const rootDB = await openDB<AztecIDBSchema>(name, 1, {
       upgrade(db) {
@@ -82,7 +84,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
       },
     });
 
-    const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, log, name);
+    const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, name);
     return kvStore;
   }
 

@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <list>
 #include <set>
@@ -65,7 +64,6 @@ template <typename FF> class Graph_ {
     Graph_(Graph_&& other) = delete;
     Graph_& operator=(const Graph_& other) = delete;
     Graph_&& operator=(Graph_&& other) = delete;
-    Graph_(const bb::StandardCircuitBuilder_<FF>& circuit_constructor);
     Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor);
 
     /**

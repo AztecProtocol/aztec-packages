@@ -6,7 +6,7 @@
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/op_count.hpp"
-#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
+#include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
 
@@ -272,7 +272,7 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraZKFlavor>;
 template class OinkProver<UltraKeccakFlavor>;
-#ifdef STARTKNET_GARAGA_FLAVORS
+#ifdef STARKNET_GARAGA_FLAVORS
 template class OinkProver<UltraStarknetFlavor>;
 template class OinkProver<UltraStarknetZKFlavor>;
 #endif

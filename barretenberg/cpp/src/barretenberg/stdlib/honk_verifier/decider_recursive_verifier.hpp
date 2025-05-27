@@ -6,7 +6,7 @@
 
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
@@ -54,7 +54,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
         }
     }
 
-    PairingPoints verify_proof(const HonkProof& proof);
+    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     Builder* builder;

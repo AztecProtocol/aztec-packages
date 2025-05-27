@@ -9,7 +9,7 @@ import { NoteSelector } from '../abi/note_selector.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import type { IsEmpty } from '../kernel/utils/interfaces.js';
 import { sortByCounter } from '../kernel/utils/order_and_comparison.js';
-import { ContractClassLog } from '../logs/contract_class_log.js';
+import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class_log.js';
 import { Note } from '../note/note.js';
 import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
 import { HashedValues } from './hashed_values.js';
@@ -47,7 +47,10 @@ export class NoteAndSlot {
 }
 
 export class CountedContractClassLog implements IsEmpty {
-  constructor(public log: ContractClassLog, public counter: number) {}
+  constructor(
+    public log: ContractClassLog,
+    public counter: number,
+  ) {}
 
   static get schema(): ZodFor<CountedContractClassLog> {
     return z
@@ -132,7 +135,8 @@ export class PrivateCallExecutionResult {
     public nestedExecutions: PrivateCallExecutionResult[],
     /**
      * Contract class logs emitted during execution of this function call.
-     * Note: These are preimages to `contractClassLogsHashes`.
+     * Note: We only need to collect the ContractClassLogFields as preimages for the tx.
+     * But keep them as ContractClassLog so that we can verify the log hashes before submitting the tx (TODO).
      */
     public contractClassLogs: CountedContractClassLog[],
     public profileResult?: PrivateExecutionProfileResult,
@@ -223,10 +227,10 @@ function collectContractClassLogs(execResult: PrivateCallExecutionResult): Count
  * @param execResult - The topmost execution result.
  * @returns All contract class logs.
  */
-export function collectSortedContractClassLogs(execResult: PrivateExecutionResult): ContractClassLog[] {
+export function collectSortedContractClassLogs(execResult: PrivateExecutionResult): ContractClassLogFields[] {
   const allLogs = collectContractClassLogs(execResult.entrypoint);
   const sortedLogs = sortByCounter(allLogs);
-  return sortedLogs.map(l => l.log);
+  return sortedLogs.map(l => l.log.fields);
 }
 
 export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecutionResult): number {
@@ -251,5 +255,5 @@ export function collectNested<T>(
 }
 
 export class PrivateExecutionProfileResult {
-  constructor(public timings: { witgen: number }) {}
+  constructor(public timings: { witgen: number; oracles?: Record<string, { times: number[] }> }) {}
 }

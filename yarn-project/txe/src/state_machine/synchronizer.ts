@@ -61,7 +61,7 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     return this.nativeWorldStateService.backupTo(dstPath, compact);
   }
 
-  public start(): void {
+  public start(): Promise<void> {
     throw new Error('TXE Synchronizer does not implement "start"');
   }
 
@@ -79,5 +79,9 @@ export class TXESynchronizer implements WorldStateSynchronizer {
 
   public resumeSync(): void {
     throw new Error('TXE Synchronizer does not implement "resumeSync"');
+  }
+
+  public clear(): Promise<void> {
+    throw new Error('TXE Synchronizer does not implement "clear"');
   }
 }

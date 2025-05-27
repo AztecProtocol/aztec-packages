@@ -25,6 +25,7 @@ library ValidatorSelectionLib {
   using MessageHashUtils for bytes32;
   using SignatureLib for Signature;
   using TimeLib for Timestamp;
+  using TimeLib for Epoch;
   using AddressSnapshotLib for SnapshottedAddressSet;
   using Checkpoints for Checkpoints.Trace224;
   using SafeCast for *;
@@ -36,14 +37,15 @@ library ValidatorSelectionLib {
     ValidatorSelectionStorage storage store = getStorage();
     store.targetCommitteeSize = _targetCommitteeSize;
 
-    // Set the sample seed for the first epoch to max
+    // Set the sample seed for the first 2 epochs to max
     store.seeds.push(0, type(uint224).max);
+    store.seeds.push(1, type(uint224).max);
   }
 
   /**
    * @notice  Performs a setup of an epoch if needed. The setup will
    *          - Sample the validator set for the epoch
-   *          - Set the seed for the next epoch
+   *          - Set the seed for the epoch after the next
    */
   function setupEpoch(StakingStorage storage _stakingStore, Epoch _epochNumber) internal {
     ValidatorSelectionStorage storage store = getStorage();
@@ -54,7 +56,7 @@ library ValidatorSelectionLib {
 
     // Set the sample seed for the next epoch if required
     // function handles the case where it is already set
-    setSampleSeedForEpoch(_epochNumber + Epoch.wrap(1));
+    setSampleSeedForNextEpoch(_epochNumber);
 
     //################ Committee ################
     // If the committee is not set for this epoch, we need to sample it
@@ -174,7 +176,14 @@ library ValidatorSelectionLib {
     returns (address[] memory)
   {
     ValidatorSelectionStorage storage store = getStorage();
-    uint256 validatorSetSize = _stakingStore.attesters.lengthAtEpoch(_epoch);
+    // We do -1, as the snapshots practically happen at the end of the block, e.g.,
+    // a tx manipulating the set in at $t$ would be visible already at lookup $t$ if after that
+    // transactions. But reading at $t-1$ would be the state at the end of $t-1$ which is the state
+    // as we "start" time $t$. We then shift that back by an entire L2 epoch to guarantee
+    // we are not hit by last-minute changes or L1 reorgs when syncing validators from our clients.
+    uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32()
+      - uint32(TimeLib.getEpochDurationInSeconds()) - 1;
+    uint256 validatorSetSize = _stakingStore.attesters.lengthAtTimestamp(ts);
 
     if (validatorSetSize == 0) {
       return new address[](0);
@@ -184,7 +193,7 @@ library ValidatorSelectionLib {
 
     // If we have less validators than the target committee size, we just return the full set
     if (validatorSetSize <= targetCommitteeSize) {
-      return _stakingStore.attesters.valuesAtEpoch(_epoch);
+      return _stakingStore.attesters.valuesAtTimestamp(ts);
     }
 
     uint256[] memory indices =
@@ -192,7 +201,7 @@ library ValidatorSelectionLib {
 
     address[] memory committee = new address[](targetCommitteeSize);
     for (uint256 i = 0; i < targetCommitteeSize; i++) {
-      committee[i] = _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], _epoch);
+      committee[i] = _stakingStore.attesters.getAddressFromIndexAtTimestamp(indices[i], ts);
     }
     return committee;
   }
@@ -211,13 +220,20 @@ library ValidatorSelectionLib {
     ValidatorSelectionStorage storage store = getStorage();
     EpochData storage epoch = store.epochs[_epochNumber];
 
-    // If no committee has been stored, then we need to setup the epoch
-    uint256 committeeSize = epoch.committee.length;
-    if (committeeSize == 0) {
-      // This will set epoch.committee and the next sample seed in the store, meaning epoch.commitee on the line below will be set (storage reference)
-      setupEpoch(_stakingStore, _epochNumber);
+    // If the committe is already set, just return that, otherwise need to sample
+    if (epoch.committee.length > 0) {
+      return epoch.committee;
     }
-    return epoch.committee;
+    return sampleValidators(_stakingStore, _epochNumber, getSampleSeed(_epochNumber));
+  }
+
+  /**
+   * @notice  Sets the sample seed for the epoch after the next
+   *
+   * @param _epoch - The epoch to set the sample seed for
+   */
+  function setSampleSeedForNextEpoch(Epoch _epoch) internal {
+    setSampleSeedForEpoch(_epoch + Epoch.wrap(2));
   }
 
   /**
@@ -255,8 +271,8 @@ library ValidatorSelectionLib {
    *
    * @dev     The `_epoch` will never be 0 nor in the future
    *
-   * @dev     The return value will be equal to keccak256(n, block.prevrandao) for n being the last epoch
-   *          setup.
+   * @dev     The return value will be equal to keccak256(n, block.prevrandao) for n being the
+   *          penultimate epoch setup.
    *
    * @return The sample seed for the epoch
    */

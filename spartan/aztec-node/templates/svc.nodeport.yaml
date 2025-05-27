@@ -1,0 +1,31 @@
+{{- if and .Values.service.p2p.enabled .Values.service.p2p.nodePortEnabled (not .Values.hostNetwork) -}}
+{{- range $i, $e := until (.Values.node.replicas | int) }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chart.fullname" $ }}-p2p-node-port-{{ $i }}
+  labels:
+    {{- include "chart.labels" $ | nindent 4 }}
+    app: node
+    type: p2p
+    pod-index: "{{ $i }}"
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local
+  ports:
+    - name: p2p-tcp
+      port: {{ $.Values.service.p2p.port }}
+      protocol: TCP
+      targetPort: p2p-tcp
+      nodePort: {{ add $.Values.service.p2p.port $i }}
+    - name: p2p-udp
+      port: {{ $.Values.service.p2p.port }}
+      protocol: UDP
+      targetPort: p2p-udp
+      nodePort: {{ add $.Values.service.p2p.port $i }}
+  selector:
+    {{- include "chart.selectorLabels" $ | nindent 4 }}
+    statefulset.kubernetes.io/pod-name: "{{ include "chart.fullname" $ }}-{{ $i }}"
+{{- end }}
+{{- end }}
