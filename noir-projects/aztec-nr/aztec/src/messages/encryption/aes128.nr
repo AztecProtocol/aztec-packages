@@ -35,7 +35,7 @@ use crate::{
 use std::aes128::aes128_encrypt;
 
 /**
- * Computes a close-to-uniformly-random 256 bits from a given ECDH shared_secret.
+ * Computes N close-to-uniformly-random 256 bits from a given ECDH shared_secret.
  *
  * NEVER re-use the same iv and sym_key.
  * DO NOT call this function more than once with the same shared_secret.
@@ -44,9 +44,9 @@ use std::aes128::aes128_encrypt;
  * otherwise usage of this function this could be insecure.
  * See big comment within the body of the function.
  */
-fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe<let N: u32>(
+fn extract_many_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe<let N: u32>(
     shared_secret: Point,
-) -> [u8; 32] {
+) -> [[u8; 32]; N] {
     /*
      * Unsafe because of https://eprint.iacr.org/2010/264.pdf Page 13, Lemma 2 (and the * two paragraphs below it).
      *
@@ -93,7 +93,7 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
     let mut all_bytes: [[u8; 32]; N] = std::mem::zeroed();
 
     for k in 0..N {
-        assert(N < 256); // TODO: does this incur a range constraint, or is it comptime?
+        std::static_assert(N < 256, "N too large");
 
         // We augment the domain separator with the loop index, so that we can
         // generate N lots of randomness.
@@ -128,9 +128,7 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
 // poseidon2 approach.
 fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256<let N: u32>(
     shared_secret: Point,
-) -> [[u8; 32]; N] {
-    assert(N == 1); // Figuring out domain separation for more than 1 would be fiddly. Doable, but fiddly.
-
+) -> [u8; 32] {
     let shared_secret_bytes: [u8; 32] = point_to_bytes(shared_secret);
 
     let mut shared_secret_bytes_with_separator: [u8; 33] = std::mem::zeroed();
@@ -139,17 +137,13 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha2
     }
     shared_secret_bytes_with_separator[32] = GENERATOR_INDEX__SYMMETRIC_KEY;
 
-    let mut result: [[u8; 32]; N] = std::mem::zeroed();
-
-    result[0] = sha256::digest(shared_secret_bytes_with_separator);
-    result
+    sha256::digest(shared_secret_bytes_with_separator)
 }
 
-fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret<let N: u32>(
-    shared_secret: Point,
-    randomness_extraction_fn: fn(Point) -> [[u8; 32]; N],
+fn derive_aes_symmetric_key_and_iv_from_uniformly_random_256_bits<let N: u32>(
+    many_random_256_bits: [[u8; 32]; N],
 ) -> [([u8; 16], [u8; 16]); N] {
-    let many_random_256_bits = randomness_extraction_fn(shared_secret);
+    // Many (sym_key, iv) pairs:
     let mut many_pairs: [([u8; 16], [u8; 16]); N] = std::mem::zeroed();
     for k in 0..N {
         let random_256_bits = many_random_256_bits[k];
@@ -168,22 +162,24 @@ fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret<let N: u32>(
 // We'll keep this function around, because some users might need it if their
 // shared_secret is derived in a way which is not safe for usage with the
 // poseidon2 approach.
-pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256<let N: u32>(
+pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
     shared_secret: Point,
-) -> [([u8; 16], [u8; 16]); N] {
-    derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
+) -> ([u8; 16], [u8; 16]) {
+    let random_256_bits: [u8; 32] = extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256(
         shared_secret,
-        extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256,
-    )
+    );
+
+    derive_aes_symmetric_key_and_iv_from_uniformly_random_256_bits([random_256_bits])[0]
 }
 
 pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe<let N: u32>(
     shared_secret: Point,
 ) -> [([u8; 16], [u8; 16]); N] {
-    derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
+    let many_random_256_bits: [[u8; 32]; N] = extract_many_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe(
         shared_secret,
-        extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe,
-    )
+    );
+
+    derive_aes_symmetric_key_and_iv_from_uniformly_random_256_bits(many_random_256_bits)
 }
 
 pub struct AES128 {}
