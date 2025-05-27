@@ -8,7 +8,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   workers: process.env.WORKERS ? parseInt(process.env.WORKERS) : 1,
-  reporter: 'html',
+  reporter: 'list',
   use: {
     baseURL: 'http://127.0.0.1:3000',
   },
