@@ -8,7 +8,7 @@
 
 namespace bb::avm2::simulation {
 
-struct PhaseEvent {
+struct EnqueuedCallEvent {
     FF msg_sender;
     FF contract_address;
     bool is_static;
@@ -37,12 +37,17 @@ struct CollectGasFeeEvent {
     FF max_priority_fees_per_da_gas;
 };
 
-using TxEventType = std::variant<PhaseEvent, PrivateAppendTreeEvent, PrivateEmitL2L1MessageEvent, CollectGasFeeEvent>;
+using TxEventType =
+    std::variant<EnqueuedCallEvent, PrivateAppendTreeEvent, PrivateEmitL2L1MessageEvent, CollectGasFeeEvent>;
 
 struct TxEvent {
     TransactionPhase phase;
     TreeStates prev_tree_state;
     TreeStates next_tree_state;
+    Gas prev_gas_used;
+    Gas gas_used;
+    Gas gas_limit;
+
     TxEventType event;
 };
 

@@ -64,9 +64,9 @@ std::vector<std::pair<Column, FF>> insert_tree_state(const TreeStates& prev_tree
 }
 
 // Helper to retrieve the read and write offsets and populate the read and write counters
-std::vector<std::pair<Column, FF>> handle_read_write(TransactionPhase phase,
-                                                     uint32_t read_counter,
-                                                     uint32_t write_counter)
+std::vector<std::pair<Column, FF>> handle_pi_read_write(TransactionPhase phase,
+                                                        uint32_t read_counter,
+                                                        uint32_t write_counter)
 
 {
     auto [read_offset, write_offset, length_offset] = TxPhaseOffsetsTable::get_offsets(phase);
@@ -78,7 +78,7 @@ std::vector<std::pair<Column, FF>> handle_read_write(TransactionPhase phase,
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_public_call_phase(const simulation::PhaseEvent& event)
+std::vector<std::pair<Column, FF>> handle_enqueued_call_event(const simulation::EnqueuedCallEvent& event)
 {
     return { { Column::tx_is_public_call_request, 1 },
              { Column::tx_msg_sender, event.msg_sender },
@@ -88,7 +88,7 @@ std::vector<std::pair<Column, FF>> handle_public_call_phase(const simulation::Ph
              { Column::tx_reverted, event.success } };
 };
 
-std::vector<std::pair<Column, FF>> handle_append_tree_phase(const simulation::PrivateAppendTreeEvent& event,
+std::vector<std::pair<Column, FF>> handle_append_tree_event(const simulation::PrivateAppendTreeEvent& event,
                                                             TransactionPhase phase)
 {
     return {
@@ -103,7 +103,7 @@ std::vector<std::pair<Column, FF>> handle_append_tree_phase(const simulation::Pr
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_l2_l1_msg_phase(const simulation::PrivateEmitL2L1MessageEvent& event,
+std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::PrivateEmitL2L1MessageEvent& event,
                                                           uint32_t l2_l1_msg_counter)
 {
 
@@ -117,7 +117,7 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_phase(const simulation::Priv
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_collect_gas_fee_phase(const simulation::CollectGasFeeEvent& event)
+std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation::CollectGasFeeEvent& event)
 {
     return {
         { Column::tx_is_active, 1 },
@@ -180,37 +180,39 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             trace.set(row,
                       { { { C::tx_phase_value, static_cast<uint8_t>(tx_event->phase) }, { C::tx_is_active, 1 } } });
 
+            // Pattern match on the variant event type and call the appropriate handler
             std::visit(
-                overloaded{ [&](const simulation::PhaseEvent& event) {
-                               trace.set(row, handle_public_call_phase(event));
-                               // No explicit write counter for this phase
-                               trace.set(row, handle_read_write(tx_event->phase, phase_counter, /*write_counter=*/0));
-                           },
-                            [&](const simulation::PrivateAppendTreeEvent& event) {
-                                trace.set(row, handle_append_tree_phase(event, tx_event->phase));
+                overloaded{
+                    [&](const simulation::EnqueuedCallEvent& event) {
+                        trace.set(row, handle_enqueued_call_event(event));
+                        // No explicit write counter for this phase
+                        trace.set(row, handle_pi_read_write(tx_event->phase, phase_counter, /*write_counter=*/0));
+                    },
+                    [&](const simulation::PrivateAppendTreeEvent& event) {
+                        trace.set(row, handle_append_tree_event(event, tx_event->phase));
 
-                                // The read/write counter differs if we are inserting note hashes or nullifiers
-                                auto tree_state = tx_event->next_tree_state;
-                                if (TransactionPhase::NR_NOTE_INSERTION == tx_event->phase ||
-                                    TransactionPhase::R_NOTE_INSERTION == tx_event->phase) {
-                                    trace.set(row,
-                                              handle_read_write(
-                                                  tx_event->phase, phase_counter, tree_state.noteHashTree.counter));
-                                } else {
-                                    trace.set(row,
-                                              handle_read_write(
-                                                  tx_event->phase, phase_counter, tree_state.nullifierTree.counter));
-                                }
-                            },
-                            [&](const simulation::PrivateEmitL2L1MessageEvent& event) {
-                                trace.set(row, handle_l2_l1_msg_phase(event, l2_l1_msg_counter));
-                                trace.set(row, handle_read_write(tx_event->phase, phase_counter, l2_l1_msg_counter));
-                                l2_l1_msg_counter++;
-                            },
-                            [&](const simulation::CollectGasFeeEvent& event) {
-                                // TODO: Decide what to read and write
-                                trace.set(row, handle_collect_gas_fee_phase(event));
-                            } },
+                        // The read/write counter differs if we are inserting note hashes or nullifiers
+                        auto tree_state = tx_event->next_tree_state;
+                        if (TransactionPhase::NR_NOTE_INSERTION == tx_event->phase ||
+                            TransactionPhase::R_NOTE_INSERTION == tx_event->phase) {
+                            trace.set(
+                                row,
+                                handle_pi_read_write(tx_event->phase, phase_counter, tree_state.noteHashTree.counter));
+                        } else {
+                            trace.set(
+                                row,
+                                handle_pi_read_write(tx_event->phase, phase_counter, tree_state.nullifierTree.counter));
+                        }
+                    },
+                    [&](const simulation::PrivateEmitL2L1MessageEvent& event) {
+                        trace.set(row, handle_l2_l1_msg_event(event, l2_l1_msg_counter));
+                        trace.set(row, handle_pi_read_write(tx_event->phase, phase_counter, l2_l1_msg_counter));
+                        l2_l1_msg_counter++;
+                    },
+                    [&](const simulation::CollectGasFeeEvent& event) {
+                        // TODO: Decide what to read and write
+                        trace.set(row, handle_collect_gas_fee_event(event));
+                    } },
                 tx_event->event);
             phase_counter++;
         }

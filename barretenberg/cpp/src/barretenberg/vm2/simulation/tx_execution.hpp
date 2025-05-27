@@ -38,8 +38,14 @@ class TxExecution final {
     void emit_public_call_request(ContextInterface& context,
                                   const ExecutionResult& result,
                                   TreeStates&& prev_tree_state,
+                                  Gas prev_gas,
                                   TransactionPhase phase);
-    void emit_private_append_tree(const FF& leaf_value, uint64_t size, TransactionPhase phase);
+    void emit_private_append_tree(const FF& leaf_value,
+                                  uint64_t size,
+                                  TreeStates&& prev_tree_state,
+                                  Gas gas_used,
+                                  Gas gas_limit,
+                                  TransactionPhase phase);
 };
 
 } // namespace bb::avm2::simulation

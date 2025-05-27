@@ -11,29 +11,34 @@ namespace bb::avm2::simulation {
 void TxExecution::emit_public_call_request(ContextInterface& context,
                                            const ExecutionResult& result,
                                            TreeStates&& prev_tree_state,
+                                           Gas prev_gas,
                                            TransactionPhase phase)
 {
     events.emit(TxEvent{ .phase = phase,
                          .prev_tree_state = std::move(prev_tree_state),
                          .next_tree_state = merkle_db.get_tree_state(),
-                         .event = PhaseEvent{
+                         .prev_gas_used = prev_gas,
+                         .gas_used = context.get_gas_used(),
+                         .gas_limit = context.get_gas_limit(),
+                         .event = EnqueuedCallEvent{
                              .msg_sender = context.get_msg_sender(),
                              .contract_address = context.get_address(),
                              .is_static = context.get_is_static(),
                              .calldata_hash = FF(0), // TODO: This should be the hash of the calldata
                              .success = result.success,
-                             // We need more things here
-                             // Gas
-                             // PublicLogs counter
                          } });
 }
 
-void TxExecution::emit_private_append_tree(const FF& leaf_value, uint64_t size, TransactionPhase phase)
+void TxExecution::emit_private_append_tree(
+    const FF& leaf_value, uint64_t size, TreeStates&& prev_tree_state, Gas gas, Gas gas_limit, TransactionPhase phase)
 {
     events.emit(TxEvent{
         .phase = phase,
-        .prev_tree_state = merkle_db.get_tree_state(),
+        .prev_tree_state = std::move(prev_tree_state),
         .next_tree_state = merkle_db.get_tree_state(),
+        .prev_gas_used = gas,
+        .gas_used = gas, // No gas used for private append tree events
+        .gas_limit = gas_limit,
         .event =
             PrivateAppendTreeEvent{
                 .leaf_value = leaf_value,
@@ -74,8 +79,8 @@ void TxExecution::simulate(const Tx& tx)
             auto context = context_provider.make_enqueued_context(
                 call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
             ExecutionResult result = call_execution.execute(std::move(context));
+            emit_public_call_request(*context, result, std::move(prev_tree_state), gas_used, TransactionPhase::SETUP);
             gas_used = result.gas_used;
-            emit_public_call_request(*context, result, std::move(prev_tree_state), TransactionPhase::SETUP);
         }
 
         try {
@@ -91,8 +96,9 @@ void TxExecution::simulate(const Tx& tx)
                 auto context = context_provider.make_enqueued_context(
                     call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
                 ExecutionResult result = call_execution.execute(std::move(context));
+                emit_public_call_request(
+                    *context, result, std::move(prev_tree_state), gas_used, TransactionPhase::APP_LOGIC);
                 gas_used = result.gas_used;
-                emit_public_call_request(*context, result, std::move(prev_tree_state), TransactionPhase::APP_LOGIC);
             }
         } catch (const std::exception& e) {
             // TODO: revert the checkpoint.
@@ -110,8 +116,11 @@ void TxExecution::simulate(const Tx& tx)
                                                                       tx.teardownEnqueuedCall->isStaticCall,
                                                                       tx.gasSettings.teardownGasLimits,
                                                                       Gas{ 0, 0 });
+
                 ExecutionResult result = call_execution.execute(std::move(context));
-                emit_public_call_request(*context, result, std::move(prev_tree_state), TransactionPhase::TEARDOWN);
+                // Check what to do here for GAS
+                emit_public_call_request(
+                    *context, result, std::move(prev_tree_state), Gas{ 0, 0 }, TransactionPhase::TEARDOWN);
             } catch (const std::exception& e) {
                 info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
             }
@@ -167,7 +176,7 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
 void TxExecution::insert_revertibles(const Tx& tx)
 {
     auto prev_tree_state = merkle_db.get_tree_state();
-    // 1. Write the nullifiers.
+    // 1. Write the already siloed nullifiers.
     for (const auto& nullifier : tx.revertibleAccumulatedData.nullifiers) {
         merkle_db.nullifier_write(nullifier);
 
@@ -178,7 +187,8 @@ void TxExecution::insert_revertibles(const Tx& tx)
                              .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
         prev_tree_state = next_tree_state;
     }
-    // 2. Write the note hashes.
+    // 2. Write the note hashes
+    // todo: these need to be siloed/unique-fied by the avm. (#14544)
     for (const auto& note_hash : tx.revertibleAccumulatedData.noteHashes) {
         merkle_db.note_hash_write(note_hash);
 

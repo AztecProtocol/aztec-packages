@@ -87,11 +87,15 @@ struct AvmFlavorVariables {
 >>>>>>> 6f5a3f36e4 (fix: comments)
 =======
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2260;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2294;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 151;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2498;
 >>>>>>> 5c61ff2ec2 (fix: rebase)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2532;
+>>>>>>> f73bc267a7 (fix: comments)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -217,6 +221,8 @@ struct AvmFlavorVariables {
         lookup_tx_read_phase_table_relation<FF_>,
         lookup_tx_read_public_call_request_phase_relation<FF_>,
         lookup_tx_read_tree_insert_value_relation<FF_>,
+        lookup_tx_write_msg_relation<FF_>,
+        lookup_tx_write_tree_insert_value_relation<FF_>,
         lookup_update_check_block_of_change_cmp_range_relation<FF_>,
         lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation<FF_>,
         lookup_update_check_shared_mutable_slot_poseidon2_relation<FF_>,

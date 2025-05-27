@@ -13,7 +13,7 @@ template <typename FF_> class txImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 4, 4, 2 };
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 4, 4, 2, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -71,6 +71,20 @@ template <typename FF_> class txImpl {
                   in.get(C::tx_sel_revertible_append_nullifier) + in.get(C::tx_sel_non_revertible_append_nullifier)));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * ((FF(1) - in.get(C::tx_reverted)) * in.get(C::tx_is_tree_insert_phase) -
+                                            in.get(C::tx_successful_tree_insert));
+            tmp *= scaling_factor;
+            std::get<6>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * ((FF(1) - in.get(C::tx_reverted)) * in.get(C::tx_is_l2_l1_msg_phase) -
+                                            in.get(C::tx_successful_msg_emit));
+            tmp *= scaling_factor;
+            std::get<7>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
