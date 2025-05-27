@@ -47,7 +47,10 @@ import type { PublicContractsDBInterface } from './db_interfaces.js';
  * A public contracts database that forwards requests and collects AVM hints.
  */
 export class HintingPublicContractsDB implements PublicContractsDBInterface {
-  constructor(private readonly db: PublicContractsDBInterface, private hints: AvmExecutionHints) {}
+  constructor(
+    private readonly db: PublicContractsDBInterface,
+    private hints: AvmExecutionHints,
+  ) {}
 
   public async getContractInstance(
     address: AztecAddress,
@@ -129,7 +132,10 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   }
 
   // Use create() to instantiate.
-  private constructor(private db: MerkleTreeWriteOperations, private hints: AvmExecutionHints) {}
+  private constructor(
+    private db: MerkleTreeWriteOperations,
+    private hints: AvmExecutionHints,
+  ) {}
 
   // Getters.
   public async getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>> {

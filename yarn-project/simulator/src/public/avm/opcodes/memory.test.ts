@@ -1,3 +1,9 @@
+import {
+  AVM_CALLDATACOPY_BASE_L2_GAS,
+  AVM_CALLDATACOPY_DYN_L2_GAS,
+  AVM_RETURNDATACOPY_BASE_L2_GAS,
+  AVM_RETURNDATACOPY_DYN_L2_GAS,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { AvmContext } from '../avm_context.js';
@@ -346,7 +352,10 @@ describe('Memory instructions', () => {
     it('Should support INDIRECT addressing', async () => {
       context.machineState.memory.set(0, new Uint16(55));
       context.machineState.memory.set(10, new Uint32(20));
-      const addressing = new Addressing([/*srcOffset*/ AddressingMode.DIRECT, /*dstOffset*/ AddressingMode.INDIRECT]);
+      const addressing = Addressing.fromModes([
+        /*srcOffset*/ AddressingMode.DIRECT,
+        /*dstOffset*/ AddressingMode.INDIRECT,
+      ]);
       await new Mov(/*indirect=*/ addressing.toWire(), /*srcOffset=*/ 0, /*dstOffset=*/ 10).execute(context);
 
       expect(context.machineState.memory.get(1)).toEqual(new Field(0));
@@ -450,6 +459,21 @@ describe('Memory instructions', () => {
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 3);
       expect(actual).toEqual([new Field(3), new Field(0), new Field(0)]);
+    });
+
+    it('Should charge dynamic gas', async () => {
+      const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context = initContext({ env: initExecutionEnvironment({ calldata }) });
+      context.machineState.memory.set(0, new Uint32(0)); // cdoffset
+      context.machineState.memory.set(1, new Uint32(3)); // size
+
+      const gasBefore = context.machineState.l2GasLeft;
+
+      await new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
+
+      expect(context.machineState.l2GasLeft).toEqual(
+        gasBefore - AVM_CALLDATACOPY_BASE_L2_GAS - AVM_CALLDATACOPY_DYN_L2_GAS * 3,
+      );
     });
   });
 
@@ -562,6 +586,20 @@ describe('Memory instructions', () => {
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 3);
       expect(actual).toEqual([new Field(3), new Field(0), new Field(0)]);
+    });
+
+    it('Should charge dynamic gas', async () => {
+      context = initContext();
+      const size = 3;
+      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.memory.set(0, new Uint32(0)); // rdoffset
+      context.machineState.memory.set(1, new Uint32(size)); // size
+
+      const gasBefore = context.machineState.l2GasLeft;
+      await new ReturndataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*rdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
+      expect(context.machineState.l2GasLeft).toEqual(
+        gasBefore - AVM_RETURNDATACOPY_BASE_L2_GAS - AVM_RETURNDATACOPY_DYN_L2_GAS * size,
+      );
     });
   });
 });

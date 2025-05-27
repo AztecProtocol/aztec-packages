@@ -34,14 +34,17 @@ export class GetContractInstance extends Instruction {
 
   async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     if (!(this.memberEnum in ContractInstanceMember)) {
       throw new InstructionExecutionError(`Invalid GETCONSTRACTINSTANCE member enum ${this.memberEnum}`);
     }
 
     const operands = [this.addressOffset, this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [addressOffset, dstOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, addressOffset);
 

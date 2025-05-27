@@ -24,7 +24,10 @@ export class InMemoryTxPool implements TxPool {
    * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
    * @param log - A logger.
    */
-  constructor(telemetry: TelemetryClient = getTelemetryClient(), private log = createLogger('p2p:tx_pool')) {
+  constructor(
+    telemetry: TelemetryClient = getTelemetryClient(),
+    private log = createLogger('p2p:tx_pool'),
+  ) {
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();
@@ -84,6 +87,10 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve(
       Array.from(this.minedTxs.entries()).map(([txHash, blockNumber]) => [TxHash.fromBigInt(txHash), blockNumber]),
     );
+  }
+
+  public getPendingTxCount(): Promise<number> {
+    return Promise.resolve(this.pendingTxs.size);
   }
 
   public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
@@ -184,6 +191,10 @@ export class InMemoryTxPool implements TxPool {
   }
 
   setMaxTxPoolSize(_maxSizeBytes: number | undefined): Promise<void> {
+    return Promise.resolve();
+  }
+
+  markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
     return Promise.resolve();
   }
 }

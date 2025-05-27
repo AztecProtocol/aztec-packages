@@ -48,14 +48,17 @@ function build {
       --optimizer-runs 1 \
       --no-metadata
 
-    cache_upload $artifact out
+    cache_upload $artifact out generated
   fi
 }
 
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
+  echo "$hash cd l1-contracts && forge test"
+  if [ "$CI" -eq 0 ] || [ "${TARGET_BRANCH:-}" == "master" ]; then
+    echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest"
+  fi
 }
 
 function test {
@@ -116,7 +119,6 @@ function gas_report {
     --match-contract "^RollupTest$" \
     --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)" \
     --fuzz-seed 42 \
-    --isolate \
     --json \
     > gas_report.new.tmp
   jq '.' gas_report.new.tmp > gas_report.new.json
@@ -131,10 +133,84 @@ function gas_report {
   mv gas_report.new.json gas_report.json
 }
 
+function bench_cmds {
+  echo "$hash l1-contracts/bootstrap.sh bench"
+}
+
+function bench {
+  rm -rf bench-out && mkdir -p bench-out
+
+  # Run the gas benchmark to generate the markdown file
+  gas_benchmark
+
+  # Extract gas values from gas_benchmark.md and create JSON output
+  awk '
+  function trim(s) {
+    sub(/^[ \t]+/, "", s);
+    sub(/[ \t]+$/, "", s);
+    return s;
+  }
+  BEGIN {
+    print "[";
+    first = 1;
+  }
+  /^[a-zA-Z]/ {
+    if ($1 != "Function" && $1 != "-------------------------") {
+      # Split the line into columns and clean them
+      n = split($0, cols, "|");
+      for (i = 1; i <= n; i++) {
+        cols[i] = trim(cols[i]);
+      }
+
+      # Only process Max rows
+      if (cols[2] == "Max") {
+        # Get the function name
+        func_name = cols[1];
+
+        # Define our cases with their column numbers
+        cases["no_validators"] = 3;
+        cases["100_validators"] = 4;
+        cases["overhead"] = 5;
+
+        for (case_name in cases) {
+          col = cases[case_name];
+          if (match(cols[col], /([0-9]+)[ ]*\(([0-9.]+)\)/)) {
+            # Extract the raw gas value (first number)
+            match(cols[col], /[0-9]+/);
+            raw_gas = substr(cols[col], RSTART, RLENGTH);
+
+            # Extract the per tx value
+            match(cols[col], /\(([0-9.]+)\)/);
+            per_tx = substr(cols[col], RSTART+1, RLENGTH-2);
+
+            if (!first) print ",";
+            first = 0;
+
+            # Output raw gas value
+            print "  {";
+            print "    \"name\": \"" func_name " (" case_name ")\",";
+            print "    \"value\": " raw_gas ",";
+            print "    \"unit\": \"gas\"";
+            print "  },";
+
+            # Output per tx value
+            print "  {";
+            print "    \"name\": \"" func_name " (" case_name ") per l2 tx\",";
+            print "    \"value\": " per_tx ",";
+            print "    \"unit\": \"gas\"";
+            print "  }";
+          }
+        }
+      }
+    }
+  }
+  END {
+    print "]";
+  }' gas_benchmark.md > ./bench-out/l1-gas.bench.json
+}
 
 function gas_benchmark {
   check=${1:-"no"}
-  echo_header "Benchmarking gas"
 
   validator_costs
 
@@ -149,7 +225,6 @@ function gas_benchmark {
 }
 
 function validator_costs {
-  echo_header "Comparing gas costs with and without validators"
   forge --version
 
   # Run test without validators
@@ -158,7 +233,6 @@ function validator_costs {
     --match-contract "BenchmarkRollupTest" \
     --match-test "test_no_validators" \
     --fuzz-seed 42 \
-    --isolate \
     > no_validators.tmp
 
   # Run test with 100 validators
@@ -167,15 +241,14 @@ function validator_costs {
     --match-contract "BenchmarkRollupTest" \
     --match-test "test_100_validators" \
     --fuzz-seed 42 \
-    --isolate \
     > with_validators.tmp
 
   file_no="no_validators.tmp"          # without validators
   file_yes="with_validators.tmp"       # with    validators
-  report="gas_benchmark.new.md"       # will be overwritten each run
+  report="gas_benchmark.new.md"        # will be overwritten each run
 
   # keep ONLY these functions, in this order
-  wanted_funcs="forward submitEpochRootProof"
+  wanted_funcs="forward setupEpoch submitEpochRootProof"
 
   # one label per numeric column (use | to separate)
   labels='Min|Avg|Median|Max|# Calls'
@@ -364,7 +437,7 @@ case "$cmd" in
     shift
     gas_benchmark "$@"
     ;;
-  test|test_cmds|inspect|release)
+  test|test_cmds|bench|bench_cmds|inspect|release)
     $cmd
     ;;
   "hash")

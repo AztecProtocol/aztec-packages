@@ -1,6 +1,6 @@
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { codegen } from '@aztec/noir-noir_codegen';
-import { type CompiledCircuit } from '@aztec/noir-types';
+import type { CompiledCircuit } from '@aztec/noir-types';
 
 import { pascalCase } from 'change-case';
 import { promises as fs } from 'fs';
@@ -34,7 +34,7 @@ const main = async () => {
 
   try {
     await fs.access('./src/types/');
-  } catch (error) {
+  } catch {
     await fs.mkdir('./src/types', { recursive: true });
   }
   const programs: [string, CompiledCircuit][] = [];
@@ -51,6 +51,12 @@ const main = async () => {
   );
 
   code += `
+    // Types added manually.
+    export type LogHash = {
+      value: Field;
+      length: u32;
+    }
+
     export * from '../artifacts/types.js';
   `;
   await fs.writeFile('./src/types/index.ts', code);

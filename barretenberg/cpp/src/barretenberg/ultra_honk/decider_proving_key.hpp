@@ -9,10 +9,10 @@
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
+#include "barretenberg/honk/composer/composer_lib.hpp"
+#include "barretenberg/honk/composer/permutation_lib.hpp"
+#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
@@ -173,8 +173,8 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
             // Set the pairing point accumulator indices. This should exist for all flavors.
             ASSERT(circuit.pairing_inputs_public_input_key.is_set() &&
-                   "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a "
-                   "default one through a method in PairingPoints.");
+                   "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a \
+                   default one through a method in PairingPoints.");
             proving_key.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
             if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
@@ -214,7 +214,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             } else if constexpr (IsMegaFlavor<Flavor>) { // for Mega flavors, we expect the public inputs to be:
                                                          // [user-public-inputs][pairing-point-object][databus-comms]
                 if (proving_key.databus_propagation_data.is_kernel) {
-                    info(proving_key.databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
 
                     BB_ASSERT_EQ(
                         proving_key.databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,

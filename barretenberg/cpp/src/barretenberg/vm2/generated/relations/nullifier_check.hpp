@@ -62,14 +62,14 @@ template <typename FF_> class nullifier_checkImpl {
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = in.get(C::nullifier_check_write) * (in.get(C::nullifier_check_tree_size_before_write) -
-                                                           in.get(C::nullifier_check_write_low_leaf_next_index));
+                                                           in.get(C::nullifier_check_updated_low_leaf_next_index));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = in.get(C::nullifier_check_write) * (in.get(C::nullifier_check_nullifier) -
-                                                           in.get(C::nullifier_check_write_low_leaf_next_nullifier));
+                                                           in.get(C::nullifier_check_updated_low_leaf_next_nullifier));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }

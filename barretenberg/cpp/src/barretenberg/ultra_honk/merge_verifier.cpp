@@ -10,8 +10,8 @@
 
 namespace bb {
 
-MergeVerifier::MergeVerifier()
-    : transcript(std::make_shared<Transcript>()){};
+MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript)
+    : transcript(transcript){};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -28,14 +28,13 @@ MergeVerifier::MergeVerifier()
  */
 bool MergeVerifier::verify_proof(const HonkProof& proof)
 {
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
 
     uint32_t subtable_size = transcript->template receive_from_prover<uint32_t>("subtable_size");
 
     // Receive table column polynomial commitments [t_j], [T_{j,prev}], and [T_j], j = 1,2,3,4
     std::array<Commitment, NUM_WIRES> t_commitments;
     std::array<Commitment, NUM_WIRES> T_prev_commitments;
-    std::array<Commitment, NUM_WIRES> T_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         std::string suffix = std::to_string(idx);
         t_commitments[idx] = transcript->template receive_from_prover<Commitment>("t_CURRENT_" + suffix);

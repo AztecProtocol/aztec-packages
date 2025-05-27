@@ -1,4 +1,4 @@
-import { type ContractArtifact, AztecAddress, Fr, TxReceipt, type AuthWitness, type TxHash, Fq } from '@aztec/aztec.js';
+import { type ContractArtifact, AztecAddress, Fr, TxReceipt, type AuthWitness, type TxHash, Fq, TxStatus } from '@aztec/aztec.js';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore, type AztecAsyncMultiMap } from '@aztec/kv-store';
 import { stringify } from 'buffer-json';
@@ -116,6 +116,11 @@ export class WalletDB {
   }
 
   async storeContract(address: AztecAddress, artifact: ContractArtifact, log: LogFn = this.#userLog, alias?: string) {
+    const existing = await this.#aliases.getAsync(`artifacts:${address.toString()}`);
+    if (existing) {
+      throw new Error('Contract with this address already exists');
+    }
+
     if (alias) {
       await this.#aliases.set(`contracts:${alias}`, Buffer.from(address.toString()));
       await this.#aliases.set(`artifacts:${alias}`, Buffer.from(stringify(artifact)));
@@ -151,10 +156,29 @@ export class WalletDB {
     }
     await this.#transactionsPerContract.set(`${contractAddress.toString()}`, Buffer.from(txHash.toString()));
 
+    await this.#transactions.set(`${txHash.toString()}:hash`, Buffer.from(txHash.toString()));
     await this.#transactions.set(`${txHash.toString()}:name`, Buffer.from(name));
     await this.#transactions.set(`${txHash.toString()}:status`, Buffer.from(receipt.status.toString()));
     await this.#transactions.set(`${txHash.toString()}:date`, Buffer.from(Date.now().toString()));
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
+  }
+
+  async updateTxStatus(txHash: TxHash, status: TxStatus) {
+    await this.#transactions.set(`${txHash.toString()}:status`, Buffer.from(status.toString()));
+  }
+
+  async retrieveAllTx() {
+    const result = [];
+    if (!this.#transactions) {
+      return result;
+    }
+
+    for await (const [key, txHash] of this.#transactions.entriesAsync()) {
+      if (key.endsWith(':hash')) {
+        result.push(txHash.toString());
+      }
+    }
+    return result;
   }
 
   async retrieveTxsPerContract(contractAddress: AztecAddress) {
@@ -175,7 +199,7 @@ export class WalletDB {
     const name = nameBuffer.toString();
     const status = (await this.#transactions.getAsync(`${txHash.toString()}:status`))!.toString();
 
-    const date = await this.#transactions.getAsync(`${txHash.toString()}:date`)!.toString();
+    const date = (await this.#transactions.getAsync(`${txHash.toString()}:date`))!.toString();
 
     return {
       txHash,
@@ -226,7 +250,7 @@ export class WalletDB {
 
   async retrieveAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string) {
     const { address } = await this.retrieveAccount(aliasOrAddress);
-    const result = this.#accounts.getAsync(`${address.toString()}:${metadataKey}`);
+    const result = await this.#accounts.getAsync(`${address.toString()}:${metadataKey}`);
     if (!result) {
       throw new Error(`Could not find metadata with key ${metadataKey} for account ${aliasOrAddress}`);
     }
@@ -293,6 +317,10 @@ export class NetworkDB {
 
   async listNetworks() {
     const result = [];
+    if (!this.#networks) {
+      return result;
+    }
+
     for await (const [key, value] of this.#networks.entriesAsync()) {
       result.push({ key, value: value.toString() });
     }

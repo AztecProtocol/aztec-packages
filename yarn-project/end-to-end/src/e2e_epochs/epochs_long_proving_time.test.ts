@@ -1,16 +1,17 @@
 import { type Logger, sleep } from '@aztec/aztec.js';
-// eslint-disable-next-line no-restricted-imports
 import { ChainMonitor } from '@aztec/ethereum/test';
 
 import { jest } from '@jest/globals';
 
-import { EpochsTestContext, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_L1_SLOTS } from './epochs_test.js';
+import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
 describe('e2e_epochs/epochs_long_proving_time', () => {
   let logger: Logger;
   let monitor: ChainMonitor;
+
+  let L1_BLOCK_TIME_IN_S: number;
 
   let test: EpochsTestContext;
 
@@ -19,10 +20,11 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     //  1) base parity, 2) root parity, 3) empty block, and 4) epoch root.
     // So we delay proving of each circuit such that each epoch takes 3 epochs to prove.
     const aztecEpochDuration = 2;
-    const epochDurationInSeconds = L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS * aztecEpochDuration;
+    const { aztecSlotDuration } = EpochsTestContext.getSlotDurations({ aztecEpochDuration });
+    const epochDurationInSeconds = aztecSlotDuration * aztecEpochDuration;
     const proverTestDelayMs = (epochDurationInSeconds * 1000 * 3) / 4;
     test = await EpochsTestContext.setup({ aztecEpochDuration, aztecProofSubmissionWindow: 16, proverTestDelayMs });
-    ({ logger, monitor } = test);
+    ({ logger, monitor, L1_BLOCK_TIME_IN_S } = test);
     logger.warn(`Initialized with prover delay set to ${proverTestDelayMs}ms (epoch is ${epochDurationInSeconds}s)`);
   });
 

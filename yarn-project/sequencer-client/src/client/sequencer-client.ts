@@ -16,6 +16,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import { LightweightBlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { SlasherClient } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -28,7 +29,6 @@ import type { SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
-import type { SlasherClient } from '../slasher/index.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -157,7 +157,7 @@ export class SequencerClient {
     // make it with a propagation time into slot equal to 4s. However, we prefer being conservative.
     // See https://www.blocknative.com/blog/anatomy-of-a-slot#7 for more info.
     const maxL1TxInclusionTimeIntoSlot =
-      config.maxL1TxInclusionTimeIntoSlot ?? isAnvilTestChain(config.l1ChainId) ? ethereumSlotDuration : 0;
+      (config.maxL1TxInclusionTimeIntoSlot ?? isAnvilTestChain(config.l1ChainId)) ? ethereumSlotDuration : 0;
 
     const l1Constants = {
       l1GenesisTime,
@@ -212,6 +212,10 @@ export class SequencerClient {
    */
   public restart() {
     this.sequencer.restart();
+  }
+
+  public getSequencer(): Sequencer {
+    return this.sequencer;
   }
 
   get coinbase(): EthAddress {

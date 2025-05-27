@@ -266,17 +266,6 @@
     "isAsync": false
   },
   {
-    "functionName": "examples_simple_create_and_verify_proof",
-    "inArgs": [],
-    "outArgs": [
-      {
-        "name": "valid",
-        "type": "bool *"
-      }
-    ],
-    "isAsync": false
-  },
-  {
     "functionName": "test_threads",
     "inArgs": [
       {
@@ -331,80 +320,6 @@
       {
         "name": "subgroup",
         "type": "uint32_t *"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "acir_new_acir_composer",
-    "inArgs": [
-      {
-        "name": "size_hint",
-        "type": "const uint32_t *"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "out",
-        "type": "out_ptr"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "acir_delete_acir_composer",
-    "inArgs": [
-      {
-        "name": "acir_composer_ptr",
-        "type": "in_ptr"
-      }
-    ],
-    "outArgs": [],
-    "isAsync": false
-  },
-  {
-    "functionName": "acir_init_proving_key",
-    "inArgs": [
-      {
-        "name": "acir_composer_ptr",
-        "type": "in_ptr"
-      },
-      {
-        "name": "constraint_system_buf",
-        "type": "const uint8_t *"
-      },
-      {
-        "name": "recursive",
-        "type": "const bool *"
-      }
-    ],
-    "outArgs": [],
-    "isAsync": false
-  },
-  {
-    "functionName": "acir_create_proof",
-    "inArgs": [
-      {
-        "name": "acir_composer_ptr",
-        "type": "in_ptr"
-      },
-      {
-        "name": "constraint_system_buf",
-        "type": "const uint8_t *"
-      },
-      {
-        "name": "recursive",
-        "type": "const bool *"
-      },
-      {
-        "name": "witness_buf",
-        "type": "const uint8_t *"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "out",
-        "type": "uint8_t **"
       }
     ],
     "isAsync": false
@@ -696,6 +611,66 @@
     "isAsync": false
   },
   {
+    "functionName": "acir_prove_ultra_keccak_zk_honk",
+    "inArgs": [
+      {
+        "name": "acir_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "witness_vec",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_prove_ultra_starknet_honk",
+    "inArgs": [
+      {
+        "name": "acir_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "witness_vec",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_prove_ultra_starknet_zk_honk",
+    "inArgs": [
+      {
+        "name": "acir_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "witness_vec",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "acir_verify_ultra_honk",
     "inArgs": [
       {
@@ -736,6 +711,66 @@
     "isAsync": false
   },
   {
+    "functionName": "acir_verify_ultra_keccak_zk_honk",
+    "inArgs": [
+      {
+        "name": "proof_buf",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_verify_ultra_starknet_honk",
+    "inArgs": [
+      {
+        "name": "proof_buf",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_verify_ultra_starknet_zk_honk",
+    "inArgs": [
+      {
+        "name": "proof_buf",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "acir_write_vk_ultra_honk",
     "inArgs": [
       {
@@ -753,6 +788,54 @@
   },
   {
     "functionName": "acir_write_vk_ultra_keccak_honk",
+    "inArgs": [
+      {
+        "name": "acir_vec",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_write_vk_ultra_keccak_zk_honk",
+    "inArgs": [
+      {
+        "name": "acir_vec",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_write_vk_ultra_starknet_honk",
+    "inArgs": [
+      {
+        "name": "acir_vec",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_write_vk_ultra_starknet_zk_honk",
     "inArgs": [
       {
         "name": "acir_vec",

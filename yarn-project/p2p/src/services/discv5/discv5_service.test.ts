@@ -12,6 +12,7 @@ import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 
 import { BootstrapNode } from '../../bootstrap/bootstrap.js';
 import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { AZTEC_ENR_CLIENT_VERSION_KEY } from '../../types/index.js';
 import { PeerDiscoveryState } from '../service.js';
 import { DiscV5Service } from './discV5_service.js';
 
@@ -342,6 +343,13 @@ describe('Discv5Service', () => {
     await stopNodes(node1, node2, node3, privateNode);
   }, 30_000);
 
+  it('should set client version to ENR', async () => {
+    const node = await createNode();
+    const enr = node.getEnr();
+    expect(enr.kvs.get(AZTEC_ENR_CLIENT_VERSION_KEY)?.toString()).toEqual(testPackageVersion);
+  });
+
+  const testPackageVersion = 'test-discv5-service';
   const createNode = async (overrides: Partial<P2PConfig & IDiscv5CreateOptions> = {}, useBootnode = true) => {
     const port = ++basePort;
     const bootnodeAddr = bootNode.getENR().encodeTxt();
@@ -357,9 +365,8 @@ describe('Discv5Service', () => {
       peerCheckIntervalMS: 50,
       p2pEnabled: true,
       l2QueueSize: 100,
-      keepProvenTxsInPoolFor: 0,
       ...overrides,
     };
-    return new DiscV5Service(peerId, config, undefined, undefined, overrides);
+    return new DiscV5Service(peerId, config, testPackageVersion, undefined, undefined, overrides);
   };
 });

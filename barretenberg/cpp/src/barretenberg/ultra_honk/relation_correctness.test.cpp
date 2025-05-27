@@ -1,5 +1,5 @@
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
-#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
+#include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
@@ -8,7 +8,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
@@ -171,7 +171,7 @@ template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_bui
 
 class UltraRelationCorrectnessTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 /**

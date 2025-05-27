@@ -79,6 +79,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
     isStaticCall: boolean,
     calldata: Fr[],
     allocatedGas: Gas,
+    clientInitiatedSimulation: boolean = false,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
@@ -88,6 +89,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
       globals,
       isStaticCall,
       calldata,
+      clientInitiatedSimulation,
     );
 
     const avmMachineState = new AvmMachineState(allocatedGas);
@@ -108,7 +110,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
         throw err;
       }
       return await this.handleFailureToRetrieveBytecode(
-        `Bytecode retrieval for contract '${this.context.environment.address}' failed with ${err}. Reverting...`,
+        `Bytecode retrieval for contract '${this.context.environment.address}' failed with ${err.message}. Reverting...`,
       );
     }
 

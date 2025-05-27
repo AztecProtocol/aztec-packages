@@ -1,8 +1,9 @@
+#include "barretenberg/srs/global_crs.hpp"
 #ifndef DISABLE_AZTEC_VM
 
-#include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
+#include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
@@ -43,24 +44,23 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
     using OuterVerificationKey = OuterFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
 
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static InnerCircuitData create_inner_circuit_data()
     {
         auto [trace, public_inputs] = avm2::testing::get_minimal_trace_with_pi();
 
         InnerProver prover;
-        const auto [proof, vk_data] = prover.prove(std::move(trace));
+        auto [proof, vk_data] = prover.prove(std::move(trace));
         const auto verification_key = InnerProver::create_verification_key(vk_data);
 
         const bool verified = prover.verify(proof, public_inputs, vk_data);
         EXPECT_TRUE(verified) << "native proof verification failed";
 
         const auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());
+
+        // TODO(#14234)[Unconditional PIs validation]: Remove next line
+        proof.insert(proof.begin(), 0);
         return { proof, verification_key, public_inputs_flat };
     }
 

@@ -89,13 +89,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     };
 
   public:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
-        }
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
      * @brief Construct a recursive verification circuit for the proof of an inner circuit then  check the number of
@@ -116,8 +110,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-        auto points_accumulator = PairingObject::construct_default(outer_circuit);
-        VerifierOutput output = verifier.verify_proof(inner_proof, points_accumulator);
+        VerifierOutput output = verifier.verify_proof(inner_proof);
         PairingObject pairing_points = output.points_accumulator;
         pairing_points.P0.x.fix_witness();
         pairing_points.P0.y.fix_witness();

@@ -36,11 +36,8 @@ fi
 
 # If redis isn't available, neither is the test cache.
 if [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
-  echo_stderr "${yellow}Redis unavailable. Disabling test cache.${reset}"
+  echo_stderr -e "${yellow}Redis unavailable. Disabling test cache.${reset}"
   export USE_TEST_CACHE=0
-else
-  # Default to not using test cache.
-  export USE_TEST_CACHE=${USE_TEST_CACHE:-0}
 fi
 
 # Will set log expiry to 2 weeks in CI, and 8 hours for local runs.
