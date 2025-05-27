@@ -34,53 +34,60 @@ use crate::{
 
 use std::aes128::aes128_encrypt;
 
-/**
- * Unsafe because of https://eprint.iacr.org/2010/264.pdf Page 13, Lemma 2 (and the 
- * two paragraphs below it).
- *
- * If you call this function, you need to be careful and aware of how the arg
- * `shared_secret` has been derived.
- *
- * The paper says that the way you derive aes keys and IVs should be fine with poseidon2
- * (modelled as a RO), as long as you _don't_ use Poseidon2 as a PRG to generate the 
- * two exponents x & y which multiply to the shared secret S:
- *
- * S = [x*y]*G.
- *
- * (Otherwise, you would have to "key" poseidon2, i.e. generate a uniformly string K
- * which can be public and compute Hash(x) as poseidon(K,x)).
- * In that lemma, k would be 2*254=508, and m would be the number of points on the 
- * grumpkin curve (which is close to r according to the Hasse bound).
- *
- * Our shared secret S is [esk * address_sk] * G, and the question is: 
- * Can we compute hash(S) using poseidon2 instead of sha256?
- *
- * Well, esk is random and not generated with poseidon2, so that's good.
- * What about address_sk?
- * Well, address_sk = poseidon2(stuff) + ivsk, so there was some
- * discussion about whether address_sk is independent of poseidon2.
- * Given that ivsk is random and independent of poseidon2, the address_sk is also
- * independent of poseidon2.
- *
- * Tl;dr: we believe it's safe to hash S = [esk * address_sk] * G using poseidon2,
- * in order to derive a symmetric key.
- *
- * If you're calling this function for a differently-derived `shared_secret`, be
- * careful.
- *
+/** Computes a close-to-uniformly-random 256 bits from a given ECDH shared_secret.
+ * Unsafe, because the caller must understand how the shared_secret has been derived,
+ * otherwise usage of this function this could be insecure.
+ * See big comment within the body of the function.
  */
 fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe(
     shared_secret: Point,
 ) -> [u8; 32] {
-    // The output of this function needs to be 32 random bytes.
-    // A single field won't give us 32 bytes of entropy.
-    // So we compute two "random" fields, by poseidon-hashing with two different
-    // generators.
-    // We then extract the last 16 (big endian) bytes of each "random" field.
-    // Note: we use to_be_bytes because it's slightly more efficient. But we have to
-    // be careful not to take bytes from the "big end", because the "big" byte is
-    // not uniformly random over the byte: it only has < 6 bits of randomness, because
-    // it's the big end of a 254-bit field element.
+    /*
+     * Unsafe because of https://eprint.iacr.org/2010/264.pdf Page 13, Lemma 2 (and the 
+     * two paragraphs below it).
+     *
+     * If you call this function, you need to be careful and aware of how the arg
+     * `shared_secret` has been derived.
+     *
+     * The paper says that the way you derive aes keys and IVs should be fine with poseidon2
+     * (modelled as a RO), as long as you _don't_ use Poseidon2 as a PRG to generate the 
+     * two exponents x & y which multiply to the shared secret S:
+     *
+     * S = [x*y]*G.
+     *
+     * (Otherwise, you would have to "key" poseidon2, i.e. generate a uniformly string K
+     * which can be public and compute Hash(x) as poseidon(K,x)).
+     * In that lemma, k would be 2*254=508, and m would be the number of points on the 
+     * grumpkin curve (which is close to r according to the Hasse bound).
+     *
+     * Our shared secret S is [esk * address_sk] * G, and the question is: 
+     * Can we compute hash(S) using poseidon2 instead of sha256?
+     *
+     * Well, esk is random and not generated with poseidon2, so that's good.
+     * What about address_sk?
+     * Well, address_sk = poseidon2(stuff) + ivsk, so there was some
+     * discussion about whether address_sk is independent of poseidon2.
+     * Given that ivsk is random and independent of poseidon2, the address_sk is also
+     * independent of poseidon2.
+     *
+     * Tl;dr: we believe it's safe to hash S = [esk * address_sk] * G using poseidon2,
+     * in order to derive a symmetric key.
+     *
+     * If you're calling this function for a differently-derived `shared_secret`, be
+     * careful.
+     *
+     */
+
+    /* The output of this function needs to be 32 random bytes.
+     * A single field won't give us 32 bytes of entropy.
+     * So we compute two "random" fields, by poseidon-hashing with two different
+     * generators.
+     * We then extract the last 16 (big endian) bytes of each "random" field.
+     * Note: we use to_be_bytes because it's slightly more efficient. But we have to
+     * be careful not to take bytes from the "big end", because the "big" byte is
+     * not uniformly random over the byte: it only has < 6 bits of randomness, because
+     * it's the big end of a 254-bit field element.
+     */
 
     let rand1: Field = poseidon2_hash_with_separator(
         [shared_secret.x, shared_secret.y],
