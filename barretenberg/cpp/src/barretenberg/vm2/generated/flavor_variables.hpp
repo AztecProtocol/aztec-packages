@@ -74,6 +74,7 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2458;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 178;
@@ -85,8 +86,44 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_ALL_ENTITIES = 2712;
 =======
     static constexpr size_t NUM_ALL_ENTITIES = 2638;
+<<<<<<< HEAD
 >>>>>>> 29603e509e (keccakf1600: permutation without memory)
+<<<<<<< HEAD
 >>>>>>> 6e0c4ea535 (keccakf1600: permutation without memory)
+=======
+=======
+<<<<<<< HEAD
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2637;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 73;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2159;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 154;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2386;
+=======
+=======
+>>>>>>> 209278ea42 (Remove dummy columns in keccak)
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 75;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 1707;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 180;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 2986;
+>>>>>>> 49adc1e822 (keccakf1600: permutation without memory)
+>>>>>>> 78efe0b47a (keccakf1600: permutation without memory)
+<<<<<<< HEAD
+>>>>>>> a53e582be1 (keccakf1600: permutation without memory)
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 1962;
+>>>>>>> 209278ea42 (Remove dummy columns in keccak)
+>>>>>>> c1fc7163b8 (Remove dummy columns in keccak)
+>>>>>>> 6d2b36e63d (Remove dummy columns in keccak)
+>>>>>>> 36ffcf63f7 (Remove dummy columns in keccak)
+>>>>>>> 6ebb74abe9 (Remove dummy columns in keccak)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
