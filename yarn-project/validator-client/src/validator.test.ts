@@ -20,7 +20,6 @@ import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 
 import type { ValidatorClientConfig } from './config.js';
 import {
   AttestationTimeoutError,
-  BlockBuilderNotProvidedError,
   InvalidValidatorPrivateKeyError,
   TransactionsNotAvailableError,
 } from './errors/validator.error.js';
@@ -61,16 +60,6 @@ describe('ValidatorClient', () => {
     expect(() => ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
       InvalidValidatorPrivateKeyError,
     );
-  });
-
-  it('Should throw an error if re-execution is enabled but no block builder is provided', async () => {
-    config.validatorReexecute = true;
-    const fakeTx = await mockTx();
-    p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(fakeTx));
-    const val = ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider);
-    await expect(
-      val.reExecuteTransactions(makeBlockProposal({ txs: [fakeTx], txHashes: [await fakeTx.getTxHash()] }), [fakeTx]),
-    ).rejects.toThrow(BlockBuilderNotProvidedError);
   });
 
   it('Should create a valid block proposal with txs', async () => {
@@ -168,17 +157,6 @@ describe('ValidatorClient', () => {
       config.validatorPrivateKey = '0x1234567890123456789';
       expect(() => ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
         InvalidValidatorPrivateKeyError,
-      );
-    });
-
-    it('should throw an error if re-execution is enabled but no block builder is provided', async () => {
-      config.validatorReexecute = true;
-      const tx = await mockTx();
-      const txHashes = await Promise.all([tx.getTxHash()]);
-      p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(tx));
-      const val = ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider);
-      await expect(val.reExecuteTransactions(makeBlockProposal({ txs: [tx], txHashes }), [tx])).rejects.toThrow(
-        BlockBuilderNotProvidedError,
       );
     });
   });

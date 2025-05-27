@@ -37,6 +37,18 @@ import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
+export interface PublicProcessorLimits {
+  maxTransactions?: number;
+  maxBlockSize?: number;
+  maxBlockGas?: Gas;
+  deadline?: Date;
+}
+
+export interface PublicProcessorValidator {
+  preprocessValidator?: TxValidator<Tx>;
+  nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
+}
+
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
  */
@@ -139,16 +151,8 @@ export class PublicProcessor implements Traceable {
    */
   public async process(
     txs: Iterable<Tx> | AsyncIterable<Tx>,
-    limits: {
-      maxTransactions?: number;
-      maxBlockSize?: number;
-      maxBlockGas?: Gas;
-      deadline?: Date;
-    } = {},
-    validator: {
-      preprocessValidator?: TxValidator<Tx>;
-      nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
-    } = {},
+    limits: PublicProcessorLimits = {},
+    validator: PublicProcessorValidator = {},
   ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> {
     const { maxTransactions, maxBlockSize, deadline, maxBlockGas } = limits;
     const { preprocessValidator, nullifierCache } = validator;

@@ -3,12 +3,23 @@ import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { LightweightBlockBuilder } from '@aztec/prover-client/block-builder';
-import { PublicContractsDB, PublicProcessor, TelemetryPublicTxSimulator } from '@aztec/simulator/server';
+import {
+  PublicContractsDB,
+  PublicProcessor,
+  type PublicProcessorValidator,
+  TelemetryPublicTxSimulator,
+} from '@aztec/simulator/server';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
-import type { BuildBlockOptions, FullNodeBlockBuilder, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  BuildBlockOptions,
+  BuildBlockResult,
+  FullNodeBlockBuilder,
+  MerkleTreeWriteOperations,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { GlobalVariables, ProposedBlockHeader, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -29,12 +40,13 @@ export async function buildBlock(
   newGlobalVariables: GlobalVariables,
   opts: BuildBlockOptions = {},
   l1ToL2MessageSource: L1ToL2MessageSource,
-  worldState: WorldStateSynchronizer,
-  contractDataSource: ContractDataSource,
+  worldStateFork: MerkleTreeWriteOperations,
+  processor: PublicProcessor,
+  validator: PublicProcessorValidator,
   l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'>,
   dateProvider: DateProvider,
   telemetryClient: TelemetryClient = getTelemetryClient(),
-) {
+): Promise<BuildBlockResult> {
   const blockNumber = newGlobalVariables.blockNumber.toNumber();
   const slot = newGlobalVariables.slotNumber.toBigInt();
   log.debug(`Requesting L1 to L2 messages from contract for block ${blockNumber}`);
@@ -48,44 +60,9 @@ export async function buildBlock(
     validator: opts.validateOnly,
   });
 
-  // Sync to the previous block at least. If we cannot sync to that block because the archiver hasn't caught up,
-  // we keep retrying until the reexecution deadline. Note that this could only happen when we are a validator,
-  // for if we are the proposer, then world-state should already be caught up, as we check this earlier.
-  await retryUntil(
-    () =>
-      !opts.validateOnly ||
-      worldState.syncImmediate(blockNumber - 1, true).then(syncedTo => syncedTo >= blockNumber - 1),
-    'sync to previous block',
-    l1Constants.slotDuration,
-    0.1,
-  );
-  log.debug(`Synced to previous block ${blockNumber - 1}`);
-
-  const publicProcessorDBFork = await worldState.fork();
-
   try {
-    const contractsDB = new PublicContractsDB(contractDataSource);
-
-    const publicTxSimulator = new TelemetryPublicTxSimulator(
-      publicProcessorDBFork,
-      contractsDB,
-      newGlobalVariables,
-      /*doMerkleOperations=*/ true,
-      /*skipFeeEnforcement=*/ true,
-      /*clientInitiatedSimulation=*/ false,
-      telemetryClient,
-    );
-
-    const processor = new PublicProcessor(
-      newGlobalVariables,
-      publicProcessorDBFork,
-      contractsDB,
-      publicTxSimulator,
-      dateProvider,
-      telemetryClient,
-    );
     const blockBuildingTimer = new Timer();
-    const blockBuilder = new LightweightBlockBuilder(publicProcessorDBFork, telemetryClient);
+    const blockBuilder = new LightweightBlockBuilder(worldStateFork, telemetryClient);
     await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
 
     log.verbose(`Processing pending txs`, {
@@ -94,13 +71,6 @@ export async function buildBlock(
       now: new Date(dateProvider.now()),
       deadline: opts.deadline,
     });
-
-    const validator = createValidatorForBlockBuilding(
-      publicProcessorDBFork,
-      contractDataSource,
-      newGlobalVariables,
-      opts.txPublicSetupAllowList ?? [],
-    );
 
     const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
       processor.process(pendingTxs, opts, validator),
@@ -135,13 +105,12 @@ export async function buildBlock(
       usedTxs,
     };
   } finally {
-    // We create a fresh processor each time to reset any cached state (eg storage writes)
     // We wait a bit to close the forks since the processor may still be working on a dangling tx
     // which was interrupted due to the processingDeadline being hit.
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     setTimeout(async () => {
       try {
-        await publicProcessorDBFork.close();
+        await worldStateFork.close();
       } catch (err) {
         // This can happen if the sequencer is stopped before we hit this timeout.
         log.warn(`Error closing forks for block processing`, err);
@@ -161,30 +130,85 @@ export class BlockBuilder implements FullNodeBlockBuilder {
     private telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 
-  buildBlockAsProposer(
+  protected async makeBlockBuilderDeps(globalVariables: GlobalVariables, opts: BuildBlockOptions) {
+    // const parentBlockNumber = globalVariables.blockNumber.toNumber() - 1;
+    const publicProcessorDBFork = await this.worldState.fork();
+    const contractsDB = new PublicContractsDB(this.contractDataSource);
+
+    const publicTxSimulator = new TelemetryPublicTxSimulator(
+      publicProcessorDBFork,
+      contractsDB,
+      globalVariables,
+      /*doMerkleOperations=*/ true,
+      /*skipFeeEnforcement=*/ true,
+      /*clientInitiatedSimulation=*/ false,
+      this.telemetryClient,
+    );
+
+    const processor = new PublicProcessor(
+      globalVariables,
+      publicProcessorDBFork,
+      contractsDB,
+      publicTxSimulator,
+      this.dateProvider,
+      this.telemetryClient,
+    );
+    const validator = createValidatorForBlockBuilding(
+      publicProcessorDBFork,
+      this.contractDataSource,
+      globalVariables,
+      opts.txPublicSetupAllowList ?? [],
+    );
+
+    return {
+      publicProcessorDBFork,
+      processor,
+      validator,
+    };
+  }
+
+  private async syncToPreviousBlock(globalVariables: GlobalVariables, opts: BuildBlockOptions) {
+    const parentBlockNumber = globalVariables.blockNumber.toNumber() - 1;
+    const deadline = opts.deadline ? opts.deadline.getTime() - this.dateProvider.now() : undefined;
+    await retryUntil(
+      () =>
+        !opts.validateOnly ||
+        this.worldState.syncImmediate(parentBlockNumber, true).then(syncedTo => syncedTo >= parentBlockNumber),
+      'sync to previous block',
+      deadline,
+      0.1,
+    );
+    log.debug(`Synced to previous block ${parentBlockNumber}`);
+  }
+
+  async buildBlockAsProposer(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     globalVariables: GlobalVariables,
     opts: BuildBlockOptions,
-  ) {
+  ): Promise<BuildBlockResult> {
+    const { publicProcessorDBFork, processor, validator } = await this.makeBlockBuilderDeps(globalVariables, opts);
+    await this.syncToPreviousBlock(globalVariables, opts);
+
     return buildBlock(
       pendingTxs,
       globalVariables,
       opts,
       this.l1ToL2MessageSource,
-      this.worldState,
-      this.contractDataSource,
+      publicProcessorDBFork,
+      processor,
+      validator,
       this.config,
       this.dateProvider,
       this.telemetryClient,
     );
   }
 
-  buildBlockAsValidator(
+  async buildBlockAsValidator(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: Fr,
     header: ProposedBlockHeader,
     opts: BuildBlockOptions,
-  ) {
+  ): Promise<BuildBlockResult> {
     const globalVariables = GlobalVariables.from({
       ...header,
       blockNumber,
@@ -192,13 +216,17 @@ export class BlockBuilder implements FullNodeBlockBuilder {
       chainId: new Fr(this.config.l1ChainId),
       version: new Fr(this.config.rollupVersion),
     });
+    const { publicProcessorDBFork, processor, validator } = await this.makeBlockBuilderDeps(globalVariables, opts);
+    await this.syncToPreviousBlock(globalVariables, opts);
+
     return buildBlock(
       pendingTxs,
       globalVariables,
       opts,
       this.l1ToL2MessageSource,
-      this.worldState,
-      this.contractDataSource,
+      publicProcessorDBFork,
+      processor,
+      validator,
       this.config,
       this.dateProvider,
       this.telemetryClient,

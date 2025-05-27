@@ -453,13 +453,6 @@ export class Sequencer {
     proposalHeader: ProposedBlockHeader,
     newGlobalVariables: GlobalVariables,
   ): Promise<void> {
-    const txs = [];
-    for await (const tx of pendingTxs) {
-      txs.push(tx);
-    }
-    this.log.debug(`Building block with ${txs.length} txs`, {
-      pendingTxs: txs.map(tx => tx.getTxHash()),
-    });
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
     const blockNumber = newGlobalVariables.blockNumber.toNumber();
