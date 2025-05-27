@@ -66,7 +66,9 @@ struct GasEvent {
 
     Gas dynamic_gas_factor = { 0, 0 };
     Gas dynamic_gas = { 0, 0 };
-    Gas dynamic_gas_used = { 0, 0 };
+
+    uint64_t limit_used_l2_cmp_diff;
+    uint64_t limit_used_da_cmp_diff;
 
     bool oog_base_l2 = false;
     bool oog_base_da = false;
