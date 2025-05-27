@@ -111,6 +111,8 @@ pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Typ
                 $hasher_name.add_multiple($serialized_name[i]);
             }
         }
+    } else if typ.as_tuple().is_some() {
+        // TODO: What do?
     } else if typ.as_str().is_some() {
         quote {
             $hasher_name.add_multiple($name.as_bytes().map(| byte: u8 | byte as Field));
