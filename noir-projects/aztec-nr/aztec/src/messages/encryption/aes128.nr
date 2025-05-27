@@ -48,25 +48,21 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
     shared_secret: Point,
 ) -> [u8; 32] {
     /*
-     * Unsafe because of https://eprint.iacr.org/2010/264.pdf Page 13, Lemma 2 (and the 
-     * two paragraphs below it).
+     * Unsafe because of https://eprint.iacr.org/2010/264.pdf Page 13, Lemma 2 (and the * two paragraphs below it).
      *
      * If you call this function, you need to be careful and aware of how the arg
      * `shared_secret` has been derived.
      *
      * The paper says that the way you derive aes keys and IVs should be fine with poseidon2
-     * (modelled as a RO), as long as you _don't_ use Poseidon2 as a PRG to generate the 
-     * two exponents x & y which multiply to the shared secret S:
+     * (modelled as a RO), as long as you _don't_ use Poseidon2 as a PRG to generate the * two exponents x & y which multiply to the shared secret S:
      *
      * S = [x*y]*G.
      *
      * (Otherwise, you would have to "key" poseidon2, i.e. generate a uniformly string K
      * which can be public and compute Hash(x) as poseidon(K,x)).
-     * In that lemma, k would be 2*254=508, and m would be the number of points on the 
-     * grumpkin curve (which is close to r according to the Hasse bound).
+     * In that lemma, k would be 2*254=508, and m would be the number of points on the * grumpkin curve (which is close to r according to the Hasse bound).
      *
-     * Our shared secret S is [esk * address_sk] * G, and the question is: 
-     * Can we compute hash(S) using poseidon2 instead of sha256?
+     * Our shared secret S is [esk * address_sk] * G, and the question is: * Can we compute hash(S) using poseidon2 instead of sha256?
      *
      * Well, esk is random and not generated with poseidon2, so that's good.
      * What about address_sk?
