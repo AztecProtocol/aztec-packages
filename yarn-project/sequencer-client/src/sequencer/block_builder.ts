@@ -1,4 +1,4 @@
-import { Fr, elapsed } from '@aztec/aztec.js';
+import { elapsed } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
@@ -21,7 +21,7 @@ import type {
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { GlobalVariables, ProposedBlockHeader, Tx } from '@aztec/stdlib/tx';
+import { GlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
@@ -131,7 +131,16 @@ export class BlockBuilder implements FullNodeBlockBuilder {
     private telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 
-  protected async makeBlockBuilderDeps(globalVariables: GlobalVariables, opts: BuildBlockOptions) {
+  public getConfig() {
+    return {
+      l1GenesisTime: this.config.l1GenesisTime,
+      slotDuration: this.config.slotDuration,
+      l1ChainId: this.config.l1ChainId,
+      rollupVersion: this.config.rollupVersion,
+    };
+  }
+
+  public async makeBlockBuilderDeps(globalVariables: GlobalVariables, opts: BuildBlockOptions) {
     const publicProcessorDBFork = await this.worldState.fork();
     const contractsDB = new PublicContractsDB(this.contractDataSource);
 
@@ -181,41 +190,11 @@ export class BlockBuilder implements FullNodeBlockBuilder {
     log.debug(`Synced to previous block ${parentBlockNumber}`);
   }
 
-  async buildBlockAsProposer(
+  async buildBlock(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     globalVariables: GlobalVariables,
     opts: BuildBlockOptions,
   ): Promise<BuildBlockResult> {
-    await this.syncToPreviousBlock(globalVariables, opts);
-    const { publicProcessorDBFork, processor, validator } = await this.makeBlockBuilderDeps(globalVariables, opts);
-
-    return buildBlock(
-      pendingTxs,
-      globalVariables,
-      opts,
-      this.l1ToL2MessageSource,
-      publicProcessorDBFork,
-      processor,
-      validator,
-      this.config,
-      this.dateProvider,
-      this.telemetryClient,
-    );
-  }
-
-  async buildBlockAsValidator(
-    pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
-    blockNumber: Fr,
-    header: ProposedBlockHeader,
-    opts: BuildBlockOptions,
-  ): Promise<BuildBlockResult> {
-    const globalVariables = GlobalVariables.from({
-      ...header,
-      blockNumber,
-      timestamp: new Fr(header.timestamp),
-      chainId: new Fr(this.config.l1ChainId),
-      version: new Fr(this.config.rollupVersion),
-    });
     await this.syncToPreviousBlock(globalVariables, opts);
     const { publicProcessorDBFork, processor, validator } = await this.makeBlockBuilderDeps(globalVariables, opts);
 

@@ -178,7 +178,7 @@ describe('sequencer', () => {
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
 
     blockBuilder = mock<FullNodeBlockBuilder>();
-    blockBuilder.buildBlockAsProposer.mockImplementation(() =>
+    blockBuilder.buildBlock.mockImplementation(() =>
       Promise.resolve({
         block,
         publicGas: Gas.empty(),
@@ -298,7 +298,7 @@ describe('sequencer', () => {
       }),
     );
 
-    expect(blockBuilder.buildBlockAsProposer).not.toHaveBeenCalled();
+    expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
     expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
   });
 
@@ -314,7 +314,7 @@ describe('sequencer', () => {
     publisher.validateBlockForSubmission.mockRejectedValue(new Error());
 
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlockAsProposer).not.toHaveBeenCalled();
+    expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
     // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
     publisher.canProposeAtNextEthBlock.mockResolvedValue([
@@ -323,18 +323,14 @@ describe('sequencer', () => {
     ]);
 
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlockAsProposer).not.toHaveBeenCalled();
+    expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
     // Now it is!
     publisher.validateBlockForSubmission.mockClear();
     publisher.validateBlockForSubmission.mockResolvedValue(1n);
 
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlockAsProposer).toHaveBeenCalledWith(
-      expect.anything(),
-      globalVariables,
-      expect.anything(),
-    );
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
     expectPublisherProposeL2Block([txHash]);
   });
 
@@ -345,13 +341,13 @@ describe('sequencer', () => {
     // block is not built with 0 txs
     mockPendingTxs([]);
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlockAsProposer).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
     mockPendingTxs(txs.slice(0, 3));
 
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlockAsProposer).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // block is built with 4 txs
     const neededTxs = txs.slice(0, 4);
@@ -360,11 +356,7 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
 
-    expect(blockBuilder.buildBlockAsProposer).toHaveBeenCalledWith(
-      expect.anything(),
-      globalVariables,
-      expect.anything(),
-    );
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
 
     expectPublisherProposeL2Block(await Promise.all(neededTxs.map(tx => tx.getTxHash())));
   });
@@ -377,12 +369,12 @@ describe('sequencer', () => {
     // block is not built with 0 txs
     mockPendingTxs([]);
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlockAsProposer).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
     mockPendingTxs(txs.slice(0, 3));
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlockAsProposer).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // flush the sequencer and it should build a block
     sequencer.flush();
@@ -393,11 +385,7 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
 
-    expect(blockBuilder.buildBlockAsProposer).toHaveBeenCalledWith(
-      expect.anything(),
-      globalVariables,
-      expect.anything(),
-    );
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
     expectPublisherProposeL2Block([]);
   });
 
@@ -409,12 +397,12 @@ describe('sequencer', () => {
     // block is not built with 0 txs
     mockPendingTxs([]);
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlockAsProposer).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
     mockPendingTxs(txs.slice(0, 3));
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlockAsProposer).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // flush the sequencer and it should build a block
     sequencer.flush();
@@ -426,12 +414,8 @@ describe('sequencer', () => {
     const postFlushTxHashes = await Promise.all(postFlushTxs.map(tx => tx.getTxHash()));
 
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlockAsProposer).toHaveBeenCalledTimes(1);
-    expect(blockBuilder.buildBlockAsProposer).toHaveBeenCalledWith(
-      expect.anything(),
-      globalVariables,
-      expect.anything(),
-    );
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(1);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
 
     expectPublisherProposeL2Block(postFlushTxHashes);
   });

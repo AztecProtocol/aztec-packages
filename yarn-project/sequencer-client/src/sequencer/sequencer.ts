@@ -463,7 +463,7 @@ export class Sequencer {
     this.setState(SequencerState.CREATING_BLOCK, slot);
 
     try {
-      const buildBlockRes = await this.blockBuilder.buildBlockAsProposer(
+      const buildBlockRes = await this.blockBuilder.buildBlock(
         pendingTxs,
         newGlobalVariables,
         this.getDefaultBlockBuilderOptions(Number(slot)),

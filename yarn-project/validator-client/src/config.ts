@@ -21,6 +21,9 @@ export interface ValidatorClientConfig {
 
   /** Re-execute transactions before attesting */
   validatorReexecute: boolean;
+
+  /** Will re-execute until this many milliseconds are left in the slot */
+  validatorReexecuteDeadlineMs: number;
 }
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
@@ -43,6 +46,11 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     env: 'VALIDATOR_REEXECUTE',
     description: 'Re-execute transactions before attesting',
     ...booleanConfigHelper(true),
+  },
+  validatorReexecuteDeadlineMs: {
+    env: 'VALIDATOR_REEXECUTE_DEADLINE_MS',
+    description: 'Will re-execute until this many milliseconds are left in the slot',
+    ...numberConfigHelper(6000),
   },
 };
 

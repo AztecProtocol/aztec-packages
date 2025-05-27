@@ -7,7 +7,6 @@ import type { Gas } from '../gas/gas.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { GlobalVariables } from '../tx/global_variables.js';
 import type { FailedTx, ProcessedTx } from '../tx/processed_tx.js';
-import type { ProposedBlockHeader } from '../tx/proposed_block_header.js';
 import { Tx } from '../tx/tx.js';
 import type { ProcessedTxHandler } from './processed-tx-handler.js';
 
@@ -59,16 +58,16 @@ export interface BuildBlockResult {
 }
 
 export interface FullNodeBlockBuilder {
-  buildBlockAsProposer(
+  getConfig(): {
+    l1GenesisTime: bigint;
+    slotDuration: number;
+    l1ChainId: number;
+    rollupVersion: number;
+  };
+
+  buildBlock(
     txs: Iterable<Tx> | AsyncIterable<Tx>,
     globalVariables: GlobalVariables,
-    options: BuildBlockOptions,
-  ): Promise<BuildBlockResult>;
-
-  buildBlockAsValidator(
-    txs: Iterable<Tx> | AsyncIterable<Tx>,
-    blockNumber: Fr,
-    header: ProposedBlockHeader,
     options: BuildBlockOptions,
   ): Promise<BuildBlockResult>;
 }

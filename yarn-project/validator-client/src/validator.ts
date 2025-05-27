@@ -10,9 +10,10 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { L2BlockSource } from '@aztec/stdlib/block';
+import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { FullNodeBlockBuilder } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, StateReference, Tx, TxHash } from '@aztec/stdlib/tx';
+import { GlobalVariables, type ProposedBlockHeader, type StateReference, type Tx, type TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { ValidatorClientConfig } from './config.js';
@@ -248,6 +249,15 @@ export class ValidatorClient extends WithTracer implements Validator {
     return this.doAttestToProposal(proposal);
   }
 
+  private getReexecutionDeadline(
+    proposal: BlockProposal,
+    config: { l1GenesisTime: bigint; slotDuration: number },
+  ): Date {
+    const nextSlotTimestampSeconds = Number(getTimestampForSlot(proposal.slotNumber.toBigInt() + 1n, config));
+    const msNeededForPropagationAndPublishing = this.config.validatorReexecuteDeadlineMs;
+    return new Date(nextSlotTimestampSeconds * 1000 - msNeededForPropagationAndPublishing);
+  }
+
   /**
    * Re-execute the transactions in the proposal and check that the state updates match the header state
    * @param proposal - The proposal to re-execute
@@ -269,9 +279,18 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Use the sequencer's block building logic to re-execute the transactions
     const stopTimer = this.metrics.reExecutionTimer();
-    const { block, failedTxs } = await this.blockBuilder.buildBlockAsValidator(txs, proposal.blockNumber, header, {
+    const config = this.blockBuilder.getConfig();
+    const globalVariables = GlobalVariables.from({
+      ...proposal.payload.header,
+      blockNumber: proposal.blockNumber,
+      timestamp: new Fr(header.timestamp),
+      chainId: new Fr(config.l1ChainId),
+      version: new Fr(config.rollupVersion),
+    });
+
+    const { block, failedTxs } = await this.blockBuilder.buildBlock(txs, globalVariables, {
       validateOnly: true,
-      deadline: undefined, // TODO
+      deadline: this.getReexecutionDeadline(proposal, config),
     });
     stopTimer();
 
