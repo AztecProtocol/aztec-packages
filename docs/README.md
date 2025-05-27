@@ -66,7 +66,9 @@ To manually perform step two locally:
 
 ### A special note about branches
 
-Adding docs: Only the `next` branch will have protocol changes, whereas `master` will not. So any documentation refering to these new protocol changes should only be applied to `next`. All other docs updates should be applied to `master`.
+Adding docs:
+- All docs changes, especially changes to `versioned_docs`, should only go to the `master` branch
+- Exceptionally when documenting new protocol changes, these should go to the `next` branch, within `docs/docs`
 
 Generating docs:
 - Most of the time we want the label `Next` to contain upcoming changes, excluding documentation of upcoming protocol changes. For this we release docs straight from `master`.
