@@ -211,7 +211,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         // We simply updated the scaling factors of `*this`, so `witness_index` of `result` must be equal to
         // `this->witness_index`.
         result.witness_index = witness_index;
-    } else if (this->is_constant() && other.is_constant()) {
+    } else if (this->is_constant() && !other.is_constant()) {
         // Only one input is not constant: don't add a gate, but update scaling factors
         result.additive_constant = additive_constant * other.additive_constant;
         result.multiplicative_constant = other.multiplicative_constant * additive_constant;
@@ -256,10 +256,10 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         result_value = a * b;
         result_value *= q_m;
         // Scale witness `b` by constant `a_mul * b_add`
-        T0 = b * q_l;
+        T0 = a * q_l;
         result_value += T0;
         // Scale witness `a` by constant `a_add * b_mul`
-        T0 = a * q_r;
+        T0 = b * q_r;
         result_value += T0;
         result_value += q_c;
         result.witness_index = ctx->add_variable(result_value);

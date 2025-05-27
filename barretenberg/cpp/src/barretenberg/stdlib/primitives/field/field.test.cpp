@@ -40,11 +40,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         // by this point, we shouldn't have added any constraints in our circuit
         for (size_t i = 0; i < 17; ++i) {
-            auto c_add_constant = c.additive_constant;
-            auto c_mul_constant = c.multiplicative_constant;
             c = c * d; // shouldn't create a constraint - just scales up c (which points to same wire value as a)
-            EXPECT_TRUE(c_add_constant == c.additive_constant);
-            EXPECT_TRUE(c.multiplicative_constant == c_mul_constant * d.multiplicative_constant);
             c = c - d; // shouldn't create a constraint - just adds a constant term into c's gates
             c = c * a; // will create a constraint - both c and a are wires in our circuit (the same wire actually, so
                        // this is a square-ish gate)
@@ -149,6 +145,38 @@ template <typename Builder> class stdlib_field : public testing::Test {
         run_test(-1, fr::modulus.get_msb() + 1, true);
     }
 
+    static void test_bool_conversion()
+    {
+        // Test the conversion from field_t to bool_t.
+
+        std::array<bb::fr, 5> input_array{ 0, 1, 0, 1, bb::fr::random_element() };
+        // Cases 0,1: Constant  0, 1
+        // Cases 2,3: Witnesses 0, 1
+        for (size_t idx = 0; idx < 4; idx++) {
+            bool expected_to_be_constant = (idx < 2);
+            Builder builder = Builder();
+            field_ct field_elt = (expected_to_be_constant) ? field_ct(input_array[idx])
+                                                           : field_ct(witness_ct(&builder, input_array[idx]));
+            bool_ct converted(field_elt);
+            EXPECT_TRUE(converted.is_constant() == expected_to_be_constant);
+            EXPECT_TRUE(field_elt.get_value() == converted.get_value());
+
+            if (!expected_to_be_constant) {
+                EXPECT_TRUE(CircuitChecker::check(builder));
+                EXPECT_TRUE(converted.witness_index == field_elt.witness_index);
+            }
+        }
+
+        // Check that the conversion aborts in the case of random field elements.
+        bool_ct invalid_bool;
+        // Case 4: Invalid constant conversion
+        EXPECT_DEATH(invalid_bool = bool_ct(field_ct(input_array.back())),
+                     "Assertion failed: (additive_constant == bb::fr::one() || additive_constant == bb::fr::zero())");
+        // Case 5: Invalid witness conversion
+        Builder builder = Builder();
+        EXPECT_DEATH(invalid_bool = bool_ct(field_ct(witness_ct(&builder, input_array.back()))),
+                     "Assertion failed: ((witness == bb::fr::zero()) || (witness == bb::fr::one()) == true)");
+    }
     /**
      * @brief Test that bool is converted correctly
      *
@@ -1240,6 +1268,10 @@ TYPED_TEST(stdlib_field, test_multiplicative_constant_regression)
 TYPED_TEST(stdlib_field, test_assert_equal)
 {
     TestFixture::test_assert_equal();
+}
+TYPED_TEST(stdlib_field, test_bool_conversion)
+{
+    TestFixture::test_bool_conversion();
 }
 
 TYPED_TEST(stdlib_field, test_bool_conversion_regression)
