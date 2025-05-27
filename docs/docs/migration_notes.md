@@ -9,9 +9,9 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
-## [Aztec.nr] Modified `getLogByTag` oracle
+## [Aztec.nr] Modified `get_log_by_tag` function
 
-`getLogByTag` oracle has been renamed to `getPublicLogByTagFromContract` and now it accepts contract address along with a tag as input:
+`get_log_by_tag` oracle has been renamed to `get_public_log_by_tag_from_contract` and now it accepts contract address along with a tag as input:
 
 ```diff
 - let maybe_log = get_log_by_tag(pending_partial_note.note_completion_log_tag);
