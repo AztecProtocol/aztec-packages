@@ -14,16 +14,6 @@ namespace keccakf1600;
 // Main low-level operations are: XOR, AND, bit rotations
 // All the sub-functions operate over a state of 25 64-bit values.
 
-
-// TODO: Remove the dummy values below
-
-// Dummy.
-pol commit dummy_keccak[1000];
-
-// Dummy.
-dummy_keccak[0] = dummy_keccak[0];
-dummy_keccak[1] = dummy_keccak[1];
-
 //#################################################################################################
 //                  High-Level Trace Structure Columns
 //#################################################################################################
