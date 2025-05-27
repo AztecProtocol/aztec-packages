@@ -48,14 +48,17 @@ function build {
       --optimizer-runs 1 \
       --no-metadata
 
-    cache_upload $artifact out
+    cache_upload $artifact out generated
   fi
 }
 
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
+  echo "$hash cd l1-contracts && forge test"
+  if [ "$CI" -eq 0 ] || [ "${TARGET_BRANCH:-}" == "master" ]; then
+    echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest"
+  fi
 }
 
 function test {

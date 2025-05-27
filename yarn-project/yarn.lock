@@ -97,13 +97,11 @@ __metadata:
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
-    "@types/debug": "npm:^4.1.7"
     "@types/jest": "npm:^29.5.0"
     "@types/lodash.groupby": "npm:^4.6.9"
     "@types/lodash.omit": "npm:^4.5.7"
     "@types/node": "npm:^22.15.17"
     concurrently: "npm:^8.0.1"
-    debug: "npm:^4.3.4"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.4"
     lodash.groupby: "npm:^4.6.0"
@@ -295,7 +293,6 @@ __metadata:
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.15.17"
-    debug: "npm:^4.3.4"
     favicon-emoji: "npm:2.3.1"
     html-webpack-plugin: "npm:^5.6.0"
     jest: "npm:^29.5.0"
@@ -332,11 +329,13 @@ __metadata:
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.15.17"
+    "@types/pidusage": "npm:^2.0.5"
     "@types/source-map-support": "npm:^0.5.10"
     commander: "npm:^12.1.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.3"
     pako: "npm:^2.1.0"
+    pidusage: "npm:^4.0.1"
     source-map-support: "npm:^0.5.21"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -353,10 +352,10 @@ __metadata:
   dependencies:
     comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
-    debug: "npm:^4.3.4"
-    fflate: "npm:^0.8.0"
+    idb-keyval: "npm:^6.2.1"
     msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
+    pino: "npm:^9.5.0"
     tslib: "npm:^2.4.0"
   bin:
     bb.js: dest/node/main.js
@@ -721,8 +720,6 @@ __metadata:
     "@koa/cors": "npm:^5.0.0"
     "@libp2p/interface": "npm:1.3.1"
     "@noble/curves": "npm:^1.2.0"
-    "@types/bn.js": "npm:^5.1.3"
-    "@types/debug": "npm:^4.1.7"
     "@types/detect-node": "npm:^2.0.0"
     "@types/jest": "npm:^29.5.0"
     "@types/koa": "npm:^2.15.0"
@@ -736,11 +733,9 @@ __metadata:
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.0"
     "@types/supertest": "npm:^2.0.12"
-    bn.js: "npm:^5.2.1"
     c-kzg: "npm:4.0.0-alpha.1"
     colorette: "npm:^2.0.20"
     comlink: "npm:^4.4.1"
-    debug: "npm:^4.3.4"
     detect-node: "npm:^2.1.0"
     eslint: "npm:^9.26.0"
     eslint-config-prettier: "npm:^10.1.5"
@@ -797,10 +792,8 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.3"
-    chalk: "npm:^5.3.0"
     change-case: "npm:^5.4.4"
     copy-webpack-plugin: "npm:^12.0.2"
-    debug: "npm:^4.3.4"
     html-webpack-plugin: "npm:^5.6.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^4.0.0-beta1"
@@ -5703,15 +5696,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/bn.js@npm:^5.1.3":
-  version: 5.1.5
-  resolution: "@types/bn.js@npm:5.1.5"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 10/9719330c86aeae0a6a447c974cf0f853ba3660ede20de61f435b03d699e30e6d8b35bf71a8dc9fdc8317784438e83177644ba068ed653d0ae0106e1ecbfe289e
-  languageName: node
-  linkType: hard
-
 "@types/body-parser@npm:*":
   version: 1.19.5
   resolution: "@types/body-parser@npm:1.19.5"
@@ -5838,15 +5822,6 @@ __metadata:
   version: 1.2.4
   resolution: "@types/debounce@npm:1.2.4"
   checksum: 10/decef3eee65d681556d50f7fac346f1b33134f6b21f806d41326f9dfb362fa66b0282ff0640ae6791b690694c9dc3dad4e146e909e707e6f96650f3aa325b9da
-  languageName: node
-  linkType: hard
-
-"@types/debug@npm:^4.1.7":
-  version: 4.1.12
-  resolution: "@types/debug@npm:4.1.12"
-  dependencies:
-    "@types/ms": "npm:*"
-  checksum: 10/47876a852de8240bfdaf7481357af2b88cb660d30c72e73789abf00c499d6bc7cd5e52f41c915d1b9cd8ec9fef5b05688d7b7aef17f7f272c2d04679508d1053
   languageName: node
   linkType: hard
 
@@ -6317,13 +6292,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/ms@npm:*":
-  version: 0.7.34
-  resolution: "@types/ms@npm:0.7.34"
-  checksum: 10/f38d36e7b6edecd9badc9cf50474159e9da5fa6965a75186cceaf883278611b9df6669dc3a3cc122b7938d317b68a9e3d573d316fcb35d1be47ec9e468c6bd8a
-  languageName: node
-  linkType: hard
-
 "@types/murmurhash3js-revisited@npm:^3.0.3":
   version: 3.0.3
   resolution: "@types/murmurhash3js-revisited@npm:3.0.3"
@@ -6403,6 +6371,13 @@ __metadata:
   version: 6.0.3
   resolution: "@types/parse5@npm:6.0.3"
   checksum: 10/834d40c9b1a8a99a9574b0b3f6629cf48adcff2eda01a35d701f1de5dcf46ce24223684647890aba9f985d6c801b233f878168683de0ae425940403c383fba8f
+  languageName: node
+  linkType: hard
+
+"@types/pidusage@npm:^2.0.5":
+  version: 2.0.5
+  resolution: "@types/pidusage@npm:2.0.5"
+  checksum: 10/24188bf108b9b5a2ccb16155a492ff1cca7d7bf07aa4e2649cce421e0940dd5b0cd06baa48da9b8bde46343463fc500a7070c0788a0ed3f3f57d3e3bcf4ac64d
   languageName: node
   linkType: hard
 
@@ -12345,13 +12320,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fflate@npm:^0.8.0":
-  version: 0.8.2
-  resolution: "fflate@npm:0.8.2"
-  checksum: 10/2bd26ba6d235d428de793c6a0cd1aaa96a06269ebd4e21b46c8fd1bd136abc631acf27e188d47c3936db090bf3e1ede11d15ce9eae9bffdc4bfe1b9dc66ca9cb
-  languageName: node
-  linkType: hard
-
 "file-entry-cache@npm:^8.0.0":
   version: 8.0.0
   resolution: "file-entry-cache@npm:8.0.0"
@@ -13756,6 +13724,13 @@ __metadata:
   dependencies:
     safer-buffer: "npm:>= 2.1.2 < 3.0.0"
   checksum: 10/24e3292dd3dadaa81d065c6f8c41b274a47098150d444b96e5f53b4638a9a71482921ea6a91a1f59bb71d9796de25e04afd05919fa64c360347ba65d3766f10f
+  languageName: node
+  linkType: hard
+
+"idb-keyval@npm:^6.2.1":
+  version: 6.2.2
+  resolution: "idb-keyval@npm:6.2.2"
+  checksum: 10/8c22342d94deba01066460fe6593f29c78027d0935a6ed7a1da68b28a7a68b89d0830dada4b30d51b779ed1dc1e362007a8939cda651b9ad0807176bd841e8cb
   languageName: node
   linkType: hard
 
@@ -18426,6 +18401,15 @@ __metadata:
   version: 4.0.2
   resolution: "picomatch@npm:4.0.2"
   checksum: 10/ce617b8da36797d09c0baacb96ca8a44460452c89362d7cb8f70ca46b4158ba8bc3606912de7c818eb4a939f7f9015cef3c766ec8a0c6bfc725fdc078e39c717
+  languageName: node
+  linkType: hard
+
+"pidusage@npm:^4.0.1":
+  version: 4.0.1
+  resolution: "pidusage@npm:4.0.1"
+  dependencies:
+    safe-buffer: "npm:^5.2.1"
+  checksum: 10/ce791293a32c3c9a89ffe1033d0fd132606278adc68cbfd24c201562edec1b8fdc6df86e89fda1e0f9be7906449cc6173aaade7853c6dec22080258bc694e548
   languageName: node
   linkType: hard
 

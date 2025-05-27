@@ -48,21 +48,6 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     element(const element& other);
     element(element&& other) noexcept;
 
-    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
-    {
-        const typename NativeGroup::affine_element& native_val = NativeGroup::affine_element::one();
-        element val(native_val);
-        size_t idx = 0;
-        std::array<fr, PUBLIC_INPUTS_SIZE> limb_vals;
-        for (auto& limb : val.x.binary_basis_limbs) {
-            limb_vals[idx++] = limb.element.get_value();
-        }
-        for (auto& limb : val.y.binary_basis_limbs) {
-            limb_vals[idx++] = limb.element.get_value();
-        }
-        BB_ASSERT_EQ(idx, PUBLIC_INPUTS_SIZE);
-        return limb_vals;
-    }
     /**
      * @brief Set the witness indices for the x and y coordinates to public
      *
