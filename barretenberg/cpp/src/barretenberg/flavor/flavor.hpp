@@ -255,7 +255,9 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         serialize_to_field_buffer(this->circuit_size, elements);
         serialize_to_field_buffer(this->num_public_inputs, elements);
         serialize_to_field_buffer(this->pub_inputs_offset, elements);
-        serialize_to_field_buffer(static_cast<FF>(this->pairing_inputs_public_input_key.start_idx), elements);
+        FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
+        pairing_points_start_idx.convert_constant_to_fixed_witness(this->circuit_size.context);
+        serialize_to_field_buffer(pairing_points_start_idx, elements);
 
         for (const Commitment& commitment : this->get_all()) {
             serialize_to_field_buffer(commitment, elements);

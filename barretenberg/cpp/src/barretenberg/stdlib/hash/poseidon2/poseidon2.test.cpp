@@ -144,6 +144,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         auto result = poseidon2::hash(builder, witness_inputs);
 
         EXPECT_EQ(result.get_value(), expected);
+        EXPECT_FALSE(CircuitChecker::check(builder)); // We don't allow poseidon2 to take in constants
     }
 };
 

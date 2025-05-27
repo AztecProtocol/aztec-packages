@@ -44,13 +44,13 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
-    // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
+    const FF vkey_hash = verification_key->verification_key->hash();
+    info("vkey_hash in verifier: ", vkey_hash);
     const uint64_t circuit_size = verification_key->verification_key->circuit_size;
     const uint64_t public_input_size = verification_key->verification_key->num_public_inputs;
     const uint64_t pub_inputs_offset = verification_key->verification_key->pub_inputs_offset;
 
-    transcript->template add_to_hash_buffer<FF>(domain_separator + "vkey_hash",
-                                                verification_key->verification_key->hash());
+    transcript->add_to_hash_buffer(domain_separator + "vkey_hash", vkey_hash);
     transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
     transcript->add_to_hash_buffer(domain_separator + "public_input_size", public_input_size);
     transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
