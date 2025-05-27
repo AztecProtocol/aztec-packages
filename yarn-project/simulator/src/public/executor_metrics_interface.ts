@@ -10,6 +10,6 @@ export interface ExecutorMetricsInterface {
     manaUsed: number,
     totalInstructionsExecuted: number,
   ): void;
-  recordTxHashComputation(durationMs: number): void;
+  recordTxHashComputation(durationUs: number): void;
   recordPrivateEffectsInsertion(durationUs: number, type: 'revertible' | 'non-revertible'): void;
 }

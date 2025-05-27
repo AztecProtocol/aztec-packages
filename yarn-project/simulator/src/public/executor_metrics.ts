@@ -55,7 +55,7 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
 
     this.txHashing = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_TX_HASHING, {
       description: 'Tx hashing time',
-      unit: 'ms',
+      unit: 'us',
       valueType: ValueType.INT,
     });
 
@@ -112,8 +112,8 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
     });
   }
 
-  recordTxHashComputation(durationMs: number) {
-    this.txHashing.record(Math.ceil(durationMs));
+  recordTxHashComputation(durationUs: number) {
+    this.txHashing.record(Math.ceil(durationUs));
   }
 
   recordPrivateEffectsInsertion(durationUs: number, type: 'revertible' | 'non-revertible') {
