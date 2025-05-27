@@ -139,10 +139,8 @@ library StakingLib {
       Errors.Staking__InvalidDeposit(_attester, _proposer)
     );
     StakingStorage storage store = getStorage();
-    require(!store.exits[_attester].exists, Errors.Staking__AlreadyRegistered(_attester));
-    require(
-      !store.gse.isRegistered(address(this), _attester), Errors.Staking__AlreadyActive(_attester)
-    );
+    // We don't allow deposits, if we are currently exiting.
+    require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
     uint256 amount = store.gse.MINIMUM_DEPOSIT();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
@@ -173,7 +171,7 @@ library StakingLib {
       require(attesterExists, Errors.Staking__NothingToExit(_attester));
       require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
 
-      uint256 amount = store.gse.balanceOf(address(this), _attester);
+      uint256 amount = store.gse.effectiveBalanceOf(address(this), _attester);
       (uint256 actualAmount, bool removed) = store.gse.withdraw(_attester, amount);
       require(removed, Errors.Staking__WithdrawFailed(_attester));
 
@@ -228,7 +226,7 @@ library StakingLib {
   function getAttesterView(address _attester) internal view returns (AttesterView memory) {
     return AttesterView({
       status: getStatus(_attester),
-      effectiveBalance: getStorage().gse.balanceOf(address(this), _attester),
+      effectiveBalance: getStorage().gse.effectiveBalanceOf(address(this), _attester),
       exit: getExit(_attester),
       config: getConfig(_attester)
     });
@@ -236,7 +234,7 @@ library StakingLib {
 
   function getStatus(address _attester) internal view returns (Status) {
     Exit memory exit = getExit(_attester);
-    uint256 effectiveBalance = getStorage().gse.balanceOf(address(this), _attester);
+    uint256 effectiveBalance = getStorage().gse.effectiveBalanceOf(address(this), _attester);
 
     Status status;
     if (exit.exists) {

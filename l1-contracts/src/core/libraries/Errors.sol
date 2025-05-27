@@ -106,7 +106,7 @@ library Errors {
 
   // Staking
   error Staking__AlreadyActive(address attester); // 0x5e206fa4
-  error Staking__AlreadyRegistered(address); // 0x18047699
+  error Staking__AlreadyRegistered(address instance, address attester);
   error Staking__CannotSlashExitedStake(address); // 0x45bf4940
   error Staking__FailedToRemove(address); // 0xa7d7baab
   error Staking__InvalidDeposit(address attester, address proposer); // 0xf33fe8c6
@@ -125,6 +125,13 @@ library Errors {
   error Staking__InvalidRollupAddress(address); // 0xd876720e
   error Staking__NotCanonical(address); // 0x6244212e
   error Staking__InvalidProposer();
+  error Staking__InstanceDoesNotExist(address);
+  error Staking__InsufficientPower(uint256, uint256);
+  error Staking__AlreadyExiting(address);
+  error Staking__FatalError(string);
+
+  // GSE
+  error GSE__EmptyVoter();
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe

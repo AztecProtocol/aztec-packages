@@ -9,6 +9,8 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {EthValue} from "@aztec/core/interfaces/IRollup.sol";
 import {GSE} from "@aztec/core/staking/GSE.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
+import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 
 import {Test} from "forge-std/Test.sol";
 
@@ -16,6 +18,7 @@ struct Config {
   address deployer;
   TestERC20 testERC20;
   Registry registry;
+  Governance governance;
   Rollup rollup;
   GSE gse;
   RewardDistributor rewardDistributor;
@@ -23,6 +26,7 @@ struct Config {
   RollupConfigInput rollupConfigInput;
   uint256 mintFeeAmount;
   bool makeCanonical;
+  bool makeGovernance;
 }
 
 /**
@@ -86,6 +90,11 @@ contract RollupBuilder is Test {
 
   function setMakeCanonical(bool _makeCanonical) public returns (RollupBuilder) {
     config.makeCanonical = _makeCanonical;
+    return this;
+  }
+
+  function setMakeGovernance(bool _makeGovernance) public returns (RollupBuilder) {
+    config.makeGovernance = _makeGovernance;
     return this;
   }
 
@@ -154,6 +163,12 @@ contract RollupBuilder is Test {
       );
     }
 
+    if (config.makeGovernance) {
+      GovernanceProposer proposer = new GovernanceProposer(config.registry, 1, 1);
+      config.governance = new Governance(config.testERC20, address(proposer));
+      vm.label(address(config.governance), "Governance");
+    }
+
     config.rollup = new Rollup(
       config.testERC20,
       config.rewardDistributor,
@@ -185,12 +200,13 @@ contract RollupBuilder is Test {
       config.registry.transferOwnership(config.deployer);
     }
 
-    if (config.deployer != config.rollup.owner()) {
-      config.rollup.transferOwnership(config.deployer);
+    address expGov = config.makeGovernance ? address(config.governance) : config.deployer;
+    if (expGov != config.rollup.owner()) {
+      config.rollup.transferOwnership(expGov);
     }
 
-    if (config.deployer != config.gse.owner()) {
-      config.gse.transferOwnership(config.deployer);
+    if (expGov != config.gse.owner()) {
+      config.gse.transferOwnership(expGov);
     }
 
     vm.label(address(config.rollup), "Rollup");
