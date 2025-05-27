@@ -59,8 +59,8 @@ import {
 } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { WASMSimulator } from '@aztec/simulator/client';
-import { SimulationProviderRecorderWrapper } from '@aztec/simulator/testing';
+import { MemoryCircuitRecorder, SimulationProviderRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
+import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -171,7 +171,10 @@ export async function setupPXEService(
   }
 
   const simulationProvider = new WASMSimulator();
-  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider);
+  const recorder = process.env.CIRCUIT_RECORD_DIR
+    ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
+    : new MemoryCircuitRecorder();
+  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider, recorder);
   const pxe = await createPXEServiceWithSimulationProvider(
     aztecNode,
     simulationProviderWithRecorder,
