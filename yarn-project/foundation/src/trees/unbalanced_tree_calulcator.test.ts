@@ -1,13 +1,8 @@
 import { SHA256Trunc, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import type { FromBuffer } from '@aztec/foundation/serialize';
 import { type Hasher, MerkleTree, MerkleTreeCalculator, SiblingPath } from '@aztec/foundation/trees';
 
 import { UnbalancedMerkleTreeCalculator } from './unbalanced_merkle_tree_calculator.js';
-
-const noopDeserializer: FromBuffer<Buffer> = {
-  fromBuffer: (buffer: Buffer) => buffer,
-};
 
 // Follows sol implementation and tests in UnbalancedMerkle.t.sol
 describe('Wonky tree', () => {
