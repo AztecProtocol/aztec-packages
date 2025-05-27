@@ -137,13 +137,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
         result.multiplicative_constant = other.multiplicative_constant;
         result.witness_index = other.witness_index;
     } else {
-        /*
-         * The summands are distinct circuit variables, the result needs to be constrained.
-         *       a + b = a.v * a.mul + b.v * b.mul + (a.add + b.add)
-         * which leads to the constraint
-         *       a.v * q_l + b.v * q_r + result.v * q_o + q_c = 0,
-         * where q_l, q_r, q_0, and q_c are the selectors storing corresponding scaling factors.
-         */
+        // The summands are distinct circuit variables, the result needs to be constrained.
+        //       a + b = a.v * a.mul + b.v * b.mul + (a.add + b.add)
+        // which leads to the constraint
+        //       a.v * q_l + b.v * q_r + result.v * q_o + q_c = 0,
+        // where q_l, q_r, q_0, and q_c are the selectors storing corresponding scaling factors.
         bb::fr a = ctx->get_variable(witness_index);
         bb::fr b = ctx->get_variable(other.witness_index);
         bb::fr result_value;
@@ -189,22 +187,20 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         // The value of a constant is tracked in `.additive_constant`.
         result.additive_constant = additive_constant * other.additive_constant;
     } else if (!this->is_constant() && other.is_constant()) {
-        /**
-         *  Here and in the next case, only one input is not constant: don't add a gate, but update scaling factors.
-         * More concretely, let:
-         *   a := this;
-         *   b := other;
-         *   a.v := ctx->variables[a.witness_index], the value of a;
-         *   b.v := ctx->variables[b.witness_index], the value of b;
-         *   .mul = .multiplicative_constant
-         *   .add = .additive_constant
-         *
-         * Value of this   = a.v * a.mul + a.add;
-         * Value of other  = b.add
-         * Value of result = a * b = a.v * [a.mul * b.add] + [a.add * b.add]
-         *                            ^           ^result.mul      ^result.add
-         *                            ^result.v
-         */
+
+        //  Here and in the next case, only one input is not constant: don't add a gate, but update scaling factors.
+        // More concretely, let:
+        //   a := this;
+        //   b := other;
+        //   a.v := ctx->variables[a.witness_index], the value of a;
+        //   b.v := ctx->variables[b.witness_index], the value of b;
+        //   .mul = .multiplicative_constant
+        //   .add = .additive_constant
+        // Value of this   = a.v * a.mul + a.add;
+        // Value of other  = b.add
+        // Value of result = a * b = a.v * [a.mul * b.add] + [a.add * b.add]
+        //                            ^           ^result.mul      ^result.add
+        //                            ^result.v
 
         result.additive_constant = additive_constant * other.additive_constant;
         result.multiplicative_constant = multiplicative_constant * other.additive_constant;
@@ -304,7 +300,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     // Let
     //    a := this;
     //    b := other;
-    //    q = a / b;
+    //    q := a / b;
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be divided without context
@@ -313,7 +309,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     bb::fr additive_multiplier = bb::fr::one();
 
     if (this->is_constant() && other.is_constant()) {
-        // Both inputs are constant, the result if given by
+        // Both inputs are constant, the result is given by
         //      q = a.add / b.add, if b != 0.
         //      q = a.add        , if b == 0
         if (!(other.additive_constant == bb::fr::zero())) {
