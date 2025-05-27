@@ -721,13 +721,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    */
   public async getL2ToL1Messages(blockNumber: L2BlockNumber): Promise<Fr[][] | undefined> {
     const block = await this.blockSource.getBlock(blockNumber === 'latest' ? await this.getBlockNumber() : blockNumber);
-
-    if (block === undefined) {
-      return undefined;
-    }
-
-    const messagesPerTx = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
-    return messagesPerTx;
+    return block?.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
   }
 
   /**
