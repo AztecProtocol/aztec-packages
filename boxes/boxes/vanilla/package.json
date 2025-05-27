@@ -18,7 +18,7 @@
     "build": "yarn build-contracts && yarn build-app",
     "serve": "http-server dist -p ${PORT:-3000}",
     "prep-test": "yarn playwright install --with-deps && PROVER_ENABLED=false yarn deploy-contracts && yarn build-app",
-    "test": "yarn playwright test",
+    "test": "yarn prep-test && yarn playwright test",
     "lint": "prettier --check ./src"
   },
   "dependencies": {
