@@ -124,6 +124,7 @@ library Errors {
   error Staking__RollupAlreadyRegistered(address); // 0x108a39c8
   error Staking__InvalidRollupAddress(address); // 0xd876720e
   error Staking__NotCanonical(address); // 0x6244212e
+  error Staking__InvalidProposer();
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe

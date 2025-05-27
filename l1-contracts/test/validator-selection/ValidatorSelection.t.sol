@@ -268,6 +268,22 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
+  function testInsufficientSigsMove() public setup(4) progressEpochs(2) {
+    rollup.getGSE().addRollup(address(0xdead));
+    assertEq(rollup.getCurrentEpochCommittee().length, 4);
+    _testBlock(
+      "mixed_block_1",
+      true,
+      0,
+      TestFlags({
+        provideEmptyAttestations: false,
+        invalidProposer: false,
+        proposerNotProvided: false,
+        invalidCommitteeCommitment: false
+      })
+    );
+  }
+
   function _testBlock(
     string memory _name,
     bool _expectRevert,
@@ -305,6 +321,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
+
+    skipBlobCheck(address(rollup));
 
     if (_signatureCount > 0 && ree.proposer != address(0)) {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
@@ -348,10 +366,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         }
       }
 
-      skipBlobCheck(address(rollup));
       if (_expectRevert && _flags.invalidProposer) {
-        emit log("We do be reverting?");
-
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
         vm.expectRevert(
@@ -407,10 +422,24 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       }
     } else {
       CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
+      if (_expectRevert) {
+        vm.expectRevert(
+          abi.encodeWithSelector(
+            Errors.ValidatorSelection__InvalidAttestationsLength.selector,
+            rollup.getCurrentEpochCommittee().length,
+            0
+          )
+        );
+        ree.shouldRevert = true;
+      }
       rollup.propose(args, attestations, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
+
+    if (ree.shouldRevert) {
+      return;
+    }
 
     bytes32 l2ToL1MessageTreeRoot;
     {
