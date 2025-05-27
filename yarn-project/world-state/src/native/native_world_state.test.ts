@@ -658,6 +658,7 @@ describe('NativeWorldState', () => {
 
         const { block, messages } = await mockBlock(Number(expectedPendingBlockNumber + 1n), 1, fork);
         const statusFull = await ws.handleL2BlockAndMessages(block, messages);
+        expect(statusFull.summary.treesAreSynched).toBeTruthy();
         expect(statusFull.meta.archiveTreeMeta.unfinalisedBlockHeight).toEqual(expectedPendingBlockNumber + 1n);
         expect(statusFull.meta.messageTreeMeta.unfinalisedBlockHeight).toEqual(expectedPendingBlockNumber + 1n);
         expect(statusFull.meta.noteHashTreeMeta.unfinalisedBlockHeight).toEqual(expectedPendingBlockNumber + 1n);
@@ -665,11 +666,24 @@ describe('NativeWorldState', () => {
         expect(statusFull.meta.publicDataTreeMeta.unfinalisedBlockHeight).toEqual(expectedPendingBlockNumber + 1n);
 
         const expectedFinalisedBlockNumber = 8n;
+        const expectedHistoricalBlockNumber = 4n;
+
+        expect(statusFull.meta.archiveTreeMeta.finalisedBlockHeight).toEqual(expectedFinalisedBlockNumber);
+        expect(statusFull.meta.messageTreeMeta.finalisedBlockHeight).toEqual(expectedFinalisedBlockNumber);
+        expect(statusFull.meta.noteHashTreeMeta.finalisedBlockHeight).toEqual(expectedFinalisedBlockNumber);
+        expect(statusFull.meta.nullifierTreeMeta.finalisedBlockHeight).toEqual(expectedFinalisedBlockNumber);
+        expect(statusFull.meta.publicDataTreeMeta.finalisedBlockHeight).toEqual(expectedFinalisedBlockNumber);
+
+        expect(statusFull.meta.archiveTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber);
+        expect(statusFull.meta.messageTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber);
+        expect(statusFull.meta.noteHashTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber);
+        expect(statusFull.meta.nullifierTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber);
+        expect(statusFull.meta.publicDataTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber);
+
         const finalisedStatus = await ws.setFinalised(expectedFinalisedBlockNumber + 1n);
         expect(finalisedStatus.finalisedBlockNumber).toEqual(expectedFinalisedBlockNumber + 1n);
         expect(finalisedStatus.treesAreSynched).toBeTruthy();
 
-        const expectedHistoricalBlockNumber = 4n;
         const fullStatus = await ws.removeHistoricalBlocks(expectedHistoricalBlockNumber + 1n);
         expect(fullStatus.meta.archiveTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber + 1n);
         expect(fullStatus.meta.messageTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber + 1n);
