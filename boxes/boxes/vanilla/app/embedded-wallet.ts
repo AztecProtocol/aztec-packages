@@ -17,7 +17,6 @@ import { createPXEService } from '@aztec/pxe/client/lazy';
 import { type ContractArtifact, getDefaultInitializer } from '@aztec/stdlib/abi';
 
 const PROVER_ENABLED = true;
-const SKIP_PROOF_GENERATION_FOR_ACCOUNT_CREATION = true;
 
 const logger = createLogger('wallet');
 const LocalStorageKey = 'aztec-account';
@@ -99,19 +98,7 @@ export class EmbeddedWallet {
       skipPublicDeployment: true,
     };
 
-    // Disable proof generation for account creation (assuming running against a sandbox)
-    if (SKIP_PROOF_GENERATION_FOR_ACCOUNT_CREATION) {
-    // @ts-ignore
-      this.pxe.proverEnabled = false;
-    }
-
     const provenInteraction = await deployMethod.prove(deployOpts);
-
-    if (SKIP_PROOF_GENERATION_FOR_ACCOUNT_CREATION) {
-    // @ts-ignore
-      this.pxe.proverEnabled = PROVER_ENABLED;
-    }
-
     const receipt = await provenInteraction.send().wait({ timeout: 120 });
 
     logger.info('Account deployed', receipt);
