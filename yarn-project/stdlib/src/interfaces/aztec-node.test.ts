@@ -117,11 +117,6 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBe(true);
   });
 
-  // it('getL2ToL1MessageMembershipWitness', async () => {
-  //   const response = await context.client.getL2ToL1MessageMembershipWitness(1, Fr.random());
-  //   expect(response).toEqual([1n, expect.any(SiblingPath)]);
-  // });
-
   it('getL2ToL1Messages', async () => {
     const response = await context.client.getL2ToL1Messages(1);
     expect(response).toEqual([[]]);
@@ -459,13 +454,6 @@ class MockAztecNode implements AztecNode {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(true);
   }
-  // getL2ToL1MessageMembershipWitness(
-  //   blockNumber: number | 'latest',
-  //   l2ToL1Message: Fr,
-  // ): Promise<[bigint, SiblingPath<number>]> {
-  //   expect(l2ToL1Message).toBeInstanceOf(Fr);
-  //   return Promise.resolve([1n, SiblingPath.random(4) as SiblingPath<number>]);
-  // }
 
   getL2ToL1Messages(_blockNumber: number | 'latest'): Promise<Fr[][] | undefined> {
     return Promise.resolve(Array.from({ length: 10 }, () => [Fr.random(), Fr.random()]));

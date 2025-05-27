@@ -127,7 +127,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   );
 
   // When the block contains a tx with no messages, it triggers a different code path in
-  // AztecNode.getL2ToL1MessageMembershipWitness. In this test we ensure the code path is correct.
+  // computeL2ToL1MembershipWitness. In this test we ensure the code path is correct.
   it('can send an L2 -> L1 message in a block with a tx that has no messages', async () => {
     const content = Fr.random();
     const recipient = crossChainTestHarness.ethAccount;

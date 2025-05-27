@@ -129,21 +129,6 @@ export interface AztecNode
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
 
   /**
-   * Returns a membership witness of an l2ToL1Message in an ephemeral l2 to l1 message tree.
-   * @dev Membership witness is a consists of the index and the sibling path of the l2ToL1Message.
-   * @remarks This tree is considered ephemeral because it is created on-demand by: taking all the l2ToL1 messages
-   * in a single block, and then using them to make a variable depth append-only tree with these messages as leaves.
-   * The tree is discarded immediately after calculating what we need from it.
-   * @param blockNumber - The block number at which to get the data.
-   * @param l2ToL1Message - The l2ToL1Message to get the membership witness for.
-   * @returns A tuple of the index and the sibling path of the L2ToL1Message.
-   */
-  // getL2ToL1MessageMembershipWitness(
-  //   blockNumber: L2BlockNumber,
-  //   l2ToL1Message: Fr,
-  // ): Promise<[bigint, SiblingPath<number>]>;
-
-  /**
    * Returns all the L2 to L1 messages in a block.
    * @param blockNumber - The block number at which to get the data.
    * @returns The L2 to L1 messages (undefined if the block number is not found).
@@ -451,11 +436,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional()),
 
   isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
-
-  // getL2ToL1MessageMembershipWitness: z
-  //   .function()
-  //   .args(L2BlockNumberSchema, schemas.Fr)
-  //   .returns(z.tuple([schemas.BigInt, SiblingPath.schema])),
 
   getL2ToL1Messages: z
     .function()
