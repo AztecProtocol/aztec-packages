@@ -67,6 +67,10 @@ TEST(ExecutionConstrainingTest, ContextSwitchingCallReturn)
                                    { C::context_stack_is_static, 0 },
                                    { C::context_stack_parent_calldata_offset_addr, 0 },
                                    { C::context_stack_parent_calldata_size_addr, 0 },
+                                   { C::context_stack_parent_l2_gas_limit, 2000 },
+                                   { C::context_stack_parent_da_gas_limit, 4000 },
+                                   { C::context_stack_parent_l2_gas_used, 500 },
+                                   { C::context_stack_parent_da_gas_used, 1500 },
                                },
                                // First Row of execution
                                {
@@ -75,6 +79,10 @@ TEST(ExecutionConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_next_pc, 1 },
                                    { C::execution_context_id, 1 },
                                    { C::execution_next_context_id, 2 },
+                                   { C::execution_parent_l2_gas_limit, 2000 },
+                                   { C::execution_parent_da_gas_limit, 4000 },
+                                   { C::execution_parent_l2_gas_used, 500 },
+                                   { C::execution_parent_da_gas_used, 1500 },
                                },
                                // CALL
                                {
@@ -88,6 +96,10 @@ TEST(ExecutionConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_rop4, /*cd offset=*/10 },
                                    { C::execution_rop5, /*cd size=*/1 },
                                    { C::execution_reg3, /*contract address=*/0xdeadbeef },
+                                   { C::execution_parent_l2_gas_limit, 2000 },
+                                   { C::execution_parent_da_gas_limit, 4000 },
+                                   { C::execution_parent_l2_gas_used, 500 },
+                                   { C::execution_parent_da_gas_used, 1500 },
                                },
                                // First Row in new context
                                {
@@ -137,6 +149,10 @@ TEST(ExecutionConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_parent_calldata_size_addr, 0 },
                                    { C::execution_last_child_returndata_size, 200 },        // Return data size
                                    { C::execution_last_child_returndata_offset_addr, 600 }, // Return data offset
+                                   { C::execution_parent_l2_gas_limit, 2000 },
+                                   { C::execution_parent_da_gas_limit, 4000 },
+                                   { C::execution_parent_l2_gas_used, 500 },
+                                   { C::execution_parent_da_gas_used, 1500 },
                                },
                                {
                                    { C::execution_sel, 0 },
@@ -281,6 +297,114 @@ TEST(ExecutionConstrainingTest, GasUsedContinuity)
 
     trace.set(C::execution_prev_da_gas_used, 2, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_DA_GAS_USED_CONTINUITY), "DA_GAS_USED_CONTINUITY");
+}
+
+TEST(ExecutionConstrainingTest, ContextGasNextRow)
+{
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } },
+                               {
+                                   // First Row of execution
+                                   { C::execution_sel, 1 },
+                                   { C::execution_l2_gas_limit, 1000 },
+                                   { C::execution_da_gas_limit, 2000 },
+                                   { C::execution_parent_l2_gas_limit, 2000 },
+                                   { C::execution_parent_da_gas_limit, 4000 },
+                                   { C::execution_parent_l2_gas_used, 500 },
+                                   { C::execution_parent_da_gas_used, 1500 },
+                               },
+                               {
+                                   // CALL
+                                   { C::execution_sel, 1 },
+                                   { C::execution_sel_enter_call, 1 },
+                                   { C::execution_l2_gas_used, 200 },
+                                   { C::execution_da_gas_used, 300 },
+                                   { C::execution_l2_gas_limit, 1000 },
+                                   { C::execution_da_gas_limit, 2000 },
+                                   { C::execution_parent_l2_gas_limit, 2000 },
+                                   { C::execution_parent_da_gas_limit, 4000 },
+                                   { C::execution_parent_l2_gas_used, 500 },
+                                   { C::execution_parent_da_gas_used, 1500 },
+                               },
+                               {
+                                   // Return
+                                   { C::execution_sel, 1 },
+                                   { C::execution_sel_exit_call, 1 },
+                                   { C::execution_nested_exit_call, 1 },
+                                   { C::execution_parent_l2_gas_limit, 1000 },
+                                   { C::execution_parent_da_gas_limit, 2000 },
+                                   { C::execution_parent_l2_gas_used, 200 },
+                                   { C::execution_parent_da_gas_used, 300 },
+                               },
+                               {
+                                   // After return
+                                   { C::execution_sel, 1 },
+                                   { C::execution_l2_gas_limit, 1000 },
+                                   { C::execution_da_gas_limit, 2000 },
+                                   { C::execution_parent_l2_gas_limit, 2000 },
+                                   { C::execution_parent_da_gas_limit, 4000 },
+                               },
+                               {
+                                   { C::execution_sel, 0 },
+                                   { C::execution_last, 1 },
+                               } });
+
+    check_relation<context>(trace,
+                            context::SR_L2_GAS_LIMIT_NEXT_ROW,
+                            context::SR_L2_GAS_LIMIT_RESTORE_ON_EXIT,
+                            context::SR_DA_GAS_LIMIT_NEXT_ROW,
+                            context::SR_DA_GAS_LIMIT_RESTORE_ON_EXIT,
+                            context::SR_PARENT_L2_GAS_LIMIT_NEXT_ROW,
+                            context::SR_PARENT_L2_GAS_LIMIT_STORE_ON_ENTER,
+                            context::SR_PARENT_DA_GAS_LIMIT_NEXT_ROW,
+                            context::SR_PARENT_DA_GAS_LIMIT_STORE_ON_ENTER,
+                            context::SR_PARENT_L2_GAS_USED_NEXT_ROW,
+                            context::SR_PARENT_L2_GAS_USED_STORE_ON_ENTER,
+                            context::SR_PARENT_DA_GAS_USED_NEXT_ROW,
+                            context::SR_PARENT_DA_GAS_USED_STORE_ON_ENTER);
+
+    // Negative test: after return, restore wrong limits
+    trace.set(C::execution_l2_gas_limit, 4, 1001);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_LIMIT_RESTORE_ON_EXIT),
+                              "L2_GAS_LIMIT_RESTORE_ON_EXIT");
+    trace.set(C::execution_da_gas_limit, 4, 2001);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_LIMIT_RESTORE_ON_EXIT),
+                              "DA_GAS_LIMIT_RESTORE_ON_EXIT");
+
+    // Negative test: inside a nested call, store wrong parent limit and used
+    trace.set(C::execution_parent_l2_gas_limit, 3, 2001);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_LIMIT_STORE_ON_ENTER),
+                              "PARENT_L2_GAS_LIMIT_STORE_ON_ENTER");
+    trace.set(C::execution_parent_da_gas_limit, 3, 4001);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_LIMIT_STORE_ON_ENTER),
+                              "PARENT_DA_GAS_LIMIT_STORE_ON_ENTER");
+    trace.set(C::execution_parent_l2_gas_used, 3, 201);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_USED_STORE_ON_ENTER),
+                              "PARENT_L2_GAS_USED_STORE_ON_ENTER");
+    trace.set(C::execution_parent_da_gas_used, 3, 301);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_USED_STORE_ON_ENTER),
+                              "PARENT_DA_GAS_USED_STORE_ON_ENTER");
+
+    // Negative test: when no calls have been made, limits, parent limits, and parent used shouldn't change
+    trace.set(C::execution_l2_gas_limit, 2, 1001);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_LIMIT_NEXT_ROW),
+                              "L2_GAS_LIMIT_NEXT_ROW");
+    trace.set(C::execution_da_gas_limit, 2, 2001);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_LIMIT_NEXT_ROW),
+                              "DA_GAS_LIMIT_NEXT_ROW");
+
+    trace.set(C::execution_parent_l2_gas_limit, 2, 2001);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_LIMIT_NEXT_ROW),
+                              "PARENT_L2_GAS_LIMIT_NEXT_ROW");
+    trace.set(C::execution_parent_da_gas_limit, 2, 4001);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_LIMIT_NEXT_ROW),
+                              "PARENT_DA_GAS_LIMIT_NEXT_ROW");
+
+    trace.set(C::execution_parent_l2_gas_used, 2, 501);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_USED_NEXT_ROW),
+                              "PARENT_L2_GAS_USED_NEXT_ROW");
+    trace.set(C::execution_parent_da_gas_used, 2, 1501);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_USED_NEXT_ROW),
+                              "PARENT_DA_GAS_USED_NEXT_ROW");
 }
 
 } // namespace

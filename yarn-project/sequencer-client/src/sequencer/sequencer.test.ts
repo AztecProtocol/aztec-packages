@@ -1,8 +1,9 @@
 import { Body, L2Block } from '@aztec/aztec.js';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
@@ -15,7 +16,7 @@ import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/s
 import type { SlasherClient } from '@aztec/slasher';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
@@ -35,7 +36,7 @@ import { BlockHeader, GlobalVariables, type Tx, TxHash, makeProcessedTxFromPriva
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
-import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
+import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
@@ -76,10 +77,12 @@ describe('sequencer', () => {
   let feeRecipient: AztecAddress;
   const gasFees = GasFees.empty();
 
-  const mockedSig = new Signature(Buffer32.fromField(Fr.random()), Buffer32.fromField(Fr.random()), 27);
-  const committee = [EthAddress.random()];
+  const signer = Secp256k1Signer.random();
+  const mockedSig = Signature.random();
+  const mockedAttestation = new CommitteeAttestation(signer.address, mockedSig);
+  const committee = [signer.address];
 
-  const getSignatures = () => [mockedSig];
+  const getSignatures = () => [mockedAttestation];
 
   const getAttestations = () => {
     const attestation = new BlockAttestation(
@@ -159,7 +162,11 @@ describe('sequencer', () => {
       gasFees,
     );
 
-    publisher = mock<SequencerPublisher>();
+    const epochCache = mockDeep<EpochCache>();
+    epochCache.getEpochAndSlotInNextSlot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1n }));
+
+    publisher = mockDeep<SequencerPublisher>();
+    publisher.epochCache = epochCache;
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
     publisher.getForwarderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
@@ -538,9 +545,6 @@ describe('sequencer', () => {
     publisher.canProposeAtNextEthBlock.mockResolvedValueOnce(undefined);
     await sequencer.doRealWork();
     expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
-    // even though the chain tip moved, the sequencer should still have tried to build a block against the old archive
-    // this should get caught by the rollup
-    expect(publisher.canProposeAtNextEthBlock).toHaveBeenCalledWith(currentTip.archive.root.toBuffer());
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {

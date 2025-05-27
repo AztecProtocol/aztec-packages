@@ -1,9 +1,8 @@
 import { type L2Block, retryUntil } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import type { ViemPublicClient } from '@aztec/ethereum';
+import { FormattedViemError, type ViemPublicClient } from '@aztec/ethereum';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -14,7 +13,7 @@ import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { SlasherClient } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { CommitteeAttestation, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
@@ -271,10 +270,18 @@ export class Sequencer {
     // If we cannot find a tip archive, assume genesis.
     const chainTipArchive = chainTip.archive;
 
-    const slot = await this.slotForProposal(chainTipArchive.toBuffer(), BigInt(newBlockNumber));
+    const { slot } = this.publisher.epochCache.getEpochAndSlotInNextSlot();
     this.metrics.observeSlotChange(slot, this.publisher.getSenderAddress().toString());
-    if (!slot) {
-      this.log.debug(`Cannot propose block ${newBlockNumber}`);
+
+    const proposerInNextSlot = await this.publisher.epochCache.getProposerInNextSlot();
+
+    // If get proposer in next slot is undefined, then there is no proposer set, and it is in free for all (sandbox) so we continue
+    // If we calculate a proposer in the next slot, and it is not us, then stop
+    if (proposerInNextSlot !== undefined && !proposerInNextSlot.equals(this.validatorClient!.getValidatorAddress())) {
+      this.log.debug(`Cannot propose block ${newBlockNumber}`, {
+        us: this.validatorClient!.getValidatorAddress(),
+        proposer: proposerInNextSlot,
+      });
       return;
     }
 
@@ -322,7 +329,12 @@ export class Sequencer {
       const pendingTxs = this.p2pClient.iteratePendingTxs();
 
       await this.buildBlockAndEnqueuePublish(pendingTxs, proposalHeader, newGlobalVariables).catch(err => {
-        this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
+        if (err instanceof FormattedViemError) {
+          this.log.verbose(`Unable to build/enqueue block ${err.message}`);
+          return;
+        } else {
+          this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
+        }
       });
       finishedFlushing = true;
     } else {
@@ -372,29 +384,6 @@ export class Sequencer {
 
   public getForwarderAddress() {
     return this.publisher.getForwarderAddress();
-  }
-
-  /**
-   * Checks if we can propose at the next block and returns the slot number if we can.
-   * @param tipArchive - The archive of the previous block.
-   * @param proposalBlockNumber - The block number of the proposal.
-   * @returns The slot number if we can propose at the next block, otherwise undefined.
-   */
-  async slotForProposal(tipArchive: Buffer, proposalBlockNumber: bigint): Promise<bigint | undefined> {
-    const result = await this.publisher.canProposeAtNextEthBlock(tipArchive);
-
-    if (!result) {
-      return undefined;
-    }
-
-    const [slot, blockNumber] = result;
-
-    if (proposalBlockNumber !== blockNumber) {
-      const msg = `Sequencer block number mismatch. Expected ${proposalBlockNumber} but got ${blockNumber}.`;
-      this.log.warn(msg);
-      throw new Error(msg);
-    }
-    return slot;
   }
 
   /**
@@ -663,7 +652,7 @@ export class Sequencer {
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.BLOCK_TXS_COUNT]: txHashes.length,
   }))
-  protected async collectAttestations(block: L2Block, txs: Tx[]): Promise<Signature[] | undefined> {
+  protected async collectAttestations(block: L2Block, txs: Tx[]): Promise<CommitteeAttestation[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
 
@@ -725,7 +714,7 @@ export class Sequencer {
   }))
   protected async enqueuePublishL2Block(
     block: L2Block,
-    attestations?: Signature[],
+    attestations?: CommitteeAttestation[],
     txHashes?: TxHash[],
   ): Promise<void> {
     // Publishes new block to the network and awaits the tx to be mined
