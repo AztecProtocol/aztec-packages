@@ -247,7 +247,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
     const l2ToL1Witness2 = await computeL2ToL1MembershipWitness(aztecNode, txReceipt.blockNumber!, l2ToL1Messages![1]);
 
-    expect(l2ToL1Witness).toBeDefined();
+    expect(l2ToL1Witness2).toBeDefined();
 
     const l2MessageIndex2 = l2ToL1Witness2!.l2MessageIndex;
     const siblingPath2 = l2ToL1Witness2!.siblingPath;
@@ -491,7 +491,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       l2ToL1Messages![1],
     );
 
-    expect(l2ToL1Witness).toBeDefined();
+    expect(l2ToL1Witness2).toBeDefined();
 
     const l2MessageIndex2 = l2ToL1Witness2!.l2MessageIndex;
     const siblingPath2 = l2ToL1Witness2!.siblingPath;

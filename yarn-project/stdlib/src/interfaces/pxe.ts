@@ -500,6 +500,10 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(z.number(), schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schema])),
+  getL2ToL1Messages: z
+    .function()
+    .args(z.number())
+    .returns(z.array(z.array(schemas.Fr)).optional()),
   getBlock: z
     .function()
     .args(z.number())
