@@ -15,7 +15,8 @@ export class StatusMessage {
     readonly latestBlockNumber: number,
     readonly latestBlockHash: string,
     readonly finalisedBlockNumber: number,
-    readonly finalisedBlockHash: string,
+    //TODO: add finalisedBlockHash
+    //readonly finalisedBlockHash: string,
   ) {}
 
   /**
@@ -30,7 +31,8 @@ export class StatusMessage {
       reader.readNumber(), // latestBlockNumber
       reader.readString(), // latestBlockHash
       reader.readNumber(), // finalisedBlockNumber
-      reader.readString(), // finalisedBlockHash
+      //TODO: add finalisedBlockHash
+      //reader.readString(), // finalisedBlockHash
     );
   }
 
@@ -44,7 +46,8 @@ export class StatusMessage {
       this.latestBlockNumber,
       this.latestBlockHash,
       this.finalisedBlockNumber,
-      this.finalisedBlockHash,
+      //TODO: add finalisedBlockHash
+      // this.finalisedBlockHash,
     ]);
   }
 
@@ -61,7 +64,6 @@ export class StatusMessage {
       syncStatus.latestBlockHash,
       syncStatus.finalisedBlockNumber,
       //TODO: add finalisedBlockHash
-      syncStatus.latestBlockHash,
     );
   }
 
@@ -72,10 +74,7 @@ export class StatusMessage {
 }
 
 /**
- * Handles the status request.
- * If validation of peer's status message passed response is also status message
- * If validation didn't pass we respond with a response which isn't status message
- *  The way protocol is designed, the peer will disconnect from us in case of invalid response
+ * Handles the status request. By immediately responding  with the current node status.
  * @param compressedComponentsVersion - Compressed Components Version
  * @param worldStateSynchronizer - World State Synchronizer to fetch the sync status from.
  * Note the WorldStateSynchronizer must be injected to fetch the fresh sync status, we cannot pass in pre-built StatusMessage.
@@ -85,19 +84,11 @@ export function reqRespStatusHandler(
   compressedComponentsVersion: string,
   worldStateSynchronizer: WorldStateSynchronizer,
 ) {
-  return async (_peerId: PeerId, msg: Buffer) => {
-    const invalidStatusResponse = Promise.resolve(Buffer.from([0x0]));
-    try {
-      const peerStatus = StatusMessage.fromBuffer(msg);
-      const ourStatus = StatusMessage.fromWorldStateSyncStatus(
-        compressedComponentsVersion,
-        (await worldStateSynchronizer.status()).syncSummary,
-      );
-      // TODO: We should disconnect from the peer if the status is invalid
-      // TODO: should we really return invalid RESP and not status message? - think about the crawler
-      return ourStatus.validate(peerStatus) ? Promise.resolve(ourStatus.toBuffer()) : invalidStatusResponse;
-    } catch {
-      return invalidStatusResponse;
-    }
+  return async (_peerId: PeerId, _msg: Buffer) => {
+    const status = StatusMessage.fromWorldStateSyncStatus(
+      compressedComponentsVersion,
+      (await worldStateSynchronizer.status()).syncSummary,
+    );
+    return Promise.resolve(status.toBuffer());
   };
 }

@@ -156,7 +156,7 @@ export class PeerManager {
   }
 
   /**
-   * Simply logs the type of connected peer.
+   * Performs Status Handshake with a connected peer.
    * @param e - The connected peer event.
    */
   private handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
@@ -618,17 +618,32 @@ export class PeerManager {
     }
   }
 
+  /**
+   * Performs status Handshake with the Peer
+   * The way the protocol is designed is that each peer will call this method on newly established p2p connection.
+   * Both peers request Status message and both peers perform validation of the received Status message.
+   * If this validation fails on any end that peer will initiate disconnect.
+   *  Note: It's important for both peers to request and perform Status validation,
+   *  Because one of the peers can be _bad peer_ and this peer can simply skip the check.
+   *  If we don't implement validation on both ends the _bad peer_ remains connected.
+   * @param: peerId The Id of the peer to request the Status from.
+   * */
   private async exchangeStatusHandshake(peerId: PeerId) {
     const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
     const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
 
+    //Note: Technically we don't have to send out status to peer as well, but we do.
+    //It will be easier to update protocol in the future this way if need be.
     const { status, data } = await this.reqresp.sendRequestToPeer(
       peerId,
       ReqRespSubProtocol.STATUS,
       ourStatus.toBuffer(),
     );
     if (status !== ReqRespStatus.SUCCESS) {
-      this.logger.info(`Peer ${peerId} failed to respond`);
+      //TODO: maybe hard ban these peers in the future.
+      //We could allow this to happen up to N times, and then hard ban?
+      //Hard ban: Disallow connection via e.g. libp2p's Gater
+      this.logger.warn(`Peer ${peerId} failed to respond`);
       await this.disconnectPeer(peerId);
     }
 
@@ -638,9 +653,9 @@ export class PeerManager {
         this.logger.warn(`Status handshake with peer ${peerId} failed`);
         await this.disconnectPeer(peerId);
       }
-      this.logger.info(`Status handshake with peer ${peerId} was success`);
     } catch {
-      console.log(`Peer ${peerId} sent invalid status message`);
+      //TODO: maybe hard ban these peers in the future
+      this.logger.warn(`Peer ${peerId} sent invalid status message`);
       await this.disconnectPeer(peerId);
     }
   }

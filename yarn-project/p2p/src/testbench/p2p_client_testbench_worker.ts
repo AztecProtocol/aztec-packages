@@ -19,7 +19,6 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
-import { mock } from 'jest-mock-extended';
 
 import type { P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';

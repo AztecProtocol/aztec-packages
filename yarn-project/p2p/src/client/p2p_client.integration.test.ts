@@ -21,13 +21,10 @@ import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import { mockAttestation } from '../mem_pools/attestation_pool/mocks.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import type { LibP2PService } from '../services/libp2p/libp2p_service.js';
-import type { PeerManager } from '../services/peer-manager/peer_manager.js';
-import { StatusMessage } from '../services/reqresp/protocols/status.js';
 import { ReqRespStatus } from '../services/reqresp/status.js';
 import {
   makeAndStartTestP2PClient,
   makeAndStartTestP2PClients,
-  makeTestP2PClient,
   makeTestP2PClients,
 } from '../test-helpers/make-test-p2p-clients.js';
 
@@ -133,21 +130,6 @@ describe('p2p client integration', () => {
     p2pService.processAttestationFromPeer = handleGossipedAttestationSpy;
 
     return handleGossipedAttestationSpy;
-  };
-
-  // Replace the tx handler on a client
-  const replaceStatusHandshake = (client: P2PClient, promise: PromiseWithResolvers<Tx>) => {
-    const p2pManager = (client as any).p2pService.peerManager as PeerManager;
-    // @ts-expect-error - we want to spy on Status handshake
-    const actualStatusHandshake = p2pManager.exchangeStatusHandshake.bind(p2pManager);
-    // Mock the function to just call the old one
-    const exchangeStatusHandshakeSpy = jest.fn(async () => {
-      //await actualStatusHandshake(payload, msgId, source);
-    });
-    // @ts-expect-error - replace with our own handler
-    p2pManager.exchangeStatusHandshake = exchangeStatusHandshakeSpy;
-
-    return exchangeStatusHandshakeSpy;
   };
 
   it(
@@ -549,6 +531,8 @@ describe('p2p client integration', () => {
       for (const disconnectSpy of disconnectSpies) {
         expect(disconnectSpy).not.toHaveBeenCalled();
       }
+
+      await shutdown(clients);
     },
     TEST_TIMEOUT,
   );
@@ -583,6 +567,8 @@ describe('p2p client integration', () => {
       }
 
       expect(disconnectSpy).toHaveBeenCalled();
+
+      await shutdown(clients);
     },
     TEST_TIMEOUT,
   );
@@ -613,10 +599,12 @@ describe('p2p client integration', () => {
       jest
         .spyOn(c1PeerManager.reqresp, 'sendRequestToPeer')
         // mock single Invalid Status message c1 receives
+        //eslint-disable-next-line require-await
         .mockImplementationOnce(async () => ({
           status: ReqRespStatus.SUCCESS,
           data: Buffer.from('invalid status'),
         }))
+        //eslint-disable-next-line require-await
         .mockImplementation(async (...args) => {
           // all other calls behave normally
           return realSend(...args);
@@ -641,6 +629,8 @@ describe('p2p client integration', () => {
       // this is why we have one more call to handshake count
       expect(statusHandshakeSpies[0]).toHaveBeenCalledTimes(expectedHandshakeCount + 1);
       expect(statusHandshakeSpies[1]).toHaveBeenCalledTimes(expectedHandshakeCount + 1);
+
+      await shutdown(clients);
     },
     TEST_TIMEOUT,
   );
