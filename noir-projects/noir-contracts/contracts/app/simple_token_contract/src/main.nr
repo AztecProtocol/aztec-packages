@@ -223,7 +223,7 @@ pub contract SimpleToken {
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
     ) -> PartialUintNote {
-        let partial_note = UintNote::setup_partial_note(
+        let partial_note = UintNote::partial(
             to,
             storage.balances.at(to).set.storage_slot,
             context,

@@ -200,7 +200,7 @@ pub contract NFT {
         let sender_and_completer = context.msg_sender();
 
         // We setup a partial note with unpopulated/zero token id for 'to'.
-        let partial_note = NFTNote::setup_partial_note(
+        let partial_note = NFTNote::partial(
             to,
             storage.private_nfts.at(to).storage_slot,
             context,

@@ -117,7 +117,7 @@ impl UintNote {
     ///
     /// As part of the partial note creation process, a log will be sent to `recipient` from `sender` so that they can
     /// discover the note. `recipient` will typically be the same as `owner`.
-    pub fn setup_partial_note(
+    pub fn partial(
         owner: AztecAddress,
         storage_slot: Field,
         context: &mut PrivateContext,
