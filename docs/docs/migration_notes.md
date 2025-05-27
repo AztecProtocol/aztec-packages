@@ -17,7 +17,7 @@ Public events are now emitted by calling the `emit_event_in_public_log` function
 + use aztec::event::event_interface::emit_event_in_public_log;
 
 - event.emit(encode_event(&mut context));
-+ event.emit_event_in_public_log(&mut context);
++ emit_event_in_public_log(event, &mut context);
 ```
 
 Private events are similarly by calling the `emit_event_in_private_log` function, which takes an enum value indicating the constraints that are desired:
@@ -25,7 +25,7 @@ Private events are similarly by calling the `emit_event_in_private_log` function
 ```diff
 + use aztec::event::event_interface::{emit_event_in_private_log, PrivateLogContent};
 
-- event.emit(encode_and_encrypt_unconstraied(&mut context));
+- event.emit(encode_and_encrypt_unconstrained(&mut context));
 + emit_event_in_private_log(
 +     event,
 +     &mut context,
