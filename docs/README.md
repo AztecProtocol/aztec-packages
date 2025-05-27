@@ -68,7 +68,12 @@ To manually perform step two locally:
 
 Adding docs: Only the `next` branch will have protocol changes, whereas `master` will not. So any documentation refering to these new protocol changes should only be applied to `next`. All other docs updates should be applied to `master`.
 
-Generating docs: Since `master` does not contain the changes of the next protocol update, then generating a document version from `master` will not correctly show what the docs version `next` is supposed to contain. For this reason, doc releases should come from `next`.
+Generating docs:
+- Most of the time we want the label `Next` to contain upcoming changes, excluding documentation of upcoming protocol changes. For this we release docs straight from `master`.
+- Before a protocol release, we want the docs label `Next` to contain upcoming changes AND documentation of upcoming protocol changes, then:
+  1. Apply protocol docs to `next` branch in `docs/docs` (we can do this with an ongoing protocol docs branch, periodically merging into `next`)
+  2. cherrypick these commits (or patch/rebase the protocol docs branch) into `master` to apply to `docs/docs`
+  3. releasing from `master` now will show the `Next` label to have all upcoming changes including the protocol changes
 
 ### Summary
 - The only place to refer to the latest protocol changes is in the `next` branch under `docs/docs`, shown as the `next` docs version
