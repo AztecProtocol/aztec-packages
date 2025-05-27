@@ -17,9 +17,9 @@ In this tutorial you will learn how to:
 - Handle different private note types
 - Pass data between private and public state
 
-We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr), and explain what is being added as we go.
+We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr), and explain what is being added as we go.
 
-This tutorial is compatible with the Aztec version `v0.87.0`. Install the correct version with `aztec-up 0.87.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `v0.87.3`. Install the correct version with `aztec-up 0.87.3`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Requirements
 
@@ -47,10 +47,10 @@ Inside `Nargo.toml` paste the following:
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.0", directory="noir-projects/aztec-nr/aztec" }
-authwit={ git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.0", directory="noir-projects/aztec-nr/authwit"}
-compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.0", directory="noir-projects/aztec-nr/compressed-string"}
-uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.0", directory="noir-projects/aztec-nr/uint-note" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/aztec" }
+authwit={ git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/authwit"}
+compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/compressed-string"}
+uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/uint-note" }
 ```
 
 We will be working within `main.nr` for the rest of the tutorial.
@@ -131,7 +131,7 @@ Before we can implement the functions, we need set up the contract storage, and 
 
 :::info Copy required files
 
-We will be going over the code in `main.nr` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
+We will be going over the code in `main.nr` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
 
 :::
 
@@ -192,7 +192,7 @@ We are importing:
 
 ### Types files
 
-We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src).
+We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src).
 
 :::note
 
@@ -219,7 +219,7 @@ struct Storage<Context> {
     decimals: PublicImmutable<u8, Context>,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L68-L88" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L68-L88</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L68-L88" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L68-L88</a></sub></sup>
 
 
 Reading through the storage variables:
@@ -251,7 +251,7 @@ fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8
     storage.decimals.initialize(decimals);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L90-L103" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L90-L103</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L90-L103" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L90-L103</a></sub></sup>
 
 
 ### Public function implementations
@@ -273,7 +273,7 @@ fn set_admin(new_admin: AztecAddress) {
     storage.admin.write(new_admin);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L105-L113" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L105-L113</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L105-L113" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L105-L113</a></sub></sup>
 
 
 #### `set_minter`
@@ -287,7 +287,7 @@ fn set_minter(minter: AztecAddress, approve: bool) {
     storage.minters.at(minter).write(approve);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L183-L193" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L183-L193</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L183-L193" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L183-L193</a></sub></sup>
 
 
 #### `mint_to_public`
@@ -306,7 +306,7 @@ fn mint_to_public(to: AztecAddress, amount: u128) {
     storage.total_supply.write(supply);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L195-L206" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L195-L206</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L195-L206" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L195-L206</a></sub></sup>
 
 
 #### `transfer_in_public`
@@ -333,7 +333,7 @@ fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce:
     storage.public_balances.at(to).write(to_balance);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L208-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L208-L221</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L208-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L208-L221</a></sub></sup>
 
 
 #### `burn_public`
@@ -356,7 +356,7 @@ fn burn_public(from: AztecAddress, amount: u128, nonce: Field) {
     storage.total_supply.write(new_supply);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L223-L238" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L223-L238</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L223-L238" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L223-L238</a></sub></sup>
 
 
 #### `finalize_mint_to_private`
@@ -378,7 +378,7 @@ fn finalize_mint_to_private(amount: u128, partial_note: PartialUintNote) {
     _finalize_mint_to_private(amount, partial_note, &mut context, storage);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L531-L545" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L531-L545</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L531-L545" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L531-L545</a></sub></sup>
 
 
 #### `finalize_transfer_to_private`
@@ -395,7 +395,7 @@ fn finalize_transfer_to_private(amount: u128, partial_note: PartialUintNote) {
     _finalize_transfer_to_private(from, amount, partial_note, &mut context, storage);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L462-L471" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L462-L471</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L462-L471" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L462-L471</a></sub></sup>
 
 
 ### Private function implementations
@@ -436,7 +436,7 @@ fn transfer_to_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce:
     Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L240-L256" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L240-L256</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L240-L256" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L240-L256</a></sub></sup>
 
 
 #### `transfer`
@@ -485,7 +485,7 @@ fn transfer(to: AztecAddress, amount: u128) {
     ));
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L258-L299" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L258-L299</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L258-L299" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L258-L299</a></sub></sup>
 
 
 #### `transfer_in_private`
@@ -509,7 +509,7 @@ fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: u128, nonce
     storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note(&mut context, to, from));
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L363-L383" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L363-L383</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L363-L383" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L363-L383</a></sub></sup>
 
 
 #### `transfer_to_private`
@@ -534,7 +534,7 @@ fn transfer_to_private(to: AztecAddress, amount: u128) {
     token._finalize_transfer_to_private_unsafe(from, amount, partial_note).enqueue(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L402-L417" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L402-L417</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L402-L417" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L402-L417</a></sub></sup>
 
 
 #### `mint_to_private`
@@ -563,7 +563,7 @@ fn mint_to_private(
     );
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L508-L529" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L508-L529</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L508-L529" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L508-L529</a></sub></sup>
 
 
 #### `cancel_authwit`
@@ -578,7 +578,7 @@ fn cancel_authwit(inner_hash: Field) {
     context.push_nullifier(nullifier);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L354-L361" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L354-L361</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L354-L361" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L354-L361</a></sub></sup>
 
 
 #### `burn_private`
@@ -603,7 +603,7 @@ fn burn_private(from: AztecAddress, amount: u128, nonce: Field) {
     Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L385-L400" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L385-L400</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L385-L400" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L385-L400</a></sub></sup>
 
 
 #### `prepare_private_balance_increase`
@@ -622,7 +622,7 @@ fn prepare_private_balance_increase(to: AztecAddress, from: AztecAddress) -> Par
     _prepare_private_balance_increase(from, to, &mut context, storage)
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L419-L428" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L419-L428</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L419-L428" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L419-L428</a></sub></sup>
 
 
 ### Internal function implementations
@@ -642,7 +642,7 @@ fn _increase_public_balance(to: AztecAddress, amount: u128) {
     _increase_public_balance_inner(to, amount, storage);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L591-L599" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L591-L599</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L591-L599" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L591-L599</a></sub></sup>
 
 
 #### `_reduce_total_supply`
@@ -658,7 +658,7 @@ fn _reduce_total_supply(amount: u128) {
     storage.total_supply.write(new_supply);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L611-L619" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L611-L619</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L611-L619" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L611-L619</a></sub></sup>
 
 
 #### `_finalize_transfer_to_private_unsafe`
@@ -681,7 +681,7 @@ fn _finalize_transfer_to_private_unsafe(
     _finalize_transfer_to_private(from, amount, partial_note, &mut context, storage);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L473-L486" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L473-L486</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L473-L486" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L473-L486</a></sub></sup>
 
 
 #### `_finalize_mint_to_private_unsafe`
@@ -701,7 +701,7 @@ fn _finalize_mint_to_private_unsafe(
     _finalize_mint_to_private(amount, partial_note, &mut context, storage);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L547-L559" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L547-L559</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L547-L559" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L547-L559</a></sub></sup>
 
 
 ### View function implementations
@@ -721,7 +721,7 @@ fn get_admin() -> Field {
     storage.admin.read().to_field()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L151-L157" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L151-L157</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L151-L157" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L151-L157</a></sub></sup>
 
 
 #### `is_minter`
@@ -735,7 +735,7 @@ fn is_minter(minter: AztecAddress) -> bool {
     storage.minters.at(minter).read()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L159-L165" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L159-L165</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L159-L165" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L159-L165</a></sub></sup>
 
 
 #### `total_supply`
@@ -749,7 +749,7 @@ fn total_supply() -> u128 {
     storage.total_supply.read()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L167-L173" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L167-L173</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L167-L173" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L167-L173</a></sub></sup>
 
 
 #### `balance_of_public`
@@ -763,7 +763,7 @@ fn balance_of_public(owner: AztecAddress) -> u128 {
     storage.public_balances.at(owner).read()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L175-L181" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L175-L181</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L175-L181" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L175-L181</a></sub></sup>
 
 
 ### Utility function implementations
@@ -772,7 +772,7 @@ fn balance_of_public(owner: AztecAddress) -> u128 {
 
 #### `balance_of_private`
 
-A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE) (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.0/yarn-project/pxe) must have `ivsk` ([incoming viewing secret key](../../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys)) in order to decrypt the notes.
+A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE) (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/yarn-project/pxe) must have `ivsk` ([incoming viewing secret key](../../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys)) in order to decrypt the notes.
 
 ```rust title="balance_of_private" showLineNumbers
 #[utility]
@@ -780,7 +780,7 @@ pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
     storage.balances.at(owner).balance_of()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L621-L626" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L621-L626</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L621-L626" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L621-L626</a></sub></sup>
 
 
 ## Compiling
@@ -809,7 +809,7 @@ It builds on the Token contract described here and goes into more detail about A
 
 ### Optional: Dive deeper into this contract and concepts mentioned here
 
-- Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
+- Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
 - [Commitments (Wikipedia link)](https://en.wikipedia.org/wiki/Commitment_scheme)
 - [Nullifier tree](../../../../aztec/concepts/advanced/storage/indexed_merkle_tree.mdx)
 - [Public / Private function calls](../../../../aztec/smart_contracts/functions/public_private_calls.md).

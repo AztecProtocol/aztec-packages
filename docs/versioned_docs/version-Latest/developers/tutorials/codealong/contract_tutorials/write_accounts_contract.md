@@ -15,7 +15,7 @@ You will learn:
 - Typescript glue code to format and authenticate transactions
 - Deploying and testing the account contract
 
-This tutorial is compatible with the Aztec version `v0.87.0`. Install the correct version with `aztec-up 0.87.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `v0.87.3`. Install the correct version with `aztec-up 0.87.3`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 Writing your own account contract allows you to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed (including key rotation and recovery). In other words, writing an account contract lets you make the most out of account abstraction in the Aztec network.
 
@@ -84,15 +84,15 @@ pub contract SchnorrHardcodedAccount {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L1-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L1-L55</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L1-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L1-L55</a></sub></sup>
 
 
 For this to compile, you will need to add the following dependencies to your `Nargo.toml`:
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.0", directory="noir-projects/aztec-nr/aztec" }
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.0", directory="noir-projects/aztec-nr/authwit" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/aztec" }
+authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/authwit" }
 schnorr = { git = "https://github.com/noir-lang/schnorr", tag = "v0.1.1" }
 ```
 
@@ -118,7 +118,7 @@ pub fn entrypoint(self, app_payload: AppPayload, fee_payload: FeePayload, cancel
     }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/aztec-nr/authwit/src/account.nr#L40-L59" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/account.nr#L40-L59</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/authwit/src/account.nr#L40-L59" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/account.nr#L40-L59</a></sub></sup>
 
 
 ```rust title="app-payload-struct" showLineNumbers
@@ -128,7 +128,7 @@ pub struct AppPayload {
     pub nonce: Field,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/aztec-nr/authwit/src/entrypoint/app.nr#L19-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/entrypoint/app.nr#L19-L25</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/authwit/src/entrypoint/app.nr#L19-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/entrypoint/app.nr#L19-L25</a></sub></sup>
 
 
 ```rust title="fee-payload-struct" showLineNumbers
@@ -139,7 +139,7 @@ pub struct FeePayload {
     is_fee_payer: bool,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/aztec-nr/authwit/src/entrypoint/fee.nr#L17-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/entrypoint/fee.nr#L17-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/authwit/src/entrypoint/fee.nr#L17-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/entrypoint/fee.nr#L17-L24</a></sub></sup>
 
 
 :::info
@@ -165,7 +165,7 @@ fn is_valid_impl(_context: &mut PrivateContext, outer_hash: Field) -> bool {
     schnorr::verify_signature(public_key, signature, outer_hash.to_be_bytes::<32>())
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L37-L53" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L37-L53</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L37-L53" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L37-L53</a></sub></sup>
 
 
 For our account contract, we will take the hash of the action to authorize, request the corresponding auth witness from the oracle, and validate it against our hardcoded public key. If the signature is correct, we authorize the action.
@@ -231,7 +231,7 @@ export interface AccountContract {
   getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/aztec.js/src/account/account_contract.ts#L10-L50" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/account/account_contract.ts#L10-L50</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/aztec.js/src/account/account_contract.ts#L10-L50" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/account/account_contract.ts#L10-L50</a></sub></sup>
 
 
 However, if you are using the default `AccountActions` module, then you can leverage the `DefaultAccountContract` class from `@aztec/accounts` and just implement the logic for generating an auth witness that matches the one you wrote in Noir:
@@ -266,7 +266,7 @@ class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
   }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L17-L46" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L17-L46</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L17-L46" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L17-L46</a></sub></sup>
 
 
 As you can see in the snippet above, to fill in this base class, we need to define three things:
@@ -303,7 +303,7 @@ if (await account.isDeployable()) {
 const wallet = await account.getWallet();
 const address = wallet.getAddress();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L60-L75" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L60-L75</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L60-L75" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L60-L75</a></sub></sup>
 
 
 Note that we used a funded wallet to deploy the account contract and pay for the transaction fee. The new account doesn't have any funds yet. We will continue using the funded wallet to deploy the token contract:
@@ -321,7 +321,7 @@ await token.methods.mint_to_private(from, address, mintAmount).send().wait();
 const balance = await token.methods.balance_of_private(address).simulate();
 logger.info(`Balance of wallet is now ${balance}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L78-L90" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L78-L90</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L78-L90" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L78-L90</a></sub></sup>
 
 
 If we run this, we get `Balance of wallet is now 150`, which shows that the `mint` call was successfully executed for our account contract.
@@ -341,7 +341,7 @@ try {
   logger.info(`Failed to send tx: ${err}`);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L93-L105" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L93-L105</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L93-L105" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts#L93-L105</a></sub></sup>
 
 
 Lo and behold, we get `Error: Assertion failed: 'verification == true'` when running the snippet above, pointing to the line in our account contract where we verify the Schnorr signature.
@@ -350,7 +350,7 @@ Lo and behold, we get `Error: Assertion failed: 'verification == true'` when run
 
 ### Optional: Learn more about concepts mentioned here
 
-- [ECDSA signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/ecdsa_account_contract/src/main.nr)
-- [Schnorr signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.0/noir-projects/noir-contracts/contracts/account/schnorr_account_contract)
+- [ECDSA signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/ecdsa_account_contract/src/main.nr)
+- [Schnorr signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/noir-contracts/contracts/account/schnorr_account_contract)
 - [Account abstraction](../../../../aztec/concepts/accounts/index.md#account-abstraction-aa)
 - [Authentication witness](../../../../aztec/concepts/advanced/authwit.md)
