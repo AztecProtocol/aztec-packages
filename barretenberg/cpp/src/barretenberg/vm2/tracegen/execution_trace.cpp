@@ -238,6 +238,7 @@ void ExecutionTraceBuilder::process(
             } });
 
         // Gas
+        bool oog_base = ex_event.gas_event.oog_base_l2 || ex_event.gas_event.oog_base_da;
         trace.set(
             row,
             { {
@@ -246,10 +247,10 @@ void ExecutionTraceBuilder::process(
                 { C::execution_base_da_gas, ex_event.gas_event.base_gas.daGas },
                 { C::execution_out_of_gas_base_l2, ex_event.gas_event.oog_base_l2 },
                 { C::execution_out_of_gas_base_da, ex_event.gas_event.oog_base_da },
-                { C::execution_out_of_gas_base, ex_event.gas_event.oog_base_l2 || ex_event.gas_event.oog_base_da },
+                { C::execution_out_of_gas_base, oog_base },
                 { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
                 { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
-                { C::execution_should_run_dyn_gas_check, !ex_event.gas_event.oog_base_l2 },
+                { C::execution_should_run_dyn_gas_check, !oog_base }, // This should be false also if addressing errors
                 { C::execution_dynamic_l2_gas_factor, ex_event.gas_event.dynamic_gas_factor.l2Gas },
                 { C::execution_dynamic_da_gas_factor, ex_event.gas_event.dynamic_gas_factor.daGas },
                 { C::execution_dynamic_l2_gas, ex_event.gas_event.dynamic_gas.l2Gas },

@@ -115,8 +115,7 @@ template <typename FF_> class gasImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel) *
-                       ((FF(1) - in.get(C::execution_out_of_gas_base)) - in.get(C::execution_should_run_dyn_gas_check));
+            auto tmp = in.get(C::execution_out_of_gas_base) * in.get(C::execution_should_run_dyn_gas_check);
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
