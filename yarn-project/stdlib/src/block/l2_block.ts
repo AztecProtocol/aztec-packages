@@ -86,8 +86,9 @@ export class L2Block {
     numPublicLogsPerCall = 1,
     inHash: Buffer | undefined = undefined,
     slotNumber: number | undefined = undefined,
+    maxEffects: number | undefined = undefined,
   ): Promise<L2Block> {
-    const body = await Body.random(txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall);
+    const body = await Body.random(txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall, maxEffects);
 
     return new L2Block(
       makeAppendOnlyTreeSnapshot(l2BlockNum + 1),

@@ -10,6 +10,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { timesAsync } from '@aztec/foundation/collection';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { SiblingPath } from '@aztec/foundation/trees';
@@ -22,7 +23,7 @@ import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -343,9 +344,11 @@ describe('NativeWorldState', () => {
 
   describe('Pending and Proven chain', () => {
     let ws: NativeWorldStateService;
+    let rollupAddress!: EthAddress;
 
     beforeEach(async () => {
-      ws = await NativeWorldStateService.tmp();
+      rollupAddress = EthAddress.random();
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
     });
 
     afterEach(async () => {
@@ -445,6 +448,94 @@ describe('NativeWorldState', () => {
           )}, blocks not found. Current oldest block: ${highestPrunedBlockNumber + 1}`,
         );
       }
+    });
+
+    const unsyncTrees = async (
+      ws: NativeWorldStateService,
+      treeDirectories: string[],
+      unsyncFunction: (ws: NativeWorldStateService) => Promise<void>,
+    ) => {
+      const copyFiles = async (source: string, dest: string) => {
+        const contents = await readdir(source);
+        const isFile = async (fileName: string) => {
+          return (await lstat(fileName)).isFile();
+        };
+        for (const file of contents) {
+          const fullSourceFile = join(source, file);
+          const isAFile = await isFile(fullSourceFile);
+          if (!isAFile) {
+            continue;
+          }
+          await copyFile(fullSourceFile, join(dest, file));
+        }
+      };
+
+      const tempDirectory = await mkdtemp(join(tmpdir(), randomBytes(8).toString('hex')));
+
+      // Close the world state before we run the un-sync operation
+      await ws.close();
+
+      for (let i = 0; i < treeDirectories.length; i++) {
+        const dir = treeDirectories[i];
+        const sourceDirectory = join(dataDir, 'world_state', dir);
+        const destDirectory = join(tempDirectory, dir);
+        await mkdir(destDirectory, { recursive: true });
+        await copyFiles(sourceDirectory, destDirectory);
+      }
+
+      // Open up the world state again
+      const newWorldState = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      await unsyncFunction(newWorldState);
+
+      // Now, close down the world state and reinstate the nullifier and public data trees
+      await newWorldState.close();
+
+      for (let i = 0; i < treeDirectories.length; i++) {
+        const dir = treeDirectories[i];
+        const sourceDirectory = join(dataDir, 'world_state', dir);
+        const destDirectory = join(tempDirectory, dir);
+        await copyFiles(destDirectory, sourceDirectory);
+      }
+      await rm(tempDirectory, { recursive: true, force: true });
+      return await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+    };
+
+    it('handles historic block numbers being out of sync', async () => {
+      const fork = await ws.fork();
+      const forks = [];
+      const provenBlockLag = 4;
+
+      for (let i = 0; i < 16; i++) {
+        const blockNumber = i + 1;
+        const provenBlock = blockNumber - provenBlockLag;
+        const { block, messages } = await mockBlock(blockNumber, 1, fork);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+
+        expect(status.summary.unfinalisedBlockNumber).toBe(BigInt(blockNumber));
+
+        const blockFork = await ws.fork();
+        forks.push(blockFork);
+
+        if (provenBlock > 0) {
+          const provenStatus = await ws.setFinalised(BigInt(provenBlock));
+          expect(provenStatus.finalisedBlockNumber).toBe(BigInt(provenBlock));
+        } else {
+          expect(status.summary.finalisedBlockNumber).toBe(0n);
+        }
+      }
+
+      ws = await unsyncTrees(ws, ['PublicDataTree', 'NullifierTree'], async (ws: NativeWorldStateService) => {
+        await ws.removeHistoricalBlocks(5n);
+      });
+
+      // Open up the world state again and try removing the first 10 historical blocks
+      // We should handle the fact that some trees are at historical block 5 and some are at 1
+      const fullStatus = await ws.removeHistoricalBlocks(10n);
+      expect(fullStatus.meta.archiveTreeMeta.oldestHistoricBlock).toEqual(10n);
+      expect(fullStatus.meta.messageTreeMeta.oldestHistoricBlock).toEqual(10n);
+      expect(fullStatus.meta.noteHashTreeMeta.oldestHistoricBlock).toEqual(10n);
+      expect(fullStatus.meta.nullifierTreeMeta.oldestHistoricBlock).toEqual(10n);
+      expect(fullStatus.meta.publicDataTreeMeta.oldestHistoricBlock).toEqual(10n);
     });
 
     it.each([

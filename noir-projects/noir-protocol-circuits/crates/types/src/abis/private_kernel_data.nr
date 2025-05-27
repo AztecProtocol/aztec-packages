@@ -1,27 +1,25 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    constants::{PRIVATE_KERNEL_RESET_INDEX, PROOF_TYPE_PG, VK_TREE_HEIGHT},
+    constants::{
+        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_INDEX, PROOF_TYPE_PG,
+    },
     merkle_tree::membership::assert_check_membership,
-    proof::{traits::Verifiable, verification_key::ClientIVCVerificationKey},
+    proof::{traits::Verifiable, vk_data::VkData},
     utils::arrays::find_index_hint,
 };
 
 pub struct PrivateKernelData {
     pub public_inputs: PrivateKernelCircuitPublicInputs,
-    pub vk: ClientIVCVerificationKey,
-    pub vk_index: u32,
-    pub vk_path: [Field; VK_TREE_HEIGHT],
+    pub vk_data: VkData<CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
 }
 
 impl PrivateKernelData {
     pub fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
-        self.vk.check_hash();
-
-        let index_in_allowed_list = if self.vk_index >= PRIVATE_KERNEL_RESET_INDEX {
+        let index_in_allowed_list = if self.vk_data.leaf_index >= PRIVATE_KERNEL_RESET_INDEX {
             // Kernel circuits only need to include PRIVATE_KERNEL_RESET_INDEX in the list to allow all private kernel reset variants.
             PRIVATE_KERNEL_RESET_INDEX
         } else {
-            self.vk_index
+            self.vk_data.leaf_index
         };
         // Safety: find_index_hint should return an index into allowed_indices where `index == index_in_allowed_list`.
         // The assertion below then verifies that the condition is met.
@@ -32,9 +30,9 @@ impl PrivateKernelData {
         assert_eq(allowed_indices[index_hint], index_in_allowed_list, "Invalid vk index");
 
         assert_check_membership(
-            self.vk.hash,
-            self.vk_index as Field,
-            self.vk_path,
+            self.vk_data.vk.hash,
+            self.vk_data.leaf_index as Field,
+            self.vk_data.sibling_path,
             self.public_inputs.constants.vk_tree_root,
         );
     }
@@ -42,15 +40,20 @@ impl PrivateKernelData {
 
 impl Verifiable for PrivateKernelData {
     fn verify(self) {
+        self.vk_data.vk.check_hash();
         // Client IVC public inputs are linked in the backend via the databus
-        std::verify_proof_with_type(self.vk.key, [], [], 0, PROOF_TYPE_PG);
+        std::verify_proof_with_type(
+            self.vk_data.vk.key,
+            [],
+            [],
+            self.vk_data.vk.hash,
+            PROOF_TYPE_PG,
+        );
     }
 }
 
 pub struct PrivateKernelDataWithoutPublicInputs {
-    vk: ClientIVCVerificationKey,
-    vk_index: u32,
-    vk_path: [Field; VK_TREE_HEIGHT],
+    vk_data: VkData<CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
 }
 
 impl PrivateKernelDataWithoutPublicInputs {
@@ -58,11 +61,6 @@ impl PrivateKernelDataWithoutPublicInputs {
         self,
         public_inputs: PrivateKernelCircuitPublicInputs,
     ) -> PrivateKernelData {
-        PrivateKernelData {
-            public_inputs,
-            vk: self.vk,
-            vk_index: self.vk_index,
-            vk_path: self.vk_path,
-        }
+        PrivateKernelData { public_inputs, vk_data: self.vk_data }
     }
 }

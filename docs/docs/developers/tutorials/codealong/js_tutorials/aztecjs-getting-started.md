@@ -43,11 +43,18 @@ mkdir src
 yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix typescript @types/node
 ```
 
+:::note Match tool and dependency versions
+The version returned from `aztec -V` should match the `@aztec/...` dependencies in package.json
+
+:::
+
 and yarn config:
 
 ```sh
 echo "nodeLinker: node-modules" > .yarnrc.yml
 ```
+
+Then run: `yarn install`
 
 4. Add a `tsconfig.json` file into the project root and paste this:
 

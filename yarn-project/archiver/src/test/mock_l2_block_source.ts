@@ -112,7 +112,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
         blockHash: Buffer32.random().toString(),
         timestamp: BigInt(block.number),
       },
-      signatures: [],
+      attestations: [],
     }));
   }
 

@@ -126,9 +126,9 @@ describe('e2e_p2p_network', () => {
     // Check that the validators are added correctly
     const withdrawer = await stakingAssetHandler.read.withdrawer();
     for (const validator of validators) {
-      const info = await rollup.read.getInfo([validator.attester]);
-      expect(info.proposer).toBe(validator.proposer);
-      expect(info.withdrawer).toBe(withdrawer);
+      const info = await rollup.read.getAttesterView([validator.attester]);
+      expect(info.config.proposer).toBe(validator.proposer);
+      expect(info.config.withdrawer).toBe(withdrawer);
     }
 
     // Wait for the validators to be added to the rollup
@@ -196,10 +196,10 @@ describe('e2e_p2p_network', () => {
     const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.signatures
-      .filter(s => !s.isEmpty)
-      .map(sig => new BlockAttestation(new Fr(block.block.number), payload, sig));
-    const signers = attestations.map(att => att.getSender().toString());
+    const attestations = block.attestations
+      .filter(a => !a.signature.isEmpty())
+      .map(a => new BlockAttestation(new Fr(blockNumber), payload, a.signature));
+    const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right

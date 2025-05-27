@@ -214,8 +214,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('incrementAppTaggingSecretIndexAsSender'));
   }
 
-  syncNotes(_pendingTaggedLogArrayBaseSlot: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('syncNotes'));
+  fetchTaggedLogs(_pendingTaggedLogArrayBaseSlot: Fr): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('fetchTaggedLogs'));
   }
 
   deliverNote(

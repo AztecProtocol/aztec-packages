@@ -44,7 +44,7 @@ library SampleLib {
     uint256 upperLimit = _indexCount - 1;
 
     for (uint256 index = 0; index < _committeeSize; index++) {
-      uint256 sampledIndex = computeSampleIndex(index, upperLimit, _seed);
+      uint256 sampledIndex = computeSampleIndex(index, upperLimit + 1, _seed);
 
       // Get index, or its swapped override
       sampledIndices[index] = getValue(sampledIndex);
@@ -54,6 +54,17 @@ library SampleLib {
         // Decrement the upper limit
         upperLimit--;
       }
+    }
+
+    // Clear transient storage.
+    // Note that we are cleaing the `sampleIndicies` and do not keep track of a separate list of
+    // `sampleIndex` that was written to. The reasoning being that we are only overwriting for
+    // duplicate cases, so `sampleIndicies` isa superset of the `sampleIndex` that have been drawn
+    // (due to account for duplicates). Thereby clearing the `sampleIndicies` clears all.
+    // Due to the cost of `tstore` and `tload` it is cheaper just to overwrite it all, than checking
+    // if there is even anything to override.
+    for (uint256 i = 0; i < _committeeSize; i++) {
+      setOverrideValue(sampledIndices[i], 0);
     }
 
     return sampledIndices;

@@ -7,7 +7,7 @@ import Image from "@theme/IdealImage";
 
 In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter, where you can keep your own private counter - so no one knows what ID you are at or when you increment! This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase all of the awesome stuff Aztec is capable of.
 
-This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up #include_aztec_version`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up -v #include_version_without_prefix`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Prerequisites
 
@@ -69,19 +69,19 @@ pub contract Counter {
 
 #include_code imports /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
 
-- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage};`  
+- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage};`
   Imports the macros needed to define function types (`initializer`, `private`, and `utility`) and the `storage` macro for declaring contract storage structures.
 
-- `use aztec::prelude::{AztecAddress, Map};`  
+- `use aztec::prelude::{AztecAddress, Map};`
   Brings in `AztecAddress` (used to identify accounts/contracts) and `Map` (used for creating state mappings, like our counters).
 
-- `use aztec::protocol_types::traits::{FromField, ToField};`  
+- `use aztec::protocol_types::traits::{FromField, ToField};`
   Provides traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
 
-- `use easy_private_state::EasyPrivateUint;`  
+- `use easy_private_state::EasyPrivateUint;`
   Imports a wrapper to manage private integer-like state variables (ie our counter), abstracting away notes.
 
-- `use value_note::{balance_utils, value_note::ValueNote};`  
+- `use value_note::{balance_utils, value_note::ValueNote};`
   Brings in `ValueNote`, which represents a private value stored as a note, and `balance_utils`, which makes working with notes feel like working with simple balances.
 
 ## Declare storage

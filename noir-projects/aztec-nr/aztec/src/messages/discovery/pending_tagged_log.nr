@@ -5,12 +5,12 @@ use protocol_types::{
     traits::{Deserialize, Serialize},
 };
 
-// Base slot for the pending tagged log array to which the syncNotes oracle inserts found private logs.
+// Base slot for the pending tagged log array to which the fetchTaggedLogs oracle inserts found private logs.
 pub(crate) global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::PENDING_TAGGED_PENDING_TAGGED_LOG_ARRAY_BASE_SLOT".as_bytes(),
 );
 
-/// Represents a log as it is stored in the pending tagged log array to which the syncNotes oracle inserts found private log.
+/// Represents a log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle inserts found private log.
 #[derive(Deserialize, Serialize)]
 pub(crate) struct PendingTaggedLog {
     pub log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,

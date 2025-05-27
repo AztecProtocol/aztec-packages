@@ -16,5 +16,9 @@ fi
 # When building the browser bundle, both wasms are inlined directly.
 mkdir -p ./dest/node/barretenberg_wasm
 mkdir -p ./dest/node-cjs/barretenberg_wasm
+mkdir -p ./dest/browser/barretenberg_wasm
+
 cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
 cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm.gz
+cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg-threads.wasm.gz
+cp ../cpp/build-wasm/bin/barretenberg.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg.wasm.gz
