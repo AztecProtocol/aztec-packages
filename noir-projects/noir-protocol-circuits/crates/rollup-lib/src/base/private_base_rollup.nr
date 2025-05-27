@@ -240,7 +240,7 @@ mod tests {
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
             side_effect::OrderedValue, sponge_blob::SpongeBlob,
         },
-        address::{AztecAddress, EthAddress},
+        address::AztecAddress,
         constants::{
             ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
             L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
@@ -1057,14 +1057,10 @@ mod tests {
     unconstrained fn nonempty_block_out_hash() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
 
-        for i in 0..MAX_L2_TO_L1_MSGS_PER_TX {
-            builder.tube_data.add_exposed_l2_to_l1_message(
-                i as Field,
-                EthAddress::from_field(1 + i as Field),
-            );
-        }
+        builder.tube_data.append_l2_to_l1_msgs(MAX_L2_TO_L1_MSGS_PER_TX);
 
         let out_hash = builder.execute().out_hash;
+
         let siloed_l2_to_l1_msgs = builder
             .tube_data
             .l2_to_l1_msgs

@@ -40,7 +40,8 @@ fn tail_to_public_output_composer_succeeds() {
     let num_public_calls_non_revertible = 2;
     builder.previous_kernel.append_public_call_requests(num_public_calls_non_revertible);
 
-    builder.previous_kernel.end_setup();
+    // Get the current counter to set it as the min_revertible_side_effect_counter later.
+    let min_revertible_side_effect_counter = builder.previous_kernel.counter;
 
     // Revertible.
     builder.previous_kernel.set_public_teardown_call_request();
@@ -63,7 +64,12 @@ fn tail_to_public_output_composer_succeeds() {
     builder.previous_kernel.append_public_call_requests(num_public_calls_revertible);
 
     // Get ordered items before shuffling for verifying with the output later.
-    let data = builder.previous_kernel.to_private_to_public_accumulated_data();
+    // The min_revertible_side_effect_counter is not set yet, so everything is included in the non-revertible accumulated data.
+    let data =
+        builder.previous_kernel.to_private_to_public_accumulated_data(false /* revertible */);
+
+    // Set the min_revertible_side_effect_counter.
+    builder.previous_kernel.min_revertible_side_effect_counter = min_revertible_side_effect_counter;
 
     // Shuffle ordered items.
     swap_items(&mut builder.previous_kernel.l2_to_l1_msgs, 0, 1);
