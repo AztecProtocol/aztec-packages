@@ -4,7 +4,6 @@ import { NFTContract } from '@aztec/noir-contracts.js/NFT';
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
-import { capturePrivateExecutionStepsIfEnvSet } from './shared/capture_private_execution_steps.js';
 
 const TIMEOUT = 120_000;
 
@@ -51,7 +50,6 @@ describe('NFT', () => {
     const nftContractAsMinter = await NFTContract.at(nftContractAddress, minterWallet);
 
     const nftMintInteraction = nftContractAsMinter.methods.mint(user1Wallet.getAddress(), TOKEN_ID);
-    await capturePrivateExecutionStepsIfEnvSet('nft-mint', nftMintInteraction);
     await nftMintInteraction.send().wait();
 
     const ownerAfterMint = await nftContractAsMinter.methods.owner_of(TOKEN_ID).simulate();
@@ -80,7 +78,6 @@ describe('NFT', () => {
       TOKEN_ID,
       0,
     );
-    await capturePrivateExecutionStepsIfEnvSet('nft-transfer-in-private', nftTransferInteraction);
     await nftTransferInteraction.send().wait();
 
     const user1Nfts = await getPrivateNfts(user1Wallet.getAddress());

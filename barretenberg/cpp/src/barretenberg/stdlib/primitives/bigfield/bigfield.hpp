@@ -159,7 +159,7 @@ template <typename Builder, typename T> class bigfield {
                                       .add_two(result.binary_basis_limbs[2].element * shift_2,
                                                result.binary_basis_limbs[1].element * shift_1);
         result.prime_basis_limb += (result.binary_basis_limbs[0].element);
-        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
+        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : static_cast<size_t>(NUM_LAST_LIMB_BITS);
         if constexpr (HasPlookup<Builder>) {
             ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
                                            result.binary_basis_limbs[1].element.get_normalized_witness_index(),
@@ -232,7 +232,7 @@ template <typename Builder, typename T> class bigfield {
     // The quotient reduction checks currently only support >=250 bit moduli and moduli >256 have never been tested
     // (Check zkSecurity audit report issue #12 for explanation)
     static_assert(modulus_u512.get_msb() + 1 >= 250 && modulus_u512.get_msb() + 1 <= 256);
-    static constexpr uint1024_t DEFAULT_MAXIMUM_REMAINDER =
+    inline static const uint1024_t DEFAULT_MAXIMUM_REMAINDER =
         (uint1024_t(1) << (NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS)) - uint1024_t(1);
     static constexpr uint256_t DEFAULT_MAXIMUM_LIMB = (uint256_t(1) << NUM_LIMB_BITS) - uint256_t(1);
     static constexpr uint256_t DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB =
@@ -248,7 +248,7 @@ template <typename Builder, typename T> class bigfield {
         uint256_t(modulus_u512.slice(NUM_LIMB_BITS * (NUM_LIMBS - 1), NUM_LIMB_BITS* NUM_LIMBS));
     static constexpr Basis prime_basis{ uint512_t(bb::fr::modulus), bb::fr::modulus.get_msb() + 1 };
     static constexpr Basis binary_basis{ uint512_t(1) << LOG2_BINARY_MODULUS, LOG2_BINARY_MODULUS };
-    static constexpr Basis target_basis{ modulus_u512, modulus_u512.get_msb() + 1 };
+    static constexpr Basis target_basis{ modulus_u512, static_cast<size_t>(modulus_u512.get_msb() + 1) };
     static constexpr bb::fr shift_1 = bb::fr(uint256_t(1) << NUM_LIMB_BITS);
     static constexpr bb::fr shift_2 = bb::fr(uint256_t(1) << (NUM_LIMB_BITS * 2));
     static constexpr bb::fr shift_3 = bb::fr(uint256_t(1) << (NUM_LIMB_BITS * 3));
@@ -594,7 +594,7 @@ template <typename Builder, typename T> class bigfield {
         for (const auto& add : to_add) {
             add_term += add.get_maximum_value();
         }
-        constexpr uint1024_t maximum_default_bigint = uint1024_t(1) << (NUM_LIMB_BITS * 6 + NUM_LAST_LIMB_BITS * 2);
+        static const uint1024_t maximum_default_bigint = uint1024_t(1) << (NUM_LIMB_BITS * 6 + NUM_LAST_LIMB_BITS * 2);
 
         // check that the add terms alone cannot overflow the crt modulus. v. unlikely so just forbid circuits that
         // trigger this case
@@ -704,5 +704,3 @@ template <typename C, typename T> inline std::ostream& operator<<(std::ostream& 
 }
 
 } // namespace bb::stdlib
-
-#include "bigfield_impl.hpp"
