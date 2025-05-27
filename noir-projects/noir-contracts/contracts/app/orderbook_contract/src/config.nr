@@ -27,6 +27,7 @@ impl Config {
         bid_token == self.token0
     }
 
+    /// Returns a tuple of (bid_token, ask_token) based on `bid_token_is_zero` param.
     pub fn get_tokens(self, bid_token_is_zero: bool) -> (AztecAddress, AztecAddress) {
         if bid_token_is_zero {
             (self.token0, self.token1)
