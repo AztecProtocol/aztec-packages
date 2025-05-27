@@ -12,6 +12,11 @@ export type OracleCall = {
   inputs: unknown[];
   outputs: unknown;
   time: number;
+  // Due to the recursive nature of the simulator, we might have
+  // oracle calls performed after a foreign call (which is itself an oracle call)
+  // We keep track of the stack depth in this variable to ensure the recorded oracle
+  // calls are correctly associated with the right circuit.
+  // This is only use as a debugging tool
   stackDepth: number;
 };
 
@@ -159,6 +164,8 @@ export class CircuitRecorder {
 
       recordingCallback[name as keyof ACIRCallback] = (...args: ForeignCallInput[]): ReturnType<typeof fn> => {
         const timer = new Timer();
+        // If we're entering another circuit via `callPrivateFunction`, we increase the stack depth and set the
+        // newCircuit variable to ensure we are creating a new recording object.
         if (isExternalCall) {
           this.stackDepth++;
           this.newCircuit = true;
@@ -166,6 +173,8 @@ export class CircuitRecorder {
         const result = fn.call(callback, ...args);
         if (result instanceof Promise) {
           return result.then(async r => {
+            // Once we leave the nested circuit, we decrease the stack depth and set newCircuit to false
+            // since we are going back to the "parent" circuit which can never be new
             if (isExternalCall) {
               this.stackDepth--;
               this.newCircuit = false;
@@ -175,6 +184,8 @@ export class CircuitRecorder {
             return r;
           }) as ReturnType<typeof fn>;
         }
+        // Once we leave the nested circuit, we decrease the stack depth and set newCircuit to false
+        // since we are going back to the "parent" circuit which can never be new
         if (isExternalCall) {
           this.stackDepth--;
           this.newCircuit = false;
