@@ -177,7 +177,7 @@ export async function setupPXEService(
     aztecNode,
     simulationProviderWithRecorder,
     pxeServiceConfig,
-    useLogSuffix,
+    { useLogSuffix },
   );
 
   const teardown = async () => {

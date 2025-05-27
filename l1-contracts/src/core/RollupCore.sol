@@ -15,7 +15,7 @@ import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelectio
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {CheatLib} from "@aztec/core/libraries/rollup/CheatLib.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
@@ -215,10 +215,10 @@ contract RollupCore is
 
   function propose(
     ProposeArgs calldata _args,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    ExtRollupLib.propose(_args, _signatures, _blobInput, checkBlob);
+    ExtRollupLib.propose(_args, _attestations, _blobInput, checkBlob);
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {
