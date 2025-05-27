@@ -51,6 +51,7 @@ describe('ValidatorClient', () => {
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       validatorReexecute: false,
+      validatorReexecuteDeadlineMs: 6000,
     };
     validatorClient = ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider);
   });
@@ -143,7 +144,7 @@ describe('ValidatorClient', () => {
       nextSlot: proposal.slotNumber.toBigInt() + 1n,
     });
     epochCache.isInCommittee.mockResolvedValue(true);
-    blockBuilder.buildBlockAsValidator.mockImplementation(() => {
+    blockBuilder.buildBlock.mockImplementation(() => {
       throw new Error('Failed to build block');
     });
 
@@ -266,7 +267,7 @@ describe('ValidatorClient', () => {
 
     it('should re-execute and attest to proposal', async () => {
       (validatorClient as any).config.validatorReexecute = true;
-      blockBuilder.buildBlockAsValidator.mockImplementation(() =>
+      blockBuilder.buildBlock.mockImplementation(() =>
         Promise.resolve({
           publicProcessorDuration: 0,
           numTxs: proposal.payload.txHashes.length,
@@ -304,7 +305,7 @@ describe('ValidatorClient', () => {
 
     it('should not return an attestation if re-execution fails', async () => {
       (validatorClient as any).config.validatorReexecute = true;
-      blockBuilder.buildBlockAsValidator.mockImplementation(() => {
+      blockBuilder.buildBlock.mockImplementation(() => {
         throw new Error('Failed to build block');
       });
 
