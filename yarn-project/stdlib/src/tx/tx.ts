@@ -55,7 +55,7 @@ export class Tx extends Gossipable {
   }
 
   // Gossipable method
-  override async p2pMessageIdentifier(): Promise<Buffer32> {
+  override async generateP2PMessageIdentifier(): Promise<Buffer32> {
     return new Buffer32((await this.getTxHash()).toBuffer());
   }
 

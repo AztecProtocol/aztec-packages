@@ -6,7 +6,7 @@ import {DecoderBase} from "./base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -42,6 +42,7 @@ import {FeeLib, L1_GAS_PER_EPOCH_VERIFIED} from "@aztec/core/libraries/rollup/Fe
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
+import {RollupBuilder} from "./builder/RollupBuilder.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -78,33 +79,22 @@ contract RollupTest is RollupBase {
    */
   modifier setUpFor(string memory _name) {
     {
-      testERC20 = new TestERC20("test", "TEST", address(this));
-
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.slotNumber;
       uint256 initialTime = full.block.decodedHeader.timestamp - slotNumber * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
-    registry = new Registry(address(this), IERC20(address(testERC20)));
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-    testERC20.mint(address(rewardDistributor), 1e6 ether);
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
 
-    rollup = IInstance(
-      address(
-        new Rollup(
-          testERC20,
-          rewardDistributor,
-          testERC20,
-          address(this),
-          TestConstants.getGenesisState(),
-          TestConstants.getRollupConfigInput()
-        )
-      )
-    );
+    testERC20 = builder.getConfig().testERC20;
+    registry = builder.getConfig().registry;
+    rewardDistributor = builder.getConfig().rewardDistributor;
+    rollup = IInstance(address(builder.getConfig().rollup));
+
     inbox = Inbox(address(rollup.getInbox()));
     outbox = Outbox(address(rollup.getOutbox()));
-    registry.addRollup(IRollup(address(rollup)));
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
 
@@ -136,7 +126,7 @@ contract RollupTest is RollupBase {
   function testPrune() public setUpFor("mixed_block_1") {
     _proposeBlock("mixed_block_1", 1);
 
-    assertEq(inbox.inProgress(), 3, "Invalid in progress");
+    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
 
     // @note  Fetch the inbox root of block 2. This should be frozen when block 1 is proposed.
     //        Even if we end up reverting block 1, we should still see the same root in the inbox.
@@ -163,7 +153,7 @@ contract RollupTest is RollupBase {
     assertNotEq(minHeightMixed, 0, "Invalid min height");
 
     rollup.prune();
-    assertEq(inbox.inProgress(), 3, "Invalid in progress");
+    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
     assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
@@ -175,7 +165,7 @@ contract RollupTest is RollupBase {
     // @note  We prune the pending chain as part of the propose call.
     _proposeBlock("empty_block_1", prunableAt.unwrap());
 
-    assertEq(inbox.inProgress(), 3, "Invalid in progress");
+    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
     assertEq(inbox.getRoot(2), inboxRoot2, "Invalid inbox root");
     assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
@@ -218,7 +208,7 @@ contract RollupTest is RollupBase {
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0]));
-    rollup.propose(args, signatures, data.blobInputs);
+    rollup.propose(args, attestations, data.blobInputs);
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {
@@ -246,7 +236,7 @@ contract RollupTest is RollupBase {
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHashes[0]));
-    rollup.propose(args, signatures, blobInput);
+    rollup.propose(args, attestations, blobInput);
   }
 
   function testRevertPrune() public setUpFor("mixed_block_1") {
@@ -310,7 +300,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.blobInputs);
+    rollup.propose(args, attestations, data.blobInputs);
   }
 
   function testInvalidL2Fee() public setUpFor("mixed_block_1") {
@@ -340,7 +330,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.blobInputs);
+    rollup.propose(args, attestations, data.blobInputs);
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
@@ -447,7 +437,7 @@ contract RollupTest is RollupBase {
         oracleInput: OracleInput(0),
         txHashes: new bytes32[](0)
       });
-      rollup.propose(args, signatures, data.blobInputs);
+      rollup.propose(args, attestations, data.blobInputs);
       assertEq(testERC20.balanceOf(data.decodedHeader.coinbase), 0, "invalid coinbase balance");
     }
 
@@ -598,8 +588,6 @@ contract RollupTest is RollupBase {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: blockLog.archive,
       endArchive: data.archive,
-      endTimestamp: Timestamp.wrap(0),
-      outHash: bytes32(0),
       proverId: address(0)
     });
 
@@ -715,7 +703,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, new bytes(144));
+    rollup.propose(args, attestations, new bytes(144));
   }
 
   function testSubmitProofNonExistentBlock() public setUpFor("empty_block_1") {
@@ -791,13 +779,8 @@ contract RollupTest is RollupBase {
     address _coinbase,
     uint256 _fee
   ) internal {
-    PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: _prevArchive,
-      endArchive: _archive,
-      endTimestamp: Timestamp.wrap(0),
-      outHash: bytes32(0),
-      proverId: _prover
-    });
+    PublicInputArgs memory args =
+      PublicInputArgs({previousArchive: _prevArchive, endArchive: _archive, proverId: _prover});
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     fees[0] = bytes32(uint256(uint160(bytes20(_coinbase)))); // Need the address to be left padded within the bytes32

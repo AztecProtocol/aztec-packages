@@ -20,6 +20,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {TestConstants} from "../../harnesses/TestConstants.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
+import {RollupBuilder} from "../../builder/RollupBuilder.sol";
 
 /**
  * @title UpgradeGovernanceProposerTest
@@ -46,9 +47,14 @@ contract UpgradeGovernanceProposerTest is TestBase {
   address internal constant EMPEROR = address(uint160(bytes20("EMPEROR")));
 
   function setUp() external {
-    token = IMintableERC20(address(new TestERC20("test", "TEST", address(this))));
+    vm.warp(1000);
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
 
-    registry = new Registry(address(this), token);
+    rollup = builder.getConfig().rollup;
+    registry = builder.getConfig().registry;
+    token = builder.getConfig().testERC20;
+
     governanceProposer = new GovernanceProposer(registry, 7, 10);
 
     governance = new Governance(token, address(governanceProposer));
@@ -59,30 +65,14 @@ contract UpgradeGovernanceProposerTest is TestBase {
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       validators[i - 1] = validator;
-      initialValidators[i - 1] = CheatDepositArgs({
-        attester: validator,
-        proposer: validator,
-        withdrawer: validator,
-        amount: TestConstants.AZTEC_MINIMUM_STAKE
-      });
+      initialValidators[i - 1] =
+        CheatDepositArgs({attester: validator, proposer: validator, withdrawer: validator});
     }
 
-    RewardDistributor rewardDistributor =
-      RewardDistributor(address(registry.getRewardDistributor()));
-    rollup = new Rollup(
-      token,
-      rewardDistributor,
-      token,
-      address(this),
-      TestConstants.getGenesisState(),
-      TestConstants.getRollupConfigInput()
-    );
-
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    token.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
+    token.mint(address(multiAdder), rollup.getMinimumStake() * VALIDATOR_COUNT);
     multiAdder.addValidators(initialValidators);
 
-    registry.addRollup(IRollup(address(rollup)));
     registry.updateGovernance(address(governance));
     registry.transferOwnership(address(governance));
   }

@@ -12,7 +12,7 @@ import path from 'path';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
@@ -47,7 +47,7 @@ describe('e2e_p2p_network', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
-        ...SHORTENED_BLOCK_TIME_CONFIG,
+        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
       },
     });
@@ -125,10 +125,10 @@ describe('e2e_p2p_network', () => {
     const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.signatures
-      .filter(s => !s.isEmpty)
-      .map(sig => new BlockAttestation(new Fr(blockNumber), payload, sig));
-    const signers = attestations.map(att => att.getSender().toString());
+    const attestations = block.attestations
+      .filter(a => !a.signature.isEmpty())
+      .map(a => new BlockAttestation(new Fr(blockNumber), payload, a.signature));
+    const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right

@@ -55,10 +55,6 @@ tests:
     skip: true
     owners:
       - *tom
-  - regex: "tests::execution_success::test_ram_blowup_regression"
-    error_regex: "assertion `left == right` failed"
-    owners:
-      - *tom
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -106,6 +102,10 @@ tests:
     error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
     owners:
       - *sean
+  - regex: "src/e2e_p2p/reqresp"
+    error_regex: 'CodeError: writable end state is "writing" not "ready"'
+    owners:
+      - *sean
   - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
@@ -137,6 +137,10 @@ tests:
       - *lasse
   - regex: "src/e2e_lending_contract"
     error_regex: "✕ Repay"
+    owners:
+      - *lasse
+  - regex: "src/e2e_epochs/epochs_l1_reorgs"
+    error_regex: "updates L1 to L2 messages changed due to an L1 reorg"
     owners:
       - *lasse
   - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
@@ -178,6 +182,10 @@ tests:
     owners:
       - *sean
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    error_regex: "CodeError: writable end state is .writing. not .ready."
+    owners:
+      - *sean
+  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
@@ -213,24 +221,6 @@ tests:
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
-  # ● Archiver › can start, sync and stop and handle l1 to l2 messages and logs
-  #
-  #   expect(received).toBe(expected) // Object.is equality
-  #
-  #   Expected: 14
-  #   Received: 0
-  #
-  #     267 |
-  #     268 |       const privateLogs = await archiver.getPrivateLogs(blockNumber, 1);
-  #   > 269 |       expect(privateLogs.length).toBe(getNumPrivateLogsForBlock(blockNumber));
-  #         |                                  ^
-  #     270 |
-  #     271 |       const publicLogs = (await archiver.getPublicLogs({ fromBlock: blockNumber, toBlock: blockNumber + 1 })).logs;
-  #     272 |       const expectedTotalNumPublicLogs = 4 * (blockNumber + 1) * 2;
-  - regex: "archiver/src/archiver/archiver.test.ts"
-    error_regex: "Expected: 14"
-    owners:
-      - *leila
 
   # boxes
   - regex: "BOX=vite BROWSER=webkit run_compose_test vite-webkit box boxes"

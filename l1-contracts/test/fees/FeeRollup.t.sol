@@ -8,7 +8,11 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {
+  SignatureLib,
+  Signature,
+  CommitteeAttestation
+} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -54,6 +58,8 @@ import {
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
 
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
+
 // solhint-disable comprehensive-interface
 
 uint256 constant MANA_TARGET = 100000000;
@@ -74,7 +80,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes body;
     bytes blobInputs;
     bytes32[] txHashes;
-    Signature[] signatures;
+    CommitteeAttestation[] attestations;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -99,34 +105,14 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.fee(l1Metadata[0].base_fee);
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
-    asset = new TestERC20("test", "TEST", address(this));
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
+      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30);
+    builder.deploy();
 
-    Registry registry = new Registry(address(this), asset);
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-
-    rollup = new Rollup(
-      asset,
-      IRewardDistributor(address(rewardDistributor)),
-      asset,
-      address(this),
-      TestConstants.getGenesisState(),
-      RollupConfigInput({
-        aztecSlotDuration: SLOT_DURATION,
-        aztecEpochDuration: EPOCH_DURATION,
-        targetCommitteeSize: 48,
-        aztecProofSubmissionWindow: EPOCH_DURATION * 2 - 1,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE,
-        manaTarget: MANA_TARGET,
-        provingCostPerMana: provingCost
-      })
-    );
-
-    registry.addRollup(IRollup(address(rollup)));
-
-    asset.mint(address(rewardDistributor), 1e6 * rewardDistributor.BLOCK_REWARD());
-    asset.mint(address(rollup.getFeeAssetPortal()), 1e30);
+    rollup = builder.getConfig().rollup;
+    rewardDistributor = builder.getConfig().rewardDistributor;
+    asset = builder.getConfig().testERC20;
 
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
@@ -152,7 +138,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
     bytes32[] memory txHashes = new bytes32[](0);
-    Signature[] memory signatures = new Signature[](0);
+    CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
 
     bytes memory body = full.block.body;
     bytes memory header = full.block.header;
@@ -194,7 +180,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       body: body,
       blobInputs: full.block.blobInputs,
       txHashes: txHashes,
-      signatures: signatures
+      attestations: attestations
     });
   }
 
@@ -219,7 +205,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             }),
             txHashes: b.txHashes
           }),
-          b.signatures,
+          b.attestations,
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -315,7 +301,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             }),
             txHashes: b.txHashes
           }),
-          b.signatures,
+          b.attestations,
           b.blobInputs
         );
 
@@ -401,8 +387,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         PublicInputArgs memory args = PublicInputArgs({
           previousArchive: rollup.getBlock(start).archive,
           endArchive: rollup.getBlock(start + epochSize - 1).archive,
-          endTimestamp: Timestamp.wrap(0),
-          outHash: bytes32(0),
           proverId: address(0)
         });
 

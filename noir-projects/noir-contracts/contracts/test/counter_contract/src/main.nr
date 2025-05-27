@@ -137,11 +137,12 @@ pub contract Counter {
         let owner = env.create_account(1);
         let sender = env.create_account(2);
         let initial_value: Field = 5;
-        env.impersonate(owner);
+
         // Deploy contract and initialize
         let initializer = Counter::interface().initialize(initial_value as u64, owner);
-        let counter_contract = env.deploy_self("Counter").with_private_initializer(initializer);
-        let contract_address = counter_contract.to_address();
+        let contract_address =
+            env.deploy_self("Counter").with_private_initializer(owner, initializer).to_address();
+
         // docs:start:txe_test_read_notes
         // Read the stored value in the note
         let initial_counter =
@@ -173,7 +174,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.impersonate(contract_address);
-        sync_notes();
+        sync_private_state();
         let counter_slot = Counter::storage_layout().counters.slot;
         let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();
@@ -195,7 +196,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        sync_notes();
+        sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 7);
@@ -211,7 +212,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        sync_notes();
+        sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(notes.len() == 4);
@@ -226,7 +227,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        sync_notes();
+        sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 6);

@@ -228,7 +228,7 @@ export class PublicTxSimulator {
     const returnValues: NestedProcessReturnValues[] = [];
     let reverted = false;
     let revertReason: SimulationError | undefined;
-    for (let i = callRequests.length - 1; i >= 0; i--) {
+    for (let i = 0; i < callRequests.length; i++) {
       if (reverted) {
         break;
       }

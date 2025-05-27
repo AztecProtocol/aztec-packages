@@ -4,6 +4,8 @@ sidebar_position: 1
 tags: [functions, context]
 ---
 
+import Image from '@theme/IdealImage';
+
 ## What is the context
 
 The context is an object that is made available within every function in `Aztec.nr`. As mentioned in the [kernel circuit documentation](../../concepts/advanced/circuits/kernels/private_kernel.md). At the beginning of a function's execution, the context contains all of the kernel information that application needs to execute. During the lifecycle of a transaction, the function will update the context with each of its side effects (created notes, nullifiers etc.). At the end of a function's execution the mutated context is returned to the kernel to be checked for validity.
@@ -32,7 +34,6 @@ The following section will cover both contexts.
 ## The Private Context
 
 The code snippet below shows what is contained within the private context.
-
 ```rust title="private-context" showLineNumbers
 pub inputs: PrivateContextInputs,
 pub side_effect_counter: u32,
@@ -57,8 +58,8 @@ pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CA
 pub public_teardown_call_request: PublicCallRequest,
 pub l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L52-L75" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L52-L75</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L53-L76" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L53-L76</a></sub></sup>
 
 ### Private Context Broken Down
 
@@ -74,8 +75,8 @@ pub struct PrivateContextInputs {
     pub start_side_effect_counter: u32,
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14</a></sub></sup>
 
 As shown in the snippet, the application context is made up of 4 main structures. The call context, the block header, and the private global variables.
 
@@ -89,8 +90,8 @@ pub struct CallContext {
     pub is_static_call: bool,
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16</a></sub></sup>
 
 The call context contains information about the current call being made:
 
@@ -99,7 +100,7 @@ The call context contains information about the current call being made:
 
 > The graphic below illustrates how the message sender changes throughout the kernel circuit iterations.
 
-<img src="@site/static/img/context/sender_context_change.png" />
+<Image img={require("@site/static/img/context/sender_context_change.png")} />
 
 2. Storage contract address
 
@@ -124,8 +125,8 @@ pub struct BlockHeader {
     pub total_mana_used: Field,
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20</a></sub></sup>
 
 ### Transaction Context
 
@@ -138,8 +139,8 @@ pub struct TxContext {
     pub gas_settings: GasSettings,
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14</a></sub></sup>
 
 ### Args Hash
 
@@ -154,7 +155,6 @@ The return values are a set of values that are returned from an applications exe
 ```rust
 return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
 ```
-
 ## Max Block Number
 
 Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_tx_max_block_number` function can be used to set this property:
@@ -162,8 +162,8 @@ Some data structures impose time constraints, e.g. they may make it so that a va
 ```rust title="max-block-number" showLineNumbers
 pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L229-L231" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L229-L231</a></sub></sup>
 
 A transaction that requests a maximum block number will never be included in a block with a block number larger than the requested value, since it would be considered invalid. This can also be used to make transactions automatically expire after some time if not included.
 
@@ -217,5 +217,5 @@ pub struct GlobalVariables {
     pub gas_fees: GasFees,
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20</a></sub></sup>

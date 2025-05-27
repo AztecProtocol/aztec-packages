@@ -22,10 +22,12 @@ export class TxRequest {
     public argsHash: Fr,
     /** Transaction context. */
     public txContext: TxContext,
+    /** A salt to make the hash difficult to predict. The hash is used as the first nullifier if there is no nullifier emitted throughout the tx. */
+    public salt: Fr,
   ) {}
   // docs:end:constructor
   static getFields(fields: FieldsOf<TxRequest>) {
-    return [fields.origin, fields.functionData, fields.argsHash, fields.txContext] as const;
+    return [fields.origin, fields.functionData, fields.argsHash, fields.txContext, fields.salt] as const;
   }
 
   static from(fields: FieldsOf<TxRequest>): TxRequest {
@@ -60,6 +62,7 @@ export class TxRequest {
       reader.readObject(FunctionData),
       Fr.fromBuffer(reader),
       reader.readObject(TxContext),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -68,10 +71,16 @@ export class TxRequest {
   }
 
   static empty() {
-    return new TxRequest(AztecAddress.ZERO, FunctionData.empty(), Fr.zero(), TxContext.empty());
+    return new TxRequest(AztecAddress.ZERO, FunctionData.empty(), Fr.zero(), TxContext.empty(), Fr.zero());
   }
 
   isEmpty() {
-    return this.origin.isZero() && this.functionData.isEmpty() && this.argsHash.isZero() && this.txContext.isEmpty();
+    return (
+      this.origin.isZero() &&
+      this.functionData.isEmpty() &&
+      this.argsHash.isZero() &&
+      this.txContext.isEmpty() &&
+      this.salt.isZero()
+    );
   }
 }

@@ -528,33 +528,26 @@ Note: One Field element occupies a storage slot. Hence, structs with multiple fi
 
 #### Example
 
-```typescript title="load_private_cheatcode" showLineNumbers
+```typescript title="load_private_cheatcode" showLineNumbers 
 const mintAmount = 100n;
 
 await mintTokensToPrivate(token, wallet, admin, mintAmount);
-await token.methods.sync_notes().simulate();
+await token.methods.sync_private_state().simulate();
 
-const balancesAdminSlot = await cc.aztec.computeSlotInMap(
-  TokenContract.storage.balances.slot,
-  admin
-);
+const balancesAdminSlot = await cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, admin);
 
 // check if note was added to pending shield:
-const notes = await cc.aztec.loadPrivate(
-  admin,
-  token.address,
-  balancesAdminSlot
-);
+const notes = await cc.aztec.loadPrivate(admin, token.address, balancesAdminSlot);
 
 // @note If you get pain for dinner, this guys is the reason.
 // Assuming that it is still testing the token contract, you need to look at the balances,
 // and then the type of note, currently a `UintNote` which stores fields: [owner, randomness, amount]
-const values = notes.map((note) => note.items[2]);
+const values = notes.map(note => note.items[2]);
 const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
 expect(balance).toEqual(mintAmount);
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L181-L198" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L181-L198</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L182-L199" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L182-L199</a></sub></sup>
 
 ## Participate
 

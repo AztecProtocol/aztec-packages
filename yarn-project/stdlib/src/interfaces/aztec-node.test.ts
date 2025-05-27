@@ -10,7 +10,6 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { randomInt } from '@aztec/foundation/crypto';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { SiblingPath } from '@aztec/foundation/trees';
@@ -20,6 +19,7 @@ import omit from 'lodash.omit';
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { InBlock } from '../block/in_block.js';
+import { CommitteeAttestation } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -195,7 +195,7 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getPublishedBlocks(1, 1);
     expect(response).toHaveLength(1);
     expect(response[0].block.constructor.name).toEqual('L2Block');
-    expect(response[0].signatures[0]).toBeInstanceOf(Signature);
+    expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
   });
 
@@ -536,7 +536,7 @@ class MockAztecNode implements AztecNode {
         .fill(0)
         .map(async i => ({
           block: await L2Block.random(from + i),
-          signatures: [Signature.random()],
+          attestations: [CommitteeAttestation.random()],
           l1: { blockHash: Buffer32.random().toString(), blockNumber: 1n, timestamp: 1n },
         })),
     );
@@ -613,7 +613,7 @@ class MockAztecNode implements AztecNode {
     expect(slot).toBeInstanceOf(Fr);
     return Promise.resolve(Fr.random());
   }
-  getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<BlockHeader> {
+  getBlockHeader(_blockNumber?: number | 'latest'): Promise<BlockHeader> {
     return Promise.resolve(BlockHeader.empty());
   }
   getValidatorsStats(): Promise<ValidatorsStats> {

@@ -11,7 +11,7 @@ import {
   getL1ContractsConfigEnvVars,
   l1Artifacts,
 } from '@aztec/ethereum';
-import { ChainMonitor, EthCheatCodesWithState } from '@aztec/ethereum/test';
+import { ChainMonitor } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -44,9 +44,10 @@ const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f2067060
 const l1ContractsConfig = getL1ContractsConfigEnvVars();
 export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
-export const SHORTENED_BLOCK_TIME_CONFIG = {
+export const SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES = {
   aztecSlotDuration: 12,
   ethereumSlotDuration: 4,
+  aztecProofSubmissionWindow: 640,
 };
 
 export class P2PNetworkTest {
@@ -81,11 +82,12 @@ export class P2PNetworkTest {
     initialValidatorConfig: AztecNodeConfig,
     // If set enable metrics collection
     private metricsPort?: number,
+    startProverNode?: boolean,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
     // Set up the base account and node private keys for the initial network deployment
-    this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
+    this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(1)!.toString('hex')}`;
     this.baseAccount = privateKeyToAccount(this.baseAccountPrivateKey);
     this.proposerPrivateKeys = generatePrivateKeys(PROPOSER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
@@ -104,6 +106,7 @@ export class P2PNetworkTest {
         salt: 420,
         metricsPort: metricsPort,
         numberOfInitialFundedAccounts: 2,
+        startProverNode,
       },
       {
         ...initialValidatorConfig,
@@ -123,12 +126,14 @@ export class P2PNetworkTest {
     basePort,
     metricsPort,
     initialConfig,
+    startProverNode,
   }: {
     testName: string;
     numberOfNodes: number;
     basePort?: number;
     metricsPort?: number;
     initialConfig?: Partial<AztecNodeConfig>;
+    startProverNode?: boolean;
   }) {
     const port = basePort || (await getPort());
 
@@ -140,7 +145,15 @@ export class P2PNetworkTest {
       bootstrapNodeEnr,
     );
 
-    return new P2PNetworkTest(testName, bootstrapNodeEnr, port, numberOfNodes, initialValidatorConfig, metricsPort);
+    return new P2PNetworkTest(
+      testName,
+      bootstrapNodeEnr,
+      port,
+      numberOfNodes,
+      initialValidatorConfig,
+      metricsPort,
+      startProverNode,
+    );
   }
 
   get fundedAccount() {
@@ -194,7 +207,7 @@ export class P2PNetworkTest {
     await this.addBootstrapNode();
     await this.snapshotManager.snapshot(
       'add-validators',
-      async ({ deployL1ContractsValues, aztecNodeConfig, dateProvider }) => {
+      async ({ deployL1ContractsValues, dateProvider, cheatCodes }) => {
         const rollup = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
           abi: RollupAbi,
@@ -236,14 +249,7 @@ export class P2PNetworkTest {
           hash: await multiAdder.write.addValidators([this.validators]),
         });
 
-        const slotsInEpoch = await rollup.read.getEpochDuration();
-        const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-        const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
-        try {
-          await cheatCodes.warp(Number(timestamp));
-        } catch (err) {
-          this.logger.debug('Warp failed, time already satisfied');
-        }
+        const timestamp = await cheatCodes.rollup.advanceToEpoch(2n);
 
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         await this._sendDummyTx(deployL1ContractsValues.l1Client);

@@ -33,6 +33,7 @@ import {
   type DeployL1ContractsReturnType,
   ForwarderContract,
   NULL_KEY,
+  type Operator,
   createExtendedL1Client,
   deployL1Contracts,
   getL1ContractsConfigEnvVars,
@@ -176,7 +177,7 @@ export async function setupPXEService(
     aztecNode,
     simulationProviderWithRecorder,
     pxeServiceConfig,
-    useLogSuffix,
+    { useLogSuffix },
   );
 
   const teardown = async () => {
@@ -280,7 +281,7 @@ export type SetupOptions = {
   /** Salt to use in L1 contract deployment */
   salt?: number;
   /** An initial set of validators */
-  initialValidators?: EthAddress[];
+  initialValidators?: Operator[];
   /** Anvil Start time */
   l1StartTime?: number;
   /** The anvil time where we should at the earliest be seeing L2 blocks */

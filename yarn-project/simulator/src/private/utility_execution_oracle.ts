@@ -274,7 +274,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     return await this.executionDataProvider.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  public override async syncNotes(pendingTaggedLogArrayBaseSlot: Fr) {
+  public override async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);

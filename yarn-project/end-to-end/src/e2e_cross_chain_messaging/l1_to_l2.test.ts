@@ -63,7 +63,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   );
 
   const sendL2Message = async (message: { recipient: AztecAddress; content: Fr; secretHash: Fr }) => {
-    const [msgHash, globalLeafIndex] = await sendL1ToL2Message(message, crossChainTestHarness);
+    const { msgHash, globalLeafIndex } = await sendL1ToL2Message(message, crossChainTestHarness);
     await crossChainTestHarness.makeMessageConsumable(msgHash);
     return [msgHash, globalLeafIndex];
   };

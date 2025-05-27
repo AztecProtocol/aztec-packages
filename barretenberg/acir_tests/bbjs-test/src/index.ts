@@ -1,11 +1,12 @@
-import createDebug from "debug";
 import fs from "fs/promises";
 import path from "path";
 import { Command } from "commander";
 import assert from "assert";
+import { pino } from "pino";
 
-createDebug.enable("*");
-const debug = createDebug("bbjs-test");
+const logger = pino({
+  name: "bbjs-test",
+});
 
 const UH_PROOF_FIELDS_LENGTH = 456;
 const BYTES_PER_FIELD = 32;
@@ -32,7 +33,7 @@ async function generateProof({
 }) {
   const { UltraHonkBackend, deflattenFields } = await import("@aztec/bb.js");
 
-  debug(`Generating proof for ${bytecodePath}...`);
+  logger.debug(`Generating proof for ${bytecodePath}...`);
   const circuitArtifact = await fs.readFile(bytecodePath);
   const bytecode = JSON.parse(circuitArtifact.toString()).bytecode;
   const backend = new UltraHonkBackend(bytecode, {
@@ -50,13 +51,13 @@ async function generateProof({
   );
 
   await fs.writeFile(proofPath(outputDirectory), Buffer.from(proof.proof));
-  debug("Proof written to " + proofPath(outputDirectory));
+  logger.debug("Proof written to " + proofPath(outputDirectory));
 
   await fs.writeFile(
     publicInputsAsFieldsPath(outputDirectory),
     JSON.stringify(proof.publicInputs)
   );
-  debug(
+  logger.debug(
     "Public inputs written to " + publicInputsAsFieldsPath(outputDirectory)
   );
 
@@ -70,7 +71,7 @@ async function generateProof({
     starknet: oracleHash === "starknet",
   });
   await fs.writeFile(vkeyPath(outputDirectory), Buffer.from(verificationKey));
-  debug("Verification key written to " + vkeyPath(outputDirectory));
+  logger.debug("Verification key written to " + vkeyPath(outputDirectory));
 
   await backend.destroy();
 }
@@ -89,7 +90,7 @@ async function verifyProof({ directory }: { directory: string }) {
   const publicInputs = JSON.parse(
     await fs.readFile(publicInputsAsFieldsPath(directory), "utf8")
   );
-  debug(`publicInputs: ${JSON.stringify(publicInputs)}`);
+  logger.debug(`publicInputs: ${JSON.stringify(publicInputs)}`);
   const vkey = await fs.readFile(vkeyPath(directory));
 
   const verified = await verifier.verifyUltraHonkProof(
@@ -98,7 +99,7 @@ async function verifyProof({ directory }: { directory: string }) {
   );
 
   await verifier.destroy();
-  debug(`Proof verified: ${verified}`);
+  logger.debug(`Proof verified: ${verified}`);
   return verified;
 }
 
