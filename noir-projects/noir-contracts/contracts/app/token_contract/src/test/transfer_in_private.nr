@@ -17,14 +17,17 @@ unconstrained fn transfer_private_on_behalf_of_other() {
         recipient,
         transfer_private_from_call_interface,
     );
-    // Impersonate recipient to perform the call
-    env.impersonate(recipient);
     // Transfer tokens
-    transfer_private_from_call_interface.call(&mut env.private());
+    env.call_private_test(recipient, transfer_private_from_call_interface);
     // docs:end:private_authwit
     // Check balances
-    utils::check_private_balance(token_contract_address, owner, mint_amount - transfer_amount);
-    utils::check_private_balance(token_contract_address, recipient, transfer_amount);
+    utils::check_private_balance(
+        env,
+        token_contract_address,
+        owner,
+        mint_amount - transfer_amount,
+    );
+    utils::check_private_balance(env, token_contract_address, recipient, transfer_amount);
 }
 
 // docs:start:fail_with_message
@@ -43,7 +46,7 @@ unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
         transfer_private_from_call_interface,
     );
     // Transfer tokens
-    transfer_private_from_call_interface.call(&mut env.private());
+    let _ = env.call_private_test(owner, transfer_private_from_call_interface);
 }
 // docs:end:fail_with_message
 
@@ -61,10 +64,8 @@ unconstrained fn transfer_private_failure_on_behalf_of_more_than_balance() {
         recipient,
         transfer_private_from_call_interface,
     );
-    // Impersonate recipient to perform the call
-    env.impersonate(recipient);
     // Transfer tokens
-    transfer_private_from_call_interface.call(&mut env.private());
+    let _ = env.call_private_test(recipient, transfer_private_from_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -76,10 +77,8 @@ unconstrained fn transfer_private_failure_on_behalf_of_other_without_approval() 
     let transfer_amount = 1000 as u128;
     let transfer_private_from_call_interface =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    // Impersonate recipient to perform the call
-    env.impersonate(recipient);
     // Transfer tokens
-    transfer_private_from_call_interface.call(&mut env.private());
+    env.call_private_test(recipient, transfer_private_from_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -96,8 +95,6 @@ unconstrained fn transfer_private_failure_on_behalf_of_other_wrong_caller() {
         owner,
         transfer_private_from_call_interface,
     );
-    // Impersonate recipient to perform the call
-    env.impersonate(recipient);
     // Transfer tokens
-    transfer_private_from_call_interface.call(&mut env.private());
+    env.call_private_test(recipient, transfer_private_from_call_interface);
 }

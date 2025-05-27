@@ -10,15 +10,26 @@ unconstrained fn transfer_to_public_on_behalf_of_self() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
     let transfer_to_public_amount = mint_amount / (10 as u128);
-    Token::at(token_contract_address)
-        .transfer_to_public(owner, owner, transfer_to_public_amount, 0)
-        .call(&mut env.private());
-    utils::check_private_balance(
+    let _ = env.call_private_test(
+        owner,
+        Token::at(token_contract_address).transfer_to_public(
+            owner,
+            owner,
+            transfer_to_public_amount,
+            0,
+        ),
+    );
+
+    let amount = env.simulate_utility(Token::at(token_contract_address)
+        ._experimental_balance_of_private(owner));
+    assert_eq(amount, mint_amount - transfer_to_public_amount);
+
+    utils::check_public_balance(
+        env,
         token_contract_address,
         owner,
-        mint_amount - transfer_to_public_amount,
+        transfer_to_public_amount,
     );
-    utils::check_public_balance(token_contract_address, owner, transfer_to_public_amount);
 }
 
 #[test]
@@ -38,16 +49,20 @@ unconstrained fn transfer_to_public_on_behalf_of_other() {
         recipient,
         transfer_to_public_call_interface,
     );
-    // Impersonate recipient
-    env.impersonate(recipient);
+
     // transfer_to_public tokens
-    transfer_to_public_call_interface.call(&mut env.private());
-    utils::check_private_balance(
+    let _ = env.call_private_test(recipient, transfer_to_public_call_interface);
+
+    let amount = env.simulate_utility(Token::at(token_contract_address)
+        ._experimental_balance_of_private(owner));
+    assert_eq(amount, mint_amount - transfer_to_public_amount);
+
+    utils::check_public_balance(
+        env,
         token_contract_address,
-        owner,
-        mint_amount - transfer_to_public_amount,
+        recipient,
+        transfer_to_public_amount,
     );
-    utils::check_public_balance(token_contract_address, recipient, transfer_to_public_amount);
 }
 
 #[test(should_fail_with = "Balance too low")]
@@ -57,9 +72,16 @@ unconstrained fn transfer_to_public_failure_more_than_balance() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
     let transfer_to_public_amount = mint_amount + (1 as u128);
-    Token::at(token_contract_address)
-        .transfer_to_public(owner, owner, transfer_to_public_amount, 0)
-        .call(&mut env.private());
+
+    let _ = env.call_private_test(
+        owner,
+        Token::at(token_contract_address).transfer_to_public(
+            owner,
+            owner,
+            transfer_to_public_amount,
+            0,
+        ),
+    );
 }
 
 #[test(should_fail_with = "invalid authwit nonce")]
@@ -69,9 +91,16 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_self_non_zero_nonce() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
     let transfer_to_public_amount = mint_amount + (1 as u128);
-    Token::at(token_contract_address)
-        .transfer_to_public(owner, owner, transfer_to_public_amount, random())
-        .call(&mut env.private());
+
+    let _ = env.call_private_test(
+        owner,
+        Token::at(token_contract_address).transfer_to_public(
+            owner,
+            owner,
+            transfer_to_public_amount,
+            random(),
+        ),
+    );
 }
 
 #[test(should_fail_with = "Balance too low")]
@@ -91,10 +120,9 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_more_than_balance
         recipient,
         transfer_to_public_call_interface,
     );
-    // Impersonate recipient
-    env.impersonate(recipient);
+
     // transfer_to_public tokens
-    transfer_to_public_call_interface.call(&mut env.private());
+    let _ = env.call_private_test(recipient, transfer_to_public_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -114,10 +142,9 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designate
         owner,
         transfer_to_public_call_interface,
     );
-    // Impersonate recipient
-    env.impersonate(recipient);
+
     // transfer_to_public tokens
-    transfer_to_public_call_interface.call(&mut env.private());
+    let _ = env.call_private_test(recipient, transfer_to_public_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -132,8 +159,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_no_approval() {
         transfer_to_public_amount,
         0,
     );
-    // Impersonate recipient
-    env.impersonate(recipient);
+
     // transfer_to_public tokens
-    transfer_to_public_call_interface.call(&mut env.private());
+    let _ = env.call_private_test(recipient, transfer_to_public_call_interface);
 }
