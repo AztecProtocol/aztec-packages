@@ -8,6 +8,7 @@ import {
   getEpochAtSlot,
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
+  getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 
@@ -132,8 +133,8 @@ export class EpochCache implements EpochCacheInterface {
     return { epoch, ts, slot };
   }
 
-  private getEpochAndSlotInNextSlot(): EpochAndSlot {
-    const nextSlotTs = this.nowInSeconds() + BigInt(this.l1constants.slotDuration);
+  public getEpochAndSlotInNextSlot(): EpochAndSlot {
+    const nextSlotTs = this.nowInSeconds() + BigInt(this.l1constants.ethereumSlotDuration);
     return this.getEpochAndSlotAtTimestamp(nextSlotTs);
   }
 
@@ -143,6 +144,11 @@ export class EpochCache implements EpochCacheInterface {
       slot: getSlotAtTimestamp(ts, this.l1constants),
       ts,
     };
+  }
+
+  public getCommitteeForEpoch(epoch: bigint): Promise<EpochCommitteeInfo> {
+    const [startSlot] = getSlotRangeForEpoch(epoch, this.l1constants);
+    return this.getCommittee(startSlot);
   }
 
   /**
@@ -158,6 +164,10 @@ export class EpochCache implements EpochCacheInterface {
     }
 
     const epochData = await this.computeCommittee({ epoch, ts });
+    // If the committe size is 0, then do not cache
+    if (epochData.committee.length == 0) {
+      return epochData;
+    }
     this.cache.set(epoch, epochData);
 
     const toPurge = Array.from(this.cache.keys())
@@ -200,6 +210,10 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint {
+    // if committe size is 0, then mod 1 is 0
+    if (size === 0n) {
+      return 0n;
+    }
     return BigInt(keccak256(this.getProposerIndexEncoding(epoch, slot, seed))) % size;
   }
 
@@ -210,10 +224,10 @@ export class EpochCache implements EpochCacheInterface {
    * which can be the next slot. If this is the case, then it will send proposals early.
    */
   async getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
-    currentProposer: EthAddress;
-    nextProposer: EthAddress;
     currentSlot: bigint;
     nextSlot: bigint;
+    currentProposer: EthAddress;
+    nextProposer: EthAddress;
   }> {
     const current = this.getEpochAndSlotNow();
     const next = this.getEpochAndSlotInNextSlot();
@@ -226,9 +240,16 @@ export class EpochCache implements EpochCacheInterface {
     };
   }
 
+  getProposerAttesterAddressInNextSlot(): Promise<EthAddress> {
+    const epochAndSlot = this.getEpochAndSlotInNextSlot();
+
+    return this.getProposerAttesterAddressAt(epochAndSlot);
+  }
+
   private async getProposerAttesterAddressAt(when: EpochAndSlot) {
     const { epoch, slot } = when;
     const { seed, committee } = await this.getCommittee(slot);
+
     const proposerIndex = this.computeProposerIndex(slot, epoch, seed, BigInt(committee.length));
     return committee[Number(proposerIndex)];
   }

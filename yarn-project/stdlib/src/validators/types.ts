@@ -35,3 +35,5 @@ export type ValidatorsStats = {
   initialSlot?: bigint;
   slotWindow: number;
 };
+
+export type ValidatorsEpochPerformance = Record<`0x${string}`, { missed: number; total: number }>;

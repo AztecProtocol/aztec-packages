@@ -111,3 +111,25 @@ create_public_static_void_stub(f);
 | --- | --- |
 | f | FunctionDefinition |
 
+### create_utility_stub
+
+```rust
+create_utility_stub(f);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| f | FunctionDefinition |
+
+### create_utility_void_stub
+
+```rust
+create_utility_void_stub(f);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| f | FunctionDefinition |
+

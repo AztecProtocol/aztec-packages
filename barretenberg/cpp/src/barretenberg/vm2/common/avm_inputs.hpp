@@ -304,21 +304,24 @@ struct AccumulatedData {
 struct Tx {
     std::string hash;
     GlobalVariables globalVariables;
+    GasSettings gasSettings;
     AccumulatedData nonRevertibleAccumulatedData;
     AccumulatedData revertibleAccumulatedData;
     std::vector<EnqueuedCallHint> setupEnqueuedCalls;
     std::vector<EnqueuedCallHint> appLogicEnqueuedCalls;
     std::optional<EnqueuedCallHint> teardownEnqueuedCall;
-
+    Gas gasUsedByPrivate;
     bool operator==(const Tx& other) const = default;
 
     MSGPACK_FIELDS(hash,
                    globalVariables,
+                   gasSettings,
                    nonRevertibleAccumulatedData,
                    revertibleAccumulatedData,
                    setupEnqueuedCalls,
                    appLogicEnqueuedCalls,
-                   teardownEnqueuedCall);
+                   teardownEnqueuedCall,
+                   gasUsedByPrivate);
 };
 
 struct ExecutionHints {

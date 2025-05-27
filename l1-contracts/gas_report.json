@@ -2,23 +2,23 @@
   {
     "contract": "src/core/Rollup.sol:Rollup",
     "deployment": {
-      "gas": 8471673,
-      "size": 42045
+      "gas": 0,
+      "size": 43935
     },
     "functions": {
       "archive()": {
         "calls": 2323,
-        "min": 4605,
-        "mean": 4605,
-        "median": 4605,
-        "max": 4605
+        "min": 4583,
+        "mean": 4583,
+        "median": 4583,
+        "max": 4583
       },
       "getBlock(uint256)": {
-        "calls": 892,
-        "min": 9230,
-        "mean": 9230,
-        "median": 9230,
-        "max": 9230
+        "calls": 847,
+        "min": 9208,
+        "mean": 9208,
+        "median": 9208,
+        "max": 9208
       },
       "getCollectiveProverRewardsForEpoch(uint256)": {
         "calls": 3,
@@ -29,45 +29,66 @@
       },
       "getCurrentSlot()": {
         "calls": 100,
-        "min": 2713,
-        "mean": 2713,
-        "median": 2713,
-        "max": 2713
+        "min": 2735,
+        "mean": 2735,
+        "median": 2735,
+        "max": 2735
+      },
+      "getEpochDuration()": {
+        "calls": 2,
+        "min": 2400,
+        "mean": 2400,
+        "median": 2400,
+        "max": 2400
       },
       "getFeeAssetPerEth()": {
         "calls": 1,
-        "min": 5418,
-        "mean": 5418,
-        "median": 5418,
-        "max": 5418
+        "min": 5440,
+        "mean": 5440,
+        "median": 5440,
+        "max": 5440
       },
       "getFeeAssetPortal()": {
-        "calls": 1552,
-        "min": 2497,
-        "mean": 2497,
-        "median": 2497,
-        "max": 2497
+        "calls": 3104,
+        "min": 453,
+        "mean": 1453,
+        "median": 1453,
+        "max": 2453
       },
       "getInbox()": {
         "calls": 6198,
-        "min": 2476,
-        "mean": 2476,
-        "median": 2476,
-        "max": 2476
+        "min": 2498,
+        "mean": 2498,
+        "median": 2498,
+        "max": 2498
+      },
+      "getL1FeesAt(uint256)": {
+        "calls": 2,
+        "min": 9434,
+        "mean": 9434,
+        "median": 9434,
+        "max": 9434
       },
       "getManaBaseFeeAt(uint256,bool)": {
         "calls": 2325,
-        "min": 30738,
-        "mean": 32650,
-        "median": 30738,
-        "max": 36493
+        "min": 30538,
+        "mean": 32450,
+        "median": 30538,
+        "max": 36293
+      },
+      "getManaTarget()": {
+        "calls": 2,
+        "min": 2422,
+        "mean": 2422,
+        "median": 2422,
+        "max": 2422
       },
       "getOutbox()": {
         "calls": 3875,
-        "min": 2474,
-        "mean": 2474,
-        "median": 2474,
-        "max": 2474
+        "min": 2452,
+        "mean": 2452,
+        "median": 2452,
+        "max": 2452
       },
       "getPendingBlockNumber()": {
         "calls": 1545,
@@ -106,31 +127,38 @@
       },
       "getSequencerRewards(address)": {
         "calls": 2,
-        "min": 2655,
-        "mean": 2655,
-        "median": 2655,
-        "max": 2655
+        "min": 2716,
+        "mean": 2716,
+        "median": 2716,
+        "max": 2716
       },
       "getTimestampForSlot(uint256)": {
-        "calls": 2430,
-        "min": 2780,
-        "mean": 2780,
-        "median": 2780,
-        "max": 2780
+        "calls": 2432,
+        "min": 2802,
+        "mean": 2802,
+        "median": 2802,
+        "max": 2802
       },
       "getVersion()": {
         "calls": 3875,
-        "min": 2493,
-        "mean": 2493,
-        "median": 2493,
-        "max": 2493
+        "min": 471,
+        "mean": 1669,
+        "median": 2471,
+        "max": 2471
       },
-      "propose((bytes32,bytes,(int256),bytes,bytes32[]),(bool,uint8,bytes32,bytes32)[],bytes)": {
+      "owner()": {
+        "calls": 1552,
+        "min": 420,
+        "mean": 420,
+        "median": 420,
+        "max": 420
+      },
+      "propose((bytes32,bytes,(int256),bytes,bytes32[]),(address,(uint8,bytes32,bytes32))[],bytes)": {
         "calls": 2327,
-        "min": 154510,
-        "mean": 330348,
-        "median": 340137,
-        "max": 362766
+        "min": 180367,
+        "mean": 343443,
+        "median": 348542,
+        "max": 380636
       },
       "prune()": {
         "calls": 6,
@@ -141,17 +169,17 @@
       },
       "setProvingCostPerMana(uint256)": {
         "calls": 2,
-        "min": 28669,
-        "mean": 28669,
-        "median": 28669,
-        "max": 28669
+        "min": 28780,
+        "mean": 28780,
+        "median": 28780,
+        "max": 28780
       },
-      "submitEpochRootProof((uint256,uint256,(bytes32,bytes32,uint256,bytes32,address),bytes32[],bytes,bytes))": {
-        "calls": 891,
-        "min": 59223,
-        "mean": 418697,
-        "median": 415419,
-        "max": 449518
+      "submitEpochRootProof((uint256,uint256,(bytes32,bytes32,address),bytes32[],bytes,bytes))": {
+        "calls": 846,
+        "min": 58871,
+        "mean": 417467,
+        "median": 414067,
+        "max": 448154
       }
     }
   },
@@ -159,7 +187,7 @@
     "contract": "src/core/messagebridge/Inbox.sol:Inbox",
     "deployment": {
       "gas": 0,
-      "size": 6627
+      "size": 7350
     },
     "functions": {
       "getFeeAssetPortal()": {
@@ -169,26 +197,26 @@
         "median": 234,
         "max": 234
       },
+      "getInProgress()": {
+        "calls": 3,
+        "min": 2425,
+        "mean": 2425,
+        "median": 2425,
+        "max": 2425
+      },
       "getRoot(uint256)": {
         "calls": 2325,
-        "min": 4776,
-        "mean": 4784,
-        "median": 4776,
-        "max": 4802
-      },
-      "inProgress()": {
-        "calls": 3,
-        "min": 2282,
-        "mean": 2282,
-        "median": 2282,
-        "max": 2282
+        "min": 4809,
+        "mean": 4817,
+        "median": 4809,
+        "max": 4835
       },
       "sendL2Message((bytes32,uint256),bytes32,bytes32)": {
         "calls": 37168,
-        "min": 44565,
-        "mean": 54874,
-        "median": 47958,
-        "max": 95865
+        "min": 43418,
+        "mean": 53020,
+        "median": 46820,
+        "max": 77618
       }
     }
   },
@@ -211,19 +239,12 @@
   {
     "contract": "src/governance/Registry.sol:Registry",
     "deployment": {
-      "gas": 845410,
+      "gas": 0,
       "size": 4070
     },
     "functions": {
-      "addRollup(address)": {
-        "calls": 1552,
-        "min": 97461,
-        "mean": 97461,
-        "median": 97461,
-        "max": 97461
-      },
       "getCanonicalRollup()": {
-        "calls": 2661,
+        "calls": 2526,
         "min": 1016,
         "mean": 3016,
         "median": 1016,
@@ -235,6 +256,13 @@
         "mean": 267,
         "median": 267,
         "max": 267
+      },
+      "owner()": {
+        "calls": 3104,
+        "min": 407,
+        "mean": 407,
+        "median": 407,
+        "max": 407
       }
     }
   },
@@ -246,14 +274,14 @@
     },
     "functions": {
       "BLOCK_REWARD()": {
-        "calls": 3,
+        "calls": 1555,
         "min": 238,
         "mean": 238,
         "median": 238,
         "max": 238
       },
       "canonicalRollup()": {
-        "calls": 887,
+        "calls": 842,
         "min": 10158,
         "mean": 10158,
         "median": 10158,

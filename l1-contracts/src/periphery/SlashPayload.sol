@@ -4,40 +4,38 @@ pragma solidity >=0.8.27;
 
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {ISlashFactory} from "./interfaces/ISlashFactory.sol";
 
 /**
- * @notice The simplest payload that you can find, slash all attesters for an epoch.
+ * @notice Payload to slash a specified list of validators for specified amounts and offenses.
  */
 contract SlashPayload is IPayload {
-  Epoch public immutable EPOCH;
   IValidatorSelection public immutable VALIDATOR_SELECTION;
-  uint256 public immutable AMOUNT;
+  ISlashFactory.Offender[] public offenders;
 
-  address[] public attesters;
-
-  constructor(Epoch _epoch, IValidatorSelection _validatorSelection, uint256 _amount) {
-    EPOCH = _epoch;
-    VALIDATOR_SELECTION = _validatorSelection;
-    AMOUNT = _amount;
-
-    address[] memory attesters_ = IValidatorSelection(VALIDATOR_SELECTION).getEpochCommittee(EPOCH);
-    for (uint256 i = 0; i < attesters_.length; i++) {
-      attesters.push(attesters_[i]);
+  constructor(
+    address[] memory _validators,
+    uint96[] memory _amounts,
+    IValidatorSelection _validatorSelection
+  ) {
+    for (uint256 i = 0; i < _validators.length; i++) {
+      offenders.push(ISlashFactory.Offender({validator: _validators[i], amount: _amounts[i]}));
     }
+    VALIDATOR_SELECTION = _validatorSelection;
   }
 
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
-    IPayload.Action[] memory actions = new IPayload.Action[](attesters.length);
+    IPayload.Action[] memory actions = new IPayload.Action[](offenders.length);
 
-    for (uint256 i = 0; i < attesters.length; i++) {
+    for (uint256 i = 0; i < offenders.length; i++) {
       actions[i] = IPayload.Action({
         target: address(VALIDATOR_SELECTION),
-        data: abi.encodeWithSelector(IStakingCore.slash.selector, attesters[i], AMOUNT)
+        data: abi.encodeWithSelector(
+          IStakingCore.slash.selector, offenders[i].validator, offenders[i].amount
+        )
       });
     }
-
     return actions;
   }
 }

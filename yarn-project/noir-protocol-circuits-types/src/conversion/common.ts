@@ -44,7 +44,7 @@ import {
   StateReference,
   TxContext,
 } from '@aztec/stdlib/tx';
-import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
+import type { VerificationKeyAsFields, VkData } from '@aztec/stdlib/vks';
 
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
@@ -83,6 +83,7 @@ import type {
   StateReference as StateReferenceNoir,
   TxContext as TxContextNoir,
   VerificationKey as VerificationKeyNoir,
+  VkData as VkDataNoir,
 } from '../types/index.js';
 
 /* eslint-disable camelcase */
@@ -535,6 +536,14 @@ export function mapVerificationKeyToNoir<N extends number>(
   return {
     key: key.key.map(mapFieldToNoir) as FixedLengthArray<NoirField, N>,
     hash: mapFieldToNoir(key.hash),
+  };
+}
+
+export function mapVkDataToNoir<N extends number>(vkData: VkData, length: N): VkDataNoir<N> {
+  return {
+    vk: mapVerificationKeyToNoir<N>(vkData.vk.keyAsFields, length),
+    leaf_index: mapFieldToNoir(new Fr(vkData.leafIndex)),
+    sibling_path: mapTuple(vkData.siblingPath, mapFieldToNoir),
   };
 }
 

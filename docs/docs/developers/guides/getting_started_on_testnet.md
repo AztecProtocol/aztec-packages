@@ -59,7 +59,7 @@ Aztec uses account abstraction, which means:
 
 ```bash
 export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
-export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
+export SPONSORED_FPC_ADDRESS=0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047
 ```
 
 1. Create a new account:
@@ -115,10 +115,12 @@ aztec-wallet deploy \
     --payment method=fpc-sponsored,fpc=contracts:sponsoredfpc \
     --alias token \
     TokenContract \
-    --args accounts:my-wallet Token TOK 18
+    --args accounts:my-wallet Token TOK 18 --no-wait
 ```
 
 You should see confirmation that the token contract is stored in the database.
+
+Wait for the transaction to be mined on testnet. You can check the transaction status with the transaction hash on [aztecscan](https://aztecscan.xyz) or [aztecexplorer](https://aztecexplorer.xyz).
 
 2. Mint 10 private tokens to yourself:
 
@@ -127,7 +129,7 @@ aztec-wallet send mint_to_private \
     --node-url $NODE_URL \
     --from accounts:my-wallet \
     --payment method=fpc-sponsored,fpc=contracts:sponsoredfpc \
-    --contract-address last \
+    --contract-address token \
     --args accounts:my-wallet accounts:my-wallet 10
 ```
 
@@ -140,7 +142,7 @@ aztec-wallet send transfer_to_public \
     --node-url $NODE_URL \
     --from accounts:my-wallet \
     --payment method=fpc-sponsored,fpc=contracts:sponsoredfpc \
-    --contract-address last \
+    --contract-address token \
     --args accounts:my-wallet accounts:my-wallet 2 0
 ```
 
@@ -154,7 +156,7 @@ Private balance:
 aztec-wallet simulate balance_of_private \
     --node-url $NODE_URL \
     --from my-wallet \
-    --contract-address last \
+    --contract-address token \
     --args accounts:my-wallet
 ```
 
@@ -166,7 +168,7 @@ Public balance:
 aztec-wallet simulate balance_of_public \
     --node-url $NODE_URL \
     --from my-wallet \
-    --contract-address last \
+    --contract-address token \
     --args accounts:my-wallet
 ```
 

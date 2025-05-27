@@ -253,17 +253,6 @@ module_has_initializer(m);
 | --- | --- |
 | m | Module |
 
-### is_note
-
-```rust
-is_note(typ);
-```
-
-#### Parameters
-| Name | Type |
-| --- | --- |
-| typ | Type |
-
 ### get_trait_impl_method
 
 ```rust

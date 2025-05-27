@@ -15,6 +15,18 @@
           "feePerL2Gas": "0x0000000000000000000000000000000000000000000000000000000000000000"
         }
       },
+      "gasSettings": {
+        "gasLimits": { "daGas": 1000000000, "l2Gas": 6000000 },
+        "teardownGasLimits": { "daGas": 0, "l2Gas": 0 },
+        "maxFeesPerGas": {
+          "feePerDaGas": "0x000000000000000000000000000000000000000000000000000000000000000a",
+          "feePerL2Gas": "0x000000000000000000000000000000000000000000000000000000000000000a"
+        },
+        "maxPriorityFeesPerGas": {
+          "feePerDaGas": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "feePerL2Gas": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
       "nonRevertibleAccumulatedData": {
         "noteHashes": [],
         "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"]
@@ -29,7 +41,8 @@
           "isStaticCall": false
         }
       ],
-      "teardownEnqueuedCall": null
+      "teardownEnqueuedCall": null,
+      "gasUsedByPrivate": { "daGas": 0, "l2Gas": 0 }
     },
     "contractInstances": [
       {
@@ -614,13 +627,13 @@
           "nextAvailableLeafIndex": 129
         },
         "stateAfter": {
-          "root": "0x2bcb4f9dc6bcdbce7a938e9bc980f81f534395e9bd9b0eb3eaaa2ef41a37e4ae",
+          "root": "0x2378777951afa48c2bf483041406631003057465f04970cf10240dfdaa9812d2",
           "nextAvailableLeafIndex": 129
         },
         "treeId": 2,
         "leaf": {
           "slot": "0x07f7092a0dcf9bcea5791da60feb1bf4666ad16590d33d1ca86275efb2e7112e",
-          "value": "0x00000000000000000000000000000000000000000000000000000002540be343"
+          "value": "0x00000000000000000000000000000000000000000000000000000002540be3ca"
         },
         "lowLeavesWitnessData": {
           "leaf": {
@@ -1706,11 +1719,11 @@
         "nextAvailableLeafIndex": 193
       },
       "publicDataTree": {
-        "root": "0x2bcb4f9dc6bcdbce7a938e9bc980f81f534395e9bd9b0eb3eaaa2ef41a37e4ae",
+        "root": "0x2378777951afa48c2bf483041406631003057465f04970cf10240dfdaa9812d2",
         "nextAvailableLeafIndex": 129
       }
     },
-    "endGasUsed": { "daGas": 0, "l2Gas": 63 },
+    "endGasUsed": { "daGas": 0, "l2Gas": 18 },
     "accumulatedDataArrayLengths": {
       "noteHashes": 64,
       "nullifiers": 64,
@@ -2074,7 +2087,7 @@
       "publicDataWrites": [
         {
           "leafSlot": "0x07f7092a0dcf9bcea5791da60feb1bf4666ad16590d33d1ca86275efb2e7112e",
-          "value": "0x00000000000000000000000000000000000000000000000000000002540be343"
+          "value": "0x00000000000000000000000000000000000000000000000000000002540be3ca"
         },
         {
           "leafSlot": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -2330,7 +2343,7 @@
         }
       ]
     },
-    "transactionFee": "0x00000000000000000000000000000000000000000000000000000000000000bd",
+    "transactionFee": "0x0000000000000000000000000000000000000000000000000000000000000036",
     "reverted": false
   }
 }

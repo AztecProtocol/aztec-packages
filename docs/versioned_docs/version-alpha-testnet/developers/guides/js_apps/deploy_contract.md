@@ -37,18 +37,18 @@ This would create a typescript file like `Example.ts` in `./src/artifacts`.
 
 Import the typescript artifact into your file.
 
-```typescript title="import_artifact" showLineNumbers
-import { TokenContractArtifact } from "@aztec/noir-contracts.js/Token";
+```typescript title="import_artifact" showLineNumbers 
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7</a></sub></sup>
 
 Then you can use the `Contract` class **or** the [generated contract class](#using-generated-contract-class) to deploy the contract.
 
 To use the `Contract` class to deploy a contract:
 
-```typescript title="dapp-deploy" showLineNumbers
-const { PXE_URL = "http://localhost:8080" } = process.env;
+```typescript title="dapp-deploy" showLineNumbers 
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function main() {
   const pxe = createPXEClient(PXE_URL);
@@ -57,23 +57,18 @@ async function main() {
   const [ownerWallet] = await getInitialTestAccountsWallets(pxe);
   const ownerAddress = ownerWallet.getAddress();
 
-  const token = await Contract.deploy(ownerWallet, TokenContractArtifact, [
-    ownerAddress,
-    "TokenName",
-    "TKN",
-    18,
-  ])
+  const token = await Contract.deploy(ownerWallet, TokenContractArtifact, [ownerAddress, 'TokenName', 'TKN', 18])
     .send()
     .deployed();
 
   console.log(`Token deployed at ${token.address.toString()}`);
 
   const addresses = { token: token.address.toString() };
-  writeFileSync("addresses.json", JSON.stringify(addresses, null, 2));
+  writeFileSync('addresses.json', JSON.stringify(addresses, null, 2));
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32</a></sub></sup>
 
 #### Deploy Arguments
 
@@ -83,7 +78,7 @@ The `deploy(...)` method is generated automatically with the typescript class re
 
 Additionally the `.send()` method can have a few optional arguments too, which are specified in an optional object:
 
-```typescript title="deploy_options" showLineNumbers
+```typescript title="deploy_options" showLineNumbers 
 export type DeployOptions = {
   /** An optional salt value used to deterministically calculate the contract address. */
   contractAddressSalt?: Fr;
@@ -97,50 +92,45 @@ export type DeployOptions = {
   skipInitialization?: boolean;
 } & SendMethodOptions;
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/yarn-project/aztec.js/src/contract/deploy_method.ts#L32-L45" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/deploy_method.ts#L32-L45</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/aztec.js/src/contract/deploy_method.ts#L31-L44" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/deploy_method.ts#L31-L44</a></sub></sup>
 
 ### Using generated contract class
 
 As a more complete example, here a `Token` contract deployment whose artifacts are included in the `@aztec/noir-contracts.js` package. You can use similar deployment syntax with your own contract by importing the TS artifact generated with `aztec codegen`. This example uses the generated `TokenContract` to deploy.
 
 ```ts
-import { getSchnorrAccount } from "@aztec/accounts/schnorr";
-import { getDeployedTestAccountsWallets } from "@aztec/accounts/testing";
-import { Fr, GrumpkinScalar, createPXEClient } from "@aztec/aztec.js";
-import { Contract } from "@aztec/aztec.js";
-import {
-  TokenContract,
-  TokenContractArtifact,
-} from "@aztec/noir-contracts.js/Token";
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { Fr, GrumpkinScalar, createPXEClient } from '@aztec/aztec.js';
+import { Contract } from '@aztec/aztec.js';
+import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
-async function main() {
-  const PXE_URL = process.env.PXE_URL || "http://localhost:8080";
-  const pxe = createPXEClient(PXE_URL);
-  const secretKey = Fr.random();
-  const signingPrivateKey = GrumpkinScalar.random();
+async function main(){
 
-  // Use a pre-funded wallet to pay for the fees for the deployments.
-  const wallet = (await getDeployedTestAccountsWallets(pxe))[0];
-  const newAccount = await getSchnorrAccount(pxe, secretKey, signingPrivateKey);
-  await newAccount.deploy({ deployWallet: wallet }).wait();
-  const newWallet = await newAccount.getWallet();
+const PXE_URL = process.env.PXE_URL || 'http://localhost:8080';
+const pxe = createPXEClient(PXE_URL);
+const secretKey = Fr.random();
+const signingPrivateKey = GrumpkinScalar.random();
 
-  const deployedContract = await TokenContract.deploy(
-    wallet, // wallet instance
-    wallet.getAddress(), // account
-    "TokenName", // constructor arg1
-    "TokenSymbol", // constructor arg2
-    18
-  )
-    .send()
-    .deployed();
+// Use a pre-funded wallet to pay for the fees for the deployments.
+const wallet = (await getDeployedTestAccountsWallets(pxe))[0];
+const newAccount = await getSchnorrAccount(pxe, secretKey, signingPrivateKey);
+await newAccount.deploy({ deployWallet: wallet }).wait();
+const newWallet = await newAccount.getWallet();
 
-  const contract = await Contract.at(
-    deployedContract.address,
-    TokenContractArtifact,
-    wallet
-  );
+const deployedContract = await TokenContract.deploy(
+  wallet, // wallet instance
+  wallet.getAddress(), // account
+  'TokenName', // constructor arg1
+  'TokenSymbol', // constructor arg2
+  18,
+)
+  .send()
+  .deployed();
+
+const contract = await Contract.at(deployedContract.address, TokenContractArtifact, wallet);
+
 }
 ```
 

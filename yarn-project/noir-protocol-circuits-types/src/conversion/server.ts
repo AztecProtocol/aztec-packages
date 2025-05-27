@@ -57,7 +57,6 @@ import {
   type SingleTxBlockRootRollupInputs,
 } from '@aztec/stdlib/rollup';
 import { TreeSnapshots, TxConstantData } from '@aztec/stdlib/tx';
-import type { VkWitnessData } from '@aztec/stdlib/vks';
 
 import type {
   AvmAccumulatedDataArrayLengths as AvmAccumulatedDataArrayLengthsNoir,
@@ -105,7 +104,6 @@ import type {
   SpongeBlob as SpongeBlobNoir,
   TreeSnapshots as TreeSnapshotsNoir,
   TxConstantData as TxConstantDataNoir,
-  VkData as VkDataNoir,
 } from '../types/index.js';
 import {
   mapAppendOnlyTreeSnapshotFromNoir,
@@ -146,6 +144,7 @@ import {
   mapTxContextFromNoir,
   mapTxContextToNoir,
   mapVerificationKeyToNoir,
+  mapVkDataToNoir,
 } from './common.js';
 
 /* eslint-disable camelcase */
@@ -631,11 +630,7 @@ export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupDa
       previousRollupData.baseOrMergeRollupPublicInputs,
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
-    vk: mapVerificationKeyToNoir(previousRollupData.vk, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-    vk_witness: {
-      leaf_index: mapFieldToNoir(new Fr(previousRollupData.vkWitness.leafIndex)),
-      sibling_path: mapTuple(previousRollupData.vkWitness.siblingPath, mapFieldToNoir),
-    },
+    vk_data: mapVkDataToNoir(previousRollupData.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }
 
@@ -652,11 +647,7 @@ export function mapPreviousRollupBlockDataToNoir(
       previousRollupData.blockRootOrBlockMergePublicInputs,
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
-    vk: mapVerificationKeyToNoir(previousRollupData.vk, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-    vk_witness: {
-      leaf_index: mapFieldToNoir(new Fr(previousRollupData.vkWitness.leafIndex)),
-      sibling_path: mapTuple(previousRollupData.vkWitness.siblingPath, mapFieldToNoir),
-    },
+    vk_data: mapVkDataToNoir(previousRollupData.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }
 
@@ -812,7 +803,7 @@ function mapPrivateTubeDataToNoir(data: PrivateTubeData): PrivateTubeDataNoir {
   return {
     public_inputs: mapPrivateToRollupKernelCircuitPublicInputsToNoir(data.publicInputs),
     proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
-    vk_data: mapVkWitnessDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }
 
@@ -836,19 +827,11 @@ export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs
   };
 }
 
-function mapVkWitnessDataToNoir<N extends number>(vkData: VkWitnessData, length: N): VkDataNoir<N> {
-  return {
-    vk: mapVerificationKeyToNoir<N>(vkData.vk.keyAsFields, length),
-    vk_index: mapFieldToNoir(new Fr(vkData.vkIndex)),
-    vk_path: mapTuple(vkData.vkPath, mapFieldToNoir),
-  };
-}
-
 function mapPublicTubeDataToNoir(data: PublicTubeData): PublicTubeDataNoir {
   return {
     public_inputs: mapPrivateToPublicKernelCircuitPublicInputsToNoir(data.publicInputs),
     proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
-    vk_data: mapVkWitnessDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }
 
@@ -856,7 +839,7 @@ function mapAvmProofDataToNoir(data: AvmProofData): AvmProofDataNoir {
   return {
     public_inputs: mapAvmCircuitPublicInputsToNoir(data.publicInputs),
     proof: mapRecursiveProofToNoir<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>(data.proof),
-    vk_data: mapVkWitnessDataToNoir(data.vkData, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
+    vk_data: mapVkDataToNoir(data.vkData, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
   };
 }
 
