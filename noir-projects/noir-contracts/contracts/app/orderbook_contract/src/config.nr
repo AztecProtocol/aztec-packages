@@ -90,11 +90,13 @@ mod test {
     unconstrained fn get_tokens_correct_order() {
         let config = Config::new(token0, token1);
 
-        let (bid, ask) = config.get_tokens(true);
+        let is_zero = config.validate_input_tokens_and_get_direction(token0, token1);
+        let (bid, ask) = config.get_tokens(is_zero);
         assert(bid == token0);
         assert(ask == token1);
 
-        let (bid, ask) = config.get_tokens(false);
+        let is_zero = config.validate_input_tokens_and_get_direction(token1, token0);
+        let (bid, ask) = config.get_tokens(is_zero);
         assert(bid == token1);
         assert(ask == token0);
     }
