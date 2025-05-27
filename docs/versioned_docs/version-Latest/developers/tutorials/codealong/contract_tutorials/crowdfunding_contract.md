@@ -22,7 +22,7 @@ Along the way you will:
 - Wrap an address with its interface (token)
 - Create custom private value notes
 
-This tutorial is compatible with the Aztec version `v0.87.3`. Install the correct version with `aztec-up 0.87.3`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `v0.87.3`. Install the correct version with `aztec-up -v 0.87.3`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Setup
 
