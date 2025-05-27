@@ -1,11 +1,9 @@
 import { SHA256Trunc, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import type { FromBuffer } from '@aztec/foundation/serialize';
-import type { Hasher } from '@aztec/foundation/trees';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { type Hasher, MerkleTree, MerkleTreeCalculator, SiblingPath } from '@aztec/foundation/trees';
 
-import { StandardTree } from './standard_tree/standard_tree.js';
-import { UnbalancedTree } from './unbalanced_tree.js';
+import { UnbalancedMerkleTreeCalculator } from './unbalanced_merkle_tree_calculator.js';
 
 const noopDeserializer: FromBuffer<Buffer> = {
   fromBuffer: (buffer: Buffer) => buffer,
@@ -14,12 +12,14 @@ const noopDeserializer: FromBuffer<Buffer> = {
 // Follows sol implementation and tests in UnbalancedMerkle.t.sol
 describe('Wonky tree', () => {
   let hasher: Hasher;
-  let tree: UnbalancedTree<Buffer>;
+  let tree: UnbalancedMerkleTreeCalculator;
   let leaves: Buffer[];
 
   const createAndFillTree = async (size: number) => {
     const depth = Math.ceil(Math.log2(size));
-    const tree = new UnbalancedTree(hasher, `test`, depth, noopDeserializer);
+    const tree = UnbalancedMerkleTreeCalculator.create(depth, (lhs: Buffer, rhs: Buffer) =>
+      Promise.resolve(hasher.hash(lhs, rhs)),
+    );
     const leaves = Array(size)
       .fill(0)
       .map((_, i) => sha256Trunc(new Fr(i).toBuffer()));
@@ -48,16 +48,10 @@ describe('Wonky tree', () => {
       leaves = res.leaves;
     });
 
-    it("Shouldn't accept more leaves", () => {
-      expect(() => tree.appendLeaves([Buffer.alloc(32)])).toThrow(
+    it("Shouldn't accept more leaves", async () => {
+      await expect(() => tree.appendLeaves([Buffer.alloc(32)])).rejects.toThrow(
         "Can't re-append to an unbalanced tree. Current has 2 leaves.",
       );
-    });
-
-    it('Correctly computes tree information', () => {
-      expect(tree.getNumLeaves()).toEqual(BigInt(leaves.length));
-      expect(tree.getDepth()).toEqual(1);
-      expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
     });
 
     it('Correctly computes root', () => {
@@ -86,12 +80,6 @@ describe('Wonky tree', () => {
       const res = await createAndFillTree(3);
       tree = res.tree;
       leaves = res.leaves;
-    });
-
-    it('Correctly computes tree information', () => {
-      expect(tree.getNumLeaves()).toEqual(BigInt(leaves.length));
-      expect(tree.getDepth()).toEqual(2);
-      expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
     });
 
     it('Correctly computes root', () => {
@@ -125,12 +113,6 @@ describe('Wonky tree', () => {
       leaves = res.leaves;
     });
 
-    it('Correctly computes tree information', () => {
-      expect(tree.getNumLeaves()).toEqual(BigInt(leaves.length));
-      expect(tree.getDepth()).toEqual(3);
-      expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
-    });
-
     it('Correctly computes root', () => {
       const root = tree.getRoot();
       let leftMergeNode = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
@@ -162,12 +144,6 @@ describe('Wonky tree', () => {
       const res = await createAndFillTree(6);
       tree = res.tree;
       leaves = res.leaves;
-    });
-
-    it('Correctly computes tree information', () => {
-      expect(tree.getNumLeaves()).toEqual(BigInt(leaves.length));
-      expect(tree.getDepth()).toEqual(3);
-      expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
     });
 
     it('Correctly computes root', () => {
@@ -210,12 +186,6 @@ describe('Wonky tree', () => {
       leaves = res.leaves;
     });
 
-    it('Correctly computes tree information', () => {
-      expect(tree.getNumLeaves()).toEqual(BigInt(leaves.length));
-      expect(tree.getDepth()).toEqual(3);
-      expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
-    });
-
     it('Correctly computes root', () => {
       const root = tree.getRoot();
       const firstMergeNode = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
@@ -238,34 +208,33 @@ describe('Wonky tree', () => {
   // Example - 31 txs:
   // The same as a standard 32 leaf balanced tree, but with the last 'leaf' shifted up one.
   describe('31 Transactions', () => {
-    let stdTree: StandardTree;
+    let stdTree: MerkleTreeCalculator;
+    let merkleTree: MerkleTree;
     beforeAll(async () => {
       const res = await createAndFillTree(31);
       tree = res.tree;
       leaves = res.leaves;
-      stdTree = new StandardTree(openTmpStore(true), hasher, `temp`, 5, 0n, noopDeserializer);
+      stdTree = await MerkleTreeCalculator.create(5, Buffer.alloc(32, 0), (lhs: Buffer, rhs: Buffer) =>
+        Promise.resolve(hasher.hash(lhs, rhs)),
+      );
       // We have set the last leaf to be H(1, 2), so we can fill a 32 size tree with:
-      stdTree.appendLeaves([...res.leaves.slice(0, 30), new Fr(1).toBuffer(), new Fr(2).toBuffer()]);
-    });
-
-    it('Correctly computes tree information', () => {
-      expect(tree.getNumLeaves()).toEqual(BigInt(leaves.length));
-      expect(tree.getDepth()).toEqual(5);
-      expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
+      merkleTree = await stdTree.computeTree([...res.leaves.slice(0, 30), new Fr(1).toBuffer(), new Fr(2).toBuffer()]);
     });
 
     it('Correctly computes root', () => {
       const root = tree.getRoot();
-      const expectedRoot = stdTree.getRoot(true);
+      const expectedRoot = merkleTree.root;
       expect(root).toEqual(expectedRoot);
     });
 
     it('Correctly computes sibling paths', async () => {
       let sibPath = await tree.getSiblingPath(BigInt('0x' + leaves[0].toString('hex')));
-      let expectedSibPath = await stdTree.getSiblingPath(0n, true);
+      let temp = merkleTree.getSiblingPath(0);
+      let expectedSibPath = new SiblingPath<number>(temp.length, temp);
       expect(sibPath).toEqual(expectedSibPath);
       sibPath = await tree.getSiblingPath(BigInt('0x' + leaves[27].toString('hex')));
-      expectedSibPath = await stdTree.getSiblingPath(27n, true);
+      temp = merkleTree.getSiblingPath(27);
+      expectedSibPath = new SiblingPath<number>(temp.length, temp);
       expect(sibPath).toEqual(expectedSibPath);
     });
   });

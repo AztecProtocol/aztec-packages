@@ -138,10 +138,17 @@ export interface AztecNode
    * @param l2ToL1Message - The l2ToL1Message to get the membership witness for.
    * @returns A tuple of the index and the sibling path of the L2ToL1Message.
    */
-  getL2ToL1MessageMembershipWitness(
-    blockNumber: L2BlockNumber,
-    l2ToL1Message: Fr,
-  ): Promise<[bigint, SiblingPath<number>]>;
+  // getL2ToL1MessageMembershipWitness(
+  //   blockNumber: L2BlockNumber,
+  //   l2ToL1Message: Fr,
+  // ): Promise<[bigint, SiblingPath<number>]>;
+
+  /**
+   * Returns all the L2 to L1 messages in a block.
+   * @param blockNumber - The block number at which to get the data.
+   * @returns The L2 to L1 messages (undefined if the block number is not found).
+   */
+  getL2ToL1Messages(blockNumber: L2BlockNumber): Promise<Fr[][] | undefined>;
 
   /**
    * Returns a sibling path for a leaf in the committed historic blocks tree.
@@ -445,10 +452,15 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
 
-  getL2ToL1MessageMembershipWitness: z
+  // getL2ToL1MessageMembershipWitness: z
+  //   .function()
+  //   .args(L2BlockNumberSchema, schemas.Fr)
+  //   .returns(z.tuple([schemas.BigInt, SiblingPath.schema])),
+
+  getL2ToL1Messages: z
     .function()
-    .args(L2BlockNumberSchema, schemas.Fr)
-    .returns(z.tuple([schemas.BigInt, SiblingPath.schema])),
+    .args(L2BlockNumberSchema)
+    .returns(z.array(z.array(schemas.Fr)).optional()),
 
   getArchiveSiblingPath: z
     .function()
