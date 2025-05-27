@@ -45,8 +45,10 @@ async function setupPXE() {
   const pxe = await createPXEService(
     aztecNode,
     configWithContracts,
-    true,
-    store
+    {
+      store,
+      useLogSuffix: true,
+    }
   );
   return pxe;
 }
