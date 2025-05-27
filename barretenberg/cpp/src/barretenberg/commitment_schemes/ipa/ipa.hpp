@@ -29,7 +29,7 @@
 namespace bb {
 // clang-format off
 
-constexpr size_t IPA_PROOF_LENGTH = 1 + 4 * CONST_ECCVM_LOG_N + 2 + 2;
+constexpr size_t IPA_PROOF_LENGTH = 2 + 4 * CONST_ECCVM_LOG_N + 2 + 2;
 
 /**
 * @brief IPA (inner product argument) commitment scheme class.
@@ -149,13 +149,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                const ProverOpeningClaim<Curve>& opening_claim,
                                                const std::shared_ptr<Transcript>& transcript)
     {
-        if constexpr(!std::is_same_v<Transcript, MockTranscript>){
-    	    transcript->add_to_hash_buffer("opening_claim:eval", opening_claim.opening_pair.evaluation);
-        }
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
 
         constexpr size_t poly_length = 1UL<<log_poly_length;
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1150): Hash more things here.
+        // Step 1.
+        // Send polynomial degree + 1 = d to the verifier
+        transcript->send_to_verifier("IPA:poly_degree_plus_1", Fr(poly_length));
 
         // Step 2.
         // Receive challenge for the auxiliary generator
@@ -323,9 +324,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         static constexpr size_t poly_length = 1UL<<log_poly_length;
 
-        if constexpr(!std::is_same_v<Transcript, MockTranscript>){
-    	    transcript->add_to_hash_buffer("opening_claim:eval", opening_claim.opening_pair.evaluation);
-        }
+        // Step 1.
+        // Receive polynomial_degree + 1 = d from the prover
+        auto poly_length_received_from_prover = transcript->template receive_from_prover<Fr>(
+            "IPA:poly_degree_plus_1"); // note this is base field because this is a uint32_t, which should map
+                                        // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
+                                        // Grumpkin
+        ASSERT(poly_length_received_from_prover == poly_length);
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
@@ -438,7 +443,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                       auto& transcript)
         requires Curve::is_stdlib_type
     {
-    	transcript->add_to_hash_buffer("opening_claim:eval", opening_claim.opening_pair.evaluation);
+    	Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_degree_plus_1");
+        info(poly_length_received_from_prover.is_constant());
+        poly_length_received_from_prover.assert_equal(Fr(1UL<<log_poly_length));
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -582,9 +589,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                       auto& transcript)
         requires Curve::is_stdlib_type
     {
-
-    	transcript->add_to_hash_buffer("opening_claim:eval", opening_claim.opening_pair.evaluation);
-
+        Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_degree_plus_1");
+        info(poly_length_received_from_prover.is_constant());
+        poly_length_received_from_prover.assert_equal(Fr(1UL<<log_poly_length));
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");

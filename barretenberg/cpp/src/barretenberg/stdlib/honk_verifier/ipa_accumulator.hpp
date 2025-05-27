@@ -7,7 +7,7 @@
 #include <vector>
 namespace bb::stdlib::recursion::honk {
 
-template <typename Curve, size_t log_poly_length = 0> struct IpaAccumulator {
+template <typename Curve> struct IpaAccumulator {
     std::vector<typename Curve::ScalarField>
         u_challenges_inv;       // inverses of u challenges that represent the polynomial h; could be an array
     typename Curve::Group comm; // commitment to the polynomial h
