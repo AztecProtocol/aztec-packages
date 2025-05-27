@@ -481,8 +481,8 @@ export class SequencerPublisher {
         digest: digest.toBuffer(),
         signatures: attestations ?? [],
       });
-    } catch (err) {
-      this.log.error(`Block validation failed. ${err ?? 'No error message'}`, undefined, {
+    } catch (err: any) {
+      this.log.error(`Block validation failed. ${err instanceof Error ? err.message : 'No error message'}`, undefined, {
         ...block.getStats(),
         slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
       });
