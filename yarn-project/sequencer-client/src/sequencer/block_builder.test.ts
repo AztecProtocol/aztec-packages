@@ -174,8 +174,8 @@ describe('BlockBuilder', () => {
     expect(blockResult.block.header.globalVariables.gasFees).toEqual(GasFees.empty());
     expect(blockResult.block.header.globalVariables.chainId.toNumber()).toBe(chainId);
     expect(blockResult.block.header.globalVariables.version.toNumber()).toBe(version);
-    //  We need a real world state fork etc to assert on the contents of the block.
-    // expect(blockResult.block.body.txEffects.length).toBe(1);
+    expect(blockResult.block.body.txEffects.length).toBe(1);
+    expect(blockResult.block.body.txEffects[0].txHash).toBe(await tx.getTxHash());
   });
 
   it('builds a block with the correct options', async () => {

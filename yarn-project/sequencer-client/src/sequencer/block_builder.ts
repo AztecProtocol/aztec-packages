@@ -89,6 +89,7 @@ export async function buildBlock(
     }
 
     // All real transactions have been added, set the block as full and pad if needed
+    await blockBuilder.addTxs(processedTxs);
     const block = await blockBuilder.setBlockCompleted();
 
     // How much public gas was processed
@@ -131,7 +132,6 @@ export class BlockBuilder implements FullNodeBlockBuilder {
   ) {}
 
   protected async makeBlockBuilderDeps(globalVariables: GlobalVariables, opts: BuildBlockOptions) {
-    // const parentBlockNumber = globalVariables.blockNumber.toNumber() - 1;
     const publicProcessorDBFork = await this.worldState.fork();
     const contractsDB = new PublicContractsDB(this.contractDataSource);
 
@@ -186,8 +186,8 @@ export class BlockBuilder implements FullNodeBlockBuilder {
     globalVariables: GlobalVariables,
     opts: BuildBlockOptions,
   ): Promise<BuildBlockResult> {
-    const { publicProcessorDBFork, processor, validator } = await this.makeBlockBuilderDeps(globalVariables, opts);
     await this.syncToPreviousBlock(globalVariables, opts);
+    const { publicProcessorDBFork, processor, validator } = await this.makeBlockBuilderDeps(globalVariables, opts);
 
     return buildBlock(
       pendingTxs,
@@ -216,8 +216,8 @@ export class BlockBuilder implements FullNodeBlockBuilder {
       chainId: new Fr(this.config.l1ChainId),
       version: new Fr(this.config.rollupVersion),
     });
-    const { publicProcessorDBFork, processor, validator } = await this.makeBlockBuilderDeps(globalVariables, opts);
     await this.syncToPreviousBlock(globalVariables, opts);
+    const { publicProcessorDBFork, processor, validator } = await this.makeBlockBuilderDeps(globalVariables, opts);
 
     return buildBlock(
       pendingTxs,
