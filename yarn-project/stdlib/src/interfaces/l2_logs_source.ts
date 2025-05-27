@@ -20,10 +20,11 @@ export interface L2LogsSource {
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
+   * @param logsPerTag - The maximum number of logs to return for each tag. Default returns everything
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
+  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs based on the provided filter.

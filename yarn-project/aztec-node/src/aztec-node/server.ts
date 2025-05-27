@@ -469,11 +469,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
+   * @param logsPerTag - The maximum number of logs to return for each tag. By default no limit is set
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  public getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.logsSource.getLogsByTags(tags);
+  public getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+    return this.logsSource.getLogsByTags(tags, logsPerTag);
   }
 
   /**
@@ -558,13 +559,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   /**
    * Method to retrieve pending txs.
+   * @param limit - The number of items to returns
+   * @param after - The last known pending tx. Used for pagination
    * @returns - The pending txs.
    */
-  public getPendingTxs() {
-    return this.p2pClient!.getPendingTxs();
+  public getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
+    return this.p2pClient!.getPendingTxs(limit, after);
   }
 
-  public getPendingTxCount() {
+  public getPendingTxCount(): Promise<number> {
     return this.p2pClient!.getPendingTxCount();
   }
 
@@ -573,7 +576,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param txHash - The transaction hash to return.
    * @returns - The tx if it exists.
    */
-  public getTxByHash(txHash: TxHash) {
+  public getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
   }
 
@@ -582,7 +585,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param txHash - The transaction hash to return.
    * @returns - The txs if it exists.
    */
-  public async getTxsByHash(txHashes: TxHash[]) {
+  public async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
     return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
   }
 
