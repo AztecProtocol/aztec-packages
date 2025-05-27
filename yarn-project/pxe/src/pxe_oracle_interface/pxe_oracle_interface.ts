@@ -830,15 +830,15 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
   }
 
-  // TODO: Make this a public function on the AztecNode interface and remove the original getLogsByTags. This was not
-  // done yet as we were unsure about the API and we didn't want to introduce a breaking change.
+  // TODO(#12656): Make this a public function on the AztecNode interface and remove the original getLogsByTags. This
+  // was not done yet as we were unsure about the API and we didn't want to introduce a breaking change.
   async #getPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     const allLogs = await this.aztecNode.getLogsByTags(tags);
     return allLogs.map(logs => logs.filter(log => !log.isFromPublic));
   }
 
-  // TODO: Make this a public function on the AztecNode interface and remove the original getLogsByTags. This was not
-  // done yet as we were unsure about the API and we didn't want to introduce a breaking change.
+  // TODO(#12656): Make this a public function on the AztecNode interface and remove the original getLogsByTags. This
+  // was not done yet as we were unsure about the API and we didn't want to introduce a breaking change.
   async #getPublicLogsByTagsFromContract(tags: Fr[], contractAddress: AztecAddress): Promise<TxScopedL2Log[][]> {
     const allLogs = await this.aztecNode.getLogsByTags(tags);
     const allPublicLogs = allLogs.map(logs => logs.filter(log => log.isFromPublic));
