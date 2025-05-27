@@ -226,7 +226,7 @@ export class CircuitRecorder {
    */
   finish(): Promise<CircuitRecording> {
     const result = this.recording;
-    // If this is the top-level circuit recording, we reset the state for the simulator call
+    // If this is the top-level circuit recording, we reset the state for the next simulator call
     if (!result!.parent) {
       this.newCircuit = true;
       this.recording = undefined;
@@ -240,7 +240,7 @@ export class CircuitRecorder {
    */
   finishWithError(error: unknown): Promise<CircuitRecording> {
     const result = this.recording;
-    // If this is the top-level circuit recording, we reset the state for the simulator call
+    // If this is the top-level circuit recording, we reset the state for the next simulator call
     if (!result!.parent) {
       this.newCircuit = true;
       this.recording = undefined;

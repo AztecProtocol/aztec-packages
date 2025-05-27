@@ -5,8 +5,7 @@ import type { ACVMWitness } from '../../acvm/acvm_types.js';
 import { CircuitRecorder, type CircuitRecording } from './circuit_recorder.js';
 
 export class FileCircuitRecorder extends CircuitRecorder {
-  private isFirstCall = true;
-  private filePath!: string;
+  declare recording?: CircuitRecording & { filePath: string; isFirstCall: boolean };
 
   constructor(private readonly recordDir: string) {
     super();
@@ -18,9 +17,13 @@ export class FileCircuitRecorder extends CircuitRecorder {
     circuitName: string,
     functionName: string = 'main',
   ) {
-    super.start(input, circuitBytecode, circuitName, functionName);
+    await super.start(input, circuitBytecode, circuitName, functionName);
 
-    const recordingStringWithoutClosingBracket = JSON.stringify(this.recording, null, 2).slice(0, -2);
+    const recordingStringWithoutClosingBracket = JSON.stringify(
+      { ...this.recording, isFirstCall: undefined, parent: undefined, oracleCalls: undefined, filePath: undefined },
+      null,
+      2,
+    ).slice(0, -2);
 
     try {
       // Check if the recording directory exists and is a directory
@@ -37,7 +40,8 @@ export class FileCircuitRecorder extends CircuitRecorder {
       }
     }
 
-    this.filePath = await FileCircuitRecorder.#computeFilePathAndStoreInitialRecording(
+    this.recording!.isFirstCall = true;
+    this.recording!.filePath = await FileCircuitRecorder.#computeFilePathAndStoreInitialRecording(
       this.recordDir,
       this.recording!.circuitName,
       this.recording!.functionName,
@@ -87,11 +91,11 @@ export class FileCircuitRecorder extends CircuitRecorder {
    * @param outputs - Output results
    */
   override async recordCall(name: string, inputs: unknown[], outputs: unknown, time: number, stackDepth: number) {
-    const entry = super.recordCall(name, inputs, outputs, time, stackDepth);
+    const entry = await super.recordCall(name, inputs, outputs, time, stackDepth);
     try {
-      const prefix = this.isFirstCall ? '    ' : '    ,';
-      this.isFirstCall = false;
-      await fs.appendFile(this.filePath, prefix + JSON.stringify(entry) + '\n');
+      const prefix = this.recording!.isFirstCall ? '    ' : '    ,';
+      this.recording!.isFirstCall = false;
+      await fs.appendFile(this.recording!.filePath, prefix + JSON.stringify(entry) + '\n');
     } catch (err) {
       this.logger.error('Failed to log circuit call', { error: err });
     }
@@ -103,12 +107,16 @@ export class FileCircuitRecorder extends CircuitRecorder {
    * incomplete and it fails to parse.
    */
   override async finish(): Promise<CircuitRecording> {
+    // Finish sets the recording to undefined if we are at the topmost circuit,
+    // so we save the current file path before that
+    const filePath = this.recording!.filePath;
+    const result = await super.finish();
     try {
-      await fs.appendFile(this.filePath, '  ]\n}\n');
+      await fs.appendFile(filePath, '  ]\n}\n');
     } catch (err) {
       this.logger.error('Failed to finalize recording file', { error: err });
     }
-    return this.recording!;
+    return result!;
   }
 
   /**
@@ -117,15 +125,18 @@ export class FileCircuitRecorder extends CircuitRecorder {
    * @param error - The error that occurred during circuit execution
    */
   override async finishWithError(error: unknown): Promise<CircuitRecording> {
+    // Finish sets the recording to undefined if we are at the topmost circuit,
+    // so we save the current file path before that
+    const filePath = this.recording!.filePath;
+    const result = await super.finishWithError(error);
     try {
-      this.recording!.error = JSON.stringify(error);
-      await fs.appendFile(this.filePath, '  ],\n');
-      await fs.appendFile(this.filePath, `  "error": ${JSON.stringify(error)}\n`);
-      await fs.appendFile(this.filePath, '}\n');
+      await fs.appendFile(filePath, '  ],\n');
+      await fs.appendFile(filePath, `  "error": ${JSON.stringify(error)}\n`);
+      await fs.appendFile(filePath, '}\n');
     } catch (err) {
       this.logger.error('Failed to finalize recording file with error', { error: err });
     }
-    return this.recording!;
+    return result!;
   }
 }
 
