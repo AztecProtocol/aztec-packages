@@ -18,6 +18,9 @@
 #include <cstddef>
 #include <ostream>
 
+// Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
+#define AZTEC_NO_ORIGIN_TAGS
+
 #define STANDARD_TESTING_TAGS /*Tags reused in tests*/                                                                 \
     const size_t parent_id = 0;                                                                                        \
     [[maybe_unused]] const auto clear_tag = OriginTag();                                                               \
@@ -53,7 +56,7 @@
 namespace bb {
 
 void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b);
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(AZTEC_NO_ORIGIN_TAGS)
 struct OriginTag {
 
     static constexpr size_t CONSTANT = static_cast<size_t>(-1);

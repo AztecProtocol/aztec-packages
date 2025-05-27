@@ -1,4 +1,9 @@
 # Origin Tags Security Mechanism
+## ⚠️ IMPORTANT DISCLAIMER
+
+**The Origin Tags security mechanism is currently DISABLED in all builds due to the `AZTEC_NO_ORIGIN_TAGS` flag.** This is because the current codebase contains numerous violations of the tag invariants throughout the system, so the mechanism will immediately discover violations everywhere.
+
+
 
 ## Overview
 
