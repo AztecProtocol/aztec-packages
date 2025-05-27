@@ -15,7 +15,7 @@ mkdir -p build-coverage/profdata
 export LLVM_PROFILE_FILE="$(pwd)/build-coverage/profdata/%m.%p.profraw"
 
 function test_cmds {
-  ./bootstrap.sh test_cmds | grep -v Full6 | grep -v MaxCapacity
+  ./bootstrap.sh test_cmds | grep -v Full6 | grep -v MaxCapacity | grep -v AvmRecursiveTests
   ../acir_tests/bootstrap.sh test_cmds | grep -v main.js | grep -v browser
   echo "disabled-cache NO_WASM=1 barretenberg/cpp/bootstrap.sh bench_ivc origin/master"
 }

@@ -123,8 +123,9 @@ if(COVERAGE)
         message(FATAL_ERROR "Creating coverage is only available for clang")
     endif()
 
-    # Add profiling compile options and disable optimizations
+    # Add profiling compile/link options and disable optimizations
     add_definitions(-fprofile-instr-generate -fcoverage-mapping)
+    add_link_options(-fprofile-instr-generate -fcoverage-mapping)
 endif()
 
 include(cmake/build.cmake)
