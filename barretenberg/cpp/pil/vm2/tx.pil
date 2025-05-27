@@ -27,6 +27,7 @@ namespace tx;
     pol commit remaining_phase_inv;
     pol commit remaining_phase_events;
     
+    // This lookup extracts the start value of a new phase based on the precomputed table
     #[READ_PHASE_TABLE]
     start_phase { 
         phase_value, 
@@ -62,23 +63,28 @@ namespace tx;
         precomputed.sel_revertible_append_nullifier
     };
 
+    // If a phase reverts (when it is allowed to), it jumps to a known next phase
     #[PHASE_JUMP_ON_REVERT]
     reverted { phase_value, phase_value' } in
     precomputed.phase_sel { precomputed.phase_value, precomputed.next_phase_on_revert};
 
-    // === LENGTH STUFF === Read the number of steps in the phase
+    // === Phase Lengths === 
+    // Read the number of steps in the phase from public inputs
     #[READ_PHASE_LENGTH]
     start_phase { read_pi_length_offset, remaining_phase_events } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
+    // Phase events decrement at each row
     #[DECR_REM_PHASE_EVENTS]
     sel * (1 - end_phase) * (remaining_phase_events' - (remaining_phase_events - 1)) = 0;
 
+    // The read index increments at each row
     #[INCR_READ_PI_OFFSET]
     sel * (1 - end_phase) * (read_pi_offset' - (read_pi_offset + 1)) = 0;
 
     // === Public Call Request Phase ===
     pol commit is_public_call_request;
+    // Read information relating to the public call request from public inputs
     #[READ_PUBLIC_CALL_REQUEST_PHASE]
     is_public_call_request {
         read_pi_offset,
@@ -101,17 +107,98 @@ namespace tx;
     pol commit calldata_hash;
 
     pol commit context_id; // Constrain
-    pol commit next_context_id;
+    pol commit next_context_id; // Constrain
 
+    // Public Call Requests are dispatch to the execution trace
+    // We match the values to the start of an enqueued call in the execution trace
     #[DISPATCH_EXEC_START]
-    is_public_call_request { context_id, next_context_id, msg_sender, contract_addr, is_static } in
-    execution.enqueued_call_start { execution.context_id, execution.next_context_id, execution.msg_sender, execution.contract_address, execution.is_static };
+    is_public_call_request {
+        context_id,
+        next_context_id,
+        msg_sender,
+        contract_addr,
+        is_static,
+        // Tree State
+        prev_note_hash_tree_root,
+        prev_note_hash_tree_size,
+        prev_num_note_hashes_emitted,
+        prev_nullifier_tree_size,
+        prev_num_nullifiers_emitted,
+        prev_public_data_tree_root,
+        prev_public_data_tree_size,
+        prev_num_pub_data_writes_emitted,
+        // Gas Info
+        prev_l2_gas_used,
+        prev_da_gas_used,
+        l2_gas_limit,
+        da_gas_limit
+    } in
+    execution.enqueued_call_start {
+        execution.context_id,
+        execution.next_context_id,
+        execution.msg_sender,
+        execution.contract_address,
+        execution.is_static,
+        // Tree State
+        execution.prev_note_hash_tree_root,
+        execution.prev_note_hash_tree_size,
+        execution.prev_num_note_hashes_emitted,
+        execution.prev_nullifier_tree_size,
+        execution.prev_num_nullifiers_emitted,
+        execution.prev_public_data_tree_root,
+        execution.prev_public_data_tree_size,
+        execution.prev_num_pub_data_writes_emitted,
+        // Gas Info
+        execution.prev_l2_gas_used,
+        execution.prev_da_gas_used,
+        execution.l2_gas_limit,
+        execution.da_gas_limit
+    };
 
+    // We retrieve the return values at the end of an enqueued call in the execution trace
     #[DISPATCH_EXEC_GET_REVERT]
-    is_public_call_request { context_id, reverted } in
-    execution.enqueued_call_end { execution.context_id, execution.sel_error };
+    is_public_call_request { 
+        context_id,
+        next_context_id,
+        reverted,
+        // Tree State
+        next_note_hash_tree_root,
+        next_note_hash_tree_size,
+        next_num_note_hashes_emitted,
+        next_nullifier_tree_root,
+        next_nullifier_tree_size,
+        next_num_nullifiers_emitted,
+        next_public_data_tree_root,
+        next_public_data_tree_size,
+        next_num_pub_data_writes_emitted,
+        next_l1_l2_tree_root,
+        next_l1_l2_tree_size,
+        // Gas Info
+        next_l2_gas_used,
+        next_da_gas_used
+    } in
+    execution.enqueued_call_end { 
+        execution.context_id,
+        execution.next_context_id,
+        execution.sel_error,
+        // Tree State
+        execution.note_hash_tree_root,
+        execution.note_hash_tree_size,
+        execution.num_note_hashes_emitted,
+        execution.nullifier_tree_root,
+        execution.nullifier_tree_size,
+        execution.num_nullifiers_emitted,
+        execution.public_data_tree_root,
+        execution.public_data_tree_size,
+        execution.num_pub_data_writes_emitted,
+        execution.l1_l2_tree_root,
+        execution.l1_l2_tree_size,
+        // Gas Info
+        execution.l2_gas_used,
+        execution.da_gas_used
+    };
 
-    // === Tree Insertion Values for tree
+    // === Tree Insertion Options for tree ===
     pol commit sel_revertible_append_note_hash;
     pol commit sel_non_revertible_append_note_hash;
     pol commit sel_revertible_append_nullifier;
@@ -121,8 +208,18 @@ namespace tx;
     is_tree_insert_phase  = sel_revertible_append_note_hash + sel_non_revertible_append_note_hash + sel_revertible_append_nullifier + sel_non_revertible_append_nullifier;
     pol commit leaf_value;
 
+    // Read the tree value from public inputs
     #[READ_TREE_INSERT_VALUE]
     is_tree_insert_phase { read_pi_offset, leaf_value } in
+    public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+
+    // TODO: Use gadget to update the tree
+    // TODO: Write the tree value to public inputs
+    pol commit successful_tree_insert;
+    sel * ((1 - reverted) * is_tree_insert_phase - successful_tree_insert) = 0;
+
+    #[WRITE_TREE_INSERT_VALUE]
+    successful_tree_insert { write_pi_offset, leaf_value } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     // Previous Tree State
@@ -168,6 +265,13 @@ namespace tx;
     is_l2_l1_msg_phase { read_pi_offset, l2_l1_msg_contract_address, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_counter } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2], public_inputs.cols[3] };
 
+    pol commit successful_msg_emit;
+    sel * ((1 - reverted) * is_l2_l1_msg_phase - successful_msg_emit) = 0;
+
+    #[WRITE_MSG]
+    successful_msg_emit { write_pi_offset, l2_l1_msg_contract_address, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_counter } in
+    public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2], public_inputs.cols[3] };
+
     // Collect Gas
     pol commit is_collect_fee;
     pol commit fee_per_da_gas;
@@ -178,3 +282,13 @@ namespace tx;
 
     pol commit max_priority_fees_per_l2_gas;
     pol commit max_priority_fees_per_da_gas;
+
+    // Gas Info
+    pol commit prev_l2_gas_used;
+    pol commit prev_da_gas_used;
+
+    pol commit next_l2_gas_used;
+    pol commit next_da_gas_used;
+
+    pol commit l2_gas_limit;
+    pol commit da_gas_limit;

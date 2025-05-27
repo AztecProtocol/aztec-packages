@@ -119,7 +119,7 @@ TEST_F(TxExecutionTest, simulateTx)
         if (std::holds_alternative<PrivateEmitL2L1MessageEvent>(event)) {
             actual_l2_l1_msg_events++;
         }
-        if (std::holds_alternative<PhaseEvent>(event)) {
+        if (std::holds_alternative<EnqueuedCallEvent>(event)) {
             actual_public_call_events++;
         }
     }

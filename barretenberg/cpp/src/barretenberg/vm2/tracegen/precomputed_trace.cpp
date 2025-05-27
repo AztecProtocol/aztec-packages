@@ -336,7 +336,9 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
               {
                   {
                       { C::precomputed_phase_sel, 1 },
-                      { C::precomputed_phase_value, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
+                      { C::precomputed_sel_non_revertible_append_note_hash, 1 },
+                      { C::precomputed_is_l2_l1_message_phase, 0 },
                       { C::precomputed_sel_non_revertible_append_note_hash, 1 },
                       { C::precomputed_is_revertible, 0 },
 
@@ -351,7 +353,14 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
               {
                   {
                       { C::precomputed_phase_sel, 1 },
-                      { C::precomputed_phase_value, 2 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
+                      { C::precomputed_sel_non_revertible_append_nullifier, 1 },
+                      { C::precomputed_is_l2_l1_message_phase, 0 },
+                      { C::precomputed_is_revertible, 0 },
+
+                      { C::precomputed_read_public_input_offset, nr_nullifiers.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, nr_nullifiers.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, nr_nullifiers.write_pi_offset },
                       { C::precomputed_sel_non_revertible_append_nullifier, 1 },
                       { C::precomputed_is_revertible, 0 },
 
@@ -366,7 +375,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
               {
                   {
                       { C::precomputed_phase_sel, 1 },
-                      { C::precomputed_phase_value, 3 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
                       { C::precomputed_is_l2_l1_message_phase, 1 },
                       { C::precomputed_is_revertible, 0 },
 
@@ -381,7 +390,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
               {
                   {
                       { C::precomputed_phase_sel, 1 },
-                      { C::precomputed_phase_value, 4 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
                       { C::precomputed_is_public_call_request_phase, 1 },
                       { C::precomputed_is_revertible, 0 },
 
@@ -396,7 +405,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
               {
                   {
                       { C::precomputed_phase_sel, 1 },
-                      { C::precomputed_phase_value, 5 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
                       { C::precomputed_sel_revertible_append_note_hash, 1 },
                       { C::precomputed_is_revertible, 1 },
 
@@ -411,7 +420,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
               {
                   {
                       { C::precomputed_phase_sel, 1 },
-                      { C::precomputed_phase_value, 6 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
                       { C::precomputed_sel_revertible_append_nullifier, 1 },
                       { C::precomputed_is_revertible, 1 },
 
@@ -426,7 +435,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
               {
                   {
                       { C::precomputed_phase_sel, 1 },
-                      { C::precomputed_phase_value, 7 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
                       { C::precomputed_is_l2_l1_message_phase, 1 },
                       { C::precomputed_is_revertible, 1 },
 
@@ -441,7 +450,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
               {
                   {
                       { C::precomputed_phase_sel, 1 },
-                      { C::precomputed_phase_value, 8 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::APP_LOGIC) },
                       { C::precomputed_is_public_call_request_phase, 1 },
                       { C::precomputed_is_revertible, 1 },
 
@@ -456,7 +465,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
               {
                   {
                       { C::precomputed_phase_sel, 1 },
-                      { C::precomputed_phase_value, 9 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                       { C::precomputed_is_public_call_request_phase, 1 },
                       { C::precomputed_is_revertible, 1 },
 
