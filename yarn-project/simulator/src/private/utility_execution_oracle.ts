@@ -307,11 +307,8 @@ export class UtilityExecutionOracle extends TypedOracle {
     );
   }
 
-  public override getPublicLogByTagFromContract(
-    tag: Fr,
-    contractAddress: AztecAddress,
-  ): Promise<PublicLogWithTxData | null> {
-    return this.executionDataProvider.getPublicLogByTagFromContract(tag, contractAddress);
+  public override getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
+    return this.executionDataProvider.getPublicLogByTag(tag, contractAddress);
   }
 
   public override storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {

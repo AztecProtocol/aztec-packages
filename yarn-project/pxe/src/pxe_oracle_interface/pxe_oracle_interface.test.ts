@@ -612,7 +612,7 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('getPublicLogByTagFromContract', () => {
+  describe('getPublicLogByTag', () => {
     const tag = Fr.random();
 
     beforeEach(() => {
@@ -623,7 +623,7 @@ describe('PXEOracleInterface', () => {
     it('returns null if no logs found for tag', async () => {
       aztecNode.getLogsByTags.mockResolvedValue([[]]);
 
-      const result = await pxeOracleInterface.getPublicLogByTagFromContract(tag, contractAddress);
+      const result = await pxeOracleInterface.getPublicLogByTag(tag, contractAddress);
       expect(result).toBeNull();
     });
 
@@ -637,7 +637,7 @@ describe('PXEOracleInterface', () => {
         txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
       );
 
-      const result = (await pxeOracleInterface.getPublicLogByTagFromContract(tag, logContractAddress))!;
+      const result = (await pxeOracleInterface.getPublicLogByTag(tag, logContractAddress))!;
 
       expect(result.logContent).toEqual([logContractAddress.toField()].concat(scopedLog.log.getEmittedFields()));
       expect(result.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
@@ -653,9 +653,7 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLog, scopedLog]]);
       const logContractAddress = (scopedLog.log as PublicLog).contractAddress;
 
-      await expect(pxeOracleInterface.getPublicLogByTagFromContract(tag, logContractAddress)).rejects.toThrow(
-        /Got 2 logs for tag/,
-      );
+      await expect(pxeOracleInterface.getPublicLogByTag(tag, logContractAddress)).rejects.toThrow(/Got 2 logs for tag/);
     });
 
     it('throws if tx effect not found', async () => {
@@ -664,7 +662,7 @@ describe('PXEOracleInterface', () => {
       aztecNode.getTxEffect.mockResolvedValue(undefined);
       const logContractAddress = (scopedLog.log as PublicLog).contractAddress;
 
-      await expect(pxeOracleInterface.getPublicLogByTagFromContract(tag, logContractAddress)).rejects.toThrow(
+      await expect(pxeOracleInterface.getPublicLogByTag(tag, logContractAddress)).rejects.toThrow(
         /failed to retrieve tx effects/,
       );
     });
@@ -689,7 +687,7 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLogWithPadding]]);
       aztecNode.getTxEffect.mockResolvedValue(await randomIndexedTxEffect());
 
-      const result = await pxeOracleInterface.getPublicLogByTagFromContract(tag, logContractAddress);
+      const result = await pxeOracleInterface.getPublicLogByTag(tag, logContractAddress);
 
       expect(result?.logContent).toEqual([log.contractAddress.toField(), ...logContent]);
     });

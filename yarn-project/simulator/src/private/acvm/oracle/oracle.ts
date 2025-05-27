@@ -412,14 +412,8 @@ export class Oracle {
     return [toACVMField(true)];
   }
 
-  async getPublicLogByTagFromContract(
-    [tag]: ACVMField[],
-    [contractAddress]: ACVMField[],
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    const log = await this.typedOracle.getPublicLogByTagFromContract(
-      Fr.fromString(tag),
-      AztecAddress.fromString(contractAddress),
-    );
+  async getPublicLogByTag([tag]: ACVMField[], [contractAddress]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
+    const log = await this.typedOracle.getPublicLogByTag(Fr.fromString(tag), AztecAddress.fromString(contractAddress));
 
     if (log == null) {
       return [toACVMField(0), ...PublicLogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];

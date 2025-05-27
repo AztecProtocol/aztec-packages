@@ -731,19 +731,16 @@ export class TXEService {
     return toForeignCallResult([toSingle(Fr.ONE)]);
   }
 
-  async getPublicLogByTagFromContract(tag: ForeignCallSingle, contractAddress: ForeignCallSingle) {
+  async getPublicLogByTag(tag: ForeignCallSingle, contractAddress: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    // TODO(AD): this was warning that getPublicLogByTagFromContract did not return a promise.
+    // TODO(AD): this was warning that getPublicLogByTag did not return a promise.
     const log = await Promise.resolve(
-      this.typedOracle.getPublicLogByTagFromContract(
-        fromSingle(tag),
-        AztecAddress.fromField(fromSingle(contractAddress)),
-      ),
+      this.typedOracle.getPublicLogByTag(fromSingle(tag), AztecAddress.fromField(fromSingle(contractAddress))),
     );
 
     if (log == null) {

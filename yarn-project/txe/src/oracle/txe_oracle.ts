@@ -1197,8 +1197,8 @@ export class TXE implements TypedOracle {
     );
   }
 
-  async getPublicLogByTagFromContract(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
-    return await this.pxeOracleInterface.getPublicLogByTagFromContract(tag, contractAddress);
+  async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
+    return await this.pxeOracleInterface.getPublicLogByTag(tag, contractAddress);
   }
 
   // AVM oracles
