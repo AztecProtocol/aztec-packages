@@ -7,7 +7,7 @@ import Image from "@theme/IdealImage";
 
 In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter, where you can keep your own private counter - so no one knows what ID you are at or when you increment! This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase all of the awesome stuff Aztec is capable of.
 
-This tutorial is compatible with the Aztec version `v0.87.2`. Install the correct version with `aztec-up v0.87.2`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `v0.87.2`. Install the correct version with `aztec-up 0.87.2`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Prerequisites
 
@@ -70,7 +70,7 @@ pub contract Counter {
 }
 ```
 
-```rust title="imports" showLineNumbers 
+```rust title="imports" showLineNumbers
 use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
 use aztec::prelude::{AztecAddress, Map};
 use aztec::protocol_types::{
@@ -83,26 +83,26 @@ use value_note::{balance_utils, value_note::ValueNote};
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L8-L17" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L8-L17</a></sub></sup>
 
 
-- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage};`  
+- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage};`
   Imports the macros needed to define function types (`initializer`, `private`, and `utility`) and the `storage` macro for declaring contract storage structures.
 
-- `use aztec::prelude::{AztecAddress, Map};`  
+- `use aztec::prelude::{AztecAddress, Map};`
   Brings in `AztecAddress` (used to identify accounts/contracts) and `Map` (used for creating state mappings, like our counters).
 
-- `use aztec::protocol_types::traits::{FromField, ToField};`  
+- `use aztec::protocol_types::traits::{FromField, ToField};`
   Provides traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
 
-- `use easy_private_state::EasyPrivateUint;`  
+- `use easy_private_state::EasyPrivateUint;`
   Imports a wrapper to manage private integer-like state variables (ie our counter), abstracting away notes.
 
-- `use value_note::{balance_utils, value_note::ValueNote};`  
+- `use value_note::{balance_utils, value_note::ValueNote};`
   Brings in `ValueNote`, which represents a private value stored as a note, and `balance_utils`, which makes working with notes feel like working with simple balances.
 
 ## Declare storage
 
 Add this below the imports. It declares the storage variables for our contract. We are going to store a mapping of values for each `AztecAddress`.
 
-```rust title="storage_struct" showLineNumbers 
+```rust title="storage_struct" showLineNumbers
 #[storage]
 struct Storage<Context> {
     counters: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
@@ -117,7 +117,7 @@ Now we’ve got a mechanism for storing our private state, we can start using it
 
 Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[initializer]` decorator that specifies that this function behaves like a constructor. Write this:
 
-```rust title="constructor" showLineNumbers 
+```rust title="constructor" showLineNumbers
 #[initializer]
 #[private]
 // We can name our initializer anything we want as long as it's marked as aztec(initializer)
@@ -137,7 +137,7 @@ We have annotated this and other functions with `#[private]` which are ABI macro
 
 Now let’s implement the `increment` function we defined in the first step.
 
-```rust title="increment" showLineNumbers 
+```rust title="increment" showLineNumbers
 #[private]
 fn increment(owner: AztecAddress, sender: AztecAddress) {
     unsafe {
@@ -166,7 +166,7 @@ Because our counters are private, the network can't directly verify if a note wa
 
 The last thing we need to implement is the function in order to retrieve a counter. In the `getCounter` we defined in the first step, write this:
 
-```rust title="get_counter" showLineNumbers 
+```rust title="get_counter" showLineNumbers
 #[utility]
 unconstrained fn get_counter(owner: AztecAddress) -> Field {
     let counters = storage.counters;

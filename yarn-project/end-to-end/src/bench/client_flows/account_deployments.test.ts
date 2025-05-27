@@ -1,10 +1,10 @@
 import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
-import { AccountWallet, type DeployOptions, Fr, registerContractClass } from '@aztec/aztec.js';
+import { AccountWallet, type DeployOptions, Fr, type PXE, registerContractClass } from '@aztec/aztec.js';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 
 import { jest } from '@jest/globals';
 
-import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
+import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
@@ -17,11 +17,13 @@ describe('Deployment benchmark', () => {
   let sponsoredFPC: SponsoredFPCContract;
   // Benchmarking configuration
   const config = t.config.accountDeployments;
+  // Benchmarking user's PXE
+  let userPXE: PXE;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyDeploySponsoredFPCSnapshot();
-    ({ adminWallet, sponsoredFPC } = await t.setup());
+    ({ adminWallet, sponsoredFPC, userPXE } = await t.setup());
     // Ensure the ECDSAR1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegisterer
     // The typical interaction would be for a user to deploy an account contract that is already registered in the
     // network.
@@ -41,7 +43,7 @@ describe('Deployment benchmark', () => {
     return describe(`Deployment benchmark for ${accountType}`, () => {
       function deploymentTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
         return it(`Deploys a ${accountType} account contract, pays using ${benchmarkingPaymentMethod}`, async () => {
-          const benchysAccountManager = await t.createBenchmarkingAccountManager(accountType);
+          const benchysAccountManager = await t.createBenchmarkingAccountManager(userPXE, accountType);
           const benchysWallet = await benchysAccountManager.getWallet();
 
           if (benchmarkingPaymentMethod === 'sponsored_fpc') {
@@ -66,7 +68,7 @@ describe('Deployment benchmark', () => {
             contractAddressSalt: new Fr(benchysAccountManager.salt),
           };
 
-          await capturePrivateExecutionStepsIfEnvSet(
+          await captureProfile(
             `deploy_${accountType}+${benchmarkingPaymentMethod}`,
             deploymentInteraction,
             options,
@@ -81,9 +83,11 @@ describe('Deployment benchmark', () => {
               1, // Kernel tail
           );
 
-          // Ensure we paid a fee
-          const tx = await deploymentInteraction.send(options).wait();
-          expect(tx.transactionFee!).toBeGreaterThan(0n);
+          if (process.env.SANITY_CHECKS) {
+            // Ensure we paid a fee
+            const tx = await deploymentInteraction.send(options).wait();
+            expect(tx.transactionFee!).toBeGreaterThan(0n);
+          }
         });
       }
 

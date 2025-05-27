@@ -9,7 +9,7 @@ import Image from '@theme/IdealImage';
 
 In this tutorial we will go through writing a very simple private voting smart contract in Aztec.nr. You will learn about private functions, public functions, composability between them, state management and creatively using nullifiers to prevent people from voting twice!
 
-This tutorial is compatible with the Aztec version `v0.87.0`. Install the correct version with `aztec-up v0.87.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `v0.87.0`. Install the correct version with `aztec-up 0.87.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 We will build this:
 
@@ -69,7 +69,7 @@ This defines a contract called `Voter`. Everything will sit inside this block.
 
 Inside this, paste these imports:
 
-```rust title="imports" showLineNumbers 
+```rust title="imports" showLineNumbers
 use dep::aztec::{
     keys::getters::get_public_keys,
     macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
@@ -82,20 +82,20 @@ use dep::aztec::protocol_types::traits::{Hash, ToField};
 
 We are using various utils within the Aztec `prelude` library:
 
-- `use dep::aztec::keys::getters::get_public_keys;`  
+- `use dep::aztec::keys::getters::get_public_keys;`
   Imports a helper to retrieve public keys associated with the caller, used for computing a secure nullifier during voting.
 
-- `use dep::aztec::macros::{functions::{initializer, internal, private, public, utility}, storage::storage};`  
+- `use dep::aztec::macros::{functions::{initializer, internal, private, public, utility}, storage::storage};`
   Brings in macros for defining different function types (`initializer`, `internal`, `private`, `public`, `utility`) and for declaring contract storage via `storage`.
 
-- `use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};`  
+- `use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};`
   Imports:
   - `AztecAddress`: a type for account/contract addresses,
   - `Map`: a key-value storage structure,
   - `PublicMutable`: public state that can be updated,
   - `PublicImmutable`: public state that is read-only after being set once.
 
-- `use dep::aztec::protocol_types::traits::{Hash, ToField};`  
+- `use dep::aztec::protocol_types::traits::{Hash, ToField};`
   Provides the `Hash` and `ToField` traits, used for hashing values and converting them to a Field, used for nullifier creation and other computations.
 
 
@@ -104,7 +104,7 @@ We are using various utils within the Aztec `prelude` library:
 Under these imports, we need to set up our contract storage.
 Define the storage struct like so:
 
-```rust title="storage_struct" showLineNumbers 
+```rust title="storage_struct" showLineNumbers
 #[storage]
 struct Storage<Context> {
     admin: PublicMutable<AztecAddress, Context>, // admin can end vote
@@ -127,7 +127,7 @@ In this contract, we will store three vars:
 
 The next step is to initialize the contract with a constructor. The constructor will take an address as a parameter and set the admin.
 
-```rust title="constructor" showLineNumbers 
+```rust title="constructor" showLineNumbers
 #[public]
 #[initializer]
 // annotation to mark function as a constructor
@@ -154,7 +154,7 @@ To ensure someone only votes once, we will create a nullifier as part of the fun
 
 Create a private function called `cast_vote`:
 
-```rust title="cast_vote" showLineNumbers 
+```rust title="cast_vote" showLineNumbers
 #[private]
 // annotation to mark function as private and expose private context
 fn cast_vote(candidate: Field) {
@@ -179,7 +179,7 @@ After pushing the nullifier, we update the `tally` to reflect this vote. As we k
 
 Create this new public function like this:
 
-```rust title="add_to_tally_public" showLineNumbers 
+```rust title="add_to_tally_public" showLineNumbers
 #[public]
 #[internal]
 fn add_to_tally_public(candidate: Field) {
@@ -201,7 +201,7 @@ The code after the assertion will only run if the assertion is true. In this sni
 
 We will create a function that anyone can call that will return the number of votes at a given vote Id. Paste this in your contract:
 
-```rust title="get_vote" showLineNumbers 
+```rust title="get_vote" showLineNumbers
 #[utility]
 unconstrained fn get_vote(candidate: Field) -> Field {
     storage.tally.at(candidate).read()
@@ -218,7 +218,7 @@ To ensure that only an `admin` can end a voting period, we can use another `asse
 
 Paste this function in your contract:
 
-```rust title="end_vote" showLineNumbers 
+```rust title="end_vote" showLineNumbers
 #[public]
 fn end_vote() {
     assert(storage.admin.read().eq(context.msg_sender()), "Only admin can end votes"); // assert that caller is admin

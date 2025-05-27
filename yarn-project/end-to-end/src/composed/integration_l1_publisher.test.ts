@@ -143,7 +143,7 @@ describe('L1Publisher integration', () => {
       getPublishedBlocks(from, limit, _proven) {
         return Promise.resolve(
           blocks.slice(from - 1, from - 1 + limit).map(block => ({
-            signatures: [],
+            attestations: [],
             block,
             // Use L2 block number and hash for faking the L1 info
             l1: {

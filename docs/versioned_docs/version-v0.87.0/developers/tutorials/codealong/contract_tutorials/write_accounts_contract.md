@@ -15,7 +15,7 @@ You will learn:
 - Typescript glue code to format and authenticate transactions
 - Deploying and testing the account contract
 
-This tutorial is compatible with the Aztec version `v0.87.0`. Install the correct version with `aztec-up v0.87.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `v0.87.0`. Install the correct version with `aztec-up 0.87.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 Writing your own account contract allows you to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed (including key rotation and recovery). In other words, writing an account contract lets you make the most out of account abstraction in the Aztec network.
 
@@ -31,7 +31,7 @@ For the sake of simplicity, we will hardcode the signing public key into the con
 
 Let's start with the account contract itself in Aztec.nr. Create a new Aztec.nr contract project that will contain a file with the code for the account contract, with a hardcoded public key:
 
-```rust title="contract" showLineNumbers 
+```rust title="contract" showLineNumbers
 // Account contract that uses Schnorr signatures for authentication using a hardcoded public key.
 use dep::aztec::macros::aztec;
 
@@ -98,7 +98,7 @@ schnorr = { git = "https://github.com/noir-lang/schnorr", tag = "v0.1.1" }
 
 The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding authentication witness from an oracle to validate it. Authentication witnesses are used for authorizing actions for an account, whether it is just checking a signature, like in this case, or granting authorization for another account to act on an accounts behalf (e.g. token approvals). You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
 
-```rust title="entrypoint" showLineNumbers 
+```rust title="entrypoint" showLineNumbers
 pub fn entrypoint(self, app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
     let valid_fn = self.is_valid_impl;
 
@@ -121,7 +121,7 @@ pub fn entrypoint(self, app_payload: AppPayload, fee_payload: FeePayload, cancel
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/aztec-nr/authwit/src/account.nr#L40-L59" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/account.nr#L40-L59</a></sub></sup>
 
 
-```rust title="app-payload-struct" showLineNumbers 
+```rust title="app-payload-struct" showLineNumbers
 #[derive(Serialize)]
 pub struct AppPayload {
     function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],
@@ -131,7 +131,7 @@ pub struct AppPayload {
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/aztec-nr/authwit/src/entrypoint/app.nr#L19-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/entrypoint/app.nr#L19-L25</a></sub></sup>
 
 
-```rust title="fee-payload-struct" showLineNumbers 
+```rust title="fee-payload-struct" showLineNumbers
 #[derive(Serialize)]
 pub struct FeePayload {
     function_calls: [FunctionCall; MAX_FEE_FUNCTION_CALLS],
@@ -148,7 +148,7 @@ Using the `AccountActions` module and the payload structs is not mandatory. You 
 
 The `AccountActions` module provides default implementations for most of the account contract methods needed, but it requires a function for validating an auth witness. In this function you will customize how your account validates an action: whether it is using a specific signature scheme, a multi-party approval, a password, etc.
 
-```rust title="is-valid" showLineNumbers 
+```rust title="is-valid" showLineNumbers
 #[contract_library_method]
 fn is_valid_impl(_context: &mut PrivateContext, outer_hash: Field) -> bool {
     // Load auth witness and format as an u8 array
@@ -190,7 +190,7 @@ A side-effect of not having nonces at the protocol level is that it is not possi
 
 Now that we have a valid account contract, we need to write the typescript glue code that will take care of formatting and authenticating transactions so they can be processed by our contract, as well as deploying the contract during account setup. This takes the form of implementing the `AccountContract` interface from `@aztec/aztec.js`:
 
-```typescript title="account-contract-interface" showLineNumbers 
+```typescript title="account-contract-interface" showLineNumbers
 /**
  * An account contract instance. Knows its artifact, deployment arguments, how to create
  * transaction execution requests out of function calls, and how to authorize actions.
@@ -236,7 +236,7 @@ export interface AccountContract {
 
 However, if you are using the default `AccountActions` module, then you can leverage the `DefaultAccountContract` class from `@aztec/accounts` and just implement the logic for generating an auth witness that matches the one you wrote in Noir:
 
-```typescript title="account-contract" showLineNumbers 
+```typescript title="account-contract" showLineNumbers
 const PRIVATE_KEY = GrumpkinScalar.fromHexString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
 
 /** Account contract implementation that authenticates txs using Schnorr signatures. */
@@ -287,7 +287,7 @@ Let's try creating a new account backed by our account contract, and interact wi
 
 To create and deploy the account, we will use the `AccountManager` class, which takes an instance of an Private Execution Environment (PXE), a [privacy private key](../../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys), and an instance of our `AccountContract` class:
 
-```typescript title="account-contract-deploy" showLineNumbers 
+```typescript title="account-contract-deploy" showLineNumbers
 const secretKey = Fr.random();
 const account = await AccountManager.create(pxe, secretKey, new SchnorrHardcodedKeyAccountContract());
 
@@ -308,7 +308,7 @@ const address = wallet.getAddress();
 
 Note that we used a funded wallet to deploy the account contract and pay for the transaction fee. The new account doesn't have any funds yet. We will continue using the funded wallet to deploy the token contract:
 
-```typescript title="token-contract-deploy" showLineNumbers 
+```typescript title="token-contract-deploy" showLineNumbers
 const token = await TokenContract.deploy(fundedWallet, fundedWallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
   .send()
   .deployed();
@@ -328,7 +328,7 @@ If we run this, we get `Balance of wallet is now 150`, which shows that the `min
 
 To make sure that we are actually validating the provided signature in our account contract, we can try signing with a different key. To do this, we will set up a new `Account` instance pointing to the contract we already deployed but using a wrong signing key:
 
-```typescript title="account-contract-fails" showLineNumbers 
+```typescript title="account-contract-fails" showLineNumbers
 const wrongKey = GrumpkinScalar.random();
 const wrongAccountContract = new SchnorrHardcodedKeyAccountContract(wrongKey);
 const wrongAccount = await AccountManager.create(pxe, secretKey, wrongAccountContract, account.salt);

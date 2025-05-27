@@ -17,7 +17,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
   const makeBlock = (number: number): PublishedL2Block => ({
     block: { number, header: { hash: () => Promise.resolve(new Fr(number)) } as BlockHeader } as L2Block,
     l1: { blockNumber: BigInt(number), blockHash: `0x${number}`, timestamp: BigInt(number) },
-    signatures: [],
+    attestations: [],
   });
 
   const makeBlockId = (number: number): L2BlockId => ({

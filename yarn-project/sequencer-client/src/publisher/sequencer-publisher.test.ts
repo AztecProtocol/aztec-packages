@@ -113,6 +113,7 @@ describe('SequencerPublisher', () => {
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n });
+    epochCache.getCommittee.mockResolvedValue({ committee: [], seed: 1n, epoch: 1n });
 
     publisher = new SequencerPublisher(config, {
       blobSinkClient,
@@ -311,10 +312,6 @@ describe('SequencerPublisher', () => {
   });
 
   it('does not send requests if no valid requests are found', async () => {
-    const epochCache = (publisher as any).epochCache as MockProxy<EpochCache>;
-
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n });
-
     publisher.addRequest({
       action: 'propose',
       request: {

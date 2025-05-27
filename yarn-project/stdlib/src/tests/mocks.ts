@@ -6,6 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { CommitteeAttestation } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
 import { computeContractAddressFromInstance } from '../contract/contract_address.js';
@@ -299,7 +300,7 @@ export async function randomPublishedL2Block(
   };
 
   const signers = opts.signers ?? times(3, () => Secp256k1Signer.random());
-  const attestations = await Promise.all(
+  const atts = await Promise.all(
     signers.map(signer =>
       makeBlockAttestation({
         signer,
@@ -310,6 +311,8 @@ export async function randomPublishedL2Block(
       }),
     ),
   );
-  const signatures = attestations.map(attestation => attestation.signature);
-  return { block, l1, signatures };
+  const attestations = atts.map(
+    (attestation, i) => new CommitteeAttestation(signers[i].address, attestation.signature),
+  );
+  return { block, l1, attestations };
 }

@@ -19,7 +19,7 @@ In this tutorial you will learn how to:
 
 We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr), and explain what is being added as we go.
 
-This tutorial is compatible with the Aztec version `v0.87.0`. Install the correct version with `aztec-up v0.87.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `v0.87.0`. Install the correct version with `aztec-up 0.87.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Requirements
 
