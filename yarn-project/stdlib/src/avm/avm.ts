@@ -5,6 +5,8 @@ import { schemas } from '@aztec/foundation/schemas';
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
+import { Gas } from '../gas/gas.js';
+import { GasSettings } from '../gas/gas_settings.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
@@ -41,7 +43,10 @@ export class AvmContractClassHint {
 }
 
 export class AvmBytecodeCommitmentHint {
-  constructor(public readonly classId: Fr, public readonly commitment: Fr) {}
+  constructor(
+    public readonly classId: Fr,
+    public readonly commitment: Fr,
+  ) {}
 
   static get schema() {
     return z
@@ -159,7 +164,7 @@ type IndexedTreeLeafPreimagesClasses = typeof NullifierLeafPreimage | typeof Pub
 // NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
 // having the type doesn't suffice since TS does type erasure in the end.
 function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
-  return class AvmGetLeafPreimageHint {
+  return class {
     constructor(
       public readonly hintKey: AppendOnlyTreeSnapshot,
       // params (tree id will be implicit)
@@ -175,7 +180,7 @@ function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
           index: schemas.BigInt,
           leafPreimage: klass.schema,
         })
-        .transform(({ hintKey, index, leafPreimage }) => new AvmGetLeafPreimageHint(hintKey, index, leafPreimage));
+        .transform(({ hintKey, index, leafPreimage }) => new this(hintKey, index, leafPreimage));
     }
   };
 }
@@ -212,7 +217,7 @@ export class AvmGetLeafValueHint {
 // NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
 // having the type doesn't suffice since TS does type erasure in the end.
 function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
-  return class AvmSequentialInsertHint {
+  return class {
     constructor(
       public readonly hintKey: AppendOnlyTreeSnapshot,
       public readonly stateAfter: AppendOnlyTreeSnapshot,
@@ -252,7 +257,7 @@ function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) 
         })
         .transform(
           ({ hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData }) =>
-            new AvmSequentialInsertHint(hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData),
+            new this(hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData),
         );
     }
   };
@@ -306,7 +311,7 @@ class AvmCheckpointActionNoStateChangeHint {
       })
       .transform(
         ({ actionCounter, oldCheckpointId, newCheckpointId }) =>
-          new AvmCheckpointActionNoStateChangeHint(actionCounter, oldCheckpointId, newCheckpointId),
+          new this(actionCounter, oldCheckpointId, newCheckpointId),
       );
   }
 }
@@ -403,6 +408,7 @@ export class AvmTxHint {
   constructor(
     public readonly hash: string,
     public readonly globalVariables: GlobalVariables,
+    public readonly gasSettings: GasSettings,
     public readonly nonRevertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
@@ -418,6 +424,7 @@ export class AvmTxHint {
     // We need this to be null and not undefined because that's what
     // MessagePack expects for an std::optional.
     public readonly teardownEnqueuedCall: AvmEnqueuedCallHint | null,
+    public readonly gasUsedByPrivate: Gas,
   ) {}
 
   static async fromTx(tx: Tx): Promise<AvmTxHint> {
@@ -431,6 +438,7 @@ export class AvmTxHint {
     return new AvmTxHint(
       txHash.hash.toString(),
       tx.data.constants.historicalHeader.globalVariables,
+      tx.data.constants.txContext.gasSettings,
       {
         noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
@@ -465,6 +473,7 @@ export class AvmTxHint {
             teardownCallRequest.request.isStaticCall,
           )
         : null,
+      tx.data.gasUsed,
     );
   }
 
@@ -472,11 +481,13 @@ export class AvmTxHint {
     return new AvmTxHint(
       '',
       GlobalVariables.empty(),
+      GasSettings.empty(),
       { noteHashes: [], nullifiers: [] },
       { noteHashes: [], nullifiers: [] },
       [],
       [],
       null,
+      Gas.empty(),
     );
   }
 
@@ -485,6 +496,7 @@ export class AvmTxHint {
       .object({
         hash: z.string(),
         globalVariables: GlobalVariables.schema,
+        gasSettings: GasSettings.schema,
         nonRevertibleAccumulatedData: z.object({
           noteHashes: schemas.Fr.array(),
           nullifiers: schemas.Fr.array(),
@@ -496,25 +508,30 @@ export class AvmTxHint {
         setupEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
         appLogicEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
         teardownEnqueuedCall: AvmEnqueuedCallHint.schema.nullable(),
+        gasUsedByPrivate: Gas.schema,
       })
       .transform(
         ({
           hash,
           globalVariables,
+          gasSettings,
           nonRevertibleAccumulatedData,
           revertibleAccumulatedData,
           setupEnqueuedCalls,
           appLogicEnqueuedCalls,
           teardownEnqueuedCall,
+          gasUsedByPrivate,
         }) =>
           new AvmTxHint(
             hash,
             globalVariables,
+            gasSettings,
             nonRevertibleAccumulatedData,
             revertibleAccumulatedData,
             setupEnqueuedCalls,
             appLogicEnqueuedCalls,
             teardownEnqueuedCall,
+            gasUsedByPrivate,
           ),
       );
   }
@@ -608,7 +625,10 @@ export class AvmExecutionHints {
 }
 
 export class AvmCircuitInputs {
-  constructor(public readonly hints: AvmExecutionHints, public publicInputs: AvmCircuitPublicInputs) {}
+  constructor(
+    public readonly hints: AvmExecutionHints,
+    public publicInputs: AvmCircuitPublicInputs,
+  ) {}
 
   static empty() {
     return new AvmCircuitInputs(AvmExecutionHints.empty(), AvmCircuitPublicInputs.empty());

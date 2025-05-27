@@ -16,7 +16,6 @@ import {
   type ContractMethod,
   type Logger,
   type PXE,
-  SignerlessWallet,
   type Wallet,
   createAztecNodeClient,
   createLogger,
@@ -25,17 +24,16 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
   ForwarderContract,
   NULL_KEY,
+  type Operator,
   createExtendedL1Client,
   deployL1Contracts,
   getL1ContractsConfigEnvVars,
@@ -62,8 +60,8 @@ import {
 } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { WASMSimulator } from '@aztec/simulator/client';
-import { SimulationProviderRecorderWrapper } from '@aztec/simulator/testing';
+import { MemoryCircuitRecorder, SimulationProviderRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
+import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -174,12 +172,15 @@ export async function setupPXEService(
   }
 
   const simulationProvider = new WASMSimulator();
-  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider);
+  const recorder = process.env.CIRCUIT_RECORD_DIR
+    ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
+    : new MemoryCircuitRecorder();
+  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider, recorder);
   const pxe = await createPXEServiceWithSimulationProvider(
     aztecNode,
     simulationProviderWithRecorder,
     pxeServiceConfig,
-    useLogSuffix,
+    { useLogSuffix },
   );
 
   const teardown = async () => {
@@ -283,7 +284,7 @@ export type SetupOptions = {
   /** Salt to use in L1 contract deployment */
   salt?: number;
   /** An initial set of validators */
-  initialValidators?: EthAddress[];
+  initialValidators?: Operator[];
   /** Anvil Start time */
   l1StartTime?: number;
   /** The anvil time where we should at the earliest be seeing L2 blocks */
@@ -752,22 +753,13 @@ export async function getSponsoredFPCAddress() {
  * Deploy a sponsored FPC contract to a running instance.
  */
 export async function setupSponsoredFPC(pxe: PXE) {
-  const { l1ChainId: chainId, rollupVersion } = await pxe.getNodeInfo();
-  const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, rollupVersion));
+  const instance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+    salt: new Fr(SPONSORED_FPC_SALT),
+  });
 
-  // Make the contract pay for the deployment fee itself
-  const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-
-  const deployed = await SponsoredFPCContract.deploy(deployer)
-    .send({
-      contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
-      universalDeploy: true,
-      fee: { paymentMethod },
-    })
-    .deployed();
-
-  getLogger().info(`SponsoredFPC: ${deployed.address}`);
-  return deployed;
+  await pxe.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
+  getLogger().info(`SponsoredFPC: ${instance.address}`);
+  return instance;
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {

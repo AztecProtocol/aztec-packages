@@ -7,7 +7,6 @@
 #include "./eccvm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -15,9 +14,12 @@ namespace bb {
 
 template <typename Flavor>
 ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
-    Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key)
+    Builder* builder,
+    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+    const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
     , builder(builder)
+    , transcript(transcript)
 {}
 
 /**
@@ -40,7 +42,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof.pre_ipa_proof);
     StdlibProof<Builder> stdlib_ipa_proof = bb::convert_native_proof_to_stdlib(builder, proof.ipa_proof);
-    transcript = std::make_shared<Transcript>(stdlib_proof);
+    transcript->load_proof(stdlib_proof);
     ipa_transcript = std::make_shared<Transcript>(stdlib_ipa_proof);
     transcript->enable_manifest();
     ipa_transcript->enable_manifest();
@@ -150,8 +152,6 @@ template <typename Flavor>
 void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     const std::vector<Commitment>& translation_commitments)
 {
-    TranslationEvaluations_<FF> translation_evaluations;
-
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
     using SmallIPA = SmallSubgroupIPAVerifier<typename Flavor::Curve>;
 

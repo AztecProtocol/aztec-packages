@@ -29,6 +29,7 @@ import {
   getDefaultInitializer,
   getInitializer,
   getAllFunctionAbis,
+  isAddressStruct,
 } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../../aztecEnv';
 import { FunctionParameter } from '../../common/FnParameter';
@@ -42,6 +43,7 @@ export function CreateContractDialog({
   open,
   contractArtifact,
   onClose,
+  defaultContractCreationParams,
 }: {
   open: boolean;
   contractArtifact: ContractArtifact;
@@ -51,8 +53,9 @@ export function CreateContractDialog({
     interaction?: DeployMethod,
     opts?: DeployOptions,
   ) => void;
+  defaultContractCreationParams?: Record<string, unknown>;
 }) {
-  const [alias, setAlias] = useState('');
+  const [alias, setAlias] = useState(defaultContractCreationParams['alias'] as string);
   const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
   const { wallet, walletDB, pxe, node } = useContext(AztecContext);
@@ -71,6 +74,19 @@ export function CreateContractDialog({
     setInitializer(defaultInitializer);
     setFunctionAbis(getAllFunctionAbis(contractArtifact));
   }, [contractArtifact]);
+
+  useEffect(() => {
+    if (initializer && defaultContractCreationParams) {
+      initializer.parameters.map((param, i) => {
+        let value = defaultContractCreationParams[param.name];
+        if (isAddressStruct(param.type)) {
+          value = (value as { id: string })?.id;
+        }
+        handleParameterChange(i, value);
+      });
+    }
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [defaultContractCreationParams, initializer]);
 
   const handleParameterChange = (index, value) => {
     parameters[index] = value;
@@ -105,7 +121,7 @@ export function CreateContractDialog({
           contractArtifact,
           postDeployCtor,
           parameters,
-          initializer.name,
+          initializer?.name,
         );
         opts = {
           contractAddressSalt: salt,
@@ -124,6 +140,9 @@ export function CreateContractDialog({
     setIsRegistering(true);
     try {
       const contract = await node.getContract(AztecAddress.fromString(address));
+      if (!contract) {
+        throw new Error('Contract with this address was not found in node');
+      }
       await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
       onClose(contract);
     } catch (e) {
@@ -182,6 +201,7 @@ export function CreateContractDialog({
                     <FunctionParameter
                       parameter={param}
                       key={param.name}
+                      defaultValue={defaultContractCreationParams?.[param.name]}
                       onParameterChange={newValue => {
                         handleParameterChange(i, newValue);
                       }}
@@ -206,6 +226,7 @@ export function CreateContractDialog({
               placeholder="Alias"
               value={alias}
               label="Alias"
+              size="small"
               sx={{ marginTop: '1rem' }}
               onChange={event => {
                 setAlias(event.target.value);

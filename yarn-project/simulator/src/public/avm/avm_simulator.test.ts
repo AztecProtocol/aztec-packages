@@ -12,7 +12,7 @@ import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import type { Fieldable } from '@aztec/foundation/serialize';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
-import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
+import { NoteGetterContract } from '@aztec/noir-test-contracts.js/NoteGetter';
 import { type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
@@ -100,10 +100,10 @@ describe('AVM simulator: injected bytecode', () => {
     bytecode = encodeToBytecode([
       new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 0).as(Opcode.SET_8, Set.wireFormat8),
       new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 2).as(Opcode.SET_8, Set.wireFormat8),
-      new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0),
+      new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0),
       new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
       new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
-      new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySizeOffset=*/ 0),
+      new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 2),
     ]);
   });
 
@@ -960,7 +960,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       it(`Nested call with not enough gas (expect failure)`, async () => {
         const gas = [/*l2=*/ 5, /*da=*/ 10000].map(g => new Fr(g));
         const targetFunctionSelector = await FunctionSelector.fromSignature(
-          'nested_call_to_add_with_gas(Field,Field,Field,Field)',
+          'nested_call_to_add_with_gas(Field,Field,u32,u32)',
         );
         const calldata: Fr[] = [targetFunctionSelector.toField(), value0, value1, ...gas];
         const context = createContext(calldata);
@@ -1263,10 +1263,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   it('should be able to execute contracts that only have private functions', async () => {
     const context = initContext({ env: initExecutionEnvironment({ calldata: [] }) });
 
-    // Counter contract is a private only contract (no public functions)
+    // NoteGetter contract is a private only contract (no public functions)
     const counterDispatch = getContractFunctionArtifact(
       'public_dispatch',
-      CounterContract.artifact,
+      NoteGetterContract.artifact,
     ) as FunctionArtifact;
     assert(!!counterDispatch?.bytecode);
     const results = await new AvmSimulator(context).executeBytecode(counterDispatch.bytecode);
@@ -1278,7 +1278,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         'public_dispatch',
         results.revertReason!,
         results.output,
-        CounterContract.artifact,
+        NoteGetterContract.artifact,
       ),
     ).toMatch('No public functions');
   });

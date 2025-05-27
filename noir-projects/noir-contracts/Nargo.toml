@@ -38,6 +38,7 @@ members = [
     "contracts/test/benchmarking_contract",
     "contracts/test/child_contract",
     "contracts/test/counter_contract",
+    "contracts/test/event_only_contract",
     "contracts/test/import_test_contract",
     "contracts/test/invalid_account_contract",
     "contracts/test/no_constructor_contract",
@@ -51,6 +52,7 @@ members = [
     "contracts/test/static_parent_contract",
     "contracts/test/test_contract",
     "contracts/test/test_log_contract",
+    "contracts/test/txe_test_contract",
     "contracts/test/updatable_contract",
     "contracts/test/updated_contract"
 ]

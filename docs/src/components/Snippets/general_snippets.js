@@ -1,19 +1,36 @@
 import React from "react";
 
 export const General = {
+  VersionLatestTestnet: () => <code>alpha-testnet</code>,
+  VersionLatestSandbox: () => <code>0.87.2</code>,
+  ViewTransactions: () => (
+    <p>
+      Transactions and balances can be viewed in block explorers like{" "}
+      <a href="https://aztecexplorer.xyz">AztecExplorer</a> and{" "}
+      <a href="https://aztecscan.xyz">AztecScan</a>.
+    </p>
+  ),
   InstallationInstructions: () => (
     <p>
       To use Aztec's suite of tools you'll need to:
       <ul>
         <li>
-          <a href="https://docs.docker.com/get-started/get-docker/">
-            Get docker
-          </a>
+          <a href="https://docs.docker.com/engine/install/">Get docker</a>{" "}
+          (engine or desktop)
         </li>
         <li>
           Run <code>bash -i &lt;(curl -s https://install.aztec.network)</code>
         </li>
       </ul>
+    </p>
+  ),
+
+  node_ver: () => (
+    <p>
+      Aztec libraries use Node.js version v22.15.x (lts/jod), and backwards
+      compatible from version 20. You can use{" "}
+      <a href="https://github.com/nvm-sh/nvm">nvm</a> to help manage node
+      versions.
     </p>
   ),
 
@@ -28,8 +45,8 @@ export const General = {
 
   AztecNode: () => (
     <p>
-      <b>Aztec Node</b> - a prover/sequencer that is part of a decentralised
-      Aztec network. The Aztec testnet rolls up to Ethereum Sepolia.
+      <b>Aztec Node</b> - A machine running aztec software as part of an Aztec
+      network. The Aztec testnet rolls up to Ethereum Sepolia.
     </p>
   ),
 
@@ -39,6 +56,8 @@ export const General = {
       development, it includes: an Ethereum node, an Aztec node, and PXE.
     </p>
   ),
+
+  AztecTestnetVersion: () => <span>alpha-testnet</span>,
 
   AztecWalletCLI: () => (
     <p>

@@ -38,7 +38,6 @@ export interface AztecIDBSchema extends DBSchema {
  */
 
 export class AztecIndexedDBStore implements AztecAsyncKVStore {
-  #log: Logger;
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #name: string;
 
@@ -50,9 +49,12 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     | IndexedDBAztecSingleton<any>
   >();
 
-  constructor(rootDB: IDBPDatabase<AztecIDBSchema>, public readonly isEphemeral: boolean, log: Logger, name: string) {
+  constructor(
+    rootDB: IDBPDatabase<AztecIDBSchema>,
+    public readonly isEphemeral: boolean,
+    name: string,
+  ) {
     this.#rootDB = rootDB;
-    this.#log = log;
     this.#name = name;
   }
   /**
@@ -66,19 +68,23 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @returns The store
    */
   static async open(log: Logger, name?: string, ephemeral: boolean = false): Promise<AztecIndexedDBStore> {
-    name = name && !ephemeral ? name : self.crypto.getRandomValues(new Uint8Array(16)).join('');
+    name = name && !ephemeral ? name : globalThis.crypto.getRandomValues(new Uint8Array(16)).join('');
     log.debug(`Opening IndexedDB ${ephemeral ? 'temp ' : ''}database with name ${name}`);
     const rootDB = await openDB<AztecIDBSchema>(name, 1, {
       upgrade(db) {
         const objectStore = db.createObjectStore('data', { keyPath: 'slot' });
 
         objectStore.createIndex('key', ['container', 'key'], { unique: false });
-        objectStore.createIndex('keyCount', ['container', 'key', 'keyCount'], { unique: false });
+        // Keep count of the maximum number of keys ever inserted in the container
+        // This allows unique slots for repeated keys, which is useful for multi-maps
+        objectStore.createIndex('keyCount', ['container', 'key', 'keyCount'], { unique: true });
+        // Keep an index on the pair key-hash for a given container, allowing us to efficiently
+        // delete unique values from multi-maps
         objectStore.createIndex('hash', ['container', 'key', 'hash'], { unique: true });
       },
     });
 
-    const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, log, name);
+    const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, name);
     return kvStore;
   }
 

@@ -16,6 +16,7 @@
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -26,6 +27,7 @@ namespace bb::avm2::simulation {
 struct ExecutionResult {
     MemoryAddress rd_offset;
     MemoryAddress rd_size;
+    Gas gas_used;
     bool success;
 };
 
@@ -33,7 +35,7 @@ class ExecutionInterface {
   public:
     virtual ~ExecutionInterface() = default;
     // Returns the top-level execution result. TODO: This should only be top level enqueud calls
-    virtual ExecutionResult execute(ContextInterface& context) = 0;
+    virtual ExecutionResult execute(std::unique_ptr<ContextInterface> context) = 0;
 
     // This feels off, but we need access to the context provider at both the tx and execution level
     // and threading it feels worse.
@@ -55,7 +57,7 @@ class Execution : public ExecutionInterface {
         , ctx_stack_events(ctx_stack_emitter)
     {}
 
-    ExecutionResult execute(ContextInterface& enqueued_call_context) override;
+    ExecutionResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
     ExecutionComponentsProviderInterface& get_provider() override { return execution_components; };
 
     // Opcode handlers. The order of the operands matters and should be the same as the wire format.
@@ -70,19 +72,12 @@ class Execution : public ExecutionInterface {
               MemoryAddress addr,
               MemoryAddress cd_offset,
               MemoryAddress cd_size);
-    void ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset);
-
-    // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
-    // Setters for inputs and outputs for gadgets/subtraces. These are used for register allocation.
-    void set_inputs(std::vector<TaggedValue> inputs) { this->inputs = std::move(inputs); }
-    void set_outputs(std::vector<TaggedValue> outputs) { this->outputs = std::move(outputs); }
-    const std::vector<TaggedValue>& get_inputs() const { return inputs; }
-    const std::vector<TaggedValue>& get_outputs() const { return outputs; }
+    void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
+    void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
 
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
     ExecutionResult get_execution_result() const { return exec_result; }
-    ExecutionResult execute_internal(ContextInterface& context);
     void dispatch_opcode(ExecutionOpCode opcode,
                          ContextInterface& context,
                          const std::vector<Operand>& resolved_operands);
@@ -92,7 +87,19 @@ class Execution : public ExecutionInterface {
                             const std::vector<Operand>& resolved_operands);
     std::vector<Operand> resolve_operands(const Instruction& instruction, const ExecInstructionSpec& spec);
 
-    void emit_context_snapshot(ContextInterface& context);
+    void handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context);
+    void handle_exit_call();
+
+    // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
+    // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
+    void set_inputs(std::vector<TaggedValue> inputs) { this->inputs = std::move(inputs); }
+    void set_output(TaggedValue output) { this->output = std::move(output); }
+    const std::vector<TaggedValue>& get_inputs() const { return inputs; }
+    const TaggedValue& get_output() const { return output; }
+
+    void init_gas_tracker(ContextInterface& context);
+    GasTrackerInterface& get_gas_tracker();
+    GasEvent finish_gas_tracker();
 
     ExecutionComponentsProviderInterface& execution_components;
     const InstructionInfoDBInterface& instruction_info_db;
@@ -103,8 +110,10 @@ class Execution : public ExecutionInterface {
 
     ExecutionResult exec_result;
 
+    std::stack<std::unique_ptr<ContextInterface>> external_call_stack;
     std::vector<TaggedValue> inputs;
-    std::vector<TaggedValue> outputs;
+    TaggedValue output;
+    std::unique_ptr<GasTrackerInterface> gas_tracker;
 };
 
 } // namespace bb::avm2::simulation

@@ -15,6 +15,10 @@ export const PrivateExecutionStepSchema = z.object({
   bytecode: bufferSchema,
   witness: mapSchema(z.number(), z.string()),
   vk: bufferSchema,
+  timings: z.object({
+    witgen: z.number(),
+    gateCount: z.number().optional(),
+  }),
 });
 
 /**
@@ -27,6 +31,11 @@ export interface PrivateExecutionStep {
   witness: WitnessMap;
   /* TODO(https://github.com/AztecProtocol/barretenberg/issues/1328) this should get its own proper class. */
   vk: Buffer;
+  timings: {
+    witgen: number;
+    gateCount?: number;
+    oracles?: Record<string, { times: number[] }>;
+  };
 }
 
 /** Represents the output of proven PrivateKernelSimulateOutput.*/
@@ -45,6 +54,8 @@ export interface PrivateKernelExecutionProofOutput<
    * If simulate is ran with profiling mode, also includes gate counts.
    */
   executionSteps: PrivateExecutionStep[];
+  /** Performance metrics */
+  timings?: { proving: number };
 }
 
 export function serializePrivateExecutionSteps(steps: PrivateExecutionStep[]) {

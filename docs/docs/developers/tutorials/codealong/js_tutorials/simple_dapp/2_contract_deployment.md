@@ -37,6 +37,10 @@ Remove the `mod test;` line from `contracts/token/src/main.nr` as we will not be
 
 The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
 
+Add this `balance_set.nr` file at `token/src/types/balance_set.nr`.
+
+#include_code balance_set noir-projects/noir-contracts/contracts/app/token_contract/src/types/balance_set.nr rust
+
 ## Compile your contract
 
 We'll now use `aztec-nargo` to compile.
@@ -56,7 +60,7 @@ Create a new file `src/deploy.mjs`. We import the contract artifacts we have gen
 ```js
 // src/deploy.mjs
 #include_code deploy-imports yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw
-import TokenContractJson from "../contracts/token/target/token-Token.json" assert { type: "json" };
+import TokenContractJson from "../contracts/token/target/token-Token.json" with { type: "json" };
 import { writeFileSync } from 'fs';
 
 const TokenContractArtifact = loadContractArtifact(TokenContractJson);

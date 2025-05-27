@@ -10,10 +10,9 @@ import {
 } from "@aztec/core/interfaces/IRollup.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {ValidatorSelectionLib} from
   "@aztec/core/libraries/validator-selection/ValidatorSelectionLib.sol";
@@ -60,7 +59,7 @@ struct InterimProposeValues {
  */
 struct ValidateHeaderArgs {
   Header header;
-  Signature[] attestations;
+  CommitteeAttestation[] attestations;
   bytes32 digest;
   Timestamp currentTime;
   uint256 manaBaseFee;
@@ -78,12 +77,12 @@ library ProposeLib {
    * @dev     `eth_log_handlers` rely on this function
    *
    * @param _args - The arguments to propose the block
-   * @param _signatures - Signatures from the validators
+   * @param _attestations - Signatures (or empty) from the validators
    * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
    */
   function propose(
     ProposeArgs calldata _args,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes calldata _blobInput,
     bool _checkBlob
   ) internal {
@@ -102,7 +101,7 @@ library ProposeLib {
     v.headerHash = HeaderLib.hash(_args.header);
 
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage(), currentEpoch);
+    ValidatorSelectionLib.setupEpoch(currentEpoch);
 
     ManaBaseFeeComponents memory components =
       getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
@@ -110,7 +109,7 @@ library ProposeLib {
     validateHeader(
       ValidateHeaderArgs({
         header: header,
-        attestations: _signatures,
+        attestations: _attestations,
         digest: digest(
           ProposePayload({
             archive: _args.archive,
@@ -138,7 +137,7 @@ library ProposeLib {
       _args.oracleInput.feeAssetPriceModifier,
       header.totalManaUsed,
       components.congestionCost,
-      components.provingCost
+      components.proverCost
     );
 
     rollupStore.blobPublicInputsHashes[blockNumber] = v.blobPublicInputsHash;
@@ -204,12 +203,7 @@ library ProposeLib {
     );
 
     ValidatorSelectionLib.verify(
-      StakingLib.getStorage(),
-      slot,
-      slot.epochFromSlot(),
-      _args.attestations,
-      _args.digest,
-      _args.flags
+      slot, slot.epochFromSlot(), _args.attestations, _args.digest, _args.flags
     );
   }
 

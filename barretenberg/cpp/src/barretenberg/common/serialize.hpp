@@ -446,8 +446,11 @@ template <typename T> uint8_t* to_heap_buffer(T const& value)
 
     // Serialize this byte vector, giving us a length prefixed buffer of bytes.
     auto heap_buf = to_buffer(buf);
+    // Get the heap buffer size, rounded up to the next 64 byte boundary.
+    // Passing a non-multiple of 64 bytes to aligned_alloc is undefined behaviour.
+    auto heap_buf_size_aligned = (heap_buf.size() + 63) & ~static_cast<size_t>(63);
 
-    auto* ptr = (uint8_t*)aligned_alloc(64, heap_buf.size()); // NOLINT
+    auto* ptr = reinterpret_cast<uint8_t*>(aligned_alloc(64, heap_buf_size_aligned));
     std::copy(heap_buf.begin(), heap_buf.end(), ptr);
     return ptr;
 }

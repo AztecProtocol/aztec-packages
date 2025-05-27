@@ -413,12 +413,12 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn get_l2_gas_left() -> Field {
+    fn get_l2_gas_left() -> u32 {
         context.l2_gas_left()
     }
 
     #[public]
-    fn get_da_gas_left() -> Field {
+    fn get_da_gas_left() -> u32 {
         context.da_gas_left()
     }
 
@@ -552,8 +552,8 @@ pub contract AvmTest {
     fn nested_call_to_add_with_gas(
         arg_a: Field,
         arg_b: Field,
-        l2_gas: Field,
-        da_gas: Field,
+        l2_gas: u32,
+        da_gas: u32,
     ) -> pub Field {
         AvmTest::at(context.this_address())
             .add_args_return(arg_a, arg_b)

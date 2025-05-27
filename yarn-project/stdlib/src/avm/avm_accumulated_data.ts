@@ -1,15 +1,23 @@
 import {
+  AVM_ACCUMULATED_DATA_LENGTH,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
-import { makeTuple } from '@aztec/foundation/array';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, type Tuple, assertLength, serializeToBuffer } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  FieldReader,
+  type Tuple,
+  assertLength,
+  serializeToBuffer,
+  serializeToFields,
+} from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
@@ -92,6 +100,16 @@ export class AvmAccumulatedData {
     return serializeToBuffer(this.noteHashes, this.nullifiers, this.l2ToL1Msgs, this.publicLogs, this.publicDataWrites);
   }
 
+  static getFields(fields: FieldsOf<AvmAccumulatedData>) {
+    return [
+      fields.noteHashes,
+      fields.nullifiers,
+      fields.l2ToL1Msgs,
+      fields.publicLogs,
+      fields.publicDataWrites,
+    ] as const;
+  }
+
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new this(
@@ -101,6 +119,16 @@ export class AvmAccumulatedData {
       reader.readArray(MAX_PUBLIC_LOGS_PER_TX, PublicLog),
       reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...AvmAccumulatedData.getFields(this));
+    if (fields.length !== AVM_ACCUMULATED_DATA_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for AvmAccumulatedData. Expected ${AVM_ACCUMULATED_DATA_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   static fromString(str: string) {
@@ -154,6 +182,99 @@ export class AvmAccumulatedData {
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],
+}`;
+  }
+}
+
+/**
+ * Represents the lengths of arrays in AVM accumulated data
+ */
+export class AvmAccumulatedDataArrayLengths {
+  constructor(
+    /**
+     * Number of note hashes
+     */
+    public noteHashes: number,
+    /**
+     * Number of nullifiers
+     */
+    public nullifiers: number,
+    /**
+     * Number of L2 to L1 messages
+     */
+    public l2ToL1Msgs: number,
+    /**
+     * Number of public logs
+     */
+    public publicLogs: number,
+    /**
+     * Number of public data writes
+     */
+    public publicDataWrites: number,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        noteHashes: z.number(),
+        nullifiers: z.number(),
+        l2ToL1Msgs: z.number(),
+        publicLogs: z.number(),
+        publicDataWrites: z.number(),
+      })
+      .transform(
+        ({ noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites }) =>
+          new AvmAccumulatedDataArrayLengths(noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites),
+      );
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new AvmAccumulatedDataArrayLengths(
+      reader.readNumber(),
+      reader.readNumber(),
+      reader.readNumber(),
+      reader.readNumber(),
+      reader.readNumber(),
+    );
+  }
+
+  toBuffer() {
+    return serializeToBuffer(this.noteHashes, this.nullifiers, this.l2ToL1Msgs, this.publicLogs, this.publicDataWrites);
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new AvmAccumulatedDataArrayLengths(
+      Number(reader.readField()),
+      Number(reader.readField()),
+      Number(reader.readField()),
+      Number(reader.readField()),
+      Number(reader.readField()),
+    );
+  }
+
+  toFields(): Fr[] {
+    return [
+      new Fr(this.noteHashes),
+      new Fr(this.nullifiers),
+      new Fr(this.l2ToL1Msgs),
+      new Fr(this.publicLogs),
+      new Fr(this.publicDataWrites),
+    ];
+  }
+
+  static empty() {
+    return new AvmAccumulatedDataArrayLengths(0, 0, 0, 0, 0);
+  }
+
+  [inspect.custom]() {
+    return `AvmAccumulatedDataArrayLengths {
+  noteHashes: ${this.noteHashes},
+  nullifiers: ${this.nullifiers},
+  l2ToL1Msgs: ${this.l2ToL1Msgs},
+  publicLogs: ${this.publicLogs},
+  publicDataWrites: ${this.publicDataWrites},
 }`;
   }
 }

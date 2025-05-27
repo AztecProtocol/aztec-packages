@@ -2,6 +2,7 @@ use dep::aztec::{
     context::{PrivateContext, UtilityContext},
     note::{note_emission::OuterNoteEmission, retrieved_note::RetrievedNote},
     protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    state_vars::storage::Storage,
 };
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateSet};
 use dep::uint_note::uint_note::UintNote;
@@ -9,6 +10,13 @@ use std::ops::Add;
 
 pub struct BalanceSet<Context> {
     pub set: PrivateSet<UintNote, Context>,
+}
+
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
+impl<Context> Storage<1> for BalanceSet<Context> {
+    fn get_storage_slot(self) -> Field {
+        self.set.get_storage_slot()
+    }
 }
 
 impl<Context> BalanceSet<Context> {
@@ -59,7 +67,7 @@ impl BalanceSet<&mut PrivateContext> {
     pub fn sub(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<UintNote> {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
-        // try_sub may have substracted more or less than amount. We must ensure that we subtracted at least as much as
+        // try_sub may have subtracted more or less than amount. We must ensure that we subtracted at least as much as
         // we needed, and then create a new note for the owner for the change (if any).
         assert(subtracted >= amount, "Balance too low");
         self.add(owner, subtracted - amount)

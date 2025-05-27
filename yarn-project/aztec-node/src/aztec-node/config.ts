@@ -11,12 +11,10 @@ import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { type ProverClientUserConfig, proverClientConfigMappings } from '@aztec/prover-client/config';
 import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
+import { type SlasherConfig, slasherConfigMappings } from '@aztec/slasher';
+import { type NodeRPCConfig, nodeRpcConfigMappings } from '@aztec/stdlib/config';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
-
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 
 import { type SentinelConfig, sentinelConfigMappings } from '../sentinel/config.js';
 
@@ -35,7 +33,9 @@ export type AztecNodeConfig = ArchiverConfig &
   DataStoreConfig &
   SentinelConfig &
   SharedNodeConfig &
-  GenesisStateConfig & {
+  GenesisStateConfig &
+  NodeRPCConfig &
+  SlasherConfig & {
     /** L1 contracts addresses */
     l1Contracts: L1ContractAddresses;
     /** Whether the validator is disabled for this node */
@@ -53,6 +53,8 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...sentinelConfigMappings,
   ...sharedNodeConfigMappings,
   ...genesisStateConfigMappings,
+  ...nodeRpcConfigMappings,
+  ...slasherConfigMappings,
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
     nested: l1ContractAddressesMapping,
@@ -70,16 +72,4 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
  */
 export function getConfigEnvVars(): AztecNodeConfig {
   return getConfigFromMappings<AztecNodeConfig>(aztecNodeConfigMappings);
-}
-
-/**
- * Returns package version.
- */
-export function getPackageVersion() {
-  const releasePleaseManifestPath = resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    '../../../../.release-please-manifest.json',
-  );
-  const version = JSON.parse(readFileSync(releasePleaseManifestPath).toString());
-  return version['.'];
 }

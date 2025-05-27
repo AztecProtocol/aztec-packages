@@ -215,14 +215,14 @@ void compute_wnaf_states(uint64_t* point_schedule,
     using Fr = typename Curve::ScalarField;
     const size_t num_points = num_initial_points * 2;
     constexpr size_t MAX_NUM_ROUNDS = 256;
-    constexpr size_t MAX_NUM_THREADS = 128;
     const size_t num_rounds = get_num_rounds(num_points);
     const size_t bits_per_bucket = get_optimal_bucket_width(num_initial_points);
     const size_t wnaf_bits = bits_per_bucket + 1;
     const size_t num_threads = get_num_cpus_pow2();
     const size_t num_initial_points_per_thread = num_initial_points / num_threads;
     const size_t num_points_per_thread = num_points / num_threads;
-    std::array<std::array<uint64_t, MAX_NUM_ROUNDS>, MAX_NUM_THREADS> thread_round_counts;
+    BB_ASSERT_LT(num_rounds, MAX_NUM_ROUNDS);
+    std::vector<std::array<uint64_t, MAX_NUM_ROUNDS>> thread_round_counts(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
         for (size_t j = 0; j < num_rounds; ++j) {
             thread_round_counts[i][j] = 0;

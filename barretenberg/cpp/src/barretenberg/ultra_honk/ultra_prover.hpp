@@ -48,7 +48,7 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
     explicit UltraProver_(const std::shared_ptr<DeciderPK>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    explicit UltraProver_(Builder&);
+    explicit UltraProver_(Builder&, const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     explicit UltraProver_(Builder&&);
 
@@ -64,7 +64,7 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
 
 using UltraProver = UltraProver_<UltraFlavor>;
 using UltraKeccakProver = UltraProver_<UltraKeccakFlavor>;
-#ifdef STARTKNET_GARAGA_FLAVORS
+#ifdef STARKNET_GARAGA_FLAVORS
 using UltraStarknetProver = UltraProver_<UltraStarknetFlavor>;
 using UltraStarknetZKProver = UltraProver_<UltraStarknetZKFlavor>;
 #endif

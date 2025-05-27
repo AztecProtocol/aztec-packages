@@ -6,7 +6,6 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
   NULLIFIER_TREE_HEIGHT,
-  VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -16,6 +15,7 @@ import { MembershipWitness } from '@aztec/foundation/trees';
 import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';
 import {
   KeyValidationHint,
+  PaddedSideEffects,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -42,6 +42,7 @@ import {
   privateKernelResetDimensionNames,
 } from '@aztec/stdlib/kernel';
 import { type PrivateCallExecutionResult, collectNested } from '@aztec/stdlib/tx';
+import { VkData } from '@aztec/stdlib/vks';
 
 import type { PrivateKernelOracle } from '../private_kernel_oracle.js';
 
@@ -166,12 +167,12 @@ export class PrivateKernelResetPrivateInputsBuilder {
     const previousVkMembershipWitness = await oracle.getVkMembershipWitness(
       this.previousKernelOutput.verificationKey.keyAsFields,
     );
-    const previousKernelData = new PrivateKernelData(
-      this.previousKernelOutput.publicInputs,
+    const vkData = new VkData(
       this.previousKernelOutput.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
-      assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
+      previousVkMembershipWitness.siblingPath,
     );
+    const previousKernelData = new PrivateKernelData(this.previousKernelOutput.publicInputs, vkData);
 
     this.reduceReadRequestStates(
       this.noteHashResetStates,
@@ -184,8 +185,12 @@ export class PrivateKernelResetPrivateInputsBuilder {
       dimensions.NULLIFIER_SETTLED_AMOUNT,
     );
 
+    // TODO: Enable padding when we have a better idea what are the final amounts we should pad to.
+    const paddedSideEffects = PaddedSideEffects.empty();
+
     return new PrivateKernelResetCircuitPrivateInputs(
       previousKernelData,
+      paddedSideEffects,
       new PrivateKernelResetHints(
         await buildNoteHashReadRequestHintsFromResetStates(
           oracle,
@@ -419,8 +424,8 @@ export class PrivateKernelResetPrivateInputsBuilder {
         const overflownData = noteHashWillOverflow
           ? 'note hashes'
           : nullifierWillOverflow
-          ? 'nullifiers'
-          : 'private logs';
+            ? 'nullifiers'
+            : 'private logs';
         throw new Error(`Number of ${overflownData} exceeds the limit.`);
       }
       // Clearing the read requests might not be enough to squash the overflown data.

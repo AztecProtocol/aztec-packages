@@ -1,7 +1,6 @@
 import { Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
-import { capturePrivateExecutionStepsIfEnvSet } from '../shared/capture_private_execution_steps.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract transfer private', () => {
@@ -32,7 +31,6 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     const tokenTransferInteraction = asset
       .withWallet(wallets[0])
       .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 0);
-    await capturePrivateExecutionStepsIfEnvSet('token-transfer', tokenTransferInteraction);
     await tokenTransferInteraction.send().wait();
     tokenSim.transferPrivate(wallets[0].getAddress(), wallets[1].getAddress(), amount);
   });
@@ -86,7 +84,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       expect(amount).toBeGreaterThan(0n);
 
       await expect(
-        asset.methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 0).prove(),
+        asset.methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 0).simulate(),
       ).rejects.toThrow('Assertion failed: Balance too low');
     });
 
@@ -96,7 +94,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       expect(amount).toBeGreaterThan(0n);
 
       await expect(
-        asset.methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 1).prove(),
+        asset.methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 1).simulate(),
       ).rejects.toThrow('Assertion failed: invalid nonce');
     });
 
@@ -117,7 +115,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 
       // Perform the transfer
-      await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
+      await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
       expect(await asset.methods.balance_of_private(wallets[0].getAddress()).simulate()).toEqual(balance0);
       expect(await asset.methods.balance_of_private(wallets[1].getAddress()).simulate()).toEqual(balance1);
     });
@@ -144,7 +142,9 @@ describe('e2e_blacklist_token_contract transfer private', () => {
         { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
       );
 
-      await expect(action.prove()).rejects.toThrow(`Unknown auth witness for message hash ${messageHash.toString()}`);
+      await expect(action.simulate()).rejects.toThrow(
+        `Unknown auth witness for message hash ${messageHash.toString()}`,
+      );
     });
 
     it('transfer on behalf of other, wrong designated caller', async () => {
@@ -164,7 +164,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
 
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 
-      await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow(
+      await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
       );
       expect(await asset.methods.balance_of_private(wallets[0].getAddress()).simulate()).toEqual(balance0);
@@ -172,13 +172,13 @@ describe('e2e_blacklist_token_contract transfer private', () => {
 
     it('transfer from a blacklisted account', async () => {
       await expect(
-        asset.methods.transfer(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0).prove(),
+        asset.methods.transfer(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0).simulate(),
       ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
 
     it('transfer to a blacklisted account', async () => {
       await expect(
-        asset.methods.transfer(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0).prove(),
+        asset.methods.transfer(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0).simulate(),
       ).rejects.toThrow('Assertion failed: Blacklisted: Recipient');
     });
   });

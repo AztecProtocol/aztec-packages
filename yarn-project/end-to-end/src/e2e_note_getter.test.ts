@@ -78,8 +78,9 @@ describe('e2e_note_getter', () => {
 
     const VALUE = 5;
 
-    // To prevent tests from interacting with one another, we'll have each use a different storage slot.
-    let storageSlot = TestContract.storage.example_set.slot.toNumber();
+    // To prevent tests from interacting with one another, we'll have each use a different storage slot. We start with
+    // a large storage slot to try to avoid collisions with other state variables as well.
+    let storageSlot = 1000;
 
     beforeEach(() => {
       storageSlot += 1;
@@ -98,7 +99,7 @@ describe('e2e_note_getter', () => {
       await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
         expectedError,
       );
-      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).prove()).rejects.toThrow(
+      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
         expectedError,
       );
     }

@@ -7,10 +7,13 @@ import { ThreeOperandInstruction } from './instruction_impl.js';
 abstract class ComparatorInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
     memory.checkTagsAreSame(aOffset, bOffset);
 

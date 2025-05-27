@@ -24,7 +24,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         // Note: it's fine to query instruction info in here since it does not trigger events.
         ExecutionOpCode exec_opcode = instruction_info_db.get(instruction.opcode).exec_opcode;
         const ExecInstructionSpec& spec = instruction_info_db.get(exec_opcode);
-        event.spec = &spec;
+
         // This represents either: (1) wrong info in the spec, or (2) a wrong witgen deserialization.
         // Therefore, it is not an error the circuit should be able to prove.
         assert(spec.num_addresses <= instruction.operands.size());
@@ -54,7 +54,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         // We fist store the operands as is, and then we'll update them if they are relative.
         event.after_relative = instruction.operands;
         for (size_t i = 0; i < spec.num_addresses; ++i) {
-            if ((instruction.indirect >> (i + spec.num_addresses)) & 1) {
+            if ((instruction.indirect >> (i * 2 + 1)) & 1) {
                 if (!memory.is_valid_address(base_address)) {
                     throw AddressingException(AddressingEventError::BASE_ADDRESS_INVALID_ADDRESS, i);
                 }
@@ -84,7 +84,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         // We first store the after_relative values as is, and then we'll update them if they are indirect.
         event.resolved_operands = event.after_relative;
         for (size_t i = 0; i < spec.num_addresses; ++i) {
-            if ((instruction.indirect >> i) & 1) {
+            if ((instruction.indirect >> (i * 2)) & 1) {
                 event.resolved_operands[i] = memory.get(event.after_relative[i].as<MemoryAddress>());
                 if (!memory.is_valid_address(event.resolved_operands[i])) {
                     throw AddressingException(AddressingEventError::INDIRECT_INVALID_ADDRESS, i);

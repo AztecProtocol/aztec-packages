@@ -18,7 +18,7 @@ import { submitComplexTxsTo } from './shared.js';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 1;
-const BASE_BOOT_NODE_UDP_PORT = 40000;
+const BASE_BOOT_NODE_UDP_PORT = 4500;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'reex-'));
 
 describe('e2e_p2p_reex', () => {
@@ -39,6 +39,7 @@ describe('e2e_p2p_reex', () => {
         enforceTimeTable: true,
         txTimeoutMs: 30_000,
         listenAddress: '127.0.0.1',
+        aztecProofSubmissionWindow: 640,
       },
     });
 

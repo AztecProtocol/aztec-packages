@@ -259,7 +259,6 @@ template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder
     return result;
 }
 
-template byte_array<bb::StandardCircuitBuilder> blake3s(const byte_array<bb::StandardCircuitBuilder>& input);
 template byte_array<bb::UltraCircuitBuilder> blake3s(const byte_array<bb::UltraCircuitBuilder>& input);
 template byte_array<bb::MegaCircuitBuilder> blake3s(const byte_array<bb::MegaCircuitBuilder>& input);
 } // namespace bb::stdlib

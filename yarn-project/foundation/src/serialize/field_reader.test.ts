@@ -4,7 +4,10 @@ import { FieldReader } from './field_reader.js';
 const FIELDS = [new Fr(0), new Fr(1), new Fr(23), new Fr(45), new Fr(6789)];
 
 class Something {
-  constructor(public id: Fr, public value: number) {}
+  constructor(
+    public id: Fr,
+    public value: number,
+  ) {}
 
   static fromFields(reader: FieldReader): Something {
     return new Something(reader.readField(), reader.readU32());
@@ -16,6 +19,22 @@ describe('field reader', () => {
 
   beforeEach(() => {
     reader = new FieldReader(FIELDS);
+  });
+
+  describe('constructor', () => {
+    it('can create from empty array', () => {
+      const reader = new FieldReader([]);
+      expect(reader.remainingFields()).toBe(0);
+    });
+
+    it('can create from non-empty array with nothing more to read', () => {
+      const reader = new FieldReader(FIELDS, FIELDS.length);
+      expect(reader.remainingFields()).toBe(0);
+    });
+
+    it('throws if offset is greater than the length of the array', () => {
+      expect(() => new FieldReader(FIELDS, FIELDS.length + 1)).toThrow('Offset out of bounds.');
+    });
   });
 
   describe('readFr', () => {

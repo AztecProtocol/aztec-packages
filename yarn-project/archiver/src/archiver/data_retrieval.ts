@@ -1,14 +1,18 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import type { EpochProofPublicInputArgs, ViemPublicClient } from '@aztec/ethereum';
+import type {
+  EpochProofPublicInputArgs,
+  ViemClient,
+  ViemCommitteeAttestation,
+  ViemPublicClient,
+} from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
+import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, L2Block } from '@aztec/stdlib/block';
-import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
@@ -24,6 +28,7 @@ import {
 
 import { NoBlobBodiesFoundError } from './errors.js';
 import type { DataRetrieval } from './structs/data_retrieval.js';
+import type { InboxMessage } from './structs/inbox_message.js';
 import type { L1PublishedData, PublishedL2Block } from './structs/published.js';
 
 export type RetrievedL2Block = {
@@ -35,7 +40,7 @@ export type RetrievedL2Block = {
   l1: L1PublishedData;
   chainId: Fr;
   version: Fr;
-  signatures: Signature[];
+  attestations: CommitteeAttestation[];
 };
 
 export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): PublishedL2Block {
@@ -48,7 +53,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
     l1,
     chainId,
     version,
-    signatures,
+    attestations,
   } = retrievedBlock;
 
   const archive = new AppendOnlyTreeSnapshot(
@@ -81,7 +86,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
   return {
     block,
     l1,
-    signatures,
+    attestations,
   };
 }
 
@@ -103,6 +108,9 @@ export async function retrieveBlocksFromRollup(
   logger: Logger = createLogger('archiver'),
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
+
+  let rollupConstants: { chainId: Fr; version: Fr } | undefined;
+
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
@@ -126,11 +134,17 @@ export async function retrieveBlocksFromRollup(
       `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.blockNumber}-${lastLog.args.blockNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
+    if (rollupConstants === undefined) {
+      const [chainId, version] = await Promise.all([publicClient.getChainId(), rollup.read.getVersion()]);
+      rollupConstants = { chainId: new Fr(chainId), version: new Fr(version) };
+    }
+
     const newBlocks = await processL2BlockProposedLogs(
       rollup,
       publicClient,
       blobSinkClient,
       l2BlockProposedLogs,
+      rollupConstants,
       logger,
     );
     retrievedBlocks.push(...newBlocks);
@@ -153,6 +167,7 @@ async function processL2BlockProposedLogs(
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
+  { chainId, version }: { chainId: Fr; version: Fr },
   logger: Logger,
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
@@ -180,16 +195,12 @@ async function processL2BlockProposedLogs(
         timestamp: await getL1BlockTime(publicClient, log.blockNumber),
       };
 
-      const chainId = new Fr(await publicClient.getChainId());
-
-      const version = new Fr(await rollup.read.getVersion({ blockNumber: log.blockNumber }));
-
       retrievedBlocks.push({ ...block, l1, chainId, version });
       logger.trace(`Retrieved L2 block ${l2BlockNumber} from L1 tx ${log.transactionHash}`, {
         l1BlockNumber: log.blockNumber,
         l2BlockNumber,
         archive: archive.toString(),
-        signatures: block.signatures.map(signature => signature.toString()),
+        attestations: block.attestations,
       });
     } else {
       logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
@@ -249,7 +260,7 @@ function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): H
       if (rollupFunctionName === 'propose') {
         return callData;
       }
-    } catch (err) {
+    } catch {
       // Skip invalid function data
       continue;
     }
@@ -288,7 +299,7 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  const [decodedArgs, signatures, _blobInput] = rollupArgs! as readonly [
+  const [decodedArgs, attestations, _blobInput] = rollupArgs! as readonly [
     {
       header: Hex;
       archive: Hex;
@@ -299,7 +310,7 @@ async function getBlockFromRollupTx(
       };
       txHashes: Hex[];
     },
-    ViemSignature[],
+    ViemCommitteeAttestation[],
     Hex,
   ];
 
@@ -334,8 +345,18 @@ async function getBlockFromRollupTx(
     stateReference,
     header,
     body,
-    signatures: signatures.map(Signature.fromViemSignature),
+    attestations: attestations.map(CommitteeAttestation.fromViem),
   };
+}
+
+/** Given an L1 to L2 message, retrieves its corresponding event from the Inbox. */
+export async function retrieveL1ToL2Message(
+  inbox: GetContractReturnType<typeof InboxAbi, ViemClient>,
+  leaf: Fr,
+  fromBlock: bigint,
+): Promise<InboxMessage | undefined> {
+  const logs = await inbox.getEvents.MessageSent({ hash: leaf.toString() }, { fromBlock });
+  return mapLogsInboxMessage(logs)[0];
 }
 
 /**
@@ -348,39 +369,39 @@ async function getBlockFromRollupTx(
  * @returns An array of InboxLeaf and next eth block to search from.
  */
 export async function retrieveL1ToL2Messages(
-  inbox: GetContractReturnType<typeof InboxAbi, ViemPublicClient>,
+  inbox: GetContractReturnType<typeof InboxAbi, ViemClient>,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-): Promise<DataRetrieval<InboxLeaf>> {
-  const retrievedL1ToL2Messages: InboxLeaf[] = [];
-  do {
-    if (searchStartBlock > searchEndBlock) {
-      break;
-    }
-
+): Promise<InboxMessage[]> {
+  const retrievedL1ToL2Messages: InboxMessage[] = [];
+  while (searchStartBlock <= searchEndBlock) {
     const messageSentLogs = (
-      await inbox.getEvents.MessageSent(
-        {},
-        {
-          fromBlock: searchStartBlock,
-          toBlock: searchEndBlock,
-        },
-      )
+      await inbox.getEvents.MessageSent({}, { fromBlock: searchStartBlock, toBlock: searchEndBlock })
     ).filter(log => log.blockNumber! >= searchStartBlock && log.blockNumber! <= searchEndBlock);
 
     if (messageSentLogs.length === 0) {
       break;
     }
 
-    for (const log of messageSentLogs) {
-      const { index, hash } = log.args;
-      retrievedL1ToL2Messages.push(new InboxLeaf(index!, Fr.fromHexString(hash!)));
-    }
+    retrievedL1ToL2Messages.push(...mapLogsInboxMessage(messageSentLogs));
+    searchStartBlock = messageSentLogs.at(-1)!.blockNumber + 1n;
+  }
 
-    // handles the case when there are no new messages:
-    searchStartBlock = (messageSentLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
-  } while (searchStartBlock <= searchEndBlock);
-  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedL1ToL2Messages };
+  return retrievedL1ToL2Messages;
+}
+
+function mapLogsInboxMessage(logs: GetContractEventsReturnType<typeof InboxAbi, 'MessageSent'>): InboxMessage[] {
+  return logs.map(log => {
+    const { index, hash, l2BlockNumber, rollingHash } = log.args;
+    return {
+      index: index!,
+      leaf: Fr.fromHexString(hash!),
+      l1BlockNumber: log.blockNumber,
+      l1BlockHash: Buffer32.fromString(log.blockHash),
+      l2BlockNumber: l2BlockNumber!,
+      rollingHash: Buffer16.fromString(rollingHash!),
+    };
+  });
 }
 
 /** Retrieves L2ProofVerified events from the rollup contract. */

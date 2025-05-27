@@ -1,5 +1,5 @@
 ---
-title: All about fees
+title: All About Fees
 sidebar_position: 4
 tags: [fees, accounts, transactions, cli, contracts]
 ---
@@ -24,31 +24,41 @@ By the end of this tutorial you will...
 
 ## Background
 
-For this tutorial we'll need to be familiar with a few components:
+For this tutorial the following definitions will come in handy...
 
-<Glossary.PXE />
+**PXE**: <Glossary.PXE />
 
-<Glossary.AztecNode />
+**Aztec Node**: <Glossary.AztecNode />
 
-<Glossary.AztecSandbox />
+**Sandbox**: <Glossary.AztecSandbox />
 
-<Glossary.Tools.aztec_wallet />
+**`aztec-wallet`**: <Glossary.Tools.aztec_wallet />
 
 ## Connect to the network
 
-We'll go through both the `aztec-wallet` cli wallet and the `aztec.js` library, to a local Aztec network (in the sandbox) and the Aztec testnet.
+Use of the `aztec-wallet` cli wallet is shown alongside use via the `aztec.js` library, and the choice of network can be the Sandbox or the Aztec testnet which rolls up to Sepolia.
 
 ### Tools
 
 <General.InstallationInstructions />
 
-Test the cli wallet with: `aztec-wallet --version`
+With docker running, test the cli wallet with: `aztec-wallet --help`
 
-By default the sandbox runs everything including a PXE locally. For this tutorial, and more realistically when using testnet, we will be using the PXE as part of the client tools (eg `aztec-wallet`).
+#### Sandbox (skip if using testnet)
 
-With docker running, start the sandbox (L1, L2, but not the PXE) via: `NO_PXE=true aztec start --sandbox`
+By default the sandbox runs everything including a PXE locally. For most paths in this tutorial, and more realistically when using testnet, we don't want this PXE.
+
+Start the sandbox (L1, L2, but not the PXE) via: `NO_PXE=true aztec start --sandbox`
+
+:::note Sandbox + aztec.js?
+If you are specifically wanting to test aztec.js with the sandbox, then you will need to use the default command which includes the PXE:
+
+- `aztec start --sandbox`
+  :::
 
 ### Specifying the network URL for your PXE
+
+#### CLI Wallet
 
 Testing locally on the sandbox vs using the testnet, you may need to specify which node you would like to connect with.
 When using the PXE in `aztec-wallet`, the Aztec network node to connect to can be specified in each relevant command:
@@ -57,7 +67,7 @@ When using the PXE in `aztec-wallet`, the Aztec network node to connect to can b
 aztec-wallet --node-url <string> ...
 ```
 
-If the node url is not provided, the command defaults to the the local sandbox: `http://host.docker.internal:8080`.
+If the node url is not provided, the command defaults to the the local sandbox: `http://host.docker.internal:8080`. These should also be forwarded to `localhost` (you can check with `docker ps` when running the sandbox).
 
 :::info Tip
 If specifying the node url for every command, it is convenient to make an alias for it with your node url:
@@ -71,7 +81,11 @@ Now you can use the alias for future commands: `aztec-wallet-node ...`
 
 :::
 
-When building with aztec.js you'll first need to start a local PXE that your app connects to. The parameters for the `aztec start` command are:
+#### Aztec.js
+
+<General.node_ver />
+
+If you are using the sandbox for this step, it should be running with it's pxe. Otherwise if connecting to testnet, start a local PXE that your app connects to. The parameters for the `aztec start` command are:
 
 - the local port to serve on: `--port 8081`
 - tell aztec to start the pxe: `--pxe`
@@ -83,14 +97,17 @@ NODE_URL=http://x.x.x.x
 aztec start --port 8081 --pxe --pxe.nodeUrl=$NODE_URL --pxe.proverEnabled false
 ```
 
-Now in javascript you can create a PXE client to connect to your local pxe:
+Now init a project with your preferred node package manager (yarn, pnpm, ...) then you can create a PXE client to connect to your local pxe:
 
 ```javascript
+// remember to pnpm install any new libs as they appear in these snippets,
+// @ the specific version (ie, no preceding `^`) of your `aztec` tools.
 import { createPXEClient, waitForPXE, PXE } from "@aztec/aztec.js";
 async function main() {
   const pxe = await createPXEClient("http://localhost:8081");
   await waitForPXE(pxe);
   // use pxe...
+  console.log(await pxe.getNodeInfo());
 }
 ```
 
@@ -165,7 +182,7 @@ To bootstrap first use, a sponsored fee paying contract (the canonical sponsored
 In the case of the canonical sponsored FPC, the only criteria is an upper bound on how much it sponsors an account's transactions. This will be enough to at least deploy an account.
 
 The PXE can be queried for the canonical sponsored FPC address, and then specified as the payment method.
-For testnet this is `0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5`, which can be verified with the command: `aztec get-canonical-sponsored-fpc-address`
+For testnet this is `0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047`, which can be verified with the command: `aztec get-canonical-sponsored-fpc-address`
 
 Via the CLI:
 
@@ -257,12 +274,17 @@ The equivalent using aztec.js - Create a fee juice payment method with a test ac
 
 ```javascript
 import { FeeJuicePaymentMethod } from "@aztec/aztec.js";
-//... building upon the previous section
+//... building upon the previous section, duplicate account creation using `getSchnorrAccount`
+// and an incremented salt value: `salt.add(Fr.fromString("1"))`
+// Below we'll deploy the new account (eg schnorrAccount2) with fee juice from test wallet
+
 const useFeeJuice = new FeeJuicePaymentMethod(testWallets[0].getAddress());
-await schnorrAccount.deploy({ fee: { paymentMethod: useFeeJuice } }).wait();
+await schnorrAccount2
+  .deploy({ fee: { deployWallet: testWallets[0], paymentMethod: useFeeJuice } })
+  .wait();
 ```
 
-:::note Payment: Sponsored Fee Paying Contract
+:::note Payment: Fee Juice
 Options for explicitly stating fee_juice from the sender which is the default payment method:
 
 CLI: `--payment method=fee_juice` (default)
@@ -273,14 +295,27 @@ CLI: `--payment method=fee_juice` (default)
 
 ### Bridging Fee Juice
 
-The sandbox allows free-minting on it's L1 to be bridged and claimed on its Aztec node.
-For testnet you'll first need an L1 account with sepolia, and additional params for the bridge-fee-juice command: `--l1-rpc-urls`, `--l1-chain-id`, and `--l1-private-key`.
-
-We'll register a new account `accBFJ` and bridge fee-juice to it.
+First register a new account `accBFJ` that we will bridge fee-juice to on deployment.
 
 ```bash
 aztec-wallet create-account -a accBFJ --register-only
+```
+
+(Note: it is worth securing the account info so you can restore it again if needed)
+
+If using the Sandbox, free-minting is allowed from it's anvil L1 to be bridged and claimed on its Aztec node:
+
+```bash
 aztec-wallet bridge-fee-juice 1000000000000000000 accBFJ --mint --no-wait
+```
+
+If using Aztec testnet, you'll first need an L1 account with sepolia, and additional params for the bridge-fee-juice command:
+
+```bash
+aztec-wallet bridge-fee-juice 1000000000000000000 accBFJ --mint --no-wait \
+  --l1-rpc-urls <See https://chainlist.org/chain/11155111> \ # eg https://rpc.sepolia.ethpandaops.io
+  --l1-chain-id 11155111 \
+  --l1-private-key <L1 private key of account holding sepolia>
 ```
 
 You'll have to wait for two blocks to pass for bridged fee juice to be ready on Aztec. For the sandbox you can do this by putting through two arbitrary transactions. Eg:
@@ -307,10 +342,19 @@ import {
   PublicFeePaymentMethod,
 } from "@aztec/aztec.js";
 import { createEthereumChain, createL1Clients } from "@aztec/ethereum";
-// ...
+import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
+//... building upon the previous section, duplicate account creation using `getSchnorrAccount`
+// and an incremented salt value: `salt.add(Fr.fromString("2"))`
+// Below we'll deploy the new account (eg schnorrAccount3) via a claim to bridged fee juice
+
 const { l1ChainId } = await pxe.getNodeInfo(); // foundry chainid 31337 for sandbox use
-const chain = createEthereumChain(l1RpcUrls, l1ChainId); // localhost:8545 for sandbox use
-// const mnemonicOrPrivateKey = `test ... test junk`; // for sandbox use
+const l1RpcUrls = ["http://localhost:8545]"]; // for sandbox use, or see https://chainlist.org/chain/11155111> eg ['https://rpc.sepolia.ethpandaops.io']
+const chain = createEthereumChain(l1RpcUrls, l1ChainId);
+
+// eg l1 private key, or for sandbox...
+const mnemonicOrPrivateKey =
+  "test test test test test test test test test test test junk";
+
 const { publicClient, walletClient } = createL1Clients(
   chain.rpcUrls,
   mnemonicOrPrivateKey,
@@ -324,29 +368,15 @@ const feeJuicePortalManager = await L1FeeJuicePortalManager.new(
   log
 );
 
-// Prepare L1 client (required for testnet)
-const chain = createEthereumChain(l1RpcUrls, chainId);
-const client = createExtendedL1Client(
-  chain.rpcUrls,
-  privateKey ?? mnemonic,
-  chain.chainInfo
-);
-
-const feeJuicePortalManager = await L1FeeJuicePortalManager.new(
-  pxe,
-  client,
-  debugLogger
-);
-
-const newWallet = await schnorrAccount.getWallet();
-const feeJuiceReceipient = schnorrAccount.getAddress();
+const newWallet = await schnorrAccount3.getWallet();
+const feeJuiceReceipient = schnorrAccount3.getAddress();
 
 const claim = await feeJuicePortalManager.bridgeTokensPublic(
   feeJuiceReceipient,
   1000000000000000000n,
   true
 );
-// ...(wait or perform two txs)
+// ...(wait for two blocks to pass or perform two txs in sandbox, eg deploy two other accounts)
 const claimAndPay = new FeeJuicePaymentMethodWithClaim(newWallet, claim);
 await schnorrAccount.deploy({ fee: { paymentMethod: claimAndPay } }).wait();
 ```
@@ -359,6 +389,11 @@ Options for claim+pay with bridged funds that can be used in multiple commands:
 CLI: `--from <sender address> --payment method=fee_juice,claim`
 
 .js: `{ fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(newWallet, claim) }}`
+
+:::
+
+:::tip Use a block explorer
+<General.ViewTransactions />
 
 :::
 

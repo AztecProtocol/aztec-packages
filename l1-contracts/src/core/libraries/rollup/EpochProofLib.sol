@@ -143,11 +143,8 @@ library EpochProofLib {
     // Structure of the root rollup public inputs we need to reassemble:
     //
     // struct RootRollupPublicInputs {
-    //   previous_archive: AppendOnlyTreeSnapshot,
-    //   end_archive: AppendOnlyTreeSnapshot,
-    //   end_timestamp: u64,
-    //   end_block_number: Field,
-    //   out_hash: Field,
+    //   previous_archive_root: Field,
+    //   end_archive_root: Field,
     //   proposedBlockHeaderHashes: [Field; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   chain_id: Field,
@@ -161,34 +158,17 @@ library EpochProofLib {
       // previous_archive.root: the previous archive tree root
       publicInputs[0] = _args.previousArchive;
 
-      // previous_archive.next_available_leaf_index: the previous archive next available index
-      // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
-      // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
-      publicInputs[1] = bytes32(_start);
-
       // end_archive.root: the new archive tree root
-      publicInputs[2] = _args.endArchive;
-
-      // end_archive.next_available_leaf_index: the new archive next available index
-      publicInputs[3] = bytes32(_end + 1);
-
-      // end_timestamp: the timestamp of the last block in the epoch
-      publicInputs[4] = bytes32(Timestamp.unwrap(_args.endTimestamp));
-
-      // end_block_number: last block number in the epoch
-      publicInputs[5] = bytes32(_end);
-
-      // out_hash: root of this epoch's l2 to l1 message tree
-      publicInputs[6] = _args.outHash;
+      publicInputs[1] = _args.endArchive;
     }
 
     uint256 numBlocks = _end - _start + 1;
 
     for (uint256 i = 0; i < numBlocks; i++) {
-      publicInputs[7 + i] = rollupStore.blocks[_start + i].headerHash;
+      publicInputs[2 + i] = rollupStore.blocks[_start + i].headerHash;
     }
 
-    uint256 offset = 7 + Constants.AZTEC_MAX_EPOCH_DURATION;
+    uint256 offset = 2 + Constants.AZTEC_MAX_EPOCH_DURATION;
 
     uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
     // fees[2n to 2n + 1]: a fee element, which contains of a recipient and a value
@@ -296,7 +276,7 @@ library EpochProofLib {
         t.totalBurn += burn;
 
         // Compute the proving fee in the fee asset
-        v.proverFee = Math.min(v.manaUsed * feeHeader.getProvingCost(), fee - burn);
+        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
         $er.rewards += v.proverFee;
 
         v.sequencerFee = fee - burn - v.proverFee;

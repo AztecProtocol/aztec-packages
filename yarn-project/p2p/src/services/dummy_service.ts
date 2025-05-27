@@ -1,6 +1,6 @@
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
-import { TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
@@ -38,7 +38,9 @@ export class DummyP2PService implements P2PService {
    * Called to have the given message propagated through the P2P network.
    * @param _ - The message to be propagated.
    */
-  public propagate<T extends Gossipable>(_: T) {}
+  public propagate<T extends Gossipable>(_: T) {
+    return Promise.resolve();
+  }
 
   /**
    * Called upon receipt of settled transactions.
@@ -83,6 +85,10 @@ export class DummyP2PService implements P2PService {
    */
   public getEnr(): undefined {
     return undefined;
+  }
+
+  validate(_txs: Tx[]): Promise<void> {
+    return Promise.resolve();
   }
 }
 

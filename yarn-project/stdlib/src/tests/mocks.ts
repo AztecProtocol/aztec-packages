@@ -1,10 +1,14 @@
 import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { CommitteeAttestation } from '../block/index.js';
+import { L2Block } from '../block/l2_block.js';
+import type { PublishedL2Block } from '../block/published_l2_block.js';
 import { computeContractAddressFromInstance } from '../contract/contract_address.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { SerializableContractInstance } from '../contract/contract_instance.js';
@@ -239,6 +243,7 @@ export interface MakeConsensusPayloadOptions {
   archive?: Fr;
   stateReference?: StateReference;
   txHashes?: TxHash[];
+  txs?: Tx[];
 }
 
 const makeAndSignConsensusPayload = (
@@ -271,7 +276,7 @@ export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockP
     SignatureDomainSeparator.blockProposal,
     options,
   );
-  return new BlockProposal(blockNumber, payload, signature);
+  return new BlockProposal(blockNumber, payload, signature, options?.txs ?? []);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
@@ -282,3 +287,32 @@ export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): Blo
   );
   return new BlockAttestation(blockNumber, payload, signature);
 };
+
+export async function randomPublishedL2Block(
+  l2BlockNumber: number,
+  opts: { signers?: Secp256k1Signer[] } = {},
+): Promise<PublishedL2Block> {
+  const block = await L2Block.random(l2BlockNumber);
+  const l1 = {
+    blockNumber: BigInt(block.number),
+    timestamp: block.header.globalVariables.timestamp.toBigInt(),
+    blockHash: Buffer32.random().toString(),
+  };
+
+  const signers = opts.signers ?? times(3, () => Secp256k1Signer.random());
+  const atts = await Promise.all(
+    signers.map(signer =>
+      makeBlockAttestation({
+        signer,
+        header: block.header,
+        archive: block.archive.root,
+        stateReference: block.header.state,
+        txHashes: block.body.txEffects.map(tx => tx.txHash),
+      }),
+    ),
+  );
+  const attestations = atts.map(
+    (attestation, i) => new CommitteeAttestation(signers[i].address, attestation.signature),
+  );
+  return { block, l1, attestations };
+}

@@ -27,7 +27,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
     /**
      * @brief Expression for the Ultra Arithmetic gate.
      * @details This relation encapsulates several idenitities, toggled by the value of q_arith in [0, 1, 2, 3, ...].
-     * The following description is reproduced from the Plonk analog 'plookup_arithmetic_widget':
+     *
      * The whole formula is:
      *
      * q_arith * ( ( (-1/2) * (q_arith - 3) * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c ) +

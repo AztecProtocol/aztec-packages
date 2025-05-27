@@ -38,6 +38,8 @@ contracts=(
   "TokenPortal"
   "UniswapPortal"
   "ValidatorSelectionLib"
+  "MultiAdder"
+  "GSE"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.
