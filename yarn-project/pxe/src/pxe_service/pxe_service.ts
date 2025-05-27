@@ -49,7 +49,7 @@ import type {
 } from '@aztec/stdlib/interfaces/client';
 import type { PrivateKernelExecutionProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { LogFilter } from '@aztec/stdlib/logs';
-import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
+import { computeL2ToL1MembershipWitness, getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -205,8 +205,19 @@ export class PXEService implements PXE {
     return this.node.isL1ToL2MessageSynced(l1ToL2Message);
   }
 
-  public getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
-    return this.node.getL2ToL1MessageMembershipWitness(blockNumber, l2Tol1Message);
+  public async getL2ToL1MembershipWitness(
+    blockNumber: number,
+    l2Tol1Message: Fr,
+  ): Promise<[bigint, SiblingPath<number>]> {
+    const result = await computeL2ToL1MembershipWitness(this.node, blockNumber, l2Tol1Message);
+    if (!result) {
+      throw new Error(`L2 to L1 message not found in block ${blockNumber}`);
+    }
+    return [result.l2MessageIndex, result.siblingPath];
+  }
+
+  public getL2ToL1Messages(blockNumber: number): Promise<Fr[][] | undefined> {
+    return this.node.getL2ToL1Messages(blockNumber);
   }
 
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
