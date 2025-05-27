@@ -26,19 +26,21 @@ Aztec Docs are versioned. Every version known is literally a copy of the website
 
 When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `Latest`, and older versions e.g. `v0.86.0`. Updating the files in the `docs` folder will update the `Next` version, updating the files in `versioned_docs/version-latest` folder will update the `latest` version, and updating the files in the `versioned_docs/version-v0.86.0` folder will update the `versioned_docs/v0.86.0` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
 
+Note: `Latest` version dropdown is a special case since it will initially be created as any other version (eg `v0.87.2`), but the directory and label will need to be renamed to display as `Latest` by docusaurus.
+
 The way docs builds work is the following:
 
 - CI runs on merge to master, builds the dependencies needed to build the docs, then deploys on the main docs website
 - [This Github Action](../.github/workflows/docs-preview.yml) runs on pull requests if they have any docs change, and quite similarly builds the dependencies and the docs, then gives you a nice preview so you can check that everything is alright
 - [This Github Action](../.github/workflows/release-please.yml) is Release-Please, a framework made to organize different commits into releases. When it merges to master, it runs. When it runs, it builds the dependencies and cuts a new version of the docs, with the same tag that is being released
 
-The `#include_aztec_version` and `#include_code` macros look for the version tag in an environment variable `COMMIT_TAG`, so you can build the docs specifying a version with the following command (e.g. for v0.84.0). Remove the versions listed in `versions.json` before running:
+The `#include_aztec_version` and `#include_code` macros look for the version tag in an environment variable `COMMIT_TAG`, so you can build the docs specifying a version with the following command (e.g. for v0.86.0). Remove the versions listed in `versions.json` before running:
 
 ```bash
-COMMIT_TAG=v0.84.0 yarn build
+COMMIT_TAG=v0.86.0 yarn build
 ```
 
-You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v0.85.0` will render as `0.85.0`.
+You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v0.86.0` will render as `0.86.0`.
 
 ### How do I change the versions that show in the website
 
@@ -54,8 +56,13 @@ From earlier, the release github workflow is triggered on pushes to `master` or 
 
 To manually perform step two locally:
 - Checkout the branch/tag of the version of docs you'd like to create
-- From the desired branch/tag, perform the "cut version" step of the github action ([Release-Please.yml](https://github.com/AztecProtocol/aztec-packages/blob/next/.github%2Fworkflows%2Frelease-please.yml#L72-L78)). Note: you will have to set COMMIT_TAG to "v0.xx.x" or "vlatest"
+- From the desired branch/tag, perform the "cut version" step of the github action ([Release-Please.yml](https://github.com/AztecProtocol/aztec-packages/blob/next/.github%2Fworkflows%2Frelease-please.yml#L72-L78)). Note: you will have to set COMMIT_TAG to "v0.xx.x"
 - Then the newly created version of docs under `docs/versioned_docs` can be stashed, to later pop on your branch that you want to commit the new versioned docs to.
+- Since the new version is likely taking the place of latest:
+  - Go to `versioned_docs` and rename `version-latest` to it's version (eg `version-v0.xx.x`)
+  - Rename the newly created version as `version-latest`
+- If desired, delete any past versions we no longer want to display
+- Update `versions.json`
 
 ### A special note about branches
 
