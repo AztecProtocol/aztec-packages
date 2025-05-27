@@ -159,12 +159,11 @@ export class CircuitRecorder {
 
       recordingCallback[name as keyof ACIRCallback] = (...args: ForeignCallInput[]): ReturnType<typeof fn> => {
         const timer = new Timer();
-        let result;
         if (isExternalCall) {
           this.stackDepth++;
           this.newCircuit = true;
         }
-        result = fn.call(callback, ...args);
+        const result = fn.call(callback, ...args);
         if (result instanceof Promise) {
           return result.then(async r => {
             if (isExternalCall) {
