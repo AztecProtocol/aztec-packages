@@ -164,7 +164,7 @@ export class EpochCache implements EpochCacheInterface {
     }
 
     const epochData = await this.computeCommittee({ epoch, ts });
-    // If the committe size is 0, then do not cache
+    // If the committee size is 0, then do not cache
     if (epochData.committee.length == 0) {
       return epochData;
     }

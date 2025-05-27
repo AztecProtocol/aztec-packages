@@ -127,9 +127,9 @@ describe('e2e_multi_validator_node', () => {
     const dataStore = ((aztecNode as AztecNodeService).getBlockSource() as Archiver).dataStore;
     const [block] = await dataStore.getPublishedBlocks(tx.blockNumber!, tx.blockNumber!);
     const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.signatures
-      .filter(s => !s.isEmpty)
-      .map(sig => new BlockAttestation(new Fr(block.block.number), payload, sig));
+    const attestations = block.attestations
+      .filter(a => !a.signature.isEmpty())
+      .map(a => new BlockAttestation(new Fr(block.block.number), payload, a.signature));
 
     expect(attestations.length).toBeGreaterThanOrEqual(4); // Math.floor((5 * 2) / 3) + 1
 
@@ -185,9 +185,9 @@ describe('e2e_multi_validator_node', () => {
     const dataStore = ((aztecNode as AztecNodeService).getBlockSource() as Archiver).dataStore;
     const [block] = await dataStore.getPublishedBlocks(tx.blockNumber!, tx.blockNumber!);
     const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.signatures
-      .filter(s => !s.isEmpty)
-      .map(sig => new BlockAttestation(new Fr(block.block.number), payload, sig));
+    const attestations = block.attestations
+      .filter(a => !a.signature.isEmpty())
+      .map(a => new BlockAttestation(new Fr(block.block.number), payload, a.signature));
 
     expect(attestations.length).toBeGreaterThanOrEqual(3); // Math.floor((3 * 2) / 3) + 1
 
