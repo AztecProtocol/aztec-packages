@@ -22,7 +22,7 @@ Along the way you will:
 - Wrap an address with its interface (token)
 - Create custom private value notes
 
-This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up #include_aztec_version`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up -v #include_version_without_prefix`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Setup
 
@@ -122,16 +122,6 @@ To retain the initializer parameters in the contract's Storage, we'll need to de
 
 #include_code storage /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
-The `ValueNote` type is in the top-level of the Aztec.nr framework, namely [noir-projects/aztec-nr (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr). Like before, you'll need to add the crate to Nargo.toml
-
----
-
-In `main.nr`, reference `use` of the type
-
-```rust
-use dep::value_note::value_note::ValueNote;
-```
-
 Now complete the initializer by setting the storage variables with the parameters:
 
 #include_code init /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
@@ -211,7 +201,7 @@ Follow the account contract tutorial on the [next page](./write_accounts_contrac
 
 ### Optional: Learn more about concepts mentioned here
 
- - [Initializer functions](../../../guides/smart_contracts/writing_contracts/initializers.md)
- - [Versions](../../../guides/local_env/versions-updating.md).
- - [Authorizing actions](../../../../aztec/concepts/advanced/authwit.md)
- - [Public logs](../../../guides/smart_contracts/writing_contracts/how_to_emit_event.md)
+- [Initializer functions](../../../guides/smart_contracts/writing_contracts/initializers.md)
+- [Versions](../../../guides/local_env/versions-updating.md).
+- [Authorizing actions](../../../../aztec/concepts/advanced/authwit.md)
+- [Public logs](../../../guides/smart_contracts/writing_contracts/how_to_emit_event.md)

@@ -1,5 +1,5 @@
-import { AztecAddress } from '@aztec/aztec.js';
 import { VERSION } from './constants';
+import { AztecAddress } from '@aztec/aztec.js';
 
 export type Network = {
   nodeURL: string;
@@ -7,23 +7,27 @@ export type Network = {
   description: string;
   hasTestAccounts: boolean;
   hasSponsoredFPC: boolean;
+  version?: string;
   sponsoredFPC?: {
-    version: string;
+    version?: string;
     address: AztecAddress;
   };
+  transactionCongestionThreshold?: number;
 };
 
 export const NETWORKS: Network[] = [
   {
-    nodeURL: 'https://35.182.93.169:443',
+    nodeURL: 'https://full-node.alpha-testnet.aztec.network',
     name: 'Aztec Testnet',
     description: 'Public testnet',
     hasTestAccounts: false,
     hasSponsoredFPC: true,
+    version: '0.87.2',
     sponsoredFPC: {
-      version: '0.85.0-alpha-testnet.2',
-      address: AztecAddress.fromString('0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5'),
+      version: '0.87.2',
+      address: AztecAddress.fromString('0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047'),
     },
+    transactionCongestionThreshold: 40,
   },
   {
     nodeURL: 'http://34.169.170.55:8080',
@@ -31,6 +35,7 @@ export const NETWORKS: Network[] = [
     description: 'Public development network',
     hasTestAccounts: false,
     hasSponsoredFPC: true,
+    version: '0.85.0',
   },
   {
     nodeURL: 'http://localhost:8080',
@@ -38,5 +43,6 @@ export const NETWORKS: Network[] = [
     description: `Run your own sandbox (v${VERSION})`,
     hasTestAccounts: true,
     hasSponsoredFPC: true,
+    version: VERSION,
   },
 ];

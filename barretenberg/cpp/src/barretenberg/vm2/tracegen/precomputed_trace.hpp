@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -22,6 +23,7 @@ class PrecomputedTraceBuilder final {
     void process_to_radix_safe_limbs(TraceContainer& trace);
     void process_to_radix_p_decompositions(TraceContainer& trace);
     void process_memory_tag_range(TraceContainer& trace);
+    void process_addressing_gas(TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen

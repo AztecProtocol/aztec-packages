@@ -48,7 +48,6 @@ describe('e2e_block_building', () => {
   let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
   let dateProvider: TestDateProvider | undefined;
-  let cheatCodes: CheatCodes;
   let watcher: AnvilTestWatcher | undefined;
   let teardown: () => Promise<void>;
 
@@ -73,7 +72,6 @@ describe('e2e_block_building', () => {
         wallets: [owner, minter],
         sequencer: sequencerClient,
         dateProvider,
-        cheatCodes,
       } = await setup(2, {
         archiverPollingIntervalMS: 200,
         transactionPollingIntervalMS: 200,
@@ -173,7 +171,7 @@ describe('e2e_block_building', () => {
       const NULLIFIER_COUNT = 128;
       const sentNullifierTxs = [];
       for (let i = 0; i < NULLIFIER_COUNT; i++) {
-        sentNullifierTxs.push(another.methods.emit_nullifier(Fr.random()).send({ skipPublicSimulation: true }));
+        sentNullifierTxs.push(another.methods.emit_nullifier(Fr.random()).send());
       }
       await Promise.all(sentNullifierTxs.map(tx => tx.wait({ timeout: 600 })));
       logger.info(`Nullifier txs sent`);
@@ -184,7 +182,7 @@ describe('e2e_block_building', () => {
       const TX_COUNT = 128;
       const sentTxs = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        sentTxs.push(contract.methods.increment_public_value(ownerAddress, i).send({ skipPublicSimulation: true }));
+        sentTxs.push(contract.methods.increment_public_value(ownerAddress, i).send());
       }
 
       await Promise.all(sentTxs.map(tx => tx.wait({ timeout: 600 })));
@@ -204,7 +202,7 @@ describe('e2e_block_building', () => {
       // We also set enforceTimetable so the deadline makes sense, otherwise we may be starting the
       // block too late into the slot, and start processing when the deadline has already passed.
       logger.info(`Updating aztec node config`);
-      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
 
       // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
       const archiver = (aztecNode as AztecNodeService).getContractDataSource();
@@ -220,18 +218,10 @@ describe('e2e_block_building', () => {
 
       // Flood the mempool with TX_COUNT simultaneous txs
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
-      const provenTxs = await asyncMap(methods, method => method.prove({ skipPublicSimulation: true }));
+      const provenTxs = await asyncMap(methods, method => method.prove());
       logger.info(`Sending ${TX_COUNT} txs to the node`);
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`All ${TX_COUNT} txs have been sent`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
-
-      // We forcefully mine a block to make the L1 timestamp move and sync to it, otherwise the sequencer will
-      // stay continuously trying to build a block for the same slot, even if the time for it has passed.
-      // Keep in mind the anvil test watcher only moves the anvil blocks when there is a block mined.
-      // This is quite ugly, and took me a very long time to realize it was needed.
-      // Maybe we should change it? And have it always mine a block every 12s even if there is no activity?
-      const [timestamp] = await cheatCodes.rollup.advanceToNextSlot();
-      dateProvider!.setTime(Number(timestamp) * 1000);
 
       // Await txs to be mined and assert they are mined across multiple different blocks.
       const receipts = await Promise.all(txs.map(tx => tx.wait()));
@@ -260,11 +250,7 @@ describe('e2e_block_building', () => {
       );
 
       const deployerTx = await deployer.prove({});
-      const callInteractionTx = await callInteraction.prove({
-        // we have to skip simulation of public calls simulation is done on individual transactions
-        // and the tx deploying the contract might go in the same block as this one
-        skipPublicSimulation: true,
-      });
+      const callInteractionTx = await callInteraction.prove();
 
       const [deployTxReceipt, callTxReceipt] = await Promise.all([
         deployerTx.send().wait(),
@@ -521,7 +507,7 @@ describe('e2e_block_building', () => {
       const txs = [];
       for (let i = 0; i < 24; i++) {
         const tx = token.methods.mint_to_public(owner.getAddress(), 10n);
-        txs.push(tx.send({ skipPublicSimulation: false }));
+        txs.push(tx.send());
       }
 
       logger.info('Waiting for txs to be mined');

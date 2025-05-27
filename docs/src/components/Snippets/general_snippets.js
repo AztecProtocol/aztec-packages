@@ -1,8 +1,8 @@
 import React from "react";
 
 export const General = {
-  VersionLatestTestnet: () => <code>0.85.0-alpha-testnet.5</code>,
-  VersionLatestSandbox: () => <code>0.86.0</code>,
+  VersionLatestTestnet: () => <code>alpha-testnet</code>,
+  VersionLatestSandbox: () => <code>0.87.2</code>,
   ViewTransactions: () => (
     <p>
       Transactions and balances can be viewed in block explorers like{" "}
@@ -15,9 +15,8 @@ export const General = {
       To use Aztec's suite of tools you'll need to:
       <ul>
         <li>
-          <a href="https://docs.docker.com/get-started/get-docker/">
-            Get docker
-          </a>
+          <a href="https://docs.docker.com/engine/install/">Get docker</a>{" "}
+          (engine or desktop)
         </li>
         <li>
           Run <code>bash -i &lt;(curl -s https://install.aztec.network)</code>
@@ -28,8 +27,8 @@ export const General = {
 
   node_ver: () => (
     <p>
-      When using Aztec libraries you will need Node.js version {">="} v18.xx.x
-      and {"<="} v20.17.x (lts/iron). You can use{" "}
+      Aztec libraries use Node.js version v22.15.x (lts/jod), and backwards
+      compatible from version 20. You can use{" "}
       <a href="https://github.com/nvm-sh/nvm">nvm</a> to help manage node
       versions.
     </p>
@@ -58,11 +57,7 @@ export const General = {
     </p>
   ),
 
-  AztecTestnetVersion: () => (
-    <span>
-      0.85.0-alpha-testnet.5
-    </span>
-  ),
+  AztecTestnetVersion: () => <span>alpha-testnet</span>,
 
   AztecWalletCLI: () => (
     <p>

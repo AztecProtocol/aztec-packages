@@ -5,6 +5,14 @@ import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
+  public validate(_txs: Tx[]): Promise<void> {
+    return Promise.resolve();
+  }
+
+  public clear(): Promise<void> {
+    throw new Error('DummyP2P does not implement "clear".');
+  }
+
   public getPendingTxs(): Promise<Tx[]> {
     throw new Error('DummyP2P does not implement "getPendingTxs"');
   }
@@ -17,7 +25,7 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getPeers"');
   }
 
-  public broadcastProposal(_proposal: BlockProposal): void {
+  public broadcastProposal(_proposal: BlockProposal): Promise<void> {
     throw new Error('DummyP2P does not implement "broadcastProposal"');
   }
 
@@ -151,5 +159,9 @@ export class DummyP2P implements P2P {
 
   public getSyncedLatestSlot(): Promise<bigint> {
     throw new Error('DummyP2P does not implement "getSyncedLatestSlot"');
+  }
+
+  markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "markTxsAsNonEvictable".');
   }
 }

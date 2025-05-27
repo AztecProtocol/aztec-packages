@@ -16,6 +16,11 @@ describe('KV TX pool', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let db: MockProxy<MerkleTreeReadOperations>;
 
+  const checkPendingTxConsistency = async () => {
+    const pendingTxHashCount = await txPool.getPendingTxHashes().then(h => h.length);
+    expect(await txPool.getPendingTxCount()).toEqual(pendingTxHashCount);
+  };
+
   beforeEach(async () => {
     worldState = worldState = mock<WorldStateSynchronizer>();
     db = mock<MerkleTreeReadOperations>();
@@ -27,6 +32,8 @@ describe('KV TX pool', () => {
     );
     txPool.mockArchiveCache.getArchiveIndices.mockImplementation(() => Promise.resolve([BigInt(1)]));
   });
+
+  afterEach(checkPendingTxConsistency);
 
   describeTxPool(() => txPool);
 
@@ -72,6 +79,7 @@ describe('KV TX pool', () => {
     const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
     const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3) });
     await txPool.addTxs([tx1, tx2, tx3]);
+    await checkPendingTxConsistency();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx3.getTxHash(),
       await tx2.getTxHash(),
@@ -82,6 +90,7 @@ describe('KV TX pool', () => {
     const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
     const tx5 = await mockTx(5, { maxPriorityFeesPerGas: new GasFees(5, 5) });
     await txPool.addTxs([tx4, tx5]);
+    await checkPendingTxConsistency();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
       await tx4.getTxHash(),
@@ -91,6 +100,7 @@ describe('KV TX pool', () => {
     // if another low priority tx is added after the tx pool size limit is reached, it should be evicted
     const tx6 = await mockTx(6, { maxPriorityFeesPerGas: new GasFees(1, 1) });
     await txPool.addTxs([tx6]);
+    await checkPendingTxConsistency();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
       await tx4.getTxHash(),
@@ -101,6 +111,7 @@ describe('KV TX pool', () => {
     await txPool.deleteTxs([await tx3.getTxHash()]);
     const tx7 = await mockTx(7, { maxPriorityFeesPerGas: new GasFees(2, 2) });
     await txPool.addTxs([tx7]);
+    await checkPendingTxConsistency();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
       await tx4.getTxHash(),
@@ -111,6 +122,7 @@ describe('KV TX pool', () => {
     await txPool.markAsMined([await tx4.getTxHash()], 1);
     const tx8 = await mockTx(8, { maxPriorityFeesPerGas: new GasFees(3, 3) });
     await txPool.addTxs([tx8]);
+    await checkPendingTxConsistency();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
       await tx8.getTxHash(),
@@ -120,6 +132,7 @@ describe('KV TX pool', () => {
     // verify that the tx pool size limit is respected after mining and deletions
     const tx9 = await mockTx(9, { maxPriorityFeesPerGas: new GasFees(1, 1) });
     await txPool.addTxs([tx9]);
+    await checkPendingTxConsistency();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
       await tx8.getTxHash(),
@@ -211,6 +224,7 @@ describe('KV TX pool', () => {
 
     await txPool.addTxs([tx1, tx2, tx3]);
     await txPool.markAsMined([await tx2.getTxHash()], 1);
+    await checkPendingTxConsistency();
 
     // modify tx1 to have an insufficient fee payer balance after the reorg
     txPool.mockGasTxValidator.validateTxFee.mockImplementation(async (tx: Tx) => {
@@ -219,10 +233,84 @@ describe('KV TX pool', () => {
       } as TxValidationResult);
     });
     await txPool.markMinedAsPending([await tx2.getTxHash()]);
+    await checkPendingTxConsistency();
 
     const pendingTxHashes = await txPool.getPendingTxHashes();
     expect(pendingTxHashes).toEqual(expect.arrayContaining([await tx2.getTxHash(), await tx3.getTxHash()]));
     expect(pendingTxHashes).toHaveLength(2);
+  });
+  it('Does not evict low priority txs marked as non-evictable', async () => {
+    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxTxPoolSize: 15000,
+    });
+
+    const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
+    const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
+    const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3) });
+    await txPool.addTxs([tx1, tx2, tx3]);
+    await expect(txPool.getPendingTxHashes()).resolves.toEqual([
+      await tx3.getTxHash(),
+      await tx2.getTxHash(),
+      await tx1.getTxHash(),
+    ]);
+
+    const tx1Hash = await tx1.getTxHash();
+    await txPool.markTxsAsNonEvictable([tx1Hash]);
+
+    // once the tx pool size limit is reached, the lowest priority txs that are evictable (tx2, tx3) should be evicted
+    const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
+    const tx5 = await mockTx(5, { maxPriorityFeesPerGas: new GasFees(5, 5) });
+    await txPool.addTxs([tx4, tx5]);
+    await expect(txPool.getPendingTxHashes()).resolves.toEqual([
+      await tx5.getTxHash(),
+      await tx4.getTxHash(),
+      await tx1.getTxHash(),
+    ]);
+  });
+
+  it('Evicts low priority txs after block is mined', async () => {
+    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxTxPoolSize: 15000,
+    });
+
+    const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
+    const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
+    const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3) });
+    await txPool.addTxs([tx1, tx2, tx3]);
+    await expect(txPool.getPendingTxHashes()).resolves.toEqual([
+      await tx3.getTxHash(),
+      await tx2.getTxHash(),
+      await tx1.getTxHash(),
+    ]);
+
+    // Mark tx 1 as non-evictable
+    const tx1Hash = await tx1.getTxHash();
+    await txPool.markTxsAsNonEvictable([tx1Hash]);
+
+    // once the tx pool size limit is reached, the lowest priority txs that are evictable (tx2, tx3) should be evicted
+    const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
+    const tx5 = await mockTx(5, { maxPriorityFeesPerGas: new GasFees(5, 5) });
+    await txPool.addTxs([tx4, tx5]);
+    await expect(txPool.getPendingTxHashes()).resolves.toEqual([
+      await tx5.getTxHash(),
+      await tx4.getTxHash(),
+      await tx1.getTxHash(),
+    ]);
+
+    // We have now mined a block. Mark some tx hashes as mined and we should now evict tx1 again
+    const newTx = await mockTx();
+    // We are marking a completely different tx as mined, but that fact that any block has been mined should
+    // clear the non-evictable status
+    await txPool.markAsMined([await newTx.getTxHash()], 10);
+
+    // if another tx is added after the tx pool size limit is reached, the lowest priority tx that is evictable (tx1) should be evicted
+    const tx6 = await mockTx(6, { maxPriorityFeesPerGas: new GasFees(6, 6) });
+    await txPool.addTxs([tx6]);
+    await expect(txPool.getPendingTxHashes()).resolves.toEqual([
+      await tx6.getTxHash(),
+      await tx5.getTxHash(),
+      await tx4.getTxHash(),
+    ]);
   });
 });
 

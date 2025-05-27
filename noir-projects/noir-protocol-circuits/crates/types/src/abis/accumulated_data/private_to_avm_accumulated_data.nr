@@ -69,9 +69,9 @@ impl Deserialize<PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH> for PrivateToAvmAccumul
 }
 
 pub struct PrivateToAvmAccumulatedDataArrayLengths {
-    note_hashes: u32,
-    nullifiers: u32,
-    l2_to_l1_msgs: u32,
+    pub note_hashes: u32,
+    pub nullifiers: u32,
+    pub l2_to_l1_msgs: u32,
 }
 
 impl PrivateToAvmAccumulatedDataArrayLengths {
@@ -133,5 +133,13 @@ fn serialization_of_empty_private_to_public_accumulated_data() {
     let item = PrivateToAvmAccumulatedData::empty();
     let serialized = item.serialize();
     let deserialized = PrivateToAvmAccumulatedData::deserialize(serialized);
+    assert_eq(item, deserialized);
+}
+
+#[test]
+fn serialization_of_empty_private_to_avm_accumulated_data_array_lengths() {
+    let item = PrivateToAvmAccumulatedDataArrayLengths::empty();
+    let serialized = item.serialize();
+    let deserialized = PrivateToAvmAccumulatedDataArrayLengths::deserialize(serialized);
     assert_eq(item, deserialized);
 }

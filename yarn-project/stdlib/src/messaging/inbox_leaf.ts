@@ -25,4 +25,14 @@ export class InboxLeaf {
   static smallestIndexFromL2Block(l2block: bigint): bigint {
     return (l2block - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
   }
+
+  /**
+   * Returns the range of valid indices for a given L2 block.
+   * Start index is inclusive, end index is exclusive.
+   */
+  static indexRangeFromL2Block(l2block: bigint): [bigint, bigint] {
+    const start = this.smallestIndexFromL2Block(l2block);
+    const end = start + BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    return [start, end];
+  }
 }

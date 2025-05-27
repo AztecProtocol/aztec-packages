@@ -94,6 +94,6 @@ export class PrivateCallRequest {
   }
 
   toString() {
-    return `PrivateCallRequest(callContext: ${this.callContext}, argsHash: ${this.argsHash}, returnsHash: ${this.returnsHash}, startSideEffectCounter: ${this.startSideEffectCounter}, endSideEffectCounter: ${this.endSideEffectCounter})`;
+    return `PrivateCallRequest(contractAddress: ${this.callContext.contractAddress}, selector: ${this.callContext.functionSelector}, msgSender: ${this.callContext.msgSender}, isStatic: ${this.callContext.isEmpty},  argsHash: ${this.argsHash}, returnsHash: ${this.returnsHash}, startSideEffectCounter: ${this.startSideEffectCounter}, endSideEffectCounter: ${this.endSideEffectCounter})`;
   }
 }

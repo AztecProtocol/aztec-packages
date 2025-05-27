@@ -7,7 +7,7 @@ import {
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { Fr } from '@aztec/foundation/fields';
-import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
@@ -551,11 +551,13 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 export function createAztecNodeClient(
   url: string,
   versions: Partial<ComponentsVersions> = {},
-  fetch = defaultFetch,
+  fetch = makeFetch([1, 2, 3], false),
+  batchWindowMS = 0,
 ): AztecNode {
   return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
     namespaceMethods: 'node',
     fetch,
+    batchWindowMS,
     onResponse: getVersioningResponseHandler(versions),
   });
 }

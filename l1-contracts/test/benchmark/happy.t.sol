@@ -49,7 +49,6 @@ import {
   L1FeeData,
   ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {
   FeeModelTestPoints,
   TestPoint,
@@ -61,6 +60,8 @@ import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
 import {Forwarder} from "@aztec/periphery/Forwarder.sol";
+import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -136,33 +137,16 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
 
-    asset = new TestERC20("test", "TEST", address(this));
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
+      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30);
+    builder.deploy();
 
-    fakeCanonical = new FakeCanonical(IERC20(address(asset)));
-
-    rollup = new Rollup(
-      asset,
-      IRewardDistributor(address(fakeCanonical)),
-      asset,
-      address(this),
-      TestConstants.getGenesisState(),
-      RollupConfigInput({
-        aztecSlotDuration: SLOT_DURATION,
-        aztecEpochDuration: EPOCH_DURATION,
-        targetCommitteeSize: 48,
-        aztecProofSubmissionWindow: EPOCH_DURATION * 2 - 1,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE,
-        manaTarget: MANA_TARGET,
-        provingCostPerMana: provingCost
-      })
-    );
-    fakeCanonical.setCanonicalRollup(address(rollup));
+    asset = builder.getConfig().testERC20;
+    rollup = builder.getConfig().rollup;
 
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
-    vm.label(address(fakeCanonical), "FAKE CANONICAL");
     vm.label(address(asset), "ASSET");
     vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
 
@@ -178,20 +162,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
       proposerToAttester[proposer] = attester;
 
-      initialValidators[i - 1] = CheatDepositArgs({
-        attester: attester,
-        proposer: proposer,
-        withdrawer: address(this),
-        amount: TestConstants.AZTEC_MINIMUM_STAKE
-      });
+      initialValidators[i - 1] =
+        CheatDepositArgs({attester: attester, proposer: proposer, withdrawer: address(this)});
     }
 
-    asset.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
-    asset.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
-    rollup.cheat__InitialiseValidatorSet(initialValidators);
-    asset.mint(address(rollup.getFeeAssetPortal()), 1e30);
-
-    asset.transferOwnership(address(fakeCanonical));
+    MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
+    asset.mint(address(multiAdder), rollup.getMinimumStake() * _validatorCount);
+    multiAdder.addValidators(initialValidators);
 
     _;
   }
@@ -318,7 +295,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       // and part of the `empty_block_1.json` file. The block cannot be proven, but it
       // will be accepted as a proposal so very useful for testing a long range of blocks.
       if (rollup.getCurrentSlot() == nextSlot) {
-        TestPoint memory point = points[nextSlot.unwrap() - 1];
+        rollup.setupEpoch();
 
         Block memory b = getBlock();
         address proposer = rollup.getCurrentProposer();
@@ -371,8 +348,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         PublicInputArgs memory args = PublicInputArgs({
           previousArchive: rollup.getBlock(start).archive,
           endArchive: rollup.getBlock(start + epochSize - 1).archive,
-          endTimestamp: Timestamp.wrap(0),
-          outHash: bytes32(0),
           proverId: address(0)
         });
 

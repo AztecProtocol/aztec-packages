@@ -1,5 +1,5 @@
 ---
-title: Building a full-stack app
+title: Node.js app that interacts with contracts
 sidebar_position: 1
 ---
 
@@ -11,12 +11,12 @@ This tutorial is for the sandbox and will need adjustments if deploying to testn
 
 This tutorial will focus on environment setup, including creating accounts and deployments, as well as interacting with your contracts. It will not cover [how to write contracts in Noir](../../../../../aztec/smart_contracts_overview.md).
 
-The full code for this tutorial is [available on the `aztec-packages` repository](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/end-to-end/src/sample-dapp).
+The full code for this tutorial is [available on the `aztec-packages` repository](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/sample-dapp).
 
 ## Dependencies
 
 - Linux or OSX environment
-- [NodeJS](https://nodejs.org/) version 18.19.0
+- [NodeJS](https://nodejs.org/) version 22.15.0 (minimum ver 20)
 - [Aztec Sandbox](../../../../getting_started.md)
 
 ## Prerequisites

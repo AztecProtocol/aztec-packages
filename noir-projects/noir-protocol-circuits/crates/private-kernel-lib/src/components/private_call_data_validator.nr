@@ -13,7 +13,10 @@ use dep::types::{
         side_effect::{Ordered, RangeOrdered},
     },
     address::AztecAddress,
-    constants::{MAX_FIELD_VALUE, REGISTERER_CONTRACT_ADDRESS},
+    constants::{
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_FIELD_VALUE, PRIVATE_LOG_SIZE_IN_FIELDS,
+        REGISTERER_CONTRACT_ADDRESS,
+    },
     traits::FromField,
     transaction::tx_request::TxRequest,
     utils::arrays::find_index_hint,
@@ -90,7 +93,13 @@ impl PrivateCallDataValidator {
         PrivateCallDataValidator { data, array_lengths }
     }
 
-    pub fn validate<let N: u32>(
+    pub fn validate_proof(self, is_first_app: bool) {
+        if !std::runtime::is_unconstrained() {
+            self.data.verify(is_first_app);
+        }
+    }
+
+    pub fn validate_data<let N: u32>(
         self,
         accumulated_note_hashes: [ScopedNoteHash; N],
         protocol_contract_tree_root: Field,
@@ -101,6 +110,7 @@ impl PrivateCallDataValidator {
         self.validate_public_call_requests();
         self.validate_counters();
         self.validate_logs(accumulated_note_hashes);
+        self.validate_log_lengths();
     }
 
     pub fn validate_as_first_call(self) {
@@ -397,6 +407,27 @@ impl PrivateCallDataValidator {
                     "could not link a note log to a note hash in another contract",
                 );
             }
+        }
+    }
+
+    fn validate_log_lengths(self) {
+        let public_inputs = self.data.public_inputs;
+
+        // Private logs.
+        let logs = public_inputs.private_logs;
+        for i in 0..logs.len() {
+            let log = logs[i];
+            assert(log.log.length <= PRIVATE_LOG_SIZE_IN_FIELDS, "private log length is too large");
+        }
+
+        // Contract class logs.
+        let logs = public_inputs.contract_class_logs_hashes;
+        for i in 0..logs.len() {
+            let log = logs[i];
+            assert(
+                log.inner.length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+                "contract class log length is too large",
+            );
         }
     }
 }

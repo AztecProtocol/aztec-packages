@@ -34,7 +34,7 @@ function get_projects {
 function format {
   local arg=${1:-"-w"}
   find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
-    parallel -N30 ./node_modules/.bin/prettier --loglevel warn "$arg"
+    parallel -N30 ./node_modules/.bin/prettier --log-level warn "$arg"
 }
 
 function lint {
@@ -151,6 +151,12 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function bench_cmds {
+  local hash=$(hash)
+  echo "$hash BENCH_OUTPUT=bench-out/sim.bench.json yarn-project/scripts/run_test.sh simulator/src/public/public_tx_simulator/apps_tests/bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/native_world_state.bench.json yarn-project/scripts/run_test.sh world-state/src/native/native_bench.test.ts"
+}
+
 function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
@@ -208,7 +214,7 @@ case "$cmd" in
   lint|format)
     $cmd "$@"
     ;;
-  test|test_cmds|hash|release|format)
+  test|test_cmds|bench_cmds|hash|release|format)
     $cmd
     ;;
   *)

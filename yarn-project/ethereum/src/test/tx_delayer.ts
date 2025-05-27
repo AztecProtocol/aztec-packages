@@ -7,9 +7,11 @@ import {
   type Client,
   type Hex,
   type PublicClient,
+  type TransactionSerializableEIP4844,
   keccak256,
   parseTransaction,
   publicActions,
+  serializeTransaction,
   walletActions,
 } from 'viem';
 
@@ -130,7 +132,7 @@ export function withDelayer<T extends ViemClient>(
 
           // Compute the tx hash manually so we emulate sendRawTransaction response
           const { serializedTransaction } = args[0];
-          const txHash = keccak256(serializedTransaction);
+          const txHash = computeTxHash(serializedTransaction);
 
           // Cancel tx outright if instructed
           if ('indefinitely' in waitUntil && waitUntil.indefinitely) {
@@ -144,8 +146,8 @@ export function withDelayer<T extends ViemClient>(
             'l1BlockNumber' in waitUntil
               ? waitUntilBlock(publicClient, waitUntil.l1BlockNumber - 1n, logger)
               : 'l1Timestamp' in waitUntil
-              ? waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayer.ethereumSlotDuration, logger)
-              : undefined;
+                ? waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayer.ethereumSlotDuration, logger)
+                : undefined;
 
           logger.info(`Delaying tx ${txHash} until ${inspect(waitUntil)}`, {
             argsLen: args.length,
@@ -187,4 +189,20 @@ export function withDelayer<T extends ViemClient>(
     })) as T;
 
   return { client: extended, delayer };
+}
+
+/**
+ * Compute the tx hash given the serialized tx. Note that if this is a blob tx, we need to
+ * exclude the blobs, commitments, and proofs from the hash.
+ */
+function computeTxHash(serializedTransaction: Hex) {
+  if (serializedTransaction.startsWith('0x03')) {
+    const parsed = parseTransaction(serializedTransaction);
+    if (parsed.blobs || parsed.sidecars) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { blobs, sidecars, ...rest } = parsed;
+      return keccak256(serializeTransaction({ type: 'eip4844', ...rest } as TransactionSerializableEIP4844));
+    }
+  }
+  return keccak256(serializedTransaction);
 }

@@ -82,16 +82,16 @@ export class LmdbAztecMap<K extends Key, V extends Value> implements AztecMap<K,
           ? this.slot(range.end)
           : this.endSentinel
         : range.start
-        ? this.slot(range.start)
-        : this.startSentinel;
+          ? this.slot(range.start)
+          : this.startSentinel;
 
       const end = reverse
         ? range.start
           ? this.slot(range.start)
           : this.startSentinel
         : range.end
-        ? this.slot(range.end)
-        : this.endSentinel;
+          ? this.slot(range.end)
+          : this.endSentinel;
 
       const lmdbRange: RangeOptions = {
         start,
@@ -113,7 +113,7 @@ export class LmdbAztecMap<K extends Key, V extends Value> implements AztecMap<K,
     }
   }
 
-  async *entriesAsync(range?: Range<K> | undefined): AsyncIterableIterator<[K, V]> {
+  async *entriesAsync(range?: Range<K>): AsyncIterableIterator<[K, V]> {
     for (const entry of this.entries(range)) {
       yield entry;
     }

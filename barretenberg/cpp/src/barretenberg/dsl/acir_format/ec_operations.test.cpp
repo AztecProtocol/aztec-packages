@@ -2,10 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/plonk/composer/standard_composer.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
@@ -14,12 +11,11 @@
 
 namespace acir_format::tests {
 
-using Composer = plonk::UltraComposer;
 using curve_ct = bb::stdlib::secp256k1<Builder>;
 
 class EcOperations : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 size_t generate_ec_add_constraint(EcAdd& ec_add_constraint, WitnessVector& witness_values)
@@ -95,14 +91,7 @@ TEST_F(EcOperations, TestECOperations)
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
-
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 TEST_F(EcOperations, TestECMultiScalarMul)
@@ -230,14 +219,7 @@ TEST_F(EcOperations, TestECMultiScalarMul)
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
-
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 } // namespace acir_format::tests

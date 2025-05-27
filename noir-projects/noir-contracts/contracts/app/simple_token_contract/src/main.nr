@@ -29,7 +29,6 @@ pub contract SimpleToken {
     };
 
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};
-    use aztec::protocol_types::traits::ToField;
 
     use dep::authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
@@ -160,19 +159,32 @@ pub contract SimpleToken {
     }
 
     #[private]
-    fn private_transfer(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
+    fn private_transfer(to: AztecAddress, amount: u128) {
+        let from = context.msg_sender();
 
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+        let change = subtract_balance(
+            &mut context,
+            storage,
+            from,
+            amount,
+            INITIAL_TRANSFER_CALL_MAX_NOTES,
+        );
+        storage.balances.at(from).add(from, change).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             from,
             from,
         ));
-        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note(&mut context, to, from));
+        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            to,
+            from,
+        ));
+
+        Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
+            &mut context,
+            to,
+            from,
+        ));
     }
 
     #[private]
@@ -219,8 +231,10 @@ pub contract SimpleToken {
             from,
         );
 
+        let validity_commitment = partial_note.compute_validity_commitment(context.msg_sender());
+
         SimpleToken::at(context.this_address())
-            ._store_balances_set_partial_note(partial_note)
+            ._set_uint_partial_note_validity(validity_commitment)
             .enqueue(context);
 
         partial_note
@@ -228,32 +242,47 @@ pub contract SimpleToken {
 
     #[public]
     fn finalize_transfer_to_private(amount: u128, partial_note: PartialUintNote) {
-        let from = context.msg_sender();
-        _finalize_transfer_to_private(from, amount, partial_note, &mut context, storage);
+        let from_and_completer = context.msg_sender();
+        _finalize_transfer_to_private(
+            from_and_completer,
+            amount,
+            partial_note,
+            &mut context,
+            storage,
+        );
     }
 
     #[public]
     #[internal]
     fn _finalize_transfer_to_private_unsafe(
-        from: AztecAddress,
+        from_and_completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
     ) {
-        _finalize_transfer_to_private(from, amount, partial_note, &mut context, storage);
+        _finalize_transfer_to_private(
+            from_and_completer,
+            amount,
+            partial_note,
+            &mut context,
+            storage,
+        );
     }
 
     #[contract_library_method]
     fn _finalize_transfer_to_private(
-        from: AztecAddress,
+        from_and_completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
         context: &mut PublicContext,
         storage: Storage<&mut PublicContext>,
     ) {
-        let from_balance = storage.public_balances.at(from).read().sub(amount);
-        storage.public_balances.at(from).write(from_balance);
+        let from_balance = storage.public_balances.at(from_and_completer).read().sub(amount);
+        storage.public_balances.at(from_and_completer).write(from_balance);
 
-        assert(context.storage_read(partial_note.commitment()), "Invalid partial note");
+        assert(
+            context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
+            "Invalid partial note or completer",
+        );
         partial_note.complete(amount, context);
     }
 
@@ -261,22 +290,41 @@ pub contract SimpleToken {
     fn mint_privately(from: AztecAddress, to: AztecAddress, amount: u128) {
         let token = SimpleToken::at(context.this_address());
         let partial_note = _prepare_private_balance_increase(from, to, &mut context, storage);
-        token._finalize_mint_to_private_unsafe(amount, partial_note).enqueue(&mut context);
+        token._finalize_mint_to_private_unsafe(context.msg_sender(), amount, partial_note).enqueue(
+            &mut context,
+        );
     }
 
     #[public]
     fn finalize_mint_to_private(amount: u128, partial_note: PartialUintNote) {
-        _finalize_mint_to_private(amount, partial_note, &mut context, storage);
+        _finalize_mint_to_private(
+            context.msg_sender(),
+            amount,
+            partial_note,
+            &mut context,
+            storage,
+        );
     }
 
     #[public]
     #[internal]
-    fn _finalize_mint_to_private_unsafe(amount: u128, partial_note: PartialUintNote) {
-        _finalize_mint_to_private(amount, partial_note, &mut context, storage);
+    fn _finalize_mint_to_private_unsafe(
+        minter_and_completer: AztecAddress,
+        amount: u128,
+        partial_note: PartialUintNote,
+    ) {
+        _finalize_mint_to_private(
+            minter_and_completer,
+            amount,
+            partial_note,
+            &mut context,
+            storage,
+        );
     }
 
     #[contract_library_method]
     fn _finalize_mint_to_private(
+        completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
         context: &mut PublicContext,
@@ -285,14 +333,17 @@ pub contract SimpleToken {
         let supply = storage.total_supply.read().add(amount);
         storage.total_supply.write(supply);
 
-        assert(context.storage_read(partial_note.commitment()), "Invalid partial note");
+        assert(
+            context.storage_read(partial_note.compute_validity_commitment(completer)),
+            "Invalid partial note or completer",
+        );
         partial_note.complete(amount, context);
     }
 
     #[public]
     #[internal]
-    fn _store_balances_set_partial_note(partial_note: PartialUintNote) {
-        context.storage_write(partial_note.commitment(), true);
+    fn _set_uint_partial_note_validity(validity_commitment: Field) {
+        context.storage_write(validity_commitment, true);
     }
 
     #[public]

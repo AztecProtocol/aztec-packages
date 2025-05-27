@@ -125,10 +125,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @returns An object containing the function return value and profile result.
    */
   public async profile(
-    options: DeployOptions & ProfileMethodOptions = { profileMode: 'gates' },
+    options: DeployOptions & ProfileMethodOptions = { profileMode: 'gates', skipProofGeneration: true },
   ): Promise<TxProfileResult> {
     const txRequest = await this.create(options);
-    return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
+    return await this.wallet.profileTx(txRequest, options.profileMode, options.skipProofGeneration, options?.from);
   }
 
   /**
@@ -245,8 +245,12 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public override async prove(options: DeployOptions): Promise<DeployProvenTx<TContract>> {
     const txProvingResult = await this.proveInternal(options);
-    return new DeployProvenTx(this.wallet, txProvingResult.toTx(), this.postDeployCtor, () =>
-      this.getInstance(options),
+    return new DeployProvenTx(
+      this.wallet,
+      txProvingResult.toTx(),
+      this.postDeployCtor,
+      () => this.getInstance(options),
+      txProvingResult.timings,
     );
   }
 
@@ -255,7 +259,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Options.
    */
   public override estimateGas(
-    options?: Omit<DeployOptions, 'estimateGas' | 'skipPublicSimulation'>,
+    options?: Omit<DeployOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     return super.estimateGas(options);
   }

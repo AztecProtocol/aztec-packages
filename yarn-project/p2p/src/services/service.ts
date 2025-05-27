@@ -1,5 +1,6 @@
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
+import type { Tx } from '@aztec/stdlib/tx';
 
 import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
@@ -32,7 +33,7 @@ export interface P2PService {
    * Called to have the given transaction propagated through the P2P network.
    * @param message - The message to be propagated.
    */
-  propagate<T extends Gossipable>(message: T): void;
+  propagate<T extends Gossipable>(message: T): Promise<void>;
 
   /**
    * Request information from peers via the request response protocol.
@@ -67,6 +68,8 @@ export interface P2PService {
   getEnr(): ENR | undefined;
 
   getPeers(includePending?: boolean): PeerInfo[];
+
+  validate(txs: Tx[]): Promise<void>;
 }
 
 /**

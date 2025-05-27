@@ -229,7 +229,10 @@ mod tests {
     global contract_address: AztecAddress = AztecAddress::from_field(987654);
 
     fn mock_log(filled_with: Field) -> PrivateLog {
-        PrivateLog::new([filled_with; PRIVATE_LOG_SIZE_IN_FIELDS])
+        PrivateLog::new(
+            [filled_with; PRIVATE_LOG_SIZE_IN_FIELDS],
+            PRIVATE_LOG_SIZE_IN_FIELDS,
+        )
     }
 
     struct TestDataBuilder<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32> {
@@ -422,7 +425,6 @@ mod tests {
     }
 
     impl<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32> TestDataBuilder<NUM_NOTE_HASHES, NUM_NULLIFIERS, NUM_LOGS, NUM_INDEX_HINTS> {
-
         pub fn get_nada_index_hint(_self: Self) -> TransientDataIndexHint {
             TransientDataIndexHint {
                 nullifier_index: NUM_NULLIFIERS,

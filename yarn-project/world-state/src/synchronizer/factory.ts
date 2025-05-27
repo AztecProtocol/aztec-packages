@@ -9,6 +9,14 @@ import { NativeWorldStateService } from '../native/native_world_state.js';
 import type { WorldStateConfig } from './config.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
+export interface WorldStateTreeMapSizes {
+  archiveTreeMapSizeKb: number;
+  nullifierTreeMapSizeKb: number;
+  noteHashTreeMapSizeKb: number;
+  messageTreeMapSizeKb: number;
+  publicDataTreeMapSizeKb: number;
+}
+
 export async function createWorldStateSynchronizer(
   config: WorldStateConfig & DataStoreConfig,
   l2BlockSource: L2BlockSource & L1ToL2MessageSource,
@@ -21,14 +29,28 @@ export async function createWorldStateSynchronizer(
 }
 
 export async function createWorldState(
-  config: Pick<WorldStateConfig, 'worldStateDataDirectory' | 'worldStateDbMapSizeKb'> &
+  config: Pick<
+    WorldStateConfig,
+    | 'worldStateDataDirectory'
+    | 'worldStateDbMapSizeKb'
+    | 'archiveTreeMapSizeKb'
+    | 'nullifierTreeMapSizeKb'
+    | 'noteHashTreeMapSizeKb'
+    | 'messageTreeMapSizeKb'
+    | 'publicDataTreeMapSizeKb'
+  > &
     Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB' | 'l1Contracts'>,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
   instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(getTelemetryClient()),
 ) {
-  const newConfig: DataStoreConfig = {
-    dataDirectory: config.worldStateDataDirectory ?? config.dataDirectory,
-    dataStoreMapSizeKB: config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKB,
+  const dataDirectory = config.worldStateDataDirectory ?? config.dataDirectory;
+  const dataStoreMapSizeKB = config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKB;
+  const wsTreeMapSizes: WorldStateTreeMapSizes = {
+    archiveTreeMapSizeKb: config.archiveTreeMapSizeKb ?? dataStoreMapSizeKB,
+    nullifierTreeMapSizeKb: config.nullifierTreeMapSizeKb ?? dataStoreMapSizeKB,
+    noteHashTreeMapSizeKb: config.noteHashTreeMapSizeKb ?? dataStoreMapSizeKB,
+    messageTreeMapSizeKb: config.messageTreeMapSizeKb ?? dataStoreMapSizeKB,
+    publicDataTreeMapSizeKb: config.publicDataTreeMapSizeKb ?? dataStoreMapSizeKB,
   };
 
   if (!config.l1Contracts?.rollupAddress) {
@@ -36,11 +58,11 @@ export async function createWorldState(
   }
 
   // If a data directory is provided in config, then create a persistent store.
-  const merkleTrees = newConfig.dataDirectory
+  const merkleTrees = dataDirectory
     ? await NativeWorldStateService.new(
         config.l1Contracts.rollupAddress,
-        newConfig.dataDirectory,
-        newConfig.dataStoreMapSizeKB,
+        dataDirectory,
+        wsTreeMapSizes,
         prefilledPublicData,
         instrumentation,
       )

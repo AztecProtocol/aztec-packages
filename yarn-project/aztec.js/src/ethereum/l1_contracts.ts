@@ -9,7 +9,7 @@ export const getL1ContractAddresses = async (url: string): Promise<L1ContractAdd
     async () => {
       try {
         return (await pxeClient.getNodeInfo()).l1ContractAddresses;
-      } catch (err) {
+      } catch {
         // do nothing
       }
     },
