@@ -9,7 +9,7 @@ use dep::protocol_types::{
     traits::{Serialize, ToField},
 };
 
-pub struct PrivateLogContentConstraints {
+pub struct PrivateLogContentConstraintsEnum {
     /// The contents of the log are entirely unconstrained, and could have any values.
     ///
     /// Only use in scenarios where the recipient not receiving the message is an acceptable outcome (e.g. because the
@@ -20,16 +20,21 @@ pub struct PrivateLogContentConstraints {
     ///
     /// Only use in scenarios where the recipient not receiving the message is an acceptable outcome (e.g. because the
     /// sender is somehow motivated to ensure the recipient learns of it).
+    // TODO(#14565): This variant requires for tagging to also be constrained, as it is otherwise useless.
     pub CONSTRAINED_ENCRYPTION: u8,
 }
 
-pub global PrivateLogContent: PrivateLogContentConstraints = PrivateLogContentConstraints {
+pub global PrivateLogContent: PrivateLogContentConstraintsEnum = PrivateLogContentConstraintsEnum {
     NO_CONSTRAINTS: 1,
     CONSTRAINED_ENCRYPTION: 2,
     // TODO: add constrained tagging and constrained handshaking
 };
 
-/// Emits an event in a private log, encrypting it such that only `recipient` will learn of its contents.
+/// Emits an event in a private log, encrypting it such that only `recipient` will learn of its contents. The log will
+/// be tagged using a shared secret between `sender` and `recipient`, so that `recipient` can efficiently find the log.
+///
+/// The `constraints` value determines what parts of this computation will be constrained. See the documentation for
+/// each value in `PrivateLogContentConstraintsEnum` to learn more about the different variants.
 pub fn emit_event_in_private_log<Event, let N: u32>(
     event: Event,
     context: &mut PrivateContext,

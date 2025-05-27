@@ -20,6 +20,21 @@ Public events are now emitted by calling the `emit_event_in_public_log` function
 + event.emit_event_in_public_log(&mut context);
 ```
 
+Private events are similarly by calling the `emit_event_in_private_log` function, which takes an enum value indicating the constraints that are desired:
+
+```diff
++ use aztec::event::event_interface::{emit_event_in_private_log, PrivateLogContent};
+
+- event.emit(encode_and_encrypt_unconstraied(&mut context));
++ emit_event_in_private_log(
++     event,
++     &mut context,
++     to,
++     from,
++     PrivateLogContent.NO_CONSTRAINTS,
++ );
+```
+
 ## [Aztec.js/TS libraries]
 
 We've bumped our minimum supported node version to v20, as v18 is now EOL. As a consequence, the deprecated type assertion syntax has been replaced with modern import attributes whenever contract artifact JSONs are loaded:
