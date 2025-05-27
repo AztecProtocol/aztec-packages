@@ -89,6 +89,7 @@ createAccountButton.addEventListener('click', async (e) => {
   } finally {
     button.disabled = false;
     button.textContent = 'Create Account';
+    displayStatusMessage('');
   }
 });
 

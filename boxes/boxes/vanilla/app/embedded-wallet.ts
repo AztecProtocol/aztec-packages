@@ -95,6 +95,8 @@ export class EmbeddedWallet {
       skipClassRegistration: true,
       skipPublicDeployment: true,
     };
+    // @ts-ignore
+    this.pxe.proverEnabled = false;
     const provenInteraction = await deployMethod.prove(deployOpts);
     const receipt = await provenInteraction.send().wait({ timeout: 120 });
 
