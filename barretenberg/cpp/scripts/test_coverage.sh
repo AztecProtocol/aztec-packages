@@ -9,14 +9,13 @@ export CI=1
 export NATIVE_PRESET=clang16-coverage
 # target max time of 15 minutes, but timing out at all is painful so bump high
 export TIMEOUT=40m
-# ./bootstrap.sh build_native
+./bootstrap.sh build_native
 rm -rf build-coverage/profdata
 mkdir -p build-coverage/profdata
 export LLVM_PROFILE_FILE="$(pwd)/build-coverage/profdata/%m.%p.profraw"
 
 function test_cmds {
-  # Note that HEAVY_TEST marked tests wont run with coverage
-  ./bootstrap.sh test_cmds
+  ./bootstrap.sh test_cmds | grep -v Full6 | grep -v MaxCapacity
   ../acir_tests/bootstrap.sh test_cmds | grep -v main.js | grep -v browser
   echo "disabled-cache NO_WASM=1 barretenberg/cpp/bootstrap.sh bench_ivc origin/master"
 }

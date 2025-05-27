@@ -170,14 +170,6 @@ function(barretenberg_module MODULE_NAME)
             # Currently haven't found a way to easily wrap the calls in wasmtime when run from ctest.
             gtest_discover_tests(${MODULE_NAME}_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR} TEST_FILTER -*_SKIP_CI*)
         endif()
-
-        if(COVERAGE)
-            target_link_options(
-                ${MODULE_NAME}_tests
-                PRIVATE
-                -fprofile-instr-generate -fcoverage-mapping
-            )
-        endif()
     endif()
 
     file(GLOB_RECURSE FUZZERS_SOURCE_FILES *.fuzzer.cpp)

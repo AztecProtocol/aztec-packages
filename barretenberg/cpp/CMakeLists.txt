@@ -124,7 +124,7 @@ if(COVERAGE)
     endif()
 
     # Add profiling compile options and disable optimizations
-    add_compile_options(-fprofile-instr-generate -fcoverage-mapping)
+    add_definitions(-fprofile-instr-generate -fcoverage-mapping)
 endif()
 
 include(cmake/build.cmake)

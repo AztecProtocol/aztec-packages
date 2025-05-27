@@ -308,8 +308,8 @@ case "$cmd" in
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
     function ivc_bench_cmds {
-      if [ -z ${NO_WASM:-} ]; then
-        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
+      if [ "${NO_WASM:-}" == "1" ]; then
+        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
       else
         ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
       fi
