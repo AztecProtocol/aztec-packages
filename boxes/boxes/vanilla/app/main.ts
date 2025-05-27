@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Refresh tally if account exists
     if (account) {
+      displayStatusMessage('Updating vote tally...');
       await updateVoteTally(account);
       displayStatusMessage('');
     } else {
@@ -75,6 +76,8 @@ createAccountButton.addEventListener('click', async (e) => {
   button.textContent = 'Creating account...';
 
   try {
+    displayStatusMessage('Creating account...');
+
     const account = await wallet.createAccount();
     displayAccount(account);
 
@@ -101,7 +104,9 @@ voteButton.addEventListener('click', async (e) => {
 
   const button = e.target as HTMLButtonElement;
   button.disabled = true;
+  voteInput.disabled = true;
   button.textContent = 'Voting...';
+  displayStatusMessage('Voting...');
 
   try {
     // Prepare contract interaction
@@ -116,14 +121,17 @@ voteButton.addEventListener('click', async (e) => {
     await wallet.sendTransaction(interaction);
 
     // Update tally
+    displayStatusMessage('Updating vote tally...');
     updateVoteTally(account!);
   } catch (error) {
     displayError(
       error instanceof Error ? error.message : 'An unknown error occurred'
     );
   } finally {
+    voteInput.disabled = false;
     button.disabled = false;
     button.textContent = 'Vote';
+    displayStatusMessage('');
   }
 });
 
@@ -137,7 +145,7 @@ async function updateVoteTally(account: Wallet) {
     account
   );
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 1; i <= 5; i++) {
     const interaction = votingContract.methods.get_vote(i);
 
     // Simulate the transaction

@@ -34,8 +34,10 @@ export class EmbeddedWallet {
     // Create PXE Service
     const config = getPXEServiceConfig();
     config.l1Contracts = await aztecNode.getL1ContractAddresses();
-    config.proverEnabled = false;
-    this.pxe = await createPXEService(aztecNode, config);
+    // config.proverEnabled = false;
+    this.pxe = await createPXEService(aztecNode, config, {
+      useLogSuffix: true,
+    });
 
     // Register Sponsored FPC Contract with PXE
     await this.pxe.registerContract({
