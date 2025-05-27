@@ -22,7 +22,7 @@ Along the way you will:
 - Wrap an address with its interface (token)
 - Create custom private value notes
 
-This tutorial is compatible with the Aztec version `v0.87.2`. Install the correct version with `aztec-up v0.87.2`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `v0.87.2`. Install the correct version with `aztec-up 0.87.2`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Setup
 
@@ -124,7 +124,7 @@ The `aztec::protocol_types` can be browsed [here (GitHub link)](https://github.c
 
 This contract uses another file called `config.nr`. Create this in the same directory as `main.nr` and paste this in:
 
-```rust title="config.nr" showLineNumbers 
+```rust title="config.nr" showLineNumbers
 use dep::aztec::protocol_types::{address::AztecAddress, traits::Packable};
 use std::meta::derive;
 
@@ -144,7 +144,7 @@ pub struct Config {
 
 To retain the initializer parameters in the contract's Storage, we'll need to declare them in a preceding `Storage` struct in our `main.nr`:
 
-```rust title="storage" showLineNumbers 
+```rust title="storage" showLineNumbers
 #[storage]
 struct Storage<Context> {
     config: PublicImmutable<Config, Context>,
@@ -157,7 +157,7 @@ struct Storage<Context> {
 
 Now complete the initializer by setting the storage variables with the parameters:
 
-```rust title="init" showLineNumbers 
+```rust title="init" showLineNumbers
 #[public]
 #[initializer]
 fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
@@ -175,7 +175,7 @@ To check that the donation occurs before the campaign deadline, we must access t
 
 We read the deadline from public storage in private and use the router contract to assert that the current `timestamp` is before the deadline.
 
-```rust title="call-check-deadline" showLineNumbers 
+```rust title="call-check-deadline" showLineNumbers
 privately_check_timestamp(Comparator.LT, config.deadline, &mut context);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.2/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L68-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L68-L70</a></sub></sup>
@@ -187,7 +187,7 @@ If it's unique to this contract, then there'll be a privacy leak regardless, as 
 
 Now conclude adding all dependencies to the `Crowdfunding` contract:
 
-```rust title="all-deps" showLineNumbers 
+```rust title="all-deps" showLineNumbers
 use crate::config::Config;
 use dep::aztec::{
     event::event_interface::EventInterface,
@@ -228,7 +228,7 @@ With the dependency already `use`d at the start of the contract, the token contr
 
 The last thing to do is create a new value note and add it to the `donation_receipts`. So the full donation function is now
 
-```rust title="donate" showLineNumbers 
+```rust title="donate" showLineNumbers
 #[private]
 fn donate(amount: u128) {
     let config = storage.config.read();
@@ -269,7 +269,7 @@ The last point is achieved by emitting an unencrypted event log.
 
 Copy the last function into your Crowdfunding contract:
 
-```rust title="operator-withdrawals" showLineNumbers 
+```rust title="operator-withdrawals" showLineNumbers
 // Withdraws balance to the operator. Requires that msg_sender() is the operator.
 #[private]
 fn withdraw(amount: u128) {
@@ -298,7 +298,7 @@ fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
 
 This is emitting an event, which we will need to create. Paste this earlier in our contract after our `Storage` declaration:
 
-```rust title="withdrawal-processed-event" showLineNumbers 
+```rust title="withdrawal-processed-event" showLineNumbers
 #[derive(Serialize)]
 #[event]
 struct WithdrawalProcessed {
