@@ -138,7 +138,7 @@ describe('prover-node-publisher', () => {
       // Return the requested block
       rollup.getBlock.mockImplementation((blockNumber: bigint) =>
         Promise.resolve({
-          archive: blocks[Number(blockNumber) - 1].endArchive.root.toString(),
+          archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
           headerHash: '0x', // unused,
           slotNumber: 0n, // unused,
         }),
@@ -147,8 +147,8 @@ describe('prover-node-publisher', () => {
       // We have built a rollup proof of the range fromBlock - toBlock
       // so we need to set our archives and hashes accordingly
       const ourPublicInputs = RootRollupPublicInputs.random();
-      ourPublicInputs.previousArchive = blocks[fromBlock - 2]?.endArchive ?? Fr.ZERO;
-      ourPublicInputs.endArchive = blocks[toBlock - 1]?.endArchive ?? Fr.ZERO;
+      ourPublicInputs.previousArchiveRoot = blocks[fromBlock - 2]?.endArchiveRoot ?? Fr.ZERO;
+      ourPublicInputs.endArchiveRoot = blocks[toBlock - 1]?.endArchiveRoot ?? Fr.ZERO;
 
       const ourBatchedBlob = new BatchedBlob(
         ourPublicInputs.blobPublicInputs.blobCommitmentsHash,

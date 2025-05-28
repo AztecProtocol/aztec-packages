@@ -11,7 +11,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import { LogWithTxData } from '@aztec/stdlib/logs';
+import { PublicLogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -689,14 +689,14 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  async syncPrivateState(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
+  async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    await this.typedOracle.syncPrivateState(fromSingle(pendingTaggedLogArrayBaseSlot));
+    await this.typedOracle.fetchTaggedLogs(fromSingle(pendingTaggedLogArrayBaseSlot));
     return toForeignCallResult([]);
   }
 
@@ -731,18 +731,23 @@ export class TXEService {
     return toForeignCallResult([toSingle(Fr.ONE)]);
   }
 
-  async getLogByTag(tag: ForeignCallSingle) {
+  async getPublicLogByTag(tag: ForeignCallSingle, contractAddress: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    // TODO(AD): this was warning that getLogByTag did not return a promise.
-    const log = await Promise.resolve(this.typedOracle.getLogByTag(fromSingle(tag)));
+    // TODO(AD): this was warning that getPublicLogByTag did not return a promise.
+    const log = await Promise.resolve(
+      this.typedOracle.getPublicLogByTag(fromSingle(tag), AztecAddress.fromField(fromSingle(contractAddress))),
+    );
 
     if (log == null) {
-      return toForeignCallResult([toSingle(Fr.ZERO), ...LogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray)]);
+      return toForeignCallResult([
+        toSingle(Fr.ZERO),
+        ...PublicLogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray),
+      ]);
     } else {
       return toForeignCallResult([toSingle(Fr.ONE), ...log.toNoirSerialization().map(toSingleOrArray)]);
     }

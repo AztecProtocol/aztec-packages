@@ -6,7 +6,7 @@ import {DecoderBase} from "./base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -211,7 +211,7 @@ contract RollupTest is RollupBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0], realBlobHash)
     );
-    rollup.propose(args, signatures, data.blobCommitments);
+    rollup.propose(args, attestations, data.blobCommitments);
   }
 
   function testRevertPrune() public setUpFor("mixed_block_1") {
@@ -275,7 +275,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.blobCommitments);
+    rollup.propose(args, attestations, data.blobCommitments);
   }
 
   function testInvalidL2Fee() public setUpFor("mixed_block_1") {
@@ -305,7 +305,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.blobCommitments);
+    rollup.propose(args, attestations, data.blobCommitments);
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
@@ -412,7 +412,7 @@ contract RollupTest is RollupBase {
         oracleInput: OracleInput(0),
         txHashes: new bytes32[](0)
       });
-      rollup.propose(args, signatures, data.blobCommitments);
+      rollup.propose(args, attestations, data.blobCommitments);
       assertEq(testERC20.balanceOf(data.decodedHeader.coinbase), 0, "invalid coinbase balance");
     }
 
@@ -562,8 +562,6 @@ contract RollupTest is RollupBase {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: blockLog.archive,
       endArchive: data.archive,
-      endTimestamp: Timestamp.wrap(0),
-      outHash: bytes32(0),
       proverId: address(0)
     });
 
@@ -673,7 +671,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, new bytes(144));
+    rollup.propose(args, attestations, new bytes(144));
   }
 
   function testSubmitProofNonExistentBlock() public setUpFor("empty_block_1") {
@@ -745,13 +743,8 @@ contract RollupTest is RollupBase {
     address _coinbase,
     uint256 _fee
   ) internal {
-    PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: _prevArchive,
-      endArchive: _archive,
-      endTimestamp: Timestamp.wrap(0),
-      outHash: bytes32(0),
-      proverId: _prover
-    });
+    PublicInputArgs memory args =
+      PublicInputArgs({previousArchive: _prevArchive, endArchive: _archive, proverId: _prover});
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     fees[0] = bytes32(uint256(uint160(bytes20(_coinbase)))); // Need the address to be left padded within the bytes32

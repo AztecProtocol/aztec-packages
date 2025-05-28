@@ -1,14 +1,13 @@
 import { BatchedBlob, type FinalBlobBatchingChallenges } from '@aztec/blob-lib';
-import {
-  type ARCHIVE_HEIGHT,
-  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type TUBE_PROOF_LENGTH,
-  VK_TREE_HEIGHT,
+import type {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
-import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
@@ -21,6 +20,7 @@ import {
 } from '@aztec/stdlib/rollup';
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
+import { VkData } from '@aztec/stdlib/vks';
 
 import { BlockProvingState } from './block-proving-state.js';
 
@@ -252,11 +252,7 @@ export class EpochProvingState {
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >) {
     const leafIndex = getVKIndex(verificationKey.keyAsFields);
-    return new PreviousRollupBlockData(
-      inputs,
-      proof,
-      verificationKey.keyAsFields,
-      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
-    );
+    const vkData = new VkData(verificationKey, leafIndex, getVKSiblingPath(leafIndex));
+    return new PreviousRollupBlockData(inputs, proof, vkData);
   }
 }

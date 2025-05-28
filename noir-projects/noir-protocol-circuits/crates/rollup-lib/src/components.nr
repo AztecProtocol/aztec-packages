@@ -1,6 +1,5 @@
-use crate::abis::{
-    block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
-    previous_rollup_block_data::PreviousRollupBlockData,
+use crate::abis::block_root_or_block_merge_public_inputs::{
+    BlockRootOrBlockMergePublicInputs, FeeRecipient,
 };
 use super::abis::tx_effect::TxEffect;
 use dep::types::{
@@ -18,7 +17,7 @@ use dep::types::{
         PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX,
         REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
     },
-    hash::{accumulate_sha256, compute_contract_class_log_hash},
+    hash::compute_contract_class_log_hash,
     merkle_tree::VariableMerkleTree,
     traits::ToField,
     utils::arrays::{array_length, array_length_until, array_merge, array_padded_with},
@@ -93,27 +92,10 @@ pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
 ) -> [FeeRecipient; AZTEC_MAX_EPOCH_DURATION] {
-    let left_len = array_length(left.fees);
-    let right_len = array_length(right.fees);
-    assert(
-        left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
-        "too many fee payment structs accumulated in rollup",
-    );
     // TODO(Miranda): combine fees with same recipient depending on rollup structure
     // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
     // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
     array_merge(left.fees, right.fees)
-}
-
-pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
-    if previous_rollup_data[1].block_root_or_block_merge_public_inputs.is_padding() {
-        previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash
-    } else {
-        accumulate_sha256([
-            previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
-            previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash,
-        ])
-    }
 }
 
 pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]) -> Field {

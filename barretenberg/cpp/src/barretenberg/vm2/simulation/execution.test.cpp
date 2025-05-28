@@ -71,6 +71,8 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
+    EXPECT_CALL(context, get_parent_gas_used);
+    EXPECT_CALL(context, get_parent_gas_limit);
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
@@ -81,15 +83,10 @@ TEST_F(ExecutionSimulationTest, Call)
     auto nested_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
+    ON_CALL(*nested_context, get_gas_used()).WillByDefault(Return(Gas{ 100, 200 }));
 
-    EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _))
+    EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _, _))
         .WillOnce(Return(std::move(nested_context)));
-
-    // Back in parent context
-    EXPECT_CALL(context, set_child_context(_));
-    EXPECT_CALL(context, set_last_rd_offset(_));
-    EXPECT_CALL(context, set_last_rd_size(_));
-    EXPECT_CALL(context, set_last_success(_));
 
     execution.call(context,
                    /*l2_gas_offset=*/1,

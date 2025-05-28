@@ -48,7 +48,6 @@ describe('e2e_block_building', () => {
   let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
   let dateProvider: TestDateProvider | undefined;
-  let cheatCodes: CheatCodes;
   let watcher: AnvilTestWatcher | undefined;
   let teardown: () => Promise<void>;
 
@@ -73,7 +72,6 @@ describe('e2e_block_building', () => {
         wallets: [owner, minter],
         sequencer: sequencerClient,
         dateProvider,
-        cheatCodes,
       } = await setup(2, {
         archiverPollingIntervalMS: 200,
         transactionPollingIntervalMS: 200,
@@ -86,6 +84,47 @@ describe('e2e_block_building', () => {
 
     afterEach(() => aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 }));
     afterAll(() => teardown());
+
+    it('processes txs until hitting timetable', async () => {
+      // We send enough txs so they are spread across multiple blocks, but not
+      // so many so that we don't end up hitting a reorg or timing out the tx wait().
+      const TX_COUNT = 16;
+
+      const ownerAddress = owner.getCompleteAddress().address;
+      const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
+      logger.info(`Deployed stateful test contract at ${contract.address}`);
+
+      // We have to set minTxsPerBlock to 1 or we could end with dangling txs.
+      // We also set enforceTimetable so the deadline makes sense, otherwise we may be starting the
+      // block too late into the slot, and start processing when the deadline has already passed.
+      logger.info(`Updating aztec node config`);
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
+
+      // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
+      const archiver = (aztecNode as AztecNodeService).getContractDataSource();
+      sequencer.sequencer.publicProcessorFactory = new TestPublicProcessorFactory(archiver, dateProvider!);
+
+      // We also cheat the sequencer's timetable so it allocates little time to processing.
+      // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
+      // be able to squeeze in more than a few txs in each. This is sensitive to the time it takes
+      // to pick up and validate the txs, so we may need to bump it to work on CI.
+      jest
+        .spyOn(sequencer.sequencer.timetable, 'getBlockProposalExecTimeEnd')
+        .mockImplementation((secondsIntoSlot: number) => secondsIntoSlot + 1);
+
+      // Flood the mempool with TX_COUNT simultaneous txs
+      const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
+      const provenTxs = await asyncMap(methods, method => method.prove());
+      logger.info(`Sending ${TX_COUNT} txs to the node`);
+      const txs = await Promise.all(provenTxs.map(tx => tx.send()));
+      logger.info(`All ${TX_COUNT} txs have been sent`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
+
+      // Await txs to be mined and assert they are mined across multiple different blocks.
+      const receipts = await Promise.all(txs.map(tx => tx.wait()));
+      const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
+      logger.info(`Txs mined on blocks: ${unique(blockNumbers)}`);
+      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThan(1);
+    });
 
     it('assembles a block with multiple txs', async () => {
       // Assemble N contract deployment txs
@@ -189,55 +228,6 @@ describe('e2e_block_building', () => {
 
       await Promise.all(sentTxs.map(tx => tx.wait({ timeout: 600 })));
       logger.info(`Txs sent`);
-    });
-
-    it('processes txs until hitting timetable', async () => {
-      // We send enough txs so they are spread across multiple blocks, but not
-      // so many so that we don't end up hitting a reorg or timing out the tx wait().
-      const TX_COUNT = 16;
-
-      const ownerAddress = owner.getCompleteAddress().address;
-      const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
-      logger.info(`Deployed stateful test contract at ${contract.address}`);
-
-      // We have to set minTxsPerBlock to 1 or we could end with dangling txs.
-      // We also set enforceTimetable so the deadline makes sense, otherwise we may be starting the
-      // block too late into the slot, and start processing when the deadline has already passed.
-      logger.info(`Updating aztec node config`);
-      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
-
-      // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
-      const archiver = (aztecNode as AztecNodeService).getContractDataSource();
-      sequencer.sequencer.publicProcessorFactory = new TestPublicProcessorFactory(archiver, dateProvider!);
-
-      // We also cheat the sequencer's timetable so it allocates little time to processing.
-      // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
-      // be able to squeeze in more than a few txs in each. This is sensitive to the time it takes
-      // to pick up and validate the txs, so we may need to bump it to work on CI.
-      jest
-        .spyOn(sequencer.sequencer.timetable, 'getBlockProposalExecTimeEnd')
-        .mockImplementation((secondsIntoSlot: number) => secondsIntoSlot + 1);
-
-      // Flood the mempool with TX_COUNT simultaneous txs
-      const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
-      const provenTxs = await asyncMap(methods, method => method.prove());
-      logger.info(`Sending ${TX_COUNT} txs to the node`);
-      const txs = await Promise.all(provenTxs.map(tx => tx.send()));
-      logger.info(`All ${TX_COUNT} txs have been sent`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
-
-      // We forcefully mine a block to make the L1 timestamp move and sync to it, otherwise the sequencer will
-      // stay continuously trying to build a block for the same slot, even if the time for it has passed.
-      // Keep in mind the anvil test watcher only moves the anvil blocks when there is a block mined.
-      // This is quite ugly, and took me a very long time to realize it was needed.
-      // Maybe we should change it? And have it always mine a block every 12s even if there is no activity?
-      const [timestamp] = await cheatCodes.rollup.advanceToNextSlot();
-      dateProvider!.setTime(Number(timestamp) * 1000);
-
-      // Await txs to be mined and assert they are mined across multiple different blocks.
-      const receipts = await Promise.all(txs.map(tx => tx.wait()));
-      const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
-      logger.info(`Txs mined on blocks: ${unique(blockNumbers)}`);
-      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThan(1);
     });
 
     it.skip('can call public function from different tx in same block as deployed', async () => {

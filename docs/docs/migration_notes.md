@@ -7,6 +7,17 @@ tags: [migration, updating, sandbox]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+## [Aztec.nr] Modified `get_log_by_tag` function
+
+`get_log_by_tag` function has been renamed to `get_public_log_by_tag` and now it accepts contract address along with a tag as input and it only returns public logs:
+
+```diff
+- let maybe_log = get_log_by_tag(pending_partial_note.note_completion_log_tag);
++ let maybe_log = get_public_log_by_tag(pending_partial_note.note_completion_log_tag, contract_address);
+```
+
 ## 0.87.0
 
 ## [Aztec.js/TS libraries]

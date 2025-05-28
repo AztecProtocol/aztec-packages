@@ -43,7 +43,7 @@ import {
   Epoch,
   Timestamp,
   Errors,
-  Signature,
+  CommitteeAttestation,
   ExtRollupLib,
   EthValue,
   STFLib,
@@ -94,7 +94,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *          without having to deal with viem or anvil for simulating timestamps in the future.
    *
    * @param _header - The header to validate
-   * @param _signatures - The signatures to validate
+   * @param _attestations - The attestations to validate
    * @param _digest - The digest to validate
    * @param _currentTime - The current time
    * @param _blobsHash - The blobs hash for this block
@@ -102,7 +102,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function validateHeader(
     bytes calldata _header,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
     Timestamp _currentTime,
     bytes32 _blobsHash,
@@ -111,7 +111,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     ProposeLib.validateHeader(
       ValidateHeaderArgs({
         header: HeaderLib.decode(_header),
-        attestations: _signatures,
+        attestations: _attestations,
         digest: _digest,
         currentTime: _currentTime,
         manaBaseFee: getManaBaseFeeAt(_currentTime, true),
@@ -146,6 +146,22 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     returns (address[] memory)
   {
     return getEpochCommittee(getEpochAt(_ts));
+  }
+
+  /**
+   * @notice Get the committee commitment a the given timestamp
+   *
+   * @param _ts - The timestamp to get the committee for
+   *
+   * @return The committee commitment for the given timestamp
+   * @return The committee size for the given timestamp
+   */
+  function getCommitteeCommitmentAt(Timestamp _ts)
+    external
+    override(IValidatorSelection)
+    returns (bytes32, uint256)
+  {
+    return ValidatorSelectionLib.getCommitteeCommitmentAt(getEpochAt(_ts));
   }
 
   /**
@@ -186,14 +202,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
-    Signature[] memory sigs = new Signature[](0);
-
-    ValidatorSelectionLib.verify(
-      slot,
-      slot.epochFromSlot(),
-      sigs,
-      _archive,
-      BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
+    Epoch epochNumber = slot.epochFromSlot();
+    address proposer = ValidatorSelectionLib.getProposerAt(slot, epochNumber);
+    require(
+      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
     );
 
     return (slot, pendingBlockNumber + 1);

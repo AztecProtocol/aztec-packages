@@ -78,6 +78,7 @@ library Errors {
   error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
   error Rollup__ManaLimitExceeded();
+  error Rollup__RewardsNotClaimable();
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -99,9 +100,8 @@ library Errors {
   error ValidatorSelection__InvalidProposer(address expected, address actual); // 0xa8843a68
   error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
-  error ValidatorSelection__InsufficientAttestationsProvided(
-    uint256 minimumNeeded, uint256 provided
-  ); // 0x4d4f66ac
+  error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0x10816cae
+  error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual);
 
   // Staking
   error Staking__AlreadyActive(address attester); // 0x5e206fa4
@@ -123,6 +123,7 @@ library Errors {
   error Staking__RollupAlreadyRegistered(address); // 0x108a39c8
   error Staking__InvalidRollupAddress(address); // 0xd876720e
   error Staking__NotCanonical(address); // 0x6244212e
+  error Staking__InvalidProposer();
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe

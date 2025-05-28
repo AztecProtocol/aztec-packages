@@ -23,7 +23,7 @@ import { promises as fs } from 'fs';
 // TODO(#12613) This means of sharing test code is not ideal.
 // eslint-disable-next-line import/no-relative-packages
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { buildBlock } from '../block_builder/light.js';
+import { buildBlockWithCleanDB } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { TestBroker } from '../test/mock_prover.js';
@@ -197,7 +197,7 @@ export class TestContext {
     );
     await this.setTreeRoots(txs);
 
-    const block = await buildBlock(txs, globalVariables, msgs, db);
+    const block = await buildBlockWithCleanDB(txs, globalVariables, msgs, db);
     this.headers.set(blockNum, block.header);
     await this.worldState.handleL2BlockAndMessages(block, msgs);
     return { block, txs, msgs };

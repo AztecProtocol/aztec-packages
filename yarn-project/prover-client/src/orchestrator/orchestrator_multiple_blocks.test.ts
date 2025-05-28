@@ -1,5 +1,6 @@
 import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { timesAsync } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -10,6 +11,9 @@ const LONG_TIMEOUT = 600_000;
 
 describe('prover/orchestrator/multi-block', () => {
   let context: TestContext;
+
+  const countProposedBlocks = (proposedBlockHeaderHashes: Fr[]) =>
+    proposedBlockHeaderHashes.findIndex(h => h.isEmpty());
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
@@ -43,7 +47,7 @@ describe('prover/orchestrator/multi-block', () => {
 
       logger.info('Finalising epoch');
       const epoch = await context.orchestrator.finaliseEpoch();
-      expect(epoch.publicInputs.endBlockNumber.toNumber()).toEqual(numBlocks);
+      expect(countProposedBlocks(epoch.publicInputs.proposedBlockHeaderHashes)).toEqual(numBlocks);
       expect(epoch.proof).toBeDefined();
     });
 
@@ -72,7 +76,7 @@ describe('prover/orchestrator/multi-block', () => {
 
         logger.info('Finalising epoch');
         const epoch = await context.orchestrator.finaliseEpoch();
-        expect(epoch.publicInputs.endBlockNumber.toNumber()).toEqual(numBlocks);
+        expect(countProposedBlocks(epoch.publicInputs.proposedBlockHeaderHashes)).toEqual(numBlocks);
         expect(epoch.proof).toBeDefined();
       },
       LONG_TIMEOUT,
@@ -103,7 +107,7 @@ describe('prover/orchestrator/multi-block', () => {
 
         logger.info('Finalising epoch');
         const epoch = await context.orchestrator.finaliseEpoch();
-        expect(epoch.publicInputs.endBlockNumber.toNumber()).toEqual(numBlocks);
+        expect(countProposedBlocks(epoch.publicInputs.proposedBlockHeaderHashes)).toEqual(numBlocks);
         expect(epoch.proof).toBeDefined();
       },
       LONG_TIMEOUT,
@@ -145,7 +149,11 @@ describe('prover/orchestrator/multi-block', () => {
 
           logger.info('Finalising epoch');
           const epoch = await context.orchestrator.finaliseEpoch();
-          expect(epoch.publicInputs.endBlockNumber.toNumber()).toEqual(numBlocks + epochIndex * numBlocks);
+          const numProposedBlocks = countProposedBlocks(epoch.publicInputs.proposedBlockHeaderHashes);
+          expect(numProposedBlocks).toEqual(numBlocks);
+          expect(epoch.publicInputs.proposedBlockHeaderHashes.slice(0, numProposedBlocks)).toEqual(
+            blockInEpoch.map(b => b.block.header.toPropose().hash()),
+          );
           expect(epoch.proof).toBeDefined();
         }
       },
