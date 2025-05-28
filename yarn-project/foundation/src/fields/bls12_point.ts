@@ -36,7 +36,7 @@ export class BLS12Point {
      */
     public readonly isInfinite: boolean,
   ) {
-    if (!this.isOnCurve()) {
+    if (!BLS12Point.isOnCurve(x, y)) {
       throw new BLSPointNotOnCurveError(x, y);
     }
     if (isInfinite && !(x.equals(BLS12Fq.ZERO) && y.equals(BLS12Fq.ZERO))) {
@@ -313,16 +313,6 @@ export class BLS12Point {
    */
   public get inf() {
     return this.isInfinite;
-  }
-
-  /**
-   * Check whether the point exists on BLS12-381.
-   */
-  isOnCurve() {
-    if (this.inf) {
-      return true;
-    }
-    return BLS12Point.isOnCurve(this.x, this.y);
   }
 
   /** Arithmetic - wrapper around noble curves */
