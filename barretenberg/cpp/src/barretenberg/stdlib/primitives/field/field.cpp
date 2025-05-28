@@ -142,13 +142,10 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
         // which leads to the constraint
         //       a.v * q_l + b.v * q_r + result.v * q_o + q_c = 0,
         // where q_l, q_r, q_0, and q_c are the selectors storing corresponding scaling factors.
-        bb::fr a = ctx->get_variable(witness_index);
-        bb::fr b = ctx->get_variable(other.witness_index);
-        bb::fr result_value;
-        result_value = a * multiplicative_constant;
-        // Multiply witness `b` by its multiplicative constant, this does not create extra gates.
-        bb::fr T0 = b * other.multiplicative_constant;
-        result_value += T0;
+        bb::fr left = ctx->get_variable(witness_index);        // =: a.v
+        bb::fr right = ctx->get_variable(other.witness_index); // =: b.v
+        bb::fr result_value = left * multiplicative_constant;
+        result_value += right * other.multiplicative_constant;
         result_value += additive_constant;
         result_value += other.additive_constant;
         result.witness_index = ctx->add_variable(result_value);
@@ -245,17 +242,17 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         q_l = multiplicative_constant * other.additive_constant;
         q_m = multiplicative_constant * other.multiplicative_constant;
 
-        bb::fr a = context->get_variable(witness_index);
-        bb::fr b = context->get_variable(other.witness_index);
+        bb::fr left = context->get_variable(witness_index);        // =: a.v
+        bb::fr right = context->get_variable(other.witness_index); // =: b.v
         bb::fr result_value;
 
-        result_value = a * b;
+        result_value = left * right;
         result_value *= q_m;
-        // Scale witness `b` by constant `a_mul * b_add`
-        T0 = a * q_l;
+        // Scale `b.v` by the constant `a_mul * b_add`
+        T0 = left * q_l;
         result_value += T0;
-        // Scale witness `a` by constant `a_add * b_mul`
-        T0 = b * q_r;
+        // Scale `a.v` by the constant `a_add * b_mul`
+        T0 = right * q_r;
         result_value += T0;
         result_value += q_c;
         result.witness_index = ctx->add_variable(result_value);
