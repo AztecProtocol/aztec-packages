@@ -21,7 +21,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 {
     using FF = typename Flavor::FF;
 
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
     transcript->enable_manifest(); // Enable manifest for the verifier.
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
@@ -75,6 +75,14 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 
     DeciderVerifier decider_verifier{ verification_key, transcript };
     auto decider_output = decider_verifier.verify();
+    if (!decider_output.sumcheck_verified) {
+        info("Sumcheck failed!");
+        return false;
+    }
+    if (!decider_output.libra_evals_verified) {
+        info("Libra evals failed!");
+        return false;
+    }
 
     // Extract nested pairing points from the proof
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Handle pairing points in keccak flavors.

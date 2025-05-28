@@ -387,10 +387,13 @@ async function setupFromFresh(
     logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
   }
 
+  const dateProvider = new TestDateProvider();
+
   const watcher = new AnvilTestWatcher(
     new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.l1Client,
+    dateProvider,
   );
   await watcher.start();
 
@@ -423,7 +426,6 @@ async function setupFromFresh(
   await blobSink.start();
 
   logger.verbose('Creating and synching an aztec node...');
-  const dateProvider = new TestDateProvider();
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
     { telemetry, dateProvider },
@@ -523,15 +525,16 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   logger.verbose('Creating ETH clients...');
   const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, mnemonicToAccount(MNEMONIC));
 
+  const dateProvider = new TestDateProvider();
   const watcher = new AnvilTestWatcher(
     new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     aztecNodeConfig.l1Contracts.rollupAddress,
     l1Client,
+    dateProvider,
   );
   await watcher.start();
 
   const telemetry = initTelemetryClient(getTelemetryConfig());
-  const dateProvider = new TestDateProvider();
   const blobSink = await createBlobSinkServer(
     {
       l1ChainId: aztecNodeConfig.l1ChainId,

@@ -57,13 +57,11 @@ export function createTxForPublicCalls(
   // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
   forPublic.nonRevertibleAccumulatedData.nullifiers[0] = firstNullifier;
 
-  // We reverse order because the simulator expects it to be like a "stack" of calls to pop from
-  for (let i = setupCallRequests.length - 1; i >= 0; i--) {
-    forPublic.nonRevertibleAccumulatedData.publicCallRequests[setupCallRequests.length - i - 1] =
-      setupCallRequests[i].request;
+  for (let i = 0; i < setupCallRequests.length; i++) {
+    forPublic.nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i].request;
   }
-  for (let i = appCallRequests.length - 1; i >= 0; i--) {
-    forPublic.revertibleAccumulatedData.publicCallRequests[appCallRequests.length - i - 1] = appCallRequests[i].request;
+  for (let i = 0; i < appCallRequests.length; i++) {
+    forPublic.revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i].request;
   }
   if (teardownCallRequest) {
     forPublic.publicTeardownCallRequest = teardownCallRequest.request;
@@ -129,10 +127,10 @@ export async function addNewContractClassToTx(
   ];
   const contractAddress = new AztecAddress(new Fr(REGISTERER_CONTRACT_ADDRESS));
   const emittedLength = contractClassLogFields.length;
-  const log = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
+  const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
 
   const contractClassLogHash = LogHash.from({
-    value: await log.hash(),
+    value: await logFields.hash(),
     length: emittedLength,
   }).scope(contractAddress);
 
@@ -145,7 +143,7 @@ export async function addNewContractClassToTx(
   const nextLogIndex = countAccumulatedItems(accumulatedData.contractClassLogsHashes);
   accumulatedData.contractClassLogsHashes[nextLogIndex] = contractClassLogHash;
 
-  tx.contractClassLogs.push(log);
+  tx.contractClassLogFields.push(logFields);
 }
 
 export async function addNewContractInstanceToTx(

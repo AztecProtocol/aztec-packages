@@ -1,9 +1,9 @@
 {
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "release-type": "simple",
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": true,
-  "prerelease": true,
-  "group-pull-request-title-pattern": "chore(master): Release ${version}",
+  "group-pull-request-title-pattern": "chore: Release ${version}",
   "pull-request-header": ":robot: I have created a new Aztec Packages release",
   "versioning": "default",
   "include-component-in-tag": false,

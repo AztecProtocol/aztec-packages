@@ -15,7 +15,7 @@ import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelectio
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {CheatLib} from "@aztec/core/libraries/rollup/CheatLib.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
@@ -63,6 +63,9 @@ contract RollupCore is
 
   // @note  Always true, exists to override to false for testing only
   bool public checkBlob = true;
+
+  // @note  This is only a temporary and should be too deeply ingrained into the rollup library
+  bool public isRewardsClaimable = false;
 
   constructor(
     IERC20 _feeAsset,
@@ -140,6 +143,15 @@ contract RollupCore is
   /*                          CHEAT CODES END HERE                              */
   /* -------------------------------------------------------------------------- */
 
+  function setRewardsClaimable(bool _isRewardsClaimable) external override(IRollupCore) onlyOwner {
+    isRewardsClaimable = _isRewardsClaimable;
+    emit RewardsClaimableUpdated(_isRewardsClaimable);
+  }
+
+  function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
+    StakingLib.setSlasher(_slasher);
+  }
+
   function setProvingCostPerMana(EthValue _provingCostPerMana)
     external
     override(IRollupCore)
@@ -153,6 +165,7 @@ contract RollupCore is
     override(IRollupCore)
     returns (uint256)
   {
+    require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
     return RewardLib.claimSequencerRewards(_recipient);
   }
 
@@ -161,6 +174,7 @@ contract RollupCore is
     override(IRollupCore)
     returns (uint256)
   {
+    require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
     return RewardLib.claimProverRewards(_recipient, _epochs);
   }
 
@@ -201,10 +215,10 @@ contract RollupCore is
 
   function propose(
     ProposeArgs calldata _args,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    ExtRollupLib.propose(_args, _signatures, _blobInput, checkBlob);
+    ExtRollupLib.propose(_args, _attestations, _blobInput, checkBlob);
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {

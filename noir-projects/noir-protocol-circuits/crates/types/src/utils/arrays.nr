@@ -4,8 +4,10 @@ pub mod assert_combined_array;
 pub mod assert_combined_transformed_array;
 pub mod assert_exposed_sorted_transformed_value_array;
 pub mod assert_sorted_array;
+pub mod assert_sorted_transformed_padded_array;
 pub mod assert_sorted_transformed_value_array;
 pub mod assert_split_sorted_transformed_value_arrays;
+pub mod assert_split_transformed_padded_arrays;
 pub mod assert_split_transformed_value_arrays;
 pub mod get_sorted_result;
 pub mod get_sorted_tuple;
@@ -24,20 +26,20 @@ pub use assert_combined_transformed_array::{
 };
 pub use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
-    get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint},
+    get_order_hints::{get_order_hints_asc, OrderHint},
 };
 pub use assert_sorted_array::assert_sorted_array;
-pub use assert_sorted_transformed_value_array::{
-    assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size,
+pub use assert_sorted_transformed_padded_array::{
+    assert_sorted_transformed_i_padded_array_capped_size,
+    assert_sorted_transformed_padded_array_capped_size, validate_padded_items,
 };
 pub use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc,
-    assert_split_sorted_transformed_value_arrays_desc,
-    get_split_order_hints::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints},
+    get_split_order_hints::{get_split_order_hints_asc, SplitOrderHints},
 };
-pub use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
+pub use assert_split_transformed_padded_arrays::assert_split_transformed_padded_arrays;
 pub use get_sorted_result::{get_sorted_result, SortedResult};
-pub use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
+pub use sort_by_counter::sort_by_counter_asc;
 
 use crate::traits::{Empty, is_empty};
 

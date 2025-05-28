@@ -55,10 +55,6 @@ tests:
     skip: true
     owners:
       - *tom
-  - regex: "tests::execution_success::test_ram_blowup_regression"
-    error_regex: "assertion `left == right` failed"
-    owners:
-      - *tom
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -106,6 +102,10 @@ tests:
     error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
     owners:
       - *sean
+  - regex: "src/e2e_p2p/reqresp"
+    error_regex: 'CodeError: writable end state is "writing" not "ready"'
+    owners:
+      - *sean
   - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
@@ -141,6 +141,10 @@ tests:
       - *lasse
   - regex: "src/e2e_epochs/epochs_l1_reorgs"
     error_regex: "updates L1 to L2 messages changed due to an L1 reorg"
+    owners:
+      - *lasse
+  - regex: "src/e2e_epochs/epochs_empty_blocks"
+    error_regex: "✕ successfully proves multiple epochs"
     owners:
       - *lasse
   - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
@@ -179,6 +183,10 @@ tests:
       - *sean
   - regex: "p2p/src/client/p2p_client.test.ts"
     error_regex: "Exceeded timeout of 120000"
+    owners:
+      - *sean
+  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    error_regex: "CodeError: writable end state is .writing. not .ready."
     owners:
       - *sean
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"

@@ -8,6 +8,7 @@ import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
 interface IGovernanceProposer {
   event VoteCast(IPayload indexed proposal, uint256 indexed round, address indexed voter);
+  event ProposalExecutable(IPayload indexed proposal, uint256 indexed round);
   event ProposalExecuted(IPayload indexed proposal, uint256 indexed round);
 
   function vote(IPayload _proposal) external returns (bool);

@@ -1,6 +1,5 @@
-use crate::abis::{
-    block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
-    previous_rollup_block_data::PreviousRollupBlockData,
+use crate::abis::block_root_or_block_merge_public_inputs::{
+    BlockRootOrBlockMergePublicInputs, FeeRecipient,
 };
 use super::abis::tx_effect::TxEffect;
 use dep::types::{
@@ -18,7 +17,7 @@ use dep::types::{
         PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX,
         REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
     },
-    hash::{accumulate_sha256, compute_contract_class_log_hash},
+    hash::compute_contract_class_log_hash,
     merkle_tree::VariableMerkleTree,
     traits::{Empty, ToField},
     utils::arrays::{array_length, array_length_until, array_merge, array_padded_with},
@@ -82,12 +81,6 @@ pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
 ) -> [FeeRecipient; AZTEC_MAX_EPOCH_DURATION] {
-    let left_len = array_length(left.fees);
-    let right_len = array_length(right.fees);
-    assert(
-        left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
-        "too many fee payment structs accumulated in rollup",
-    );
     // TODO(Miranda): combine fees with same recipient depending on rollup structure
     // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
     // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
@@ -102,11 +95,6 @@ pub fn accumulate_blob_public_inputs(
     right: BlockRootOrBlockMergePublicInputs,
 ) -> [BlockBlobPublicInputs; AZTEC_MAX_EPOCH_DURATION] {
     let left_len = array_length(left.blob_public_inputs);
-    let right_len = array_length(right.blob_public_inputs);
-    assert(
-        left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
-        "too many blob public input structs accumulated in rollup",
-    );
     // NB: The below is cheaper than array_merge because assigning BlockBlobPublicInputs is cheaper than calling .equals
     let mut add_from_left = true;
     let mut result = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
@@ -121,17 +109,6 @@ pub fn accumulate_blob_public_inputs(
     result
 }
 
-pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
-    if previous_rollup_data[1].block_root_or_block_merge_public_inputs.is_padding() {
-        previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash
-    } else {
-        accumulate_sha256([
-            previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
-            previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash,
-        ])
-    }
-}
-
 pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]) -> Field {
     let non_empty_items = array_length(l2_to_l1_msgs);
     let merkle_tree = VariableMerkleTree::new_sha(l2_to_l1_msgs, non_empty_items);
@@ -140,7 +117,7 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
 
 pub fn validate_contract_class_log(
     log_hash: Scoped<LogHash>,
-    log_preimage: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS],
+    log_fields: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS],
 ) {
     // Validate length.
     // Ensure that all fields after the actual length are zero.
@@ -149,7 +126,7 @@ pub fn validate_contract_class_log(
     // This mismatch would make it impossible to verify the contract class later,
     // because the correct hash could no longer be recomputed from the emitted data.
     assert(
-        array_padded_with(log_preimage, log_hash.inner.length, 0),
+        array_padded_with(log_fields, log_hash.inner.length, 0),
         "incorrect contract class log length",
     );
 
@@ -157,7 +134,7 @@ pub fn validate_contract_class_log(
     let expected_hash = if log_hash.inner.length == 0 {
         0
     } else {
-        compute_contract_class_log_hash(log_preimage)
+        compute_contract_class_log_hash(log_fields)
     };
     assert_eq(log_hash.inner.value, expected_hash, "mismatched contract class log hash");
 }

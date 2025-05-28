@@ -10,8 +10,6 @@ import {
   FeeAssetHandlerBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
-  ForwarderAbi,
-  ForwarderBytecode,
   GSEAbi,
   GSEBytecode,
   GovernanceAbi,

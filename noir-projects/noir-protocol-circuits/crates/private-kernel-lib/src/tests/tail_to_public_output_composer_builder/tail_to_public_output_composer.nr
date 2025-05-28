@@ -2,9 +2,9 @@ use crate::tests::tail_to_public_output_composer_builder::TailToPublicOutputComp
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS,
-        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        AVM_L2_GAS_PER_NOTE_HASH_WRITE, AVM_L2_GAS_PER_NULLIFIER_WRITE, DA_BYTES_PER_FIELD,
+        DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG,
+        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_PRIVATE_LOG,
     },
     tests::utils::{assert_array_eq, swap_items},
 };
@@ -125,11 +125,11 @@ fn tail_to_public_output_composer_succeeds() {
     let public_call_requests = data.public_call_requests;
     assert_array_eq(
         output.non_revertible_accumulated_data.public_call_requests,
-        [public_call_requests[1], public_call_requests[0]],
+        [public_call_requests[0], public_call_requests[1]],
     );
     assert_array_eq(
         output.revertible_accumulated_data.public_call_requests,
-        [public_call_requests[4], public_call_requests[3], public_call_requests[2]],
+        [public_call_requests[2], public_call_requests[3], public_call_requests[4]],
     );
 
     // Compute gas.
@@ -157,8 +157,8 @@ fn tail_to_public_output_composer_succeeds() {
     ;
     let computed_da_gas = num_da_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 
-    let computed_l2_gas = num_note_hashes * L2_GAS_PER_NOTE_HASH
-        + num_nullifiers * L2_GAS_PER_NULLIFIER
+    let computed_l2_gas = num_note_hashes * AVM_L2_GAS_PER_NOTE_HASH_WRITE
+        + num_nullifiers * AVM_L2_GAS_PER_NULLIFIER_WRITE
         + num_l2_to_l1_msgs * L2_GAS_PER_L2_TO_L1_MSG
         + num_private_logs * L2_GAS_PER_PRIVATE_LOG
         + num_contract_class_logs * L2_GAS_PER_CONTRACT_CLASS_LOG

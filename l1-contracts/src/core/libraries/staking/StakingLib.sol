@@ -66,6 +66,15 @@ library StakingLib {
     store.slasher = _slasher;
   }
 
+  function setSlasher(address _slasher) internal {
+    StakingStorage storage store = getStorage();
+
+    address oldSlasher = store.slasher;
+    store.slasher = _slasher;
+
+    emit IStakingCore.SlasherUpdated(oldSlasher, _slasher);
+  }
+
   function finaliseWithdraw(address _attester) internal {
     StakingStorage storage store = getStorage();
     // We load it into memory to cache it, as we will delete it before we use it.

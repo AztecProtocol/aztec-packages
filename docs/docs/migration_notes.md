@@ -7,6 +7,17 @@ tags: [migration, updating, sandbox]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+## [Aztec.nr] Modified `get_log_by_tag` function
+
+`get_log_by_tag` function has been renamed to `get_public_log_by_tag` and now it accepts contract address along with a tag as input and it only returns public logs:
+
+```diff
+- let maybe_log = get_log_by_tag(pending_partial_note.note_completion_log_tag);
++ let maybe_log = get_public_log_by_tag(pending_partial_note.note_completion_log_tag, contract_address);
+```
+
 ## 0.87.0
 
 ## [Aztec.js/TS libraries]
@@ -1667,7 +1678,7 @@ The biggest difference is related to "cancelling" an authwit. Since it is no lon
 
 There are also a few general changes to how authwits are generated, namely to more easily support the data required for a validity lookup now. Previously we could lookup the `message_hash` directly at the account contract, now we instead need to use the `inner_hash` and the contract of the consumer to figure out if it have already been emitted.
 
-A minor extension have been made to the authwit creations to make it easier to sign a specific a hash with a specific caller, e.g., the `inner_hash` can be provided as `{consumer, inner_hash}` to the `createAuthWit` where it previously needed to do a couple of manual steps to compute the outer hash. The `computeOuterAuthWitHash` have been amde internal and the `computeAuthWitMessageHash` can instead be used to compute the values similarly to other authwit computations.
+A minor extension have been made to the authwit creations to make it easier to sign a specific a hash with a specific caller, e.g., the `inner_hash` can be provided as `{consumer, inner_hash}` to the `createAuthWit` where it previously needed to do a couple of manual steps to compute the outer hash. The `computeOuterAuthWitHash` have been made internal and the `computeAuthWitMessageHash` can instead be used to compute the values similarly to other authwit computations.
 
 ```diff
 const innerHash = computeInnerAuthWitHash([Fr.ZERO, functionSelector.toField(), entrypointPackedArgs.hash]);

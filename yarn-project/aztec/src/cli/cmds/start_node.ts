@@ -193,7 +193,7 @@ export async function startNode(
       getPublicClient(nodeConfig!),
       nodeConfig.l1Contracts.registryAddress,
       signalHandlers,
-      config => node.setConfig(config),
+      async config => node.setConfig((await AztecNodeAdminApiSchema.setConfig.parameters().parseAsync([config]))[0]),
     );
   }
 

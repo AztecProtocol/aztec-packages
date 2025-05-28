@@ -14,7 +14,6 @@ import {Math} from "@oz/utils/math/Math.sol";
 contract MoveTest is StakingBase {
   GSE internal gse;
 
-  /// forge-config: default.isolate = true
   function test_MoveStakingSet() external {
     // This test "moves" the staking set for "canonical" as a new rollup is made canonical
     gse = staking.getGSE();
