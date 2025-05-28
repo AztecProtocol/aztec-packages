@@ -15,7 +15,6 @@ export class PublicLogWithTxData {
 
   toNoirSerialization(): (Fr | Fr[])[] {
     return [
-      // The log fields length is PUBLIC_LOG_PLAINTEXT_LEN.
       ...toBoundedVecSerialization(this.logPlaintext, PUBLIC_LOG_PLAINTEXT_LEN),
       this.txHash.hash,
       ...toBoundedVecSerialization(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
