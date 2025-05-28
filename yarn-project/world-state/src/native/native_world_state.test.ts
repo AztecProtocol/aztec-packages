@@ -711,6 +711,49 @@ describe('NativeWorldState', () => {
     });
   });
 
+  describe('Finding sibling paths', () => {
+    let block: L2Block;
+    let messages: Fr[];
+
+    it('retrieves leaf sibling paths', async () => {
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const numBlocks = 2;
+      const txsPerBlock = 2;
+      const noteHashes: Fr[] = [];
+      for (let i = 0; i < numBlocks; i++) {
+        const fork = await ws.fork();
+        ({ block, messages } = await mockBlock(1, txsPerBlock, fork));
+        noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
+        await fork.close();
+        await ws.handleL2BlockAndMessages(block, messages);
+      }
+
+      const leavesToRequest: Fr[] = [
+        noteHashes[0],
+        Fr.random(),
+        noteHashes[45],
+        noteHashes[89],
+        Fr.random(),
+        noteHashes[102],
+      ];
+      const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest);
+      const readOps = ws.getCommitted();
+      const expectedPaths = [
+        await readOps.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, indices[0]!),
+        undefined,
+        await readOps.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, indices[2]!),
+        await readOps.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, indices[3]!),
+        undefined,
+        await readOps.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, indices[5]!),
+      ];
+      const paths = await readOps.findSiblingPaths(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest);
+      expect(paths.length).toBe(expectedPaths.length);
+      for (let i = 0; i < paths.length; i++) {
+        expect(paths[i]).toEqual(expectedPaths[i]);
+      }
+    });
+  });
+
   describe('Block numbers for indices', () => {
     let block: L2Block;
     let messages: Fr[];
