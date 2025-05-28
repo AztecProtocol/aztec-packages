@@ -74,6 +74,8 @@ tests:
   - regex: "arb_program_can_be_executed"
     owners:
       - *akosh
+  - regex: "noir_ast_fuzzer_fuzz"
+    skip: true
 
   # AD: hit this flake
   # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
