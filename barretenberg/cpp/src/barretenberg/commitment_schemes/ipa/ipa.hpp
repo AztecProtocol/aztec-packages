@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
-#include "barretenberg/commitment_schemes/ipa/mock_transcript.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
@@ -443,8 +442,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                       auto& transcript)
         requires Curve::is_stdlib_type
     {
+        // Step 1.
+        // Receive polynomial_degree + 1 = d from the prover
     	Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_degree_plus_1");
-        info(poly_length_received_from_prover.is_constant());
         poly_length_received_from_prover.assert_equal(Fr(1UL<<log_poly_length));
 
         // Step 2.
@@ -589,8 +589,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                       auto& transcript)
         requires Curve::is_stdlib_type
     {
+        // Step 1.
+        // Receive polynomial_degree + 1 = d from the prover
         Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_degree_plus_1");
-        info(poly_length_received_from_prover.is_constant());
         poly_length_received_from_prover.assert_equal(Fr(1UL<<log_poly_length));
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator

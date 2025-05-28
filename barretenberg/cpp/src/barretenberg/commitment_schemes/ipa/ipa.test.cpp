@@ -1,5 +1,6 @@
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "./mock_transcript.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"

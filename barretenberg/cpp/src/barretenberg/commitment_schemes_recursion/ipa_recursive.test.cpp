@@ -172,7 +172,7 @@ TEST_F(IPARecursiveTests, RecursiveLarge)
 TEST_F(IPARecursiveTests, AccumulateSmall)
 {
     static constexpr size_t log_poly_length = 2;
-    test_recursive_ipa<log_poly_length>();
+    test_accumulation<log_poly_length>();
 }
 
 /**
@@ -182,7 +182,7 @@ TEST_F(IPARecursiveTests, AccumulateSmall)
 TEST_F(IPARecursiveTests, AccumulateMedium)
 {
     static constexpr size_t log_poly_length = 10;
-    test_recursive_ipa<log_poly_length>();
+    test_accumulation<log_poly_length>();
 }
 
 TEST_F(IPARecursiveTests, FullRecursiveVerifier)
