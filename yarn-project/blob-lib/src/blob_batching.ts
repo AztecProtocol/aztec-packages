@@ -3,13 +3,12 @@ import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Field, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
+// Importing directly from 'c-kzg' does not work:
 import cKzg from 'c-kzg';
 
 import { Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
 import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from './blob_batching_public_inputs.js';
 
-/* eslint-disable import/no-named-as-default-member */
 const { computeKzgProof, verifyKzgProof } = cKzg;
 
 /**

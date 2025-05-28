@@ -8,7 +8,7 @@ describe('BLS12Point', () => {
     it('always returns a valid point', () => {
       for (let i = 0; i < 100; ++i) {
         const point = BLS12Point.random();
-        expect(point.isOnCurve()).toEqual(true);
+        expect(BLS12Point.isOnCurve(point.x, point.y)).toEqual(true);
       }
     });
 

@@ -97,7 +97,7 @@ export abstract class BLS12Field {
   }
 
   isZero(): boolean {
-    return this.toBuffer().equals(Buffer.alloc(this.size()));
+    return this.toBigInt() === 0n;
   }
 
   isEmpty(): boolean {

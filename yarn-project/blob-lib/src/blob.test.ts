@@ -7,7 +7,7 @@ import type { Blob as BlobBuffer, Bytes48, KZGProof } from 'c-kzg';
 import { Blob } from './index.js';
 import { makeEncodedBlob } from './testing.js';
 
-// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
+// Importing directly from 'c-kzg' does not work:
 
 const {
   BYTES_PER_BLOB,
