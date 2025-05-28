@@ -38,6 +38,7 @@ members = [
     "contracts/test/benchmarking_contract",
     "contracts/test/child_contract",
     "contracts/test/counter_contract",
+    "contracts/test/event_only_contract",
     "contracts/test/import_test_contract",
     "contracts/test/invalid_account_contract",
     "contracts/test/no_constructor_contract",
