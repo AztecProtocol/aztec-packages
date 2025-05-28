@@ -13,6 +13,11 @@ contract PublicImmutableContract {
     }
 
     #[public]
+    fn initialize_value(value: pub Field) {
+        storage.immutable_value.initialize(value);
+    }
+
+    #[public]
     fn read_value() -> pub Field {
         // This should fail since immutable_value is not initialized yet
         storage.immutable_value.read()
