@@ -102,8 +102,8 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
             let log = maybe_log.unwrap();
 
             // Public fields are assumed to all be placed at the end of the packed representation, so we combine the
-            // private and public packed fields (i.e. the contents of the private message and public log sans the extra
-            // fields) to get the complete packed content.
+            // private and public packed fields (i.e. the contents of the private message and public log plaintext to get
+            // the complete packed content.
             let complete_packed_note = array::append(
                 pending_partial_note.packed_private_note_content,
                 log.log_plaintext,
