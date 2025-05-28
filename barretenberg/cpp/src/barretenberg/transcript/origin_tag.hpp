@@ -19,7 +19,7 @@
 #include <ostream>
 
 // Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
-// TODO: Re-enable this once the tag invariant is restored.
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1409): Re-enable this once the tag invariant is restored.
 #define DISABLE_FREE_WITNESS_CHECK
 
 #define STANDARD_TESTING_TAGS /*Tags reused in tests*/                                                                 \
