@@ -106,9 +106,10 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             out.y = y;
         }
         out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
+
+        // Mark the element as coming out of nowhere
         out.set_free_witness_tag();
         out.validate_on_curve();
-        // Mark the element as coming out of nowhere
         return out;
     }
 

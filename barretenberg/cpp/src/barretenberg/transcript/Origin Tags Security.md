@@ -1,13 +1,13 @@
 # Origin Tags Security Mechanism
 ## ⚠️ IMPORTANT DISCLAIMER
 
-**The Origin Tags security mechanism is currently DISABLED in all builds due to the `AZTEC_NO_ORIGIN_TAGS` flag.** This is because the current codebase contains numerous violations of the tag invariants throughout the system, so the mechanism will immediately discover violations everywhere.
+**The Origin Tags security mechanism is currently PARTIALLY DISABLED in debug builds.** Specifically, the free witness checks are disabled via the `DISABLE_FREE_WITNESS_CHECK` flag because the current codebase contains numerous violations of the tag invariants throughout the system. The core origin tag tracking and other security checks remain active in debug builds, but are completely disabled in release builds.
 
 
 
 ## Overview
 
-The Origin Tag mechanism is a security feature designed to track the provenance and usage of cryptographic values within zero-knowledge proof circuits. It operates through a "tainting" system that adds metadata to track where values originate and how they interact, enabling detection of potentially dangerous behaviors in-circuit. It specifically target common Fiat-Shamir vulnerabilities.
+The Origin Tag mechanism is a security feature designed to track the provenance and usage of cryptographic values within zero-knowledge proof circuits. It operates through a "tainting" system that adds metadata to track where values originate and how they interact, enabling detection of potentially dangerous behaviors in-circuit. It specifically targets common Fiat-Shamir vulnerabilities.
 
 ## Key Components
 
@@ -58,6 +58,7 @@ The origin tag mechanism is integrated into the transcript system at several key
 - Full origin tag tracking and validation
 - Runtime checks for security violations
 - Detailed error messages for debugging
+- Currently the free witness checks are disabled via the `DISABLE_FREE_WITNESS_CHECK` flag
 
 **Release Builds (`#else`)**:
 - Origin tag operations become no-ops for performance

@@ -16,6 +16,8 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include <concepts>
 
+#include <atomic>
+
 namespace bb {
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1226): univariates should also be logged
@@ -139,7 +141,9 @@ template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
 
 // A static counter for the number of transcripts created
 // This is used to generate unique labels for the transcript origin tags
-static std::atomic<size_t> unique_transcript_index = 0;
+
+// ‘inline’ (since C++17) ensures a single shared definition with external linkage.
+inline std::atomic<size_t> unique_transcript_index{ 0 };
 /**
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
@@ -172,6 +176,7 @@ template <typename TranscriptParams> class BaseTranscript {
     explicit BaseTranscript(const Proof& proof_data)
         : proof_data(proof_data.begin(), proof_data.end())
     {
+        // If we are in circuit, we need to get a unique index for the transcript
         if constexpr (in_circuit) {
             transcript_index = unique_transcript_index.fetch_add(1);
         }
