@@ -48,7 +48,7 @@ std::vector<ScopedL2ToL1Message> random_l2_to_l1_messages(size_t n)
                 L2ToL1Message{
                     .recipient = FF::random_element(),
                     .content = FF::random_element(),
-                    .counter = static_cast<uint32_t>(i),
+                    .counter = 0,
                 },
             .contractAddress = FF::random_element(),
         });

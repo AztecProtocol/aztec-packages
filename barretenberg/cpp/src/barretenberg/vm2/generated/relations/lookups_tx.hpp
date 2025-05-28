@@ -88,7 +88,7 @@ struct lookup_tx_read_phase_length_settings_ {
     static constexpr Column COUNTS = Column::lookup_tx_read_phase_length_counts;
     static constexpr Column INVERSES = Column::lookup_tx_read_phase_length_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_read_pi_length_offset, ColumnAndShifts::tx_remaining_phase_events
+        ColumnAndShifts::tx_read_pi_length_offset, ColumnAndShifts::tx_remaining_phase_counter
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
@@ -291,10 +291,10 @@ struct lookup_tx_read_l2_l1_msg_settings_ {
     static constexpr Column INVERSES = Column::lookup_tx_read_l2_l1_msg_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::tx_read_pi_offset,
-        ColumnAndShifts::tx_l2_l1_msg_contract_address,
         ColumnAndShifts::tx_l2_l1_msg_recipient,
         ColumnAndShifts::tx_l2_l1_msg_content,
-        ColumnAndShifts::tx_l2_l1_msg_counter
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::tx_l2_l1_msg_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk,
@@ -309,22 +309,22 @@ using lookup_tx_read_l2_l1_msg_settings = lookup_settings<lookup_tx_read_l2_l1_m
 template <typename FF_>
 using lookup_tx_read_l2_l1_msg_relation = lookup_relation_base<FF_, lookup_tx_read_l2_l1_msg_settings>;
 
-/////////////////// lookup_tx_write_msg ///////////////////
+/////////////////// lookup_tx_write_l2_l1_msg ///////////////////
 
-struct lookup_tx_write_msg_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_TX_WRITE_MSG";
+struct lookup_tx_write_l2_l1_msg_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_WRITE_L2_L1_MSG";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::tx_successful_msg_emit;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
-    static constexpr Column COUNTS = Column::lookup_tx_write_msg_counts;
-    static constexpr Column INVERSES = Column::lookup_tx_write_msg_inv;
+    static constexpr Column COUNTS = Column::lookup_tx_write_l2_l1_msg_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_write_l2_l1_msg_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::tx_write_pi_offset,
-        ColumnAndShifts::tx_l2_l1_msg_contract_address,
         ColumnAndShifts::tx_l2_l1_msg_recipient,
         ColumnAndShifts::tx_l2_l1_msg_content,
-        ColumnAndShifts::tx_l2_l1_msg_counter
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::tx_l2_l1_msg_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk,
@@ -335,7 +335,8 @@ struct lookup_tx_write_msg_settings_ {
     };
 };
 
-using lookup_tx_write_msg_settings = lookup_settings<lookup_tx_write_msg_settings_>;
-template <typename FF_> using lookup_tx_write_msg_relation = lookup_relation_base<FF_, lookup_tx_write_msg_settings>;
+using lookup_tx_write_l2_l1_msg_settings = lookup_settings<lookup_tx_write_l2_l1_msg_settings_>;
+template <typename FF_>
+using lookup_tx_write_l2_l1_msg_relation = lookup_relation_base<FF_, lookup_tx_write_l2_l1_msg_settings>;
 
 } // namespace bb::avm2

@@ -2,6 +2,12 @@ include "public_inputs.pil";
 include "execution.pil";
 include "precomputed.pil";
 
+
+// Things that are still underconstrained
+// 1) Context id and next context id: Continuity and incrementing for select phases
+// 2) Ending the tx trace at the Collect Gas Fee phase
+// 3) Tree States: Continuity and changes
+
 namespace tx;
 
     pol commit sel;
@@ -10,9 +16,10 @@ namespace tx;
     sel = 0;
 
     pol commit phase_value;
-    // is_active = 0 IFF remaining_phase == 0, i.e this is a padded phase row
-    pol commit is_active; // remaining_phase != 0;
-    is_active * (1 - is_active) = 0;
+    // is is_padded = 1, this is a padded row
+    pol commit is_padded;
+    is_padded * (1 - is_padded) = 0;
+
     pol commit start_phase;
     start_phase * (1 - start_phase) = 0;
     pol commit end_phase;
@@ -43,14 +50,24 @@ namespace tx;
     pol commit read_pi_length_offset; // index in public inputs to read lengths from
 
     pol commit remaining_phase_inv;
-    pol commit remaining_phase_events;
+    pol commit remaining_phase_counter;
+    pol commit remaining_phase_minus_one_inv;
+    // If remaining_phase_counter == 0, is_padded = 1
+    #[REM_COUNT_IS_ZERO]
+    sel * (remaining_phase_counter * (is_padded * (1 - remaining_phase_inv) + remaining_phase_inv) - 1 + is_padded) = 0;
+
+    pol REM_COUNT_MINUS_1 = remaining_phase_counter - 1;
+    // If remaining_phase_counter == 1, end_phase = 1
+    #[REM_COUNT_IS_ONE]
+    sel * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
     
     // This lookup extracts the start value of a new phase based on the precomputed table
-    // Start phase is guarded by is_active, so padding rows do not read from public inputs
+    // Start phase is guarded by is_padded, so padding rows do not read from public inputs
     pol commit read_phase_table_sel;
-    // if is_active = 0, read_phase_table_sel = 0
-    // We cannot re-use start_phase, because we still want to read the lengths to constrain remaining_phase_events = 0;
-    read_phase_table_sel = is_active * start_phase;
+    // if is_padded = 1, read_phase_table_sel = 0
+    // We cannot re-use start_phase, because we still want to read the lengths to constrain remaining_phase_counter = 0;
+    #[PRECOMP_READ_SELECTOR]
+    read_phase_table_sel = (1 - is_padded) * start_phase;
     #[READ_PHASE_TABLE]
     read_phase_table_sel { 
         phase_value, 
@@ -94,12 +111,12 @@ namespace tx;
     // === Phase Lengths === 
     // Read the number of steps in the phase from public inputs
     #[READ_PHASE_LENGTH]
-    start_phase { read_pi_length_offset, remaining_phase_events } in
+    start_phase { read_pi_length_offset, remaining_phase_counter } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     // Phase events decrement at each row
     #[DECR_REM_PHASE_EVENTS]
-    (1 - precomputed.first_row) * NOT_PHASE_END * (remaining_phase_events' - (remaining_phase_events - 1)) = 0;
+    (1 - precomputed.first_row) * NOT_PHASE_END * (remaining_phase_counter' - (remaining_phase_counter - 1)) = 0;
 
     // The read index increments at each row
     #[INCR_READ_PI_OFFSET]
@@ -282,17 +299,17 @@ namespace tx;
     pol commit l2_l1_msg_contract_address;
     pol commit l2_l1_msg_recipient;
     pol commit l2_l1_msg_content;
-    pol commit l2_l1_msg_counter;
+    pol commit num_l2_l1_msg_emitted;
 
     #[READ_L2_L1_MSG]
-    is_l2_l1_msg_phase { read_pi_offset, l2_l1_msg_contract_address, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_counter } in
+    is_l2_l1_msg_phase { read_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, /* l2_l1_counter=*/precomputed.zero, l2_l1_msg_contract_address } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2], public_inputs.cols[3] };
 
     pol commit successful_msg_emit;
     sel * ((1 - reverted) * is_l2_l1_msg_phase - successful_msg_emit) = 0;
 
-    #[WRITE_MSG]
-    successful_msg_emit { write_pi_offset, l2_l1_msg_contract_address, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_counter } in
+    #[WRITE_L2_L1_MSG]
+    successful_msg_emit { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, /* l2_l1_counter=*/precomputed.zero, l2_l1_msg_contract_address } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2], public_inputs.cols[3] };
 
     // Collect Gas
