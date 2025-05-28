@@ -19,7 +19,8 @@
 #include <ostream>
 
 // Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
-#define AZTEC_NO_ORIGIN_TAGS
+// TODO: Re-enable this once the tag invariant is restored.
+#define DISABLE_FREE_WITNESS_CHECK
 
 #define STANDARD_TESTING_TAGS /*Tags reused in tests*/                                                                 \
     const size_t parent_id = 0;                                                                                        \
@@ -143,9 +144,27 @@ struct OriginTag {
     void unpoison() { instant_death = false; }
     bool is_poisoned() const { return instant_death; }
     bool is_empty() const { return !instant_death && parent_tag == CONSTANT; };
+
+#ifndef DISABLE_FREE_WITNESS_CHECK
     bool is_free_witness() const { return parent_tag == FREE_WITNESS; }
-    void set_free_witness() { parent_tag = FREE_WITNESS; }
-    void unset_free_witness() { parent_tag = CONSTANT; }
+    void set_free_witness()
+    {
+        parent_tag = FREE_WITNESS;
+        child_tag = 0;
+    }
+    void unset_free_witness()
+    {
+        parent_tag = CONSTANT;
+        child_tag = numeric::uint256_t(0);
+    }
+
+// The checks are disabled by disallowing to set the free witness tag, because if they are set, it's very hard to make
+// the logic of checks work
+#else
+    bool is_free_witness() const { return false; }
+    void set_free_witness() {}
+    void unset_free_witness() {}
+#endif
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const& v)
 {

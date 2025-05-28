@@ -310,6 +310,8 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                 to_add.emplace_back(
                     fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(to_add_values[j]))));
 
+                // Since this test uses  create_from_u512_as_witness, the tags are set to free_witness_tag
+                // We need to unset them so that we can test the tag propagation logic without interference
                 mul_left[j].unset_free_witness_tag();
                 mul_right[j].unset_free_witness_tag();
                 to_add[j].unset_free_witness_tag();
