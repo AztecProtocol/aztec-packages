@@ -39,6 +39,7 @@ import type { NoteDataProvider } from '../storage/note_data_provider/note_data_p
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
+import { NotePendingValidation } from './message_processing/note_pending_validation.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
@@ -608,7 +609,33 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs);
   }
 
-  public async deliverNote(
+  public async validateEnqueuedNotes(
+    contractAddress: AztecAddress,
+    notePendingValidationArrayBaseSlot: Fr,
+  ): Promise<void> {
+    const notesPendingValidation = (
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, notePendingValidationArrayBaseSlot)
+    ).map(NotePendingValidation.fromFields);
+
+    await Promise.all(
+      notesPendingValidation.map(note =>
+        this.deliverNote(
+          note.contractAddress,
+          note.storageSlot,
+          note.nonce,
+          note.content,
+          note.noteHash,
+          note.nullifier,
+          note.txHash,
+          note.recipient,
+        ),
+      ),
+    );
+
+    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, notePendingValidationArrayBaseSlot, []);
+  }
+
+  async deliverNote(
     contractAddress: AztecAddress,
     storageSlot: Fr,
     nonce: Fr,
