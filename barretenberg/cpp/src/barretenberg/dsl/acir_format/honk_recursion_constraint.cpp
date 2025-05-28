@@ -56,34 +56,34 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
     uint32_t offset = 0;
     // First key field is circuit size
-    builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[offset++].witness_index);
+    builder.set_variable(key_fields[offset++].witness_index, 1 << log_circuit_size);
     // Second key field is number of public inputs
-    builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[offset++].witness_index);
+    builder.set_variable(key_fields[offset++].witness_index, public_inputs_size);
     // Third key field is the pub inputs offset
-    builder.assert_equal(builder.add_variable(NativeFlavor::has_zero_row ? 1 : 0), key_fields[offset++].witness_index);
+    uint32_t pub_inputs_offset = NativeFlavor::has_zero_row ? 1 : 0;
+    builder.set_variable(key_fields[offset++].witness_index, pub_inputs_offset);
     size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINTS_SIZE;
     if constexpr (HasIPAAccumulator<Flavor>) {
         num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
     }
 
     // We are making the assumption that the pairing point object is behind all the inner public inputs
-    builder.assert_equal(builder.add_variable(num_inner_public_inputs), key_fields[offset].witness_index);
+    builder.set_variable(key_fields[offset].witness_index, num_inner_public_inputs);
     offset++;
 
     if constexpr (HasIPAAccumulator<Flavor>) {
         // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
-        builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINTS_SIZE),
-                             key_fields[offset].witness_index);
+        builder.set_variable(key_fields[offset].witness_index, num_inner_public_inputs + PAIRING_POINTS_SIZE);
         offset++;
     }
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.assert_equal(builder.add_variable(frs[0]), key_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(frs[1]), key_fields[offset + 1].witness_index);
-        builder.assert_equal(builder.add_variable(frs[2]), key_fields[offset + 2].witness_index);
-        builder.assert_equal(builder.add_variable(frs[3]), key_fields[offset + 3].witness_index);
+        builder.set_variable(key_fields[offset].witness_index, frs[0]);
+        builder.set_variable(key_fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(key_fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(key_fields[offset + 3].witness_index, frs[3]);
         offset += 4;
     }
 
@@ -91,7 +91,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 
     // the inner public inputs
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
         offset++;
     }
 
@@ -99,7 +99,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     std::array<fr, PairingPoints<Builder>::PUBLIC_INPUTS_SIZE> dummy_pairing_points_values =
         PairingPoints<Builder>::construct_dummy();
     for (size_t i = 0; i < PairingPoints<Builder>::PUBLIC_INPUTS_SIZE; i++) {
-        builder.assert_equal(builder.add_variable(dummy_pairing_points_values[i]), proof_fields[offset].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, dummy_pairing_points_values[i]);
         offset++;
     }
 
@@ -107,7 +107,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1392): Don't use random elements here.
     if constexpr (HasIPAAccumulator<Flavor>) {
         for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
-            builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+            builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
             offset++;
         }
     }
@@ -116,23 +116,23 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
-        builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
-        builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
+        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
         offset += 4;
     }
 
     // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs, where 8 is the maximum relation
     // degree)
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
         offset++;
     }
 
     // now the sumcheck evaluations, which is just 44 0s
     for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
         offset++;
     }
 
@@ -140,16 +140,16 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
-        builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
-        builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
+        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
         offset += 4;
     }
 
     // the gemini fold evaluations which are also CONST_PROOF_SIZE_LOG_N
     for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
         offset++;
     }
 
@@ -157,39 +157,39 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     for (size_t i = 0; i < 2; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
-        builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
-        builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
+        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
         offset += 4;
     }
     // IPA Proof
     if constexpr (HasIPAAccumulator<Flavor>) {
         // Poly length
-        builder.assert_equal(builder.add_variable(1), proof_fields[offset].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, fr(1));
         offset++;
 
         // Ls and Rs
         for (size_t i = 0; i < static_cast<size_t>(2) * CONST_ECCVM_LOG_N; i++) {
             auto comm = curve::Grumpkin::AffineElement::one() * fq::random_element();
             auto frs = field_conversion::convert_to_bn254_frs(comm);
-            builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
-            builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
+            builder.set_variable(proof_fields[offset].witness_index, frs[0]);
+            builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
             offset += 2;
         }
 
         // G_zero
         auto G_zero = curve::Grumpkin::AffineElement::one() * fq::random_element();
         auto G_zero_frs = field_conversion::convert_to_bn254_frs(G_zero);
-        builder.assert_equal(builder.add_variable(G_zero_frs[0]), proof_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(G_zero_frs[1]), proof_fields[offset + 1].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, G_zero_frs[0]);
+        builder.set_variable(proof_fields[offset + 1].witness_index, G_zero_frs[1]);
         offset += 2;
 
         // a_zero
         auto a_zero = fq::random_element();
         auto a_zero_frs = field_conversion::convert_to_bn254_frs(a_zero);
-        builder.assert_equal(builder.add_variable(a_zero_frs[0]), proof_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(a_zero_frs[1]), proof_fields[offset + 1].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, a_zero_frs[0]);
+        builder.set_variable(proof_fields[offset + 1].witness_index, a_zero_frs[1]);
         offset += 2;
     }
     BB_ASSERT_EQ(offset, proof_size + public_inputs_size);

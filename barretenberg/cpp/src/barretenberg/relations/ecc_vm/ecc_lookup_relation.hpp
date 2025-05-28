@@ -161,15 +161,15 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         // | 6 |  3[P].x |  3[P].y
         // | 7 |  1[P].x |  1[P].y | 7, -[P].x, -[P].y | 8 , [P].x, [P].y |
 
-        const auto negative_term = precompute_pc + gamma + precompute_round * beta + tx * beta_sqr - ty * beta_cube;
-        const auto positive_slice_value = -(precompute_round) + 15;
-        const auto positive_term = precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube;
-
         // todo optimize this?
         if constexpr (write_index == 0) {
+            const auto positive_slice_value = -(precompute_round) + 15;
+            const auto positive_term =
+                precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube;
             return positive_term; // degree 1
         }
         if constexpr (write_index == 1) {
+            const auto negative_term = precompute_pc + gamma + precompute_round * beta + tx * beta_sqr - ty * beta_cube;
             return negative_term; // degree 1
         }
         return Accumulator(1);
@@ -210,21 +210,23 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         // value of current pc = msm_pc - msm_size_of_msm + msm_count + (0,1,2,3)
         const auto current_pc = msm_pc - msm_count;
 
-        const auto read_term1 = (current_pc) + gamma + msm_slice1 * beta + msm_x1 * beta_sqr + msm_y1 * beta_cube;
-        const auto read_term2 = (current_pc - 1) + gamma + msm_slice2 * beta + msm_x2 * beta_sqr + msm_y2 * beta_cube;
-        const auto read_term3 = (current_pc - 2) + gamma + msm_slice3 * beta + msm_x3 * beta_sqr + msm_y3 * beta_cube;
-        const auto read_term4 = (current_pc - 3) + gamma + msm_slice4 * beta + msm_x4 * beta_sqr + msm_y4 * beta_cube;
-
         if constexpr (read_index == 0) {
+            const auto read_term1 = (current_pc) + gamma + msm_slice1 * beta + msm_x1 * beta_sqr + msm_y1 * beta_cube;
             return read_term1; // degree 1
         }
         if constexpr (read_index == 1) {
+            const auto read_term2 =
+                (current_pc - 1) + gamma + msm_slice2 * beta + msm_x2 * beta_sqr + msm_y2 * beta_cube;
             return read_term2; // degree 1
         }
         if constexpr (read_index == 2) {
+            const auto read_term3 =
+                (current_pc - 2) + gamma + msm_slice3 * beta + msm_x3 * beta_sqr + msm_y3 * beta_cube;
             return read_term3; // degree 1
         }
         if constexpr (read_index == 3) {
+            const auto read_term4 =
+                (current_pc - 3) + gamma + msm_slice4 * beta + msm_x4 * beta_sqr + msm_y4 * beta_cube;
             return read_term4; // degree 1
         }
         return Accumulator(1);

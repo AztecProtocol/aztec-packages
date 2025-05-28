@@ -17,6 +17,8 @@ import type { ORACLE_NAMES } from './oracle/index.js';
  */
 export type ACIRCallback = Record<ORACLE_NAMES, (...args: ForeignCallInput[]) => Promise<ForeignCallOutput[]>>;
 
+export type ACIRCallbackStats = { times: number[] };
+
 /**
  * The result of executing an ACIR.
  */
@@ -28,6 +30,7 @@ export interface ACIRExecutionResult {
    */
   partialWitness: ACVMWitness;
   returnWitness: ACVMWitness;
+  oracles?: Record<string, ACIRCallbackStats>;
 }
 
 /**

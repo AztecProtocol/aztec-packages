@@ -64,7 +64,7 @@ type BaseTreeNames = 'NoteHashTree' | 'ContractTree' | 'NullifierTree' | 'Public
 export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 
 // Builds the hints for base rollup. Updating the contract, nullifier, and data trees in the process.
-export const buildBaseRollupHints = runInSpan(
+export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
   'BlockBuilderHelpers',
   'buildBaseRollupHints',
   async (
@@ -138,9 +138,9 @@ export const buildBaseRollupHints = runInSpan(
     const inputSpongeBlob = startSpongeBlob.clone();
     await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
-    const contractClassLogsPreimages = makeTuple(
+    const contractClassLogsFields = makeTuple(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
-      i => tx.txEffect.contractClassLogs[i]?.toUnsiloed().fields || ContractClassLogFields.empty(),
+      i => tx.txEffect.contractClassLogs[i]?.fields || ContractClassLogFields.empty(),
     );
 
     if (tx.avmProvingRequest) {
@@ -155,7 +155,7 @@ export const buildBaseRollupHints = runInSpan(
       return PublicBaseRollupHints.from({
         startSpongeBlob: inputSpongeBlob,
         archiveRootMembershipWitness,
-        contractClassLogsPreimages,
+        contractClassLogsFields,
         constants,
       });
     } else {
@@ -210,7 +210,7 @@ export const buildBaseRollupHints = runInSpan(
         stateDiffHints,
         feePayerFeeJuiceBalanceReadHint,
         archiveRootMembershipWitness,
-        contractClassLogsPreimages,
+        contractClassLogsFields,
         constants,
       });
     }

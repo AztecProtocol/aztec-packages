@@ -30,6 +30,7 @@ import {
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type ArchiverEmitter,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
@@ -88,7 +89,7 @@ export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & 
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
+export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implements ArchiveSource, Traceable {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
    */
@@ -623,6 +624,15 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
           await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
           this.log.info(`Updated proven chain to block ${provenBlockNumber}`, {
             provenBlockNumber,
+          });
+          const provenSlotNumber =
+            localBlockForDestinationProvenBlockNumber.header.globalVariables.slotNumber.toBigInt();
+          const provenEpochNumber = getEpochAtSlot(provenSlotNumber, this.l1constants);
+          this.emit(L2BlockSourceEvents.L2BlockProven, {
+            type: L2BlockSourceEvents.L2BlockProven,
+            blockNumber: provenBlockNumber,
+            slotNumber: provenSlotNumber,
+            epochNumber: provenEpochNumber,
           });
         } else {
           this.log.trace(`Proven block ${provenBlockNumber} already stored.`);
