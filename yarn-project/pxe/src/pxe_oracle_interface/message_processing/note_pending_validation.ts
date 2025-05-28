@@ -28,8 +28,8 @@ export class NotePendingValidation {
     const storageSlot = reader.readField();
     const nonce = reader.readField();
 
-    const contentLen = reader.readField().toNumber();
     const contentStorage = reader.readFieldArray(MAX_NOTE_PACKED_LEN);
+    const contentLen = reader.readField().toNumber();
     const content = contentStorage.slice(0, contentLen);
 
     const noteHash = reader.readField();
