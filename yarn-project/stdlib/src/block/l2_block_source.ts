@@ -1,6 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { TypedEventEmitter } from '@aztec/foundation/types';
 
-import type { EventEmitter } from 'events';
 import { z } from 'zod';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
@@ -127,7 +127,12 @@ export interface L2BlockSource {
  * L2BlockSource that emits events upon pending / proven chain changes.
  * see L2BlockSourceEvents for the events emitted.
  */
-export interface L2BlockSourceEventEmitter extends L2BlockSource, EventEmitter {}
+
+export type ArchiverEmitter = TypedEventEmitter<{
+  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockSourceEvent) => void;
+  [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockSourceEvent) => void;
+}>;
+export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitter {}
 
 /**
  * Identifier for L2 block tags.
@@ -171,10 +176,11 @@ export const L2TipsSchema = z.object({
 
 export enum L2BlockSourceEvents {
   L2PruneDetected = 'l2PruneDetected',
+  L2BlockProven = 'l2BlockProven',
 }
 
 export type L2BlockSourceEvent = {
-  type: 'l2PruneDetected';
+  type: 'l2PruneDetected' | 'l2BlockProven';
   blockNumber: bigint;
   slotNumber: bigint;
   epochNumber: bigint;

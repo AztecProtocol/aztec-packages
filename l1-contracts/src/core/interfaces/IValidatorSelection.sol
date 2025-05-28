@@ -4,21 +4,10 @@ pragma solidity >=0.8.27;
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
-/**
- * @notice  The data structure for an epoch
- * @param committee - The attesters for the epoch
- * @param sampleSeed - The seed used to sample the attesters of the epoch
- * @param nextSeed - The seed used to influence the NEXT epoch
- */
-
-struct EpochData {
-  // TODO: remove in favor of commitment to comittee
-  address[] committee;
-}
 
 struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set
-  mapping(Epoch => EpochData) epochs;
+  mapping(Epoch => bytes32 committeeCommitment) committeeCommitments;
   // Checkpointed map of epoch -> sample seed
   Checkpoints.Trace224 seeds;
   uint256 targetCommitteeSize;
@@ -37,6 +26,7 @@ interface IValidatorSelection is IValidatorSelectionCore {
   // Non view as uses transient storage
   function getCurrentEpochCommittee() external returns (address[] memory);
   function getCommitteeAt(Timestamp _ts) external returns (address[] memory);
+  function getCommitteeCommitmentAt(Timestamp _ts) external returns (bytes32, uint256);
   function getEpochCommittee(Epoch _epoch) external returns (address[] memory);
 
   // Stable

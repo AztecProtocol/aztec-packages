@@ -12,6 +12,7 @@ import { GasSettings } from '@aztec/stdlib/gas';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
 export async function send(
   wallet: AccountWalletWithSecretKey,
@@ -57,7 +58,7 @@ export async function send(
   log(`\nTransaction hash: ${txHash.toString()}`);
   if (wait) {
     try {
-      await tx.wait();
+      await tx.wait({ timeout: DEFAULT_TX_TIMEOUT_S });
 
       log('Transaction has been mined');
 

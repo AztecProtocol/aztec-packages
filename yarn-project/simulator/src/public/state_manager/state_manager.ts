@@ -148,6 +148,10 @@ export class PublicPersistableStateManager {
     await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
   }
 
+  public isStorageCold(contractAddress: AztecAddress, slot: Fr): boolean {
+    return this.trace.isStorageCold(contractAddress, slot);
+  }
+
   /**
    * Read from public storage.
    *

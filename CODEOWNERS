@@ -35,3 +35,6 @@
 
 # Notify turtles of changes to L1-contracts
 /l1-contracts/src @LHerskind @Maddiaa0 @just-mitch
+
+# Notify the circuit team of changes to the protocol circuits
+/noir-projects/noir-protocol-circuits @LeilaWang
