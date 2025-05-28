@@ -9,7 +9,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
-import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
+import { type BlockBuilderFactory, buildBlockWithCleanDB } from '@aztec/prover-client/block-builder';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { SlasherClient } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -446,15 +446,11 @@ export class Sequencer {
 
     // NB: separating the dbs because both should update the state
     const publicProcessorDBFork = await this.worldState.fork();
-
-    const previousBlockHeader =
-      (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? publicProcessorDBFork.getInitialHeader();
+    const blockBuilderDBFork = await this.worldState.fork();
 
     try {
       const processor = this.publicProcessorFactory.create(publicProcessorDBFork, newGlobalVariables, true);
       const blockBuildingTimer = new Timer();
-      const blockBuilder = this.blockBuilderFactory.create(publicProcessorDBFork);
-      await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages, previousBlockHeader);
 
       // Deadline for processing depends on whether we're proposing a block
       const secondsIntoSlot = this.getSecondsIntoSlot(slot);
@@ -512,13 +508,10 @@ export class Sequencer {
       }
 
       const start = process.hrtime.bigint();
-      await blockBuilder.addTxs(processedTxs);
+      const block = await buildBlockWithCleanDB(processedTxs, newGlobalVariables, l1ToL2Messages, blockBuilderDBFork);
       const end = process.hrtime.bigint();
       const duration = Number(end - start) / 1_000;
       this.metrics.recordBlockBuilderTreeInsertions(duration);
-
-      // All real transactions have been added, set the block as full and pad if needed
-      const block = await blockBuilder.setBlockCompleted();
 
       // How much public gas was processed
       const publicGas = processedTxs.reduce((acc, tx) => acc.add(tx.gasUsed.publicGas), Gas.empty());
@@ -540,6 +533,7 @@ export class Sequencer {
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
       setTimeout(async () => {
         try {
+          await blockBuilderDBFork.close();
           await publicProcessorDBFork.close();
         } catch (err) {
           // This can happen if the sequencer is stopped before we hit this timeout.
