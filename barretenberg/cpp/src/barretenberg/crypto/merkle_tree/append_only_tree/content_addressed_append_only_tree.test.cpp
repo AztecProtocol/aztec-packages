@@ -728,7 +728,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values)
     TreeType tree(std::move(store), pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
-    for (size_t i = 0; i < 2; ++i) {
+    for (size_t i = 0; i < NUM_VALUES; ++i) {
         fr mock_root = memdb.update_element(i, VALUES[i]);
         add_value(tree, VALUES[i]);
         check_root(tree, mock_root);

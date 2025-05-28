@@ -17,7 +17,7 @@ import type { SiblingPath } from '@aztec/foundation/trees';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersion, DatabaseVersionManager } from '@aztec/stdlib/database-version';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeLeafType, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
@@ -683,31 +683,56 @@ describe('NativeWorldState', () => {
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
+      const nullifiers: Buffer[] = [];
+      const publicWrites: Buffer[] = [];
+      const initialNullifierTreeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      const initialNoteHashTreeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+      const initialPublicTreeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
       for (let i = 0; i < numBlocks; i++) {
         const fork = await ws.fork();
         ({ block, messages } = await mockBlock(1, txsPerBlock, fork));
         noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
+        nullifiers.push(...block.body.txEffects.flatMap(x => x.nullifiers.flatMap(x => x.toBuffer())));
+        publicWrites.push(...block.body.txEffects.flatMap(x => x.publicDataWrites.flatMap(x => x.toBuffer())));
         await fork.close();
         await ws.handleL2BlockAndMessages(block, messages);
       }
 
-      const leavesToRequest: Fr[] = [
-        noteHashes[0],
-        Fr.random(),
-        noteHashes[45],
-        noteHashes[89],
-        Fr.random(),
-        noteHashes[102],
-      ];
-      const expectedIndices = [0n, undefined, 45n, 89n, undefined, 102n];
-      const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest);
-      expect(indices).toEqual(expectedIndices);
+      const testQuery = async (
+        initialTreeSize: bigint,
+        leaves: MerkleTreeLeafType<MerkleTreeId>[],
+        treeId: MerkleTreeId,
+        makeRandom: () => MerkleTreeLeafType<MerkleTreeId>,
+      ) => {
+        const leavesToRequest: MerkleTreeLeafType<MerkleTreeId>[] = [
+          leaves[0],
+          makeRandom(),
+          leaves[45],
+          leaves[89],
+          makeRandom(),
+          leaves[102],
+        ];
+        const expectedIndices = [0n, undefined, 45n, 89n, undefined, 102n].map(x =>
+          x === undefined ? undefined : x + initialTreeSize,
+        );
+        const indices = await ws.getCommitted().findLeafIndices(treeId, leavesToRequest);
+        expect(indices).toEqual(expectedIndices);
 
-      const expectedIndicesAfter = [undefined, undefined, undefined, 89n, undefined, 102n];
-      const indicesAfter = await ws
-        .getCommitted()
-        .findLeafIndicesAfter(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest, 89n);
-      expect(indicesAfter).toEqual(expectedIndicesAfter);
+        const expectedIndicesAfter = [undefined, undefined, undefined, 89n, undefined, 102n].map(x =>
+          x === undefined ? undefined : x + initialTreeSize,
+        );
+        const indicesAfter = await ws
+          .getCommitted()
+          .findLeafIndicesAfter(treeId, leavesToRequest, 89n + initialTreeSize);
+        expect(indicesAfter).toEqual(expectedIndicesAfter);
+      };
+      await testQuery(initialNoteHashTreeInfo.size, noteHashes, MerkleTreeId.NOTE_HASH_TREE, Fr.random);
+      await testQuery(initialNullifierTreeInfo.size, nullifiers, MerkleTreeId.NULLIFIER_TREE, () =>
+        Fr.random().toBuffer(),
+      );
+      await testQuery(initialPublicTreeInfo.size, publicWrites, MerkleTreeId.PUBLIC_DATA_TREE, () =>
+        PublicDataWrite.random().toBuffer(),
+      );
     });
   });
 
@@ -720,37 +745,50 @@ describe('NativeWorldState', () => {
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
+      const nullifiers: Buffer[] = [];
+      const publicWrites: Buffer[] = [];
       for (let i = 0; i < numBlocks; i++) {
         const fork = await ws.fork();
         ({ block, messages } = await mockBlock(1, txsPerBlock, fork));
         noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
+        nullifiers.push(...block.body.txEffects.flatMap(x => x.nullifiers.flatMap(x => x.toBuffer())));
+        publicWrites.push(...block.body.txEffects.flatMap(x => x.publicDataWrites.flatMap(x => x.toBuffer())));
         await fork.close();
         await ws.handleL2BlockAndMessages(block, messages);
       }
 
-      const leavesToRequest: Fr[] = [
-        noteHashes[0],
-        Fr.random(),
-        noteHashes[45],
-        noteHashes[89],
-        Fr.random(),
-        noteHashes[102],
-      ];
-      const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest);
-      const readOps = ws.getCommitted();
-      const expectedPaths = [
-        await readOps.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, indices[0]!),
-        undefined,
-        await readOps.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, indices[2]!),
-        await readOps.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, indices[3]!),
-        undefined,
-        await readOps.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, indices[5]!),
-      ];
-      const paths = await readOps.findSiblingPaths(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest);
-      expect(paths.length).toBe(expectedPaths.length);
-      for (let i = 0; i < paths.length; i++) {
-        expect(paths[i]).toEqual(expectedPaths[i]);
-      }
+      const testQuery = async (
+        leaves: MerkleTreeLeafType<MerkleTreeId>[],
+        treeId: MerkleTreeId,
+        makeRandom: () => MerkleTreeLeafType<MerkleTreeId>,
+      ) => {
+        const leavesToRequest: MerkleTreeLeafType<MerkleTreeId>[] = [
+          leaves[0],
+          makeRandom(),
+          leaves[45],
+          leaves[89],
+          makeRandom(),
+          leaves[102],
+        ];
+        const indices = await ws.getCommitted().findLeafIndices(treeId, leavesToRequest);
+        const readOps = ws.getCommitted();
+        const expectedPaths = [
+          await readOps.getSiblingPath(treeId, indices[0]!),
+          undefined,
+          await readOps.getSiblingPath(treeId, indices[2]!),
+          await readOps.getSiblingPath(treeId, indices[3]!),
+          undefined,
+          await readOps.getSiblingPath(treeId, indices[5]!),
+        ];
+        const paths = await readOps.findSiblingPaths(treeId, leavesToRequest);
+        expect(paths.length).toBe(expectedPaths.length);
+        for (let i = 0; i < paths.length; i++) {
+          expect(paths[i]).toEqual(expectedPaths[i]);
+        }
+      };
+      await testQuery(noteHashes, MerkleTreeId.NOTE_HASH_TREE, Fr.random);
+      await testQuery(nullifiers, MerkleTreeId.NULLIFIER_TREE, () => Fr.random().toBuffer());
+      await testQuery(publicWrites, MerkleTreeId.PUBLIC_DATA_TREE, () => PublicDataWrite.random().toBuffer());
     });
   });
 
