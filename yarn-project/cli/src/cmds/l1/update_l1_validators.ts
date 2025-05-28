@@ -4,14 +4,13 @@ import {
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
-  getExpectedAddress,
   getL1ContractsConfigEnvVars,
   getPublicClient,
   isAnvilTestChain,
 } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import { ForwarderAbi, ForwarderBytecode, RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
+import { RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
 
 import { encodeFunctionData, formatEther, getContract } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
