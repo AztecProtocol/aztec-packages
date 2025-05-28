@@ -2,11 +2,13 @@ use protocol_types::{address::AztecAddress, debug_log::debug_log};
 
 pub mod nonce_discovery;
 pub mod partial_notes;
-pub mod pending_tagged_log;
 pub mod private_logs;
 pub mod private_notes;
 
-use private_notes::MAX_NOTE_PACKED_LEN;
+use crate::messages::{
+    discovery::{private_logs::process_private_log, private_notes::MAX_NOTE_PACKED_LEN},
+    processing::{get_private_logs, pending_tagged_log::PendingTaggedLog},
+};
 
 pub struct NoteHashAndNullifier {
     /// The result of NoteHash::compute_note_hash
@@ -64,11 +66,16 @@ pub unconstrained fn discover_new_messages<Env>(
 ) {
     debug_log("Performing message discovery");
 
-    private_logs::fetch_and_process_private_tagged_logs(
-        contract_address,
-        compute_note_hash_and_nullifier,
-    );
+    // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
+    // notes, private events, etc.
+    let mut logs = get_private_logs(contract_address);
+    logs.for_each(|i, log: PendingTaggedLog| {
+        process_private_log(contract_address, compute_note_hash_and_nullifier, log);
+        logs.remove(i);
+    });
 
+    // Then we process all pending partial notes, regardless of whether they were found in the current or previous
+    // executions.
     partial_notes::fetch_and_process_public_partial_note_completion_logs(
         contract_address,
         compute_note_hash_and_nullifier,
