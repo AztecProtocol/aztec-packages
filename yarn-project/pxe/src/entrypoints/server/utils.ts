@@ -3,8 +3,13 @@ import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/client/wasm/bu
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
-import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
-import { SimulationProviderRecorderWrapper } from '@aztec/simulator/testing';
+import {
+  MemoryCircuitRecorder,
+  type SimulationProvider,
+  SimulationProviderRecorderWrapper,
+  WASMSimulator,
+} from '@aztec/simulator/client';
+import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEServiceConfig } from '../../config/index.js';
@@ -26,7 +31,10 @@ export function createPXEService(
   options: PXECreationOptions = { loggers: {} },
 ) {
   const simulationProvider = new WASMSimulator();
-  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider);
+  const recorder = process.env.CIRCUIT_RECORD_DIR
+    ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
+    : new MemoryCircuitRecorder();
+  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider, recorder);
   return createPXEServiceWithSimulationProvider(aztecNode, simulationProviderWithRecorder, config, options);
 }
 

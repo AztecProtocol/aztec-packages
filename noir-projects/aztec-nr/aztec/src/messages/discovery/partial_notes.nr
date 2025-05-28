@@ -4,7 +4,7 @@ use crate::{
         discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
     },
-    oracle::message_discovery::{deliver_note, get_log_by_tag},
+    oracle::message_discovery::{deliver_note, get_public_log_by_tag},
     utils::array,
 };
 
@@ -93,7 +93,10 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
     );
 
     pending_partial_notes.for_each(|i, pending_partial_note: DeliveredPendingPartialNote| {
-        let maybe_log = get_log_by_tag(pending_partial_note.note_completion_log_tag);
+        let maybe_log = get_public_log_by_tag(
+            pending_partial_note.note_completion_log_tag,
+            contract_address,
+        );
         if maybe_log.is_none() {
             debug_log_format(
                 "Found no completion logs for partial note with tag {}",

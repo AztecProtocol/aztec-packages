@@ -2,6 +2,7 @@ import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   FUNCTION_TREE_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
@@ -10,7 +11,7 @@ import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 import type { ExecutablePrivateFunctionWithMembershipProof, PrivateFunction } from '@aztec/stdlib/contract';
 import type { ContractClassLog } from '@aztec/stdlib/logs';
 
-import { REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
+import { ProtocolContractAddress } from '../protocol_contract_data.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class PrivateFunctionBroadcastedEvent {
@@ -26,7 +27,10 @@ export class PrivateFunctionBroadcastedEvent {
   ) {}
 
   static isPrivateFunctionBroadcastedEvent(log: ContractClassLog) {
-    return log.fields.fields[0].equals(REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG);
+    return (
+      log.contractAddress.equals(ProtocolContractAddress.ContractClassRegisterer) &&
+      log.fields.fields[0].toBigInt() === REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE
+    );
   }
 
   static fromLog(log: ContractClassLog) {
