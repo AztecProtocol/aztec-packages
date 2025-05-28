@@ -67,7 +67,7 @@ pub unconstrained fn discover_new_messages<Env>(
     debug_log("Performing message discovery");
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
-    // partial notes, private events, etc.
+    // notes, private events, etc.
     let mut logs = get_private_logs(contract_address);
     logs.for_each(|i, log: PendingTaggedLog| {
         process_private_log(contract_address, compute_note_hash_and_nullifier, log);
