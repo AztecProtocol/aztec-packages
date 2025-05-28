@@ -38,6 +38,8 @@ ssh $BOX "
 	export HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY ;
 	$COMMAND ;
 " &
+# If on ubuntu will need to build tracy checked out at 0.11.1 and comment this out
+# If on windows can use windows tracy build
 brew install tracy@0.11.1
 wait # TODO(AD) hack - not sure why needed
 scp $BOX:/mnt/user-data/$USER/tracy/capture/build/trace-$TARGET .
