@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 native_build_dir=$(../cpp/scripts/native-preset-build-dir)
-export bb=$(realpath ../cpp/$native_build_dir)
+export bb=$(realpath ../cpp/$native_build_dir/bin/bb)
 
 tests_tar=barretenberg-acir-tests-$(hash_str \
   $(../../noir/bootstrap.sh hash-tests) \
