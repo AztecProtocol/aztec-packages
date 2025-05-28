@@ -48,7 +48,7 @@ export const createPXEServiceAndSubmitTransactions = async (
 ): Promise<NodeContext> => {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const pxeService = await createPXEService(node, rpcConfig, true);
+  const pxeService = await createPXEService(node, rpcConfig, { useLogSuffix: true });
 
   const account = await getSchnorrAccount(
     pxeService,
@@ -71,7 +71,7 @@ export async function createPXEServiceAndPrepareTransactions(
 ): Promise<{ pxeService: PXEService; txs: ProvenTx[]; node: AztecNodeService }> {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const pxe = await createPXEService(node, rpcConfig, true);
+  const pxe = await createPXEService(node, rpcConfig, { useLogSuffix: true });
 
   const account = await getSchnorrAccount(pxe, fundedAccount.secret, fundedAccount.signingKey, fundedAccount.salt);
   await account.register();

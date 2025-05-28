@@ -1,6 +1,9 @@
+import { randomBytes } from '@aztec/foundation/crypto';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
-import { type ProverAgentApi, ProverAgentApiSchema } from './prover-agent.js';
+import { ProvingRequestType } from '../proofs/proving_request_type.js';
+import { type ProverAgentApi, ProverAgentApiSchema, type ProverAgentStatus } from './prover-agent.js';
+import { makeProvingJobId } from './proving-job.js';
 
 describe('ProverAgentApiSchema', () => {
   let handler: MockProverAgent;
@@ -23,35 +26,32 @@ describe('ProverAgentApiSchema', () => {
     expect([...tested].sort()).toEqual(all.sort());
   });
 
-  it('setMaxConcurrency', async () => {
-    await context.client.setMaxConcurrency(1);
-  });
-
-  it('isRunning', async () => {
-    const running = await context.client.isRunning();
-    expect(running).toBe(true);
-  });
-
-  it('getCurrentJobs', async () => {
-    const jobs = await context.client.getCurrentJobs();
-    expect(jobs).toEqual([
-      { id: '1', type: 'type1' },
-      { id: '2', type: 'type2' },
-    ]);
+  it.each<ProverAgentStatus>([
+    {
+      status: 'stopped',
+    },
+    {
+      status: 'running',
+    },
+    {
+      status: 'proving',
+      jobId: makeProvingJobId(42, ProvingRequestType.PUBLIC_BASE_ROLLUP, randomBytes(64).toString('hex')),
+      proofType: ProvingRequestType.PUBLIC_BASE_ROLLUP,
+      startedAtISO: new Date().toISOString(),
+    },
+  ])('getStatus', async expectedStatus => {
+    handler.setStatus(expectedStatus);
+    const status = await context.client.getStatus();
+    expect(status).toEqual(expectedStatus);
   });
 });
 
 class MockProverAgent implements ProverAgentApi {
-  setMaxConcurrency(_maxConcurrency: number): Promise<void> {
-    return Promise.resolve();
+  private status: ProverAgentStatus = { status: 'stopped' };
+  setStatus(status: ProverAgentStatus) {
+    this.status = status;
   }
-  isRunning(): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-  getCurrentJobs(): Promise<{ id: string; type: string }[]> {
-    return Promise.resolve([
-      { id: '1', type: 'type1' },
-      { id: '2', type: 'type2' },
-    ]);
+  getStatus() {
+    return Promise.resolve(this.status);
   }
 }

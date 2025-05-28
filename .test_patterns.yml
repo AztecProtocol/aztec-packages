@@ -102,6 +102,10 @@ tests:
     error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
     owners:
       - *sean
+  - regex: "src/e2e_p2p/reqresp"
+    error_regex: 'CodeError: writable end state is "writing" not "ready"'
+    owners:
+      - *sean
   - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
