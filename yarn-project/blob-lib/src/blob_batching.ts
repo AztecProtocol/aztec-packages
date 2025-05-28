@@ -2,12 +2,11 @@ import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK } from '@aztec/constants';
 import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Field, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 
-// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
+// Importing directly from 'c-kzg' does not work:
 import cKzg from 'c-kzg';
 
 import { Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
 
-/* eslint-disable import/no-named-as-default-member */
 const { computeKzgProof, verifyKzgProof } = cKzg;
 
 /**

@@ -15,9 +15,7 @@ const trustedSetup = JSON.parse(
   readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'trusted_setup_bit_reversed.json')).toString(),
 );
 
-// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
-/* eslint-disable import/no-named-as-default-member */
-
+// Importing directly from 'c-kzg' does not work:
 const { FIELD_ELEMENTS_PER_BLOB, computeKzgProof, loadTrustedSetup, verifyKzgProof } = cKzg;
 
 try {
