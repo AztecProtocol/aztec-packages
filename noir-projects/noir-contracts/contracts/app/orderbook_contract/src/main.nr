@@ -114,6 +114,8 @@ pub contract Orderbook {
     #[public]
     #[internal]
     fn _create_order(order_id: Field, order: Order) {
+        // Note that PublicImmutable can be initialized only once so this is a secondary check that the order is
+        // unique.
         storage.orders.at(order_id).initialize(order);
 
         OrderCreated { order_id }.emit(encode_event(&mut context));
