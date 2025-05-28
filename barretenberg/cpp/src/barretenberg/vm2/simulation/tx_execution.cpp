@@ -6,13 +6,8 @@ namespace bb::avm2::simulation {
 
 void TxExecution::simulate(const Tx& tx)
 {
-    Gas tx_gas_limit = tx.gasSettings.gasLimits;
+    Gas gas_limit = tx.gasSettings.gasLimits;
     Gas gas_used = tx.gasUsedByPrivate;
-
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14443): Move the max l2 gas per tx public portion to
-    // the private tail to public.
-    Gas gas_limit =
-        Gas{ std::min(tx_gas_limit.l2Gas, gas_used.l2Gas + MAX_L2_GAS_PER_TX_PUBLIC_PORTION), tx_gas_limit.daGas };
 
     info("Simulating tx ",
          tx.hash,
