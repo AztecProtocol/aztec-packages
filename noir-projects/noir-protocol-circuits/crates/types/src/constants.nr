@@ -250,14 +250,12 @@ pub global PRIVATE_LOG_LENGTH: u32 = PRIVATE_LOG_SIZE_IN_FIELDS + 1 /* length */
 pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_LENGTH
     + 1 /* note_hash_counter */
     + 1 /* counter */;
+pub global PRIVATE_LOG_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - 1; // -1 because the tag is not included
 pub global SCOPED_PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_DATA_LENGTH + 1 /* contract_address */;
 pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = 13;
 pub global PUBLIC_LOG_LENGTH: u32 = PUBLIC_LOG_SIZE_IN_FIELDS
     + 1 /* length */
     + 1 /* contract_address */;
-
-// TODO(benesjan): try cleaning up the related constants
-pub global PRIVATE_LOG_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - 1; // -1 because the tag is not included
 pub global PUBLIC_LOG_PLAINTEXT_LEN: u32 = PUBLIC_LOG_SIZE_IN_FIELDS - 1; // -1 because the tag is not included
 
 // TODO(MW): add new constant for this - the below is just the largest combination atm
