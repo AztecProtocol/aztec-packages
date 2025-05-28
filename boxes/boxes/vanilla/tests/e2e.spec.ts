@@ -23,17 +23,16 @@ test('create account and cast vote', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Private Voting/);
 
-  const createAccountButton = await page.locator('#create-account');
+  const connectTestAccount = await page.locator('#connect-test-account');
   const accountDisplay = await page.locator('#account-display');
   const voteButton = await page.locator('#vote-button');
   const voteInput = await page.locator('#vote-input');
   const voteResults = await page.locator('#vote-results');
 
-  // Create account
-  await expect(createAccountButton).toBeVisible();
-  await createAccountButton.click();
-
-  await expect(accountDisplay).toBeVisible({ timeout: proofTimeout });
+  // Connect test account
+  await expect(connectTestAccount).toBeVisible();
+  await connectTestAccount.click();
+  await expect(accountDisplay).toBeVisible();
   await expect(accountDisplay).toHaveText(/Account: 0x[a-fA-F0-9]{4}/);
 
   // Cast vote
@@ -49,14 +48,21 @@ test('create account and cast vote', async ({ page }, testInfo) => {
   await expect(voteButton).toBeVisible();
   await voteInput.selectOption(candidateId!.toString());
   await voteButton.click();
+
+  // This will take some time to complete (Client IVC proof generation)
+  // Button is enabled when the transaction is complete
   await expect(voteButton).toBeEnabled({
     enabled: true,
     timeout: proofTimeout,
   });
 
   // Verify vote results
-  await expect(voteResults).toHaveText(new RegExp(`Candidate ${candidateId}: 1 votes`), {
-    timeout: 40_000,
-  });
-  await expect(voteResults).toHaveText(/Candidate 1: 0 votes/);
+  await expect(voteResults).toHaveText(new RegExp(`Candidate ${candidateId}: 1 votes`));
+
+  // Assert that other candidates have 0 votes
+  for (let i = 1; i <= 5; i++) {
+    if (i !== candidateId) {
+      await expect(voteResults).toHaveText(new RegExp(`Candidate ${i}: 0 votes`));
+    }
+  }
 });

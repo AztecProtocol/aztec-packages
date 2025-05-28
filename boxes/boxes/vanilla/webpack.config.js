@@ -44,16 +44,17 @@ export default (_, argv) => ({
       url: false,
       net: false,
       worker_threads: false,
-      events: require.resolve('events/'),
       buffer: require.resolve('buffer/'),
       util: require.resolve('util/'),
       stream: require.resolve('stream-browserify'),
-      string_decoder: require.resolve('string_decoder/'),
     },
   },
   devServer: {
     port: 3000,
-    open: true,
-    historyApiFallback: true,
+  },
+  performance: {
+    hints: false,
+    maxEntrypointSize: 2_000_000,
+    maxAssetSize: 2_000_000,
   },
 });

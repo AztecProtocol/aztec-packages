@@ -11,6 +11,8 @@ import { EasyPrivateVotingContract } from './artifacts/EasyPrivateVoting';
 // DOM Elements
 const createAccountButton =
   document.querySelector<HTMLButtonElement>('#create-account')!;
+const connectTestAccountButton =
+  document.querySelector<HTMLButtonElement>('#connect-test-account')!;
 const voteForm = document.querySelector<HTMLFormElement>('.vote-form')!;
 const voteButton = document.querySelector<HTMLButtonElement>('#vote-button')!;
 const voteInput = document.querySelector<HTMLInputElement>('#vote-input')!;
@@ -50,8 +52,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Get existing account
     displayStatusMessage('Checking for existing account...');
-    const account = await wallet.getAccount();
-    await displayAccount(account);
+    const account = await wallet.connectExistingAccount();
+    await displayAccount();
 
     // Refresh tally if account exists
     if (account) {
@@ -62,6 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       displayStatusMessage('Create a new account to cast a vote.');
     }
   } catch (error) {
+    console.error(error);
     displayError(
       error instanceof Error ? error.message : 'An unknown error occurred'
     );
@@ -78,18 +81,43 @@ createAccountButton.addEventListener('click', async (e) => {
   try {
     displayStatusMessage('Creating account...');
 
-    const account = await wallet.createAccount();
-    displayAccount(account);
+    const account = await wallet.createAccountAndConnect();
+    displayAccount();
 
     await updateVoteTally(account);
+    displayStatusMessage('');
   } catch (error) {
+    console.error(error);
     displayError(
       error instanceof Error ? error.message : 'An unknown error occurred'
     );
   } finally {
     button.disabled = false;
     button.textContent = 'Create Account';
-    displayStatusMessage('');
+  }
+});
+
+// Connect a test account
+// Sandbox comes with some test accounts. This can be used instead of creating new ones
+// when building against the Sandbox.
+connectTestAccountButton.addEventListener('click', async (e) => {
+  e.preventDefault();
+  const button = e.target as HTMLButtonElement;
+  button.disabled = true;
+  button.textContent = 'Connecting test account...';
+
+  try {
+    const testAccount = await wallet.connectTestAccount(0);
+    displayAccount();
+    await updateVoteTally(testAccount);
+  } catch (error) {
+    console.error(error);
+    displayError(
+      error instanceof Error ? error.message : 'An unknown error occurred'
+    );
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Connect Test Account';
   }
 });
 
@@ -110,11 +138,15 @@ voteButton.addEventListener('click', async (e) => {
   displayStatusMessage('Voting...');
 
   try {
+    const connectedAccount = wallet.getConnectedAccount();
+    if (!connectedAccount) {
+      throw new Error('No account connected');
+    }
+
     // Prepare contract interaction
-    const account = await wallet.getAccount();
     const votingContract = await EasyPrivateVotingContract.at(
       AztecAddress.fromString(contractAddress),
-      account!
+      connectedAccount
     );
     const interaction = votingContract.methods.cast_vote(candidate);
 
@@ -123,8 +155,10 @@ voteButton.addEventListener('click', async (e) => {
 
     // Update tally
     displayStatusMessage('Updating vote tally...');
-    updateVoteTally(account!);
+    updateVoteTally(connectedAccount);
+    displayStatusMessage('');
   } catch (error) {
+    console.error(error);
     displayError(
       error instanceof Error ? error.message : 'An unknown error occurred'
     );
@@ -132,7 +166,6 @@ voteButton.addEventListener('click', async (e) => {
     voteInput.disabled = false;
     button.disabled = false;
     button.textContent = 'Vote';
-    displayStatusMessage('');
   }
 });
 
@@ -172,17 +205,20 @@ function displayStatusMessage(message: string) {
   statusMessage.style.display = message ? 'block' : 'none';
 }
 
-function displayAccount(account: AccountWallet | null) {
-  if (!account) {
+function displayAccount() {
+  const connectedAccount = wallet.getConnectedAccount();
+  if (!connectedAccount) {
     createAccountButton.style.display = 'block';
+    connectTestAccountButton.style.display = 'block';
     voteForm.style.display = 'none';
     return;
   }
 
-  const address = account.getAddress().toString();
+  const address = connectedAccount.getAddress().toString();
   const content = `Account: ${address.slice(0, 6)}...${address.slice(-4)}`;
   accountDisplay.textContent = content;
   createAccountButton.style.display = 'none';
+  connectTestAccountButton.style.display = 'none';
   voteForm.style.display = 'block';
 }
 

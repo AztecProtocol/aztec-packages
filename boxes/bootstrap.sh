@@ -32,9 +32,19 @@ function test {
 }
 
 function test_cmds {
-  for box in vanilla react vite; do
-    echo "$hash:ONLY_TERM_PARENT=1 BOX=$box run_compose_test $box box boxes"
+  for browser in chromium webkit firefox; do
+    for box in react vite; do
+      echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
+    done
   done
+
+  # Only run vanilla tests in chromium for now, because:
+  # 1. This test includes ClientIVC proof generation in playwright and can take a long time to finish.
+  # 2. Proving in Playwright is flaky for Firefox and Webkit.
+  # 3. The vanilla app expects contract to be deployed and configured in the app during build,
+  # so we would need a separate app build to run tests in parallel.
+  # This can be refactored once other boxes are updated to use browser proving.
+  echo "$hash:ONLY_TERM_PARENT=1 BOX=vanilla BROWSER=chromium run_compose_test vanilla-chromium box boxes"
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.

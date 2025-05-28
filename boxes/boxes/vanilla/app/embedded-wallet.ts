@@ -7,14 +7,17 @@ import {
   ContractFunctionInteraction,
   SponsoredFeePaymentMethod,
   type PXE,
+  AccountWallet,
 } from '@aztec/aztec.js';
 import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { getEcdsaRAccount } from '@aztec/accounts/ecdsa/lazy';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import { getPXEServiceConfig } from '@aztec/pxe/config';
 import { createPXEService } from '@aztec/pxe/client/lazy';
 import { type ContractArtifact, getDefaultInitializer } from '@aztec/stdlib/abi';
+import { getInitialTestAccounts } from '@aztec/accounts/testing';
 
 const PROVER_ENABLED = true;
 
@@ -26,6 +29,7 @@ const LocalStorageKey = 'aztec-account';
 // This is not meant for production use
 export class EmbeddedWallet {
   private pxe!: PXE;
+  connectedAccount: AccountWallet | null = null;
 
   constructor(private nodeUrl: string) {}
 
@@ -43,7 +47,7 @@ export class EmbeddedWallet {
 
     // Register Sponsored FPC Contract with PXE
     await this.pxe.registerContract({
-      instance: await this.getSponsoredPFCContract(),
+      instance: await this.#getSponsoredPFCContract(),
       artifact: SponsoredFPCContractArtifact,
     });
 
@@ -53,7 +57,7 @@ export class EmbeddedWallet {
   }
 
   // Internal method to use the Sponsored FPC Contract for fee payment
-  async getSponsoredPFCContract() {
+  async #getSponsoredPFCContract() {
     const instance = await getContractInstanceFromDeployParams(
       SponsoredFPCContractArtifact,
       {
@@ -64,8 +68,27 @@ export class EmbeddedWallet {
     return instance;
   }
 
+  getConnectedAccount() {
+    if (!this.connectedAccount) {
+      return null;
+    }
+    return this.connectedAccount;
+  }
+
+  async connectTestAccount(index: number) {
+    const testAccounts = await getInitialTestAccounts();
+    const account = testAccounts[index];
+    const schnorrAccount = await getSchnorrAccount(this.pxe, account.secret, account.signingKey, account.salt);
+
+    await schnorrAccount.register();
+    const wallet = await schnorrAccount.getWallet();
+
+    this.connectedAccount = wallet;
+    return wallet;
+  }
+
   // Create a new account
-  async createAccount() {
+  async createAccountAndConnect() {
     if (!this.pxe) {
       throw new Error('PXE not initialized');
     }
@@ -85,7 +108,7 @@ export class EmbeddedWallet {
 
     // Deploy the account
     const deployMethod = await ecdsaAccount.getDeployMethod();
-    const sponsoredPFCContract = await this.getSponsoredPFCContract();
+    const sponsoredPFCContract = await this.#getSponsoredPFCContract();
     const deployOpts = {
       contractAddressSalt: Fr.fromString(ecdsaAccount.salt.toString()),
       fee: {
@@ -117,10 +140,12 @@ export class EmbeddedWallet {
 
     // Register the account with PXE
     await ecdsaAccount.register();
+    this.connectedAccount = ecdsaWallet;
+
     return ecdsaWallet;
   }
 
-  async getAccount() {
+  async connectExistingAccount() {
     // Read key from local storage and create the account
     const account = localStorage.getItem(LocalStorageKey);
     if (!account) {
@@ -137,6 +162,8 @@ export class EmbeddedWallet {
 
     await ecdsaAccount.register();
     const ecdsaWallet = await ecdsaAccount.getWallet();
+
+    this.connectedAccount = ecdsaWallet;
     return ecdsaWallet;
   }
 
@@ -162,7 +189,7 @@ export class EmbeddedWallet {
 
   // Send a transaction with the Sponsored FPC Contract for fee payment
   async sendTransaction(interaction: ContractFunctionInteraction) {
-    const sponsoredPFCContract = await this.getSponsoredPFCContract();
+    const sponsoredPFCContract = await this.#getSponsoredPFCContract();
     const provenInteraction = await interaction.prove({
       fee: {
         paymentMethod: new SponsoredFeePaymentMethod(
