@@ -149,7 +149,7 @@ contract RollupCore is
   }
 
   function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
-    StakingLib.setSlasher(_slasher);
+    ExtRollupLib.setSlasher(_slasher);
   }
 
   function setProvingCostPerMana(EthValue _provingCostPerMana)
@@ -166,7 +166,7 @@ contract RollupCore is
     returns (uint256)
   {
     require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimSequencerRewards(_recipient);
+    return ExtRollupLib.claimSequencerRewards(_recipient);
   }
 
   function claimProverRewards(address _recipient, Epoch[] memory _epochs)
@@ -175,18 +175,18 @@ contract RollupCore is
     returns (uint256)
   {
     require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimProverRewards(_recipient, _epochs);
+    return ExtRollupLib.claimProverRewards(_recipient, _epochs);
   }
 
   function vote(uint256 _proposalId) external override(IStakingCore) {
-    StakingLib.vote(_proposalId);
+    ExtRollupLib.vote(_proposalId);
   }
 
   function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
     external
     override(IStakingCore)
   {
-    StakingLib.deposit(_attester, _proposer, _withdrawer, _onCanonical);
+    ExtRollupLib.deposit(_attester, _proposer, _withdrawer, _onCanonical);
   }
 
   function initiateWithdraw(address _attester, address _recipient)
@@ -194,7 +194,7 @@ contract RollupCore is
     override(IStakingCore)
     returns (bool)
   {
-    return StakingLib.initiateWithdraw(_attester, _recipient);
+    return ExtRollupLib.initiateWithdraw(_attester, _recipient);
   }
 
   function finaliseWithdraw(address _attester) external override(IStakingCore) {

@@ -130,6 +130,7 @@ library Errors {
   error Staking__AlreadyExiting(address);
   error Staking__FatalError(string);
   error Staking__NotOurProposal(uint256);
+  error Staking__GovernanceAlreadySet();
 
   // GSE
   error GSE__EmptyVoter();

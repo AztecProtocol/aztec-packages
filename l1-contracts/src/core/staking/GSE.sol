@@ -33,6 +33,7 @@ interface IGSECore {
     address indexed instance, address indexed attester, address proposer, address withdrawer
   );
 
+  function setGovernance(Governance _governance) external;
   function addRollup(address _rollup) external;
   function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
     external;
@@ -118,6 +119,7 @@ contract GSECore is IGSECore, Ownable {
   Checkpoints.Trace224 internal canonical;
   mapping(address instance => InstanceStaking) internal instances;
   DelegationData internal delegation;
+  Governance internal governance;
 
   modifier onlyRollup() {
     require(isRollupRegistered(msg.sender), Errors.Staking__NotRollup(msg.sender));
@@ -127,6 +129,12 @@ contract GSECore is IGSECore, Ownable {
   constructor(address __owner, IERC20 _stakingAsset) Ownable(__owner) {
     STAKING_ASSET = _stakingAsset;
     instances[CANONICAL_MAGIC_ADDRESS].exists = true;
+  }
+
+  function setGovernance(Governance _governance) external override(IGSECore) onlyOwner {
+    // Once again desparate times calls for desparate measures.
+    require(address(governance) == address(0), Errors.Staking__GovernanceAlreadySet());
+    governance = _governance;
   }
 
   /**
@@ -386,7 +394,7 @@ contract GSECore is IGSECore, Ownable {
   }
 
   function getGovernance() public view override(IGSECore) returns (Governance) {
-    return Governance(owner());
+    return governance;
   }
 
   /**

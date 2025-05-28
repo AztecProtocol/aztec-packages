@@ -275,6 +275,20 @@ export const deploySharedContracts = async (
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);
 
+  {
+    const { txHash } = await deployer.sendTransaction({
+      to: gseAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.gse.contractAbi,
+        functionName: 'setGovernance',
+        args: [governanceAddress.toString()],
+      }),
+      ...(args.acceleratedTestDeployments ? { gasLimit: 1_000_000n } : {}),
+    });
+    logger.verbose(`Set governance on GSE in ${txHash}`);
+    txHashes.push(txHash);
+  }
+
   const coinIssuerAddress = await deployer.deploy(l1Artifacts.coinIssuer, [
     feeAssetAddress.toString(),
     1n * 10n ** 18n, // @todo  #8084

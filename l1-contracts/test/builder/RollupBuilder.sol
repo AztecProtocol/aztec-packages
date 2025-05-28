@@ -175,6 +175,9 @@ contract RollupBuilder is Test {
       GovernanceProposer proposer = new GovernanceProposer(config.registry, 1, 1);
       config.governance = new Governance(config.testERC20, address(proposer));
       vm.label(address(config.governance), "Governance");
+
+      vm.prank(config.gse.owner());
+      config.gse.setGovernance(config.governance);
     }
 
     config.rollup = new Rollup(
