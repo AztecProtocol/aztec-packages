@@ -66,11 +66,12 @@ To manually perform step two locally:
 
 ### A special note about branches
 
-Adding docs:
+**Adding docs**
 - All docs changes, especially changes to `versioned_docs`, should only go to the `master` branch
-- Exceptionally when documenting new protocol changes, these should go to the `next` branch, within `docs/docs`
 
-Generating docs:
+That means, docs can only refer to a proposed protocol change once its release tag is on `master`. Unless otherwise patched/cherry-picked from other commits and applied to its own versioned docs label.
+
+**Generating docs**
 - Most of the time we want the label `Next` to contain upcoming changes, excluding documentation of upcoming protocol changes. For this we release docs straight from `master`.
 - Before a protocol release, we want the docs label `Next` to contain upcoming changes AND documentation of upcoming protocol changes, then:
   1. Apply protocol docs to `next` branch in `docs/docs` (we can do this with an ongoing protocol docs branch, periodically merging into `next`)
