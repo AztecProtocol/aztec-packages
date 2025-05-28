@@ -111,6 +111,10 @@ pub comptime fn generate_deserialize_from_fields(
         result = quote { $unpack_method([ $packed_fields ]) };
 
         consumed_counter = packed_len;
+    } else if typ.is_bool() {
+        // The field is a primitive so we just reference it in the field array
+        result = quote { $field_array_name[$num_already_consumed] != 0 };
+        consumed_counter = 1;
     } else if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         // The field is a primitive so we just reference it in the field array
         result = quote { $field_array_name[$num_already_consumed] as $typ };

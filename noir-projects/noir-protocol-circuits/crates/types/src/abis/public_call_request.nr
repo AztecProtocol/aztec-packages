@@ -56,7 +56,7 @@ impl Deserialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
         let request = PublicCallRequest {
             msg_sender: AztecAddress::from_field(reader.read()),
             contract_address: AztecAddress::from_field(reader.read()),
-            is_static_call: reader.read() as bool,
+            is_static_call: reader.read() != 0,
             calldata_hash: reader.read(),
         };
         reader.finish();
@@ -119,7 +119,7 @@ impl Deserialize<NUM_PUBLIC_CALL_REQUEST_ARRAYS> for PublicCallRequestArrayLengt
         let item = PublicCallRequestArrayLengths {
             setup_calls: reader.read_u32(),
             app_logic_calls: reader.read_u32(),
-            teardown_call: reader.read() as bool,
+            teardown_call: reader.read() != 0,
         };
 
         reader.finish();
