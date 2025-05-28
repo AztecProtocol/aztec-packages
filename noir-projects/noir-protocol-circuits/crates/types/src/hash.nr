@@ -1,7 +1,6 @@
 use crate::{
     abis::{
         contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
-        contract_class_log::ContractClassLog,
         function_selector::FunctionSelector,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
@@ -122,26 +121,6 @@ pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
         let mut fields = private_log.inner.log.fields;
         fields[0] = compute_siloed_private_log_field(private_log.contract_address, fields[0]);
         PrivateLog::new(fields, private_log.inner.log.length)
-    }
-}
-
-pub fn compute_siloed_contract_class_log_field(
-    contract_address: AztecAddress,
-    first_field: Field,
-) -> Field {
-    poseidon2_hash([contract_address.to_field(), first_field])
-}
-
-pub fn silo_contract_class_log(contract_class_log: ContractClassLog) -> ContractClassLog {
-    if contract_class_log.contract_address.is_zero() {
-        contract_class_log
-    } else {
-        let mut log = contract_class_log;
-        log.log.fields[0] = compute_siloed_contract_class_log_field(
-            contract_class_log.contract_address,
-            log.log.fields[0],
-        );
-        log
     }
 }
 
