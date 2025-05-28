@@ -100,4 +100,9 @@ export abstract class BaseAvmSimulationTester {
     );
     await this.merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()]);
   }
+
+  async insertNullifier(contractThatEmitted: AztecAddress, nullifier: Fr) {
+    const siloedNullifier = await siloNullifier(contractThatEmitted, nullifier);
+    await this.merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()]);
+  }
 }
