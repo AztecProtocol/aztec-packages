@@ -36,15 +36,17 @@ interface IGSECore {
   function addRollup(address _rollup) external;
   function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
     external;
-  function withdraw(address _attester, uint256 _amount) external returns (uint256, bool);
+  function withdraw(address _attester, uint256 _amount) external returns (uint256, bool, uint256);
   function delegate(address _instance, address _attester, address _delegatee) external;
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
   function voteWithCanonical(uint256 _proposalId, uint256 _amount, bool _support) external;
+  function finaliseHelper(uint256 _withdrawalId) external;
 
   function isRegistered(address _instance, address _attester) external view returns (bool);
   function isRollupRegistered(address _instance) external view returns (bool);
   function getCanonical() external view returns (address);
   function getCanonicalAt(Timestamp _timestamp) external view returns (address);
+  function getGovernance() external view returns (Governance);
 }
 
 interface IGSE is IGSECore {
@@ -54,13 +56,19 @@ interface IGSE is IGSECore {
     external
     view
     returns (uint256);
+  function getEffectiveVotingPowerAt(address _attester, Timestamp _timestamp)
+    external
+    view
+    returns (uint256);
 
   function getWithdrawer(address _instance, address _attester)
     external
     view
     returns (address, bool, address);
   function balanceOf(address _instance, address _attester) external view returns (uint256);
+  function effectiveBalanceOf(address _instance, address _attester) external view returns (uint256);
   function supplyOf(address _instance) external view returns (uint256);
+  function effectiveSupplyOfAt(address _instance, Timestamp _ts) external view returns (uint256);
   function totalSupply() external view returns (uint256);
   function getConfig(address _instance, address _attester)
     external
@@ -192,7 +200,7 @@ contract GSECore is IGSECore, Ownable {
 
     STAKING_ASSET.transferFrom(msg.sender, address(this), MINIMUM_DEPOSIT);
 
-    Governance gov = Governance(owner());
+    Governance gov = getGovernance();
     STAKING_ASSET.approve(address(gov), MINIMUM_DEPOSIT);
     gov.deposit(address(this), MINIMUM_DEPOSIT);
 
@@ -216,12 +224,13 @@ contract GSECore is IGSECore, Ownable {
    *
    * @return The actual amount withdrawn.
    * @return True if attester is removed from set, false otherwise
+   * @return The id of the withdrawal at the governance
    */
   function withdraw(address _attester, uint256 _amount)
     external
     override(IGSECore)
     onlyRollup
-    returns (uint256, bool)
+    returns (uint256, bool, uint256)
   {
     address instanceAddress = msg.sender;
     InstanceStaking storage instanceStaking = instances[instanceAddress];
@@ -261,9 +270,28 @@ contract GSECore is IGSECore, Ownable {
 
     delegation.decreaseBalance(instanceAddress, _attester, amountWithdrawn);
 
-    STAKING_ASSET.transfer(msg.sender, amountWithdrawn);
+    // The withdrawal id is a pending amount that is to be claimed when a delay have walled
+    uint256 withdrawalId = getGovernance().initiateWithdraw(msg.sender, amountWithdrawn);
 
-    return (amountWithdrawn, isRemoved);
+    return (amountWithdrawn, isRemoved, withdrawalId);
+  }
+
+  /**
+   * @notice  A helper function to make it easy for users of the GSE to finalise
+   *          a pending exit in the governance.
+   *
+   *          Kept in here since it is already connected, and we don't want the
+   *          rollup to have to deal with links to gov etc.
+   *
+   * @dev     Will be a no operation if the withdrawal is already collected.
+   *
+   * @param _withdrawalId - The id of the withdrawal
+   */
+  function finaliseHelper(uint256 _withdrawalId) external override(IGSECore) {
+    Governance gov = getGovernance();
+    if (!gov.getWithdrawal(_withdrawalId).claimed) {
+      gov.finaliseWithdraw(_withdrawalId);
+    }
   }
 
   /**
@@ -357,6 +385,10 @@ contract GSECore is IGSECore, Ownable {
     return address(canonical.upperLookup(Timestamp.unwrap(_timestamp).toUint32()).toUint160());
   }
 
+  function getGovernance() public view override(IGSECore) returns (Governance) {
+    return Governance(owner());
+  }
+
   /**
    * @notice  Inner logic for the vote
    *
@@ -372,11 +404,11 @@ contract GSECore is IGSECore, Ownable {
     require(_voter != address(0), Errors.GSE__EmptyVoter());
     Timestamp ts = _pendingThrough(_proposalId);
     delegation.usePower(_voter, _proposalId, ts, _amount);
-    Governance(owner()).vote(_proposalId, _amount, _support);
+    getGovernance().vote(_proposalId, _amount, _support);
   }
 
   function _pendingThrough(uint256 _proposalId) internal view returns (Timestamp) {
-    return Governance(owner()).getProposal(_proposalId).pendingThroughMemory();
+    return getGovernance().getProposal(_proposalId).pendingThroughMemory();
   }
 }
 
@@ -438,11 +470,21 @@ contract GSE is IGSE, GSECore {
     return (instanceStaking.configOf[_attester].proposer, true, instanceAddress);
   }
 
-  function balanceOf(address _instance, address _attester) external view returns (uint256) {
+  function balanceOf(address _instance, address _attester)
+    external
+    view
+    override(IGSE)
+    returns (uint256)
+  {
     return delegation.getBalanceOf(_instance, _attester);
   }
 
-  function effectiveBalanceOf(address _instance, address _attester) external view returns (uint256) {
+  function effectiveBalanceOf(address _instance, address _attester)
+    external
+    view
+    override(IGSE)
+    returns (uint256)
+  {
     uint256 balance = delegation.getBalanceOf(_instance, _attester);
     if (getCanonical() == _instance) {
       balance += delegation.getBalanceOf(CANONICAL_MAGIC_ADDRESS, _attester);
@@ -450,7 +492,12 @@ contract GSE is IGSE, GSECore {
     return balance;
   }
 
-  function effectiveSupplyOfAt(address _instance, Timestamp _ts) external view returns (uint256) {
+  function effectiveSupplyOfAt(address _instance, Timestamp _ts)
+    external
+    view
+    override(IGSE)
+    returns (uint256)
+  {
     uint256 supply = delegation.getSupplyOf(_instance);
     if (getCanonicalAt(_ts) == _instance) {
       supply += delegation.getSupplyOf(CANONICAL_MAGIC_ADDRESS);
@@ -481,6 +528,7 @@ contract GSE is IGSE, GSECore {
   function getEffectiveVotingPowerAt(address _delegatee, Timestamp _timestamp)
     external
     view
+    override(IGSE)
     returns (uint256)
   {
     uint256 power = delegation.getVotingPowerAt(_delegatee, _timestamp);

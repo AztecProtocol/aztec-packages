@@ -22,6 +22,7 @@ interface IStakingCore {
   function initiateWithdraw(address _attester, address _recipient) external returns (bool);
   function finaliseWithdraw(address _attester) external;
   function slash(address _attester, uint256 _amount) external;
+  function vote(uint256 _proposalId) external;
 }
 
 interface IStaking is IStakingCore {

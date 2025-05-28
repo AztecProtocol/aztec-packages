@@ -129,6 +129,7 @@ library Errors {
   error Staking__InsufficientPower(uint256, uint256);
   error Staking__AlreadyExiting(address);
   error Staking__FatalError(string);
+  error Staking__NotOurProposal(uint256);
 
   // GSE
   error GSE__EmptyVoter();

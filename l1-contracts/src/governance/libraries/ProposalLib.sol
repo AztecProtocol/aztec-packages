@@ -111,14 +111,6 @@ library ProposalLib {
     return _self.creation + _self.config.votingDelay;
   }
 
-  function pendingThroughMemory(DataStructures.Proposal memory _self)
-    internal
-    pure
-    returns (Timestamp)
-  {
-    return _self.creation + _self.config.votingDelay;
-  }
-
   function activeThrough(DataStructures.Proposal storage _self) internal view returns (Timestamp) {
     return ProposalLib.pendingThrough(_self) + _self.config.votingDuration;
   }
@@ -133,5 +125,13 @@ library ProposalLib {
     returns (Timestamp)
   {
     return ProposalLib.queuedThrough(_self) + _self.config.gracePeriod;
+  }
+
+  function pendingThroughMemory(DataStructures.Proposal memory _self)
+    internal
+    pure
+    returns (Timestamp)
+  {
+    return _self.creation + _self.config.votingDelay;
   }
 }

@@ -178,6 +178,10 @@ contract RollupCore is
     return RewardLib.claimProverRewards(_recipient, _epochs);
   }
 
+  function vote(uint256 _proposalId) external override(IStakingCore) {
+    StakingLib.vote(_proposalId);
+  }
+
   function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
     external
     override(IStakingCore)

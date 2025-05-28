@@ -27,6 +27,7 @@ struct Config {
   uint256 mintFeeAmount;
   bool makeCanonical;
   bool makeGovernance;
+  bool updateOwnerships;
 }
 
 /**
@@ -45,6 +46,8 @@ contract RollupBuilder is Test {
     config.rollupConfigInput = TestConstants.getRollupConfigInput();
 
     config.makeCanonical = true;
+    config.makeGovernance = true;
+    config.updateOwnerships = true;
   }
 
   function setTestERC20(TestERC20 _testERC20) public returns (RollupBuilder) {
@@ -95,6 +98,11 @@ contract RollupBuilder is Test {
 
   function setMakeGovernance(bool _makeGovernance) public returns (RollupBuilder) {
     config.makeGovernance = _makeGovernance;
+    return this;
+  }
+
+  function setUpdateOwnerships(bool _updateOwnerships) public returns (RollupBuilder) {
+    config.updateOwnerships = _updateOwnerships;
     return this;
   }
 
@@ -192,21 +200,27 @@ contract RollupBuilder is Test {
       config.gse.addRollup(address(config.rollup));
     }
 
-    if (config.deployer != config.testERC20.owner()) {
-      config.testERC20.transferOwnership(config.deployer);
-    }
+    if (config.updateOwnerships) {
+      if (config.deployer != config.testERC20.owner()) {
+        vm.prank(config.testERC20.owner());
+        config.testERC20.transferOwnership(config.deployer);
+      }
 
-    if (config.deployer != config.registry.owner()) {
-      config.registry.transferOwnership(config.deployer);
-    }
+      if (config.deployer != config.registry.owner()) {
+        vm.prank(config.registry.owner());
+        config.registry.transferOwnership(config.deployer);
+      }
 
-    address expGov = config.makeGovernance ? address(config.governance) : config.deployer;
-    if (expGov != config.rollup.owner()) {
-      config.rollup.transferOwnership(expGov);
-    }
+      address expGov = config.makeGovernance ? address(config.governance) : config.deployer;
+      if (expGov != config.rollup.owner()) {
+        vm.prank(config.rollup.owner());
+        config.rollup.transferOwnership(expGov);
+      }
 
-    if (expGov != config.gse.owner()) {
-      config.gse.transferOwnership(expGov);
+      if (expGov != config.gse.owner()) {
+        vm.prank(config.gse.owner());
+        config.gse.transferOwnership(expGov);
+      }
     }
 
     vm.label(address(config.rollup), "Rollup");

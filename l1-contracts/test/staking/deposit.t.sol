@@ -145,7 +145,7 @@ contract DepositTest is StakingBase {
       _onCanonical: true
     });
 
-    assertEq(stakingAsset.balanceOf(address(staking.getGSE())), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(address(staking.getGSE().getGovernance())), MINIMUM_STAKE);
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
     assertEq(attesterView.effectiveBalance, MINIMUM_STAKE, "effective balance");

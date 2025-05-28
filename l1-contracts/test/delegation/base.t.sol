@@ -20,8 +20,8 @@ contract GSEBase is TestBase {
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));
 
   function setUp() public virtual {
-    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1)
-      .setSlashingRoundSize(1).setMakeGovernance(true);
+    RollupBuilder builder =
+      new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1);
     builder.deploy();
 
     registry = builder.getConfig().registry;
