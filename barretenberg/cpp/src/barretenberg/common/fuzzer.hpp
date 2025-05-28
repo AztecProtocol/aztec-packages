@@ -600,7 +600,8 @@ class ArithmeticFuzzHelper {
     {
         typename T::ExecutionState state;
         Composer composer = Composer();
-        bool circuit_should_fail = false;
+        // This is a global variable, so that the execution handling class could alter it and signal to the input tester
+        circuit_should_fail = false;
         size_t total_instruction_weight = 0;
         (void)total_instruction_weight;
         for (auto& instruction : instructions) {

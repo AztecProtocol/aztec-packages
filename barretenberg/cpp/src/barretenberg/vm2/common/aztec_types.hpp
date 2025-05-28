@@ -113,6 +113,8 @@ struct Gas {
 
     bool operator==(const Gas& other) const = default;
 
+    Gas operator+(const Gas& other) const { return { l2Gas + other.l2Gas, daGas + other.daGas }; }
+
     MSGPACK_FIELDS(l2Gas, daGas);
 };
 
@@ -140,6 +142,28 @@ struct PublicCallRequest {
     bool operator==(const PublicCallRequest& other) const = default;
 
     MSGPACK_FIELDS(msgSender, contractAddress, isStaticCall, calldataHash);
+};
+
+struct PublicCallRequestArrayLengths {
+    uint32_t setupCalls;
+    uint32_t appLogicCalls;
+    bool teardownCall;
+
+    bool operator==(const PublicCallRequestArrayLengths& other) const = default;
+
+    MSGPACK_FIELDS(setupCalls, appLogicCalls, teardownCall);
+};
+
+struct AvmAccumulatedDataArrayLengths {
+    uint32_t noteHashes;
+    uint32_t nullifiers;
+    uint32_t l2ToL1Msgs;
+    uint32_t publicLogs;
+    uint32_t publicDataWrites;
+
+    bool operator==(const AvmAccumulatedDataArrayLengths& other) const = default;
+
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites);
 };
 
 ////////////////////////////////////////////////////////////////////////////

@@ -6,12 +6,12 @@ use dep::protocol_types::{
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
 /// them available for later processing in Noir by storing them in a capsule array.
-pub unconstrained fn sync_private_state(pending_tagged_log_array_base_slot: Field) {
-    sync_private_state_oracle(pending_tagged_log_array_base_slot);
+pub unconstrained fn fetch_tagged_logs(pending_tagged_log_array_base_slot: Field) {
+    fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot);
 }
 
-#[oracle(syncPrivateState)]
-unconstrained fn sync_private_state_oracle(pending_tagged_log_array_base_slot: Field) {}
+#[oracle(fetchTaggedLogs)]
+unconstrained fn fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot: Field) {}
 
 /// Informs PXE of a note's existence so that it can later be retrieved by the `getNotes` oracle. The note will be
 /// scoped to `contract_address`, meaning other contracts will not be able to access it unless authorized.
@@ -50,9 +50,7 @@ pub unconstrained fn deliver_note(
 
 /// The contents of a public log, plus contextual information about the transaction in which the log was emitted. This
 /// is the data required in order to discover notes that are being delivered in a log.
-// TODO(#11639): this could also be used to fetch private logs, but the `BoundedVec` maximum length is that of a public
-// log.
-pub struct LogWithTxData {
+pub struct PublicLogWithTxData {
     // The log fields length is PUBLIC_LOG_SIZE_IN_FIELDS. + 1 because the contract address is prepended to the content.
     pub log_content: BoundedVec<Field, PUBLIC_LOG_SIZE_IN_FIELDS + 1>,
     pub tx_hash: Field,
@@ -62,14 +60,15 @@ pub struct LogWithTxData {
     pub first_nullifier_in_tx: Field,
 }
 
-/// Fetches a log from the node that has the corresponding `tag`. The log can be either a public or a private log, and
-/// the tag is the first field in the log's content. Returns `Option::none` if no such log exists. Throws if more than
-/// one log with that tag exists.
-/// Public logs have an extra field included at the beginning with the address of the contract that emitted them.
+/// Fetches a public log emitted by `contract_address` that has the corresponding `tag`. The tag is the first field in the log's content.
+/// Returns `Option::none` if no such log exists. Throws if more than one log with that tag exists.
 // TODO(#11627): handle multiple logs with the same tag.
 // TODO(#10273): improve contract siloing of logs, don't introduce an extra field.
-pub unconstrained fn get_log_by_tag(tag: Field) -> Option<LogWithTxData> {
-    get_log_by_tag_oracle(tag)
+pub unconstrained fn get_public_log_by_tag(
+    tag: Field,
+    contract_address: AztecAddress,
+) -> Option<PublicLogWithTxData> {
+    get_public_log_by_tag_oracle(tag, contract_address)
 }
 
 #[oracle(deliverNote)]
@@ -84,5 +83,8 @@ unconstrained fn deliver_note_oracle(
     recipient: AztecAddress,
 ) -> bool {}
 
-#[oracle(getLogByTag)]
-unconstrained fn get_log_by_tag_oracle(tag: Field) -> Option<LogWithTxData> {}
+#[oracle(getPublicLogByTag)]
+unconstrained fn get_public_log_by_tag_oracle(
+    tag: Field,
+    contract_address: AztecAddress,
+) -> Option<PublicLogWithTxData> {}

@@ -229,13 +229,8 @@ pub contract SimpleToken {
             context,
             to,
             from,
+            from,
         );
-
-        let validity_commitment = partial_note.compute_validity_commitment(context.msg_sender());
-
-        SimpleToken::at(context.this_address())
-            ._set_uint_partial_note_validity(validity_commitment)
-            .enqueue(context);
 
         partial_note
     }
@@ -279,11 +274,7 @@ pub contract SimpleToken {
         let from_balance = storage.public_balances.at(from_and_completer).read().sub(amount);
         storage.public_balances.at(from_and_completer).write(from_balance);
 
-        assert(
-            context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
-            "Invalid partial note or completer",
-        );
-        partial_note.complete(amount, context);
+        partial_note.complete(context, from_and_completer, amount);
     }
 
     #[private]
@@ -333,17 +324,7 @@ pub contract SimpleToken {
         let supply = storage.total_supply.read().add(amount);
         storage.total_supply.write(supply);
 
-        assert(
-            context.storage_read(partial_note.compute_validity_commitment(completer)),
-            "Invalid partial note or completer",
-        );
-        partial_note.complete(amount, context);
-    }
-
-    #[public]
-    #[internal]
-    fn _set_uint_partial_note_validity(validity_commitment: Field) {
-        context.storage_write(validity_commitment, true);
+        partial_note.complete(context, completer, amount);
     }
 
     #[public]
