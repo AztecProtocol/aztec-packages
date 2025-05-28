@@ -17,7 +17,7 @@ In this tutorial you will learn how to:
 - Handle different private note types
 - Pass data between private and public state
 
-This tutorial is compatible with the Aztec version `v0.87.0`. Install the correct version with `aztec-up v0.87.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `v0.87.0`. Install the correct version with `aztec-up 0.87.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr), and explain what is being added as we go.
 
@@ -201,7 +201,7 @@ Now that we have dependencies imported into our contract we can define the stora
 
 Below the dependencies, paste the following Storage struct:
 
-```rust title="storage_struct" showLineNumbers 
+```rust title="storage_struct" showLineNumbers
 #[storage]
 struct Storage<Context> {
     // The symbol of the NFT
@@ -229,7 +229,7 @@ The contract storage uses a [custom note](../../../guides/smart_contracts/writin
 
 Randomness is required because notes are stored as commitments (hashes) in the note hash tree. Without randomness, the contents of a note may be derived through brute force (e.g. without randomness, if you know my Aztec address, you may be able to figure out which note hash in the tree is mine by hashing my address with many potential `token_id`s).
 
-```rust title="nft_note" showLineNumbers 
+```rust title="nft_note" showLineNumbers
 /// A private note representing a token id associated to an account.
 #[custom_note]
 #[derive(Eq, Serialize)]
@@ -258,7 +258,7 @@ Copy and paste the body of each function into the appropriate place in your proj
 
 This function sets the admin and makes them a minter, and sets the name and symbol.
 
-```rust title="constructor" showLineNumbers 
+```rust title="constructor" showLineNumbers
 #[public]
 #[initializer]
 fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>) {
@@ -284,7 +284,7 @@ Storage is referenced as `storage.variable`.
 
 The function checks that the `msg_sender` is the `admin`. If not, the transaction will fail. If it is, the `new_admin` is saved as the `admin`.
 
-```rust title="set_admin" showLineNumbers 
+```rust title="set_admin" showLineNumbers
 #[public]
 fn set_admin(new_admin: AztecAddress) {
     assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
@@ -298,7 +298,7 @@ fn set_admin(new_admin: AztecAddress) {
 
 This function allows the `admin` to add or a remove a `minter` from the public `minters` mapping. It checks that `msg_sender` is the `admin` and finally adds the `minter` to the `minters` mapping.
 
-```rust title="set_minter" showLineNumbers 
+```rust title="set_minter" showLineNumbers
 #[public]
 fn set_minter(minter: AztecAddress, approve: bool) {
     assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
@@ -312,7 +312,7 @@ fn set_minter(minter: AztecAddress, approve: bool) {
 
 This public function checks that the `token_id` is not 0 and does not already exist and the `msg_sender` is authorized to mint. Then it indicates that the `token_id` exists, which is useful for verifying its existence if it gets transferred to private, and updates the owner in the `public_owners` mapping.
 
-```rust title="mint" showLineNumbers 
+```rust title="mint" showLineNumbers
 #[public]
 fn mint(to: AztecAddress, token_id: Field) {
     assert(token_id != 0, "zero token ID not supported");
@@ -329,7 +329,7 @@ fn mint(to: AztecAddress, token_id: Field) {
 
 #### `transfer_in_public`
 
-```rust title="transfer_in_public" showLineNumbers 
+```rust title="transfer_in_public" showLineNumbers
 #[public]
 fn transfer_in_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
     if (!from.eq(context.msg_sender())) {
@@ -357,7 +357,7 @@ If the `msg_sender` is the same as the account to debit from, the authorization 
 
 This public function finalizes a transfer that has been set up by a call to [`prepare_private_balance_increase`](#prepare_private_balance_increase) by reducing the public balance of the associated account and emitting the note for the intended recipient.
 
-```rust title="finalize_transfer_to_private" showLineNumbers 
+```rust title="finalize_transfer_to_private" showLineNumbers
 #[public]
 fn finalize_transfer_to_private(token_id: Field, partial_note: PartialNFTNote) {
     let from = context.msg_sender();
@@ -384,7 +384,7 @@ Storage is referenced as `storage.variable`.
 
 Transfers token with `token_id` from public balance of the sender to a private balance of `to`. Calls [`_prepare_private_balance_increase`](#prepare_private_balance_increase) to get the hiding point slot (a transient storage slot where we can keep the partial note) and then calls [`_finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) to finalize the transfer in the public context.
 
-```rust title="transfer_to_private" showLineNumbers 
+```rust title="transfer_to_private" showLineNumbers
 #[private]
 fn transfer_to_private(to: AztecAddress, token_id: Field) {
     let from = context.msg_sender();
@@ -414,7 +414,7 @@ This function calls `_prepare_private_balance_increase` which is marked as `#[co
 
 It also calls [`_store_payload_in_transient_storage_unsafe`](#_store_payload_in_transient_storage_unsafe) to store the partial note in "transient storage" (more below)
 
-```rust title="prepare_private_balance_increase" showLineNumbers 
+```rust title="prepare_private_balance_increase" showLineNumbers
 #[private]
 fn prepare_private_balance_increase(to: AztecAddress) -> PartialNFTNote {
     _prepare_private_balance_increase(to, &mut context, storage)
@@ -452,7 +452,7 @@ fn _prepare_private_balance_increase(
 
 Cancels a private authwit by emitting the corresponding nullifier.
 
-```rust title="cancel_authwit" showLineNumbers 
+```rust title="cancel_authwit" showLineNumbers
 #[private]
 fn cancel_authwit(inner_hash: Field) {
     let on_behalf_of = context.msg_sender();
@@ -467,7 +467,7 @@ fn cancel_authwit(inner_hash: Field) {
 
 Transfers an NFT between two addresses in the private context. Uses [authwits](../../../../aztec/concepts/advanced/authwit.md) to allow contracts to transfer NFTs on behalf of other accounts.
 
-```rust title="transfer_in_private" showLineNumbers 
+```rust title="transfer_in_private" showLineNumbers
 #[private]
 fn transfer_in_private(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
     if (!from.eq(context.msg_sender())) {
@@ -495,7 +495,7 @@ fn transfer_in_private(from: AztecAddress, to: AztecAddress, token_id: Field, no
 
 Transfers and NFT from private storage to public storage. The private call enqueues a call to [`_finish_transfer_to_public`](#_finish_transfer_to_public) which updates the public owner of the `token_id`.
 
-```rust title="transfer_to_public" showLineNumbers 
+```rust title="transfer_to_public" showLineNumbers
 #[private]
 fn transfer_to_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
     if (!from.eq(context.msg_sender())) {
@@ -527,7 +527,7 @@ It is labeled unsafe because the public function does not check the value of the
 
 This is transient storage since the storage is not permanent, but is scoped to the current transaction only, after which it will be reset. The partial note is stored the "hiding point slot" value (computed in `_prepare_private_balance_increase()`) in public storage. However subsequent enqueued call to `_finalize_transfer_to_private_unsafe()` will read the partial note in this slot, complete it and emit it. Since the note is completed, there is no use of storing the hiding point slot anymore so we will reset to empty. This saves a write to public storage too.
 
-```rust title="store_payload_in_transient_storage_unsafe" showLineNumbers 
+```rust title="store_payload_in_transient_storage_unsafe" showLineNumbers
 #[public]
 #[internal]
 fn _store_nft_set_partial_note(partial_note: PartialNFTNote) {
@@ -545,7 +545,7 @@ fn _store_nft_set_partial_note(partial_note: PartialNFTNote) {
 
 This function is labeled as unsafe because the sender is not enforced in this function, but it is safe because the sender is enforced in the execution of the private function that calls this function.
 
-```rust title="finalize_transfer_to_private_unsafe" showLineNumbers 
+```rust title="finalize_transfer_to_private_unsafe" showLineNumbers
 #[public]
 #[internal]
 fn _finalize_transfer_to_private_unsafe(
@@ -563,7 +563,7 @@ fn _finalize_transfer_to_private_unsafe(
 
 Updates the public owner of the `token_id` to the `to` address.
 
-```rust title="finish_transfer_to_public" showLineNumbers 
+```rust title="finish_transfer_to_public" showLineNumbers
 #[public]
 #[internal]
 fn _finish_transfer_to_public(to: AztecAddress, token_id: Field) {
@@ -581,7 +581,7 @@ NFT implements the following `view` functions:
 
 A getter function for reading the public `admin` value.
 
-```rust title="admin" showLineNumbers 
+```rust title="admin" showLineNumbers
 #[public]
 #[view]
 fn get_admin() -> Field {
@@ -595,7 +595,7 @@ fn get_admin() -> Field {
 
 A getter function for checking the value of associated with a `minter` in the public `minters` mapping.
 
-```rust title="is_minter" showLineNumbers 
+```rust title="is_minter" showLineNumbers
 #[public]
 #[view]
 fn is_minter(minter: AztecAddress) -> bool {
@@ -633,7 +633,7 @@ The NFT implements the following [utility](../../../../aztec/concepts/call_types
 
 A getter function for checking the private balance of the provided Aztec account. Returns an array of token IDs owned by `owner` in private and a flag indicating whether a page limit was reached.
 
-```rust title="get_private_nfts" showLineNumbers 
+```rust title="get_private_nfts" showLineNumbers
 #[utility]
 unconstrained fn get_private_nfts(
     owner: AztecAddress,
