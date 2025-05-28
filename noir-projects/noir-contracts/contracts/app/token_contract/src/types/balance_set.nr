@@ -165,6 +165,7 @@ mod test {
         // We check the recipient balance is correct both as a sanity check and as a way to make sure we've discovered
         // the notes.
         utils::check_private_balance(
+            env,
             token_contract_address,
             recipient,
             small_mint_amount + large_mint_amount,
@@ -208,6 +209,7 @@ mod test {
         // We check the recipient balance is correct both as a sanity check and as a way to make sure we've discovered
         // the notes.
         utils::check_private_balance(
+            env,
             token_contract_address,
             recipient,
             small_mint_amount + large_mint_amount,
