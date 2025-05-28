@@ -3,6 +3,7 @@ use dep::types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot, constants::BLOCK_ROOT_ROLLUP_INDEX,
     merkle_tree::merkle_tree::MerkleTree, proof::vk_data::VkData, tests::fixtures, traits::Empty,
 };
+use bigint::{BigNum, BLS12_381_Fr as F};
 
 pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
     let mut previous_rollup_data = [PreviousRollupBlockData::empty(); 2];

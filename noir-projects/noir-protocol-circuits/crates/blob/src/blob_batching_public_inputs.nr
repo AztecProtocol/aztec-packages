@@ -364,7 +364,16 @@ pub struct FinalBlobAccumulatorPublicInputs {
     pub blob_commitments_hash: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
     pub z: Field, // Challenge at which the batched blob polynomial is evaluated (BN254Fr)
     pub y: F, // Batched blob's evaluation y (BLS12Fr)
-    pub c: [Field; 2], // Batched blob's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq }) compressed to 48 bytes, stored in 2 fields
+    pub c: [Field; 2], // Batched blob's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq }) compressed to 48 bytes, stored in 2 fields of 31 and 17 bytes
+}
+
+impl Eq for FinalBlobAccumulatorPublicInputs {
+    fn eq(self, other: Self) -> bool {
+        (self.blob_commitments_hash.eq(other.blob_commitments_hash))
+            & (self.z.eq(other.z))
+            & (self.y.eq(other.y))
+            & (self.c.eq(other.c))
+    }
 }
 
 /**
