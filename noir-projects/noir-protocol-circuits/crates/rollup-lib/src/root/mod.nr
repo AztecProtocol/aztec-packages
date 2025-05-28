@@ -43,9 +43,11 @@ mod tests {
         assert_eq(outputs.prover_id, left.prover_id);
         assert_eq(outputs.prover_id, right.prover_id);
 
-        assert_array_eq(
+        assert_eq(
             outputs.blob_public_inputs,
-            [left.blob_public_inputs[0], right.blob_public_inputs[0]],
+            right.blob_public_inputs.end_blob_accumulator.finalize_and_validate(
+                left.blob_public_inputs.final_blob_challenges,
+            ),
         );
     }
 

@@ -367,6 +367,15 @@ pub struct FinalBlobAccumulatorPublicInputs {
     pub c: [Field; 2], // Batched blob's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq }) compressed to 48 bytes, stored in 2 fields of 31 and 17 bytes
 }
 
+impl Eq for FinalBlobAccumulatorPublicInputs {
+    fn eq(self, other: Self) -> bool {
+        (self.blob_commitments_hash.eq(other.blob_commitments_hash))
+            & (self.z.eq(other.z))
+            & (self.y.eq(other.y))
+            & (self.c.eq(other.c))
+    }
+}
+
 /**
 * - start_blob_accumulator: Accumulated opening proofs for all blobs before this block range.
 * - end_blob_accumulator: Accumulated opening proofs for all blobs after adding this block range.
