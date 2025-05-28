@@ -15,9 +15,10 @@ mkdir -p build-coverage/profdata
 export LLVM_PROFILE_FILE="$(pwd)/build-coverage/profdata/%m.%p.profraw"
 
 function test_cmds {
-  ./bootstrap.sh test_cmds | grep -v Full6 | grep -v MaxCapacity | grep -v AvmRecursiveTests
-  ../acir_tests/bootstrap.sh test_cmds | grep -v main.js | grep -v browser
-  echo "disabled-cache NO_WASM=1 barretenberg/cpp/bootstrap.sh bench_ivc origin/master"
+  ./bootstrap.sh test_cmds | grep run_test.sh | grep -v Full6 | grep -v MaxCapacity | grep -v AvmRecursiveTests | grep -v AvmVerifierTests
+  # Uncomment to include acir tests and realistic IVC inputs
+  # ../acir_tests/bootstrap.sh test_cmds | grep -v main.js | grep -v browser
+  # echo "disabled-cache NO_WASM=1 barretenberg/cpp/bootstrap.sh bench_ivc origin/master"
 }
 (test_cmds || exit 1) | parallelise
 # Run llvm-profdata to merge raw profiles

@@ -42,10 +42,10 @@ function build_preset() {
 # Build all native binaries, including tests.
 function build_native {
   set -eu
-  if ! cache_download barretenberg-native-$hash.zst; then
+  if ! cache_download barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
     build_preset $native_preset
-    cache_upload barretenberg-native-$hash.zst build/bin
+    cache_upload barretenberg-$native_preset-$hash.zst build/bin
   fi
 }
 
