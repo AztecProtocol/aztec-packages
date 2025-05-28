@@ -82,7 +82,16 @@ describe('e2e_block_building', () => {
       aztecNodeAdmin = maybeAztecNodeAdmin!;
     });
 
-    afterEach(() => aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 }));
+    beforeEach(async () => {
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+    });
+
+    afterEach(async () => {
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+      // Clean up any mocks
+      jest.restoreAllMocks();
+    });
+
     afterAll(() => teardown());
 
     it('processes txs until hitting timetable', async () => {
