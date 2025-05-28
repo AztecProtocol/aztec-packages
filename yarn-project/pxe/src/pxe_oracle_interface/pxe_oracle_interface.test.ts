@@ -639,7 +639,7 @@ describe('PXEOracleInterface', () => {
 
       const result = (await pxeOracleInterface.getPublicLogByTag(tag, logContractAddress))!;
 
-      expect(result.logContent).toEqual([logContractAddress.toField()].concat(scopedLog.log.getEmittedFields()));
+      expect(result.logPlaintext).toEqual(scopedLog.log.getEmittedFields());
       expect(result.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
       expect(result.txHash).toEqual(scopedLog.txHash);
       expect(result.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);
@@ -689,7 +689,7 @@ describe('PXEOracleInterface', () => {
 
       const result = await pxeOracleInterface.getPublicLogByTag(tag, logContractAddress);
 
-      expect(result?.logContent).toEqual([log.contractAddress.toField(), ...logContent]);
+      expect(result?.logPlaintext).toEqual([log.contractAddress.toField(), ...logContent]);
     });
   });
 
