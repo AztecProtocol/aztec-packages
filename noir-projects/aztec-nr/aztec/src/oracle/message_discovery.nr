@@ -48,8 +48,9 @@ pub unconstrained fn deliver_note(
     )
 }
 
-/// The plaintext of a public log, plus contextual information about the transaction in which the log was emitted. This
-/// is the data required in order to discover notes that are being delivered in a log.
+/// The plaintext of a public log (i.e. the content minus the tag), plus contextual information about the transaction
+// in which the log was emitted. This is the data required in order to discover notes that are being delivered in a
+// log.
 pub struct PublicLogWithTxData {
     pub log_plaintext: BoundedVec<Field, PUBLIC_LOG_PLAINTEXT_LEN>,
     pub tx_hash: Field,
