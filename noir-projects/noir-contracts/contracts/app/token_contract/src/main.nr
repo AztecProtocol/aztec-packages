@@ -289,8 +289,8 @@ pub contract Token {
         emit_event_in_private_log(
             Transfer { from, to, amount },
             &mut context,
-            to,
             from,
+            to,
             PrivateLogContent.NO_CONSTRAINTS,
         );
         // docs:end:encrypted_unconstrained

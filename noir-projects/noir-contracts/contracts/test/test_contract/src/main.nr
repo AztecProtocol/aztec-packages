@@ -332,8 +332,8 @@ pub contract Test {
         emit_event_in_private_log(
             event,
             &mut context,
-            owner,
             sender,
+            owner,
             PrivateLogContent.NO_CONSTRAINTS,
         );
 
