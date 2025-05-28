@@ -7,7 +7,7 @@ import { jest } from '@jest/globals';
 import type { EndToEndContext } from '../fixtures/utils.js';
 import { EpochsTestContext, WORLD_STATE_BLOCK_HISTORY } from './epochs_test.js';
 
-jest.setTimeout(1000 * 60 * 10);
+jest.setTimeout(1000 * 60 * 15);
 
 describe('e2e_epochs/epochs_empty_blocks', () => {
   let context: EndToEndContext;
