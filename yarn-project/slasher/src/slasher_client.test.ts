@@ -76,7 +76,6 @@ describe('SlasherClient', () => {
       initialValidators: [
         {
           attester: EthAddress.fromString(l1Client.account.address),
-          proposerEOA: EthAddress.fromString(l1Client.account.address),
           withdrawer: EthAddress.fromString(l1Client.account.address),
         },
       ],

@@ -238,7 +238,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       const slashEvents = await rollupRaw.getEvents.Slashed();
       const { attester, amount } = slashEvents[0].args;
       expect(slashEvents.length).toBe(1);
-      expect(attester?.toLowerCase()).toBe(t.validators.at(-1)!.attester.toLowerCase());
+      expect(attester?.toLowerCase()).toBe(t.validators.at(-1)!.attester.toString().toLowerCase());
       expect(amount).toBe(SLASH_AMOUNT);
     });
   });

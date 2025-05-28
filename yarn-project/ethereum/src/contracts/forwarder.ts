@@ -16,6 +16,10 @@ import type { L1BlobInputs, L1GasConfig, L1TxRequest, L1TxUtils } from '../l1_tx
 import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import { RollupContract } from './rollup.js';
 
+// No harm in this, since the default forwarder is effectively multi-call,
+// and has no owner or state
+const DEFAULT_FORWARDER_SALT = '0x42';
+
 export class ForwarderContract {
   private readonly forwarder: GetContractReturnType<typeof ForwarderAbi, ViemClient>;
 
@@ -39,8 +43,8 @@ export class ForwarderContract {
       l1Client,
       ForwarderAbi,
       ForwarderBytecode,
-      [owner],
-      owner,
+      [],
+      DEFAULT_FORWARDER_SALT,
       undefined,
       logger,
     );
