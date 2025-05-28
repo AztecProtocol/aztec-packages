@@ -278,7 +278,7 @@ export class Sequencer {
 
     // If get proposer in next slot is undefined, then there is no proposer set, and it is in free for all (sandbox) so we continue
     // If we calculate a proposer in the next slot, and it is not us, then stop
-    if (proposerInNextSlot !== undefined && !validatorAddresses.includes(proposerInNextSlot)) {
+    if (proposerInNextSlot !== undefined && !validatorAddresses.some(addr => addr.equals(proposerInNextSlot))) {
       this.log.debug(`Cannot propose block ${newBlockNumber}`, {
         us: validatorAddresses,
         proposer: proposerInNextSlot,
