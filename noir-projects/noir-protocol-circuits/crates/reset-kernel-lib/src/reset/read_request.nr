@@ -187,7 +187,7 @@ where
 
 // For best performance, `pending_read_amount` and `settled_read_amount` should be known at compile time,
 // `pending_read_amount` should be the same as `PENDING_READ_HINTS_LEN`,
-// abd `settled_read_amount` the same as `SETTLED_READ_HINTS_LEN`.
+// and `settled_read_amount` the same as `SETTLED_READ_HINTS_LEN`.
 // We created two variables because an array is not allowed to be empty (zero length). In the case a reset circuit skips
 // the read request verification, the array will contain empty items, and the [pending|settled]_read_amount will be zero.
 pub fn verify_reset_read_requests<let READ_REQUEST_LEN: u32, P, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(

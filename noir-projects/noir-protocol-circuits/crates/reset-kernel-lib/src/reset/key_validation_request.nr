@@ -49,6 +49,7 @@ fn verify_key_validation_request(
 }
 
 // `key_validation_amount` should be a known constant at compile time.
+// For reset variants, the constant is defined in the main.nr files and passed down to this function.
 pub fn verify_reset_key_validation_requests<let REQUESTS_LEN: u32, let HINTS_LEN: u32>(
     key_validation_requests: [ScopedKeyValidationRequestAndGenerator; REQUESTS_LEN],
     hints: [KeyValidationHint; HINTS_LEN],
