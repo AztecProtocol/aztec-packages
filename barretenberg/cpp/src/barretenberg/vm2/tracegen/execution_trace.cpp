@@ -98,8 +98,6 @@ void ExecutionTraceBuilder::process(
             cached_parent_id_inv = has_parent ? FF(ex_event.after_context_event.parent_id).invert() : 0;
         }
 
-        std::cout << "row: " << row << std::endl;
-
         trace.set(
             row,
             { {
