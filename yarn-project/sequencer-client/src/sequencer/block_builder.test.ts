@@ -11,6 +11,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
+  type BuildBlockOptions,
   WorldStateRunningState,
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
@@ -67,6 +68,16 @@ describe('BlockBuilder', () => {
     tx.data.constants.txContext.chainId = new Fr(chainId);
     return tx;
   };
+
+  class TestBlockBuilder extends BlockBuilder {
+    public override makeBlockBuilderDeps(_globalVariables: GlobalVariables, _opts: BuildBlockOptions) {
+      return Promise.resolve({
+        publicProcessorDBFork: fork,
+        processor: publicProcessor,
+        validator,
+      });
+    }
+  }
 
   beforeEach(async () => {
     feeRecipient = await AztecAddress.random();
@@ -144,7 +155,7 @@ describe('BlockBuilder', () => {
       // Assuming all txs are processed successfully and none failed for this mock
       return [processedTxs, [], allTxs, []] as any;
     });
-    blockBuilder = new BlockBuilder(l1Constants, l1ToL2MessageSource, worldState, contractDataSource, dateProvider);
+    blockBuilder = new TestBlockBuilder(l1Constants, l1ToL2MessageSource, worldState, contractDataSource, dateProvider);
   });
 
   it('builds a block out of a single tx', async () => {
