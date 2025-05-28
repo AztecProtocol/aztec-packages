@@ -64,7 +64,7 @@ type BaseTreeNames = 'NoteHashTree' | 'ContractTree' | 'NullifierTree' | 'Public
 export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 
 // Builds the hints for base rollup. Updating the contract, nullifier, and data trees in the process.
-export const buildBaseRollupHints = runInSpan(
+export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
   'BlockBuilderHelpers',
   'buildBaseRollupHints',
   async (

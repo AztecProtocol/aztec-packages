@@ -4,8 +4,8 @@ use crate::{
 };
 use types::{
     constants::{
-        BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX, BLOCK_ROOT_ROLLUP_INDEX,
-        BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX, PROOF_TYPE_ROOT_ROLLUP_HONK,
+        AZTEC_MAX_EPOCH_DURATION, BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
+        BLOCK_ROOT_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX, PROOF_TYPE_ROOT_ROLLUP_HONK,
     },
     traits::Empty,
 };
@@ -54,7 +54,12 @@ impl RootRollupInputs {
         // ^ Where instead of num_txs, use num_blocks = (end_global_variables.block_number - start_global_variables.block_number) + 1
         components::assert_prev_block_rollups_follow_on_from_each_other(left, right);
 
-        let out_hash = components::compute_blocks_out_hash(self.previous_rollup_data);
+        // Make sure that the total number of blocks in the epoch does not exceed the max, preventing the accumulated
+        // data below (proposed_block_header_hashes, fees, blob_public_inputs) from being truncated.
+        let num_blocks = (right.end_global_variables.block_number as u32)
+            - (left.start_global_variables.block_number as u32)
+            + 1;
+        assert(num_blocks <= AZTEC_MAX_EPOCH_DURATION, "too many blocks in root rollup");
 
         let proposed_block_header_hashes =
             components::accumulate_proposed_block_header_hashes(left, right);
@@ -80,11 +85,8 @@ impl RootRollupInputs {
         // => Validated public inputs from acc are: { v, z, y, C } (gamma is not required)
 
         RootRollupPublicInputs {
-            previous_archive: left.previous_archive,
-            end_archive: right.new_archive,
-            end_timestamp: right.end_global_variables.timestamp,
-            end_block_number: right.end_global_variables.block_number,
-            out_hash,
+            previous_archive_root: left.previous_archive.root,
+            end_archive_root: right.new_archive.root,
             proposed_block_header_hashes,
             fees,
             chain_id: right.end_global_variables.chain_id,
