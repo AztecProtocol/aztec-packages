@@ -13,19 +13,17 @@ contract PublicImmutableContract {
     }
 
     #[public]
-    fn initialize_value(value: pub Field) {
+    fn initialize_value(value: Field) {
         storage.immutable_value.initialize(value);
     }
 
     #[public]
     fn read_value() -> pub Field {
-        // This should fail since immutable_value is not initialized yet
         storage.immutable_value.read()
     }
 
     #[public]
     fn read_value_unsafe() -> pub Field {
-        // This should fail since immutable_value is not initialized yet
         storage.immutable_value.read_unsafe()
     }
 }
