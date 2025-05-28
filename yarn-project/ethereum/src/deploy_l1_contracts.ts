@@ -275,6 +275,7 @@ export const deploySharedContracts = async (
   const governanceAddress = await deployer.deploy(l1Artifacts.governance, [
     stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
+    gseAddress.toString(),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);
 

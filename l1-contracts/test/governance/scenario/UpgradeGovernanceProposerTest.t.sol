@@ -48,16 +48,14 @@ contract UpgradeGovernanceProposerTest is TestBase {
 
   function setUp() external {
     vm.warp(1000);
-    RollupBuilder builder = new RollupBuilder(address(this));
+    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
     registry = builder.getConfig().registry;
     token = builder.getConfig().testERC20;
-
-    governanceProposer = new GovernanceProposer(registry, 7, 10);
-
-    governance = new Governance(token, address(governanceProposer));
+    governance = builder.getConfig().governance;
+    governanceProposer = GovernanceProposer(governance.governanceProposer());
 
     CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](VALIDATOR_COUNT);
     for (uint256 i = 1; i <= VALIDATOR_COUNT; i++) {

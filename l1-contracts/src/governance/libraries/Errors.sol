@@ -27,6 +27,7 @@ library Errors {
   error Governance__ProposalDoesNotExists(uint256 proposalId);
   error Governance__ProposalAlreadyDropped();
   error Governance__ProposalCannotBeDropped();
+  error Governance__DepositNotAllowed();
 
   error Governance__UserLib__NotInPast();
 
