@@ -20,6 +20,8 @@ This function takes an enum value that indicates which constraints will be place
 - `NO_CONSTRAINTS`:  encryption is unconstrained. This means that the sender is free to make the log contents be whatever they wish, so the recipient is trusting the sender of the event. This could also potentially result in scenarios in which the recipient is unable to decrypt and process the payload, **leading to the event being lost**. Only use this function in scenarios where the recipient not receiving the event is an acceptable outcome.
 - `CONSTRAINED_ENCRYPTION`: the contents of the log and its encryption are constrained. The tag (and therefore whether the recipient is actually able to find the message) is not.
 
+In the near future more options will exist, including the possibility of fully constraining the tag, guaranteeing the recipient will find the message.
+
 :::note
 Developer can choose whether to emit encrypted events or not. Emitting the events means that they will be posted to Ethereum, in blobs, and will inherit the availability guarantees of Ethereum. Developers may choose not to emit events and to share information with recipients off-chain, or through alternative mechanisms that are to be developed (e.g. alternative, cheaper data availability solutions).
 :::
