@@ -1,8 +1,7 @@
-import { PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import { PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { padArrayEnd, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fq, Fr } from '@aztec/foundation/fields';
-import type { Tuple } from '@aztec/foundation/serialize';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -147,7 +146,7 @@ describe('PXEOracleInterface', () => {
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
 
-      // Set up the getTaggedLogs mock
+      // Set up the getPrivateLogsByTags mock
       aztecNode.getLogsByTags.mockImplementation(tags => {
         return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
       });
@@ -434,28 +433,6 @@ describe('PXEOracleInterface', () => {
       await expectPendingTaggedLogArrayLengthToBe(contractAddress, NUM_SENDERS + 1);
     });
 
-    it('should not sync public tagged logs', async () => {
-      const logs: { [k: string]: TxScopedL2Log[] } = {};
-      const tag = await computeSiloedTagForIndex(senders[0], recipient.address, contractAddress, 0);
-
-      // Create a public log with the correct tag
-      const logContent = [Fr.ONE, tag, ...Array(PUBLIC_LOG_SIZE_IN_FIELDS - 2).fill(Fr.random())] as Tuple<
-        Fr,
-        typeof PUBLIC_LOG_SIZE_IN_FIELDS
-      >;
-      const log = new PublicLog(await AztecAddress.random(), logContent, PUBLIC_LOG_SIZE_IN_FIELDS);
-      const scopedLog = new TxScopedL2Log(TxHash.random(), 1, 0, 0, log);
-
-      logs[tag.toString()] = [scopedLog];
-      aztecNode.getLogsByTags.mockImplementation(tags => {
-        return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
-      });
-      await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
-
-      // We expect the above log to be discarded, and so none to be synced
-      await expectPendingTaggedLogArrayLengthToBe(contractAddress, 0);
-    });
-
     const expectPendingTaggedLogArrayLengthToBe = async (contractAddress: AztecAddress, expectedLength: number) => {
       // Capsule array length is stored in the array base slot.
       const capsule = await capsuleDataProvider.loadCapsule(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
@@ -635,7 +612,7 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('getLogByTag', () => {
+  describe('getPublicLogByTag', () => {
     const tag = Fr.random();
 
     beforeEach(() => {
@@ -646,15 +623,13 @@ describe('PXEOracleInterface', () => {
     it('returns null if no logs found for tag', async () => {
       aztecNode.getLogsByTags.mockResolvedValue([[]]);
 
-      const result = await pxeOracleInterface.getLogByTag(tag);
+      const result = await pxeOracleInterface.getPublicLogByTag(tag, contractAddress);
       expect(result).toBeNull();
     });
 
-    it.each<[string, boolean]>([
-      ['public log', true],
-      ['private log', false],
-    ])('returns log data for %s when single log found', async (_, isFromPublic) => {
-      const scopedLog = await TxScopedL2Log.random(isFromPublic);
+    it('returns log data when single log found', async () => {
+      const scopedLog = await TxScopedL2Log.random(true);
+      const logContractAddress = (scopedLog.log as PublicLog).contractAddress;
 
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
       const indexedTxEffect = await randomIndexedTxEffect();
@@ -662,15 +637,9 @@ describe('PXEOracleInterface', () => {
         txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
       );
 
-      const result = (await pxeOracleInterface.getLogByTag(tag))!;
+      const result = (await pxeOracleInterface.getPublicLogByTag(tag, logContractAddress))!;
 
-      if (isFromPublic) {
-        expect(result.logContent).toEqual(
-          [(scopedLog.log as PublicLog).contractAddress.toField()].concat(scopedLog.log.getEmittedFields()),
-        );
-      } else {
-        expect(result.logContent).toEqual(scopedLog.log.getEmittedFields());
-      }
+      expect(result.logContent).toEqual([logContractAddress.toField()].concat(scopedLog.log.getEmittedFields()));
       expect(result.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
       expect(result.txHash).toEqual(scopedLog.txHash);
       expect(result.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);
@@ -680,24 +649,33 @@ describe('PXEOracleInterface', () => {
     });
 
     it('throws if multiple logs found for tag', async () => {
-      const scopedLog = await TxScopedL2Log.random();
+      const scopedLog = await TxScopedL2Log.random(true);
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLog, scopedLog]]);
+      const logContractAddress = (scopedLog.log as PublicLog).contractAddress;
 
-      await expect(pxeOracleInterface.getLogByTag(tag)).rejects.toThrow(/Got 2 logs for tag/);
+      await expect(pxeOracleInterface.getPublicLogByTag(tag, logContractAddress)).rejects.toThrow(/Got 2 logs for tag/);
     });
 
     it('throws if tx effect not found', async () => {
-      const scopedLog = await TxScopedL2Log.random();
+      const scopedLog = await TxScopedL2Log.random(true);
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
       aztecNode.getTxEffect.mockResolvedValue(undefined);
+      const logContractAddress = (scopedLog.log as PublicLog).contractAddress;
 
-      await expect(pxeOracleInterface.getLogByTag(tag)).rejects.toThrow(/failed to retrieve tx effects/);
+      await expect(pxeOracleInterface.getPublicLogByTag(tag, logContractAddress)).rejects.toThrow(
+        /failed to retrieve tx effects/,
+      );
     });
 
     it('returns log fields that are actually emitted', async () => {
       const logContent = [Fr.random(), Fr.random()];
+      const logContractAddress = await AztecAddress.random();
 
-      const log = new PrivateLog(padArrayEnd(logContent, Fr.ZERO, PRIVATE_LOG_SIZE_IN_FIELDS), logContent.length);
+      const log = PublicLog.from({
+        contractAddress: logContractAddress,
+        fields: padArrayEnd(logContent, Fr.ZERO, PUBLIC_LOG_SIZE_IN_FIELDS),
+        emittedLength: logContent.length,
+      });
       const scopedLogWithPadding = new TxScopedL2Log(
         TxHash.random(),
         randomInt(100),
@@ -709,9 +687,9 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLogWithPadding]]);
       aztecNode.getTxEffect.mockResolvedValue(await randomIndexedTxEffect());
 
-      const result = await pxeOracleInterface.getLogByTag(tag);
+      const result = await pxeOracleInterface.getPublicLogByTag(tag, logContractAddress);
 
-      expect(result?.logContent).toEqual(logContent);
+      expect(result?.logContent).toEqual([log.contractAddress.toField(), ...logContent]);
     });
   });
 

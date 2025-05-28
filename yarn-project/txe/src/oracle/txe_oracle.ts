@@ -99,7 +99,13 @@ import {
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
 import { deriveKeys } from '@aztec/stdlib/keys';
-import { ContractClassLog, IndexedTaggingSecret, LogWithTxData, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
+import {
+  ContractClassLog,
+  IndexedTaggingSecret,
+  PrivateLog,
+  type PublicLog,
+  PublicLogWithTxData,
+} from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
@@ -1191,8 +1197,8 @@ export class TXE implements TypedOracle {
     );
   }
 
-  async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
-    return await this.pxeOracleInterface.getLogByTag(tag);
+  async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
+    return await this.pxeOracleInterface.getPublicLogByTag(tag, contractAddress);
   }
 
   // AVM oracles
