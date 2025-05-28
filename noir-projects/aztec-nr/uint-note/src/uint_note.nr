@@ -12,7 +12,7 @@ use dep::aztec::{
             GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         },
         hash::poseidon2_hash_with_separator,
-        traits::{Deserialize, Hash, Packable, Serialize, ToField},
+        traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
         utils::arrays::array_concat,
     },
 };
@@ -207,7 +207,7 @@ impl NoteType for PrivateUintPartialNotePrivateLogContent {
 /// slot, but the value field has not yet been set. A partial note can be completed in public with the `complete`
 /// function (revealing the value to the public), resulting in a UintNote that can be used like any other one (except
 /// of course that its value is known).
-#[derive(Packable, Serialize, Deserialize)]
+#[derive(Packable, Serialize, Deserialize, Eq)]
 pub struct PartialUintNote {
     commitment: Field,
 }
@@ -265,6 +265,18 @@ impl PartialUintNote {
             [self.commitment, value.to_field()],
             GENERATOR_INDEX__NOTE_HASH,
         )
+    }
+}
+
+impl ToField for PartialUintNote {
+    fn to_field(self) -> Field {
+        self.commitment
+    }
+}
+
+impl FromField for PartialUintNote {
+    fn from_field(field: Field) -> Self {
+        Self { commitment: field }
     }
 }
 
