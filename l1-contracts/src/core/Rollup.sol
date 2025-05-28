@@ -202,14 +202,9 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
-    Signature[] memory sigs = new Signature[](0);
-
-    ValidatorSelectionLib.verify(
-      slot,
-      slot.epochFromSlot(),
-      sigs,
-      _archive,
-      BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
+    address proposer = ValidatorSelectionLib.getProposerAt(slot, slot.epochFromSlot());
+    require(
+      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
     );
 
     return (slot, pendingBlockNumber + 1);

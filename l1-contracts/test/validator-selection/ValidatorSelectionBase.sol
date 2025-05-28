@@ -118,6 +118,6 @@ contract ValidatorSelectionTestBase is DecoderBase {
     address attester = vm.addr(attesterPrivateKey);
     attesterPrivateKeys[attester] = attesterPrivateKey;
 
-    return CheatDepositArgs({attester: attester, proposer: proposer, withdrawer: address(this)});
+    return CheatDepositArgs({attester: attester, withdrawer: address(this)});
   }
 }

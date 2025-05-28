@@ -101,6 +101,10 @@ library ValidatorSelectionLib {
       return;
     }
 
+    if (_flags.ignoreSignatures) {
+      return;
+    }
+
     require(
       _attestations.length == committeeSize,
       Errors.ValidatorSelection__InvalidAttestationsLength(committeeSize, _attestations.length)
@@ -113,12 +117,6 @@ library ValidatorSelectionLib {
 
     // The user controls this value, however, if a false value is provided, the recalculated committee commitment will
     // be incorrect, and we will revert.
-
-    bytes32 digest = _digest.toEthSignedMessageHash();
-
-    if (_flags.ignoreSignatures) {
-      return;
-    }
 
     // Validate the attestations
     uint256 needed = committeeSize * 2 / 3 + 1;

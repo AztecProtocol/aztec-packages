@@ -101,8 +101,8 @@ library Errors {
   error ValidatorSelection__InvalidProposer(address expected, address actual); // 0xa8843a68
   error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
-  error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0x10816cae
-  error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual);
+  error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
+  error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual); // 0xe923198c
 
   // Staking
   error Staking__AlreadyActive(address attester); // 0x5e206fa4

@@ -35,7 +35,11 @@ library SignatureLib {
    * @param _signer - The expected signer of the signature
    * @param _digest - The digest that was signed
    */
-  function verify(Signature memory _signature, address _signer, bytes32 _digest) internal pure {
+  function verify(Signature memory _signature, address _signer, bytes32 _digest)
+    internal
+    pure
+    returns (bool)
+  {
     address recovered = ecrecover(_digest, _signature.v, _signature.r, _signature.s);
     require(_signer == recovered, Errors.SignatureLib__InvalidSignature(_signer, recovered));
     return true;
@@ -43,5 +47,9 @@ library SignatureLib {
 
   function toBytes(Signature memory _signature) internal pure returns (bytes memory) {
     return abi.encodePacked(_signature.r, _signature.s, _signature.v);
+  }
+
+  function isEmpty(Signature memory _signature) internal pure returns (bool) {
+    return _signature.v == 0;
   }
 }

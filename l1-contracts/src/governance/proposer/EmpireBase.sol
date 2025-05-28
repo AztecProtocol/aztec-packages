@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
+// solhint-disable imports-order
 pragma solidity >=0.8.27;
 
+import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slot, SlotLib} from "@aztec/core/libraries/TimeLib.sol";
-import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
-import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 
 /**
@@ -58,7 +59,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    * @return True if executed successfully, false otherwise
    */
   function vote(IPayload _proposal) external override(IGovernanceProposer) returns (bool) {
-    return _internalVote(_proposal, Signature({isEmpty: true, v: 0, r: bytes32(0), s: bytes32(0)}));
+    return _internalVote(_proposal, Signature({v: 0, r: bytes32(0), s: bytes32(0)}));
   }
 
   /**
@@ -183,7 +184,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
 
     address proposer = selection.getCurrentProposer();
 
-    if (_sig.isEmpty) {
+    if (_sig.isEmpty()) {
       require(
         msg.sender == proposer, Errors.GovernanceProposer__OnlyProposerCanVote(msg.sender, proposer)
       );

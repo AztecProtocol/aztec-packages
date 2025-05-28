@@ -228,17 +228,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
   function testRelayedForProposer() public setup(4) progressEpochs(2) {
     // Having someone that is not the proposer submit it, but with all signatures (so there is signature from proposer)
-    _testBlock("mixed_block_1", false, 4, true);
-  }
-
-  function testInvalidProposer() public setup(4) progressEpochs(2) {
     _testBlock(
       "mixed_block_1",
-      true,
-      3,
+      false,
+      4,
       TestFlags({
         invalidProposer: true,
-        provideEmptyAttestations: true,
+        provideEmptyAttestations: false,
         proposerNotProvided: false,
         invalidCommitteeCommitment: false
       })
@@ -357,19 +353,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
           attestations[i] = createEmptyAttestation(validators[i]);
         }
       }
-      for (uint256 i = _signatureCount; i < validators.length; i++) {
-        signatures[i].isEmpty = true;
-      }
-
-      skipBlobCheck(address(rollup));
 
       if (_expectRevert) {
         ree.shouldRevert = true;
-
-        if (_invalidProposer) {
-          ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
-          vm.expectRevert(abi.encodeWithSelector(Errors.SignatureLib__CannotVerifyEmpty.selector));
-        } else if (_signatureCount < ree.needed) {
+        if (_signatureCount < ree.needed) {
           vm.expectRevert(
             abi.encodeWithSelector(
               Errors.ValidatorSelection__InsufficientAttestations.selector,
@@ -393,13 +380,22 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       // Set all attestations, including the propser's addr to 0
       if (_flags.proposerNotProvided) {
+        bytes32 correctCommitteeCommitment = keccak256(abi.encode(validators));
+        address[] memory incorrectCommittee = new address[](validators.length);
+        uint256 invalidAttesterKey = uint256(keccak256(abi.encode("invalid", block.timestamp)));
+        address invalidAttester = vm.addr(invalidAttesterKey);
+        attesterPrivateKeys[invalidAttester] = invalidAttesterKey;
         for (uint256 i = 0; i < attestations.length; ++i) {
-          attestations[i].addr = address(0);
+          attestations[i] = createAttestation(invalidAttester, digest);
+          incorrectCommittee[i] = attestations[i].addr;
         }
+        bytes32 incorrectCommitteeCommitment = keccak256(abi.encode(incorrectCommittee));
 
         vm.expectRevert(
           abi.encodeWithSelector(
-            Errors.ValidatorSelection__InvalidProposer.selector, address(0), ree.proposer
+            Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
+            incorrectCommitteeCommitment,
+            correctCommitteeCommitment
           )
         );
       }

@@ -320,7 +320,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         // @note This is checking the happy path, if there are additional voting it would need to
         // be using a forwarder.
         vm.prank(proposer);
-        rollup.propose(b.proposeArgs, b.signatures, b.blobInputs);
+        rollup.propose(b.proposeArgs, b.attestations, b.blobInputs);
 
         nextSlot = nextSlot + Slot.wrap(1);
       }
