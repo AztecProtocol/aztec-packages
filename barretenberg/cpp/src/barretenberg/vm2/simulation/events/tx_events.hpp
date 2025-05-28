@@ -48,6 +48,8 @@ struct TxEvent {
     Gas gas_used;
     Gas gas_limit;
 
+    bool reverted;
+
     TxEventType event;
 };
 

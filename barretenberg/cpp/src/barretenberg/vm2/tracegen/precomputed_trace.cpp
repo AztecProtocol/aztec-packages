@@ -338,9 +338,6 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_phase_sel, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
                       { C::precomputed_sel_non_revertible_append_note_hash, 1 },
-                      { C::precomputed_is_l2_l1_message_phase, 0 },
-                      { C::precomputed_sel_non_revertible_append_note_hash, 1 },
-                      { C::precomputed_is_revertible, 0 },
 
                       { C::precomputed_read_public_input_offset, nr_note_hash.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, nr_note_hash.read_pi_length_offset },
@@ -355,14 +352,6 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_phase_sel, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
                       { C::precomputed_sel_non_revertible_append_nullifier, 1 },
-                      { C::precomputed_is_l2_l1_message_phase, 0 },
-                      { C::precomputed_is_revertible, 0 },
-
-                      { C::precomputed_read_public_input_offset, nr_nullifiers.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, nr_nullifiers.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, nr_nullifiers.write_pi_offset },
-                      { C::precomputed_sel_non_revertible_append_nullifier, 1 },
-                      { C::precomputed_is_revertible, 0 },
 
                       { C::precomputed_read_public_input_offset, nr_nullifiers.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, nr_nullifiers.read_pi_length_offset },
@@ -377,7 +366,6 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_phase_sel, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
                       { C::precomputed_is_l2_l1_message_phase, 1 },
-                      { C::precomputed_is_revertible, 0 },
 
                       { C::precomputed_read_public_input_offset, nr_l2_to_l1_msgs.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, nr_l2_to_l1_msgs.read_pi_length_offset },
@@ -392,7 +380,6 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_phase_sel, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
                       { C::precomputed_is_public_call_request_phase, 1 },
-                      { C::precomputed_is_revertible, 0 },
 
                       { C::precomputed_read_public_input_offset, setup.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, setup.read_pi_length_offset },
@@ -408,6 +395,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
                       { C::precomputed_sel_revertible_append_note_hash, 1 },
                       { C::precomputed_is_revertible, 1 },
+                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
 
                       { C::precomputed_read_public_input_offset, r_note_hash.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, r_note_hash.read_pi_length_offset },
@@ -423,6 +411,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
                       { C::precomputed_sel_revertible_append_nullifier, 1 },
                       { C::precomputed_is_revertible, 1 },
+                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
 
                       { C::precomputed_read_public_input_offset, r_nullifiers.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, r_nullifiers.read_pi_length_offset },
@@ -438,6 +427,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
                       { C::precomputed_is_l2_l1_message_phase, 1 },
                       { C::precomputed_is_revertible, 1 },
+                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
 
                       { C::precomputed_read_public_input_offset, r_l2_to_l1_msgs.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, r_l2_to_l1_msgs.read_pi_length_offset },
@@ -453,6 +443,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::APP_LOGIC) },
                       { C::precomputed_is_public_call_request_phase, 1 },
                       { C::precomputed_is_revertible, 1 },
+                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
 
                       { C::precomputed_read_public_input_offset, app_logic.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, app_logic.read_pi_length_offset },
@@ -468,12 +459,27 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                       { C::precomputed_is_public_call_request_phase, 1 },
                       { C::precomputed_is_revertible, 1 },
+                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
 
                       { C::precomputed_read_public_input_offset, teardown.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, teardown.read_pi_length_offset },
                       { C::precomputed_write_public_input_offset, teardown.write_pi_offset },
                   },
               });
-    // TODO: PAY GAS and PAD TREES
+    // TODO: Complete Collect Gas Fee and Pad Tree phases
+    auto pay_gas = TxPhaseOffsetsTable::get_offsets(TransactionPhase::COLLECT_GAS_FEES);
+    trace.set(9,
+              {
+                  {
+                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
+                      { C::precomputed_sel_collect_fee, 1 },
+                      { C::precomputed_is_revertible, 0 },
+
+                      { C::precomputed_read_public_input_offset, pay_gas.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, pay_gas.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, pay_gas.write_pi_offset },
+                  },
+              });
 }
 } // namespace bb::avm2::tracegen

@@ -87,9 +87,10 @@ struct AvmFlavorVariables {
 >>>>>>> 6f5a3f36e4 (fix: comments)
 =======
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2295;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2296;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 153;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2498;
@@ -100,6 +101,9 @@ struct AvmFlavorVariables {
 =======
     static constexpr size_t NUM_ALL_ENTITIES = 2535;
 >>>>>>> b4e92fcba2 (fix: constrain more)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2536;
+>>>>>>> 4586f403db (test: working lookups)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -225,7 +229,7 @@ struct AvmFlavorVariables {
         lookup_tx_read_phase_table_relation<FF_>,
         lookup_tx_read_public_call_request_phase_relation<FF_>,
         lookup_tx_read_tree_insert_value_relation<FF_>,
-        lookup_tx_write_msg_relation<FF_>,
+        lookup_tx_write_l2_l1_msg_relation<FF_>,
         lookup_tx_write_tree_insert_value_relation<FF_>,
         lookup_update_check_block_of_change_cmp_range_relation<FF_>,
         lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation<FF_>,

@@ -65,7 +65,16 @@ const std::unordered_map<TransactionPhase, TxPhaseOffsetsTable::Offsets> PHASE_P
           .read_pi_length_offset = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX,
       } },
 
+    // todo: These are placeholders for now!
+    { TransactionPhase::COLLECT_GAS_FEES,
+      {
+          .read_pi_offset = AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX,
+          .write_pi_offset = 0,
+          .read_pi_length_offset = AVM_PUBLIC_INPUTS_GAS_SETTINGS_ROW_IDX,
+
+      } },
 } };
+
 } // namespace
 
 const TxPhaseOffsetsTable::Offsets& TxPhaseOffsetsTable::get_offsets(TransactionPhase phase)
