@@ -152,7 +152,7 @@ describe('prover/orchestrator/multi-block', () => {
           const numProposedBlocks = countProposedBlocks(epoch.publicInputs.proposedBlockHeaderHashes);
           expect(numProposedBlocks).toEqual(numBlocks);
           expect(epoch.publicInputs.proposedBlockHeaderHashes.slice(0, numProposedBlocks)).toEqual(
-            blockInEpoch.map(b => b.block.header.toPropose().hash()),
+            blocksInEpoch.map(b => b.block.header.toPropose().hash()),
           );
           expect(epoch.proof).toBeDefined();
         }

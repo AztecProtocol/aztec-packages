@@ -354,7 +354,7 @@ describe('LightBlockBuilder', () => {
     const blobs = await Blob.getBlobs(blobFields);
     const startBlobAccumulator = await BatchedBlob.newAccumulator(blobs);
     blobsHash = getBlobsHashFromBlobs(blobs);
-    const rootParityVk = ProtocolCircuitVks['RootParityArtifact'].keyAsFields;
+    const rootParityVk = getVkData('RootParityArtifact');
 
     const rootParityInput = new RootParityInput(
       emptyProof,
