@@ -694,6 +694,50 @@ describe('PXEOracleInterface', () => {
     });
   });
 
+  describe('getPrivateLogByTag', () => {
+    let tag: Fr;
+
+    beforeEach(() => {
+      tag = Fr.random();
+    });
+
+    it('returns null if no logs found', async () => {
+      aztecNode.getLogsByTags.mockResolvedValue([[]]);
+      const result = await pxeOracleInterface.getPrivateLogByTag(tag);
+      expect(result).toBeNull();
+    });
+
+    it('returns log and tx effect if single log found', async () => {
+      const scopedLog = await TxScopedL2Log.random(false);
+      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
+      const indexedTxEffect = await randomIndexedTxEffect();
+      aztecNode.getTxEffect.mockResolvedValue(indexedTxEffect);
+
+      const result = await pxeOracleInterface.getPrivateLogByTag(tag);
+
+      expect(result?.logContent).toEqual(scopedLog.log.getEmittedFields());
+      expect(result?.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
+      expect(result?.txHash).toEqual(scopedLog.txHash);
+      expect(result?.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);
+      expect(aztecNode.getTxEffect).toHaveBeenCalledWith(scopedLog.txHash);
+    });
+
+    it('throws if multiple logs found for tag', async () => {
+      const scopedLog = await TxScopedL2Log.random(false);
+      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog, scopedLog]]);
+
+      await expect(pxeOracleInterface.getPrivateLogByTag(tag)).rejects.toThrow(/Got 2 logs for tag/);
+    });
+
+    it('throws if tx effect not found', async () => {
+      const scopedLog = await TxScopedL2Log.random(false);
+      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
+      aztecNode.getTxEffect.mockResolvedValue(undefined);
+
+      await expect(pxeOracleInterface.getPrivateLogByTag(tag)).rejects.toThrow(/failed to retrieve tx effects/);
+    });
+  });
+
   describe('removeNullifiedNotes', () => {
     let recipient: AztecAddress;
 

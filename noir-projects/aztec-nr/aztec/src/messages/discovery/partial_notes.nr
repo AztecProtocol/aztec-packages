@@ -4,7 +4,7 @@ use crate::{
         discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
     },
-    oracle::message_discovery::{deliver_note, get_public_log_by_tag},
+    oracle::message_discovery::{deliver_note, get_log_by_tag_from_contract},
     utils::array,
 };
 
@@ -16,6 +16,8 @@ use dep::protocol_types::{
 };
 
 global PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 2;
+global TAG_FIELD_LEN: u32 = 1;
+global CONTRACT_ADDRESS_FIELD_LEN: u32 = 1;
 
 /// Partial notes have a maximum packed length of their private fields bound by extra content in their private message
 /// (e.g. the storage slot, note completion log tag, etc.).
@@ -81,7 +83,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
     );
 
     pending_partial_notes.for_each(|i, pending_partial_note: DeliveredPendingPartialNote| {
-        let maybe_log = get_public_log_by_tag(
+        let maybe_log = get_log_by_tag_from_contract::<MAX_PUBLIC_PARTIAL_NOTE_PACKED_CONTENT_LENGTH + TAG_FIELD_LEN>(
             pending_partial_note.note_completion_log_tag,
             contract_address,
         );

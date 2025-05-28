@@ -477,6 +477,48 @@ pub contract Token {
     }
     // docs:end:finalize_transfer_to_private
 
+    /// Finalizes a transfer of token `amount` from private balance of `from` to a private balance of `to`.
+    /// The transfer must be prepared by calling `prepare_private_balance_increase` from `from` account and
+    /// the resulting `partial_note` must be passed as an argument to this function.
+    ///
+    /// Note that this contract does not protect against a `partial_note` being used multiple times and it is up to
+    /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
+    /// times, the token `amount` would most likely get lost (the partial note log processing functionality would fail
+    /// to find the pending partial note when trying to complete it).
+    #[private]
+    fn finalize_transfer_to_private_from_private(
+        from: AztecAddress,
+        partial_note: PartialUintNote,
+        amount: u128,
+        nonce: Field,
+    ) {
+        if (!from.eq(context.msg_sender())) {
+            assert_current_call_valid_authwit(&mut context, from);
+        } else {
+            assert(nonce == 0, "invalid nonce");
+        }
+
+        // First we subtract the `amount` from the private balance of `from`
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+            &mut context,
+            from,
+            from,
+        ));
+
+        // TODO(benesjan): Re-enable this check once #14432 is merged.
+        // // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
+        // // state variable's storage slot, and it is internally consistent). We *could* clear the storage since each
+        // // partial note should only be used once, but since the AVM offers no gas refunds for doing so this would just
+        // // make the transaction be more expensive. We don't worry about the validity commitment being checked against
+        // // multiple times because it is up to the caller to ensure that a partial note is used only once (see function
+        // // docs of `finalize_transfer_to_private`).
+        // assert(
+        //     context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
+        //     "Invalid partial note or completer",
+        // );
+        partial_note.complete_from_private(amount, &mut context);
+    }
+
     // docs:start:finalize_transfer_to_private_unsafe
     /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
     /// to `_finalize_transfer_to_private` can be enqueued. Called unsafe as it does not check `from_and_completer`

@@ -9,7 +9,7 @@ use dep::aztec::{
         address::AztecAddress,
         constants::{
             GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER,
-            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT, PRIVATE_LOG_SIZE_IN_FIELDS,
         },
         hash::poseidon2_hash_with_separator,
         traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
@@ -212,6 +212,8 @@ pub struct PartialUintNote {
     commitment: Field,
 }
 
+global NOTE_COMPLETION_LOG_LENGTH: u32 = 2;
+
 impl PartialUintNote {
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
     pub fn complete(self, context: &mut PublicContext, completer: AztecAddress, value: u128) {
@@ -252,10 +254,35 @@ impl PartialUintNote {
         )
     }
 
-    fn compute_note_completion_log(self, value: u128) -> [Field; 2] {
+    /// Completes the partial note, creating a new note that can be used like any other UintNote.
+    pub fn complete_from_private(self, value: u128, context: &mut PrivateContext) {
+        // We need to do two things:
+        //  - emit an unencrypted log containing the public fields (the value) via the private log channel. The
+        //  contract will later find it by searching for the expected tag (which is simply the partial note
+        //  commitment).
+        //  - insert the completion note hash (i.e. the hash of the note) into the note hash tree. This is typically
+        //  only done in private to hide the preimage of the hash that is inserted, but completed partial notes are
+        //  inserted in public as the public values are provided and the note hash computed.
+        context.emit_private_log(
+            self.compute_note_completion_log_padded_for_private_log(value),
+            NOTE_COMPLETION_LOG_LENGTH,
+        );
+        context.push_note_hash(self.compute_complete_note_hash(value));
+    }
+
+    fn compute_note_completion_log(self, value: u128) -> [Field; NOTE_COMPLETION_LOG_LENGTH] {
         // The first field of this log must be the tag that the recipient of the partial note private field logs
         // expects, which is equal to the partial note commitment.
         [self.commitment, value.to_field()]
+    }
+
+    fn compute_note_completion_log_padded_for_private_log(
+        self,
+        value: u128,
+    ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
+        let note_completion_log = self.compute_note_completion_log(value);
+        let padding = [0; PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_COMPLETION_LOG_LENGTH];
+        array_concat(note_completion_log, padding)
     }
 
     fn compute_complete_note_hash(self, value: u128) -> Field {
