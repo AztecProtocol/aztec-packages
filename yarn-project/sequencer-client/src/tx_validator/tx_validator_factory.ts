@@ -12,13 +12,13 @@ import {
   TxProofValidator,
 } from '@aztec/p2p';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import type { PublicProcessorValidator } from '@aztec/simulator/server';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 import type {
   AllowedElement,
   ClientProtocolCircuitVerifier,
   MerkleTreeReadOperations,
+  PublicProcessorValidator,
 } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource, type PublicStateSource } from '@aztec/stdlib/trees';
 import { GlobalVariables, type Tx, type TxValidator } from '@aztec/stdlib/tx';

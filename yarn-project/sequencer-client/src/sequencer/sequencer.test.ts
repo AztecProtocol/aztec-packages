@@ -7,11 +7,8 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
-import { toArray } from '@aztec/foundation/iterable';
-import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
-import type { PublicProcessor } from '@aztec/simulator/server';
 import type { SlasherClient } from '@aztec/slasher';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -52,7 +49,6 @@ describe('sequencer', () => {
   let fork: MockProxy<MerkleTreeWriteOperations>;
   let blockBuilder: MockProxy<FullNodeBlockBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
-  let publicProcessor: MockProxy<PublicProcessor>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
 
@@ -61,7 +57,6 @@ describe('sequencer', () => {
   let newBlockNumber: number;
   let newSlotNumber: number;
   let hash: string;
-  let logger: Logger;
 
   let block: L2Block;
   let globalVariables: GlobalVariables;
@@ -148,7 +143,6 @@ describe('sequencer', () => {
     newBlockNumber = lastBlockNumber + 1;
     newSlotNumber = newBlockNumber;
     hash = Fr.ZERO.toString();
-    logger = createLogger('sequencer:test');
 
     globalVariables = new GlobalVariables(
       chainId,
@@ -176,20 +170,6 @@ describe('sequencer', () => {
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
-
-    blockBuilder = mock<FullNodeBlockBuilder>();
-    blockBuilder.buildBlock.mockImplementation(() =>
-      Promise.resolve({
-        block,
-        publicGas: Gas.empty(),
-        publicProcessorDuration: 0,
-        numMsgs: 0,
-        numTxs: 0,
-        blockBuildingTimer: new Timer(),
-        usedTxs: [],
-        failedTxs: [],
-      }),
-    );
 
     merkleTreeOps = mock<MerkleTreeReadOperations>();
     merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
@@ -225,13 +205,19 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus),
     });
 
-    publicProcessor = mock<PublicProcessor>();
-    publicProcessor.process.mockImplementation(async txsIter => {
-      const txs = await toArray(txsIter);
-      const processed = await processTxs(txs);
-      logger.verbose(`Processed ${txs.length} txs`, { txHashes: await Promise.all(txs.map(tx => tx.getTxHash())) });
-      return [processed, [], txs, []];
-    });
+    blockBuilder = mock<FullNodeBlockBuilder>();
+    blockBuilder.buildBlock.mockImplementation(() =>
+      Promise.resolve({
+        block,
+        publicGas: Gas.empty(),
+        publicProcessorDuration: 0,
+        numMsgs: 0,
+        numTxs: block.body.txEffects.length,
+        blockBuildingTimer: new Timer(),
+        usedTxs: [],
+        failedTxs: [],
+      }),
+    );
 
     l2BlockSource = mock<L2BlockSource>({
       getBlock: mockFn().mockResolvedValue(L2Block.empty()),

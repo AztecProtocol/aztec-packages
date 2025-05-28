@@ -10,7 +10,11 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type {
+  MerkleTreeWriteOperations,
+  PublicProcessorLimits,
+  PublicProcessorValidator,
+} from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type FailedTx,
@@ -36,18 +40,6 @@ import { ForkCheckpoint } from '@aztec/world-state/native';
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
-
-export interface PublicProcessorLimits {
-  maxTransactions?: number;
-  maxBlockSize?: number;
-  maxBlockGas?: Gas;
-  deadline?: Date;
-}
-
-export interface PublicProcessorValidator {
-  preprocessValidator?: TxValidator<Tx>;
-  nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
-}
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.

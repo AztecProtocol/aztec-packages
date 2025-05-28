@@ -3,12 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { LightweightBlockBuilder } from '@aztec/prover-client/block-builder';
-import {
-  PublicContractsDB,
-  PublicProcessor,
-  type PublicProcessorValidator,
-  TelemetryPublicTxSimulator,
-} from '@aztec/simulator/server';
+import { PublicContractsDB, PublicProcessor, TelemetryPublicTxSimulator } from '@aztec/simulator/server';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -18,6 +13,7 @@ import type {
   BuildBlockResult,
   FullNodeBlockBuilder,
   MerkleTreeWriteOperations,
+  PublicProcessorValidator,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -47,6 +43,7 @@ export async function buildBlock(
   dateProvider: DateProvider,
   telemetryClient: TelemetryClient = getTelemetryClient(),
 ): Promise<BuildBlockResult> {
+  const blockBuildingTimer = new Timer();
   const blockNumber = newGlobalVariables.blockNumber.toNumber();
   const slot = newGlobalVariables.slotNumber.toBigInt();
   log.debug(`Requesting L1 to L2 messages from contract for block ${blockNumber}`);
@@ -55,38 +52,20 @@ export async function buildBlock(
 
   log.verbose(`Building block ${blockNumber} for slot ${slot}`, {
     slot,
+    slotStart: new Date(getSlotStartTimestamp(slot, l1Constants) * 1000),
+    now: new Date(dateProvider.now()),
     blockNumber,
     msgCount,
-    validator: opts.validateOnly,
+    opts,
   });
 
   try {
-    const blockBuildingTimer = new Timer();
     const blockBuilder = new LightweightBlockBuilder(worldStateFork, telemetryClient);
     await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
-
-    log.verbose(`Processing pending txs`, {
-      slot,
-      slotStart: new Date(getSlotStartTimestamp(slot, l1Constants) * 1000),
-      now: new Date(dateProvider.now()),
-      deadline: opts.deadline,
-    });
 
     const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
       processor.process(pendingTxs, opts, validator),
     );
-
-    if (
-      !opts.validateOnly && // We check for minTxCount only if we are proposing a block, not if we are validating it
-      opts.minTxsPerBlock !== undefined &&
-      processedTxs.length < opts.minTxsPerBlock
-    ) {
-      log.warn(
-        `Block ${blockNumber} has too few txs to be proposed (got ${processedTxs.length} but required ${opts.minTxsPerBlock})`,
-        { slot, blockNumber, processedTxCount: processedTxs.length },
-      );
-      throw new Error(`Block has too few successful txs to be proposed`);
-    }
 
     // All real transactions have been added, set the block as full and pad if needed
     await blockBuilder.addTxs(processedTxs);
@@ -95,7 +74,7 @@ export async function buildBlock(
     // How much public gas was processed
     const publicGas = processedTxs.reduce((acc, tx) => acc.add(tx.gasUsed.publicGas), Gas.empty());
 
-    return {
+    const res = {
       block,
       publicGas,
       publicProcessorDuration,
@@ -105,6 +84,8 @@ export async function buildBlock(
       blockBuildingTimer,
       usedTxs,
     };
+    log.debug('Built block', res);
+    return res;
   } finally {
     // We wait a bit to close the forks since the processor may still be working on a dangling tx
     // which was interrupted due to the processingDeadline being hit.
@@ -176,15 +157,11 @@ export class BlockBuilder implements FullNodeBlockBuilder {
     };
   }
 
-  private async syncToPreviousBlock(globalVariables: GlobalVariables, opts: BuildBlockOptions) {
-    const parentBlockNumber = globalVariables.blockNumber.toNumber() - 1;
-    const deadline = opts.deadline ? opts.deadline.getTime() - this.dateProvider.now() : undefined;
+  private async syncToPreviousBlock(parentBlockNumber: number, timeout: number | undefined) {
     await retryUntil(
-      () =>
-        !opts.validateOnly ||
-        this.worldState.syncImmediate(parentBlockNumber, true).then(syncedTo => syncedTo >= parentBlockNumber),
+      () => this.worldState.syncImmediate(parentBlockNumber, true).then(syncedTo => syncedTo >= parentBlockNumber),
       'sync to previous block',
-      deadline,
+      timeout,
       0.1,
     );
     log.debug(`Synced to previous block ${parentBlockNumber}`);
@@ -195,7 +172,9 @@ export class BlockBuilder implements FullNodeBlockBuilder {
     globalVariables: GlobalVariables,
     opts: BuildBlockOptions,
   ): Promise<BuildBlockResult> {
-    await this.syncToPreviousBlock(globalVariables, opts);
+    const parentBlockNumber = globalVariables.blockNumber.toNumber() - 1;
+    const syncTimeout = opts.deadline ? (opts.deadline.getTime() - this.dateProvider.now()) / 1000 : undefined;
+    await this.syncToPreviousBlock(parentBlockNumber, syncTimeout);
     const { publicProcessorDBFork, processor, validator } = await this.makeBlockBuilderDeps(globalVariables, opts);
 
     return buildBlock(

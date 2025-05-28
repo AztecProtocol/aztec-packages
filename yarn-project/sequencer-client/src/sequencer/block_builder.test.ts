@@ -5,13 +5,14 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import type { PublicProcessor, PublicProcessorValidator } from '@aztec/simulator/server';
+import type { PublicProcessor } from '@aztec/simulator/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
   type BuildBlockOptions,
+  type PublicProcessorValidator,
   WorldStateRunningState,
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
@@ -162,9 +163,9 @@ describe('BlockBuilder', () => {
     const tx = await makeTx();
     const iterator = mockTxIterator([tx]);
 
-    const blockResult = await blockBuilder.buildBlock(iterator, globalVariables, { validateOnly: false });
+    const blockResult = await blockBuilder.buildBlock(iterator, globalVariables, {});
     expect(publicProcessor.process).toHaveBeenCalledTimes(1);
-    expect(publicProcessor.process).toHaveBeenCalledWith(iterator, { validateOnly: false }, validator);
+    expect(publicProcessor.process).toHaveBeenCalledWith(iterator, {}, validator);
     logger.info('Built Block', blockResult.block);
     logger.info('asdf');
     expect(blockResult.block.header.globalVariables.blockNumber.toNumber()).toBe(newBlockNumber);
@@ -182,16 +183,14 @@ describe('BlockBuilder', () => {
     const txs = await timesParallel(5, i => makeTx(i * 0x10000));
     const deadline = new Date(Date.now() + 1000);
     await blockBuilder.buildBlock(txs, globalVariables, {
-      validateOnly: false,
-      maxTxsPerBlock: 4,
+      maxTransactions: 4,
       deadline,
     });
 
     expect(publicProcessor.process).toHaveBeenCalledWith(
       txs,
       {
-        maxTxsPerBlock: 4,
-        validateOnly: false,
+        maxTransactions: 4,
         deadline,
       },
       validator,
@@ -200,9 +199,9 @@ describe('BlockBuilder', () => {
 
   it('builds a block for validation ignoring limits', async () => {
     const txs = await timesParallel(5, i => makeTx(i * 0x10000));
-    await blockBuilder.buildBlock(txs, globalVariables, { validateOnly: true });
+    await blockBuilder.buildBlock(txs, globalVariables, {});
 
-    expect(publicProcessor.process).toHaveBeenCalledWith(txs, { validateOnly: true }, validator);
+    expect(publicProcessor.process).toHaveBeenCalledWith(txs, {}, validator);
   });
 
   it('builds a block out of several txs rejecting invalid txs', async () => {
@@ -236,7 +235,7 @@ describe('BlockBuilder', () => {
       return [processedTxs, failedTxs, usedTxs, []] as any;
     });
 
-    const blockResult = await blockBuilder.buildBlock(txs, globalVariables, { validateOnly: false });
+    const blockResult = await blockBuilder.buildBlock(txs, globalVariables, {});
     expect(blockResult.failedTxs).toEqual([{ tx: invalidTx, error: new Error() }]);
     expect(blockResult.usedTxs).toEqual(validTxs);
   });

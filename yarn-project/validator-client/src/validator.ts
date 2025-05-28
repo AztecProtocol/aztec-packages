@@ -289,7 +289,6 @@ export class ValidatorClient extends WithTracer implements Validator {
     });
 
     const { block, failedTxs } = await this.blockBuilder.buildBlock(txs, globalVariables, {
-      validateOnly: true,
       deadline: this.getReexecutionDeadline(proposal, config),
     });
     stopTimer();

@@ -427,9 +427,8 @@ export class Sequencer {
       ? new Date((this.getSlotStartTimestamp(slot) + processingEndTimeWithinSlot) * 1000)
       : undefined;
     return {
-      minTxsPerBlock: this.isFlushing ? 0 : this.minTxsPerBlock,
-      maxTxsPerBlock: this.maxTxsPerBlock,
-      maxBlockSizeInBytes: this.maxBlockSizeInBytes,
+      maxTransactions: this.maxTxsPerBlock,
+      maxBlockSize: this.maxBlockSizeInBytes,
       maxBlockGas: this.maxBlockGas,
       txPublicSetupAllowList: this.txPublicSetupAllowList,
       deadline,
@@ -463,15 +462,22 @@ export class Sequencer {
     this.setState(SequencerState.CREATING_BLOCK, slot);
 
     try {
-      const buildBlockRes = await this.blockBuilder.buildBlock(
-        pendingTxs,
-        newGlobalVariables,
-        this.getDefaultBlockBuilderOptions(Number(slot)),
-      );
+      const blockBuilderOptions = this.getDefaultBlockBuilderOptions(Number(slot));
+      const buildBlockRes = await this.blockBuilder.buildBlock(pendingTxs, newGlobalVariables, blockBuilderOptions);
       const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer, usedTxs, failedTxs } =
         buildBlockRes;
       this.metrics.recordBuiltBlock(workTimer.ms(), publicGas.l2Gas);
       await this.dropFailedTxsFromP2P(failedTxs);
+
+      const minTxsPerBlock = this.isFlushing ? 0 : this.minTxsPerBlock;
+
+      if (numTxs < minTxsPerBlock) {
+        this.log.warn(
+          `Block ${blockNumber} has too few txs to be proposed (got ${numTxs} but required ${minTxsPerBlock})`,
+          { slot, blockNumber, numTxs },
+        );
+        throw new Error(`Block has too few successful txs to be proposed`);
+      }
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
       // block being published before ours instead of just waiting on our block

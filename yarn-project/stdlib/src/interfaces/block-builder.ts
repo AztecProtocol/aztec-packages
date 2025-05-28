@@ -8,6 +8,7 @@ import type { BlockHeader } from '../tx/block_header.js';
 import type { GlobalVariables } from '../tx/global_variables.js';
 import type { FailedTx, ProcessedTx } from '../tx/processed_tx.js';
 import { Tx } from '../tx/tx.js';
+import type { TxValidator } from '../tx/validator/tx_validator.js';
 import type { ProcessedTxHandler } from './processed-tx-handler.js';
 
 /** The interface to a block builder. Generates an L2 block out of a set of processed txs. */
@@ -36,14 +37,20 @@ export interface BlockBuilder extends ProcessedTxHandler {
   setBlockCompleted(expectedBlockHeader?: BlockHeader): Promise<L2Block>;
 }
 
-export interface BuildBlockOptions {
-  validateOnly?: boolean;
-  txPublicSetupAllowList?: AllowedElement[];
-  minTxsPerBlock?: number;
-  maxTxsPerBlock?: number;
-  maxBlockSizeInBytes?: number;
+export interface PublicProcessorLimits {
+  maxTransactions?: number;
+  maxBlockSize?: number;
   maxBlockGas?: Gas;
   deadline?: Date;
+}
+
+export interface PublicProcessorValidator {
+  preprocessValidator?: TxValidator<Tx>;
+  nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
+}
+
+export interface BuildBlockOptions extends PublicProcessorLimits {
+  txPublicSetupAllowList?: AllowedElement[];
 }
 
 export interface BuildBlockResult {
