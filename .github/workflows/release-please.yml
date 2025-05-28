@@ -26,6 +26,7 @@ jobs:
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           config-file: .github/release-please-${{ github.ref_name }}.json
+          target-branch: ${{ github.ref_name }}
 
   update-docs:
     name: Update docs
