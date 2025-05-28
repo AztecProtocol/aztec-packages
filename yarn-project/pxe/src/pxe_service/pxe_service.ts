@@ -216,10 +216,6 @@ export class PXEService implements PXE {
     return [result.l2MessageIndex, result.siblingPath];
   }
 
-  public getL2ToL1Messages(blockNumber: number): Promise<Fr[][] | undefined> {
-    return this.node.getL2ToL1Messages(blockNumber);
-  }
-
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.node.getTxReceipt(txHash);
   }

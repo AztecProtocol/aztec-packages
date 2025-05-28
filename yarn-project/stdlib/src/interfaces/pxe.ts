@@ -259,13 +259,6 @@ export interface PXE {
   getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]>;
 
   /**
-   * Returns all the L2 to L1 messages in a block.
-   * @param blockNumber - The block number at which to get the data.
-   * @returns The L2 to L1 messages (undefined if the block number is not found).
-   */
-  getL2ToL1Messages(blockNumber: number): Promise<Fr[][] | undefined>;
-
-  /**
    * Get the given block.
    * @param number - The block number being requested.
    * @returns The blocks requested.
