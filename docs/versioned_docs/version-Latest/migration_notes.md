@@ -1036,7 +1036,7 @@ notes can now be discovered on-demand. For the time being, this means that accou
 ```
 
 The note discovery process is triggered automatically whenever a contract invokes the `get_notes` oracle, meaning no contract changes are expected. Just in case, every contract has now a utility method
-`sync_notes` that can trigger the process manually if necessary. This can be useful since now the `DebugInfo` object that can be obtained when sending a tx with the `debug` flag set to true
+`sync_private_state` that can trigger the process manually if necessary. This can be useful since now the `DebugInfo` object that can be obtained when sending a tx with the `debug` flag set to true
 no longer contains the notes that were generated in the transaction:
 
 ```diff
