@@ -14,7 +14,6 @@ use dep::types::{
     abis::private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
-    proof::traits::Verifiable,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
@@ -80,10 +79,6 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        if !std::runtime::is_unconstrained() {
-            self.previous_kernel.verify();
-        }
-
         let previous_public_inputs = self.previous_kernel.public_inputs;
         let validation_request_processor = PrivateValidationRequestProcessor {
             validation_requests: previous_public_inputs.validation_requests,

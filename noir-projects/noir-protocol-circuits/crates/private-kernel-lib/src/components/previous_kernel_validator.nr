@@ -3,6 +3,7 @@ mod previous_kernel_validator_hints;
 use dep::types::{
     abis::{private_kernel_data::PrivateKernelData, side_effect::{Ordered, OrderedValue}},
     address::AztecAddress,
+    proof::traits::Verifiable,
     traits::is_empty,
     utils::arrays::array_length,
 };
@@ -25,6 +26,7 @@ impl PreviousKernelValidator {
 
     pub fn validate_proof<let N: u32>(self: Self, allowed_indices: [u32; N]) {
         if !dep::std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
             self.previous_kernel.validate_in_vk_tree(allowed_indices);
         }
     }

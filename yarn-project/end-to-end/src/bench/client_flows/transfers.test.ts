@@ -7,7 +7,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
-import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
+import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(1_600_000);
@@ -26,10 +26,10 @@ describe('Transfer benchmark', () => {
   let bananaCoin: TokenContract;
   // CandyBarCoin Token contract, which we want to transfer
   let candyBarCoin: TokenContract;
-  // Aztec node to answer queries
-  let node: AztecNode;
   // Sponsored FPC contract
   let sponsoredFPC: SponsoredFPCContract;
+  // Aztec node
+  let node: AztecNode;
   // Benchmarking configuration
   const config = t.config.transfers;
 
@@ -40,7 +40,7 @@ describe('Transfer benchmark', () => {
     await t.applyDeployCandyBarTokenSnapshot();
     await t.applyDeploySponsoredFPCSnapshot();
 
-    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, aztecNode: node, sponsoredFPC } = await t.setup());
+    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, sponsoredFPC, aztecNode: node } = await t.setup());
   });
 
   afterAll(async () => {
@@ -122,7 +122,7 @@ describe('Transfer benchmark', () => {
 
             const transferInteraction = asset.methods.transfer(adminWallet.getAddress(), amountToSend);
 
-            await capturePrivateExecutionStepsIfEnvSet(
+            await captureProfile(
               `${accountType}+transfer_${recursions}_recursions+${benchmarkingPaymentMethod}`,
               transferInteraction,
               options,
@@ -135,34 +135,37 @@ describe('Transfer benchmark', () => {
                 1, // Kernel tail
             );
 
-            const tx = await transferInteraction.send(options).wait();
-            expect(tx.transactionFee!).toBeGreaterThan(0n);
-
-            // Sanity checks
-
-            const txEffects = await node.getTxEffect(tx.txHash);
-
-            /*
-             * We should have created the following nullifiers:
-             * - One per created note
-             * - One for the transaction
-             * - One for the fee note if we're using private fpc
-             */
-            expect(txEffects!.data.nullifiers.length).toBe(
-              notesToCreate + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 1 : 0),
-            );
-            /** We should have created 4 new notes,
-             *  - One for the recipient
-             *  - One for the sender (with the change)
-             *  - One for the fee if we're using private fpc
-             *  - One for the fee refund if we're using private fpc
-             */
-            expect(txEffects!.data.noteHashes.length).toBe(2 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0));
-
             expectedChange = totalAmount - BigInt(amountToSend);
 
-            const senderBalance = await asset.methods.balance_of_private(benchysWallet.getAddress()).simulate();
-            expect(senderBalance).toEqual(expectedChange);
+            if (process.env.SANITY_CHECKS) {
+              // Ensure we paid a fee
+              const tx = await transferInteraction.send(options).wait();
+              expect(tx.transactionFee!).toBeGreaterThan(0n);
+
+              // Sanity checks
+
+              const txEffects = await node.getTxEffect(tx.txHash);
+
+              /*
+               * We should have created the following nullifiers:
+               * - One per created note
+               * - One for the transaction
+               * - One for the fee note and one for the partial note validity commitment if we're using private fpc
+               */
+              expect(txEffects!.data.nullifiers.length).toBe(
+                notesToCreate + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0),
+              );
+              /** We should have created 4 new notes,
+               *  - One for the recipient
+               *  - One for the sender (with the change)
+               *  - One for the fee if we're using private fpc
+               *  - One for the fee refund if we're using private fpc
+               */
+              expect(txEffects!.data.noteHashes.length).toBe(2 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0));
+
+              const senderBalance = await asset.methods.balance_of_private(benchysWallet.getAddress()).simulate();
+              expect(senderBalance).toEqual(expectedChange);
+            }
           });
         });
       }

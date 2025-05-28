@@ -24,6 +24,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {IRollup, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
+import {TimeCheater} from "./staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -42,6 +43,7 @@ contract IgnitionTest is RollupBase {
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
   RewardDistributor internal rewardDistributor;
+  TimeCheater internal timeCheater;
 
   uint256 internal SLOT_DURATION;
   uint256 internal EPOCH_DURATION;
@@ -54,6 +56,7 @@ contract IgnitionTest is RollupBase {
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
+    timeCheater = new TimeCheater(address(this), block.timestamp, SLOT_DURATION, EPOCH_DURATION);
   }
 
   /**

@@ -173,8 +173,8 @@ import { TxConstantData } from '../tx/tx_constant_data.js';
 import { TxContext } from '../tx/tx_context.js';
 import { TxRequest } from '../tx/tx_request.js';
 import { RollupTypes, Vector } from '../types/index.js';
+import { VkData } from '../vks/index.js';
 import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
-import { VkWitnessData } from '../vks/vk_witness_data.js';
 import { mockTx } from './mocks.js';
 
 /**
@@ -757,8 +757,7 @@ export function makePreviousRollupData(
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       seed + 0x50,
     ),
-    VerificationKeyAsFields.makeFakeHonk(),
-    makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
+    makeVkData(seed + 0x100),
   );
 }
 
@@ -778,8 +777,7 @@ export function makePreviousRollupBlockData(
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       seed + 0x50,
     ),
-    VerificationKeyAsFields.makeFakeHonk(),
-    makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
+    makeVkData(seed + 0x100),
   );
 }
 
@@ -1082,15 +1080,15 @@ export function makePrivateBaseStateDiffHints(seed = 1): PrivateBaseStateDiffHin
   );
 }
 
-function makeVkWitnessData(seed = 1) {
-  return new VkWitnessData(VerificationKeyData.makeFakeHonk(), seed, makeTuple(VK_TREE_HEIGHT, fr, seed + 0x100));
+function makeVkData(seed = 1) {
+  return new VkData(VerificationKeyData.makeFakeHonk(), seed, makeTuple(VK_TREE_HEIGHT, fr, seed + 0x100));
 }
 
 function makePrivateTubeData(seed = 1, kernelPublicInputs?: PrivateToRollupKernelCircuitPublicInputs) {
   return new PrivateTubeData(
     kernelPublicInputs ?? makePrivateToRollupKernelCircuitPublicInputs(seed, true),
     makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x100),
-    makeVkWitnessData(seed + 0x200),
+    makeVkData(seed + 0x200),
   );
 }
 
@@ -1107,11 +1105,7 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const contractClassLogsPreimages = makeTuple(
-    MAX_CONTRACT_CLASS_LOGS_PER_TX,
-    makeContractClassLogFields,
-    seed + 0x800,
-  );
+  const contractClassLogsFields = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x800);
 
   const constants = makeConstantRollupData(0x100);
 
@@ -1123,7 +1117,7 @@ function makePrivateBaseRollupHints(seed = 1) {
     stateDiffHints,
     feePayerFeeJuiceBalanceReadHint,
     archiveRootMembershipWitness,
-    contractClassLogsPreimages,
+    contractClassLogsFields,
     constants,
   });
 }
@@ -1133,18 +1127,14 @@ function makePublicBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const contractClassLogsPreimages = makeTuple(
-    MAX_CONTRACT_CLASS_LOGS_PER_TX,
-    makeContractClassLogFields,
-    seed + 0x800,
-  );
+  const contractClassLogsFields = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x800);
 
   const constants = makeConstantRollupData(0x100);
 
   return PublicBaseRollupHints.from({
     startSpongeBlob,
     archiveRootMembershipWitness,
-    contractClassLogsPreimages,
+    contractClassLogsFields,
     constants,
   });
 }
@@ -1163,7 +1153,7 @@ function makePublicTubeData(seed = 1) {
   return new PublicTubeData(
     makePrivateToPublicKernelCircuitPublicInputs(seed),
     makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x100),
-    makeVkWitnessData(seed + 0x200),
+    makeVkData(seed + 0x200),
   );
 }
 
@@ -1171,7 +1161,7 @@ function makeAvmProofData(seed = 1) {
   return new AvmProofData(
     makeAvmCircuitPublicInputs(seed),
     makeRecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, seed + 0x100),
-    makeVkWitnessData(seed + 0x200),
+    makeVkData(seed + 0x200),
   );
 }
 

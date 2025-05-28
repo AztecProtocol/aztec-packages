@@ -238,21 +238,26 @@ describe('sentinel', () => {
       const mockBlock = await randomPublishedL2Block(blockNumber);
       const slot = mockBlock.block.header.getSlot();
       const epochNumber = getEpochAtSlot(slot, l1Constants);
-
-      epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: epochNumber, slot, ts });
-      archiver.getBlock.calledWith(blockNumber).mockResolvedValue(mockBlock.block);
-      archiver.getL1Constants.mockResolvedValue(l1Constants);
-
+      const validator1 = EthAddress.random();
+      const validator2 = EthAddress.random();
       const headerSlots = times(5, i => slot - BigInt(i));
       const mockHeaders = headerSlots.map(s => {
         const header = mockDeep<PublishedL2Block['block']['header']>();
         header.getSlot.mockReturnValue(s);
         return header;
       });
+
+      epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: epochNumber, slot, ts });
+      archiver.getBlock.calledWith(blockNumber).mockResolvedValue(mockBlock.block);
+      archiver.getL1Constants.mockResolvedValue(l1Constants);
+
       archiver.getBlockHeadersForEpoch.calledWith(epochNumber).mockResolvedValue(mockHeaders as any);
 
-      const validator1 = EthAddress.random();
-      const validator2 = EthAddress.random();
+      epochCache.getCommittee.mockResolvedValue({
+        committee: [validator1, validator2],
+        seed: 0n,
+        epoch: epochNumber,
+      });
       const statsResult = {
         stats: {
           [validator1.toString()]: {

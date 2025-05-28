@@ -6,7 +6,6 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
   NULLIFIER_TREE_HEIGHT,
-  VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -43,6 +42,7 @@ import {
   privateKernelResetDimensionNames,
 } from '@aztec/stdlib/kernel';
 import { type PrivateCallExecutionResult, collectNested } from '@aztec/stdlib/tx';
+import { VkData } from '@aztec/stdlib/vks';
 
 import type { PrivateKernelOracle } from '../private_kernel_oracle.js';
 
@@ -162,12 +162,12 @@ export class PrivateKernelResetPrivateInputsBuilder {
     const previousVkMembershipWitness = await oracle.getVkMembershipWitness(
       this.previousKernelOutput.verificationKey.keyAsFields,
     );
-    const previousKernelData = new PrivateKernelData(
-      this.previousKernelOutput.publicInputs,
+    const vkData = new VkData(
       this.previousKernelOutput.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
-      assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
+      previousVkMembershipWitness.siblingPath,
     );
+    const previousKernelData = new PrivateKernelData(this.previousKernelOutput.publicInputs, vkData);
 
     this.reduceReadRequestStates(
       this.noteHashResetStates,
