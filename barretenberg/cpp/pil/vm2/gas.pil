@@ -54,7 +54,7 @@ namespace execution;
     // ==== DYNAMIC GAS ====
 
     // This variable will be used to disable the dynamic gas check if there is a "previous" error
-    // This is constrained here to be 0 if out of gas in the base phase, but the execution trace
+    // This is constrained here to be 0 if out of gas happens in the base phase, but the execution trace
     // should constrain it further to be zero if another error occurs "before" the dynamic phase
     pol commit should_run_dyn_gas_check;
     // We constrain that if out of gas in the base phase, the dynamic phase will not run
