@@ -250,6 +250,9 @@ pub global PRIVATE_LOG_LENGTH: u32 = PRIVATE_LOG_SIZE_IN_FIELDS + 1 /* length */
 pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_LENGTH
     + 1 /* note_hash_counter */
     + 1 /* counter */;
+/// A private log's ciphertext is all fields except the first one, which is called 'tag'. We call this 'ciphertext'
+/// because, unlike public logs, it is expected that private logs are encrypted (though this is not
+/// mandatory).
 pub global PRIVATE_LOG_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - 1; // -1 for the tag
 pub global SCOPED_PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_DATA_LENGTH + 1 /* contract_address */;
 pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = 13;
