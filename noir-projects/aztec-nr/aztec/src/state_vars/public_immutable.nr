@@ -87,9 +87,23 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     where
         T: Packable<T_PACKED_LEN> + Eq,
     {
+        assert(self.is_initialized(), "Trying to read from uninitialized PublicImmutable");
         WithHash::public_storage_read(*self.context, self.storage_slot)
     }
     // docs:end:public_immutable_struct_read
+
+    pub fn read_unsafe<let T_PACKED_LEN: u32>(self) -> T
+    where
+        T: Packable<T_PACKED_LEN> + Eq,
+    {
+        WithHash::public_storage_read(*self.context, self.storage_slot)
+    }
+
+    fn is_initialized(self) -> bool {
+        let initialization_slot = INITIALIZATION_SLOT_SEPARATOR + self.storage_slot;
+        let init_field: Field = self.context.storage_read(initialization_slot);
+        init_field != 0
+    }
 }
 
 impl<T> PublicImmutable<T, UtilityContext> {
