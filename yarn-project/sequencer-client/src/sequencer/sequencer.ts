@@ -427,7 +427,7 @@ export class Sequencer {
       ? new Date((this.getSlotStartTimestamp(slot) + processingEndTimeWithinSlot) * 1000)
       : undefined;
     return {
-      minTxsPerBlock: this.minTxsPerBlock,
+      minTxsPerBlock: this.isFlushing ? 0 : this.minTxsPerBlock,
       maxTxsPerBlock: this.maxTxsPerBlock,
       maxBlockSizeInBytes: this.maxBlockSizeInBytes,
       maxBlockGas: this.maxBlockGas,
