@@ -719,11 +719,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`Unexpected: failed to retrieve tx effects for tx ${scopedLog.txHash} which is known to exist`);
     }
 
-    const logContent = (scopedLog.isFromPublic ? [(scopedLog.log as PublicLog).contractAddress.toField()] : []).concat(
-      scopedLog.log.getEmittedFields(),
+    return new PublicLogWithTxData(
+      scopedLog.log.getEmittedFieldsWithoutTag(),
+      scopedLog.txHash,
+      txEffect.data.noteHashes,
+      txEffect.data.nullifiers[0],
     );
-
-    return new PublicLogWithTxData(logContent, scopedLog.txHash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
   }
 
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
