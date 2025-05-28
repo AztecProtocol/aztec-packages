@@ -39,6 +39,12 @@ describe('ValidatorClient', () => {
     p2pClient = mock<P2P>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     blockBuilder = mock<FullNodeBlockBuilder>();
+    blockBuilder.getConfig.mockReturnValue({
+      l1GenesisTime: 1n,
+      slotDuration: 24,
+      l1ChainId: 1,
+      rollupVersion: 1,
+    });
     epochCache = mock<EpochCache>();
     blockSource = mock<L2BlockSource>();
     dateProvider = new TestDateProvider();
