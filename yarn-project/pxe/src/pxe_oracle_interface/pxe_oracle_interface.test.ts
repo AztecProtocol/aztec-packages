@@ -639,7 +639,7 @@ describe('PXEOracleInterface', () => {
 
       const result = (await pxeOracleInterface.getPublicLogByTag(tag, logContractAddress))!;
 
-      expect(result.logPlaintext).toEqual(scopedLog.log.getEmittedFields());
+      expect(result.logPlaintext).toEqual(scopedLog.log.getEmittedFieldsWithoutTag());
       expect(result.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
       expect(result.txHash).toEqual(scopedLog.txHash);
       expect(result.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);
@@ -668,8 +668,9 @@ describe('PXEOracleInterface', () => {
     });
 
     it('returns log fields that are actually emitted', async () => {
-      const logContent = [Fr.random(), Fr.random()];
       const logContractAddress = await AztecAddress.random();
+      const logPlaintext = [Fr.random()];
+      const logContent = [tag, ...logPlaintext];
 
       const log = PublicLog.from({
         contractAddress: logContractAddress,
@@ -689,7 +690,7 @@ describe('PXEOracleInterface', () => {
 
       const result = await pxeOracleInterface.getPublicLogByTag(tag, logContractAddress);
 
-      expect(result?.logPlaintext).toEqual([log.contractAddress.toField(), ...logContent]);
+      expect(result?.logPlaintext).toEqual(logPlaintext);
     });
   });
 

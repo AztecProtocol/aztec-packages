@@ -719,11 +719,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`Unexpected: failed to retrieve tx effects for tx ${scopedLog.txHash} which is known to exist`);
     }
 
-    // The first field is the tag, which we don't want to return.
-    const publicLogPlaintext = scopedLog.log.getEmittedFields().slice(1);
-
     return new PublicLogWithTxData(
-      publicLogPlaintext,
+      scopedLog.log.getEmittedFieldsWithoutTag(),
       scopedLog.txHash,
       txEffect.data.noteHashes,
       txEffect.data.nullifiers[0],
