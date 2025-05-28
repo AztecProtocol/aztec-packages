@@ -44,7 +44,7 @@ export interface P2PApiWithoutAttestations {
   getPeers(includePending?: boolean): Promise<PeerInfo[]>;
 }
 
-export interface P2PClient extends P2PApiWithoutAttestations {
+export interface P2PApiWithAttestations extends P2PApiWithoutAttestations {
   /**
    * Queries the Attestation pool for attestations for the given slot
    *
@@ -53,13 +53,19 @@ export interface P2PClient extends P2PApiWithoutAttestations {
    * @returns BlockAttestations
    */
   getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]>;
+}
 
-  /** Manually adds attestations to the p2p client attestation pool. */
+export interface P2PClient extends P2PApiWithAttestations {
+  /** Manually adds an attestation to the p2p client attestation pool. */
   addAttestations(attestations: BlockAttestation[]): Promise<void>;
 }
 
 export type P2PApi<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full
-  ? P2PClient & P2PApiWithoutAttestations
+  ? P2PApiWithAttestations
+  : P2PApiWithoutAttestations;
+
+export type P2PApiFull<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full
+  ? P2PApiWithAttestations & P2PClient
   : P2PApiWithoutAttestations;
 
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
@@ -71,5 +77,4 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getPendingTxCount: z.function().returns(schemas.Integer),
   getEncodedEnr: z.function().returns(z.string().optional()),
   getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),
-  addAttestations: z.function().args(z.array(BlockAttestation.schema)).returns(z.void()),
 };

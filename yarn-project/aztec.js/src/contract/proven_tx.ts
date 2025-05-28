@@ -13,12 +13,12 @@ export class ProvenTx extends Tx {
     // eslint-disable-next-line jsdoc/require-jsdoc
     public timings?: ProvingTimings,
   ) {
-    super(tx.data, tx.clientIvcProof, tx.contractClassLogs, tx.publicFunctionCalldata);
+    super(tx.data, tx.clientIvcProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
   }
 
   // Clone the TX data to get a serializable object.
   protected getPlainDataTx(): Tx {
-    return new Tx(this.data, this.clientIvcProof, this.contractClassLogs, this.publicFunctionCalldata);
+    return new Tx(this.data, this.clientIvcProof, this.contractClassLogFields, this.publicFunctionCalldata);
   }
 
   /**

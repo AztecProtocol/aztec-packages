@@ -1,5 +1,8 @@
 use dep::protocol_types::{
-    constants::{GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2},
+    constants::{
+        GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2,
+        PRIVATE_LOG_CIPHERTEXT_LEN,
+    },
     hash::poseidon2_hash_with_separator,
     point::Point,
 };
@@ -12,8 +15,7 @@ use crate::{
     messages::{
         encryption::log_encryption::{
             EPH_PK_SIGN_BYTE_SIZE_IN_BYTES, EPH_PK_X_SIZE_IN_FIELDS,
-            HEADER_CIPHERTEXT_SIZE_IN_BYTES, LogEncryption, PRIVATE_LOG_CIPHERTEXT_LEN,
-            PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS,
+            HEADER_CIPHERTEXT_SIZE_IN_BYTES, LogEncryption, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS,
         },
         logs::arithmetic_generics_utils::{
             get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,

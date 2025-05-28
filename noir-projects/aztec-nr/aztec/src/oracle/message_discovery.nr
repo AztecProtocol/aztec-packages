@@ -1,7 +1,7 @@
 use crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
 use dep::protocol_types::{
     address::AztecAddress,
-    constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_SIZE_IN_FIELDS},
+    constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_PLAINTEXT_LEN},
 };
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
@@ -48,13 +48,11 @@ pub unconstrained fn deliver_note(
     )
 }
 
-/// The contents of a public log, plus contextual information about the transaction in which the log was emitted. This
-/// is the data required in order to discover notes that are being delivered in a log.
-// TODO(#11639): this could also be used to fetch private logs, but the `BoundedVec` maximum length is that of a public
+/// The plaintext of a public log (i.e. the content minus the tag), plus contextual information about the transaction
+// in which the log was emitted. This is the data required in order to discover notes that are being delivered in a
 // log.
-pub struct LogWithTxData {
-    // The log fields length is PUBLIC_LOG_SIZE_IN_FIELDS. + 1 because the contract address is prepended to the content.
-    pub log_content: BoundedVec<Field, PUBLIC_LOG_SIZE_IN_FIELDS + 1>,
+pub struct PublicLogWithTxData {
+    pub log_plaintext: BoundedVec<Field, PUBLIC_LOG_PLAINTEXT_LEN>,
     pub tx_hash: Field,
     /// The array of new note hashes created by `tx_hash`
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
@@ -62,14 +60,15 @@ pub struct LogWithTxData {
     pub first_nullifier_in_tx: Field,
 }
 
-/// Fetches a log from the node that has the corresponding `tag`. The log can be either a public or a private log, and
-/// the tag is the first field in the log's content. Returns `Option::none` if no such log exists. Throws if more than
-/// one log with that tag exists.
-/// Public logs have an extra field included at the beginning with the address of the contract that emitted them.
+/// Fetches a public log emitted by `contract_address` that has the corresponding `tag`. The tag is the first field in the log's content.
+/// Returns `Option::none` if no such log exists. Throws if more than one log with that tag exists.
 // TODO(#11627): handle multiple logs with the same tag.
 // TODO(#10273): improve contract siloing of logs, don't introduce an extra field.
-pub unconstrained fn get_log_by_tag(tag: Field) -> Option<LogWithTxData> {
-    get_log_by_tag_oracle(tag)
+pub unconstrained fn get_public_log_by_tag(
+    tag: Field,
+    contract_address: AztecAddress,
+) -> Option<PublicLogWithTxData> {
+    get_public_log_by_tag_oracle(tag, contract_address)
 }
 
 #[oracle(deliverNote)]
@@ -84,5 +83,8 @@ unconstrained fn deliver_note_oracle(
     recipient: AztecAddress,
 ) -> bool {}
 
-#[oracle(getLogByTag)]
-unconstrained fn get_log_by_tag_oracle(tag: Field) -> Option<LogWithTxData> {}
+#[oracle(getPublicLogByTag)]
+unconstrained fn get_public_log_by_tag_oracle(
+    tag: Field,
+    contract_address: AztecAddress,
+) -> Option<PublicLogWithTxData> {}

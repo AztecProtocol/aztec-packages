@@ -86,10 +86,10 @@ mod tests {
         traits::{Empty, FromField},
     };
     use dep::types::constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, GENERATOR_INDEX__TSK_M,
-        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG, PRIVATE_KERNEL_INNER_INDEX,
-        PRIVATE_KERNEL_TAIL_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
+        AVM_L2_GAS_PER_NOTE_HASH_WRITE, AVM_L2_GAS_PER_NULLIFIER_WRITE, DA_BYTES_PER_FIELD,
+        DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, GENERATOR_INDEX__TSK_M,
+        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_PRIVATE_LOG,
+        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -201,7 +201,7 @@ mod tests {
             + 2 /* non-revertible */
             + 2 /* revertible */;
         let da_gas = num_nullifiers * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-        let l2_gas = FIXED_AVM_STARTUP_L2_GAS + num_nullifiers * L2_GAS_PER_NULLIFIER;
+        let l2_gas = FIXED_AVM_STARTUP_L2_GAS + num_nullifiers * AVM_L2_GAS_PER_NULLIFIER_WRITE;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
 
@@ -239,8 +239,8 @@ mod tests {
         let num_side_effects = num_note_hashes + 1 /* tx nullifier */;
         let da_gas = (num_side_effects * DA_BYTES_PER_FIELD) * DA_GAS_PER_BYTE;
         let l2_gas = FIXED_AVM_STARTUP_L2_GAS
-            + L2_GAS_PER_NULLIFIER
-            + num_note_hashes * L2_GAS_PER_NOTE_HASH;
+            + AVM_L2_GAS_PER_NULLIFIER_WRITE
+            + num_note_hashes * AVM_L2_GAS_PER_NOTE_HASH_WRITE;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
 
@@ -328,7 +328,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         let da_gas = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE * 1;
-        let l2_gas = L2_GAS_PER_NULLIFIER * 1 + FIXED_AVM_STARTUP_L2_GAS;
+        let l2_gas = AVM_L2_GAS_PER_NULLIFIER_WRITE * 1 + FIXED_AVM_STARTUP_L2_GAS;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
 
@@ -350,7 +350,8 @@ mod tests {
         let num_public_calls = 2 /* non-revertible */
             + 3 /* revertible */;
         let da_gas = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE * 1;
-        let l2_gas = L2_GAS_PER_NULLIFIER * 1 + num_public_calls * FIXED_AVM_STARTUP_L2_GAS;
+        let l2_gas =
+            AVM_L2_GAS_PER_NULLIFIER_WRITE * 1 + num_public_calls * FIXED_AVM_STARTUP_L2_GAS;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
 
@@ -374,7 +375,8 @@ mod tests {
         let num_public_calls = 2 /* non-revertible */
             + 3 /* revertible */;
         let da_gas = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE * 1;
-        let l2_gas = L2_GAS_PER_NULLIFIER * 1 + num_public_calls * FIXED_AVM_STARTUP_L2_GAS;
+        let l2_gas =
+            AVM_L2_GAS_PER_NULLIFIER_WRITE * 1 + num_public_calls * FIXED_AVM_STARTUP_L2_GAS;
         assert_eq(
             public_inputs.gas_used,
             Gas::tx_overhead() + Gas::new(da_gas, l2_gas) + teardown_gas_limits,
@@ -397,7 +399,7 @@ mod tests {
         let num_side_effects = num_msgs + 1 /* tx nullifier */;
         let da_gas = num_side_effects * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
         let l2_gas = FIXED_AVM_STARTUP_L2_GAS
-            + 1 * L2_GAS_PER_NULLIFIER
+            + 1 * AVM_L2_GAS_PER_NULLIFIER_WRITE
             + num_msgs * L2_GAS_PER_L2_TO_L1_MSG;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
@@ -430,7 +432,7 @@ mod tests {
         let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
 
         let l2_gas = FIXED_AVM_STARTUP_L2_GAS
-            + num_nullifiers * L2_GAS_PER_NULLIFIER
+            + num_nullifiers * AVM_L2_GAS_PER_NULLIFIER_WRITE
             + num_private_logs * L2_GAS_PER_PRIVATE_LOG
             + num_cc_logs * L2_GAS_PER_CONTRACT_CLASS_LOG;
 
@@ -514,8 +516,8 @@ mod tests {
         let num_da_fields = num_note_hashes + num_nullifiers + num_private_log_fields;
         let da_gas = num_da_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
         let l2_gas = FIXED_AVM_STARTUP_L2_GAS
-            + num_note_hashes * L2_GAS_PER_NOTE_HASH
-            + num_nullifiers * L2_GAS_PER_NULLIFIER
+            + num_note_hashes * AVM_L2_GAS_PER_NOTE_HASH_WRITE
+            + num_nullifiers * AVM_L2_GAS_PER_NULLIFIER_WRITE
             + num_private_logs * L2_GAS_PER_PRIVATE_LOG;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }

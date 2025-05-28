@@ -1,4 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
@@ -16,6 +17,7 @@ type BlockIndexValue = [blockNumber: number, index: number];
 
 type BlockStorage = {
   header: Buffer;
+  blockHash: Buffer;
   archive: Buffer;
   l1: L1PublishedData;
   attestations: Buffer[];
@@ -84,9 +86,11 @@ export class BlockStore {
           throw new BlockNumberNotSequentialError(block.block.number, previousBlock.block.number);
         }
         previousBlock = block;
+        const blockHash = (await block.block.hash()).toBuffer();
 
         await this.#blocks.set(block.block.number, {
           header: block.block.header.toBuffer(),
+          blockHash: blockHash,
           archive: block.block.archive.toBuffer(),
           l1: block.l1,
           attestations: block.attestations.map(attestation => attestation.toBuffer()),
@@ -97,7 +101,7 @@ export class BlockStore {
           await this.#txIndex.set(txEffect.txHash.toString(), [block.block.number, i]);
         }
 
-        await this.#blockBodies.set((await block.block.hash()).toString(), block.block.body.toBuffer());
+        await this.#blockBodies.set(blockHash.toString(), block.block.body.toBuffer());
       }
 
       await this.#lastSynchedL1Block.set(blocks[blocks.length - 1].l1.blockNumber);
@@ -205,19 +209,20 @@ export class BlockStore {
   private async getBlockFromBlockStorage(blockNumber: number, blockStorage: BlockStorage) {
     const header = BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
-    const blockHash = (await header.hash()).toString();
-    const blockBodyBuffer = await this.#blockBodies.getAsync(blockHash);
+    const blockHash = blockStorage.blockHash;
+    const blockHashString = blockHash.toString();
+    const blockBodyBuffer = await this.#blockBodies.getAsync(blockHashString);
     if (blockBodyBuffer === undefined) {
       this.#log.warn(`Could not find body for block ${header.globalVariables.blockNumber.toNumber()} ${blockHash}`);
       return undefined;
     }
     const body = Body.fromBuffer(blockBodyBuffer);
-    const block = new L2Block(archive, header, body);
+    const block = new L2Block(archive, header, body, Fr.fromBuffer(blockHash));
     if (block.number !== blockNumber) {
       throw new Error(
         `Block number mismatch when retrieving block from archive (expected ${blockNumber} but got ${
           block.number
-        } with hash ${await block.hash()})`,
+        } with hash ${blockHashString})`,
       );
     }
     const attestations = blockStorage.attestations.map(CommitteeAttestation.fromBuffer);

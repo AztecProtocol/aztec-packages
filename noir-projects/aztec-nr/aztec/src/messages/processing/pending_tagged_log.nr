@@ -1,16 +1,11 @@
 use protocol_types::{
     address::AztecAddress,
     constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS},
-    hash::sha256_to_field,
     traits::{Deserialize, Serialize},
 };
 
-// Base slot for the pending tagged log array to which the fetchTaggedLogs oracle inserts found private logs.
-pub(crate) global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field = sha256_to_field(
-    "AZTEC_NR::PENDING_TAGGED_PENDING_TAGGED_LOG_ARRAY_BASE_SLOT".as_bytes(),
-);
-
-/// Represents a log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle inserts found private log.
+/// A private log that was tagged for `recipient` and has not yet been processed, plus information related to the
+/// transaction in which it was emitted.
 #[derive(Deserialize, Serialize)]
 pub(crate) struct PendingTaggedLog {
     pub log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
@@ -23,7 +18,7 @@ pub(crate) struct PendingTaggedLog {
 }
 
 mod test {
-    use crate::messages::discovery::pending_tagged_log::PendingTaggedLog;
+    use super::PendingTaggedLog;
     use protocol_types::{address::AztecAddress, traits::{FromField, Serialize}};
 
     #[test]
