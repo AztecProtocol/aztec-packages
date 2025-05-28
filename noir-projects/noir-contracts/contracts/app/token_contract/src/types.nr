@@ -1,1 +1,1 @@
-pub(crate) mod balance_set;
+pub mod balance_set;
