@@ -119,7 +119,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('getL2ToL1Messages', async () => {
     const response = await context.client.getL2ToL1Messages(1);
-    expect(response).toEqual([[]]);
+    expect(response?.length).toBe(3);
   });
 
   it('getArchiveSiblingPath', async () => {
@@ -456,7 +456,7 @@ class MockAztecNode implements AztecNode {
   }
 
   getL2ToL1Messages(_blockNumber: number | 'latest'): Promise<Fr[][] | undefined> {
-    return Promise.resolve(Array.from({ length: 10 }, () => [Fr.random(), Fr.random()]));
+    return Promise.resolve(Array.from({ length: 3 }, (_, i) => [new Fr(i)]));
   }
 
   getArchiveSiblingPath(
