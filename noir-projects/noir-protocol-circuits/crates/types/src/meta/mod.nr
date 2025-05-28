@@ -124,7 +124,7 @@ pub comptime fn generate_deserialize_from_fields(
 
         // Iterate over each field in the struct
         for field in nested_def.fields(generics) {
-            let (field_name, field_type) = field;
+            let (field_name, field_type, _) = field;
             // Recursively call `generate_deserialize_from_fields` for each field in the struct
             let (deserialized_field, num_consumed_in_recursion) = generate_deserialize_from_fields(
                 field_name,
@@ -344,7 +344,7 @@ pub comptime fn generate_serialize_to_fields(
         // For struct we pref
         let nested_struct = typ.as_data_type().unwrap();
         let params = nested_struct.0.fields(nested_struct.1);
-        let struct_flattened = params.map(|(param_name, param_type): (Quoted, Type)| {
+        let struct_flattened = params.map(|(param_name, param_type, _)| {
             let maybe_prefixed_name = if name == quote {} {
                 // Triggered when the param name is of a value available in the current scope (e.g. a function
                 // argument) --> then we don't prefix the name with anything.

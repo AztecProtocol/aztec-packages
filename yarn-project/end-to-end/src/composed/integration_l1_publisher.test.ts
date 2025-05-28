@@ -25,7 +25,7 @@ import { ForwarderAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { LightweightBlockBuilder } from '@aztec/prover-client/block-builder';
+import { buildBlockWithCleanDB } from '@aztec/prover-client/block-builder';
 import { SequencerPublisher } from '@aztec/sequencer-client';
 import type { L2Tips } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
@@ -143,7 +143,7 @@ describe('L1Publisher integration', () => {
       getPublishedBlocks(from, limit, _proven) {
         return Promise.resolve(
           blocks.slice(from - 1, from - 1 + limit).map(block => ({
-            signatures: [],
+            attestations: [],
             block,
             // Use L2 block number and hash for faking the L1 info
             l1: {
@@ -322,10 +322,7 @@ describe('L1Publisher integration', () => {
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     await worldStateSynchronizer.syncImmediate();
     const tempFork = await worldStateSynchronizer.fork();
-    const tempBuilder = new LightweightBlockBuilder(tempFork);
-    await tempBuilder.startNewBlock(globalVariables, l1ToL2Messages);
-    await tempBuilder.addTxs(txs);
-    const block = await tempBuilder.setBlockCompleted();
+    const block = await buildBlockWithCleanDB(txs, globalVariables, l1ToL2Messages, tempFork);
     await tempFork.close();
     return block;
   };

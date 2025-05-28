@@ -960,7 +960,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       it(`Nested call with not enough gas (expect failure)`, async () => {
         const gas = [/*l2=*/ 5, /*da=*/ 10000].map(g => new Fr(g));
         const targetFunctionSelector = await FunctionSelector.fromSignature(
-          'nested_call_to_add_with_gas(Field,Field,Field,Field)',
+          'nested_call_to_add_with_gas(Field,Field,u32,u32)',
         );
         const calldata: Fr[] = [targetFunctionSelector.toField(), value0, value1, ...gas];
         const context = createContext(calldata);

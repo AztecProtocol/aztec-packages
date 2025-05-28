@@ -24,43 +24,7 @@ void print_avm_stats()
 
 } // namespace
 
-void avm_check_circuit(const std::filesystem::path&, const std::filesystem::path&)
-{
-    info("!!! VM1 is deprecated. Quitting !!!");
-}
-
-void avm_prove(const std::filesystem::path&, const std::filesystem::path&, const std::filesystem::path& output_path)
-{
-    info("!!! VM1 is deprecated. Sleeping 60s and generating fake outputs !!!");
-
-    bb::HonkProof proof(AVM_PROOF_LENGTH_IN_FIELDS);
-    std::fill(proof.begin(), proof.end(), fr::zero());
-    sleep(60);
-
-    std::vector<fr> vk_as_fields(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS);
-    std::fill(vk_as_fields.begin(), vk_as_fields.end(), fr::zero());
-
-    vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("circuit size: ", static_cast<uint64_t>(vk_as_fields[0]));
-    vinfo("num of pub inputs: ", static_cast<uint64_t>(vk_as_fields[1]));
-
-    const auto to_json = [](const std::vector<bb::fr>& data) {
-        return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
-    };
-    std::string vk_json = to_json(vk_as_fields);
-    const auto proof_path = output_path / "proof";
-    const auto vk_path = output_path / "vk";
-    const auto vk_fields_path = output_path / "vk_fields.json";
-
-    write_file(proof_path, to_buffer(proof));
-    vinfo("proof written to: ", proof_path);
-    write_file(vk_path, to_buffer(vk_as_fields));
-    vinfo("vk written to: ", vk_path);
-    write_file(vk_fields_path, { vk_json.begin(), vk_json.end() });
-    vinfo("vk as fields written to: ", vk_fields_path);
-}
-
-void avm2_prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path)
+void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path)
 {
     avm2::AvmAPI avm;
     auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
@@ -83,7 +47,7 @@ void avm2_prove(const std::filesystem::path& inputs_path, const std::filesystem:
     }
 }
 
-void avm2_check_circuit(const std::filesystem::path& inputs_path)
+void avm_check_circuit(const std::filesystem::path& inputs_path)
 {
     avm2::AvmAPI avm;
     auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
@@ -94,16 +58,10 @@ void avm2_check_circuit(const std::filesystem::path& inputs_path)
     print_avm_stats();
 }
 
-bool avm_verify(const std::filesystem::path&, const std::filesystem::path&)
-{
-    info("!!! VM1 is deprecated. Saying yes !!!");
-    return true;
-}
-
 // NOTE: The proof should NOT include the public inputs.
-bool avm2_verify(const std::filesystem::path& proof_path,
-                 const std::filesystem::path& public_inputs_path,
-                 const std::filesystem::path& vk_path)
+bool avm_verify(const std::filesystem::path& proof_path,
+                const std::filesystem::path& public_inputs_path,
+                const std::filesystem::path& vk_path)
 {
     const auto proof = many_from_buffer<fr>(read_file(proof_path));
     std::vector<uint8_t> vk_bytes = read_file(vk_path);

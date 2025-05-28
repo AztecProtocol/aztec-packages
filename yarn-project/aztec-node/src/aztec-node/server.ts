@@ -10,7 +10,13 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import { type L1ContractAddresses, RegistryContract, createEthereumChain } from '@aztec/ethereum';
+import {
+  type L1ContractAddresses,
+  RegistryContract,
+  createEthereumChain,
+  createExtendedL1Client,
+} from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -30,10 +36,10 @@ import {
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
-  createSlasherClient,
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type {
@@ -181,7 +187,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const publicClient = createPublicClient({
       chain: ethereumChain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map(url => http(url))),
+      transport: fallback(config.l1RpcUrls.map((url: string) => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -193,6 +199,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     // Overwrite the passed in vars.
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
+
+    const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
+    const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
 
     const rollup = getContract({
       address: l1ContractsAddresses.rollupAddress.toString(),
@@ -247,8 +256,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
-    const slasherClient = createSlasherClient(config, archiver, telemetry);
-    slasherClient.start();
+    const watchers: Watcher[] = [];
+
+    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+    if (validatorsSentinel) {
+      watchers.push(validatorsSentinel);
+    }
+    const epochPruneWatcher = new EpochPruneWatcher(archiver, epochCache, config.slashPrunePenalty);
+    watchers.push(epochPruneWatcher);
+
+    const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
+    await slasherClient.start();
 
     const validatorClient = createValidatorClient(config, {
       p2pClient,
@@ -258,16 +276,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockSource: archiver,
     });
 
-    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    await validatorsSentinel?.start();
-
     log.verbose(`All Aztec Node subsystems synced`);
 
     // now create the sequencer
     const sequencer = config.disableValidator
       ? undefined
       : await SequencerClient.new(config, {
+          // if deps were provided, they should override the defaults,
+          // or things that we created in this function
           ...deps,
+          epochCache,
+          l1TxUtils,
           validatorClient,
           p2pClient,
           worldStateSynchronizer,
@@ -528,7 +547,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async stop() {
     this.log.info(`Stopping`);
     await this.txQueue.end();
-    await this.validatorsSentinel?.stop();
+    // await this.validatorsSentinel?.stop(); <- The slasher client will stop this
     await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();

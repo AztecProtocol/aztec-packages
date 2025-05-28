@@ -1,10 +1,6 @@
-import { VK_TREE_HEIGHT } from '@aztec/constants';
-import { makeTuple } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import type { UInt32 } from '../types/shared.js';
-import { VerificationKeyData } from '../vks/verification_key.js';
+import { VkData } from '../vks/index.js';
 import { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_public_inputs.js';
 
 /**
@@ -19,17 +15,9 @@ export class PrivateKernelData {
      */
     public publicInputs: PrivateKernelCircuitPublicInputs,
     /**
-     * Verification key of the previous kernel.
+     * The verification key and the witness of the vk in the vk tree.
      */
-    public verificationKey: VerificationKeyData,
-    /**
-     * Index of the previous kernel's vk in a tree of vks.
-     */
-    public vkIndex: UInt32,
-    /**
-     * Sibling path of the previous kernel's vk in a tree of vks.
-     */
-    public vkPath: Tuple<Fr, typeof VK_TREE_HEIGHT>,
+    public vkData: VkData,
   ) {}
 
   /**
@@ -37,25 +25,15 @@ export class PrivateKernelData {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.publicInputs, this.verificationKey, this.vkIndex, this.vkPath);
+    return serializeToBuffer(this.publicInputs, this.vkData);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelData {
     const reader = BufferReader.asReader(buffer);
-    return new this(
-      reader.readObject(PrivateKernelCircuitPublicInputs),
-      reader.readObject(VerificationKeyData),
-      reader.readNumber(),
-      reader.readArray(VK_TREE_HEIGHT, Fr),
-    );
+    return new this(reader.readObject(PrivateKernelCircuitPublicInputs), reader.readObject(VkData));
   }
 
   static empty(): PrivateKernelData {
-    return new PrivateKernelData(
-      PrivateKernelCircuitPublicInputs.empty(),
-      VerificationKeyData.empty(),
-      0,
-      makeTuple(VK_TREE_HEIGHT, Fr.zero),
-    );
+    return new PrivateKernelData(PrivateKernelCircuitPublicInputs.empty(), VkData.empty());
   }
 }

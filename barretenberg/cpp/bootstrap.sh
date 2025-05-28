@@ -101,12 +101,7 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-      # We only want to sanity check that we haven't broken wasm ecc ops in merge queue.
-      build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
-    else
-      build_preset wasm-threads
-    fi
+    build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
   fi
 }
@@ -232,10 +227,10 @@ function build_bench {
     # Run builds in parallel with different targets per preset
     # bb_cli_bench is later used in yarn-project.
     parallel --line-buffered denoise ::: \
-      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench" \
-      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench"
+      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench" \
+      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench"
     cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench}
+      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb_cli_bench}
   fi
 }
 
