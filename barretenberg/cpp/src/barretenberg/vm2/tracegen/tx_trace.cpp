@@ -167,7 +167,13 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
         const auto& phase = phase_array[i];
         if (phase.empty()) {
             trace.set(row, insert_tree_state(propagated_tree_state, propagated_tree_state));
-            trace.set(row, { { { C::tx_phase_value, i }, { C::tx_is_active, 0 } } });
+            trace.set(row,
+                      { {
+                          { C::tx_phase_value, i },
+                          { C::tx_is_active, 0 },
+                          { C::tx_start_phase, 1 },
+                          { C::tx_end_phase, 1 },
+                      } });
             row++;
             continue;
         }
@@ -178,7 +184,12 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             // We alway set the tree state
             trace.set(row, insert_tree_state(tx_event->prev_tree_state, tx_event->next_tree_state));
             trace.set(row,
-                      { { { C::tx_phase_value, static_cast<uint8_t>(tx_event->phase) }, { C::tx_is_active, 1 } } });
+                      { {
+                          { C::tx_phase_value, static_cast<uint8_t>(tx_event->phase) },
+                          { C::tx_is_active, 1 },
+                          { C::tx_start_phase, phase_counter == 0 ? 1 : 0 },
+                          { C::tx_end_phase, phase_counter == phase.size() - 1 ? 1 : 0 },
+                      } });
 
             // Pattern match on the variant event type and call the appropriate handler
             std::visit(

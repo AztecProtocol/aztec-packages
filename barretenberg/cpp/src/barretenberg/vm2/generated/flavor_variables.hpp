@@ -117,9 +117,10 @@ struct AvmFlavorVariables {
 =======
 =======
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2294;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 151;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2295;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 153;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
 <<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2498;
 >>>>>>> 5c61ff2ec2 (fix: rebase)
@@ -129,7 +130,13 @@ struct AvmFlavorVariables {
 =======
     static constexpr size_t NUM_ALL_ENTITIES = 2532;
 >>>>>>> f73bc267a7 (fix: comments)
+<<<<<<< HEAD
 >>>>>>> bf201997ab (fix: comments)
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2535;
+>>>>>>> b4e92fcba2 (fix: constrain more)
+>>>>>>> 317b6ac652 (fix: constrain more)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
