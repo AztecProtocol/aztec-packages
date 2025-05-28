@@ -57,6 +57,10 @@ if ! command -v yq &>/dev/null; then
 fi
 
 # Convert ETH to wei
+if [[ ! "$eth_amount" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+  echo "Error: Invalid ETH amount: $eth_amount"
+  exit 1
+fi
 wei_amount=$(cast to-wei "$eth_amount" ether)
 
 value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
@@ -91,7 +95,7 @@ max_index=$((max_index > bot_max_index ? max_index : bot_max_index))
 total_accounts=$((num_validators + num_provers + num_bots))
 
 # Check if mnemonic is provided
-if [ -z "$MNEMONIC" ]; then
+if [ "${MNEMONIC:-}" = "" ]; then
   # Create a new mnemonic
   echo "Creating mnemonic..."
   cast wallet new-mnemonic --json >"$tmp_filename"
