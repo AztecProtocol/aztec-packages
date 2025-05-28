@@ -686,9 +686,10 @@ export class PXEService implements PXE {
 
         const totalTime = totalTimer.ms();
 
-        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => ({
           functionName,
           time: witgen,
+          oracles,
         }));
 
         const timings: ProvingTimings = {
@@ -753,10 +754,13 @@ export class PXEService implements PXE {
 
         const totalTime = totalTimer.ms();
 
-        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
-          functionName,
-          time: witgen,
-        }));
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => {
+          return {
+            functionName,
+            time: witgen,
+            oracles,
+          };
+        });
 
         // Gate computation is time is not relevant for profiling, so we subtract it from the total time.
         const gateCountComputationTime =
@@ -856,9 +860,10 @@ export class PXEService implements PXE {
 
         const totalTime = totalTimer.ms();
 
-        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => ({
           functionName,
           time: witgen,
+          oracles,
         }));
 
         const timings: SimulationTimings = {

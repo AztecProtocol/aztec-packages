@@ -153,6 +153,7 @@ export class PrivateKernelExecutionProver {
         vk: currentExecution.vk,
         timings: {
           witgen: currentExecution.profileResult?.timings.witgen ?? 0,
+          oracles: currentExecution.profileResult?.timings.oracles,
         },
       });
 

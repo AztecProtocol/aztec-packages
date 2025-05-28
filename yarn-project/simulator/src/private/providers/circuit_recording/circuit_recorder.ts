@@ -1,28 +1,59 @@
+import { sha512 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import type { ForeignCallHandler, ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
-
-import { createHash } from 'crypto';
-import fs from 'fs/promises';
-import path from 'path';
 
 import type { ACIRCallback } from '../../acvm/acvm.js';
 import type { ACVMWitness } from '../../acvm/acvm_types.js';
 import { Oracle } from '../../acvm/oracle/oracle.js';
 
+export type OracleCall = {
+  name: string;
+  inputs: unknown[];
+  outputs: unknown;
+  time: number;
+  // Due to the recursive nature of the simulator, we might have
+  // oracle calls performed after a foreign call (which is itself an oracle call)
+  // We keep track of the stack depth in this variable to ensure the recorded oracle
+  // calls are correctly associated with the right circuit.
+  // This is only use as a debugging tool
+  stackDepth: number;
+};
+
+export class CircuitRecording {
+  circuitName: string;
+  functionName: string;
+  bytecodeSHA512Hash: string;
+  timestamp: number;
+  inputs: Record<string, string>;
+  oracleCalls: OracleCall[];
+  error?: string;
+  parent?: CircuitRecording;
+
+  constructor(circuitName: string, functionName: string, bytecodeSHA512Hash: string, inputs: Record<string, string>) {
+    this.circuitName = circuitName;
+    this.functionName = functionName;
+    this.bytecodeSHA512Hash = bytecodeSHA512Hash;
+    this.timestamp = Date.now();
+    this.inputs = inputs;
+    this.oracleCalls = [];
+  }
+
+  setParent(recording?: CircuitRecording): void {
+    this.parent = recording;
+  }
+}
+
 /**
  * Class responsible for recording circuit inputs necessary to replay the circuit. These inputs are the initial witness
  * map and the oracle calls made during the circuit execution/witness generation.
  *
- * The recording is stored in a JSON file called `circuit_name_circuit_function_name_YYYY-MM-DD_N.json` where N is
- * a counter to ensure unique filenames. The file is stored in the `recordDir` directory provided as a parameter to
- * CircuitRecorder.start().
- *
- * Example recording file:
+ * Example recording object:
  * ```json
  * {
  *   "circuitName": "AMM",
  *   "functionName": "add_liquidity",
- *   "bytecodeMd5Hash": "b46c640ed38f20eac5f61a5e41d8dd1e",
+ *   "bytecodeSHA512Hash": "b46c640ed38f20eac5f61a5e41d8dd1e",
  *   "timestamp": 1740691464360,
  *   "inputs": {
  *     "0": "0x1e89de1f0ad5204263733b7ddf65bec45b8f44714a4da85a46474dad677679ef",
@@ -59,10 +90,14 @@ import { Oracle } from '../../acvm/oracle/oracle.js';
  * ```
  */
 export class CircuitRecorder {
-  private readonly logger = createLogger('simulator:acvm:recording');
-  private isFirstCall = true;
+  protected readonly logger = createLogger('simulator:acvm:recording');
 
-  private constructor(private readonly filePath: string) {}
+  protected recording?: CircuitRecording;
+
+  private stackDepth: number = 0;
+  private newCircuit: boolean = true;
+
+  protected constructor() {}
 
   /**
    * Initializes a new circuit recording session.
@@ -72,82 +107,20 @@ export class CircuitRecorder {
    * @param circuitName - Name of the circuit
    * @param functionName - Name of the circuit function (defaults to 'main'). This is meaningful only for
    * contracts as protocol circuits artifacts always contain a single entrypoint function called 'main'.
-   * @returns A new CircuitRecorder instance
    */
-  static async start(
-    recordDir: string,
-    input: ACVMWitness,
-    circuitBytecode: Buffer,
-    circuitName: string,
-    functionName: string = 'main',
-  ): Promise<CircuitRecorder> {
-    const recording = {
-      circuitName: circuitName,
-      functionName: functionName,
-      bytecodeMd5Hash: createHash('md5').update(circuitBytecode).digest('hex'),
-      timestamp: Date.now(),
-      inputs: Object.fromEntries(input),
-    };
-
-    const recordingStringWithoutClosingBracket = JSON.stringify(recording, null, 2).slice(0, -2);
-
-    try {
-      // Check if the recording directory exists and is a directory
-      const stats = await fs.stat(recordDir);
-      if (!stats.isDirectory()) {
-        throw new Error(`Recording path ${recordDir} exists but is not a directory`);
-      }
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-        // The directory does not exist so we create it
-        await fs.mkdir(recordDir, { recursive: true });
-      } else {
-        throw err;
-      }
+  start(input: ACVMWitness, circuitBytecode: Buffer, circuitName: string, functionName: string): Promise<void> {
+    const parentRef = this.recording;
+    if (this.newCircuit) {
+      this.recording = new CircuitRecording(
+        circuitName,
+        functionName,
+        sha512(circuitBytecode).toString('hex'),
+        Object.fromEntries(input),
+      );
     }
+    this.recording!.setParent(parentRef);
 
-    const filePath = await CircuitRecorder.#computeFilePathAndStoreInitialRecording(
-      recordDir,
-      circuitName,
-      functionName,
-      recordingStringWithoutClosingBracket,
-    );
-    return new CircuitRecorder(filePath);
-  }
-
-  /**
-   * Computes a unique file path for the recording by trying different counter values.
-   * This is needed because multiple recordings of the same circuit could be happening simultaneously or an older
-   * recording might be present.
-   * @param recordDir - Directory to store the recording
-   * @param circuitName - Name of the circuit
-   * @param functionName - Name of the circuit function
-   * @param recordingContent - Initial recording content
-   * @returns A unique file path for the recording
-   */
-  static async #computeFilePathAndStoreInitialRecording(
-    recordDir: string,
-    circuitName: string,
-    functionName: string,
-    recordingContent: string,
-  ): Promise<string> {
-    let counter = 0;
-    while (true) {
-      try {
-        const filePath = getFilePath(recordDir, circuitName, functionName, counter);
-        // Write the initial recording content to the file
-        await fs.writeFile(filePath, recordingContent + ',\n  "oracleCalls": [\n', {
-          flag: 'wx', // wx flag fails if file exists
-        });
-        return filePath;
-      } catch (err) {
-        if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
-          counter++;
-          continue;
-        }
-        throw err;
-      }
-    }
+    return Promise.resolve();
   }
 
   /**
@@ -187,15 +160,38 @@ export class CircuitRecorder {
         throw new Error(`Oracle method ${name} not found when setting up recording callback`);
       }
 
+      const isExternalCall = (name as keyof ACIRCallback) === 'callPrivateFunction';
+
       recordingCallback[name as keyof ACIRCallback] = (...args: ForeignCallInput[]): ReturnType<typeof fn> => {
+        const timer = new Timer();
+        // If we're entering another circuit via `callPrivateFunction`, we increase the stack depth and set the
+        // newCircuit variable to ensure we are creating a new recording object.
+        if (isExternalCall) {
+          this.stackDepth++;
+          this.newCircuit = true;
+        }
         const result = fn.call(callback, ...args);
         if (result instanceof Promise) {
           return result.then(async r => {
-            await this.#recordCall(name, args, r);
+            // Once we leave the nested circuit, we decrease the stack depth and set newCircuit to false
+            // since we are going back to the "parent" circuit which can never be new
+            if (isExternalCall) {
+              this.stackDepth--;
+              this.newCircuit = false;
+              this.recording = this.recording!.parent;
+            }
+            await this.recordCall(name, args, r, timer.ms(), this.stackDepth);
             return r;
           }) as ReturnType<typeof fn>;
         }
-        void this.#recordCall(name, args, result);
+        // Once we leave the nested circuit, we decrease the stack depth and set newCircuit to false
+        // since we are going back to the "parent" circuit which can never be new
+        if (isExternalCall) {
+          this.stackDepth--;
+          this.newCircuit = false;
+          this.recording = this.recording!.parent;
+        }
+        void this.recordCall(name, args, result, timer.ms(), this.stackDepth);
         return result;
       };
     }
@@ -210,8 +206,9 @@ export class CircuitRecorder {
    */
   #wrapProtocolCircuitCallback(callback: ForeignCallHandler): ForeignCallHandler {
     return async (name: string, inputs: ForeignCallInput[]): Promise<ForeignCallOutput[]> => {
+      const timer = new Timer();
       const result = await callback(name, inputs);
-      await this.#recordCall(name, inputs, result);
+      await this.recordCall(name, inputs, result, timer.ms(), 0);
       return result;
     };
   }
@@ -222,62 +219,43 @@ export class CircuitRecorder {
    * @param inputs - Input arguments
    * @param outputs - Output results
    */
-  async #recordCall(name: string, inputs: unknown[], outputs: unknown) {
-    try {
-      const entry = {
-        name,
-        inputs,
-        outputs,
-      };
-      const prefix = this.isFirstCall ? '    ' : '    ,';
-      this.isFirstCall = false;
-      await fs.appendFile(this.filePath, prefix + JSON.stringify(entry) + '\n');
-    } catch (err) {
-      this.logger.error('Failed to log circuit call', { error: err });
-    }
+  recordCall(name: string, inputs: unknown[], outputs: unknown, time: number, stackDepth: number): Promise<OracleCall> {
+    const entry = {
+      name,
+      inputs,
+      outputs,
+      time,
+      stackDepth,
+    };
+    this.recording!.oracleCalls.push(entry);
+    return Promise.resolve(entry);
   }
 
   /**
-   * Finalizes the recording file by adding closing brackets. Without calling this method, the recording file is
-   * incomplete and it fails to parse.
+   * Finalizes the recording by resetting the state and returning the recording object.
    */
-  async finish(): Promise<void> {
-    try {
-      await fs.appendFile(this.filePath, '  ]\n}\n');
-    } catch (err) {
-      this.logger.error('Failed to finalize recording file', { error: err });
+  finish(): Promise<CircuitRecording> {
+    const result = this.recording;
+    // If this is the top-level circuit recording, we reset the state for the next simulator call
+    if (!result!.parent) {
+      this.newCircuit = true;
+      this.recording = undefined;
     }
+    return Promise.resolve(result!);
   }
 
   /**
-   * Finalizes the recording file by adding the error and closing brackets. Without calling this method or `finish`,
-   * the recording file is incomplete and it fails to parse.
+   * Finalizes the recording by resetting the state and returning the recording object with an attached error.
    * @param error - The error that occurred during circuit execution
    */
-  async finishWithError(error: unknown): Promise<void> {
-    try {
-      await fs.appendFile(this.filePath, '  ],\n');
-      await fs.appendFile(this.filePath, `  "error": ${JSON.stringify(error)}\n`);
-      await fs.appendFile(this.filePath, '}\n');
-    } catch (err) {
-      this.logger.error('Failed to finalize recording file with error', { error: err });
+  finishWithError(error: unknown): Promise<CircuitRecording> {
+    const result = this.recording;
+    // If this is the top-level circuit recording, we reset the state for the next simulator call
+    if (!result!.parent) {
+      this.newCircuit = true;
+      this.recording = undefined;
     }
+    result!.error = JSON.stringify(error);
+    return Promise.resolve(result!);
   }
-}
-
-/**
- * Generates a file path for storing circuit recordings. The format of the filename is:
- * `circuit_name_circuit_function_name_YYYY-MM-DD_N.json` where N is a counter to ensure unique filenames.
- * @param recordDir - Base directory for recordings
- * @param circuitName - Name of the circuit
- * @param functionName - Name of the circuit function
- * @param counter - Counter to ensure unique filenames. This is expected to be incremented in a loop until there is no
- * existing file with the same name.
- * @returns A file path for the recording.
- */
-function getFilePath(recordDir: string, circuitName: string, functionName: string, counter: number): string {
-  const date = new Date();
-  const formattedDate = date.toISOString().split('T')[0];
-  const filename = `${circuitName}_${functionName}_${formattedDate}_${counter}.json`;
-  return path.join(recordDir, filename);
 }

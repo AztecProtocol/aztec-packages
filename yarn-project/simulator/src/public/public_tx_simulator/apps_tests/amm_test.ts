@@ -151,6 +151,13 @@ async function addLiquidity(
     liquidityPartialNote,
     amm.address,
   );
+
+  // We need to inject the validity commitments into the nullifier tree as that would be performed by the private token
+  // functions that are not invoked in this test.
+  await tester.insertNullifier(token0.address, refundToken0PartialNoteValidityCommitment);
+  await tester.insertNullifier(token1.address, refundToken1PartialNoteValidityCommitment);
+  await tester.insertNullifier(liquidityToken.address, liquidityPartialNoteValidityCommitment);
+
   return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/add_liquidity',
     /*sender=*/ sender,
@@ -163,33 +170,12 @@ async function addLiquidity(
         args: [/*to=*/ amm.address, /*amount=*/ amount0Max],
         address: token0.address,
       },
-      // token0.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
-      {
-        sender: token0.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_set_uint_partial_note_validity',
-        args: [refundToken0PartialNoteValidityCommitment],
-        address: token0.address,
-      },
       // token1.transfer_to_public enqueues a call to _increase_public_balance
       {
         sender: token1.address, // INTERNAL FUNCTION! Sender must be 'this'.
         fnName: '_increase_public_balance',
         args: [/*to=*/ amm.address, /*amount=*/ amount1Max],
         address: token1.address,
-      },
-      // token1.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
-      {
-        sender: token1.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_set_uint_partial_note_validity',
-        args: [refundToken1PartialNoteValidityCommitment],
-        address: token1.address,
-      },
-      // liquidityToken.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
-      {
-        sender: liquidityToken.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_set_uint_partial_note_validity',
-        args: [liquidityPartialNoteValidityCommitment],
-        address: liquidityToken.address,
       },
       // amm.add_liquidity enqueues a call to _add_liquidity
       {
@@ -227,12 +213,16 @@ async function swapExactTokensForTokens(
   _nonce?: bigint,
 ) {
   const tokenOutPartialNote = {
-    commitment: new Fr(66),
+    commitment: new Fr(166),
   };
   const tokenOutPartialNoteValidityCommitment = await computePartialNoteValidityCommitment(
     tokenOutPartialNote,
     amm.address,
   );
+
+  // We need to inject the validity commitment into the nullifier tree as that would be performed by the private token
+  // function that is not invoked in this test.
+  await tester.insertNullifier(tokenOut.address, tokenOutPartialNoteValidityCommitment);
 
   return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/swap_exact_tokens_for_tokens',
@@ -246,14 +236,6 @@ async function swapExactTokensForTokens(
         args: [/*to=*/ amm.address, /*amount=*/ amountIn],
         address: tokenIn.address,
       },
-      // tokenOut.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
-      {
-        sender: tokenOut.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_set_uint_partial_note_validity',
-        args: [tokenOutPartialNoteValidityCommitment],
-        address: tokenOut.address,
-      },
-
       {
         sender: amm.address, // INTERNAL FUNCTION! Sender must be 'this'.
         fnName: '_swap_exact_tokens_for_tokens',
@@ -290,6 +272,12 @@ async function removeLiquidity(
     token1PartialNote,
     amm.address,
   );
+
+  // We need to inject the validity commitments into the nullifier tree as that would be performed by the private token
+  // functions that are not invoked in this test.
+  await tester.insertNullifier(token0.address, token0PartialNoteValidityCommitment);
+  await tester.insertNullifier(token1.address, token1PartialNoteValidityCommitment);
+
   return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'AMM/remove_liquidity',
     /*sender=*/ sender,
@@ -301,20 +289,6 @@ async function removeLiquidity(
         fnName: '_increase_public_balance',
         args: [/*to=*/ amm.address, /*amount=*/ liquidity],
         address: liquidityToken.address,
-      },
-      // token0.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
-      {
-        sender: token0.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_set_uint_partial_note_validity',
-        args: [token0PartialNoteValidityCommitment],
-        address: token0.address,
-      },
-      // token1.prepare_private_balance_increase enqueues a call to _set_uint_partial_note_validity
-      {
-        sender: token1.address, // INTERNAL FUNCTION! Sender must be 'this'.
-        fnName: '_set_uint_partial_note_validity',
-        args: [token1PartialNoteValidityCommitment],
-        address: token1.address,
       },
       // amm.remove_liquidity enqueues a call to _remove_liquidity
       {
