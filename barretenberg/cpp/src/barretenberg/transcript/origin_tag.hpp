@@ -18,13 +18,16 @@
 #include <cstddef>
 #include <ostream>
 
-// Currently disabled, because everything is broken in so many ways. First, this needs to be removed, once we start on
-// the fixes and then the free witness checks need to be re-enabled.
-#define AZTEC_NO_ORIGIN_TAGS
 // Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1409): Re-enable this once the tag invariant is restored.
 #define DISABLE_FREE_WITNESS_CHECK
+#define DISABLE_DIFFERENT_TRANSCRIPT_CHECKS
+#define DISABLE_CHILD_TAG_CHECKS
 
+// Disable origin tags in release builds
+#ifdef NDEBUG
+#define AZTEC_NO_ORIGIN_TAGS
+#endif
 #define STANDARD_TESTING_TAGS /*Tags reused in tests*/                                                                 \
     const size_t parent_id = 0;                                                                                        \
     [[maybe_unused]] const auto clear_tag = OriginTag();                                                               \
@@ -60,7 +63,7 @@
 namespace bb {
 
 void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b);
-#if !defined(NDEBUG) && !defined(AZTEC_NO_ORIGIN_TAGS)
+#ifndef AZTEC_NO_ORIGIN_TAGS
 struct OriginTag {
 
     static constexpr size_t CONSTANT = static_cast<size_t>(-1);

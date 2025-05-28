@@ -10,7 +10,7 @@
 
 namespace bb {
 using namespace numeric;
-#if !defined(NDEBUG) && !defined(AZTEC_NO_ORIGIN_TAGS)
+#ifndef AZTEC_NO_ORIGIN_TAGS
 
 /**
  * @brief Detect if two elements from the same transcript are performing a suspicious interaction
@@ -75,11 +75,12 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
         }
     }
     // Elements from different transcripts shouldn't interact
+#ifndef DISABLE_DIFFERENT_TRANSCRIPT_CHECKS
     if (tag_a.parent_tag != tag_b.parent_tag) {
         throw_or_abort("Tags from different transcripts were involved in the same computation");
     }
-
-#ifdef ENABLE_CHILD_TAG_CHECKS
+#endif
+#ifndef DISABLE_CHILD_TAG_CHECKS
     check_child_tags(tag_a.child_tag, tag_b.child_tag);
 #endif
     parent_tag = tag_a.parent_tag;

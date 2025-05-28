@@ -499,6 +499,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
     result.binary_basis_limbs[2].element = binary_basis_limbs[2].element + other.binary_basis_limbs[2].element;
     result.binary_basis_limbs[3].element = binary_basis_limbs[3].element + other.binary_basis_limbs[3].element;
     result.prime_basis_limb = prime_basis_limb + other.prime_basis_limb;
+
+    result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }
 

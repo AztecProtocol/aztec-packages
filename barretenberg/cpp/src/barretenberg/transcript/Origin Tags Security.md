@@ -1,7 +1,13 @@
 # Origin Tags Security Mechanism
 ## ⚠️ IMPORTANT DISCLAIMER
 
-**The Origin Tags security mechanism is currently DISABLED.** Mechanisms are disabled via the `AZTEC_NO_ORIGIN_TAGS` flag. In addition, the free witness checks are disabled via the `DISABLE_FREE_WITNESS_CHECK` flag because the current codebase contains numerous violations of the tag invariants throughout the system. The core origin tag tracking and other security checks remain active in debug builds, but are completely disabled in release builds.
+**The Origin Tags security mechanism is currently PARTIALLY DISABLED.** The mechanism operates in debug builds only (disabled completely in release builds via `AZTEC_NO_ORIGIN_TAGS`). Within debug builds, several critical security checks are currently disabled due to widespread violations of tag invariants throughout the codebase:
+
+1. **Free Witness Checks** (`DISABLE_FREE_WITNESS_CHECK`): Disabled because free witness elements are incorrectly interacting with transcript-originated values throughout the system
+2. **Different Transcript Checks** (`DISABLE_DIFFERENT_TRANSCRIPT_CHECKS`): Disabled because values from different transcript instances are mixing in computations
+3. **Child Tag Checks** (`DISABLE_CHILD_TAG_CHECKS`): Disabled because submitted values from different rounds are mixing without proper challenge separation
+
+These disables were implemented as a temporary measure to allow the codebase to function while the tag invariant violations are addressed. The basic origin tag tracking infrastructure remains active in debug builds, but the security enforcement is effectively neutered until these flags are removed and the underlying violations are fixed.
 
 
 
@@ -58,7 +64,6 @@ The origin tag mechanism is integrated into the transcript system at several key
 - Full origin tag tracking and validation
 - Runtime checks for security violations
 - Detailed error messages for debugging
-- Currently the free witness checks are disabled via the `DISABLE_FREE_WITNESS_CHECK` flag
 
 **Release Builds (`#else`)**:
 - Origin tag operations become no-ops for performance
@@ -97,5 +102,6 @@ Values automatically receive origin tags when:
 
 ## TODOS
 1. Ensure that all recursive verifiers pass the basic free witness check
-2. Enable basic child tag checks that ensure submitted values from different rounds are not mixed and deal with edge cases and false positives
-3. Add the mechanism for checking if a challenge and a submitted value from a following round meet (this can also create dangerous interactions)
+2. Ensure that all recursive verifiers pass the basic different transcript check
+3. Ensure that all recursive verifiers pass the basic child tag check
+4. Add the mechanism for checking if a challenge and a submitted value from a following round meet (this can also create dangerous interactions)
