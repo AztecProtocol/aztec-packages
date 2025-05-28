@@ -244,7 +244,7 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
             ),
             accumulated_data: reader.read_struct(AvmAccumulatedData::deserialize),
             transaction_fee: reader.read(),
-            reverted: reader.read() != 0,
+            reverted: reader.read_bool(),
         };
         reader.finish();
         item
