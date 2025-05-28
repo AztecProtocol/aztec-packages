@@ -1,7 +1,7 @@
 # Origin Tags Security Mechanism
 ## ⚠️ IMPORTANT DISCLAIMER
 
-**The Origin Tags security mechanism is currently PARTIALLY DISABLED in debug builds.** Specifically, the free witness checks are disabled via the `DISABLE_FREE_WITNESS_CHECK` flag because the current codebase contains numerous violations of the tag invariants throughout the system. The core origin tag tracking and other security checks remain active in debug builds, but are completely disabled in release builds.
+**The Origin Tags security mechanism is currently DISABLED.** Mechanisms are disabled via the `AZTEC_NO_ORIGIN_TAGS` flag. In addition, the free witness checks are disabled via the `DISABLE_FREE_WITNESS_CHECK` flag because the current codebase contains numerous violations of the tag invariants throughout the system. The core origin tag tracking and other security checks remain active in debug builds, but are completely disabled in release builds.
 
 
 

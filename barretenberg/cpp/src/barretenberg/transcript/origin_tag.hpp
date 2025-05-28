@@ -18,6 +18,9 @@
 #include <cstddef>
 #include <ostream>
 
+// Currently disabled, because everything is broken in so many ways. First, this needs to be removed, once we start on
+// the fixes and then the free witness checks need to be re-enabled.
+#define AZTEC_NO_ORIGIN_TAGS
 // Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1409): Re-enable this once the tag invariant is restored.
 #define DISABLE_FREE_WITNESS_CHECK
