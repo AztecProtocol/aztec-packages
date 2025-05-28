@@ -1,5 +1,6 @@
 include "public_inputs.pil";
 include "execution.pil";
+include "precomputed.pil";
 
 namespace tx;
 
@@ -9,27 +10,49 @@ namespace tx;
     sel = 0;
 
     pol commit phase_value;
+    // is_active = 0 IFF remaining_phase == 0, i.e this is a padded phase row
     pol commit is_active; // remaining_phase != 0;
+    is_active * (1 - is_active) = 0;
     pol commit start_phase;
+    start_phase * (1 - start_phase) = 0;
     pol commit end_phase;
+    end_phase * (1 - end_phase) = 0;
+
+    pol NOT_LAST = sel' * sel; // Could probably use a different condition (i.e. COLLECT_GAS is last row - save this for optimisation)
+    pol NOT_PHASE_END = NOT_LAST * (1 - end_phase);
+
+    #[START_FOLLOWS_END]
+    NOT_LAST * (start_phase' - (end_phase + precomputed.first_row)) = 0;
+
     // end_phase = 1, remaining_phase - 1 = 0;
     pol commit is_revertible;
     pol commit reverted;
     // phase_value stays the same unless we are at end_phase or reverted
-    (1 - reverted) * (1 - end_phase) * (phase_value' - phase_value) = 0;
-    (1 - reverted) * end_phase * (phase_value' - phase_value - 1) = 0;
-    // If reverted == 1, is_revertible == 1
+    #[PHASE_VALUE_CONTINUITY]
+    NOT_PHASE_END * (1 - reverted) * (1 - precomputed.first_row) * (phase_value' - phase_value) = 0;
+    // At the start of a new phase, we need to increment the phase value
+    #[INCR_PHASE_VALUE_ON_END]
+    NOT_LAST * (1 - reverted) * end_phase * (phase_value' - (phase_value + 1)) = 0;
+
+    // If reverted == 1, is_revertible must be 1
+    reverted * (1 - is_revertible) = 0;
 
     // Control flow
-    pol commit read_pi_offset;
-    pol commit write_pi_offset;
-    pol commit read_pi_length_offset;
+    pol commit read_pi_offset; // index in public inputs to read data from
+    pol commit write_pi_offset; // index in public inputs to write data to
+    pol commit read_pi_length_offset; // index in public inputs to read lengths from
+
     pol commit remaining_phase_inv;
     pol commit remaining_phase_events;
     
     // This lookup extracts the start value of a new phase based on the precomputed table
+    // Start phase is guarded by is_active, so padding rows do not read from public inputs
+    pol commit read_phase_table_sel;
+    // if is_active = 0, read_phase_table_sel = 0
+    // We cannot re-use start_phase, because we still want to read the lengths to constrain remaining_phase_events = 0;
+    read_phase_table_sel = is_active * start_phase;
     #[READ_PHASE_TABLE]
-    start_phase { 
+    read_phase_table_sel { 
         phase_value, 
         is_public_call_request, 
         is_l2_l1_msg_phase,
@@ -76,11 +99,11 @@ namespace tx;
 
     // Phase events decrement at each row
     #[DECR_REM_PHASE_EVENTS]
-    sel * (1 - end_phase) * (remaining_phase_events' - (remaining_phase_events - 1)) = 0;
+    (1 - precomputed.first_row) * NOT_PHASE_END * (remaining_phase_events' - (remaining_phase_events - 1)) = 0;
 
     // The read index increments at each row
     #[INCR_READ_PI_OFFSET]
-    sel * (1 - end_phase) * (read_pi_offset' - (read_pi_offset + 1)) = 0;
+    (1 - precomputed.first_row) * NOT_PHASE_END * (read_pi_offset' - (read_pi_offset + 1)) = 0;
 
     // === Public Call Request Phase ===
     pol commit is_public_call_request;
