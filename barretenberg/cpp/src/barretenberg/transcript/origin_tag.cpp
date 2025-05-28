@@ -10,7 +10,7 @@
 
 namespace bb {
 using namespace numeric;
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(AZTEC_NO_ORIGIN_TAGS)
 
 /**
  * @brief Detect if two elements from the same transcript are performing a suspicious interaction
