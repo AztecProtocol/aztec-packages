@@ -124,6 +124,17 @@ struct FindLeafIndexResponse {
     FindLeafIndexResponse& operator=(FindLeafIndexResponse&& other) noexcept = default;
 };
 
+struct FindLeafPathResponse {
+    std::vector<std::optional<fr_sibling_path>> leaf_paths;
+
+    FindLeafPathResponse() = default;
+    ~FindLeafPathResponse() = default;
+    FindLeafPathResponse(const FindLeafPathResponse& other) = default;
+    FindLeafPathResponse(FindLeafPathResponse&& other) noexcept = default;
+    FindLeafPathResponse& operator=(const FindLeafPathResponse& other) = default;
+    FindLeafPathResponse& operator=(FindLeafPathResponse&& other) noexcept = default;
+};
+
 struct GetLeafResponse {
     std::optional<bb::fr> leaf;
 

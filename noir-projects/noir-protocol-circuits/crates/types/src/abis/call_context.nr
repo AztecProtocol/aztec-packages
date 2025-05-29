@@ -44,7 +44,7 @@ impl Deserialize<CALL_CONTEXT_LENGTH> for CallContext {
             msg_sender: AztecAddress::from_field(reader.read()),
             contract_address: AztecAddress::from_field(reader.read()),
             function_selector: FunctionSelector::from_field(reader.read()),
-            is_static_call: reader.read() as bool,
+            is_static_call: reader.read_bool(),
         }
     }
 }
