@@ -42,7 +42,6 @@ import type { GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
 import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
 import type { SequencerConfig } from './config.js';
-import { GuardedMerkleTree } from './guarded_merkle_tree.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
 import { SequencerState, orderAttestations } from './utils.js';
@@ -451,10 +450,8 @@ export class Sequencer {
     const previousBlockHeader =
       (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? publicProcessorDBFork.getInitialHeader();
 
-    const guardedFork = new GuardedMerkleTree(publicProcessorDBFork);
-
     try {
-      const processor = this.publicProcessorFactory.create(guardedFork, newGlobalVariables, true);
+      const processor = this.publicProcessorFactory.create(publicProcessorDBFork, newGlobalVariables, true);
 
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(publicProcessorDBFork);
@@ -494,12 +491,6 @@ export class Sequencer {
       const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
         processor.process(pendingTxs, limits, validator),
       );
-
-      // There may still be a transactions executing. We stop this guarded fork to prevent any further access to the world state.
-      await guardedFork.stop();
-      // Now we know there is no further access, we revert any outstanding checkpoints removing any partial statue updates made.
-      // NOTE: It is important that completed transactions have all of their checkpoints committed.
-      await publicProcessorDBFork.revertAllCheckpoints();
 
       if (!opts.validateOnly && failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);

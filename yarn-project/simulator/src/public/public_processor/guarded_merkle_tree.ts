@@ -1,6 +1,5 @@
-import type { SiblingPath } from '@aztec/aztec.js';
 import { SerialQueue } from '@aztec/foundation/queue';
-import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type {
   BatchInsertionResult,
   IndexedTreeId,
@@ -14,9 +13,9 @@ import type { BlockHeader, StateReference } from '@aztec/stdlib/tx';
 
 /**
  * Wraps an instance of `MerkleTreeWriteOperations` to allow the sequencer to gate access.
- * If transactions execution goes past the deadline, the processor will continue to execute and update the world state
- * The sequencer however requires that the world state remain constant after the deadline in order to finalise the block
- * The sequencer provides this implementation of MerkleTreeWriteOperations to the public processor
+ * If transactions execution goes past the deadline, the simulator will continue to execute and update the world state
+ * The public processor however requires that the world state remain constant after the deadline in order to finalise the block
+ * The public processor provides this implementation of MerkleTreeWriteOperations to the simulator
  */
 
 export class GuardedMerkleTree implements MerkleTreeWriteOperations {
@@ -40,6 +39,10 @@ export class GuardedMerkleTree implements MerkleTreeWriteOperations {
       this.guard();
       return fn();
     });
+  }
+
+  public getUnderlyingFork(): MerkleTreeWriteOperations {
+    return this.target;
   }
 
   // Stops all further access to the merkle trees via this object
