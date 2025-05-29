@@ -41,7 +41,7 @@ describe('BLS12Point', () => {
       const [x, sign] = p.toXAndSign();
       const p2 = BLS12Point.fromXAndSign(x, sign);
 
-      expect(p.equals(p2)).toBeTruthy();
+      expect(p).toEqual(p2);
     });
 
     it('converts G to and from compressed point', () => {
@@ -59,7 +59,7 @@ describe('BLS12Point', () => {
       expect(isGreater).toEqual('0');
       const p2 = BLS12Point.decompress(p.compress());
 
-      expect(p.equals(p2)).toBeTruthy();
+      expect(p).toEqual(p2);
     });
 
     it('converts 0 to and from compressed point', () => {
@@ -76,8 +76,8 @@ describe('BLS12Point', () => {
       expect(isGreater).toEqual('0');
       const p2 = BLS12Point.decompress(p.compress());
 
-      expect(p.equals(p2)).toBeTruthy();
-      expect(p.compress().equals(BLS12Point.COMPRESSED_ZERO)).toBeTruthy();
+      expect(p).toEqual(p2);
+      expect(p.compress()).toEqual(BLS12Point.COMPRESSED_ZERO);
     });
 
     it('converts to and from random compressed point', () => {
@@ -95,7 +95,7 @@ describe('BLS12Point', () => {
       expect(isGreater).toEqual(`${+(p.y.toBigInt() > p.y.negate().toBigInt())}`);
       const p2 = BLS12Point.decompress(p.compress());
 
-      expect(p.equals(p2)).toBeTruthy();
+      expect(p).toEqual(p2);
     });
 
     it('converts to and from static compressed point', () => {
@@ -112,7 +112,7 @@ describe('BLS12Point', () => {
       expect(isGreater).toEqual('0');
       const p2 = BLS12Point.decompress(p.compress());
 
-      expect(p.equals(p2)).toBeTruthy();
+      expect(p).toEqual(p2);
     });
 
     it('fails with invalid compression encoding', () => {
@@ -199,28 +199,28 @@ describe('BLS12Point', () => {
       const p = BLS12Point.random();
       const p2 = BLS12Point.fromBuffer(p.toBuffer());
 
-      expect(p.equals(p2)).toBeTruthy();
+      expect(p).toEqual(p2);
     });
 
     it('serializes to and from string', () => {
       const p = BLS12Point.random();
       const p2 = BLS12Point.fromString(p.toString());
 
-      expect(p.equals(p2)).toBeTruthy();
+      expect(p).toEqual(p2);
     });
 
     it('serializes to and from fields', () => {
       const p = BLS12Point.random();
       const p2 = BLS12Point.fromBLS12FqFields(p.toBLS12FqFields());
 
-      expect(p.equals(p2)).toBeTruthy();
+      expect(p).toEqual(p2);
     });
 
     it('serializes to and from noble/curves projective point', () => {
       const p = BLS12Point.random();
       const p2 = BLS12Point.fromNobleProjectivePoint(p.toNobleProjectivePoint());
 
-      expect(p.equals(p2)).toBeTruthy();
+      expect(p).toEqual(p2);
     });
 
     it('serializes from and to JSON', async () => {
@@ -237,14 +237,14 @@ describe('BLS12Point', () => {
         const p = BLS12Point.random();
         const p2 = p.add(BLS12Point.ZERO);
 
-        expect(p.equals(p2)).toBeTruthy();
+        expect(p).toEqual(p2);
       });
 
       it('Inverse', () => {
         const p = BLS12Point.random();
         const p2 = p.add(p.negate());
 
-        expect(BLS12Point.ZERO.equals(p2)).toBeTruthy();
+        expect(BLS12Point.ZERO).toEqual(p2);
       });
     });
 
@@ -253,14 +253,14 @@ describe('BLS12Point', () => {
         const p = BLS12Point.random();
         const p2 = p.sub(BLS12Point.ZERO);
 
-        expect(p.equals(p2)).toBeTruthy();
+        expect(p).toEqual(p2);
       });
 
       it('Inverse', () => {
         const p = BLS12Point.random();
         const p2 = p.sub(p);
 
-        expect(BLS12Point.ZERO.equals(p2)).toBeTruthy();
+        expect(BLS12Point.ZERO).toEqual(p2);
       });
 
       it('Performs subtraction correctly', () => {
@@ -269,7 +269,7 @@ describe('BLS12Point', () => {
         const p2 = p.sub(q);
         const p3 = p.add(q.negate());
 
-        expect(p3.equals(p2)).toBeTruthy();
+        expect(p3).toEqual(p2);
       });
     });
 
@@ -279,8 +279,8 @@ describe('BLS12Point', () => {
         const p2 = p.mul(BLS12Fr.ONE);
         const p2Unsafe = p.mulUnsafe(BLS12Fr.ONE);
 
-        expect(p.equals(p2)).toBeTruthy();
-        expect(p2Unsafe.equals(p2)).toBeTruthy();
+        expect(p).toEqual(p2);
+        expect(p2Unsafe).toEqual(p2);
       });
 
       it('Zero', () => {
@@ -288,8 +288,8 @@ describe('BLS12Point', () => {
         const p2 = p.mul(BLS12Fr.ZERO);
         const p2Unsafe = p.mulUnsafe(BLS12Fr.ZERO);
 
-        expect(BLS12Point.ZERO.equals(p2)).toBeTruthy();
-        expect(p2Unsafe.equals(p2)).toBeTruthy();
+        expect(BLS12Point.ZERO).toEqual(p2);
+        expect(p2Unsafe).toEqual(p2);
       });
 
       it('Inverse', () => {
@@ -297,11 +297,11 @@ describe('BLS12Point', () => {
         const ag = BLS12Point.ONE.mul(a);
         const minusag = BLS12Point.ONE.mul(a.negate());
         const minusagUnsafe = BLS12Point.ONE.mulUnsafe(a.negate());
-        expect(ag.negate().equals(minusag)).toBeTruthy();
-        expect(minusagUnsafe.equals(minusag)).toBeTruthy();
+        expect(ag.negate()).toEqual(minusag);
+        expect(minusagUnsafe).toEqual(minusag);
 
         const p2 = ag.add(minusag);
-        expect(BLS12Point.ZERO.equals(p2)).toBeTruthy();
+        expect(BLS12Point.ZERO).toEqual(p2);
       });
 
       it('Performs multiplication correctly', () => {
@@ -311,8 +311,8 @@ describe('BLS12Point', () => {
         const p2Unsafe = p.mulUnsafe(a);
         const expected = p.add(p).add(p);
 
-        expect(expected.equals(p2)).toBeTruthy();
-        expect(p2Unsafe.equals(p2)).toBeTruthy();
+        expect(expected).toEqual(p2);
+        expect(p2Unsafe).toEqual(p2);
       });
 
       it('Low Boundary', () => {
@@ -321,8 +321,8 @@ describe('BLS12Point', () => {
         const pUnsafe = BLS12Point.ONE.mulUnsafe(BLS12Fr.MAX_FIELD_VALUE);
         const p2 = BLS12Point.ZERO.sub(BLS12Point.ONE);
 
-        expect(p.equals(p2)).toBeTruthy();
-        expect(pUnsafe.equals(p2)).toBeTruthy();
+        expect(p).toEqual(p2);
+        expect(pUnsafe).toEqual(p2);
       });
 
       it('High Boundary', () => {
@@ -333,8 +333,8 @@ describe('BLS12Point', () => {
         const p2Unsafe = p.mulUnsafe(b);
         const expected = BLS12Point.ONE.mul(b.negate());
 
-        expect(expected.equals(p2)).toBeTruthy();
-        expect(p2Unsafe.equals(p2)).toBeTruthy();
+        expect(expected).toEqual(p2);
+        expect(p2Unsafe).toEqual(p2);
       });
     });
     describe('Multiply and Add', () => {
@@ -346,7 +346,7 @@ describe('BLS12Point', () => {
         const p2 = p.mulAndAddUnsafe(a, b, q);
         const expected = p.mul(a).add(q.mul(b));
 
-        expect(expected.equals(p2)).toBeTruthy();
+        expect(expected).toEqual(p2);
       });
 
       it('Performs multiplication and addition correctly', () => {
@@ -357,7 +357,7 @@ describe('BLS12Point', () => {
         const p2 = p.mulAndAddUnsafe(a, a.negate(), q);
         const expected = p.sub(q).mul(a);
 
-        expect(expected.equals(p2)).toBeTruthy();
+        expect(expected).toEqual(p2);
       });
     });
   });

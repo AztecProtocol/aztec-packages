@@ -64,7 +64,7 @@ impl BlockRootRollupOutputComposer {
         let new_archive = self.update_archive(constants.last_archive, new_block_hash);
         let proposed_block_header_hash = self.create_proposed_block_header(new_block_header).hash();
 
-        let end_blob_accumulator = self.get_block_blob_public_inputs(blob_data);
+        let end_blob_accumulator = self.get_blob_accumulator_public_inputs(blob_data);
 
         self.finish_with_new_values(
             constants,
@@ -231,7 +231,7 @@ impl BlockRootRollupOutputComposer {
         )
     }
 
-    fn get_block_blob_public_inputs(
+    fn get_blob_accumulator_public_inputs(
         self,
         data: BlockRootRollupBlobData,
     ) -> BlobAccumulatorPublicInputs {

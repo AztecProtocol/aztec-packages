@@ -118,12 +118,12 @@ export class BLS12Point {
    * @param point A BLS12Point instance.
    * @returns The buffer containing the x coordinate and the flags of the y coordinate.
    */
-  static compress(point: BLS12Point): Buffer {
-    if (point.isZero()) {
-      return this.COMPRESSED_ZERO;
+  compress(): Buffer {
+    if (this.isZero()) {
+      return BLS12Point.COMPRESSED_ZERO;
     }
-    const isGreater = point.y.isNegative();
-    return setMask(toBufferBE(point.x.toBigInt(), BLS12Fq.SIZE_IN_BYTES), { compressed: true, sort: isGreater });
+    const isGreater = this.y.isNegative();
+    return setMask(toBufferBE(this.x.toBigInt(), BLS12Fq.SIZE_IN_BYTES), { compressed: true, sort: isGreater });
   }
 
   /**
@@ -243,14 +243,6 @@ export class BLS12Point {
    */
   toBLS12FqFields() {
     return [this.x, this.y, new BLS12Fq(this.isInfinite ? 1 : 0)];
-  }
-
-  /**
-   * Returns a compressed buffer instance from a point.
-   * @returns The buffer containing the x coordinate and the flags of the y coordinate.
-   */
-  compress() {
-    return BLS12Point.compress(this);
   }
 
   /**

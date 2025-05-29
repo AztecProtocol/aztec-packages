@@ -238,6 +238,10 @@ pub global BLS12_POINT: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(MW): reduce num fi
 pub global BLOB_ACCUMULATOR_PUBLIC_INPUTS: u32 = 3 /* v_acc, z_acc, and gamma_acc */
     + 2 * BLS12_FR_LIMBS /* y_acc and gamma^i */
     + BLS12_POINT /* c_acc */;
+pub global FINAL_BLOB_ACCUMULATOR_PUBLIC_INPUTS: u32 = 1 /* blob_commitments_hash */
+    + 1 /* z */
+    + BLS12_FR_LIMBS /* y */
+    + 2 /* c */;
 pub global BLOCK_BLOB_PUBLIC_INPUTS: u32 = 2 * BLOB_ACCUMULATOR_PUBLIC_INPUTS /* start and end accumulators */
     + 1 /* z */
     + BLS12_FR_LIMBS /* gamma */;
@@ -466,10 +470,7 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + 1 /* prover_id */
     + AZTEC_MAX_EPOCH_DURATION /* proposedBlockHeaderHashes */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
-    + 1 /* blob_commitments_hash */
-    + 1 /* z */
-    + BLS12_FR_LIMBS /* y */
-    + 2 /* c */;
+    + FINAL_BLOB_ACCUMULATOR_PUBLIC_INPUTS /* blob_public_inputs */;
 pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
 pub global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NULLIFIERS_PER_TX;
 pub global PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP: u32 =
