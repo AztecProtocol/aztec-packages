@@ -81,11 +81,11 @@ export class NoteDataProvider implements DataProvider {
   }
 
   async addNotes(notes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
-    if (!(await this.#scopes.hasAsync(scope.toString()))) {
-      await this.addScope(scope);
-    }
-
     return this.#store.transactionAsync(async () => {
+      if (!(await this.#scopes.hasAsync(scope.toString()))) {
+        await this.addScope(scope);
+      }
+
       for (const dao of notes) {
         // store notes by their index in the notes hash tree
         // this provides the uniqueness we need to store individual notes
