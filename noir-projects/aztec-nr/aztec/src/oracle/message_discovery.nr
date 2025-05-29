@@ -83,9 +83,20 @@ pub unconstrained fn get_private_log_by_tag(
     get_private_log_by_tag_oracle(siloed_tag)
 }
 
-/// A helper function over `get_public_log_by_tag` and `get_private_log_by_tag` that attempts to retrieve a log by its
-/// tag from both public and private sources. First checks public logs, falling back to private logs if no public log
-/// is found. Returns a log with content max length equal to MAX_LOG_PAYLOAD_LEN.
+/// Attempts to retrieve a log by its tag from both public and private sources.
+///
+/// First checks public logs, falling back to private logs if no public log is found.
+/// The returned log content is coerced to have max length equal to MAX_LOG_PAYLOAD_LEN.
+///
+/// # Arguments
+/// * `tag` - The tag to search for in both public and private logs
+/// * `contract_address` - The contract address to search logs from
+///
+/// # Returns
+/// A log with payload max length equal to MAX_LOG_PAYLOAD_LEN
+///
+/// # Panics
+/// If the found log's content exceeds MAX_LOG_PAYLOAD_LEN
 pub unconstrained fn get_log_by_tag_from_contract<let MAX_LOG_PAYLOAD_LEN: u32>(
     tag: Field,
     contract_address: AztecAddress,
