@@ -65,7 +65,7 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "release-docs")
+  "release")
     release_docs
     ;;
   test|test_cmds)
