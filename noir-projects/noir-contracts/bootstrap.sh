@@ -73,9 +73,6 @@ function process_function {
     bytecode_b64=$(echo "$func" | jq -r '.bytecode')
     hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
 
-    # We segregate equivalent vk's by contract hash. This was done to narrow down potential edge cases as the script has hit
-    # issues with files being missing. It strictly speaking should not be necessary.
-    mkdir -p $tmp_dir/$contract_hash
     if ! cache_download vk-$hash.tar.gz >&2; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
@@ -158,6 +155,10 @@ function compile {
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
+
+  # We segregate equivalent vk's created by processs_function. This was done to narrow down potential edge cases with identical VKs
+  # reading from cache at the same time. Create this folder up-front.
+  mkdir -p $tmp_dir/$contract_hash
 
   # Pipe each contract function, one per line (jq -c), into parallel calls of process_function.
   # The returned jsons from process_function are converted back to a json array in the second jq -s call.
