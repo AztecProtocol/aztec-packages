@@ -176,15 +176,12 @@ describe('SlasherClient', () => {
         logger.info('Round info:', roundInfo);
         logger.info(`Leader votes: ${leaderVotes}`);
 
-        // Vote for the payload
-        await forwarder
-          .forward([slashingProposer.createVoteRequest(payload!.toString())], l1TxUtils, undefined, undefined, logger)
-          .catch(err => {
-            if (err.message.includes('GovernanceProposer__OnlyProposerCanVote')) {
-              return;
-            }
-            throw err;
-          });
+        await l1TxUtils.client.sendTransaction(slashingProposer.createVoteRequest(payload!.toString())).catch(err => {
+          if (err.message.includes('GovernanceProposer__OnlyProposerCanVote')) {
+            return;
+          }
+          throw err;
+        });
 
         // Check if the payload is cleared
         const slot = await rollup.getSlotNumber();
