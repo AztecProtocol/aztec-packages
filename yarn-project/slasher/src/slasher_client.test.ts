@@ -111,12 +111,7 @@ describe('SlasherClient', () => {
 
     await rollup.setupEpoch(l1TxUtils);
 
-    forwarder = await ForwarderContract.create(
-      privateKey.address,
-      l1Client,
-      logger,
-      deployed.l1ContractAddresses.rollupAddress.toString(),
-    );
+    forwarder = await ForwarderContract.create(l1Client, logger, deployed.l1ContractAddresses.rollupAddress.toString());
   });
 
   afterAll(async () => {

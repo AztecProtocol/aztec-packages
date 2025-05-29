@@ -11,7 +11,7 @@ import {
   getContract,
 } from 'viem';
 
-import { deployL1Contract, getExpectedAddress } from '../deploy_l1_contracts.js';
+import { deployL1Contract } from '../deploy_l1_contracts.js';
 import type { L1BlobInputs, L1GasConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import { RollupContract } from './rollup.js';
@@ -31,12 +31,7 @@ export class ForwarderContract {
     this.forwarder = getContract({ address, abi: ForwarderAbi, client });
   }
 
-  static expectedAddress() {
-    const { address } = getExpectedAddress(ForwarderAbi, ForwarderBytecode, [], DEFAULT_FORWARDER_SALT);
-    return address;
-  }
-
-  static async create(owner: Hex, l1Client: ExtendedViemWalletClient, logger: Logger, rollupAddress: Hex) {
+  static async create(l1Client: ExtendedViemWalletClient, logger: Logger, rollupAddress: Hex) {
     logger.info('Deploying forwarder contract');
 
     const { address, txHash } = await deployL1Contract(
@@ -53,7 +48,7 @@ export class ForwarderContract {
       await l1Client.waitForTransactionReceipt({ hash: txHash });
     }
 
-    logger.info(`Forwarder contract deployed at ${address} with owner ${owner}`);
+    logger.info(`Forwarder contract deployed at ${address}`);
 
     return new ForwarderContract(l1Client, address.toString(), rollupAddress);
   }

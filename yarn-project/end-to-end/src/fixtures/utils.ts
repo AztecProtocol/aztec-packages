@@ -840,11 +840,6 @@ export async function createForwarderContract(
   rollupAddress: Hex,
 ) {
   const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
-  const forwarderContract = await ForwarderContract.create(
-    l1Client.account.address,
-    l1Client,
-    createLogger('forwarder'),
-    rollupAddress,
-  );
+  const forwarderContract = await ForwarderContract.create(l1Client, createLogger('forwarder'), rollupAddress);
   return forwarderContract;
 }
