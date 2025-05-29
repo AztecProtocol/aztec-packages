@@ -149,3 +149,30 @@ jobs:
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}
+
+  docs-search-indexer:
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs:
+      - ci
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      TYPESENSE_API_KEY: ${{ secrets.TYPESENSE_API_KEY }}
+      TYPESENSE_HOST: ${{ secrets.TYPESENSE_HOST }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Reindex with Typesense docsearch-scraper
+        run: |
+          docker run \
+            -e "TYPESENSE_API_KEY=${{ env.TYPESENSE_API_KEY }}" \
+            -e "TYPESENSE_HOST=${{ env.TYPESENSE_HOST }}" \
+            -e "TYPESENSE_PORT=443" \
+            -e "TYPESENSE_PROTOCOL=https" \
+            -e "CONFIG=$(cat docs/typesense.config.json | jq -r tostring)" \
+            typesense/docsearch-scraper:0.11.0

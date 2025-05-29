@@ -405,7 +405,6 @@ case "$cmd" in
     build
     test
     release
-    docs/bootstrap.sh release-docs
     ;;
   "ci-release")
     export CI=1
