@@ -2,7 +2,7 @@ import { MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_PLAINTEXT_LEN } from '@aztec/constan
 import { Fr } from '@aztec/foundation/fields';
 import { TxHash } from '@aztec/stdlib/tx';
 
-// TypeScript representation of the Noir aztec::oracle::message_discovery::PublicLogWithTxData struct. This is used as a
+// TypeScript representation of the Noir aztec::oracle::message_processing::PublicLogWithTxData struct. This is used as a
 // response for PXE's custom getPublicLogByTag oracle.
 export class PublicLogWithTxData {
   constructor(

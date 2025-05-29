@@ -700,16 +700,9 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  public async deliverNote(
+  public async validateEnqueuedNotes(
     contractAddress: ForeignCallSingle,
-    storageSlot: ForeignCallSingle,
-    nonce: ForeignCallSingle,
-    content: ForeignCallArray,
-    contentLength: ForeignCallSingle,
-    noteHash: ForeignCallSingle,
-    nullifier: ForeignCallSingle,
-    txHash: ForeignCallSingle,
-    recipient: ForeignCallSingle,
+    notePendingValidationArrayBaseSlot: ForeignCallSingle,
   ) {
     if (!this.oraclesEnabled) {
       throw new Error(
@@ -717,18 +710,12 @@ export class TXEService {
       );
     }
 
-    await this.typedOracle.deliverNote(
+    await this.typedOracle.validateEnqueuedNotes(
       AztecAddress.fromField(fromSingle(contractAddress)),
-      fromSingle(storageSlot),
-      fromSingle(nonce),
-      fromArray(content.slice(0, Number(BigInt(contentLength)))),
-      fromSingle(noteHash),
-      fromSingle(nullifier),
-      new TxHash(fromSingle(txHash)),
-      AztecAddress.fromField(fromSingle(recipient)),
+      fromSingle(notePendingValidationArrayBaseSlot),
     );
 
-    return toForeignCallResult([toSingle(Fr.ONE)]);
+    return toForeignCallResult([]);
   }
 
   async getPublicLogByTag(tag: ForeignCallSingle, contractAddress: ForeignCallSingle) {
