@@ -3,13 +3,14 @@ import { FieldReader } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { TxHash } from '@aztec/stdlib/tx';
 
-const MAX_NOTE_PACKED_LEN = 12; // TODO ??
+// TODO(#14617): should we compute this from constants? This value is aztec-nr specific.
+const MAX_NOTE_PACKED_LEN = 12;
 
 /**
- * Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle
- * inserts found private logs. A TS version of `pending_tagged_log.nr`.
+ * Intermediate struct used to perform batch note validation by PXE. The `validateEnqueuedNotes` oracle expects for
+ * values of this type to be stored in a `CapsuleArray`.
  */
-export class NotePendingValidation {
+export class NoteValidationRequest {
   constructor(
     public contractAddress: AztecAddress,
     public storageSlot: Fr,
@@ -21,7 +22,7 @@ export class NotePendingValidation {
     public recipient: AztecAddress,
   ) {}
 
-  static fromFields(fields: Fr[] | FieldReader): NotePendingValidation {
+  static fromFields(fields: Fr[] | FieldReader): NoteValidationRequest {
     const reader = FieldReader.asReader(fields);
 
     const contractAddress = AztecAddress.fromField(reader.readField());
@@ -37,7 +38,7 @@ export class NotePendingValidation {
     const txHash = TxHash.fromField(reader.readField());
     const recipient = AztecAddress.fromField(reader.readField());
 
-    return new NotePendingValidation(
+    return new NoteValidationRequest(
       contractAddress,
       storageSlot,
       nonce,

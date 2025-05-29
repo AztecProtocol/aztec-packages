@@ -39,7 +39,7 @@ import type { NoteDataProvider } from '../storage/note_data_provider/note_data_p
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
-import { NotePendingValidation } from './message_processing/note_pending_validation.js';
+import { NoteValidationRequest } from './message_processing/note_validation_request.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
@@ -613,25 +613,28 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     contractAddress: AztecAddress,
     notePendingValidationArrayBaseSlot: Fr,
   ): Promise<void> {
-    const notesPendingValidation = (
+    // We read all note validation requests and process them all concurrently. This makes the process much faster as we
+    // don't need to wait for the network round-trip.
+    const noteValidationRequests = (
       await this.capsuleDataProvider.readCapsuleArray(contractAddress, notePendingValidationArrayBaseSlot)
-    ).map(NotePendingValidation.fromFields);
+    ).map(NoteValidationRequest.fromFields);
 
     await Promise.all(
-      notesPendingValidation.map(note =>
+      noteValidationRequests.map(request =>
         this.deliverNote(
-          note.contractAddress,
-          note.storageSlot,
-          note.nonce,
-          note.content,
-          note.noteHash,
-          note.nullifier,
-          note.txHash,
-          note.recipient,
+          request.contractAddress,
+          request.storageSlot,
+          request.nonce,
+          request.content,
+          request.noteHash,
+          request.nullifier,
+          request.txHash,
+          request.recipient,
         ),
       ),
     );
 
+    // Requests are cleared once we're done.
     await this.capsuleDataProvider.resetCapsuleArray(contractAddress, notePendingValidationArrayBaseSlot, []);
   }
 
