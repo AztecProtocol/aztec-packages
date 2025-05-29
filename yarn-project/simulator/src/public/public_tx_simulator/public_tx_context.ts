@@ -1,6 +1,5 @@
 import {
   MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -16,6 +15,7 @@ import {
   AvmCircuitPublicInputs,
   PublicDataWrite,
   RevertCode,
+  clampGasSettingsForAVM,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
@@ -73,8 +73,10 @@ export class PublicTxContext {
     private readonly startTreeSnapshots: TreeSnapshots,
     private readonly globalVariables: GlobalVariables,
     private readonly gasSettings: GasSettings,
+    private readonly clampedGasSettings: GasSettings,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
+    private readonly gasAllocatedToPublicTeardown: Gas,
     private readonly setupCallRequests: PublicCallRequestWithCalldata[],
     private readonly appLogicCallRequests: PublicCallRequestWithCalldata[],
     private readonly teardownCallRequests: PublicCallRequestWithCalldata[],
@@ -112,7 +114,9 @@ export class PublicTxContext {
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const gasUsedByPrivate = tx.data.gasUsed;
     // Gas allocated to public is "whatever's left" after private, but with some max applied.
-    const gasAllocatedToPublic = applyMaxToAvailableGas(gasSettings.gasLimits.sub(gasUsedByPrivate));
+    const clampedGasSettings = clampGasSettingsForAVM(gasSettings, gasUsedByPrivate);
+    const gasAllocatedToPublic = clampedGasSettings.gasLimits.sub(gasUsedByPrivate);
+    const gasAllocatedToPublicTeardown = clampedGasSettings.teardownGasLimits;
 
     return new PublicTxContext(
       await tx.getTxHash(),
@@ -120,8 +124,10 @@ export class PublicTxContext {
       await txStateManager.getTreeSnapshots(),
       globalVariables,
       gasSettings,
+      clampedGasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
+      gasAllocatedToPublicTeardown,
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP),
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.APP_LOGIC),
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.TEARDOWN),
@@ -217,7 +223,8 @@ export class PublicTxContext {
    */
   getGasLeftAtPhase(phase: TxExecutionPhase): Gas {
     if (phase === TxExecutionPhase.TEARDOWN) {
-      return applyMaxToAvailableGas(this.gasSettings.teardownGasLimits);
+      const gasLeftForPublicTeardown = this.gasAllocatedToPublicTeardown.sub(this.teardownGasUsed);
+      return gasLeftForPublicTeardown;
     } else {
       const gasLeftForPublic = this.gasAllocatedToPublic.sub(this.gasUsedByPublic);
       return gasLeftForPublic;
@@ -382,7 +389,7 @@ export class PublicTxContext {
       this.globalVariables,
       this.startTreeSnapshots,
       /*startGasUsed=*/ this.gasUsedByPrivate,
-      this.gasSettings,
+      this.clampedGasSettings,
       this.feePayer,
       /*publicCallRequestArrayLengths=*/ new PublicCallRequestArrayLengths(
         this.setupCallRequests.length,
@@ -464,14 +471,4 @@ class PhaseStateManager {
     // Drop the forked state manager. We don't want it!
     this.currentlyActiveStateManager = undefined;
   }
-}
-
-/**
- * Apply L2 gas maximum.
- */
-function applyMaxToAvailableGas(availableGas: Gas) {
-  return new Gas(
-    /*daGas=*/ availableGas.daGas,
-    /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
-  );
 }

@@ -18,7 +18,7 @@ impl Packable<BOOL_PACKED_LEN> for bool {
     }
 
     fn unpack(fields: [Field; BOOL_PACKED_LEN]) -> bool {
-        fields[0] as bool
+        (fields[0] as u1) != 0
     }
 }
 

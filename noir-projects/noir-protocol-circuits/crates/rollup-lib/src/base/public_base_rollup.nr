@@ -192,6 +192,10 @@ mod tests {
         traits::{Empty, Hash, ToField},
         utils::{arrays::array_concat, field::field_from_bytes},
     };
+    use types::abis::gas::Gas;
+    use types::abis::gas_fees::GasFees;
+    use types::abis::gas_settings::GasSettings;
+    use types::constants::MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
 
     struct NullifierInsertion {
         existing_index: u32,
@@ -726,6 +730,58 @@ mod tests {
 
         assert_eq(outputs.start, start_snapshot.to_partial_state_reference());
         assert_eq(outputs.end, end_snapshot.to_partial_state_reference());
+    }
+
+    #[test]
+    unconstrained fn allows_clamping_of_gas_settings_in_avm() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        let gas_used_by_private = Gas::new(0, 1000);
+
+        builder.tube_data.gas_used = gas_used_by_private;
+        builder.avm_data.start_gas_used = gas_used_by_private;
+
+        let mut gas_settings = GasSettings {
+            gas_limits: Gas::new(
+                0,
+                MAX_L2_GAS_PER_TX_PUBLIC_PORTION + gas_used_by_private.l2_gas + 1,
+            ),
+            teardown_gas_limits: Gas::new(0, MAX_L2_GAS_PER_TX_PUBLIC_PORTION + 1),
+            max_fees_per_gas: GasFees::new(0, 0),
+            max_priority_fees_per_gas: GasFees::new(0, 0),
+        };
+
+        builder.tube_data.tx_context.gas_settings = gas_settings;
+        // Clamped values in the AVM
+        gas_settings.gas_limits.l2_gas =
+            MAX_L2_GAS_PER_TX_PUBLIC_PORTION + gas_used_by_private.l2_gas;
+        gas_settings.teardown_gas_limits.l2_gas = MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
+        builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        builder.succeeds();
+    }
+
+    #[test(should_fail_with = "unexpected gas settings used in the AVM")]
+    unconstrained fn wrong_clamping_of_gas_settings_in_avm() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        let gas_used_by_private = Gas::new(0, 1000);
+
+        builder.tube_data.gas_used = gas_used_by_private;
+        builder.avm_data.start_gas_used = gas_used_by_private;
+
+        let gas_settings = GasSettings {
+            gas_limits: Gas::new(
+                0,
+                MAX_L2_GAS_PER_TX_PUBLIC_PORTION + gas_used_by_private.l2_gas + 1,
+            ),
+            teardown_gas_limits: Gas::new(0, MAX_L2_GAS_PER_TX_PUBLIC_PORTION + 1),
+            max_fees_per_gas: GasFees::new(0, 0),
+            max_priority_fees_per_gas: GasFees::new(0, 0),
+        };
+
+        builder.tube_data.tx_context.gas_settings = gas_settings;
+        builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        builder.fails();
     }
 
 }

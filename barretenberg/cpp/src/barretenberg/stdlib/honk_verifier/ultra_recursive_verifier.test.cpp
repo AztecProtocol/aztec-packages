@@ -392,4 +392,8 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
     TestFixture::test_recursive_verification_fails();
 };
 
+#ifdef DISABLE_HEAVY_TESTS
+// Null test
+TEST(RecursiveVerifierTest, DoNothingTestToEnsureATestExists) {}
+#endif
 } // namespace bb::stdlib::recursion::honk

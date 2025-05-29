@@ -142,6 +142,7 @@ pub struct FixtureBuilder {
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
     pub gas_used: Gas,
+    pub start_gas_used: Gas,
     pub end_gas_used: Gas,
     pub revert_code: u8,
     pub reverted: bool,
@@ -746,7 +747,7 @@ impl FixtureBuilder {
         AvmCircuitPublicInputs {
             global_variables: self.global_variables,
             start_tree_snapshots: self.start_snapshots,
-            start_gas_used: self.gas_used,
+            start_gas_used: self.start_gas_used,
             gas_settings: self.tx_context.gas_settings,
             fee_payer: self.fee_payer,
             public_call_request_array_lengths,
@@ -1018,8 +1019,7 @@ impl FixtureBuilder {
         pk_m: Point,
         sk_app: Field,
         sk_app_generator: Field,
-    ) -> u32 {
-        let new_request_index = self.scoped_key_validation_requests_and_generators.len();
+    ) {
         let request = KeyValidationRequest { pk_m, sk_app };
         let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
         let scoped_key_validation_request_and_generator =
@@ -1027,8 +1027,6 @@ impl FixtureBuilder {
         self.scoped_key_validation_requests_and_generators.push(
             scoped_key_validation_request_and_generator,
         );
-
-        new_request_index
     }
 
     pub fn append_key_validation_requests(&mut self, num_requests: u32) {
@@ -1490,6 +1488,7 @@ impl Empty for FixtureBuilder {
             counter: 0,
             start_state: PartialStateReference::empty(),
             gas_used: Gas::empty(),
+            start_gas_used: Gas::empty(),
             end_gas_used: Gas::empty(),
             transaction_fee: 0,
             value_offset: 0,

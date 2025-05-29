@@ -1,10 +1,22 @@
 use crate::base::components::PublicTubeDataValidator;
 use super::PublicTubeDataValidatorBuilder;
-use dep::types::abis::avm_circuit_public_inputs::AvmCircuitPublicInputs;
+use dep::types::{
+    abis::{avm_circuit_public_inputs::AvmCircuitPublicInputs, gas_settings::GasSettings},
+    constants::MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+};
 
 impl PublicTubeDataValidatorBuilder {
     pub fn new_with_full_data() -> Self {
         let mut builder = Self::new();
+
+        builder.tube_data.gas_used.l2_gas = 111;
+        builder.avm_data.start_gas_used.l2_gas = 111;
+
+        builder.tube_data.tx_context.gas_settings.gas_limits.l2_gas = 444;
+        builder.avm_data.tx_context.gas_settings.gas_limits.l2_gas = 444;
+
+        builder.tube_data.tx_context.gas_settings.teardown_gas_limits.l2_gas = 333;
+        builder.avm_data.tx_context.gas_settings.teardown_gas_limits.l2_gas = 333;
 
         builder.tube_data.append_note_hashes(2);
         builder.avm_data.append_note_hashes(2);
@@ -39,6 +51,31 @@ impl PublicTubeDataValidatorBuilder {
         builder
     }
 
+    pub fn with_clamped_gas_limits(&mut self) -> Self {
+        let gas_used_in_private = self.tube_data.gas_used.l2_gas;
+
+        self.tube_data.tx_context.gas_settings.gas_limits.l2_gas =
+            gas_used_in_private + MAX_L2_GAS_PER_TX_PUBLIC_PORTION + 1;
+        self.avm_data.tx_context.gas_settings.gas_limits.l2_gas =
+            gas_used_in_private + MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
+
+        self.tube_data.tx_context.gas_settings.teardown_gas_limits.l2_gas =
+            MAX_L2_GAS_PER_TX_PUBLIC_PORTION + 1;
+        self.avm_data.tx_context.gas_settings.teardown_gas_limits.l2_gas =
+            MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
+
+        *self
+    }
+
+    pub fn equal_default_avm_gas_limits(self, gas_settings: GasSettings) -> bool {
+        let default_gas_settings = self.avm_data.tx_context.gas_settings;
+        (gas_settings.gas_limits.l2_gas == default_gas_settings.gas_limits.l2_gas)
+            & (
+                gas_settings.teardown_gas_limits.l2_gas
+                    == default_gas_settings.teardown_gas_limits.l2_gas
+            )
+    }
+
     pub fn validate_with_tweaked_avm_data(self, avm_data: AvmCircuitPublicInputs) {
         let tube_data = self.tube_data.to_public_tube_data();
         PublicTubeDataValidator::new(tube_data).validate_with_avm_data(avm_data);
@@ -48,6 +85,12 @@ impl PublicTubeDataValidatorBuilder {
 #[test]
 fn public_tube_validate_with_avm_data_success() {
     let builder = PublicTubeDataValidatorBuilder::new_with_full_data();
+
+    // Make sure equal_default_avm_gas_limits returns true for the default avm gas settings.
+    // Values not equal to the default will be tested in the test: public_tube_validate_with_avm_data_mismatch_gas_limits_fails.
+    let avm_gas_settings = builder.avm_data.tx_context.gas_settings;
+    assert(builder.equal_default_avm_gas_limits(avm_gas_settings));
+
     builder.validate_with_avm_data();
 }
 
@@ -55,7 +98,7 @@ fn public_tube_validate_with_avm_data_success() {
 fn public_tube_validate_with_avm_data_mismatch_start_l2_gas_used_fails() {
     let mut builder = PublicTubeDataValidatorBuilder::new_with_full_data();
 
-    builder.avm_data.gas_used.l2_gas += 1;
+    builder.avm_data.start_gas_used.l2_gas += 1;
 
     builder.validate_with_avm_data();
 }
@@ -64,18 +107,46 @@ fn public_tube_validate_with_avm_data_mismatch_start_l2_gas_used_fails() {
 fn public_tube_validate_with_avm_data_mismatch_start_d2_gas_used_fails() {
     let mut builder = PublicTubeDataValidatorBuilder::new_with_full_data();
 
-    builder.avm_data.gas_used.da_gas += 1;
+    builder.avm_data.start_gas_used.da_gas += 1;
 
     builder.validate_with_avm_data();
 }
 
-#[test(should_fail_with = "gas_settings mismatch between tube and avm")]
-fn public_tube_validate_with_avm_data_mismatch_gas_limits_fails() {
+#[test(should_fail_with = "unexpected gas settings used in the AVM")]
+fn public_tube_validate_with_avm_data_mismatch_gas_limits_fails(avm_gas_settings: GasSettings) {
     let mut builder = PublicTubeDataValidatorBuilder::new_with_full_data();
 
-    builder.avm_data.tx_context.gas_settings.gas_limits.l2_gas += 1;
+    // Run the test only when the avm_gas_settings does not equal the default.
+    if !builder.equal_default_avm_gas_limits(avm_gas_settings) {
+        builder.avm_data.tx_context.gas_settings = avm_gas_settings;
+        builder.validate_with_avm_data();
+    }
+}
+
+#[test]
+fn public_tube_validate_with_avm_data_clamped_gas_limits_succeeds() {
+    let builder = PublicTubeDataValidatorBuilder::new_with_full_data().with_clamped_gas_limits();
+
+    // Make sure equal_default_avm_gas_limits returns true for the default clamped avm gas settings.
+    // Values not equal to the default will be tested in the next test.
+    let avm_gas_settings = builder.avm_data.tx_context.gas_settings;
+    assert(builder.equal_default_avm_gas_limits(avm_gas_settings));
 
     builder.validate_with_avm_data();
+}
+
+#[test(should_fail_with = "unexpected gas settings used in the AVM")]
+fn public_tube_validate_with_avm_data_mismatch_clamped_gas_limits_fails(
+    avm_gas_settings: GasSettings,
+) {
+    let mut builder =
+        PublicTubeDataValidatorBuilder::new_with_full_data().with_clamped_gas_limits();
+
+    // Run the test only when the avm_gas_settings does not equal the default.
+    if !builder.equal_default_avm_gas_limits(avm_gas_settings) {
+        builder.avm_data.tx_context.gas_settings = avm_gas_settings;
+        builder.validate_with_avm_data();
+    }
 }
 
 #[test(should_fail_with = "fee_payer mismatch between tube and avm")]

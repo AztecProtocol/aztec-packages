@@ -1,4 +1,6 @@
-use super::validate_tube_data::validate_max_fees_per_gas;
+use crate::base::components::{
+    gas::clamp_gas_settings_for_avm, validate_tube_data::validate_max_fees_per_gas,
+};
 use dep::types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, constant_rollup_data::ConstantRollupData,
@@ -52,6 +54,14 @@ impl PublicTubeDataValidator {
     pub fn validate_with_avm_data(self, avm_data: AvmCircuitPublicInputs) {
         let tube_data = self.data.public_inputs;
 
+        // global_variables is checked in public_base_rollup.nr > validate_combined_constant_data()
+        // The constant data is exported from the public inputs and is checked later on to make sure it matches other txs's constant data.
+
+        // start_tree_snapshots is exported from the public inputs and is checked later on:
+        // - For the first tx, it's checked in the block root rollup that it matches the previous block's end state.
+        // - For the subsequent txs, it's checked in the merge or block root rollup that it matches the previous tx's end state.
+        // TODO: export l1_to_l2_message_tree and check in the block root rollup.
+
         assert_eq(
             tube_data.gas_used,
             avm_data.start_gas_used,
@@ -59,9 +69,12 @@ impl PublicTubeDataValidator {
         );
 
         assert_eq(
-            tube_data.constants.tx_context.gas_settings,
+            clamp_gas_settings_for_avm(
+                tube_data.constants.tx_context.gas_settings,
+                tube_data.gas_used,
+            ),
             avm_data.gas_settings,
-            "gas_settings mismatch between tube and avm",
+            "unexpected gas settings used in the AVM",
         );
 
         assert_eq(
