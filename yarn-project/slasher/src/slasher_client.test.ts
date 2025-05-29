@@ -48,7 +48,6 @@ describe('SlasherClient', () => {
   let rollup: RollupContract;
   let slashingProposer: SlashingProposerContract;
   let l1TxUtils: L1TxUtils;
-  let forwarder: ForwarderContract;
   let depositAmount: bigint;
 
   beforeAll(async () => {
