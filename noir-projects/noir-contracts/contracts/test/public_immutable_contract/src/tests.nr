@@ -27,7 +27,7 @@ unconstrained fn reading_uninitialized_immutable_fails() {
 unconstrained fn unsafe_read_of_uninitialized_immutable_is_zero() {
     let (env, contract_address) = setup();
 
-    // Try to read uninitialized value - this should return 0 as it is the default value before initialization
+    // Try to read uninitialized value - this should return 0 as it is the default public storage value
     let value =
         PublicImmutableContract::at(contract_address).read_value_unsafe().call(&mut env.public());
     assert(value == 0);
