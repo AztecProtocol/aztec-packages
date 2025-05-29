@@ -173,7 +173,7 @@ WASM_EXPORT void acir_prove_ultra_starknet_honk([[maybe_unused]] uint8_t const* 
                                                 [[maybe_unused]] uint8_t const* witness_vec,
                                                 [[maybe_unused]] uint8_t** out)
 {
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
     // Lambda function to ensure things get freed before proving.
     UltraStarknetProver prover = [&] {
         const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
@@ -196,7 +196,7 @@ WASM_EXPORT void acir_prove_ultra_starknet_zk_honk([[maybe_unused]] uint8_t cons
                                                    [[maybe_unused]] uint8_t const* witness_vec,
                                                    [[maybe_unused]] uint8_t** out)
 {
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
     // Lambda function to ensure things get freed before proving.
     UltraStarknetZKProver prover = [&] {
         const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
@@ -258,7 +258,7 @@ WASM_EXPORT void acir_verify_ultra_starknet_honk([[maybe_unused]] uint8_t const*
                                                  [[maybe_unused]] uint8_t const* vk_buf,
                                                  [[maybe_unused]] bool* result)
 {
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
     using VerificationKey = UltraStarknetFlavor::VerificationKey;
     using Verifier = UltraVerifier_<UltraStarknetFlavor>;
 
@@ -277,7 +277,7 @@ WASM_EXPORT void acir_verify_ultra_starknet_zk_honk([[maybe_unused]] uint8_t con
                                                     [[maybe_unused]] uint8_t const* vk_buf,
                                                     [[maybe_unused]] bool* result)
 {
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
     using VerificationKey = UltraStarknetZKFlavor::VerificationKey;
     using Verifier = UltraVerifier_<UltraStarknetZKFlavor>;
 
@@ -348,7 +348,7 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_zk_honk(uint8_t const* acir_vec, uin
 WASM_EXPORT void acir_write_vk_ultra_starknet_honk([[maybe_unused]] uint8_t const* acir_vec,
                                                    [[maybe_unused]] uint8_t** out)
 {
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
     using DeciderProvingKey = DeciderProvingKey_<UltraStarknetFlavor>;
     using VerificationKey = UltraStarknetFlavor::VerificationKey;
 
@@ -371,7 +371,7 @@ WASM_EXPORT void acir_write_vk_ultra_starknet_honk([[maybe_unused]] uint8_t cons
 WASM_EXPORT void acir_write_vk_ultra_starknet_zk_honk([[maybe_unused]] uint8_t const* acir_vec,
                                                       [[maybe_unused]] uint8_t** out)
 {
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
     using DeciderProvingKey = DeciderProvingKey_<UltraStarknetZKFlavor>;
     using VerificationKey = UltraStarknetZKFlavor::VerificationKey;
 

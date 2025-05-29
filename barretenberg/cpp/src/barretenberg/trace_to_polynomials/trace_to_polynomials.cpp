@@ -164,7 +164,7 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builde
 template class TraceToPolynomials<UltraFlavor>;
 template class TraceToPolynomials<UltraZKFlavor>;
 template class TraceToPolynomials<UltraKeccakFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 template class TraceToPolynomials<UltraStarknetFlavor>;
 template class TraceToPolynomials<UltraStarknetZKFlavor>;
 #endif

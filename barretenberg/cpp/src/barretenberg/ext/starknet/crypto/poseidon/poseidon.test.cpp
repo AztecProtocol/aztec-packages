@@ -3,7 +3,7 @@
 #include "poseidon_params.hpp"
 #include <gtest/gtest.h>
 
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 namespace {
 auto& engine = bb::numeric::get_debug_randomness();
 }

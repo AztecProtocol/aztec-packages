@@ -335,7 +335,7 @@ class UltraZKFlavor;
 class UltraRollupFlavor;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 class UltraStarknetFlavor;
 class UltraStarknetZKFlavor;
 #endif
@@ -369,7 +369,7 @@ namespace bb {
  */
 // clang-format off
 
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 template <typename T>
 concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
 #else
@@ -412,7 +412,7 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,

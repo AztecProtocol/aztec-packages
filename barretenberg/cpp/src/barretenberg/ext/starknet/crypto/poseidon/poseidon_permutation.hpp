@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 #include <array>
 #include <cstddef>
 #include <cstdint>

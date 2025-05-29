@@ -123,7 +123,7 @@ template class DeciderProver_<UltraFlavor>;
 template class DeciderProver_<UltraZKFlavor>;
 template class DeciderProver_<UltraRollupFlavor>;
 template class DeciderProver_<UltraKeccakFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 template class DeciderProver_<UltraStarknetFlavor>;
 template class DeciderProver_<UltraStarknetZKFlavor>;
 #endif
