@@ -83,6 +83,7 @@ describe('ConnectionSampler', () => {
     it('correctly tracks active connections', async () => {
       const mockStream: Partial<Stream> = {
         id: '1',
+        status: 'open',
         close: jest.fn().mockImplementation(() => Promise.resolve()),
       } as Partial<Stream>;
 
@@ -151,6 +152,7 @@ describe('ConnectionSampler', () => {
       const mockStream: Partial<Stream> = {
         id: '1',
         close: jest.fn(),
+        status: 'open',
       } as Partial<Stream>;
 
       mockLibp2p.dialProtocol.mockResolvedValue(mockStream);
@@ -170,21 +172,34 @@ describe('ConnectionSampler', () => {
       const mockStream1: Partial<Stream> = {
         id: '1',
         close: jest.fn(),
+        status: 'open',
       } as Partial<Stream>;
       const mockStream2: Partial<Stream> = {
         id: '2',
         close: jest.fn(),
+        status: 'open',
+      } as Partial<Stream>;
+      const mockStream3: Partial<Stream> = {
+        id: '3',
+        close: jest.fn(),
+        status: 'closed',
       } as Partial<Stream>;
 
-      mockLibp2p.dialProtocol.mockResolvedValueOnce(mockStream1).mockResolvedValueOnce(mockStream2);
+      mockLibp2p.dialProtocol
+        .mockResolvedValueOnce(mockStream1)
+        .mockResolvedValueOnce(mockStream2)
+        .mockResolvedValueOnce(mockStream3);
 
       await sampler.dialProtocol(peers[0], 'test');
       await sampler.dialProtocol(peers[1], 'test');
+      await sampler.dialProtocol(peers[2], 'test');
 
       await sampler.stop();
 
       expect(mockStream1.close).toHaveBeenCalled();
       expect(mockStream2.close).toHaveBeenCalled();
+      // If the stream was already closed, close should not be called again
+      expect(mockStream3.close).not.toHaveBeenCalled();
       expect((sampler as any).streams.size).toBe(0);
     });
   });
