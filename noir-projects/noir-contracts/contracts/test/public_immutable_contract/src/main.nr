@@ -46,13 +46,13 @@ mod tests {
         let (mut env, contract_address) = setup();
         let test_contract = PublicImmutableContract::at(contract_address);
 
-        // Initialize with value 42
-        let value = 42;
-        test_contract.initialize_value(value).call(&mut env.public());
+        // set x to 10
+        let x = 10;
+        test_contract.initialize_value(x).call(&mut env.public());
 
         // Read value and verify it matches
         let read_value = test_contract.read_value().call(&mut env.public());
-        assert(read_value == value);
+        assert(read_value == x);
     }
 
     #[test(should_fail_with = "Trying to read from uninitialized PublicImmutable")]
