@@ -318,6 +318,14 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     );
   }
 
+  public commitAllCheckpoints(): Promise<void> {
+    throw new Error('commitAllCheckpoints is not supported in HintingMerkleWriteOperations.');
+  }
+
+  public revertAllCheckpoints(): Promise<void> {
+    throw new Error('revertAllCheckpoints is not supported in HintingMerkleWriteOperations.');
+  }
+
   public async commitCheckpoint(): Promise<void> {
     const actionCounter = this.checkpointActionCounter++;
     const oldCheckpointId = this.getCurrentCheckpointId();
