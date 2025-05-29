@@ -122,6 +122,24 @@ void check_sibling_path(TreeType& tree,
     signal.wait_for_level();
 }
 
+void check_sibling_path_by_value(TreeType& tree,
+                                 fr value,
+                                 fr_sibling_path expected_sibling_path,
+                                 bool includeUncommitted = true,
+                                 bool expected_result = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafPathResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_result);
+        if (expected_result) {
+            EXPECT_EQ(response.inner.leaf_paths[0], expected_sibling_path);
+        }
+        signal.signal_level();
+    };
+    tree.find_leaf_sibling_paths({ value }, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
 void check_historic_sibling_path(TreeType& tree,
                                  index_t index,
                                  fr_sibling_path expected_sibling_path,
@@ -137,6 +155,24 @@ void check_historic_sibling_path(TreeType& tree,
         signal.signal_level();
     };
     tree.get_sibling_path(index, blockNumber, completion, false);
+    signal.wait_for_level();
+}
+
+void check_historic_sibling_path_by_value(TreeType& tree,
+                                          fr value,
+                                          fr_sibling_path expected_sibling_path,
+                                          block_number_t blockNumber,
+                                          bool expected_success = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafPathResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_paths[0], expected_sibling_path);
+        }
+        signal.signal_level();
+    };
+    tree.find_leaf_sibling_paths({ value }, blockNumber, false, completion);
     signal.wait_for_level();
 }
 
@@ -375,6 +411,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_value_and_get_siblin
     check_size(tree, 1);
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
@@ -698,6 +735,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values)
 
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree, i, memdb.get_sibling_path(i));
+
+        check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
+        check_sibling_path_by_value(tree, VALUES[i], memdb.get_sibling_path(i));
     }
 }
 
@@ -722,6 +762,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values_in_a
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
     check_sibling_path(tree, 4 - 1, memdb.get_sibling_path(4 - 1));
+    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
+    check_sibling_path_by_value(tree, VALUES[4 - 1], memdb.get_sibling_path(4 - 1));
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_pad_with_zero_leaves)
@@ -875,8 +917,10 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
 
         for (uint32_t i = 0; i < historicPathsZeroIndex.size(); i++) {
             check_historic_sibling_path(tree, 0, historicPathsZeroIndex[i], i + 1);
+            check_historic_sibling_path_by_value(tree, VALUES[0], historicPathsZeroIndex[i], i + 1);
             index_t maxSizeAtBlock = ((i + 1) * batch_size) - 1;
             check_historic_sibling_path(tree, maxSizeAtBlock, historicPathsMaxIndex[i], i + 1);
+            check_historic_sibling_path_by_value(tree, VALUES[maxSizeAtBlock], historicPathsMaxIndex[i], i + 1);
         }
     };
 
