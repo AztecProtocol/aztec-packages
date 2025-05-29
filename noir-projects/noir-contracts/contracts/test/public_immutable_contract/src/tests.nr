@@ -41,5 +41,5 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
     let contract_address =
         env.deploy_self("PublicImmutableContract").without_initializer().to_address();
 
-    (env, contract_address)
+    (env, PublicImmutableContract::at(contract_address))
 }
