@@ -15,11 +15,19 @@
 
 namespace bb::avm2::simulation {
 
+// Possible mutually exclusive execution errors.
+enum class ExecutionError {
+    NONE,
+    INSTRUCTION_FETCHING,
+    ADDRESSING,
+    GAS,
+    DISPATCHING,
+};
+
 struct ExecutionEvent {
-    bool error = false;
+    ExecutionError error = ExecutionError::NONE;
     BytecodeId bytecode_id;
     Instruction wire_instruction;
-    ExecutionOpCode opcode;
     std::vector<Operand> resolved_operands;
 
     // Inputs and Outputs for a gadget/subtrace used when allocating registers in the execution trace.

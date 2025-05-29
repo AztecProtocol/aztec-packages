@@ -107,13 +107,7 @@ pol constant exec_opcode_base_da_gas;
 pol constant exec_opcode_dynamic_l2_gas;
 pol constant exec_opcode_dynamic_da_gas;
 // Memory Access + Register mappings
-pol constant mem_op_reg1, rw_1;
-pol constant mem_op_reg2, rw_2;
-pol constant mem_op_reg3, rw_3;
-pol constant mem_op_reg4, rw_4;
-pol constant mem_op_reg5, rw_5;
-pol constant mem_op_reg6, rw_6;
-pol constant mem_op_reg7, rw_7;
+pol constant mem_op_reg[7], rw[7];
 // Subtrace/Gadget Selector
 pol constant sel_dispatch_alu;
 pol constant sel_dispatch_bitwise;
