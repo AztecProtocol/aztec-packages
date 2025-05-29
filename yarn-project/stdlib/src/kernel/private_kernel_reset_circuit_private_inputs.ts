@@ -16,8 +16,8 @@ export class PrivateKernelResetCircuitPrivateInputsVariants<
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
-  KEY_VALIDATION_REQUESTS extends number,
-  NUM_TRANSIENT_DATA_INDEX_HINTS extends number,
+  KEY_VALIDATION_HINTS_LEN extends number,
+  TRANSIENT_DATA_HINTS_LEN extends number,
 > {
   constructor(
     public previousKernel: PrivateKernelData,
@@ -27,8 +27,8 @@ export class PrivateKernelResetCircuitPrivateInputsVariants<
       NH_RR_SETTLED,
       NLL_RR_PENDING,
       NLL_RR_SETTLED,
-      KEY_VALIDATION_REQUESTS,
-      NUM_TRANSIENT_DATA_INDEX_HINTS
+      KEY_VALIDATION_HINTS_LEN,
+      TRANSIENT_DATA_HINTS_LEN
     >,
   ) {}
 
@@ -68,12 +68,12 @@ export class PrivateKernelResetCircuitPrivateInputs {
 
   trimToSizes() {
     const hints = this.hints.trimToSizes(
-      this.dimensions.NOTE_HASH_PENDING_AMOUNT,
-      this.dimensions.NOTE_HASH_SETTLED_AMOUNT,
-      this.dimensions.NULLIFIER_PENDING_AMOUNT,
-      this.dimensions.NULLIFIER_SETTLED_AMOUNT,
-      this.dimensions.NULLIFIER_KEYS,
-      this.dimensions.TRANSIENT_DATA_AMOUNT,
+      this.dimensions.NOTE_HASH_PENDING_READ,
+      this.dimensions.NOTE_HASH_SETTLED_READ,
+      this.dimensions.NULLIFIER_PENDING_READ,
+      this.dimensions.NULLIFIER_SETTLED_READ,
+      this.dimensions.KEY_VALIDATION,
+      this.dimensions.TRANSIENT_DATA_SQUASHING,
     );
     return new PrivateKernelResetCircuitPrivateInputsVariants(this.previousKernel, this.paddedSideEffects, hints);
   }

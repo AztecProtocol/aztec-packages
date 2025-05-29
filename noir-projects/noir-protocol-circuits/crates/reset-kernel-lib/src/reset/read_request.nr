@@ -25,6 +25,10 @@ impl Empty for ReadRequestStatus {
 }
 
 impl ReadRequestStatus {
+    pub fn nada() -> Self {
+        ReadRequestStatus { state: ReadRequestState.NADA, hint_index: 0 }
+    }
+
     pub fn pending(hint_index: u32) -> Self {
         ReadRequestStatus { state: ReadRequestState.PENDING, hint_index }
     }
@@ -68,56 +72,64 @@ where
 // More info here:
 // - https://discourse.aztec.network/t/to-read-or-not-to-read/178
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
-fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, T, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32>(
+fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, T, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32>(
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     pending_values: [T; PENDING_VALUE_LEN],
-    hints: [PendingReadHint; NUM_PENDING_READS],
+    hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
+    pending_read_amount: u32,
 )
 where
     T: Readable<ScopedReadRequest>,
 {
-    for i in 0..NUM_PENDING_READS {
-        let hint = hints[i];
-        let read_request_index = hint.read_request_index;
-        if read_request_index != READ_REQUEST_LEN {
-            let read_request = read_requests[read_request_index];
-            let pending_value = pending_values[hint.pending_value_index];
-            pending_value.assert_match_read_request(read_request);
+    for i in 0..READ_REQUEST_LEN {
+        if i < pending_read_amount {
+            let hint = hints[i];
+            let read_request_index = hint.read_request_index;
+            if read_request_index != READ_REQUEST_LEN {
+                let read_request = read_requests[read_request_index];
+                let pending_value = pending_values[hint.pending_value_index];
+                pending_value.assert_match_read_request(read_request);
+            }
         }
     }
 }
 
 // Validate read requests against the historical tree root, for reading settled notes.
 // Use their membership witnesses to do so.
-fn validate_settled_read_requests<let READ_REQUEST_LEN: u32, let NUM_SETTLED_READS: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
+fn validate_settled_read_requests<let READ_REQUEST_LEN: u32, let SETTLED_READ_HINTS_LEN: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
-    hints: [H; NUM_SETTLED_READS],
+    hints: [H; SETTLED_READ_HINTS_LEN],
+    settled_read_amount: u32,
     tree_root: Field,
 )
 where
     H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint,
     LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest>,
 {
-    for i in 0..NUM_SETTLED_READS {
-        let hint = hints[i];
-        let read_request_index = hint.read_request_index();
-        if read_request_index != READ_REQUEST_LEN {
-            let read_request = read_requests[read_request_index];
-            let leaf_preimage = hint.leaf_preimage();
-            leaf_preimage.assert_match_read_request(read_request);
+    for i in 0..READ_REQUEST_LEN {
+        if i < settled_read_amount {
+            let hint = hints[i];
+            let read_request_index = hint.read_request_index();
+            if read_request_index != READ_REQUEST_LEN {
+                let read_request = read_requests[read_request_index];
+                let leaf_preimage = hint.leaf_preimage();
+                leaf_preimage.assert_match_read_request(read_request);
 
-            let leaf = leaf_preimage.as_leaf();
-            let witness = hint.membership_witness();
-            assert_check_membership(leaf, witness.leaf_index, witness.sibling_path, tree_root);
+                let leaf = leaf_preimage.as_leaf();
+                let witness = hint.membership_witness();
+                assert_check_membership(leaf, witness.leaf_index, witness.sibling_path, tree_root);
+            }
         }
     }
 }
 
-fn verify_propagated_read_requests<let READ_REQUEST_LEN: u32, T, let NUM_PENDING_READS: u32, S, let NUM_SETTLED_READS: u32>(
+fn verify_propagated_read_requests<let READ_REQUEST_LEN: u32, let PENDING_READ_HINTS_LEN: u32, T, let SETTLED_READ_HINTS_LEN: u32, S>(
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
-    pending_read_hints: [T; NUM_PENDING_READS],
-    settled_read_hints: [S; NUM_SETTLED_READS],
+    pending_read_hints: [T; PENDING_READ_HINTS_LEN],
+    pending_read_amount: u32,
+    settled_read_hints: [S; SETTLED_READ_HINTS_LEN],
+    settled_read_amount: u32,
     propagated_read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
 )
 where
@@ -128,13 +140,13 @@ where
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests[i];
         let status = read_request_statuses[i];
-        if (status.state == ReadRequestState.PENDING) & (NUM_PENDING_READS != 0) {
+        if status.state == ReadRequestState.PENDING {
             assert_eq(
                 pending_read_hints[status.hint_index].read_request_index(),
                 i,
                 "Hinted pending read request does not match status",
             );
-        } else if (status.state == ReadRequestState.SETTLED) & (NUM_SETTLED_READS != 0) {
+        } else if status.state == ReadRequestState.SETTLED {
             assert_eq(
                 settled_read_hints[status.hint_index].read_request_index(),
                 i,
@@ -144,19 +156,48 @@ where
             assert_eq(
                 propagated_read_requests[num_propagated],
                 read_request,
-                "mismatch propagated read request",
+                "Mismatch propagated read request",
             );
             num_propagated += 1;
         }
     }
+
+    // Check that those hints not being used in validate_pending_read_requests() (index >= pending_read_amount)
+    // are set to READ_REQUEST_LEN.
+    // This is to ensure that the unused hints are not referred to in the above to skip propagating the read requests.
+    for i in 0..PENDING_READ_HINTS_LEN {
+        if i >= pending_read_amount {
+            assert_eq(
+                pending_read_hints[i].read_request_index(),
+                READ_REQUEST_LEN,
+                "Unused pending read hint should not point to a read request",
+            );
+        }
+    }
+    for i in 0..SETTLED_READ_HINTS_LEN {
+        if i >= settled_read_amount {
+            assert_eq(
+                settled_read_hints[i].read_request_index(),
+                READ_REQUEST_LEN,
+                "Unused settled read hint should not point to a read request",
+            );
+        }
+    }
 }
 
-pub fn verify_reset_read_requests<let READ_REQUEST_LEN: u32, P, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
+// For best performance, `pending_read_amount` and `settled_read_amount` should be known at compile time,
+// `pending_read_amount` should be the same as `PENDING_READ_HINTS_LEN`,
+// and `settled_read_amount` the same as `SETTLED_READ_HINTS_LEN`.
+// We created two variables because an array is not allowed to be empty (zero length). In the case a reset circuit skips
+// the read request verification, the array will contain empty items, and the [pending|settled]_read_amount will be zero.
+pub fn verify_reset_read_requests<let READ_REQUEST_LEN: u32, P, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     pending_values: [P; PENDING_VALUE_LEN],
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
-    pending_read_hints: [PendingReadHint; NUM_PENDING_READS],
-    settled_read_hints: [H; NUM_SETTLED_READS],
+    pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
+    pending_read_amount: u32,
+    settled_read_hints: [H; SETTLED_READ_HINTS_LEN],
+    settled_read_amount: u32,
     tree_root: Field,
     propagated_read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
 )
@@ -165,15 +206,27 @@ where
     H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint,
     LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest>,
 {
-    validate_pending_read_requests(read_requests, pending_values, pending_read_hints);
+    validate_pending_read_requests(
+        read_requests,
+        pending_values,
+        pending_read_hints,
+        pending_read_amount,
+    );
 
-    validate_settled_read_requests(read_requests, settled_read_hints, tree_root);
+    validate_settled_read_requests(
+        read_requests,
+        settled_read_hints,
+        settled_read_amount,
+        tree_root,
+    );
 
     verify_propagated_read_requests(
         read_requests,
         read_request_statuses,
         pending_read_hints,
+        pending_read_amount,
         settled_read_hints,
+        settled_read_amount,
         propagated_read_requests,
     );
 }
@@ -202,7 +255,7 @@ mod tests {
         abis::{read_request::{ReadRequest, ScopedReadRequest}, side_effect::Readable},
         address::AztecAddress,
         merkle_tree::{LeafPreimage, MembershipWitness},
-        tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
+        tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::{assert_array_eq, pad_end}},
         traits::{Empty, FromField, is_empty_array},
     };
 
@@ -279,12 +332,14 @@ mod tests {
         }
     }
 
-    struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32> {
+    struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
         read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
         read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
         pending_values: [TestValue; PENDING_VALUE_LEN],
-        pending_read_hints: [PendingReadHint; NUM_PENDING_READS],
-        leaf_preimages: [TestLeafPreimage; NUM_SETTLED_READS],
+        pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
+        leaf_preimages: [TestLeafPreimage; SETTLED_READ_HINTS_LEN],
+        pending_read_amount: u32,
+        settled_read_amount: u32,
     }
 
     impl TestBuilder<4, 2, 2, 2> {
@@ -318,10 +373,10 @@ mod tests {
             ];
 
             let read_request_statuses = [
-                ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index: 0 },
-                ReadRequestStatus { state: ReadRequestState.PENDING, hint_index: 0 },
-                ReadRequestStatus { state: ReadRequestState.PENDING, hint_index: 1 },
-                ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index: 1 },
+                ReadRequestStatus::settled(0),
+                ReadRequestStatus::pending(0),
+                ReadRequestStatus::pending(1),
+                ReadRequestStatus::settled(1),
             ];
 
             TestBuilder {
@@ -330,11 +385,13 @@ mod tests {
                 pending_values,
                 pending_read_hints,
                 leaf_preimages,
+                pending_read_amount: pending_read_hints.len(),
+                settled_read_amount: leaf_preimages.len(),
             }
         }
     }
 
-    impl<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32> TestBuilder<READ_REQUEST_LEN, PENDING_VALUE_LEN, NUM_PENDING_READS, NUM_SETTLED_READS> {
+    impl<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> TestBuilder<READ_REQUEST_LEN, PENDING_VALUE_LEN, PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN> {
         fn build_tree(self) -> NonEmptyMerkleTree<2, 3, 2, 1> {
             NonEmptyMerkleTree::new(
                 [self.leaf_preimages[0].as_leaf(), self.leaf_preimages[1].as_leaf()],
@@ -344,26 +401,31 @@ mod tests {
             )
         }
 
-        pub fn get_settled_read_hints(self) -> ([TestSettledReadHint; 2], Field) {
+        pub fn get_settled_read_hints(
+            self,
+        ) -> ([TestSettledReadHint; SETTLED_READ_HINTS_LEN], Field) {
             let tree = self.build_tree();
-            let hints = [
-                TestSettledReadHint {
-                    read_request_index: 0,
-                    membership_witness: MembershipWitness {
-                        leaf_index: 1,
-                        sibling_path: tree.get_sibling_path(1),
+            let hints = pad_end(
+                [
+                    TestSettledReadHint {
+                        read_request_index: 0,
+                        membership_witness: MembershipWitness {
+                            leaf_index: 1,
+                            sibling_path: tree.get_sibling_path(1),
+                        },
+                        leaf_preimage: self.leaf_preimages[1],
                     },
-                    leaf_preimage: self.leaf_preimages[1],
-                },
-                TestSettledReadHint {
-                    read_request_index: 3,
-                    membership_witness: MembershipWitness {
-                        leaf_index: 0,
-                        sibling_path: tree.get_sibling_path(0),
+                    TestSettledReadHint {
+                        read_request_index: 3,
+                        membership_witness: MembershipWitness {
+                            leaf_index: 0,
+                            sibling_path: tree.get_sibling_path(0),
+                        },
+                        leaf_preimage: self.leaf_preimages[0],
                     },
-                    leaf_preimage: self.leaf_preimages[0],
-                },
-            ];
+                ],
+                TestSettledReadHint::nada(READ_REQUEST_LEN),
+            );
             let tree_root = tree.get_root();
             (hints, tree_root)
         }
@@ -376,10 +438,11 @@ mod tests {
             TestSettledReadHint::nada(self.read_requests.len())
         }
 
-        pub unconstrained fn get_unverified_read_requests(
-            self,
-        ) -> [ScopedReadRequest; READ_REQUEST_LEN] {
-            get_unverified_read_requests(self.read_requests, self.read_request_statuses)
+        pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
+            // Safety: this is only used in tests.
+            unsafe {
+                get_unverified_read_requests(self.read_requests, self.read_request_statuses)
+            }
         }
 
         pub fn validate_pending_read_requests(self) {
@@ -387,32 +450,47 @@ mod tests {
                 self.read_requests,
                 self.pending_values,
                 self.pending_read_hints,
+                self.pending_read_amount,
             );
         }
 
         pub fn validate_settled_read_requests(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
-            validate_settled_read_requests(self.read_requests, settled_hints, tree_root);
+            validate_settled_read_requests(
+                self.read_requests,
+                settled_hints,
+                self.settled_read_amount,
+                tree_root,
+            );
         }
 
         pub fn validate_settled_read_requests_with_hints(
             self,
-            settled_hints: [TestSettledReadHint; 2],
+            settled_hints: [TestSettledReadHint; SETTLED_READ_HINTS_LEN],
             tree_root: Field,
         ) {
-            validate_settled_read_requests(self.read_requests, settled_hints, tree_root);
+            validate_settled_read_requests(
+                self.read_requests,
+                settled_hints,
+                self.settled_read_amount,
+                tree_root,
+            );
         }
 
-        pub fn verify_with_settled_hints(self, settled_hints: [TestSettledReadHint; 2]) {
+        pub fn verify_with_settled_hints(
+            self,
+            settled_hints: [TestSettledReadHint; SETTLED_READ_HINTS_LEN],
+        ) {
             let tree = self.build_tree();
-            // Safety: this is only used in tests.
-            let unverified = unsafe { self.get_unverified_read_requests() };
+            let unverified = self.get_unverified_read_requests();
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
                 self.read_request_statuses,
                 self.pending_read_hints,
+                self.pending_read_amount,
                 settled_hints,
+                self.settled_read_amount,
                 tree.get_root(),
                 unverified,
             );
@@ -420,14 +498,15 @@ mod tests {
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
-            // Safety: this is only used in tests.
-            let unverified = unsafe { self.get_unverified_read_requests() };
+            let unverified = self.get_unverified_read_requests();
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
                 self.read_request_statuses,
                 self.pending_read_hints,
+                self.pending_read_amount,
                 settled_hints,
+                self.settled_read_amount,
                 tree_root,
                 unverified,
             );
@@ -527,8 +606,7 @@ mod tests {
     #[test]
     fn verify_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
-        // Safety: this is a test.
-        let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
+        let unverified_read_requests = builder.get_unverified_read_requests();
         assert(is_empty_array(unverified_read_requests));
 
         builder.verify();
@@ -546,8 +624,7 @@ mod tests {
         settled_hints[0] = builder.get_nada_settled_read_hint();
 
         let read_requests = builder.read_requests;
-        // Safety: this is a test.
-        let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
+        let unverified_read_requests = builder.get_unverified_read_requests();
         assert_array_eq(
             unverified_read_requests,
             [read_requests[0], read_requests[2]],
@@ -572,5 +649,98 @@ mod tests {
         builder.read_request_statuses[2].state = ReadRequestState.SETTLED;
 
         builder.verify();
+    }
+
+    #[test]
+    fn verify_reset_read_requests_with_fewer_pending_verification_amount_succeeds() {
+        let mut builder = TestBuilder::new();
+
+        // Only verify 1 pending request.
+        builder.pending_read_amount = 1;
+        // Clear the status.
+        let request_index = builder.pending_read_hints[1].read_request_index;
+        builder.read_request_statuses[request_index] = ReadRequestStatus::nada();
+        // Clear the hint.
+        builder.pending_read_hints[1] = PendingReadHint::nada(builder.read_requests.len());
+
+        builder.verify();
+
+        let read_request = builder.read_requests[request_index];
+        let unverified = builder.get_unverified_read_requests();
+        assert_array_eq(unverified, [read_request]);
+    }
+
+    #[test(should_fail_with = "Unused pending read hint should not point to a read request")]
+    fn verify_reset_read_requests_with_fewer_pending_verification_amount_extra_hint_fails() {
+        let mut builder = TestBuilder::new();
+
+        // Only verify 1 pending request.
+        builder.pending_read_amount = 1;
+        let request_index = builder.pending_read_hints[1].read_request_index;
+        builder.read_request_statuses[request_index] = ReadRequestStatus::nada();
+        // The hint at index 1 is not removed, but it should be.
+
+        builder.verify();
+    }
+
+    #[test(should_fail_with = "Hinted pending read request does not match status")]
+    fn verify_reset_read_requests_with_fewer_pending_verification_amount_wrong_status_fails() {
+        let mut builder = TestBuilder::new();
+
+        // Only verify 1 pending request.
+        builder.pending_read_amount = 1;
+        builder.pending_read_hints[1] = PendingReadHint::nada(builder.read_requests.len());
+        // The status for the read request is still PENDING.
+
+        builder.verify();
+    }
+
+    #[test]
+    fn verify_reset_read_requests_with_fewer_settled_verification_amount_succeeds() {
+        let mut builder = TestBuilder::new();
+
+        let mut (settled_hints, _) = builder.get_settled_read_hints();
+        // Only verify 1 settled request.
+        builder.settled_read_amount = 1;
+        // Clear the status.
+        let request_index = settled_hints[1].read_request_index;
+        builder.read_request_statuses[request_index] = ReadRequestStatus::nada();
+        // Clear the hint.
+        settled_hints[1] = builder.get_nada_settled_read_hint();
+
+        builder.verify_with_settled_hints(settled_hints);
+
+        let read_request = builder.read_requests[request_index];
+        let unverified = builder.get_unverified_read_requests();
+        assert_array_eq(unverified, [read_request]);
+    }
+
+    #[test(should_fail_with = "Unused settled read hint should not point to a read request")]
+    fn verify_reset_read_requests_with_fewer_settled_verification_amount_extra_hint_fails() {
+        let mut builder = TestBuilder::new();
+
+        let mut (settled_hints, _) = builder.get_settled_read_hints();
+        // Only verify 1 settled request.
+        builder.settled_read_amount = 1;
+        // Clear the status.
+        let request_index = settled_hints[1].read_request_index;
+        builder.read_request_statuses[request_index] = ReadRequestStatus::nada();
+        // The hint at index 1 is not removed, but it should be.
+
+        builder.verify_with_settled_hints(settled_hints);
+    }
+
+    #[test(should_fail_with = "Hinted settled read request does not match status")]
+    fn verify_reset_read_requests_with_fewer_settled_verification_amount_wrong_status_fails() {
+        let mut builder = TestBuilder::new();
+
+        let mut (settled_hints, _) = builder.get_settled_read_hints();
+        // Only verify 1 settled request.
+        builder.settled_read_amount = 1;
+        // Clear the hint.
+        settled_hints[1] = builder.get_nada_settled_read_hint();
+        // The status for the read request is still SETTLED.
+
+        builder.verify_with_settled_hints(settled_hints);
     }
 }

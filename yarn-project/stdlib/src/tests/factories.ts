@@ -1106,11 +1106,7 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const contractClassLogsPreimages = makeTuple(
-    MAX_CONTRACT_CLASS_LOGS_PER_TX,
-    makeContractClassLogFields,
-    seed + 0x800,
-  );
+  const contractClassLogsFields = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x800);
 
   const constants = makeConstantRollupData(0x100);
 
@@ -1122,7 +1118,7 @@ function makePrivateBaseRollupHints(seed = 1) {
     stateDiffHints,
     feePayerFeeJuiceBalanceReadHint,
     archiveRootMembershipWitness,
-    contractClassLogsPreimages,
+    contractClassLogsFields,
     constants,
   });
 }
@@ -1132,18 +1128,14 @@ function makePublicBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const contractClassLogsPreimages = makeTuple(
-    MAX_CONTRACT_CLASS_LOGS_PER_TX,
-    makeContractClassLogFields,
-    seed + 0x800,
-  );
+  const contractClassLogsFields = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x800);
 
   const constants = makeConstantRollupData(0x100);
 
   return PublicBaseRollupHints.from({
     startSpongeBlob,
     archiveRootMembershipWitness,
-    contractClassLogsPreimages,
+    contractClassLogsFields,
     constants,
   });
 }

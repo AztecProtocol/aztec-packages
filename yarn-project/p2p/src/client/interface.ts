@@ -1,5 +1,5 @@
 import type { L2BlockId } from '@aztec/stdlib/block';
-import type { P2PApi } from '@aztec/stdlib/interfaces/server';
+import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
 import { BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -34,7 +34,7 @@ export interface P2PSyncState {
 /**
  * Interface of a P2P client.
  **/
-export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
+export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & {
   /**
    * Broadcasts a block proposal to other peers.
    *

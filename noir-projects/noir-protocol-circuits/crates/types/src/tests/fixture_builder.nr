@@ -959,8 +959,7 @@ impl FixtureBuilder {
         pk_m: Point,
         sk_app: Field,
         sk_app_generator: Field,
-    ) -> u32 {
-        let new_request_index = self.scoped_key_validation_requests_and_generators.len();
+    ) {
         let request = KeyValidationRequest { pk_m, sk_app };
         let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
         let scoped_key_validation_request_and_generator =
@@ -968,8 +967,6 @@ impl FixtureBuilder {
         self.scoped_key_validation_requests_and_generators.push(
             scoped_key_validation_request_and_generator,
         );
-
-        new_request_index
     }
 
     pub fn append_key_validation_requests(&mut self, num_requests: u32) {
