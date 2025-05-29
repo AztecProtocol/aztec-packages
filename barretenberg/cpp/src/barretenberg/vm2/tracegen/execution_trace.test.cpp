@@ -208,8 +208,8 @@ TEST(ExecutionTraceGenTest, Gas)
     ex_event.gas_event.oog_base_da = false;
     ex_event.gas_event.oog_dynamic_l2 = true;
     ex_event.gas_event.oog_dynamic_da = false;
-    ex_event.gas_event.limit_used_l2_cmp_diff = 0;
-    ex_event.gas_event.limit_used_da_cmp_diff =
+    ex_event.gas_event.limit_used_l2_comparison_witness = 0;
+    ex_event.gas_event.limit_used_da_comparison_witness =
         gas_limit.daGas - prev_gas_used.daGas - base_gas.daGas - dynamic_gas.daGas * 1;
 
     builder.process({ ex_event }, trace);

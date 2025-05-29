@@ -258,8 +258,8 @@ void ExecutionTraceBuilder::process(
                 { C::execution_out_of_gas_dynamic,
                   ex_event.gas_event.oog_dynamic_l2 || ex_event.gas_event.oog_dynamic_da },
                 { C::execution_constant_64, 64 },
-                { C::execution_limit_used_l2_cmp_diff, ex_event.gas_event.limit_used_l2_cmp_diff },
-                { C::execution_limit_used_da_cmp_diff, ex_event.gas_event.limit_used_da_cmp_diff },
+                { C::execution_limit_used_l2_cmp_diff, ex_event.gas_event.limit_used_l2_comparison_witness },
+                { C::execution_limit_used_da_cmp_diff, ex_event.gas_event.limit_used_da_comparison_witness },
             } });
 
         row++;

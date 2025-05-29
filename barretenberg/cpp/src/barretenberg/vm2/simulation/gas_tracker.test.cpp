@@ -123,18 +123,18 @@ TEST_F(GasTrackerTest, OutOfGasBasePhaseWithOverflow)
     EXPECT_THROW(tracker.consume_base_gas(), OutOfGasException);
 
     // We are over the limit, so we need to do gas_used - limit - 1
-    uint64_t limit_used_l2_cmp_diff =
+    uint64_t limit_used_l2_comparison_witness =
         (static_cast<uint64_t>(prev_gas_used) + AVM_CALLDATACOPY_BASE_L2_GAS) - gas_limit - 1;
     // No da gas was used
-    uint64_t limit_used_da_cmp_diff = gas_limit - 0;
+    uint64_t limit_used_da_comparison_witness = gas_limit - 0;
 
     EXPECT_CALL(context, get_gas_limit()).WillOnce(testing::Return(Gas{ gas_limit, gas_limit }));
-    EXPECT_CALL(range_check, assert_range(limit_used_l2_cmp_diff, 64));
-    EXPECT_CALL(range_check, assert_range(limit_used_da_cmp_diff, 64));
+    EXPECT_CALL(range_check, assert_range(limit_used_l2_comparison_witness, 64));
+    EXPECT_CALL(range_check, assert_range(limit_used_da_comparison_witness, 64));
 
     GasEvent event = tracker.finish();
-    EXPECT_EQ(event.limit_used_l2_cmp_diff, limit_used_l2_cmp_diff);
-    EXPECT_EQ(event.limit_used_da_cmp_diff, limit_used_da_cmp_diff);
+    EXPECT_EQ(event.limit_used_l2_comparison_witness, limit_used_l2_comparison_witness);
+    EXPECT_EQ(event.limit_used_da_comparison_witness, limit_used_da_comparison_witness);
 }
 
 TEST_F(GasTrackerTest, OutOfGasDynamicPhaseWithOverflow)
@@ -159,19 +159,19 @@ TEST_F(GasTrackerTest, OutOfGasDynamicPhaseWithOverflow)
     EXPECT_THROW(tracker.consume_dynamic_gas(Gas{ gas_factor, 0 }), OutOfGasException);
 
     // We are over the limit, so we need to do gas_used - limit - 1
-    uint64_t limit_used_l2_cmp_diff = (static_cast<uint64_t>(prev_gas_used) + AVM_CALLDATACOPY_BASE_L2_GAS +
-                                       static_cast<uint64_t>(gas_factor) * AVM_CALLDATACOPY_DYN_L2_GAS) -
-                                      gas_limit - 1;
+    uint64_t limit_used_l2_comparison_witness = (static_cast<uint64_t>(prev_gas_used) + AVM_CALLDATACOPY_BASE_L2_GAS +
+                                                 static_cast<uint64_t>(gas_factor) * AVM_CALLDATACOPY_DYN_L2_GAS) -
+                                                gas_limit - 1;
     // No da gas was used
-    uint64_t limit_used_da_cmp_diff = gas_limit - 0;
+    uint64_t limit_used_da_comparison_witness = gas_limit - 0;
 
     EXPECT_CALL(context, get_gas_limit()).WillOnce(testing::Return(Gas{ gas_limit, gas_limit }));
-    EXPECT_CALL(range_check, assert_range(limit_used_l2_cmp_diff, 64));
-    EXPECT_CALL(range_check, assert_range(limit_used_da_cmp_diff, 64));
+    EXPECT_CALL(range_check, assert_range(limit_used_l2_comparison_witness, 64));
+    EXPECT_CALL(range_check, assert_range(limit_used_da_comparison_witness, 64));
 
     GasEvent event = tracker.finish();
-    EXPECT_EQ(event.limit_used_l2_cmp_diff, limit_used_l2_cmp_diff);
-    EXPECT_EQ(event.limit_used_da_cmp_diff, limit_used_da_cmp_diff);
+    EXPECT_EQ(event.limit_used_l2_comparison_witness, limit_used_l2_comparison_witness);
+    EXPECT_EQ(event.limit_used_da_comparison_witness, limit_used_da_comparison_witness);
 }
 
 TEST_F(GasTrackerTest, GasEvent)
@@ -197,14 +197,14 @@ TEST_F(GasTrackerTest, GasEvent)
 
     tracker.consume_dynamic_gas(Gas{ 10, 0 });
 
-    uint64_t limit_used_l2_cmp_diff =
+    uint64_t limit_used_l2_comparison_witness =
         1000 - (AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect) +
                 AVM_CALLDATACOPY_DYN_L2_GAS * 10);
 
-    uint64_t limit_used_da_cmp_diff = 500;
+    uint64_t limit_used_da_comparison_witness = 500;
     EXPECT_CALL(context, get_gas_limit());
-    EXPECT_CALL(range_check, assert_range(limit_used_l2_cmp_diff, 64));
-    EXPECT_CALL(range_check, assert_range(limit_used_da_cmp_diff, 64));
+    EXPECT_CALL(range_check, assert_range(limit_used_l2_comparison_witness, 64));
+    EXPECT_CALL(range_check, assert_range(limit_used_da_comparison_witness, 64));
 
     EXPECT_EQ(tracker.finish(),
               (GasEvent{
@@ -213,8 +213,8 @@ TEST_F(GasTrackerTest, GasEvent)
                   .base_gas = (Gas{ AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect), 0 }),
                   .dynamic_gas_factor = (Gas{ 10, 0 }),
                   .dynamic_gas = (Gas{ AVM_CALLDATACOPY_DYN_L2_GAS, 0 }),
-                  .limit_used_l2_cmp_diff = limit_used_l2_cmp_diff,
-                  .limit_used_da_cmp_diff = limit_used_da_cmp_diff,
+                  .limit_used_l2_comparison_witness = limit_used_l2_comparison_witness,
+                  .limit_used_da_comparison_witness = limit_used_da_comparison_witness,
                   .oog_base_l2 = false,
                   .oog_base_da = false,
                   .oog_dynamic_l2 = false,

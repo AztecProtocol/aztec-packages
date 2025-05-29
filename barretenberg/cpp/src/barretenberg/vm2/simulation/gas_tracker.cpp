@@ -82,15 +82,15 @@ GasEvent GasTracker::finish()
     // not call consume_dynamic_gas.
     IntermediateGas gas_limit = to_intermediate_gas(context.get_gas_limit());
 
-    gas_event.limit_used_l2_cmp_diff = gas_event.oog_base_l2 || gas_event.oog_dynamic_l2
-                                           ? actual_gas_used.l2Gas - gas_limit.l2Gas - 1
-                                           : gas_limit.l2Gas - actual_gas_used.l2Gas;
-    gas_event.limit_used_da_cmp_diff = gas_event.oog_base_da || gas_event.oog_dynamic_da
-                                           ? actual_gas_used.daGas - gas_limit.daGas - 1
-                                           : gas_limit.daGas - actual_gas_used.daGas;
+    gas_event.limit_used_l2_comparison_witness = gas_event.oog_base_l2 || gas_event.oog_dynamic_l2
+                                                     ? actual_gas_used.l2Gas - gas_limit.l2Gas - 1
+                                                     : gas_limit.l2Gas - actual_gas_used.l2Gas;
+    gas_event.limit_used_da_comparison_witness = gas_event.oog_base_da || gas_event.oog_dynamic_da
+                                                     ? actual_gas_used.daGas - gas_limit.daGas - 1
+                                                     : gas_limit.daGas - actual_gas_used.daGas;
 
-    range_check.assert_range(gas_event.limit_used_l2_cmp_diff, 64);
-    range_check.assert_range(gas_event.limit_used_da_cmp_diff, 64);
+    range_check.assert_range(gas_event.limit_used_l2_comparison_witness, 64);
+    range_check.assert_range(gas_event.limit_used_da_comparison_witness, 64);
 
     return gas_event;
 }
