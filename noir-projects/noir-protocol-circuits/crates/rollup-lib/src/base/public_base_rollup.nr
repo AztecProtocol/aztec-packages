@@ -5,7 +5,7 @@ use crate::{
     },
     base::components::{
         archive::perform_archive_membership_check, constants::validate_combined_constant_data,
-        PublicTubeDataValidator,
+        gas::clamp_gas_settings_for_avm, PublicTubeDataValidator,
     },
     components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
@@ -91,6 +91,19 @@ impl PublicBaseRollupInputs {
             public_logs: from_public.accumulated_data.public_logs,
             contract_class_logs,
         }
+    }
+
+    // TODO: We should probably have a general struct/function where we encapsulate validation
+    // of the AVM public inputs against the tube proof.
+    fn validate_avm_gas_limits(self) {
+        assert_eq(
+            clamp_gas_settings_for_avm(
+                self.tube_data.public_inputs.constants.tx_context.gas_settings,
+                self.tube_data.public_inputs.gas_used,
+            ),
+            self.avm_proof_data.public_inputs.gas_settings,
+            "unexpected gas settings used in the AVM",
+        );
     }
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {

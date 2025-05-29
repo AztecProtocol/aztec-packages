@@ -280,31 +280,13 @@ export class UtilityExecutionOracle extends TypedOracle {
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }
 
-  public override async deliverNote(
-    contractAddress: AztecAddress,
-    storageSlot: Fr,
-    nonce: Fr,
-    content: Fr[],
-    noteHash: Fr,
-    nullifier: Fr,
-    txHash: TxHash,
-    recipient: AztecAddress,
-  ) {
+  public override async validateEnqueuedNotes(contractAddress: AztecAddress, notePendingValidationArrayBaseSlot: Fr) {
     // TODO(#10727): allow other contracts to deliver notes
     if (!this.contractAddress.equals(contractAddress)) {
-      throw new Error(`Got a note delivery request from ${contractAddress}, expected ${this.contractAddress}`);
+      throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    await this.executionDataProvider.deliverNote(
-      contractAddress,
-      storageSlot,
-      nonce,
-      content,
-      noteHash,
-      nullifier,
-      txHash,
-      recipient,
-    );
+    await this.executionDataProvider.validateEnqueuedNotes(contractAddress, notePendingValidationArrayBaseSlot);
   }
 
   public override getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {

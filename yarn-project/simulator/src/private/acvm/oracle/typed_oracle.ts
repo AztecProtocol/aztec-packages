@@ -218,17 +218,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('fetchTaggedLogs'));
   }
 
-  deliverNote(
-    _contractAddress: AztecAddress,
-    _storageSlot: Fr,
-    _nonce: Fr,
-    _content: Fr[],
-    _noteHash: Fr,
-    _nullifier: Fr,
-    _txHash: TxHash,
-    _recipient: AztecAddress,
-  ): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('deliverNote'));
+  validateEnqueuedNotes(_contractAddress: AztecAddress, _notePendingValidationArrayBaseSlot: Fr): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('validateEnqueuedNotes'));
   }
 
   getPublicLogByTag(_tag: Fr, _contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {

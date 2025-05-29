@@ -1176,26 +1176,11 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
-  public async deliverNote(
+  public async validateEnqueuedNotes(
     contractAddress: AztecAddress,
-    storageSlot: Fr,
-    nonce: Fr,
-    content: Fr[],
-    noteHash: Fr,
-    nullifier: Fr,
-    txHash: TxHash,
-    recipient: AztecAddress,
+    notePendingValidationArrayBaseSlot: Fr,
   ): Promise<void> {
-    await this.pxeOracleInterface.deliverNote(
-      contractAddress,
-      storageSlot,
-      nonce,
-      content,
-      noteHash,
-      nullifier,
-      txHash,
-      recipient,
-    );
+    await this.pxeOracleInterface.validateEnqueuedNotes(contractAddress, notePendingValidationArrayBaseSlot);
   }
 
   async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
