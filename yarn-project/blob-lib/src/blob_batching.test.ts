@@ -38,7 +38,7 @@ describe('blob', () => {
     const point = BLS12Point.decompress(ourBlob.commitment);
 
     // Double check we correctly decompress the commitment
-    const recompressed = BLS12Point.compress(point);
+    const recompressed = point.compress();
     expect(recompressed.equals(ourBlob.commitment)).toBeTruthy();
 
     let commitment = BLS12Point.ZERO;

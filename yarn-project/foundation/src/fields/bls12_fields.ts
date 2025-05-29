@@ -23,9 +23,6 @@ type BLS12DerivedField<T extends BLS12Field> = {
 
 /**
  * Base BLS12field class.
- * Conversions from Buffer to BigInt and vice-versa are not cheap.
- * We allow construction with either form and lazily convert to other as needed.
- * We only check we are within the field modulus when initializing with bigint.
  */
 export abstract class BLS12Field {
   private asBuffer?: Buffer;
@@ -44,6 +41,7 @@ export abstract class BLS12Field {
       if (this.asBigInt >= this.modulus()) {
         throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
       }
+      this.toBuffer();
     } else {
       throw new Error(`Type '${typeof value}' with value '${value}' passed to BLS12Field constructor.`);
     }
@@ -172,10 +170,10 @@ function bufferFromHexString(str: string) {
  * @dev This class is used to represent elements of BLS12-381 scalar field.
  */
 export class BLS12Fr extends BLS12Field {
-  static ZERO = new BLS12Fr(0n);
-  static ONE = new BLS12Fr(1n);
   static SIZE_IN_BYTES = bls12_381.fields.Fr.BYTES;
   static MODULUS = bls12_381.fields.Fr.ORDER;
+  static ZERO = new BLS12Fr(0n);
+  static ONE = new BLS12Fr(1n);
   static MAX_FIELD_VALUE = new BLS12Fr(this.MODULUS - 1n);
 
   constructor(value: number | bigint | Buffer) {
@@ -333,10 +331,10 @@ TypeRegistry.register('BLS12Fr', BLS12Fr);
  * @dev This class is used to represent elements of BLS12-381 base field.
  */
 export class BLS12Fq extends BLS12Field {
-  static ZERO = new BLS12Fq(0n);
-  static ONE = new BLS12Fq(1n);
   static SIZE_IN_BYTES = bls12_381.fields.Fp.BYTES;
   static MODULUS = bls12_381.fields.Fp.ORDER;
+  static ZERO = new BLS12Fq(0n);
+  static ONE = new BLS12Fq(1n);
   static MAX_FIELD_VALUE = new BLS12Fq(this.MODULUS - 1n);
 
   constructor(value: number | bigint | Buffer) {

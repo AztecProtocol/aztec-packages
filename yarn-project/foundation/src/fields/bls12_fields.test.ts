@@ -2,11 +2,6 @@ import { randomBigInt } from '../crypto/index.js';
 import { BLS12Fq, BLS12Fr } from './bls12_fields.js';
 import { Fr } from './fields.js';
 
-// ** Note: expect().toEqual() fails with:
-// Expected: "0x10f025c57129e0c7cc4e15ead24075985e7557a6bcb312cd431dbf45e2bc4e81f3389c042662932bce8312d85a7eca8d"
-// Received: serializes to the same string
-// ^ This is a known jest issue
-
 function testFn(Field: any, name: string) {
   describe(`${name} Serialization`, () => {
     // Test case for Field.fromBuffer
@@ -15,8 +10,8 @@ function testFn(Field: any, name: string) {
       const buffer = original.toBuffer();
       const deserialized = Field.fromBuffer(buffer);
 
-      // Check if the deserialized instance is equal to the original**
-      expect(deserialized.equals(original)).toBeTruthy();
+      // Check if the deserialized instance is equal to the original
+      expect(deserialized).toEqual(original);
     });
 
     // Test case for Field.fromNoirBigNum
@@ -25,8 +20,8 @@ function testFn(Field: any, name: string) {
       const bignum = original.toNoirBigNum();
       const deserialized = Field.fromNoirBigNum(bignum);
 
-      // Check if the deserialized instance is equal to the original**
-      expect(deserialized.equals(original)).toBeTruthy();
+      // Check if the deserialized instance is equal to the original
+      expect(deserialized).toEqual(original);
     });
 
     // Test case for Field.fromString
@@ -35,8 +30,8 @@ function testFn(Field: any, name: string) {
       const hexString = original.toString();
       const deserialized = Field.fromString(hexString);
 
-      // Check if the deserialized instance is equal to the original**
-      expect(deserialized.equals(original)).toBeTruthy();
+      // Check if the deserialized instance is equal to the original
+      expect(deserialized).toEqual(original);
 
       // Note odd number of digits
       const arbitraryNumericString = '123';
@@ -65,7 +60,7 @@ function testFn(Field: any, name: string) {
       const deserialized = Field.fromHexString(hexString);
 
       // Check if the deserialized instance is equal to the original**
-      expect(deserialized.equals(original)).toBeTruthy();
+      expect(deserialized).toEqual(original);
 
       // Note odd number of digits
       const arbitraryNumericString = '123';
@@ -94,8 +89,8 @@ function testFn(Field: any, name: string) {
         const original = Fr.random();
         const bls = Field.fromBN254Fr(original);
         const bn = bls.toBN254Fr();
-        // Check if the deserialized instance is equal to the original**
-        expect(bn.equals(original)).toBeTruthy();
+        // Check if the deserialized instance is equal to the original
+        expect(bn).toEqual(original);
       });
 
       // Test case for Field.fromBN254Fr
@@ -117,8 +112,8 @@ function testFn(Field: any, name: string) {
         const expected = Field.MAX_FIELD_VALUE;
 
         const actual = a.add(b);
-        // **
-        expect(actual.equals(expected)).toBeTruthy();
+
+        expect(actual).toEqual(expected);
       });
 
       it('High Boundary', () => {
@@ -128,8 +123,8 @@ function testFn(Field: any, name: string) {
         const expected = Field.ZERO;
 
         const actual = a.add(b);
-        // **
-        expect(actual.equals(expected)).toBeTruthy();
+
+        expect(actual).toEqual(expected);
       });
 
       it('Performs addition correctly', () => {
@@ -150,8 +145,8 @@ function testFn(Field: any, name: string) {
         const expected = Field.MAX_FIELD_VALUE;
 
         const actual = a.sub(b);
-        // **
-        expect(actual.equals(expected)).toBeTruthy();
+
+        expect(actual).toEqual(expected);
       });
 
       it('High Boundary', () => {
@@ -160,8 +155,8 @@ function testFn(Field: any, name: string) {
         const b = Field.MAX_FIELD_VALUE;
 
         const actual = a.sub(b);
-        // **
-        expect(actual.equals(Field.ZERO)).toBeTruthy();
+
+        expect(actual).toEqual(Field.ZERO);
       });
 
       it('Performs subtraction correctly', () => {
@@ -181,8 +176,8 @@ function testFn(Field: any, name: string) {
         const expected = Field.MAX_FIELD_VALUE;
 
         const actual = a.mul(b);
-        // **
-        expect(actual.equals(expected)).toBeTruthy();
+
+        expect(actual).toEqual(expected);
       });
 
       it('Performs multiplication correctly', () => {
@@ -299,8 +294,8 @@ function testFn(Field: any, name: string) {
         const expected = b % 2n ? Field.MAX_FIELD_VALUE : Field.ONE;
 
         const actual = a.pow(b);
-        // **
-        expect(actual.equals(expected)).toBeTruthy();
+
+        expect(actual).toEqual(expected);
       });
     });
   });
