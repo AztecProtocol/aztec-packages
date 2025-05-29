@@ -2,8 +2,8 @@ import { AVM_MAX_OPERANDS } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
 
-import { TaggedMemory, type TaggedMemoryInterface } from '../avm_memory_types.js';
-import { RelativeAddressOutOfRangeError } from '../errors.js';
+import { TaggedMemory, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
+import { RelativeAddressOutOfRangeError, TagCheckError } from '../errors.js';
 
 export enum AddressingMode {
   DIRECT = 0,
@@ -67,29 +67,32 @@ export class Addressing {
    * @param offsets The offsets to resolve.
    * @param mem The memory to use for resolution.
    * @returns The resolved offsets. The length of the returned array is the same as the length of the input array.
+   * @throws An error if any step failed. Should be treated as a black box.
    */
   public resolve(offsets: number[], mem: TaggedMemoryInterface): number[] {
     const resolved = new Array(offsets.length);
-
-    let didRelativeOnce = false;
-    let baseAddr = 0;
+    // These memory accesses are guaranteed to succeed.
+    const baseAddr = mem.get(0);
+    const baseAddrTag = TaggedMemory.getTag(baseAddr);
 
     for (const [i, offset] of offsets.entries()) {
       const mode = this.modePerOperand[i];
       resolved[i] = offset;
       if (mode & AddressingMode.RELATIVE) {
-        if (!didRelativeOnce) {
-          mem.checkIsValidMemoryOffsetTag(0);
-          baseAddr = Number(mem.get(0).toBigInt());
-          didRelativeOnce = true;
+        if (!TaggedMemory.isValidMemoryAddressTag(baseAddrTag)) {
+          throw TagCheckError.forOffset(0, TypeTag[baseAddrTag], TypeTag[TypeTag.UINT32]);
         }
-        resolved[i] += baseAddr;
+        resolved[i] += Number(baseAddr.toBigInt());
         if (resolved[i] >= TaggedMemory.MAX_MEMORY_SIZE) {
-          throw new RelativeAddressOutOfRangeError(baseAddr, offset);
+          throw new RelativeAddressOutOfRangeError(Number(baseAddr.toBigInt()), offset);
         }
       }
       if (mode & AddressingMode.INDIRECT) {
-        mem.checkIsValidMemoryOffsetTag(resolved[i]);
+        const resolvedTag = TaggedMemory.getTag(mem.get(resolved[i]));
+        // DO NOT SUBMIT(fcarreiro): wait! should we be this strict? do we really need u32 or just that it fits?
+        if (!TaggedMemory.isValidMemoryAddressTag(resolvedTag)) {
+          throw TagCheckError.forOffset(resolved[i], TypeTag[resolvedTag], TypeTag[TypeTag.UINT32]);
+        }
         resolved[i] = Number(mem.get(resolved[i]).toBigInt());
       }
     }
