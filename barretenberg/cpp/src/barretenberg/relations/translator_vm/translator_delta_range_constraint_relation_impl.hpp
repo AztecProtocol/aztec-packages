@@ -50,8 +50,10 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         // Represents the positon of the final non masked witness index
         auto lagrange_real_last = View(in.lagrange_real_last);
         auto lagrange_masking = View(in.lagrange_masking);
+        auto lagrange_real_first = View(in.lagrange_real_first);
 
-        auto is_last_witness_or_masking = (lagrange_real_last + minus_one) * (lagrange_masking + minus_one);
+        auto is_first_or_last_witness_or_masking =
+            (lagrange_real_last + lagrange_real_first + minus_one) * (lagrange_masking + minus_one);
 
         // Compute wire differences
         auto delta_1 = ordered_range_constraints_0_shift - ordered_range_constraints_0;
@@ -65,7 +67,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_1 *= (delta_1 + minus_one);
         tmp_1 *= (delta_1 + minus_two);
         tmp_1 *= (delta_1 + minus_three);
-        tmp_1 *= is_last_witness_or_masking;
+        tmp_1 *= is_first_or_last_witness_or_masking;
         tmp_1 *= scaling_factor;
         std::get<0>(accumulators) += tmp_1;
 
@@ -74,7 +76,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_2 *= (delta_2 + minus_one);
         tmp_2 *= (delta_2 + minus_two);
         tmp_2 *= (delta_2 + minus_three);
-        tmp_2 *= is_last_witness_or_masking;
+        tmp_2 *= is_first_or_last_witness_or_masking;
         tmp_2 *= scaling_factor;
 
         std::get<1>(accumulators) += tmp_2;
@@ -84,7 +86,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_3 *= (delta_3 + minus_one);
         tmp_3 *= (delta_3 + minus_two);
         tmp_3 *= (delta_3 + minus_three);
-        tmp_3 *= is_last_witness_or_masking;
+        tmp_3 *= is_first_or_last_witness_or_masking;
         tmp_3 *= scaling_factor;
         std::get<2>(accumulators) += tmp_3;
 
@@ -93,7 +95,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_4 *= (delta_4 + minus_one);
         tmp_4 *= (delta_4 + minus_two);
         tmp_4 *= (delta_4 + minus_three);
-        tmp_4 *= is_last_witness_or_masking;
+        tmp_4 *= is_first_or_last_witness_or_masking;
         tmp_4 *= scaling_factor;
         std::get<3>(accumulators) += tmp_4;
 
@@ -102,7 +104,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_5 *= (delta_5 + minus_one);
         tmp_5 *= (delta_5 + minus_two);
         tmp_5 *= (delta_5 + minus_three);
-        tmp_5 *= is_last_witness_or_masking;
+        tmp_5 *= is_first_or_last_witness_or_masking;
         tmp_5 *= scaling_factor;
         std::get<4>(accumulators) += tmp_5;
     }();
