@@ -523,6 +523,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         size_t& count, size_t& rangecount, size_t& romcount, size_t& ramcount, size_t& nnfcount) const
     {
         count = this->num_gates;
+        info(count);
         // each ROM gate adds +1 extra gate due to the rom reads being copied to a sorted list set
         for (size_t i = 0; i < rom_arrays.size(); ++i) {
             for (size_t j = 0; j < rom_arrays[i].state.size(); ++j) {
@@ -588,6 +589,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                 rangecount += ram_range_sizes[i];
             }
         }
+        info(count);
         std::vector<cached_partial_non_native_field_multiplication> nnf_copy(
             cached_partial_non_native_field_multiplications);
         // update nnfcount
@@ -635,6 +637,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         size_t ramcount = 0;
         size_t nnfcount = 0;
         get_num_estimated_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
+        info(count, rangecount, romcount, ramcount, nnfcount);
         return count + romcount + ramcount + rangecount + nnfcount;
     }
 

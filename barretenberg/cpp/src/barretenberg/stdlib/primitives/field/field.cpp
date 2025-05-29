@@ -641,7 +641,7 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
 template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::string const& msg) const
 {
 
-    if (!this->is_constant()) {
+    if (this->is_constant()) {
         BB_ASSERT_EQ(additive_constant != bb::fr::zero(), true, msg);
         return;
     }
@@ -1098,6 +1098,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
             accumulator.emplace_back(field_t<Builder>::from_witness_index(ctx, ctx->zero_idx));
         }
         num_elements = accumulator.size();
+
         const size_t num_gates = (num_elements / 3);
         const size_t last_gate_idx = num_gates - 1;
 

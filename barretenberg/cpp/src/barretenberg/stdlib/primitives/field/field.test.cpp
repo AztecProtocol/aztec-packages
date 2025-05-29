@@ -1041,26 +1041,37 @@ template <typename Builder> class stdlib_field : public testing::Test {
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
+
     static void test_accumulate()
     {
         Builder builder = Builder();
         const size_t max_vector_length = 100;
 
-        std::vector<bb::fr> native_input(max_vector_length);
-        for (size_t idx = 0; idx < max_vector_length; idx++) {
-            bb::fr random_entry(bb::fr::random_element());
-            native_input.emplace_back(random_entry);
+        std::vector<bb::fr> native_input(max_vector_length, 0);
+        for (auto& entry : native_input) {
+            entry = bb::fr::random_element();
         }
 
+        // Compute the native sum
         bb::fr native_sum = std::accumulate(native_input.begin(), native_input.end(), bb::fr::zero());
         std::vector<field_ct> input(max_vector_length);
         size_t idx = 0;
+        // Convert native vector to a vector of field_t elements. Every 5th element is set to be constant.
         for (auto& native_entry : native_input) {
             field_ct entry = ((idx % 5) == 0) ? field_ct(native_entry) : witness_ct(&builder, native_entry);
+            input.emplace_back(entry);
+            idx++;
         }
-
-        field_ct sum = accumulate(input);
+        // Compute the accumulation result
+        field_ct sum = field_ct::accumulate(input);
         EXPECT_EQ(native_sum, sum.get_value());
+        builder.finalize_circuit(false);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+        // The number of gates added must be equal to the number of witness elements in the vector (max_vector_length -
+        // max_vector_length/5) divided by 3 (as we accumulate 3 witnesses at a time) incremented by 1 due to padding.
+        // We need to subtract 1 from LHS to account for a constant 0 variable created by default UltraCircuitBuilder
+        // constructor.
+        EXPECT_EQ(builder.get_estimated_num_finalized_gates() - 1, (max_vector_length - max_vector_length / 5) / 3 + 1);
     }
     static void test_ranged_less_than()
     {
@@ -1432,4 +1443,9 @@ TYPED_TEST(stdlib_field, test_add_two)
 TYPED_TEST(stdlib_field, test_add_mul_with_constants)
 {
     TestFixture::test_add_mul_with_constants();
+}
+
+TYPED_TEST(stdlib_field, test_accumulate)
+{
+    TestFixture::test_accumulate();
 }
