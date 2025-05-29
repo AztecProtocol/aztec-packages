@@ -250,11 +250,20 @@ pub global PRIVATE_LOG_LENGTH: u32 = PRIVATE_LOG_SIZE_IN_FIELDS + 1 /* length */
 pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_LENGTH
     + 1 /* note_hash_counter */
     + 1 /* counter */;
+/// A private log's ciphertext is all fields except the first one, which is called 'tag'. We call this 'ciphertext'
+/// because, unlike public logs, it is expected that private logs are encrypted (though this is not
+/// mandatory).
+pub global PRIVATE_LOG_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - 1; // -1 for the tag
 pub global SCOPED_PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_DATA_LENGTH + 1 /* contract_address */;
 pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = 13;
 pub global PUBLIC_LOG_LENGTH: u32 = PUBLIC_LOG_SIZE_IN_FIELDS
     + 1 /* length */
     + 1 /* contract_address */;
+/// A public log's plaintext is all fields except the first one, which is called 'tag'. We call this 'plaintext' because,
+/// unlike public logs, it is expected that public logs are not encrypted (since the encryption would be public,
+/// revealing the plaintext).
+pub global PUBLIC_LOG_PLAINTEXT_LEN: u32 = PUBLIC_LOG_SIZE_IN_FIELDS - 1; // -1 for the tag
+
 // TODO(MW): add new constant for this - the below is just the largest combination atm
 pub global CONTRACT_CLASS_LOG_SIZE_IN_FIELDS: u32 = MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS
     + REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS;

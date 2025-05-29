@@ -96,8 +96,6 @@ export class ContractClassLogFields {
 
 export class ContractClassLog {
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * CONTRACT_CLASS_LOG_LENGTH;
-  // Keeps original first field pre-siloing. Only set by silo().
-  public unsiloedFirstField?: Fr | undefined;
 
   constructor(
     public contractAddress: AztecAddress,
@@ -178,40 +176,6 @@ export class ContractClassLog {
       ContractClassLogFields.random(emittedLength),
       emittedLength,
     );
-  }
-
-  setUnsiloedFirstField(field: Fr) {
-    this.unsiloedFirstField = field;
-  }
-
-  toUnsiloed() {
-    if (this.contractAddress.isZero()) {
-      return this;
-    }
-    if (this.unsiloedFirstField) {
-      return new ContractClassLog(
-        this.contractAddress,
-        new ContractClassLogFields([this.unsiloedFirstField].concat(this.fields.fields.slice(1))),
-        this.emittedLength,
-      );
-    } else {
-      return this;
-    }
-  }
-
-  // TODO(#13914): Don't need to silo the contract class logs.
-  async silo() {
-    if (this.contractAddress.isZero()) {
-      return this;
-    }
-
-    const fields = this.fields.clone();
-    const unsiloedField = fields.fields[0];
-    const siloedField = await poseidon2Hash([this.contractAddress, unsiloedField]);
-    fields.fields[0] = siloedField;
-    const cloned = new ContractClassLog(this.contractAddress, fields, this.emittedLength);
-    cloned.setUnsiloedFirstField(unsiloedField);
-    return cloned;
   }
 
   async hash() {
