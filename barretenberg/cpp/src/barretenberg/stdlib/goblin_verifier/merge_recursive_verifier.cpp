@@ -32,12 +32,13 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  */
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
-    const StdlibProof<CircuitBuilder>& proof)
+    const StdlibProof<CircuitBuilder>& proof, const FF& subtable_size)
 {
     // Transform proof into a stdlib object
     transcript->load_proof(proof);
 
-    FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
+    // FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
+    info("Merge: subtable size: ", subtable_size);
 
     // Receive table column polynomial commitments [t_j], [T_{j,prev}], and [T_j], j = 1,2,3,4
     std::array<Commitment, NUM_WIRES> t_commitments;

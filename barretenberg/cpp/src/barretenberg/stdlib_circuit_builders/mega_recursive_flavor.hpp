@@ -117,6 +117,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         // Data pertaining to transfer of databus return data via public inputs of the proof
         DatabusPropagationData databus_propagation_data;
 
+        FF ecc_op_subtable_size = 0; // size of the subtable for ecc op queue
+
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification
          * key
@@ -133,6 +135,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
             this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
             this->databus_propagation_data = native_key->databus_propagation_data;
+            this->ecc_op_subtable_size = FF::from_witness(native_key->ecc_op_subtable_size);
+            info("RVK: ecc op subtable size: ", this->ecc_op_subtable_size);
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -167,6 +171,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->databus_propagation_data.is_kernel =
                 bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+
+            this->ecc_op_subtable_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
 
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
