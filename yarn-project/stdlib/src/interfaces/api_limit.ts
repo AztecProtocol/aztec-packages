@@ -1,1 +1,1 @@
-export const MAX_RPC_LEN = 100;
+export const MAX_RPC_LEN = 50;
