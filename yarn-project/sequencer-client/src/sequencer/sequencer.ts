@@ -456,11 +456,6 @@ export class Sequencer {
     try {
       const processor = this.publicProcessorFactory.create(guardedFork, newGlobalVariables, true);
 
-      // Ensure that no more state updates can be made by any incomplete transactions
-      await guardedFork.stop();
-      // Revert all checkpoints to ensure we have a consistent block
-      await publicProcessorDBFork.revertAllCheckpoints();
-
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(publicProcessorDBFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages, previousBlockHeader);
@@ -499,6 +494,11 @@ export class Sequencer {
       const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
         processor.process(pendingTxs, limits, validator),
       );
+
+      // Ensure that no more state updates can be made by any incomplete transactions
+      await guardedFork.stop();
+      // Revert all checkpoints to ensure we have a consistent block
+      await publicProcessorDBFork.revertAllCheckpoints();
 
       if (!opts.validateOnly && failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
