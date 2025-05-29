@@ -253,6 +253,9 @@ impl PartialUintNote {
         // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
         // state variable's storage slot, and it is internally consistent).
         let validity_commitment = self.compute_validity_commitment(completer);
+        // `prove_nullifier_inclusion` function expects the nullifier to be siloed (hashed with the address of
+        // the contract that emitted the nullifier) as it checks the value directly against the nullifier tree and all
+        // the nullifiers in the tree are siloed by the protocol.
         let siloed_validity_commitment =
             compute_siloed_nullifier(context.this_address(), validity_commitment);
         context.get_block_header().prove_nullifier_inclusion(siloed_validity_commitment);
