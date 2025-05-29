@@ -58,8 +58,8 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     where
         Note: NoteType + NoteHash + Packable<N>,
     {
-        // We emit the initialization nullifier to indicate that the struct is initialized. This also checks that
-        // the value is not initialized yet as a nullifier can be included only once.
+        // We emit an initialization nullifier to indicate that the struct is initialized. This also prevents
+        // the value from being initialized again as a nullifier can be included only once.
         let nullifier = self.compute_initialization_nullifier();
         self.context.push_nullifier(nullifier);
 
