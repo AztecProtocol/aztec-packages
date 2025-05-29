@@ -66,7 +66,6 @@ impl<T, Context> PublicImmutable<T, Context> {
     }
     // docs:end:public_immutable_struct_new
 
-    // Copy of `PrivateImmutable::compute_initialization_nullifier`
     pub fn compute_initialization_nullifier(self) -> Field {
         poseidon2_hash_with_separator(
             [self.storage_slot],
