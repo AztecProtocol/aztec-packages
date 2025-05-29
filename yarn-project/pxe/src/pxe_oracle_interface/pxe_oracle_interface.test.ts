@@ -639,7 +639,7 @@ describe('PXEOracleInterface', () => {
 
       const result = (await pxeOracleInterface.getPublicLogByTag(tag, logContractAddress))!;
 
-      expect(result.logPlaintext).toEqual(scopedLog.log.getEmittedFieldsWithoutTag());
+      expect(result.logPayload).toEqual(scopedLog.log.getEmittedFieldsWithoutTag());
       expect(result.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
       expect(result.txHash).toEqual(scopedLog.txHash);
       expect(result.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);
@@ -690,7 +690,7 @@ describe('PXEOracleInterface', () => {
 
       const result = await pxeOracleInterface.getPublicLogByTag(tag, logContractAddress);
 
-      expect(result?.logPlaintext).toEqual(logPlaintext);
+      expect(result?.logPayload).toEqual(logPlaintext);
     });
   });
 
@@ -715,7 +715,7 @@ describe('PXEOracleInterface', () => {
 
       const result = await pxeOracleInterface.getPrivateLogByTag(tag);
 
-      expect(result?.logContent).toEqual(scopedLog.log.getEmittedFields());
+      expect(result?.logPayload).toEqual(scopedLog.log.getEmittedFields());
       expect(result?.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
       expect(result?.txHash).toEqual(scopedLog.txHash);
       expect(result?.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);

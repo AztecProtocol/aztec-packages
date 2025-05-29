@@ -754,7 +754,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
 
     return new PrivateLogWithTxData(
-      scopedLog.log.getEmittedFields(),
+      scopedLog.log.getEmittedFieldsWithoutTag(),
       scopedLog.txHash,
       txEffect.data.noteHashes,
       txEffect.data.nullifiers[0],

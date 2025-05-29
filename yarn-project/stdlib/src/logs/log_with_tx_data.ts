@@ -5,7 +5,6 @@ import { TxHash } from '@aztec/stdlib/tx';
 // TypeScript representation of the Noir aztec::oracle::message_discovery::LogWithTxData struct.
 class LogWithTxData<N extends number> {
   constructor(
-    // The emitted fields of a log.
     public logPayload: Fr[],
     public txHash: TxHash,
     public uniqueNoteHashesInTx: Fr[],
