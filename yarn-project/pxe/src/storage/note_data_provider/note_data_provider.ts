@@ -80,7 +80,7 @@ export class NoteDataProvider implements DataProvider {
     return true;
   }
 
-  async addNotes(notes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
+  addNotes(notes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
     return this.#store.transactionAsync(async () => {
       if (!(await this.#scopes.hasAsync(scope.toString()))) {
         await this.addScope(scope);
