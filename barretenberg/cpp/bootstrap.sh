@@ -42,10 +42,10 @@ function build_preset() {
 # Build all native binaries, including tests.
 function build_native {
   set -eu
-  if ! cache_download barretenberg-native-$hash.zst; then
+  if ! cache_download barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
     build_preset $native_preset
-    cache_upload barretenberg-native-$hash.zst build/bin
+    cache_upload barretenberg-$native_preset-$hash.zst build/bin
   fi
 }
 
@@ -176,7 +176,8 @@ function build {
 # Paths are relative to repo root.
 # We prefix the hash. This ensures the test harness and cache and skip future runs.
 function test_cmds {
-  cd build
+  # E.g. build, build-debug or build-coverage
+  cd $(scripts/native-preset-build-dir)
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
 
@@ -301,7 +302,14 @@ case "$cmd" in
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
-    ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh | STRICT_SCHEDULING=1 parallelise
+    function ivc_bench_cmds {
+      if [ "${NO_WASM:-}" == "1" ]; then
+        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
+      else
+        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
+      fi
+    }
+    ivc_bench_cmds | STRICT_SCHEDULING=1 parallelise
     ;;
   "hash")
     echo $hash
