@@ -230,7 +230,8 @@ export class PublicProcessor implements Traceable {
       // 1. Revert the checkpoint if the tx fails or needs to be discarded for any reason
       // 2. Commit the transaction in the finally block. Note that by using the ForkCheckpoint lifecycle only the first commit/revert takes effect
       // By doing this, every transaction starts on a fresh checkpoint and it's state updates only make it to the fork if this checkpoint is committed.
-      const checkpoint = await ForkCheckpoint.new(this.guardedMerkleTree);
+      // Note: We use the underlying fork here not the guarded one, this ensures that it's not impacted by stopping the guarded version
+      const checkpoint = await ForkCheckpoint.new(this.guardedMerkleTree.getUnderlyingFork());
 
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
