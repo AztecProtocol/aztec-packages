@@ -17,7 +17,7 @@ pub contract ReturningTuple {
 
     #[private]
     #[view]
-    fn fn_that_returns_2() -> pub (Field, u32) {
+    fn fn_that_returns_2() -> (Field, u32) {
         (1, 2)
     }
 
