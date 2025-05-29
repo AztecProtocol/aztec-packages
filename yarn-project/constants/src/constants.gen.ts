@@ -132,6 +132,7 @@ export const BLS12_FR_LIMBS = 3;
 export const BLS12_FQ_LIMBS = 4;
 export const BLS12_POINT = 9;
 export const BLOB_ACCUMULATOR_PUBLIC_INPUTS = 18;
+export const FINAL_BLOB_ACCUMULATOR_PUBLIC_INPUTS = 7;
 export const BLOCK_BLOB_PUBLIC_INPUTS = 40;
 export const BLOB_PUBLIC_INPUTS = 6;
 export const L1_TO_L2_MESSAGE_LENGTH = 6;

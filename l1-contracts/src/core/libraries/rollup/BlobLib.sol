@@ -47,11 +47,12 @@ library BlobLib {
     blobHashes = new bytes32[](numBlobs);
     blobCommitments = new bytes[](numBlobs);
     bytes32 blobHash;
+    // Add 1 for the numBlobs prefix
+    uint256 blobInputStart = 1;
     for (uint256 i = 0; i < numBlobs; i++) {
-      // Add 1 for the numBlobs prefix
-      uint256 blobInputStart = i * 48 + 1;
       // Commitments = arrays of bytes48 compressed points
       blobCommitments[i] = abi.encodePacked(_blobsInput[blobInputStart:blobInputStart + 48]);
+      blobInputStart += 48;
 
       // TODO(MW): Use kzg_to_versioned_hash & VERSIONED_HASH_VERSION_KZG
       // Using bytes32 array to force bytes into memory

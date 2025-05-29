@@ -238,7 +238,7 @@ export class ProverNodePublisher {
           abi: RollupAbi,
           address: this.rollupContract.address,
         },
-        /*blobInputs*/ undefined, // TODO(MW): shouldn't this be filled? wrong blob inputs can cause an error
+        /*blobInputs*/ undefined,
         /*stateOverride*/ [],
       );
       this.log.error(`Rollup submit epoch proof tx reverted. ${errorMsg}`);

@@ -103,7 +103,6 @@ export class BlockProvingState {
     if (!this.spongeBlobState) {
       throw new Error(`Invalid block proving state, call startNewBlock before adding transactions.`);
     }
-    // TODO(MW): is totalNumTxs ever checked?
     const txIndex = this.txs.length;
     this.txs[txIndex] = tx;
     return txIndex;
