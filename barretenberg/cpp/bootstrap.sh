@@ -300,8 +300,11 @@ case "$cmd" in
       yarn --cwd ../../yarn-project/bb-prover generate
     fi
 
+    rm -rf bench-out
+
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
+<<<<<<< Updated upstream
     function ivc_bench_cmds {
       if [ "${NO_WASM:-}" == "1" ]; then
         ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
@@ -310,6 +313,9 @@ case "$cmd" in
       fi
     }
     ivc_bench_cmds | STRICT_SCHEDULING=1 parallelise
+=======
+    ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm |grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh | STRICT_SCHEDULING=1 parallelise
+>>>>>>> Stashed changes
     ;;
   "hash")
     echo $hash

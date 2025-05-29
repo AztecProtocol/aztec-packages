@@ -16,7 +16,7 @@ export HARDWARE_CONCURRENCY=${CPUS:-8}
 
 mkdir -p bench-out/$(dirname $name)
 
-export MEMUSAGE_OUT="bench-out/$name-peak-memory-mb.txt"
+export MEMUSAGE_OUT="bench-out/$name-peak-memory-kb.txt"
 
 case $arch in
   native)
@@ -28,7 +28,9 @@ case $arch in
 esac
 
 # Read the benchmark json, making it smaller-is-better format and adding memory usage stats
-jq --arg name_time "$name/seconds" --arg name_mem "$name/memory" --arg value_mem "$(cat "$MEMUSAGE_OUT")" '[
+memory_mb=$(cat "$MEMUSAGE_OUT")
+memory_mb=$(( memory_mb / 1024 )) # Convert from KB to MB
+jq --arg name_time "$name/seconds" --arg name_mem "$name/memory" --arg value_mem "$memory_mb" '[
   {name: $name_time, value: .benchmarks[0].real_time, unit: .benchmarks[0].time_unit},
   {name: $name_mem, value: $value_mem, unit: "MB"}
 ]' ./bench-out/$name.json > ./bench-out/$name.bench.json

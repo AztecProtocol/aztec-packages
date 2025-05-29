@@ -27,8 +27,8 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     RelationParameters<FF> relation_parameters;
 
     ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
-    transcript->enable_manifest();
-    ipa_transcript->enable_manifest();
+    // transcript->enable_manifest();
+    // ipa_transcript->enable_manifest();
     transcript->load_proof(proof.pre_ipa_proof);
 
     VerifierCommitments commitments{ key };
