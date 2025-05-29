@@ -73,7 +73,7 @@ function process_function {
     bytecode_b64=$(echo "$func" | jq -r '.bytecode')
     hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
 
-    if ! cache_download vk-$hash.v2.tar.gz >&2; then
+    if ! cache_download vk-$contract_hash-$hash.tar.gz >&2; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
 
@@ -81,7 +81,7 @@ function process_function {
       echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir -v
       mv $outdir/vk $tmp_dir/$contract_hash/$hash
 
-      cache_upload vk-$hash.v2.tar.gz $tmp_dir/$contract_hash/$hash
+      cache_upload vk-$contract_hash-$hash.tar.gz $tmp_dir/$contract_hash/$hash
     fi
 
     # Return (echo) json containing the base64 encoded verification key.
