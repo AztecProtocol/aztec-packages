@@ -36,7 +36,6 @@ describe('deploy_l1_contracts', () => {
 
     initialValidators = times(3, () => ({
       attester: EthAddress.random(),
-      proposerEOA: EthAddress.random(),
       withdrawer: EthAddress.random(),
     }));
 
