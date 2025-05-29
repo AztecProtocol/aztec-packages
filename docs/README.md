@@ -64,6 +64,8 @@ To manually perform step two locally:
 - If desired, delete any past versions we no longer want to display
 - Update `versions.json`
 
+For more details, see [Docusaurus Versioning](https://docusaurus.io/docs/versioning#configuring-versioning-behavior)
+
 ### A special note about branches
 
 **Adding docs**
@@ -73,6 +75,7 @@ That means, docs can only refer to a proposed protocol change once its release t
 
 **Generating docs**
 - Most of the time we want the label `Next` to contain upcoming changes, excluding documentation of upcoming protocol changes. For this we release docs straight from `master`.
+  - This can be removed by setting `includeCurrentVersion: false` in `docs/docusaurus.config.js`
 - Before a protocol release, we want the docs label `Next` to contain upcoming changes AND documentation of upcoming protocol changes, then:
   1. Apply protocol docs to `next` branch in `docs/docs` (we can do this with an ongoing protocol docs branch, periodically merging into `next`)
   2. cherrypick these commits (or patch/rebase the protocol docs branch) into `master` to apply to `docs/docs`
