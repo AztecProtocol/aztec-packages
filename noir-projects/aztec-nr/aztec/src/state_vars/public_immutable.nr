@@ -65,6 +65,10 @@ impl<T, Context> PublicImmutable<T, Context> {
 }
 
 impl<T> PublicImmutable<T, &mut PublicContext> {
+    /// Initializes the value.
+    ///
+    /// # Panics
+    /// Panics if the value is already initialized.
     // docs:start:public_immutable_struct_write
     pub fn initialize<let T_PACKED_LEN: u32>(self, value: T)
     where
@@ -81,15 +85,33 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     }
     // docs:end:public_immutable_struct_write
 
-    // Note that we don't access the context, but we do call oracles that are only available in public
+    /// Reads the value.
+    ///
+    /// # Panics
+    /// Panics if the value is not initialized.
     // docs:start:public_immutable_struct_read
     pub fn read<let T_PACKED_LEN: u32>(self) -> T
     where
         T: Packable<T_PACKED_LEN> + Eq,
     {
+        assert(self.is_initialized(), "Trying to read from uninitialized PublicImmutable");
         WithHash::public_storage_read(*self.context, self.storage_slot)
     }
     // docs:end:public_immutable_struct_read
+
+    /// Reads the value without checking if the value is initialized.
+    pub fn read_unsafe<let T_PACKED_LEN: u32>(self) -> T
+    where
+        T: Packable<T_PACKED_LEN> + Eq,
+    {
+        WithHash::public_storage_read(*self.context, self.storage_slot)
+    }
+
+    fn is_initialized(self) -> bool {
+        let initialization_slot = INITIALIZATION_SLOT_SEPARATOR + self.storage_slot;
+        let init_field: Field = self.context.storage_read(initialization_slot);
+        init_field != 0
+    }
 }
 
 impl<T> PublicImmutable<T, UtilityContext> {
