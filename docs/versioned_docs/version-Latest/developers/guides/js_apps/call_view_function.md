@@ -18,31 +18,31 @@ You can learn how to deploy a contract [here](./deploy_contract.md).
 
 You will need to import this from Aztec.js:
 
-```typescript title="import_contract" showLineNumbers
+```typescript title="import_contract" showLineNumbers 
 import { Contract } from '@aztec/aztec.js';
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L7-L9" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L7-L9</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L7-L9" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L7-L9</a></sub></sup>
 
 
 ## Define contract
 
 Get a previously deployed contract like this:
 
-```typescript title="get_contract" showLineNumbers
+```typescript title="get_contract" showLineNumbers 
 const contract = await Contract.at(deployedContract.address, TokenContractArtifact, wallet);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L45-L47" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L45-L47</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L45-L47" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L45-L47</a></sub></sup>
 
 
 ## Simulating function calls
 
 Call the `simulate` function on the typescript contract wrapper like this:
 
-```typescript title="simulate_function" showLineNumbers
+```typescript title="simulate_function" showLineNumbers 
 const balance = await contract.methods.balance_of_public(newWallet.getAddress()).simulate();
 expect(balance).toEqual(1n);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L54-L57" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L54-L57</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L54-L57" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L54-L57</a></sub></sup>
 
 
 :::info Note

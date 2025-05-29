@@ -1,10 +1,10 @@
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
+import { SHA256Trunc } from '@aztec/foundation/crypto';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
-import { SHA256Trunc } from '@aztec/merkle-tree';
 import type {
   L2Block,
   L2BlockId,

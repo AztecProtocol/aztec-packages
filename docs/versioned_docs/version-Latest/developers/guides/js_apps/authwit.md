@@ -34,7 +34,7 @@ If you are using public authwit (ie using `assert_current_call_valid_authwit_pub
 
 Here is an example implementation:
 
-```typescript title="public_deploy_accounts" showLineNumbers
+```typescript title="public_deploy_accounts" showLineNumbers 
 export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToDeploy: Wallet[]) {
   // We have to check whether the accounts are already deployed. This can happen if the test runs against
   // the sandbox and the test accounts exist
@@ -63,15 +63,15 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
   await batch.send().wait();
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/fixtures/utils.ts#L631-L659" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/fixtures/utils.ts#L631-L659</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/fixtures/utils.ts#L634-L662" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/fixtures/utils.ts#L634-L662</a></sub></sup>
 
 
 You would then call this like so:
 
-```typescript title="public_deploy_accounts" showLineNumbers
+```typescript title="public_deploy_accounts" showLineNumbers 
 await ensureAccountsPubliclyDeployed(wallets[0], wallets.slice(0, 2));
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_authwit.test.ts#L24-L26" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_authwit.test.ts#L24-L26</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_authwit.test.ts#L24-L26" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_authwit.test.ts#L24-L26</a></sub></sup>
 
 
 ## Define the action
@@ -82,12 +82,12 @@ When creating an authwit, you will need to pass the authwit giver, the authwit r
 
 You can define the action like this:
 
-```typescript title="authwit_computeAuthWitMessageHash" showLineNumbers
+```typescript title="authwit_computeAuthWitMessageHash" showLineNumbers 
 const action = asset
   .withWallet(wallets[1])
   .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L57-L61" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L57-L61</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L55-L59" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L55-L59</a></sub></sup>
 
 
 In this example,
@@ -101,19 +101,19 @@ In this example,
 
 You can hash your own authwit message by creating an inner hash with the data, like this:
 
-```typescript title="compute_inner_authwit_hash" showLineNumbers
+```typescript title="compute_inner_authwit_hash" showLineNumbers 
 const innerHash = await computeInnerAuthWitHash([Fr.fromHexString('0xdead')]);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_authwit.test.ts#L45-L47" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_authwit.test.ts#L45-L47</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_authwit.test.ts#L45-L47" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_authwit.test.ts#L45-L47</a></sub></sup>
 
 
 Then create the message hash by hashing the inner hash with the authwit receiver address, chainId, and version:
 
-```typescript title="compute_arbitrary_authwit_hash" showLineNumbers
+```typescript title="compute_arbitrary_authwit_hash" showLineNumbers 
 
 const intent = { consumer: auth.address, innerHash };
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_authwit.test.ts#L48-L51" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_authwit.test.ts#L48-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_authwit.test.ts#L48-L51" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_authwit.test.ts#L48-L51</a></sub></sup>
 
 
 ## Create the authwit
@@ -130,10 +130,10 @@ This is expected to be used alongside [private authwits in Aztec.nr contract](..
 
 Create a private authwit like this:
 
-```typescript title="create_authwit" showLineNumbers
+```typescript title="create_authwit" showLineNumbers 
 const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L62-L64" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L62-L64</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L60-L62" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L60-L62</a></sub></sup>
 
 
 In this example,
@@ -144,19 +144,19 @@ In this example,
 
 If you created an arbitrary message, you can create the authwit by replacing these params with the outer hash:
 
-```typescript title="compute_arbitrary_authwit_hash" showLineNumbers
+```typescript title="compute_arbitrary_authwit_hash" showLineNumbers 
 
 const intent = { consumer: auth.address, innerHash };
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_authwit.test.ts#L48-L51" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_authwit.test.ts#L48-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_authwit.test.ts#L48-L51" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_authwit.test.ts#L48-L51</a></sub></sup>
 
 
 Then add it to the wallet of the authwit receiver (the caller of the function):
 
-```typescript title="add_authwit" showLineNumbers
+```typescript title="add_authwit" showLineNumbers 
 await action.send({ authWitnesses: [witness] }).wait();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L68-L70" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L68-L70</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L66-L68" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts#L66-L68</a></sub></sup>
 
 
 ### Public
@@ -165,14 +165,14 @@ This is expected to be used alongside [public authwits in Aztec.nr contract](../
 
 Set a public authwit like this:
 
-```typescript title="set_public_authwit" showLineNumbers
+```typescript title="set_public_authwit" showLineNumbers 
 const validateActionInteraction = await wallets[0].setPublicAuthWit(
   { caller: wallets[1].getAddress(), action },
   true,
 );
 await validateActionInteraction.send().wait();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_public.test.ts#L119-L125" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_public.test.ts#L119-L125</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_public.test.ts#L119-L125" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_public.test.ts#L119-L125</a></sub></sup>
 
 
 Remember it is a transaction and calls a method in the account contract. In this example,
@@ -184,11 +184,11 @@ Remember it is a transaction and calls a method in the account contract. In this
 
 If you created an arbitrary message, you would replace the first param struct with the outer hash:
 
-```typescript title="set_public_authwit" showLineNumbers
+```typescript title="set_public_authwit" showLineNumbers 
 const validateActionInteraction = await wallets[0].setPublicAuthWit(intent, true);
 await validateActionInteraction.send().wait();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_authwit.test.ts#L155-L158" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_authwit.test.ts#L155-L158</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_authwit.test.ts#L155-L158" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_authwit.test.ts#L155-L158</a></sub></sup>
 
 
 ## Further reading

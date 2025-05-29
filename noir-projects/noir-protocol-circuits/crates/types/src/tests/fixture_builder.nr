@@ -707,6 +707,8 @@ impl FixtureBuilder {
         result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
         result.public_inputs.start_tree_snapshots = self.start_snapshots;
         result.public_inputs.end_tree_snapshots = self.end_snapshots;
+        result.public_inputs.start_gas_used = self.gas_used;
+        result.public_inputs.gas_settings = self.tx_context.gas_settings;
 
         result
     }

@@ -68,12 +68,15 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
       epochNumber++;
 
       // Verify the state syncs
-      await test.waitForNodeToSync(provenBlockNumber, 'finalised');
+      await test.waitForNodeToSync(provenBlockNumber, 'proven');
       await test.verifyHistoricBlock(provenBlockNumber, true);
-      const expectedOldestHistoricBlock = provenBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1;
+
+      // right now finalisation means a block is two L2 epochs deep. If this rule changes then we need this test needs to be updated
+      const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
+      const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1, 1);
       const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
       await test.waitForNodeToSync(expectedOldestHistoricBlock, 'historic');
-      await test.verifyHistoricBlock(Math.max(expectedOldestHistoricBlock, 1), true);
+      await test.verifyHistoricBlock(expectedOldestHistoricBlock, true);
       if (expectedBlockRemoved > 0) {
         await test.verifyHistoricBlock(expectedBlockRemoved, false);
       }
