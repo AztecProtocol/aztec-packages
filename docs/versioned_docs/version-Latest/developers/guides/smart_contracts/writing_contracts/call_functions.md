@@ -15,7 +15,7 @@ If a contract wishes to access or modify another contract's state, it must make 
 Import the contract that you want to call into your `Nargo.toml` under `dependencies` like this:
 
 ```toml
-token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/noir-contracts/contracts/app/token_contract" }
+token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.4", directory="noir-projects/noir-contracts/contracts/app/token_contract" }
 ```
 
 ### Import into your contract
@@ -39,34 +39,34 @@ To call the function, you need to
 
 To call a private function, you can just use `call()` like this:
 
-```rust title="call_function" showLineNumbers
+```rust title="call_function" showLineNumbers 
 Token::at(token).transfer(recipient, amount).call(&mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L45-L47" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L45-L47</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L45-L47" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L45-L47</a></sub></sup>
 
 
 #### Public -> Public calls
 
 To call a public function from a public function, it is the same as above. You can just use `call()` like this:
 
-```rust title="public_to_public_call" showLineNumbers
+```rust title="public_to_public_call" showLineNumbers 
 let _ = Token::at(collateral_asset)
     .transfer_in_public(context.msg_sender(), context.this_address(), amount, nonce)
     .call(&mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L133-L137" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L133-L137</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L133-L137" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L133-L137</a></sub></sup>
 
 
 #### Private -> Public calls
 
 To call a public function from private, you will need to enqueue it like this:
 
-```rust title="enqueue_public" showLineNumbers
+```rust title="enqueue_public" showLineNumbers 
 Lending::at(context.this_address())
     ._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset)
     .enqueue(&mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123</a></sub></sup>
 
 
 Public functions are always executed after private execution. To learn why, read the [concepts overview](../../../../aztec/index.md).

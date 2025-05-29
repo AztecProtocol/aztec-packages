@@ -258,6 +258,8 @@
     "realpath",
     "rebundle",
     "reentrancy",
+    "reexecute",
+    "reexecution",
     "repr",
     "Reserialize",
     "retag",

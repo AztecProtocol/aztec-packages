@@ -171,6 +171,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     for (const container of this.#containers) {
       container.db = undefined;
     }
+
     // Return the result of the callback.
     // Tx is guaranteed to already be closed, so the await doesn't hurt anything here
     return await runningPromise;

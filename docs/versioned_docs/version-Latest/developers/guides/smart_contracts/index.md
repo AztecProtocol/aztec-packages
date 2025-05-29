@@ -23,7 +23,7 @@ help you write Noir programs to deploy on the Aztec network.
 ```toml
 # Nargo.toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.4", directory="noir-projects/aztec-nr/aztec" }
 ```
 
 2.  [Write your contracts](./writing_contracts/index.mdx).

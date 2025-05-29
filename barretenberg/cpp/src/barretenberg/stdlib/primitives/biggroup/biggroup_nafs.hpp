@@ -514,6 +514,9 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     } else {
         naf_entries[num_rounds] = bool_ct(witness_t(ctx, false));
     }
+    // We need to manually propagate the origin tag
+    naf_entries[num_rounds].set_origin_tag(scalar.get_origin_tag());
+
     for (size_t i = 0; i < num_rounds - 1; ++i) {
         bool next_entry = scalar_multiplier.get_bit(i + 1);
         // if the next entry is false, we need to flip the sign of the current entry. i.e. make negative
@@ -545,6 +548,8 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             }
             naf_entries[num_rounds - i - 1] = bit;
         }
+        // We need to manually propagate the origin tag
+        naf_entries[num_rounds - i - 1].set_origin_tag(scalar.get_origin_tag());
     }
     naf_entries[0] = bool_ct(ctx, false); // most significant entry is always true
 
