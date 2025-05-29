@@ -116,8 +116,6 @@ struct Gas {
     Gas operator+(const Gas& other) const { return { l2Gas + other.l2Gas, daGas + other.daGas }; }
     Gas operator-(const Gas& other) const { return { l2Gas - other.l2Gas, daGas - other.daGas }; }
 
-    Gas min(const Gas& other) const { return { std::min(l2Gas, other.l2Gas), std::min(daGas, other.daGas) }; }
-
     MSGPACK_FIELDS(l2Gas, daGas);
 };
 

@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/execution.hpp"
 
+#include "gmock/gmock.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -11,6 +12,7 @@
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
@@ -18,6 +20,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 
 namespace bb::avm2::simulation {
@@ -64,6 +67,12 @@ TEST_F(ExecutionSimulationTest, Call)
     MemoryValue l2_gas_allocated = MemoryValue::from<uint32_t>(6);
     MemoryValue da_gas_allocated = MemoryValue::from<uint32_t>(7);
 
+    auto gas_tracker = std::make_unique<StrictMock<MockGasTracker>>();
+    EXPECT_CALL(*gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
+
+    EXPECT_CALL(execution_components, make_gas_tracker(_)).WillOnce(Return(std::move(gas_tracker)));
+    execution.init_gas_tracker(context);
+
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
     EXPECT_CALL(execution_components, get_next_context_id);
@@ -79,7 +88,6 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(l2_gas_allocated));     // l2_gas_offset
     EXPECT_CALL(memory, get(2)).WillOnce(ReturnRef(da_gas_allocated));     // da_gas_offset
     EXPECT_CALL(memory, get(3)).WillOnce(ReturnRef(nested_address_value)); // contract_address
-    EXPECT_CALL(context, gas_left).WillOnce(Return(Gas{ 2, 3 }));
 
     auto nested_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*nested_context, halted())

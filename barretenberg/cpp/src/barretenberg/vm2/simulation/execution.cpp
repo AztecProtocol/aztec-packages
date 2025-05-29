@@ -61,9 +61,8 @@ void Execution::call(ContextInterface& context,
     set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address });
 
     // TODO(ilyas): How will we tag check these? We are just throwing right now on the first tag mismatch.
-    Gas allocated_gas = Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() };
-    Gas gas_left = context.gas_left();
-    Gas gas_limit = allocated_gas.min(gas_left);
+    Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
+        Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
 
     // Cd size and cd offset loads are deferred to (possible) calldatacopy
     auto nested_context = execution_components.make_nested_context(contract_address,

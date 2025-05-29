@@ -304,7 +304,10 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         // Gas
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_da_range_settings>>());
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_da_range_settings>>(),
+        // Call opcode
+        std::make_unique<LookupIntoIndexedByClk<lookup_execution_call_allocated_left_l2_range_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_execution_call_allocated_left_da_range_settings>>());
 }
 
 } // namespace bb::avm2::tracegen
