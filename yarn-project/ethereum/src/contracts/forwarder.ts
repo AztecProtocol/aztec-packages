@@ -31,8 +31,8 @@ export class ForwarderContract {
     this.forwarder = getContract({ address, abi: ForwarderAbi, client });
   }
 
-  static expectedAddress(owner: Hex) {
-    const { address } = getExpectedAddress(ForwarderAbi, ForwarderBytecode, [owner], owner);
+  static expectedAddress() {
+    const { address } = getExpectedAddress(ForwarderAbi, ForwarderBytecode, [], DEFAULT_FORWARDER_SALT);
     return address;
   }
 
