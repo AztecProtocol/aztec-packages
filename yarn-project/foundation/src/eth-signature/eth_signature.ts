@@ -12,7 +12,6 @@ export type ViemSignature = {
   r: `0x${string}`;
   s: `0x${string}`;
   v: number;
-  isEmpty: boolean;
 };
 
 /**
@@ -22,6 +21,8 @@ export class Signature {
   // Cached values
   private size: number | undefined;
 
+  public readonly empty: boolean;
+
   constructor(
     /** The r value of the signature */
     public readonly r: Buffer32,
@@ -29,9 +30,9 @@ export class Signature {
     public readonly s: Buffer32,
     /** The v value of the signature */
     public readonly v: number,
-    /** Does this struct store an empty signature */
-    public readonly isEmpty: boolean = false,
-  ) {}
+  ) {
+    this.empty = r.isZero() && s.isZero() && v === 0;
+  }
 
   static fromBuffer(buf: Buffer | BufferReader): Signature {
     const reader = BufferReader.asReader(buf);
@@ -40,9 +41,7 @@ export class Signature {
     const s = reader.readObject(Buffer32);
     const v = reader.readNumber();
 
-    const isEmpty = r.isZero() && s.isZero();
-
-    return new Signature(r, s, v, isEmpty);
+    return new Signature(r, s, v);
   }
 
   static isValidString(sig: `0x${string}`): boolean {
@@ -61,30 +60,27 @@ export class Signature {
     const s = reader.readObject(Buffer32);
     const v = parseInt(sig.slice(2 + 64 * 2), 16);
 
-    const isEmpty = r.isZero() && s.isZero();
-
-    return new Signature(r, s, v, isEmpty);
+    return new Signature(r, s, v);
   }
 
   static fromViemSignature(sig: ViemSignature): Signature {
-    return new Signature(
-      Buffer32.fromBuffer(hexToBuffer(sig.r)),
-      Buffer32.fromBuffer(hexToBuffer(sig.s)),
-      sig.v,
-      sig.isEmpty,
-    );
+    return new Signature(Buffer32.fromBuffer(hexToBuffer(sig.r)), Buffer32.fromBuffer(hexToBuffer(sig.s)), sig.v);
   }
 
   static random(): Signature {
-    return new Signature(Buffer32.random(), Buffer32.random(), Math.floor(Math.random() * 2), false);
+    return new Signature(Buffer32.random(), Buffer32.random(), Math.floor(Math.random() * 2));
   }
 
   static empty(): Signature {
-    return new Signature(Buffer32.ZERO, Buffer32.ZERO, 0, true);
+    return new Signature(Buffer32.ZERO, Buffer32.ZERO, 0);
+  }
+
+  isEmpty(): boolean {
+    return this.empty;
   }
 
   equals(other: Signature): boolean {
-    return this.r.equals(other.r) && this.s.equals(other.s) && this.v === other.v && this.isEmpty === other.isEmpty;
+    return this.r.equals(other.r) && this.s.equals(other.s) && this.v === other.v && this.empty === other.empty;
   }
 
   toBuffer(): Buffer {
@@ -115,7 +111,6 @@ export class Signature {
       r: this.r.toString(),
       s: this.s.toString(),
       v: this.v,
-      isEmpty: this.isEmpty,
     };
   }
 

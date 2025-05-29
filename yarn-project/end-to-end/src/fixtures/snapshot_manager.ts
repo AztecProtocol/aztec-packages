@@ -330,7 +330,7 @@ async function setupFromFresh(
 
   // Deploy our L1 contracts.
   logger.verbose('Deploying L1 contracts...');
-  const hdAccount = mnemonicToAccount(MNEMONIC, { accountIndex: 0 });
+  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
@@ -338,7 +338,7 @@ async function setupFromFresh(
   const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
-  aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+  aztecNodeConfig.validatorPrivateKeys = [`0x${validatorPrivKey!.toString('hex')}`];
 
   const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 
@@ -387,10 +387,13 @@ async function setupFromFresh(
     logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
   }
 
+  const dateProvider = new TestDateProvider();
+
   const watcher = new AnvilTestWatcher(
     new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.l1Client,
+    dateProvider,
   );
   await watcher.start();
 
@@ -423,7 +426,6 @@ async function setupFromFresh(
   await blobSink.start();
 
   logger.verbose('Creating and synching an aztec node...');
-  const dateProvider = new TestDateProvider();
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
     { telemetry, dateProvider },
@@ -523,15 +525,16 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   logger.verbose('Creating ETH clients...');
   const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, mnemonicToAccount(MNEMONIC));
 
+  const dateProvider = new TestDateProvider();
   const watcher = new AnvilTestWatcher(
     new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     aztecNodeConfig.l1Contracts.rollupAddress,
     l1Client,
+    dateProvider,
   );
   await watcher.start();
 
   const telemetry = initTelemetryClient(getTelemetryConfig());
-  const dateProvider = new TestDateProvider();
   const blobSink = await createBlobSinkServer(
     {
       l1ChainId: aztecNodeConfig.l1ChainId,

@@ -1,5 +1,6 @@
 mod validate_common;
 mod validate_no_transient_data;
+mod validate_proof;
 
 use crate::components::previous_kernel_validator::PreviousKernelValidator;
 use dep::types::{address::AztecAddress, tests::fixture_builder::FixtureBuilder, traits::FromField};
@@ -37,6 +38,11 @@ impl PreviousKernelValidatorBuilder {
     pub fn validate_for_private_tail_to_public(self) {
         let previous_kernel = self.previous_kernel.to_private_kernel_data();
         PreviousKernelValidator::new(previous_kernel).validate_for_private_tail_to_public();
+    }
+
+    pub fn validate_proof<let N: u32>(self, allowed_vk_indices: [u32; N]) {
+        let previous_kernel = self.previous_kernel.to_private_kernel_data();
+        PreviousKernelValidator::new(previous_kernel).validate_proof(allowed_vk_indices);
     }
 }
 

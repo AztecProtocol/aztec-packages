@@ -10,7 +10,13 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import { type L1ContractAddresses, RegistryContract, createEthereumChain } from '@aztec/ethereum';
+import {
+  type L1ContractAddresses,
+  RegistryContract,
+  createEthereumChain,
+  createExtendedL1Client,
+} from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -20,9 +26,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { type P2P, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -30,10 +34,10 @@ import {
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
-  createSlasherClient,
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type {
@@ -181,7 +185,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const publicClient = createPublicClient({
       chain: ethereumChain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map(url => http(url))),
+      transport: fallback(config.l1RpcUrls.map((url: string) => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -193,6 +197,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     // Overwrite the passed in vars.
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
+
+    const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
+    const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
 
     const rollup = getContract({
       address: l1ContractsAddresses.rollupAddress.toString(),
@@ -247,8 +254,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
-    const slasherClient = createSlasherClient(config, archiver, telemetry);
-    slasherClient.start();
+    const watchers: Watcher[] = [];
+
+    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+    if (validatorsSentinel) {
+      watchers.push(validatorsSentinel);
+    }
+    const epochPruneWatcher = new EpochPruneWatcher(archiver, epochCache, config.slashPrunePenalty);
+    watchers.push(epochPruneWatcher);
+
+    const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
+    await slasherClient.start();
 
     const validatorClient = createValidatorClient(config, {
       p2pClient,
@@ -258,16 +274,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockSource: archiver,
     });
 
-    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    await validatorsSentinel?.start();
-
     log.verbose(`All Aztec Node subsystems synced`);
 
     // now create the sequencer
     const sequencer = config.disableValidator
       ? undefined
       : await SequencerClient.new(config, {
+          // if deps were provided, they should override the defaults,
+          // or things that we created in this function
           ...deps,
+          epochCache,
+          l1TxUtils,
           validatorClient,
           p2pClient,
           worldStateSynchronizer,
@@ -528,7 +545,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async stop() {
     this.log.info(`Stopping`);
     await this.txQueue.end();
-    await this.validatorsSentinel?.stop();
+    // await this.validatorsSentinel?.stop(); <- The slasher client will stop this
     await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
@@ -698,120 +715,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Returns the index and sibling path for a L2->L1 message in a block's message tree.
-   * @remarks The message tree is constructed on-demand by taking all L2->L1 messages in a block
-   * and creating a variable depth append-only tree with the messages as leaves.
-   * The tree is constructed in two layers:
-   * 1. Subtree - For each transaction in the block, a subtree is created containing all L2->L1 messages from that
-   * transaction.
-   * 2. Top tree - A tree containing the roots of all the subtrees as leaves
-   * The final path is constructed by concatenating the path in the subtree with the path in the top tree.
-   * When there is only one transaction in the block, the subtree itself becomes the block's L2->L1 message tree,
-   * and no top tree is needed. The out hash is the root of the the block's L2->L1 message tree.
-   * TODO: Handle the case where two messages in the same tx have the same hash.
-   * @param blockNumber - Block number to get data from
-   * @param l2ToL1Message - Message to get index/path for
-   * @returns [index, siblingPath] for the message
+   * Returns all the L2 to L1 messages in a block.
+   * @param blockNumber - The block number at which to get the data.
+   * @returns The L2 to L1 messages (undefined if the block number is not found).
    */
-  public async getL2ToL1MessageMembershipWitness(
-    blockNumber: L2BlockNumber,
-    l2ToL1Message: Fr,
-  ): Promise<[bigint, SiblingPath<number>]> {
+  public async getL2ToL1Messages(blockNumber: L2BlockNumber): Promise<Fr[][] | undefined> {
     const block = await this.blockSource.getBlock(blockNumber === 'latest' ? await this.getBlockNumber() : blockNumber);
-
-    if (block === undefined) {
-      throw new Error('Block not found in getL2ToL1MessageMembershipWitness');
-    }
-
-    const messagesPerTx = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
-
-    // Find index of message in subtree and index of tx in a block
-    let messageIndexInTx = -1,
-      txIndex = -1;
-    {
-      txIndex = messagesPerTx.findIndex(messages => {
-        const idx = messages.findIndex(msg => msg.equals(l2ToL1Message));
-        messageIndexInTx = Math.max(messageIndexInTx, idx);
-        return idx !== -1;
-      });
-    }
-
-    if (txIndex === -1) {
-      throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
-    }
-
-    // Get the message path in subtree and message subtree height
-    let messagePathInSubtree: SiblingPath<number>;
-    let messageSubtreeHeight: number;
-    {
-      const subtreeStore = openTmpStore(true);
-      const txMessages = messagesPerTx[txIndex];
-      messageSubtreeHeight = txMessages.length <= 1 ? 1 : Math.ceil(Math.log2(txMessages.length));
-      const subtree = new StandardTree(
-        subtreeStore,
-        new SHA256Trunc(),
-        `subtree_${txIndex}`,
-        messageSubtreeHeight,
-        0n,
-        Fr,
-      );
-      subtree.appendLeaves(txMessages);
-      messagePathInSubtree = await subtree.getSiblingPath(BigInt(messageIndexInTx), true);
-      await subtreeStore.delete();
-    }
-
-    // If the number of txs is 1 we are dealing with a special case where the tx subtree itself is the whole block's
-    // l2 to l1 message tree.
-    const numTransactions = block.body.txEffects.length;
-    if (numTransactions === 1) {
-      return [BigInt(messageIndexInTx), messagePathInSubtree];
-    }
-
-    // Calculate roots for all tx subtrees
-    const txSubtreeRoots = await Promise.all(
-      messagesPerTx.map(async (messages, txIdx) => {
-        // For a tx with no messages, we have to set an out hash of 0 to match what the circuit does.
-        if (messages.length === 0) {
-          return Fr.ZERO;
-        }
-
-        const txStore = openTmpStore(true);
-        const txTreeHeight = messages.length <= 1 ? 1 : Math.ceil(Math.log2(messages.length));
-        const txTree = new StandardTree(
-          txStore,
-          new SHA256Trunc(),
-          `tx_messages_subtree_${txIdx}`,
-          txTreeHeight,
-          0n,
-          Fr,
-        );
-        txTree.appendLeaves(messages);
-        const root = Fr.fromBuffer(txTree.getRoot(true));
-        await txStore.delete();
-        return root;
-      }),
-    );
-
-    // Construct the top tree and compute the combined path
-    let combinedPath: Buffer[];
-    {
-      const topTreeHeight = Math.ceil(Math.log2(txSubtreeRoots.length));
-      // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
-      const topTree = new UnbalancedTree(new SHA256Trunc(), 'top_tree', topTreeHeight, Fr);
-      await topTree.appendLeaves(txSubtreeRoots);
-
-      const txPathInTopTree = await topTree.getSiblingPath(txSubtreeRoots[txIndex].toBigInt());
-      // Append subtree path to top tree path
-      combinedPath = messagePathInSubtree.toBufferArray().concat(txPathInTopTree.toBufferArray());
-    }
-
-    // Append binary index of subtree path to binary index of top tree path
-    const combinedIndex = parseInt(
-      txIndex.toString(2).concat(messageIndexInTx.toString(2).padStart(messageSubtreeHeight, '0')),
-      2,
-    );
-
-    return [BigInt(combinedIndex), new SiblingPath(combinedPath.length, combinedPath)];
+    return block?.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
   }
 
   /**

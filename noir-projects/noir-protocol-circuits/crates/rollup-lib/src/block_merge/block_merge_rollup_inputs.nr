@@ -49,8 +49,6 @@ impl BlockMergeRollupInputs {
         // ^ Where instead of num_txs, use num_blocks = (end_global_variables.block_number - start_global_variables.block_number) + 1
         components::assert_prev_block_rollups_follow_on_from_each_other(left, right);
 
-        let out_hash = components::compute_blocks_out_hash(self.previous_rollup_data);
-
         let proposed_block_header_hashes =
             components::accumulate_proposed_block_header_hashes(left, right);
 
@@ -67,7 +65,7 @@ impl BlockMergeRollupInputs {
             new_archive: right.new_archive,
             start_global_variables: left.start_global_variables,
             end_global_variables: right.end_global_variables,
-            out_hash,
+            out_hash: 0, // Not needed for block merge. This is only required for block root since the value is inserted on L1 per block.
             proposed_block_header_hashes,
             fees,
             vk_tree_root: left.vk_tree_root,
@@ -83,7 +81,6 @@ mod tests {
     use dep::types::constants::{
         BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_INDEX, ROOT_PARITY_INDEX,
     };
-    use dep::types::hash::accumulate_sha256;
     use dep::types::tests::fixtures;
     use types::merkle_tree::merkle_tree::MerkleTree;
 
@@ -120,15 +117,6 @@ mod tests {
         inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.block_number =
             1;
         let _output = inputs.block_merge_rollup_circuit();
-    }
-
-    #[test]
-    fn out_hash() {
-        let mut inputs = default_block_merge_rollup_inputs();
-        let expected_hash = accumulate_sha256([1, 2]);
-        let outputs = inputs.block_merge_rollup_circuit();
-
-        assert_eq(outputs.out_hash, expected_hash);
     }
 
     #[test]
@@ -177,39 +165,45 @@ mod tests {
     #[test]
     fn valid_previous_circuit_block_root() {
         let mut inputs = default_block_merge_rollup_inputs();
+
+        let vk_index = BLOCK_ROOT_ROLLUP_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(BLOCK_ROOT_ROLLUP_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_ROOT_ROLLUP_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(BLOCK_ROOT_ROLLUP_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
+
         let _outputs = inputs.block_merge_rollup_circuit();
     }
 
     #[test]
     fn valid_previous_circuit_block_merge() {
         let mut inputs = default_block_merge_rollup_inputs();
+
+        let vk_index = BLOCK_MERGE_ROLLUP_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(BLOCK_MERGE_ROLLUP_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_MERGE_ROLLUP_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(BLOCK_MERGE_ROLLUP_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
+
         let _outputs = inputs.block_merge_rollup_circuit();
     }
 
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_circuit() {
         let mut inputs = default_block_merge_rollup_inputs();
+
+        let vk_index = ROOT_PARITY_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(ROOT_PARITY_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(ROOT_PARITY_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
+
         let _outputs = inputs.block_merge_rollup_circuit();
     }
 }

@@ -23,7 +23,7 @@ describe('AttestationValidator', () => {
     });
 
     // Mock epoch cache to return different slot numbers
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 98n,
       nextSlot: 99n,
     });
@@ -40,7 +40,7 @@ describe('AttestationValidator', () => {
     });
 
     // Mock epoch cache to return matching slot number but invalid committee membership
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
     });
@@ -57,7 +57,7 @@ describe('AttestationValidator', () => {
     });
 
     // Mock epoch cache for valid case with current slot
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
     });
@@ -74,7 +74,7 @@ describe('AttestationValidator', () => {
     });
 
     // Mock epoch cache for valid case with next slot
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
     });

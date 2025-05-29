@@ -1,8 +1,10 @@
 use crate::{
     address::AztecAddress,
-    constants::PUBLIC_CALL_REQUEST_LENGTH,
-    traits::{Deserialize, Empty, FromField, Serialize, ToField},
-    utils::reader::Reader,
+    constants::{
+        MAX_ENQUEUED_CALLS_PER_TX, NUM_PUBLIC_CALL_REQUEST_ARRAYS, PUBLIC_CALL_REQUEST_LENGTH,
+    },
+    traits::{Deserialize, Empty, FromField, is_empty, Serialize, ToField},
+    utils::{arrays::array_length, reader::Reader},
 };
 
 pub struct PublicCallRequest {
@@ -54,11 +56,74 @@ impl Deserialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
         let request = PublicCallRequest {
             msg_sender: AztecAddress::from_field(reader.read()),
             contract_address: AztecAddress::from_field(reader.read()),
-            is_static_call: reader.read() as bool,
+            is_static_call: reader.read_bool(),
             calldata_hash: reader.read(),
         };
         reader.finish();
         request
+    }
+}
+
+pub struct PublicCallRequestArrayLengths {
+    pub setup_calls: u32,
+    pub app_logic_calls: u32,
+    pub teardown_call: bool,
+}
+
+impl PublicCallRequestArrayLengths {
+    pub fn new(
+        setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+        app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+        teardown_call_request: PublicCallRequest,
+    ) -> Self {
+        PublicCallRequestArrayLengths {
+            setup_calls: array_length(setup_call_requests),
+            app_logic_calls: array_length(app_logic_call_requests),
+            teardown_call: !is_empty(teardown_call_request),
+        }
+    }
+}
+
+impl Empty for PublicCallRequestArrayLengths {
+    fn empty() -> Self {
+        PublicCallRequestArrayLengths { setup_calls: 0, app_logic_calls: 0, teardown_call: false }
+    }
+}
+
+impl Eq for PublicCallRequestArrayLengths {
+    fn eq(self, other: PublicCallRequestArrayLengths) -> bool {
+        (self.setup_calls == other.setup_calls)
+            & (self.app_logic_calls == other.app_logic_calls)
+            & (self.teardown_call == other.teardown_call)
+    }
+}
+
+impl Serialize<NUM_PUBLIC_CALL_REQUEST_ARRAYS> for PublicCallRequestArrayLengths {
+    fn serialize(self) -> [Field; NUM_PUBLIC_CALL_REQUEST_ARRAYS] {
+        let mut fields: BoundedVec<Field, NUM_PUBLIC_CALL_REQUEST_ARRAYS> = BoundedVec::new();
+
+        fields.push(self.setup_calls as Field);
+        fields.push(self.app_logic_calls as Field);
+        fields.push(self.teardown_call as Field);
+
+        fields.storage()
+    }
+}
+
+impl Deserialize<NUM_PUBLIC_CALL_REQUEST_ARRAYS> for PublicCallRequestArrayLengths {
+    fn deserialize(
+        fields: [Field; NUM_PUBLIC_CALL_REQUEST_ARRAYS],
+    ) -> PublicCallRequestArrayLengths {
+        let mut reader = Reader::new(fields);
+
+        let item = PublicCallRequestArrayLengths {
+            setup_calls: reader.read_u32(),
+            app_logic_calls: reader.read_u32(),
+            teardown_call: reader.read_bool(),
+        };
+
+        reader.finish();
+        item
     }
 }
 
@@ -67,5 +132,13 @@ fn serialization_of_empty_public_call_request() {
     let item = PublicCallRequest::empty();
     let serialized = item.serialize();
     let deserialized = PublicCallRequest::deserialize(serialized);
+    assert(item.eq(deserialized));
+}
+
+#[test]
+fn serialization_of_empty_public_call_request_array_lengths() {
+    let item = PublicCallRequestArrayLengths::empty();
+    let serialized = item.serialize();
+    let deserialized = PublicCallRequestArrayLengths::deserialize(serialized);
     assert(item.eq(deserialized));
 }

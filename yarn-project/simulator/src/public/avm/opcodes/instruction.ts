@@ -3,7 +3,7 @@ import type { Bufferable } from '@aztec/foundation/serialize';
 import { strict as assert } from 'assert';
 
 import type { AvmContext } from '../avm_context.js';
-import { type Gas, getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
+import { type Gas, computeAddressingCost, getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
 import type { BufferCursor } from '../serialization/buffer_cursor.js';
 import { Opcode, type OperandType, deserialize, serializeAs } from '../serialization/instruction_serialization.js';
 
@@ -92,13 +92,20 @@ export abstract class Instruction {
   }
 
   /**
-   * Computes gas cost for the instruction based on its base cost and memory operations.
-   * @returns Gas cost.
+   * Returns the base gas cost for the instruction.
+   * @returns The base gas cost.
    */
-  protected gasCost(dynMultiplier: number = 0): Gas {
-    const baseGasCost = getBaseGasCost(this.opcode);
-    const dynGasCost = mulGas(getDynamicGasCost(this.opcode), dynMultiplier);
-    return sumGas(baseGasCost, dynGasCost);
+  protected baseGasCost(indirectOperandsCount: number, relativeOperandsCount: number): Gas {
+    return sumGas(getBaseGasCost(this.opcode), computeAddressingCost(indirectOperandsCount, relativeOperandsCount));
+  }
+
+  /**
+   * Computes the dynamic gas cost for the instruction
+   * @param dynMultiplier - The multiplier for the dynamic gas cost.
+   * @returns The dynamic gas cost.
+   */
+  protected dynamicGasCost(dynMultiplier: number = 0): Gas {
+    return mulGas(getDynamicGasCost(this.opcode), dynMultiplier);
   }
 
   /**

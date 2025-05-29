@@ -40,7 +40,7 @@ export interface AztecIDBSchema extends DBSchema {
 export class AztecIndexedDBStore implements AztecAsyncKVStore {
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #name: string;
-  #currentTx?: IDBPTransaction<AztecIDBSchema, ['data'], 'readwrite'>;
+  #currentTx: IDBPTransaction<AztecIDBSchema, ['data'], 'readwrite'> | undefined;
 
   #containers = new Set<
     | IndexedDBAztecArray<any>

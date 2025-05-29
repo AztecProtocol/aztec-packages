@@ -122,7 +122,7 @@ export async function createContractClassAndInstance(
   const contractClass = await makeContractClassPublic(seed, bytecode);
 
   const constructorAbi = getContractFunctionAbi('constructor', contractArtifact);
-  const { publicKeys } = await deriveKeys(Fr.random());
+  const { publicKeys } = await deriveKeys(new Fr(seed));
   const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
   const contractInstance =
     originalContractClassId === undefined
