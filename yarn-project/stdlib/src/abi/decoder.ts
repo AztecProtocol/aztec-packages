@@ -7,7 +7,7 @@ import { isAztecAddressStruct, parseSignedInt } from './utils.js';
 /**
  * The type of our decoded ABI.
  */
-export type AbiDecoded = bigint | boolean | AztecAddress | AbiDecoded[] | { [key: string]: AbiDecoded };
+export type AbiDecoded = bigint | boolean | string | AztecAddress | AbiDecoded[] | { [key: string]: AbiDecoded };
 
 /**
  * Decodes values using a provided ABI.
@@ -58,11 +58,12 @@ class AbiDecoder {
         return struct;
       }
       case 'string': {
-        const array = [];
+        let str = '';
         for (let i = 0; i < abiType.length; i += 1) {
-          array.push(this.getNextField().toBigInt());
+          const charCode = Number(this.getNextField().toBigInt());
+          str += String.fromCharCode(charCode);
         }
-        return array;
+        return str;
       }
       case 'tuple': {
         const array = [];
