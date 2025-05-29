@@ -610,30 +610,28 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 
 template <typename Builder> void field_t<Builder>::assert_is_zero(std::string const& msg) const
 {
-    if (get_value() != bb::fr(0)) {
-        context->failure(msg);
-    }
 
-    if (witness_index == IS_CONSTANT) {
-        ASSERT(additive_constant == bb::fr(0));
+    if (this->is_constant()) {
+        BB_ASSERT_EQ(additive_constant == bb::fr::zero(), true, msg);
         return;
     }
 
-    // Aim of new gate: this.v * this.mul + this.add == 0
+    if (get_value() != bb::fr::zero()) {
+        context->failure(msg);
+    }
+    // Aim of a new `poly` gate: constrain this.v * this.mul + this.add == 0
     // I.e.:
     // this.v * 0 * [ 0 ] + this.v * [this.mul] + 0 * [ 0 ] + 0 * [ 0 ] + [this.add] == 0
     // this.v * 0 * [q_m] + this.v * [   q_l  ] + 0 * [q_r] + 0 * [q_o] + [   q_c  ] == 0
 
-    Builder* ctx = context;
-
     context->create_poly_gate({
         .a = witness_index,
-        .b = ctx->zero_idx,
-        .c = ctx->zero_idx,
-        .q_m = bb::fr(0),
+        .b = context->zero_idx,
+        .c = context->zero_idx,
+        .q_m = bb::fr::zero(),
         .q_l = multiplicative_constant,
-        .q_r = bb::fr(0),
-        .q_o = bb::fr(0),
+        .q_r = bb::fr::zero(),
+        .q_o = bb::fr::zero(),
         .q_c = additive_constant,
     });
 }
@@ -641,16 +639,16 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
 template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::string const& msg) const
 {
 
-    if (witness_index == IS_CONSTANT) {
-        ASSERT(additive_constant != bb::fr(0), msg);
+    if (!this->is_constant()) {
+        BB_ASSERT_EQ(additive_constant != bb::fr::zero(), true, msg);
         return;
     }
 
-    if (get_value() == 0) {
+    if (get_value() == bb::fr::zero()) {
         context->failure(msg);
     }
 
-    bb::fr inverse_value = (get_value() == 0) ? 0 : get_value().invert();
+    bb::fr inverse_value = (get_value() == bb::fr::zero()) ? bb::fr::zero() : get_value().invert();
 
     field_t<Builder> inverse(witness_t<Builder>(context, inverse_value));
 
@@ -660,7 +658,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
         context->update_used_witnesses(inverse.witness_index);
     }
 
-    // Aim of new gate: `this` has an inverse (hence is not zero).
+    // Aim of a new `poly` gate: `this` has an inverse (hence is not zero).
     // I.e.:
     //     (this.v * this.mul + this.add) * inverse.v == 1;
     // <=> this.v * inverse.v * [this.mul] + this.v * [ 0 ] + inverse.v * [this.add] + 0 * [ 0 ] + [ -1] == 0
@@ -672,10 +670,10 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
         .b = inverse.witness_index,     // inverse
         .c = context->zero_idx,         // no output
         .q_m = multiplicative_constant, // a * b * mul_const
-        .q_l = bb::fr(0),               // a * 0
+        .q_l = bb::fr::zero(),          // a * 0
         .q_r = additive_constant,       // b * mul_const
-        .q_o = bb::fr(0),               // c * 0
-        .q_c = bb::fr(-1),              // -1
+        .q_o = bb::fr::zero(),          // c * 0
+        .q_c = bb::fr::neg_one(),       // -1
     });
 }
 
@@ -1054,10 +1052,10 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
 template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const std::vector<field_t>& input)
 {
     if (input.empty()) {
-        return field_t<Builder>(nullptr, 0);
+        return field_t<Builder>(bb::fr::zero());
     }
     if (input.size() == 1) {
-        return input[0]; //.normalize();
+        return input[0].normalize();
     }
     /**
      * If we are using UltraCircuitBuilder, we can accumulate 3 values into a sum per gate.
@@ -1097,7 +1095,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
         }
         if (accumulator.empty()) {
             return constant_term;
-        } else if (accumulator.size() != input.size()) {
+        }
+
+        if (accumulator.size() != input.size()) {
+            // Input contains non-constant field_t elements, add the accumulated constant to the first non-constant
+            // element
             accumulator[0] += constant_term;
         }
 
@@ -1133,7 +1135,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
                     accumulator[3 * i].additive_constant + accumulator[3 * i + 1].additive_constant +
                         accumulator[3 * i + 2].additive_constant,
                 },
-                ((i == num_gates - 1) ? false : true));
+                (i != num_gates - 1));
             bb::fr new_total = accumulating_total.get_value() - accumulator[3 * i].get_value() -
                                accumulator[3 * i + 1].get_value() - accumulator[3 * i + 2].get_value();
             accumulating_total = witness_t<Builder>(ctx, new_total);
@@ -1192,12 +1194,12 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
 /**
  * @brief Build a circuit allowing a user to prove that they have decomposed `this` into bits.
  *
- * @details A bit vector `result` is extracted and used to to construct a sum `sum` using the normal binary expansion.
+ * @details A bit vector `result` is extracted and used to construct a sum `sum` using the normal binary expansion.
  * Along the way, we extract a value `shifted_high_limb` which is equal to `sum_hi` in the natural decomposition
  *          `sum = sum_lo + 2**128*sum_hi`.
  * We impose a copy constraint between `sum` and `this` but that only imposes equality in `Fr`; it could be that
  * `result` has overflowed the modulus `r`. To impose a unique value of `result`, we constrain `sum` to satisfy `r - 1
- * >= sum >= 0`. In order to do this inside of `Fr`, we must reduce break the check down in the smaller checks so that
+ * >= sum >= 0`. In order to do this inside of `Fr`, we must reduce the check to smaller checks so that
  * we can check non-negativity of integers using range constraints in Fr.
  *
  * At circuit compilation time we build the decomposition `r - 1 = p_lo + 2**128*p_hi`. Then desired schoolbook
