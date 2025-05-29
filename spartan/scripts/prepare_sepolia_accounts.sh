@@ -82,6 +82,12 @@ else
   num_bots=0
 fi
 
+# Skip if all services have 0 replicas
+if [ "$num_validators" -eq 0 ] && [ "$num_provers" -eq 0 ] && [ "$num_bots" -eq 0 ]; then
+  echo "All relevant services have 0 replicas. No accounts to fund. Skipping..."
+  exit 0
+fi
+
 # Calculate the highest index needed
 validator_max_index=$((validator_key_index_start + num_validators - 1))
 prover_max_index=$((prover_key_index_start + num_provers - 1))
