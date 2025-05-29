@@ -98,10 +98,9 @@ pol constant p_decomposition_limb;
 
 // EXECUTION INSTRUCTION SPEC table
 // Maps an execution opcode value to useful information used during execution
-// - Gas Costs
-// - Opcode memory operations and destination registers
-pol constant sel_exec_spec;
 // exec_opcode is clk
+pol constant sel_exec_spec;
+// Gas Costs
 pol constant exec_opcode_opcode_gas;
 pol constant exec_opcode_base_da_gas;
 pol constant exec_opcode_dynamic_l2_gas;
@@ -109,17 +108,19 @@ pol constant exec_opcode_dynamic_da_gas;
 // Memory Access + Register mappings
 pol constant mem_op_reg[7], rw[7];
 // Subtrace/Gadget Selector
+pol constant subtrace_operation_id;
 pol constant sel_dispatch_alu;
 pol constant sel_dispatch_bitwise;
 pol constant sel_dispatch_poseidon_perm;
 pol constant sel_dispatch_to_radix;
 pol constant sel_dispatch_ecc;
-    // Add more here
-pol constant subtrace_operation_id;
+// Whether an operand is an address
+// NOTE: this could be encoded in bits in 1 column and reconstructed.
+pol constant sel_op_is_address[7];
 
 // Addressing gas
-pol constant sel_addressing_gas;
 // Indirect is clk
+pol constant sel_addressing_gas;
 pol constant addressing_gas;
 
 // Phase Table for Tx Trace

@@ -1,5 +1,6 @@
 #pragma once
 
+// #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"

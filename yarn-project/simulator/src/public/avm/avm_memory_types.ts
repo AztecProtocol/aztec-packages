@@ -32,6 +32,9 @@ export abstract class MemoryValue {
 
   // Use sparingly.
   public abstract toBigInt(): bigint;
+  public getTag(): TypeTag {
+    return TaggedMemory.getTag(this);
+  }
 
   // To Buffer
   public abstract toBuffer(): Buffer;
@@ -319,8 +322,8 @@ export class TaggedMemory implements TaggedMemoryInterface {
     }
   }
 
-  public checkIsValidMemoryOffsetTag(offset: number) {
-    this.checkTag(TypeTag.UINT32, offset);
+  public static isValidMemoryAddressTag(tag: TypeTag) {
+    return tag === TypeTag.UINT32;
   }
 
   public static checkIsIntegralTag(tag: TypeTag) {

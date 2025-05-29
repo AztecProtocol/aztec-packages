@@ -16,6 +16,8 @@ class MockMemory : public MemoryInterface {
     MOCK_METHOD(void, set, (MemoryAddress index, MemoryValue value), (override));
     MOCK_METHOD(const MemoryValue&, get, (MemoryAddress index), (const, override));
     MOCK_METHOD(uint32_t, get_space_id, (), (const, override));
+
+    bool is_valid_address(const FF& address) override { return (FF(static_cast<uint32_t>(address)) == address); }
 };
 
 } // namespace bb::avm2::simulation

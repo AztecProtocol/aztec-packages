@@ -28,7 +28,6 @@ struct ExecutionEvent {
     ExecutionError error = ExecutionError::NONE;
     BytecodeId bytecode_id;
     Instruction wire_instruction;
-    std::vector<Operand> resolved_operands;
 
     // Inputs and Outputs for a gadget/subtrace used when allocating registers in the execution trace.
     std::vector<TaggedValue> inputs;
