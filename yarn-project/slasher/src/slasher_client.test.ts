@@ -1,7 +1,6 @@
 import {
   DefaultL1ContractsConfig,
   type DeployL1ContractsArgs,
-  ForwarderContract,
   L1TxUtils,
   RollupContract,
   SlashingProposerContract,
@@ -109,8 +108,6 @@ describe('SlasherClient', () => {
     depositAmount = await rollup.getMinimumStake();
 
     await rollup.setupEpoch(l1TxUtils);
-
-    forwarder = await ForwarderContract.create(l1Client, logger, deployed.l1ContractAddresses.rollupAddress.toString());
   });
 
   afterAll(async () => {
