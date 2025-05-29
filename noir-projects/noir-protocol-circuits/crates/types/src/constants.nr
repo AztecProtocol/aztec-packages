@@ -250,11 +250,20 @@ pub global PRIVATE_LOG_LENGTH: u32 = PRIVATE_LOG_SIZE_IN_FIELDS + 1 /* length */
 pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_LENGTH
     + 1 /* note_hash_counter */
     + 1 /* counter */;
+/// A private log's ciphertext is all fields except the first one, which is called 'tag'. We call this 'ciphertext'
+/// because, unlike public logs, it is expected that private logs are encrypted (though this is not
+/// mandatory).
+pub global PRIVATE_LOG_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - 1; // -1 for the tag
 pub global SCOPED_PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_DATA_LENGTH + 1 /* contract_address */;
 pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = 13;
 pub global PUBLIC_LOG_LENGTH: u32 = PUBLIC_LOG_SIZE_IN_FIELDS
     + 1 /* length */
     + 1 /* contract_address */;
+/// A public log's plaintext is all fields except the first one, which is called 'tag'. We call this 'plaintext' because,
+/// unlike public logs, it is expected that public logs are not encrypted (since the encryption would be public,
+/// revealing the plaintext).
+pub global PUBLIC_LOG_PLAINTEXT_LEN: u32 = PUBLIC_LOG_SIZE_IN_FIELDS - 1; // -1 for the tag
+
 // TODO(MW): add new constant for this - the below is just the largest combination atm
 pub global CONTRACT_CLASS_LOG_SIZE_IN_FIELDS: u32 = MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS
     + REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS;
@@ -857,29 +866,29 @@ pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200;
 // Note: magic numbers here are derived from each op's AVM circuit trace area
 pub global AVM_ADD_BASE_L2_GAS: u32 = 9;
 pub global AVM_SUB_BASE_L2_GAS: u32 = 9;
-pub global AVM_MUL_BASE_L2_GAS: u32 = 21;
-pub global AVM_DIV_BASE_L2_GAS: u32 = 9;
+pub global AVM_MUL_BASE_L2_GAS: u32 = 27;
+pub global AVM_DIV_BASE_L2_GAS: u32 = 12;
 pub global AVM_FDIV_BASE_L2_GAS: u32 = 9;
 pub global AVM_EQ_BASE_L2_GAS: u32 = 9;
-pub global AVM_LT_BASE_L2_GAS: u32 = 30;
-pub global AVM_LTE_BASE_L2_GAS: u32 = 30;
+pub global AVM_LT_BASE_L2_GAS: u32 = 36;
+pub global AVM_LTE_BASE_L2_GAS: u32 = 36;
 pub global AVM_AND_BASE_L2_GAS: u32 = 9;
 pub global AVM_OR_BASE_L2_GAS: u32 = 9;
 pub global AVM_XOR_BASE_L2_GAS: u32 = 9;
 pub global AVM_NOT_BASE_L2_GAS: u32 = 6;
-pub global AVM_SHL_BASE_L2_GAS: u32 = 9;
-pub global AVM_SHR_BASE_L2_GAS: u32 = 9;
-pub global AVM_CAST_BASE_L2_GAS: u32 = 6;
-pub global AVM_GETENVVAR_BASE_L2_GAS: u16 = 3;
+pub global AVM_SHL_BASE_L2_GAS: u32 = 12;
+pub global AVM_SHR_BASE_L2_GAS: u32 = 12;
+pub global AVM_CAST_BASE_L2_GAS: u32 = 9;
+pub global AVM_GETENVVAR_BASE_L2_GAS: u16 = 6;
 pub global AVM_CALLDATACOPY_BASE_L2_GAS: u32 = 6;
-pub global AVM_SUCCESSCOPY_BASE_L2_GAS: u32 = 3;
-pub global AVM_RETURNDATASIZE_BASE_L2_GAS: u32 = 3;
+pub global AVM_SUCCESSCOPY_BASE_L2_GAS: u32 = 6;
+pub global AVM_RETURNDATASIZE_BASE_L2_GAS: u32 = 6;
 pub global AVM_RETURNDATACOPY_BASE_L2_GAS: u32 = 6;
-pub global AVM_JUMP_BASE_L2_GAS: u32 = 3;
-pub global AVM_JUMPI_BASE_L2_GAS: u32 = 3;
-pub global AVM_INTERNALCALL_BASE_L2_GAS: u32 = 3;
-pub global AVM_INTERNALRETURN_BASE_L2_GAS: u32 = 3;
-pub global AVM_SET_BASE_L2_GAS: u32 = 3;
+pub global AVM_JUMP_BASE_L2_GAS: u32 = 6;
+pub global AVM_JUMPI_BASE_L2_GAS: u32 = 6;
+pub global AVM_INTERNALCALL_BASE_L2_GAS: u32 = 6;
+pub global AVM_INTERNALRETURN_BASE_L2_GAS: u32 = 6;
+pub global AVM_SET_BASE_L2_GAS: u32 = 6;
 pub global AVM_MOV_BASE_L2_GAS: u32 = 6;
 pub global AVM_SLOAD_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_PUBLIC_READ;
 pub global AVM_SSTORE_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_PUBLIC_WRITE;
@@ -893,9 +902,9 @@ pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 42;
 pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 6 + L2_GAS_PER_L2_TO_L1_MSG;
 pub global AVM_CALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
 pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
-pub global AVM_RETURN_BASE_L2_GAS: u32 = 3;
-pub global AVM_REVERT_BASE_L2_GAS: u32 = 3;
-pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 3;
+pub global AVM_RETURN_BASE_L2_GAS: u32 = 6;
+pub global AVM_REVERT_BASE_L2_GAS: u32 = 6;
+pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 6;
 pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 24;
 pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 96;
 pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 150;

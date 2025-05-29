@@ -1,7 +1,7 @@
 use crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
 use dep::protocol_types::{
     address::AztecAddress,
-    constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_SIZE_IN_FIELDS},
+    constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_PLAINTEXT_LEN},
 };
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
@@ -48,11 +48,11 @@ pub unconstrained fn deliver_note(
     )
 }
 
-/// The contents of a public log, plus contextual information about the transaction in which the log was emitted. This
-/// is the data required in order to discover notes that are being delivered in a log.
+/// The plaintext of a public log (i.e. the content minus the tag), plus contextual information about the transaction
+// in which the log was emitted. This is the data required in order to discover notes that are being delivered in a
+// log.
 pub struct PublicLogWithTxData {
-    // The log fields length is PUBLIC_LOG_SIZE_IN_FIELDS. + 1 because the contract address is prepended to the content.
-    pub log_content: BoundedVec<Field, PUBLIC_LOG_SIZE_IN_FIELDS + 1>,
+    pub log_plaintext: BoundedVec<Field, PUBLIC_LOG_PLAINTEXT_LEN>,
     pub tx_hash: Field,
     /// The array of new note hashes created by `tx_hash`
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,

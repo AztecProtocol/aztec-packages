@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.87.4](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.3...v0.87.4) (2025-05-28)
+
+
+### Bug Fixes
+
+* retrieve L1 to L2 messages in batches ([#14586](https://github.com/AztecProtocol/aztec-packages/issues/14586)) ([2be7f1b](https://github.com/AztecProtocol/aztec-packages/commit/2be7f1b301433b947b0d4f3df0a1424c0a66d155))
+
+
+### Miscellaneous
+
+* New prover chart for alpha-testnet ([#14514](https://github.com/AztecProtocol/aztec-packages/issues/14514)) ([031d7cb](https://github.com/AztecProtocol/aztec-packages/commit/031d7cbf10edd96655c309718ab932fe748cbb92))
+* Revert "fix: processing events in contracts with no notes ([#14528](https://github.com/AztecProtocol/aztec-packages/issues/14528))" ([#14596](https://github.com/AztecProtocol/aztec-packages/issues/14596)) ([3278e61](https://github.com/AztecProtocol/aztec-packages/commit/3278e615ebda899edfe9aae56148a1d6cc7c3c00))
+
 ## [0.87.3](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.2...v0.87.3) (2025-05-28)
 
 
