@@ -1345,8 +1345,14 @@ void test_unwind(std::string directory,
         const block_number_t blockNumber = numBlocks - i;
 
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
-        // attempting to unwind a block that is not the tip should fail
-        unwind_block(tree, blockNumber + 1, false);
+        // attempting to unwind a block that is ahead of the pending chain should just succeed
+        unwind_block(tree, blockNumber + 1, true);
+
+        // attempting to unwind a block that is behind the pending chain should fail
+        if (blockNumber > 1) {
+            unwind_block(tree, blockNumber - 1, false);
+        }
+
         unwind_block(tree, blockNumber);
 
         // the root should now only exist if there are other blocks with same root
@@ -1714,6 +1720,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
             // attempting to finalise a block that doesn't exist should fail
             finalise_block(tree, blockToFinalise + numBlocks, false);
 
+            finalise_block(tree, blockToFinalise, true);
+
+            // finalising the currently finalised block should succeed
             finalise_block(tree, blockToFinalise, true);
         }
     }

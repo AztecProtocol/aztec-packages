@@ -52,7 +52,7 @@ import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '@site/
 
 These are:
 
-```javascript title="gas_settings_vars" showLineNumbers
+```javascript title="gas_settings_vars" showLineNumbers 
 /** Gas usage and fees limits set by the transaction sender for different dimensions and phases. */
 export class GasSettings {
   constructor(
@@ -62,7 +62,7 @@ export class GasSettings {
     public readonly maxPriorityFeesPerGas: GasFees,
   ) {}
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20</a></sub></sup>
 
 
 <Gas_Settings_Components />
