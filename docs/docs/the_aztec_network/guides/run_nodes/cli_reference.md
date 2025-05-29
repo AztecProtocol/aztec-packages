@@ -768,4 +768,114 @@ If two subsystems can contain the same configuration option, only one needs to b
     --p2pBootstrap.dataStoreMapSizeKB <value>                      (default: 134217728)                                                 ($DATA_STORE_MAP_SIZE_KB)
           DB mapping size to be applied to all key/value stores
 
+  BOT
+
+    --bot
+          Starts Aztec Bot with options
+
+    --bot.nodeUrl <value>                                                                                                               ($AZTEC_NODE_URL)
+          The URL to the Aztec node to check for tx pool status.
+
+    --bot.nodeAdminUrl <value>                                                                                                          ($AZTEC_NODE_ADMIN_URL)
+          The URL to the Aztec node admin API to force-flush txs if configured.
+
+    --bot.pxeUrl <value>                                                                                                                ($BOT_PXE_URL)
+          URL to the PXE for sending txs, or undefined if an in-proc PXE is used.
+
+    --bot.l1Mnemonic <value>                                                                                                            ($BOT_L1_MNEMONIC)
+          The mnemonic for the account to bridge fee juice from L1.
+
+    --bot.l1PrivateKey <value>                                                                                                          ($BOT_L1_PRIVATE_KEY)
+          The private key for the account to bridge fee juice from L1.
+
+    --bot.senderPrivateKey <value>                                                                                                      ($BOT_PRIVATE_KEY)
+          Signing private key for the sender account.
+
+    --bot.senderSalt <value>                                                                                                            ($BOT_ACCOUNT_SALT)
+          The salt to use to deploys the sender account.
+
+    --bot.recipientEncryptionSecret <value>                        (default: 0x00000000000000000000000000000000000000000000000000000000cafecafe)($BOT_RECIPIENT_ENCRYPTION_SECRET)
+          Encryption secret for a recipient account.
+
+    --bot.tokenSalt <value>                                        (default: 0x0000000000000000000000000000000000000000000000000000000000000001)($BOT_TOKEN_SALT)
+          Salt for the token contract deployment.
+
+    --bot.txIntervalSeconds <value>                                (default: 60)                                                        ($BOT_TX_INTERVAL_SECONDS)
+          Every how many seconds should a new tx be sent.
+
+    --bot.privateTransfersPerTx <value>                            (default: 1)                                                         ($BOT_PRIVATE_TRANSFERS_PER_TX)
+          How many private token transfers are executed per tx.
+
+    --bot.publicTransfersPerTx <value>                             (default: 1)                                                         ($BOT_PUBLIC_TRANSFERS_PER_TX)
+          How many public token transfers are executed per tx.
+
+    --bot.feePaymentMethod <value>                                 (default: fee_juice)                                                 ($BOT_FEE_PAYMENT_METHOD)
+          How to handle fee payments. (Options: fee_juice)
+
+    --bot.noStart <value>                                                                                                               ($BOT_NO_START)
+          True to not automatically setup or start the bot on initialization.
+
+    --bot.txMinedWaitSeconds <value>                               (default: 180)                                                       ($BOT_TX_MINED_WAIT_SECONDS)
+          How long to wait for a tx to be mined before reporting an error.
+
+    --bot.followChain <value>                                      (default: NONE)                                                      ($BOT_FOLLOW_CHAIN)
+          Which chain the bot follows
+
+    --bot.maxPendingTxs <value>                                    (default: 128)                                                       ($BOT_MAX_PENDING_TXS)
+          Do not send a tx if the node's tx pool already has this many pending txs.
+
+    --bot.flushSetupTransactions <value>                                                                                                ($BOT_FLUSH_SETUP_TRANSACTIONS)
+          Make a request for the sequencer to build a block after each setup transaction.
+
+    --bot.l2GasLimit <value>                                                                                                            ($BOT_L2_GAS_LIMIT)
+          L2 gas limit for the tx (empty to have the bot trigger an estimate gas).
+
+    --bot.daGasLimit <value>                                                                                                            ($BOT_DA_GAS_LIMIT)
+          DA gas limit for the tx (empty to have the bot trigger an estimate gas).
+
+    --bot.contract <value>                                         (default: TokenContract)                                             ($BOT_TOKEN_CONTRACT)
+          Token contract to use
+
+    --bot.maxConsecutiveErrors <value>                                                                                                  ($BOT_MAX_CONSECUTIVE_ERRORS)
+          The maximum number of consecutive errors before the bot shuts down
+
+    --bot.stopWhenUnhealthy <value>                                                                                                     ($BOT_STOP_WHEN_UNHEALTHY)
+          Stops the bot if service becomes unhealthy
+
+    --bot.ammTxs <value>                                                                                                                ($BOT_AMM_TXS)
+          Deploy an AMM and send swaps to it
+
+  TXE
+
+    --txe
+          Starts Aztec TXE with options
+
+  FAUCET
+
+    --faucet
+          Starts the Aztec faucet
+
+    --faucet.apiServer                                             (default: true)
+          Starts a simple HTTP server to access the faucet
+
+    --faucet.apiServerPort <value>                                 (default: 8080)
+          The port on which to start the api server on
+
+    --faucet.viemPollingIntervalMS <value>                         (default: 1000)                                                      ($L1_READER_VIEM_POLLING_INTERVAL_MS)
+          The polling interval viem uses in ms
+
+    --faucet.l1Mnemonic <value>                                                                                                         ($MNEMONIC)
+          The mnemonic for the faucet account
+
+    --faucet.mnemonicAccountIndex <value>                                                                                               ($FAUCET_MNEMONIC_ACCOUNT_INDEX)
+          The account to use
+
+    --faucet.interval <value>                                      (default: 3600000)                                                   ($FAUCET_INTERVAL_MS)
+          How often the faucet can be dripped
+
+    --faucet.ethAmount <value>                                     (default: 1.0)                                                       ($FAUCET_ETH_AMOUNT)
+          How much eth the faucet should drip per call
+
+    --faucet.l1Assets <value>                                                                                                           ($FAUCET_L1_ASSETS)
+          Which other L1 assets the faucet is able to drip
 ```

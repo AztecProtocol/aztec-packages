@@ -349,14 +349,17 @@ async function getBlockFromRollupTx(
   };
 }
 
-/** Given an L1 to L2 message, retrieves its corresponding event from the Inbox. */
+/** Given an L1 to L2 message, retrieves its corresponding event from the Inbox within a specific block range. */
 export async function retrieveL1ToL2Message(
   inbox: GetContractReturnType<typeof InboxAbi, ViemClient>,
   leaf: Fr,
   fromBlock: bigint,
+  toBlock: bigint,
 ): Promise<InboxMessage | undefined> {
-  const logs = await inbox.getEvents.MessageSent({ hash: leaf.toString() }, { fromBlock });
-  return mapLogsInboxMessage(logs)[0];
+  const logs = await inbox.getEvents.MessageSent({ hash: leaf.toString() }, { fromBlock, toBlock });
+
+  const messages = mapLogsInboxMessage(logs);
+  return messages.length > 0 ? messages[0] : undefined;
 }
 
 /**

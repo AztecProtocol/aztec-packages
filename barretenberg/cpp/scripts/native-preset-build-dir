@@ -2,11 +2,10 @@
 # This script is used to find the binary directory for a given CMake preset.
 # It reads the CMakepresets.json file and traverses the inheritance tree to find the binary directory.
 
-source $(git rev-parse --show-toplevel)/ci3/source
+set -euo pipefail
+cd $(dirname $0)
 
-preset="${1:-}"
-
-[[ -z "$preset" ]] && { echo "Usage: $0 <preset_name>"; exit 1; }
+preset=${NATIVE_PRESET:-clang16-assert}
 
 declare -A preset_to_dir preset_to_inherits
 
@@ -23,19 +22,25 @@ done < <(
         .binaryDir // ""
       ]
     | @tsv
-  ' ../../CMakePresets.json
+  ' ../CMakePresets.json
 )
 
 function get_binary_dir {
   local name="$1"
-  [[ -n "${preset_to_dir[$name]:-}" ]] && [[ -n "${preset_to_dir[$name]}" ]] && { echo "${preset_to_dir[$name]}"; return; }
+  if [[ -n "${preset_to_dir[$name]:-}" ]]; then
+   echo "${preset_to_dir[$name]}"
+   return
+  fi
   for parent in ${preset_to_inherits[$name]}; do
     result="$(get_binary_dir "$parent")"
-    [[ -n "$result" ]] && { preset_to_dir["$name"]="$result"; echo "$result"; return; }
+    if [[ -n "$result" ]]; then
+      preset_to_dir["$name"]="$result"
+      echo "$result"
+      return
+    fi
   done
-  echo "Error: no binaryDir found for preset '$name' or its parents." >&2
+  echo_stderr "Error: Couldn't find build directory for preset '$name'."
   exit 1
 }
 
-result="$(get_binary_dir "$preset")"
-echo "$result"
+get_binary_dir "$preset"

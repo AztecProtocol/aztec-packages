@@ -24,7 +24,7 @@ jobs:
           git fetch origin master
           git fetch origin next
           git checkout next
-          if ! git merge origin/master; then
+          if ! git merge origin/master -m "chore: Merge master into next"; then
             exit 1
           fi
           git push origin next

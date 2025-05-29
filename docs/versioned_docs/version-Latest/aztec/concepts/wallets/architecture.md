@@ -19,7 +19,7 @@ In code, this translates to a wallet implementing an **AccountInterface** interf
 
 The account interface is used for creating an _execution request_ out of one or more _function calls_ requested by a dapp, as well as creating an _auth witness_ for a given message hash. Account contracts are expected to handle multiple function calls per transaction, since dapps may choose to batch multiple actions into a single request to the wallet.
 
-```typescript title="account-interface" showLineNumbers
+```typescript title="account-interface" showLineNumbers 
 
 /**
  * Handler for interfacing with an account. Knows how to create transaction execution
@@ -39,14 +39,14 @@ export interface AccountInterface extends EntrypointInterface, AuthWitnessProvid
   getVersion(): Fr;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/aztec.js/src/account/interface.ts#L6-L25" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/account/interface.ts#L6-L25</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/aztec.js/src/account/interface.ts#L6-L25" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/account/interface.ts#L6-L25</a></sub></sup>
 
 
 ## PXE interface
 
 A wallet exposes the PXE interface to dapps by running a PXE instance. The PXE requires a keystore and a database implementation for storing keys, private state, and recipient encryption public keys.
 
-```typescript title="pxe-interface" showLineNumbers
+```typescript title="pxe-interface" showLineNumbers 
 /**
  * Private eXecution Environment (PXE) runs locally for each user, providing functionality for all the operations
  * needed to interact with the Aztec network, including account management, private data management,
@@ -386,5 +386,5 @@ export interface PXE {
   getPublicEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/stdlib/src/interfaces/pxe.ts#L49-L388" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/interfaces/pxe.ts#L49-L388</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/stdlib/src/interfaces/pxe.ts#L49-L388" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/interfaces/pxe.ts#L49-L388</a></sub></sup>
 

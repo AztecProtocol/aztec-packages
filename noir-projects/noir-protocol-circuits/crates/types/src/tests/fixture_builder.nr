@@ -707,6 +707,8 @@ impl FixtureBuilder {
         result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
         result.public_inputs.start_tree_snapshots = self.start_snapshots;
         result.public_inputs.end_tree_snapshots = self.end_snapshots;
+        result.public_inputs.start_gas_used = self.gas_used;
+        result.public_inputs.gas_settings = self.tx_context.gas_settings;
 
         result
     }
@@ -957,8 +959,7 @@ impl FixtureBuilder {
         pk_m: Point,
         sk_app: Field,
         sk_app_generator: Field,
-    ) -> u32 {
-        let new_request_index = self.scoped_key_validation_requests_and_generators.len();
+    ) {
         let request = KeyValidationRequest { pk_m, sk_app };
         let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
         let scoped_key_validation_request_and_generator =
@@ -966,8 +967,6 @@ impl FixtureBuilder {
         self.scoped_key_validation_requests_and_generators.push(
             scoped_key_validation_request_and_generator,
         );
-
-        new_request_index
     }
 
     pub fn append_key_validation_requests(&mut self, num_requests: u32) {
