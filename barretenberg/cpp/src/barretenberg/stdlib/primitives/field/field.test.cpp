@@ -787,7 +787,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
      * `val_256`. We supply bit vectors to test some failure cases.
      */
 
-    static void decompose_into_bits()
+    static void test_decompose_into_bits()
     {
         using witness_supplier_type = std::function<witness_ct(Builder * ctx, uint64_t, uint256_t)>;
 
@@ -1041,7 +1041,27 @@ template <typename Builder> class stdlib_field : public testing::Test {
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
+    static void test_accumulate()
+    {
+        Builder builder = Builder();
+        const size_t max_vector_length = 100;
 
+        std::vector<bb::fr> native_input(max_vector_length);
+        for (size_t idx = 0; idx < max_vector_length; idx++) {
+            bb::fr random_entry(bb::fr::random_element());
+            native_input.emplace_back(random_entry);
+        }
+
+        bb::fr native_sum = std::accumulate(native_input.begin(), native_input.end(), bb::fr::zero());
+        std::vector<field_ct> input(max_vector_length);
+        size_t idx = 0;
+        for (auto& native_entry : native_input) {
+            field_ct entry = ((idx % 5) == 0) ? field_ct(native_entry) : witness_ct(&builder, native_entry);
+        }
+
+        field_ct sum = accumulate(input);
+        EXPECT_EQ(native_sum, sum.get_value());
+    }
     static void test_ranged_less_than()
     {
         Builder builder = Builder();
@@ -1350,9 +1370,9 @@ TYPED_TEST(stdlib_field, three_bit_table)
 {
     TestFixture::three_bit_table();
 }
-TYPED_TEST(stdlib_field, decompose_into_bits)
+TYPED_TEST(stdlib_field, test_decompose_into_bits)
 {
-    TestFixture::decompose_into_bits();
+    TestFixture::test_decompose_into_bits();
 }
 TYPED_TEST(stdlib_field, test_assert_is_in_set)
 {

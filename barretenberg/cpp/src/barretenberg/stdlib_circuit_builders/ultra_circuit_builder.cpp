@@ -308,7 +308,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
 
 /**
  * @brief Create a big addition gate, where in.a * in.a_scaling + in.b * in.b_scaling + in.c *
- * in.c_scaling + in.d * in.d_scaling + in.const_scaling = 0. If include_next_gate_w_4 is enabled, then thes sum also
+ * in.c_scaling + in.d * in.d_scaling + in.const_scaling = 0. If include_next_gate_w_4 is enabled, then the sum also
  * adds the value of the 4-th witness at the next index.
  *
  * @param in Structure with variable indexes and wire selector values

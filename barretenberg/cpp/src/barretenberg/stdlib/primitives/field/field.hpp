@@ -247,7 +247,7 @@ template <typename Builder> class field_t {
     static void evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
     static void evaluate_polynomial_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
 
-    static field_t accumulate(const std::vector<field_t>& to_add);
+    static field_t accumulate(const std::vector<field_t>& input);
 
     /**
      * multiply *this by `to_mul` and add `to_add`

@@ -1049,7 +1049,10 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
 }
 
 /**
- * Compute sum of inputs
+ * @brief Efficiently compute the sum of vector entries. Using `big_add_gate` we reduce the number of gates needed
+ * to compute from `input.size()` to `input_size.size() / 3`.
+ *
+ * Note that if the size of the input vector is not a multiple of 3, the final gate will be padded with zero_idx wires
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const std::vector<field_t>& input)
 {
@@ -1059,32 +1062,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     if (input.size() == 1) {
         return input[0].normalize();
     }
-    /**
-     * If we are using UltraCircuitBuilder, we can accumulate 3 values into a sum per gate.
-     * We track a decumulating sum of values in the 4th wire of every row.
-     * i.e. the 4th wire of the first row is the total output value
-     *
-     * At every gate, we subtract off three elements from `input`. Every gate apart from the final gate,
-     * is an 'extended' addition gate, that includes the 4th wire of the next gate
-     *
-     * e.g. to accumulate 9 limbs, structure is:
-     *
-     * | l_1 | l_2 | l_3 | s_3 |
-     * | l_4 | l_5 | l_6 | s_2 |
-     * | l_7 | l_8 | l_9 | s_1 |
-     *
-     * We validate:
-     *
-     * s_3 - l_1 - l_2 - l_3 - s_2 = 0
-     * s_2 - l_4 - l_5 - l_6 - s_1 = 0
-     * s_1 - l_7 - l_8 - l_9 = 0
-     *
-     * If num elements is not a multiple of 3, the final gate will be padded with zero_idx wires
-     **/
+
     if constexpr (HasPlookup<Builder>) {
         Builder* ctx = nullptr;
         std::vector<field_t> accumulator;
-        field_t constant_term = 0;
+        field_t constant_term = bb::fr::zero();
 
         // Step 1: remove constant terms from input field elements
         for (const auto& element : input) {
@@ -1093,21 +1075,19 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
             } else {
                 accumulator.emplace_back(element);
             }
-            ctx = (element.get_context() ? element.get_context() : ctx);
         }
         if (accumulator.empty()) {
             return constant_term;
         }
 
-        if (accumulator.size() != input.size()) {
-            // Input contains non-constant field_t elements, add the accumulated constant to the first non-constant
-            // element
-            accumulator[0] += constant_term;
-        }
+        // At this point, the `accumulator` vector consisting of witnesses is not empty, so we can extract the context.
+        ctx = accumulator[0].get_context();
 
         // Step 2: compute output value
         size_t num_elements = accumulator.size();
-        bb::fr output = 0;
+        // If `input` contains non-constant `field_t` elements, add the accumulated constant value to the output value,
+        // else initialize by 0.
+        bb::fr output = (accumulator.size() != input.size()) ? constant_term.get_value() : bb::fr::zero();
         for (const auto& acc : accumulator) {
             output += acc.get_value();
         }
@@ -1119,16 +1099,38 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
         }
         num_elements = accumulator.size();
         const size_t num_gates = (num_elements / 3);
+        const size_t last_gate_idx = num_gates - 1;
 
         field_t total = witness_t(ctx, output);
         field_t accumulating_total = total;
 
-        for (size_t i = 0; i < num_gates; ++i) {
+        // Let
+        //      a_i := accumulator[3*i];
+        //      b_i := accumulator[3*i+1];
+        //      c_i := accumulator[3*i+2];
+        //      d_0 := total;
+        //      d_i := total - \sum_(j <  3*i) accumulator[j];
+        // which leads us to equations
+        //      d_{i+1} = d_{i} - a_i - b_i - c_i for i = 0, ..., last_idx - 1;
+        //      0       = d_{i} - a_i - b_i - c_i for i = last_gate_idx,
+        // that are turned into constraints.
+
+        for (size_t i = 0; i < last_gate_idx; ++i) {
+            // For i < last_gate_idx, we create a `big_add_gate` constraining
+            //      a_i.v * q_l + b_i.v* q_r + c_i.v * q_o + d_i.v * q_4 + q_c + w_4_omega = 0
+            // where
+            //      q_l       :=  a_i_mul
+            //      q_r       :=  b_i_mul
+            //      q_o       :=  c_i_mul
+            //      q_4       := -1
+            //      q_c       :=  a_i_add + b_i_add + c_i_add
+            //      d_i_mul   := -1
+            //      w_4_omega :=  d_{i+1}
             ctx->create_big_add_gate(
                 {
-                    accumulator[3 * i].get_witness_index(),
-                    accumulator[3 * i + 1].get_witness_index(),
-                    accumulator[3 * i + 2].get_witness_index(),
+                    accumulator[3 * i].witness_index,
+                    accumulator[3 * i + 1].witness_index,
+                    accumulator[3 * i + 2].witness_index,
                     accumulating_total.witness_index,
                     accumulator[3 * i].multiplicative_constant,
                     accumulator[3 * i + 1].multiplicative_constant,
@@ -1137,11 +1139,27 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
                     accumulator[3 * i].additive_constant + accumulator[3 * i + 1].additive_constant +
                         accumulator[3 * i + 2].additive_constant,
                 },
-                (i != num_gates - 1));
+                /*use_next_gate_w_4 = */ true);
             bb::fr new_total = accumulating_total.get_value() - accumulator[3 * i].get_value() -
                                accumulator[3 * i + 1].get_value() - accumulator[3 * i + 2].get_value();
             accumulating_total = witness_t<Builder>(ctx, new_total);
         }
+
+        // For i = last_gate_idx, we create a `big_add_gate` constraining
+        //      a_i.v * q_l + b_i.v * q_r + c_i.v * q_o + d_i.v * q_4 + q_c = 0
+        //
+        ctx->create_big_add_gate({
+            accumulator[3 * last_gate_idx].witness_index,
+            accumulator[3 * last_gate_idx + 1].witness_index,
+            accumulator[3 * last_gate_idx + 2].witness_index,
+            accumulating_total.witness_index,
+            accumulator[3 * last_gate_idx].multiplicative_constant,
+            accumulator[3 * last_gate_idx + 1].multiplicative_constant,
+            accumulator[3 * last_gate_idx + 2].multiplicative_constant,
+            -1,
+            accumulator[3 * last_gate_idx].additive_constant + accumulator[3 * last_gate_idx + 1].additive_constant +
+                accumulator[3 * last_gate_idx + 1].additive_constant,
+        });
         OriginTag new_tag{};
         for (const auto& single_input : input) {
             new_tag = OriginTag(new_tag, single_input.tag);
