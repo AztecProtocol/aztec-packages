@@ -194,6 +194,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     void checkpoint();
     void revert_checkpoint();
     void commit_checkpoint();
+    void revert_all_checkpoints();
+    void commit_all_checkpoints();
 
   private:
     using Cache = ContentAddressedCache<LeafValueType>;
@@ -284,6 +286,16 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_checkpoint()
 {
     cache_.commit();
+}
+
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::revert_all_checkpoints()
+{
+    cache_.revert_all();
+}
+
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_all_checkpoints()
+{
+    cache_.commit_all();
 }
 
 template <typename LeafValueType>

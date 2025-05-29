@@ -238,6 +238,8 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     void checkpoint(const CheckpointCallback& on_completion);
     void commit_checkpoint(const CheckpointCommitCallback& on_completion);
     void revert_checkpoint(const CheckpointRevertCallback& on_completion);
+    void commit_all_checkpoints(const CheckpointCommitCallback& on_completion);
+    void revert_all_checkpoints(const CheckpointRevertCallback& on_completion);
 
   protected:
     using ReadTransaction = typename Store::ReadTransaction;
@@ -884,6 +886,22 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_checkpoint(
     const CheckpointRevertCallback& on_completion)
 {
     auto job = [=, this]() { execute_and_report([=, this]() { store_->revert_checkpoint(); }, on_completion); };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit_all_checkpoints(
+    const CheckpointCommitCallback& on_completion)
+{
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->commit_all_checkpoints(); }, on_completion); };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_all_checkpoints(
+    const CheckpointRevertCallback& on_completion)
+{
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->revert_all_checkpoints(); }, on_completion); };
     workers_->enqueue(job);
 }
 

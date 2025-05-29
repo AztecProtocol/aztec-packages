@@ -1156,6 +1156,58 @@ describe('NativeWorldState', () => {
       await fork.close();
     });
 
+    it('can commit all checkpoints', async () => {
+      const fork = await ws.fork();
+      await advanceState(fork);
+      const siblingPathsBefore = await getSiblingPaths(fork);
+      await fork.createCheckpoint();
+
+      await compareState(fork, siblingPathsBefore, true);
+
+      const numCommits = 10;
+      let siblingPathsAfter: SiblingPath<number>[] = [];
+
+      for (let i = 0; i < numCommits; i++) {
+        await fork.createCheckpoint();
+        siblingPathsAfter = await advanceState(fork);
+      }
+
+      await compareState(fork, siblingPathsAfter, true);
+      await compareState(fork, siblingPathsBefore, false);
+
+      await fork.commitAllCheckpoints();
+      await compareState(fork, siblingPathsAfter, true);
+      await compareState(fork, siblingPathsBefore, false);
+
+      await fork.close();
+    });
+
+    it('can revert all checkpoints', async () => {
+      const fork = await ws.fork();
+      await advanceState(fork);
+      const siblingPathsBefore = await getSiblingPaths(fork);
+      await fork.createCheckpoint();
+
+      await compareState(fork, siblingPathsBefore, true);
+
+      const numCommits = 10;
+      let siblingPathsAfter: SiblingPath<number>[] = [];
+
+      for (let i = 0; i < numCommits; i++) {
+        await fork.createCheckpoint();
+        siblingPathsAfter = await advanceState(fork);
+      }
+
+      await compareState(fork, siblingPathsAfter, true);
+      await compareState(fork, siblingPathsBefore, false);
+
+      await fork.revertAllCheckpoints();
+      await compareState(fork, siblingPathsAfter, false);
+      await compareState(fork, siblingPathsBefore, true);
+
+      await fork.close();
+    });
+
     it('can revert all deeper commits', async () => {
       const fork = await ws.fork();
       const siblingPathsBefore = await getSiblingPaths(fork);

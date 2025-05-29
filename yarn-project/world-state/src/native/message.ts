@@ -40,6 +40,8 @@ export enum WorldStateMessageType {
   CREATE_CHECKPOINT,
   COMMIT_CHECKPOINT,
   REVERT_CHECKPOINT,
+  COMMIT_ALL_CHECKPOINTS,
+  REVERT_ALL_CHECKPOINTS,
 
   COPY_STORES,
 
@@ -470,6 +472,8 @@ export type WorldStateRequest = {
   [WorldStateMessageType.CREATE_CHECKPOINT]: WithForkId;
   [WorldStateMessageType.COMMIT_CHECKPOINT]: WithForkId;
   [WorldStateMessageType.REVERT_CHECKPOINT]: WithForkId;
+  [WorldStateMessageType.COMMIT_ALL_CHECKPOINTS]: WithForkId;
+  [WorldStateMessageType.REVERT_ALL_CHECKPOINTS]: WithForkId;
 
   [WorldStateMessageType.COPY_STORES]: CopyStoresRequest;
 
@@ -512,6 +516,8 @@ export type WorldStateResponse = {
   [WorldStateMessageType.CREATE_CHECKPOINT]: void;
   [WorldStateMessageType.COMMIT_CHECKPOINT]: void;
   [WorldStateMessageType.REVERT_CHECKPOINT]: void;
+  [WorldStateMessageType.COMMIT_ALL_CHECKPOINTS]: void;
+  [WorldStateMessageType.REVERT_ALL_CHECKPOINTS]: void;
 
   [WorldStateMessageType.COPY_STORES]: void;
 

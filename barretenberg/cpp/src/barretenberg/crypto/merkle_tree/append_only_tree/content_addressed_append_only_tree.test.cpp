@@ -2052,3 +2052,107 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_fo
     revert_checkpoint_tree(tree, false);
     commit_checkpoint_tree(tree, false);
 }
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_all_checkpoints)
+{
+    constexpr size_t depth = 10;
+    uint32_t blockSize = 16;
+    std::string name = random_string();
+    ThreadPoolPtr pool = make_thread_pool(1);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    {
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        TreeType tree(std::move(store), pool);
+
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        commit_tree(tree);
+    }
+
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    TreeType tree(std::move(store), pool);
+
+    // We apply a number of updates and checkpoint the tree each time
+
+    uint32_t stackDepth = 20;
+
+    std::vector<fr_sibling_path> paths(stackDepth);
+    uint32_t index = 0;
+    for (; index < stackDepth - 1; index++) {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        paths[index] = get_sibling_path(tree, 3);
+
+        try {
+            checkpoint_tree(tree);
+        } catch (std::exception& e) {
+            std::cout << e.what() << std::endl;
+        }
+    }
+
+    // Now we commit all the checkpoints
+    commit_all_tree_checkpoints(tree);
+
+    // Tree should still be at the final state
+    check_sibling_path(tree, 3, paths[stackDepth - 2]);
+
+    // Should not be able to commit or revert where there is no active checkpoint
+    revert_checkpoint_tree(tree, false);
+    commit_checkpoint_tree(tree, false);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_revert_all_checkpoints)
+{
+    constexpr size_t depth = 10;
+    uint32_t blockSize = 16;
+    std::string name = random_string();
+    ThreadPoolPtr pool = make_thread_pool(1);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    {
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        TreeType tree(std::move(store), pool);
+
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        commit_tree(tree);
+    }
+
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    TreeType tree(std::move(store), pool);
+
+    // We apply a number of updates and checkpoint the tree each time
+
+    uint32_t stackDepth = 20;
+
+    std::vector<fr_sibling_path> paths(stackDepth);
+    uint32_t index = 0;
+    for (; index < stackDepth - 1; index++) {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        paths[index] = get_sibling_path(tree, 3);
+
+        try {
+            checkpoint_tree(tree);
+        } catch (std::exception& e) {
+            std::cout << e.what() << std::endl;
+        }
+    }
+
+    // Now we revert all the checkpoints
+    revert_all_tree_checkpoints(tree);
+
+    // Tree should still be at the initial state
+    check_sibling_path(tree, 3, paths[0]);
+
+    // Should not be able to commit or revert where there is no active checkpoint
+    revert_checkpoint_tree(tree, false);
+    commit_checkpoint_tree(tree, false);
+}
