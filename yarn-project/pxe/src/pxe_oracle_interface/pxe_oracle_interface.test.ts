@@ -715,7 +715,7 @@ describe('PXEOracleInterface', () => {
 
       const result = await pxeOracleInterface.getPrivateLogByTag(tag);
 
-      expect(result?.logPayload).toEqual(scopedLog.log.getEmittedFields());
+      expect(result?.logPayload).toEqual(scopedLog.log.getEmittedFieldsWithoutTag());
       expect(result?.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
       expect(result?.txHash).toEqual(scopedLog.txHash);
       expect(result?.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);
