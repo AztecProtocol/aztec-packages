@@ -122,11 +122,6 @@ pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 
 // MISC CONSTANTS
 pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
-// The following is used in immutable state variables to compute an initialization slot whose value is used to
-// determine whether a given variable has been initialized (by asserting that the value in the slot is 0).
-// The initialization slot is computed by adding the constant below to the variable's storage slot. This constant has
-// to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
-pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_BLOCK: u32 = 3;
