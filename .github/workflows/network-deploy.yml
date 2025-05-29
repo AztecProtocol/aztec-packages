@@ -121,6 +121,7 @@ jobs:
 
   network_deployment:
     needs: fund_sepolia_accounts
+    if: always() && (needs.fund_sepolia_accounts.result == 'success' || needs.fund_sepolia_accounts.result == 'skipped')
     # This job will run on Ubuntu
     runs-on: ubuntu-latest
     concurrency:
