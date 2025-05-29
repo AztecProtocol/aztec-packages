@@ -29,24 +29,10 @@ If two subsystems can contain the same configuration option, only one needs to b
 :::
 
 ```bash
-  MISC
+  NETWORK
 
-    --network <value>                                                                                                                   ($NETWORK)
+    --network <value>                                                                                                                      ($NETWORK)
           Network to run Aztec on
-
-    --auto-update <value>                                          (default: disabled)                                                  ($AUTO_UPDATE)
-          Configure auto updates
-
-    --auto-update-url <value>                                                                                                           ($AUTO_UPDATE_URL)
-          Configure where to get updates from
-
-  SANDBOX
-
-    --sandbox
-          Starts Aztec Sandbox
-
-    --sandbox.noPXE [value]                                                                                                             ($NO_PXE)
-          Do not expose PXE service on sandbox start
 
   API
 
@@ -81,33 +67,33 @@ If two subsystems can contain the same configuration option, only one needs to b
 
   STORAGE
 
-    --data-directory <value>                                                                                                            ($DATA_DIRECTORY)
+    --data-directory <value>                                                                                                           ($DATA_DIRECTORY)
           Where to store data for services. If not set, will store temporarily
 
-    --data-store-map-size-kb <value>                                                                                                    ($DATA_STORE_MAP_SIZE_KB)
+    --data-store-map-size-kb <value>                                                                                                   ($DATA_STORE_MAP_SIZE_KB)
           The maximum possible size of the data store DB in KB. Can be overridden by component-specific options.
 
   L1 CONTRACT ADDRESSES
 
-    --rollup-address <value>                                                                                                            ($ROLLUP_CONTRACT_ADDRESS)
+    --rollup-address <value>                                                                                                           ($ROLLUP_CONTRACT_ADDRESS)
           The deployed L1 rollup contract address
 
-    --registry-address <value>                                                                                                          ($REGISTRY_CONTRACT_ADDRESS)
+    --registry-address <value>                                                                                                         ($REGISTRY_CONTRACT_ADDRESS)
           The deployed L1 registry contract address
 
-    --inbox-address <value>                                                                                                             ($INBOX_CONTRACT_ADDRESS)
+    --inbox-address <value>                                                                                                            ($INBOX_CONTRACT_ADDRESS)
           The deployed L1 -> L2 inbox contract address
 
-    --outbox-address <value>                                                                                                            ($OUTBOX_CONTRACT_ADDRESS)
+    --outbox-address <value>                                                                                                           ($OUTBOX_CONTRACT_ADDRESS)
           The deployed L2 -> L1 outbox contract address
 
-    --fee-juice-address <value>                                                                                                         ($FEE_JUICE_CONTRACT_ADDRESS)
+    --fee-juice-address <value>                                                                                                        ($FEE_JUICE_CONTRACT_ADDRESS)
           The deployed L1 Fee Juice contract address
 
-    --staking-asset-address <value>                                                                                                     ($STAKING_ASSET_CONTRACT_ADDRESS)
+    --staking-asset-address <value>                                                                                                    ($STAKING_ASSET_CONTRACT_ADDRESS)
           The deployed L1 Staking Asset contract address
 
-    --fee-juice-portal-address <value>                                                                                                  ($FEE_JUICE_PORTAL_CONTRACT_ADDRESS)
+    --fee-juice-portal-address <value>                                                                                                 ($FEE_JUICE_PORTAL_CONTRACT_ADDRESS)
           The deployed L1 Fee Juice portal contract address
 
   AZTEC NODE
@@ -115,19 +101,19 @@ If two subsystems can contain the same configuration option, only one needs to b
     --node
           Starts Aztec Node with options
 
-    --node.archiverUrl <value>                                                                                                          ($ARCHIVER_URL)
+    --node.archiverUrl <value>                                                                                                         ($ARCHIVER_URL)
           URL for an archiver service
 
-    --node.deployAztecContracts                                                                                                         ($DEPLOY_AZTEC_CONTRACTS)
+    --node.deployAztecContracts                                                                                                        ($DEPLOY_AZTEC_CONTRACTS)
           Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set.
 
-    --node.deployAztecContractsSalt <value>                                                                                             ($DEPLOY_AZTEC_CONTRACTS_SALT)
+    --node.deployAztecContractsSalt <value>                                                                                            ($DEPLOY_AZTEC_CONTRACTS_SALT)
           Numeric salt for deploying L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set. Implies --node.deployAztecContracts.
 
-    --node.assumeProvenThroughBlockNumber <value>                                                                                       ($ASSUME_PROVEN_THROUGH_BLOCK_NUMBER)
+    --node.assumeProvenThroughBlockNumber <value>                                                                                      ($ASSUME_PROVEN_THROUGH_BLOCK_NUMBER)
           Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.
 
-    --node.publisherPrivateKey <value>                                                                                                  ($L1_PRIVATE_KEY)
+    --node.publisherPrivateKey <value>                                                                                                 ($L1_PRIVATE_KEY)
           Private key of account for publishing L1 contracts
 
     --node.worldStateBlockCheckIntervalMS <value>                  (default: 100)                                                       ($WS_BLOCK_CHECK_INTERVAL_MS)
@@ -136,18 +122,18 @@ If two subsystems can contain the same configuration option, only one needs to b
     --node.syncMode <value>                                        (default: snapshot)                                                  ($SYNC_MODE)
           Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.
 
-    --node.snapshotsUrl <value>                                                                                                         ($SYNC_SNAPSHOTS_URL)
+    --node.snapshotsUrl <value>                                                                                                        ($SYNC_SNAPSHOTS_URL)
           Base URL for downloading snapshots for snapshot sync.
 
   P2P SUBSYSTEM
 
-    --p2p-enabled [value]                                                                                                               ($P2P_ENABLED)
+    --p2p-enabled [value]                                                                                                              ($P2P_ENABLED)
           Enable P2P subsystem
 
     --p2p.blockCheckIntervalMS <value>                             (default: 100)                                                       ($P2P_BLOCK_CHECK_INTERVAL_MS)
           The frequency in which to check for new L2 blocks.
 
-    --p2p.debugDisableColocationPenalty <value>                                                                                         ($DEBUG_P2P_DISABLE_COLOCATION_PENALTY)
+    --p2p.debugDisableColocationPenalty <value>                                                                                        ($DEBUG_P2P_DISABLE_COLOCATION_PENALTY)
           DEBUG: Disable colocation penalty - NEVER set to true in production
 
     --p2p.peerCheckIntervalMS <value>                              (default: 30000)                                                     ($P2P_PEER_CHECK_INTERVAL_MS)
@@ -160,34 +146,34 @@ If two subsystems can contain the same configuration option, only one needs to b
           The listen address. ipv4 address.
 
     --p2p.p2pPort <value>                                          (default: 40400)                                                     ($P2P_PORT)
-          The port for the P2P service. Defaults to 40400
+          The port for the P2P service.
 
-    --p2p.p2pBroadcastPort <value>                                                                                                      ($P2P_BROADCAST_PORT)
-          The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P_PORT.
-
-    --p2p.p2pIp <value>                                                                                                                 ($P2P_IP)
+    --p2p.p2pIp <value>                                                                                                                ($P2P_IP)
           The IP address for the P2P service. ipv4 address.
 
-    --p2p.peerIdPrivateKey <value>                                                                                                      ($PEER_ID_PRIVATE_KEY)
+    --p2p.peerIdPrivateKey <value>                                                                                                     ($PEER_ID_PRIVATE_KEY)
           An optional peer id private key. If blank, will generate a random key.
-
-    --p2p.peerIdPrivateKeyPath <value>                                                                                                  ($PEER_ID_PRIVATE_KEY_PATH)
-          An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the root of the data directory.
 
     --p2p.bootstrapNodes <value>                                   (default: )                                                          ($BOOTSTRAP_NODES)
           A list of bootstrap peer ENRs to connect to. Separated by commas.
 
-    --p2p.bootstrapNodeEnrVersionCheck <value>                                                                                          ($P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK)
+    --p2p.bootstrapNodeEnrVersionCheck <value>                                                                                         ($P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK)
           Whether to check the version of the bootstrap node ENR.
 
-    --p2p.bootstrapNodesAsFullPeers <value>                                                                                             ($P2P_BOOTSTRAP_NODES_AS_FULL_PEERS)
+    --p2p.bootstrapNodesAsFullPeers <value>                                                                                            ($P2P_BOOTSTRAP_NODES_AS_FULL_PEERS)
           Whether to consider our configured bootnodes as full peers
 
     --p2p.maxPeerCount <value>                                     (default: 100)                                                       ($P2P_MAX_PEERS)
           The maximum number of peers to connect to.
 
-    --p2p.queryForIp <value>                                                                                                            ($P2P_QUERY_FOR_IP)
+    --p2p.queryForIp <value>                                                                                                           ($P2P_QUERY_FOR_IP)
           If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
+
+    --p2p.keepProvenTxsInPoolFor <value>                                                                                               ($P2P_TX_POOL_KEEP_PROVEN_FOR)
+          How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)
+
+    --p2p.keepAttestationsInPoolFor <value>                        (default: 96)                                                        ($P2P_ATTESTATION_POOL_KEEP_FOR)
+          How many slots to keep attestations for.
 
     --p2p.gossipsubInterval <value>                                (default: 700)                                                       ($P2P_GOSSIPSUB_INTERVAL_MS)
           The interval of the gossipsub heartbeat to perform maintenance tasks.
@@ -211,10 +197,7 @@ If two subsystems can contain the same configuration option, only one needs to b
           The number of gossipsub interval message cache windows to keep.
 
     --p2p.gossipsubMcacheGossip <value>                            (default: 3)                                                         ($P2P_GOSSIPSUB_MCACHE_GOSSIP)
-          How many message cache windows to include when gossiping with other peers.
-
-    --p2p.gossipsubSeenTTL <value>                                 (default: 1200000)                                                   ($P2P_GOSSIPSUB_SEEN_TTL)
-          How long to keep message IDs in the seen cache.
+          How many message cache windows to include when gossiping with other pears.
 
     --p2p.gossipsubTxTopicWeight <value>                           (default: 1)                                                         ($P2P_GOSSIPSUB_TX_TOPIC_WEIGHT)
           The weight of the tx topic for the gossipsub protocol.
@@ -234,19 +217,16 @@ If two subsystems can contain the same configuration option, only one needs to b
     --p2p.blockRequestBatchSize <value>                            (default: 20)                                                        ($P2P_BLOCK_REQUEST_BATCH_SIZE)
           The number of blocks to fetch in a single batch.
 
-    --p2p.archivedTxLimit <value>                                                                                                       ($P2P_ARCHIVED_TX_LIMIT)
+    --p2p.archivedTxLimit <value>                                                                                                      ($P2P_ARCHIVED_TX_LIMIT)
           The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.
 
     --p2p.trustedPeers <value>                                     (default: )                                                          ($P2P_TRUSTED_PEERS)
-          A list of trusted peer ENRs that will always be persisted. Separated by commas.
+          A list of trusted peers ENRs. Separated by commas.
 
-    --p2p.privatePeers <value>                                     (default: )                                                          ($P2P_PRIVATE_PEERS)
-          A list of private peer ENRs that will always be persisted and not be used for discovery. Separated by commas.
-
-    --p2p.p2pStoreMapSizeKb <value>                                                                                                     ($P2P_STORE_MAP_SIZE_KB)
+    --p2p.p2pStoreMapSizeKb <value>                                                                                                    ($P2P_STORE_MAP_SIZE_KB)
           The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
 
-    --p2p.txPublicSetupAllowList <value>                                                                                                ($TX_PUBLIC_SETUP_ALLOWLIST)
+    --p2p.txPublicSetupAllowList <value>                                                                                               ($TX_PUBLIC_SETUP_ALLOWLIST)
           The list of functions calls allowed to run in setup
 
     --p2p.maxTxPoolSize <value>                                    (default: 100000000)                                                 ($P2P_MAX_TX_POOL_SIZE)
@@ -258,18 +238,18 @@ If two subsystems can contain the same configuration option, only one needs to b
     --p2p.individualRequestTimeoutMs <value>                       (default: 2000)                                                      ($P2P_REQRESP_INDIVIDUAL_REQUEST_TIMEOUT_MS)
           The timeout for an individual request response peer interaction.
 
-    --p2p.rollupVersion <value>                                                                                                         ($ROLLUP_VERSION)
+    --p2p.rollupVersion <value>                                                                                                        ($ROLLUP_VERSION)
           The version of the rollup.
 
   TELEMETRY
 
-    --tel.metricsCollectorUrl <value>                                                                                                   ($OTEL_EXPORTER_OTLP_METRICS_ENDPOINT)
+    --tel.metricsCollectorUrl <value>                                                                                                  ($OTEL_EXPORTER_OTLP_METRICS_ENDPOINT)
           The URL of the telemetry collector for metrics
 
-    --tel.tracesCollectorUrl <value>                                                                                                    ($OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
+    --tel.tracesCollectorUrl <value>                                                                                                   ($OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
           The URL of the telemetry collector for traces
 
-    --tel.logsCollectorUrl <value>                                                                                                      ($OTEL_EXPORTER_OTLP_LOGS_ENDPOINT)
+    --tel.logsCollectorUrl <value>                                                                                                     ($OTEL_EXPORTER_OTLP_LOGS_ENDPOINT)
           The URL of the telemetry collector for logs
 
     --tel.otelCollectIntervalMs <value>                            (default: 60000)                                                     ($OTEL_COLLECT_INTERVAL_MS)
@@ -289,31 +269,34 @@ If two subsystems can contain the same configuration option, only one needs to b
     --pxe.dataStoreMapSizeKB <value>                               (default: 134217728)                                                 ($DATA_STORE_MAP_SIZE_KB)
           DB mapping size to be applied to all key/value stores
 
-    --pxe.rollupVersion <value>                                                                                                         ($ROLLUP_VERSION)
+    --pxe.rollupVersion <value>                                                                                                        ($ROLLUP_VERSION)
           The version of the rollup.
+
+    --pxe.l2StartingBlock <value>                                  (default: 1)                                                         ($PXE_L2_STARTING_BLOCK)
+          L2 block to start scanning from for new accounts
 
     --pxe.l2BlockBatchSize <value>                                 (default: 200)                                                       ($PXE_L2_BLOCK_BATCH_SIZE)
           Maximum amount of blocks to pull from the stream in one request when synchronizing
 
-    --pxe.bbBinaryPath <value>                                                                                                          ($BB_BINARY_PATH)
+    --pxe.bbBinaryPath <value>                                                                                                         ($BB_BINARY_PATH)
           Path to the BB binary
 
-    --pxe.bbWorkingDirectory <value>                                                                                                    ($BB_WORKING_DIRECTORY)
+    --pxe.bbWorkingDirectory <value>                                                                                                   ($BB_WORKING_DIRECTORY)
           Working directory for the BB binary
 
-    --pxe.bbSkipCleanup <value>                                                                                                         ($BB_SKIP_CLEANUP)
+    --pxe.bbSkipCleanup <value>                                                                                                        ($BB_SKIP_CLEANUP)
           True to skip cleanup of temporary files for debugging purposes
 
     --pxe.proverEnabled <value>                                    (default: true)                                                      ($PXE_PROVER_ENABLED)
           Enable real proofs
 
-    --pxe.network <value>                                                                                                               ($NETWORK)
+    --pxe.network <value>                                                                                                              ($NETWORK)
           External Aztec network to connect to. e.g. devnet
 
-    --pxe.apiKey <value>                                                                                                                ($API_KEY)
+    --pxe.apiKey <value>                                                                                                               ($API_KEY)
           API Key required by the external network's node
 
-    --pxe.nodeUrl <value>                                                                                                               ($AZTEC_NODE_URL)
+    --pxe.nodeUrl <value>                                                                                                              ($AZTEC_NODE_URL)
           Custom Aztec Node URL to connect to
 
   ARCHIVER
@@ -321,13 +304,10 @@ If two subsystems can contain the same configuration option, only one needs to b
     --archiver
           Starts Aztec Archiver with options
 
-    --archiver.blobSinkUrl <value>                                                                                                      ($BLOB_SINK_URL)
+    --archiver.blobSinkUrl <value>                                                                                                     ($BLOB_SINK_URL)
           The URL of the blob sink
 
-    --archiver.blobSinkMapSizeKb <value>                                                                                                ($BLOB_SINK_MAP_SIZE_KB)
-          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
-
-    --archiver.archiveApiUrl <value>                                                                                                    ($BLOB_SINK_ARCHIVE_API_URL)
+    --archiver.archiveApiUrl <value>                                                                                                   ($BLOB_SINK_ARCHIVE_API_URL)
           The URL of the archive API
 
     --archiver.archiverPollingIntervalMS <value>                   (default: 500)                                                       ($ARCHIVER_POLLING_INTERVAL_MS)
@@ -339,10 +319,10 @@ If two subsystems can contain the same configuration option, only one needs to b
     --archiver.maxLogs <value>                                     (default: 1000)                                                      ($ARCHIVER_MAX_LOGS)
           The max number of logs that can be obtained in 1 "getPublicLogs" call.
 
-    --archiver.archiverStoreMapSizeKb <value>                                                                                           ($ARCHIVER_STORE_MAP_SIZE_KB)
+    --archiver.archiverStoreMapSizeKb <value>                                                                                          ($ARCHIVER_STORE_MAP_SIZE_KB)
           The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.
 
-    --archiver.rollupVersion <value>                                                                                                    ($ROLLUP_VERSION)
+    --archiver.rollupVersion <value>                                                                                                   ($ROLLUP_VERSION)
           The version of the rollup.
 
     --archiver.viemPollingIntervalMS <value>                       (default: 1000)                                                      ($ARCHIVER_VIEM_POLLING_INTERVAL_MS)
@@ -399,7 +379,7 @@ If two subsystems can contain the same configuration option, only one needs to b
     --archiver.priorityFeeRetryBumpPercentage <value>              (default: 50)                                                        ($L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE)
           How much to increase priority fee by each retry attempt (percentage)
 
-    --archiver.fixedPriorityFeePerGas <value>                                                                                           ($L1_FIXED_PRIORITY_FEE_PER_GAS)
+    --archiver.fixedPriorityFeePerGas <value>                                                                                          ($L1_FIXED_PRIORITY_FEE_PER_GAS)
           Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage
 
     --archiver.maxAttempts <value>                                 (default: 3)                                                         ($L1_TX_MONITOR_MAX_ATTEMPTS)
@@ -422,10 +402,10 @@ If two subsystems can contain the same configuration option, only one needs to b
     --sequencer
           Starts Aztec Sequencer with options
 
-    --sequencer.validatorPrivateKey <value>                                                                                             ($VALIDATOR_PRIVATE_KEY)
+    --sequencer.validatorPrivateKey <value>                                                                                            ($VALIDATOR_PRIVATE_KEY)
           The private key of the validator participating in attestation duties
 
-    --sequencer.disableValidator <value>                                                                                                ($VALIDATOR_DISABLED)
+    --sequencer.disableValidator <value>                                                                                               ($VALIDATOR_DISABLED)
           Do not run the validator
 
     --sequencer.attestationPollingIntervalMs <value>               (default: 200)                                                       ($VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS)
@@ -443,25 +423,22 @@ If two subsystems can contain the same configuration option, only one needs to b
     --sequencer.minTxsPerBlock <value>                             (default: 1)                                                         ($SEQ_MIN_TX_PER_BLOCK)
           The minimum number of txs to include in a block.
 
-    --sequencer.publishTxsWithProposals <value>                                                                                         ($SEQ_PUBLISH_TXS_WITH_PROPOSALS)
-          Whether to publish txs with proposals.
-
     --sequencer.maxL2BlockGas <value>                              (default: 10000000000)                                               ($SEQ_MAX_L2_BLOCK_GAS)
           The maximum L2 block gas.
 
     --sequencer.maxDABlockGas <value>                              (default: 10000000000)                                               ($SEQ_MAX_DA_BLOCK_GAS)
           The maximum DA block gas.
 
-    --sequencer.coinbase <value>                                                                                                        ($COINBASE)
+    --sequencer.coinbase <value>                                                                                                       ($COINBASE)
           Recipient of block reward.
 
-    --sequencer.feeRecipient <value>                                                                                                    ($FEE_RECIPIENT)
+    --sequencer.feeRecipient <value>                                                                                                   ($FEE_RECIPIENT)
           Address to receive fees.
 
-    --sequencer.acvmWorkingDirectory <value>                                                                                            ($ACVM_WORKING_DIRECTORY)
+    --sequencer.acvmWorkingDirectory <value>                                                                                           ($ACVM_WORKING_DIRECTORY)
           The working directory to use for simulation/proving
 
-    --sequencer.acvmBinaryPath <value>                                                                                                  ($ACVM_BINARY_PATH)
+    --sequencer.acvmBinaryPath <value>                                                                                                 ($ACVM_BINARY_PATH)
           The path to the ACVM binary
 
     --sequencer.maxBlockSizeInBytes <value>                        (default: 1048576)                                                   ($SEQ_MAX_BLOCK_SIZE_IN_BYTES)
@@ -473,10 +450,10 @@ If two subsystems can contain the same configuration option, only one needs to b
     --sequencer.governanceProposerPayload <value>                  (default: 0x0000000000000000000000000000000000000000)                ($GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS)
           The address of the payload for the governanceProposer
 
-    --sequencer.maxL1TxInclusionTimeIntoSlot <value>                                                                                    ($SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT)
+    --sequencer.maxL1TxInclusionTimeIntoSlot <value>                                                                                   ($SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT)
           How many seconds into an L1 slot we can still send a tx and get it mined.
 
-    --sequencer.txPublicSetupAllowList <value>                                                                                          ($TX_PUBLIC_SETUP_ALLOWLIST)
+    --sequencer.txPublicSetupAllowList <value>                                                                                         ($TX_PUBLIC_SETUP_ALLOWLIST)
           The list of functions calls allowed to run in setup
 
     --sequencer.viemPollingIntervalMS <value>                      (default: 1000)                                                      ($L1_READER_VIEM_POLLING_INTERVAL_MS)
@@ -506,7 +483,7 @@ If two subsystems can contain the same configuration option, only one needs to b
     --sequencer.priorityFeeRetryBumpPercentage <value>             (default: 50)                                                        ($L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE)
           How much to increase priority fee by each retry attempt (percentage)
 
-    --sequencer.fixedPriorityFeePerGas <value>                                                                                          ($L1_FIXED_PRIORITY_FEE_PER_GAS)
+    --sequencer.fixedPriorityFeePerGas <value>                                                                                         ($L1_FIXED_PRIORITY_FEE_PER_GAS)
           Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage
 
     --sequencer.maxAttempts <value>                                (default: 3)                                                         ($L1_TX_MONITOR_MAX_ATTEMPTS)
@@ -526,9 +503,6 @@ If two subsystems can contain the same configuration option, only one needs to b
 
     --sequencer.blobSinkUrl <value>                                                                                                     ($BLOB_SINK_URL)
           The URL of the blob sink
-
-    --sequencer.blobSinkMapSizeKb <value>                                                                                               ($BLOB_SINK_MAP_SIZE_KB)
-          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
 
     --sequencer.archiveApiUrl <value>                                                                                                   ($BLOB_SINK_ARCHIVE_API_URL)
           The URL of the archive API
@@ -555,12 +529,6 @@ If two subsystems can contain the same configuration option, only one needs to b
 
     --blobSink.port <value>                                                                                                             ($BLOB_SINK_PORT)
           The port to run the blob sink server on
-
-    --blobSink.blobSinkUrl <value>                                                                                                      ($BLOB_SINK_URL)
-          The URL of the blob sink
-
-    --blobSink.blobSinkMapSizeKb <value>                                                                                                ($BLOB_SINK_MAP_SIZE_KB)
-          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
 
     --blobSink.archiveApiUrl <value>                                                                                                    ($BLOB_SINK_ARCHIVE_API_URL)
           The URL of the archive API
@@ -618,21 +586,6 @@ If two subsystems can contain the same configuration option, only one needs to b
     --proverNode.worldStateDbMapSizeKb <value>                                                                                          ($WS_DB_MAP_SIZE_KB)
           The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKB.
 
-    --proverNode.archiveTreeMapSizeKb <value>                                                                                           ($ARCHIVE_TREE_MAP_SIZE_KB)
-          The maximum possible size of the world state archive tree in KB. Overwrites the general worldStateDbMapSizeKb.
-
-    --proverNode.nullifierTreeMapSizeKb <value>                                                                                         ($NULLIFIER_TREE_MAP_SIZE_KB)
-          The maximum possible size of the world state nullifier tree in KB. Overwrites the general worldStateDbMapSizeKb.
-
-    --proverNode.noteHashTreeMapSizeKb <value>                                                                                          ($NOTE_HASH_TREE_MAP_SIZE_KB)
-          The maximum possible size of the world state note hash tree in KB. Overwrites the general worldStateDbMapSizeKb.
-
-    --proverNode.messageTreeMapSizeKb <value>                                                                                           ($MESSAGE_TREE_MAP_SIZE_KB)
-          The maximum possible size of the world state message tree in KB. Overwrites the general worldStateDbMapSizeKb.
-
-    --proverNode.publicDataTreeMapSizeKb <value>                                                                                        ($PUBLIC_DATA_TREE_MAP_SIZE_KB)
-          The maximum possible size of the world state public data tree in KB. Overwrites the general worldStateDbMapSizeKb.
-
     --proverNode.worldStateDataDirectory <value>                                                                                        ($WS_DATA_DIRECTORY)
           Optional directory for the world state database
 
@@ -648,8 +601,8 @@ If two subsystems can contain the same configuration option, only one needs to b
     --proverNode.publisherPrivateKey <value>                       (default: 0x0000000000000000000000000000000000000000000000000000000000000000)($PROVER_PUBLISHER_PRIVATE_KEY)
           The private key to be used by the publisher.
 
-    --proverNode.proverCoordinationNodeUrls <value>                (default: )                                                          ($PROVER_COORDINATION_NODE_URLS)
-          The URLs of the tx provider nodes
+    --proverNode.proverCoordinationNodeUrl <value>                                                                                      ($PROVER_COORDINATION_NODE_URL)
+          The URL of the tx provider node
 
     --proverNode.proverNodeMaxPendingJobs <value>                  (default: 10)                                                        ($PROVER_NODE_MAX_PENDING_JOBS)
           The maximum number of pending jobs for the prover node
@@ -660,17 +613,14 @@ If two subsystems can contain the same configuration option, only one needs to b
     --proverNode.proverNodeMaxParallelBlocksPerEpoch <value>       (default: 32)                                                        ($PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH)
           The Maximum number of blocks to process in parallel while proving an epoch
 
-    --proverNode.proverNodeFailedEpochStore <value>                                                                                     ($PROVER_NODE_FAILED_EPOCH_STORE)
-          File store where to upload node state when an epoch fails to be proven
+    --proverNode.txGatheringTimeoutMs <value>                      (default: 60000)                                                     ($PROVER_NODE_TX_GATHERING_TIMEOUT_MS)
+          The maximum amount of time to wait for tx data to be available
 
     --proverNode.txGatheringIntervalMs <value>                     (default: 1000)                                                      ($PROVER_NODE_TX_GATHERING_INTERVAL_MS)
           How often to check that tx data is available
 
-    --proverNode.txGatheringBatchSize <value>                      (default: 10)                                                        ($PROVER_NODE_TX_GATHERING_BATCH_SIZE)
-          How many transactions to gather from a node in a single request
-
-    --proverNode.txGatheringMaxParallelRequestsPerNode <value>     (default: 100)                                                       ($PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE)
-          How many tx requests to make in parallel to each node
+    --proverNode.txGatheringMaxParallelRequests <value>            (default: 100)                                                       ($PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS)
+          How many txs to load up a time
 
     --proverNode.testAccounts <value>                                                                                                   ($TEST_ACCOUNTS)
           Whether to populate the genesis state with initial fee juice for the test accounts.
@@ -683,12 +633,6 @@ If two subsystems can contain the same configuration option, only one needs to b
 
     --proverNode.snapshotsUrl <value>                                                                                                   ($SYNC_SNAPSHOTS_URL)
           Base URL for snapshots index.
-
-    --proverNode.autoUpdate <value>                                (default: disabled)                                                  ($AUTO_UPDATE)
-          The auto update mode for this node
-
-    --proverNode.autoUpdateUrl <value>                                                                                                  ($AUTO_UPDATE_URL)
-          Base URL to check for updates
 
   PROVER BROKER
 
@@ -759,123 +703,7 @@ If two subsystems can contain the same configuration option, only one needs to b
     --p2p-bootstrap
           Starts Aztec P2P Bootstrap with options
 
-    --p2pBootstrap.p2pBroadcastPort <value>                                                                                             ($P2P_BROADCAST_PORT)
-          The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P_PORT.
-
-    --p2pBootstrap.peerIdPrivateKeyPath <value>                                                                                         ($PEER_ID_PRIVATE_KEY_PATH)
-          An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the root of the data directory.
-
     --p2pBootstrap.dataStoreMapSizeKB <value>                      (default: 134217728)                                                 ($DATA_STORE_MAP_SIZE_KB)
           DB mapping size to be applied to all key/value stores
 
-  BOT
-
-    --bot
-          Starts Aztec Bot with options
-
-    --bot.nodeUrl <value>                                                                                                               ($AZTEC_NODE_URL)
-          The URL to the Aztec node to check for tx pool status.
-
-    --bot.nodeAdminUrl <value>                                                                                                          ($AZTEC_NODE_ADMIN_URL)
-          The URL to the Aztec node admin API to force-flush txs if configured.
-
-    --bot.pxeUrl <value>                                                                                                                ($BOT_PXE_URL)
-          URL to the PXE for sending txs, or undefined if an in-proc PXE is used.
-
-    --bot.l1Mnemonic <value>                                                                                                            ($BOT_L1_MNEMONIC)
-          The mnemonic for the account to bridge fee juice from L1.
-
-    --bot.l1PrivateKey <value>                                                                                                          ($BOT_L1_PRIVATE_KEY)
-          The private key for the account to bridge fee juice from L1.
-
-    --bot.senderPrivateKey <value>                                                                                                      ($BOT_PRIVATE_KEY)
-          Signing private key for the sender account.
-
-    --bot.senderSalt <value>                                                                                                            ($BOT_ACCOUNT_SALT)
-          The salt to use to deploys the sender account.
-
-    --bot.recipientEncryptionSecret <value>                        (default: 0x00000000000000000000000000000000000000000000000000000000cafecafe)($BOT_RECIPIENT_ENCRYPTION_SECRET)
-          Encryption secret for a recipient account.
-
-    --bot.tokenSalt <value>                                        (default: 0x0000000000000000000000000000000000000000000000000000000000000001)($BOT_TOKEN_SALT)
-          Salt for the token contract deployment.
-
-    --bot.txIntervalSeconds <value>                                (default: 60)                                                        ($BOT_TX_INTERVAL_SECONDS)
-          Every how many seconds should a new tx be sent.
-
-    --bot.privateTransfersPerTx <value>                            (default: 1)                                                         ($BOT_PRIVATE_TRANSFERS_PER_TX)
-          How many private token transfers are executed per tx.
-
-    --bot.publicTransfersPerTx <value>                             (default: 1)                                                         ($BOT_PUBLIC_TRANSFERS_PER_TX)
-          How many public token transfers are executed per tx.
-
-    --bot.feePaymentMethod <value>                                 (default: fee_juice)                                                 ($BOT_FEE_PAYMENT_METHOD)
-          How to handle fee payments. (Options: fee_juice)
-
-    --bot.noStart <value>                                                                                                               ($BOT_NO_START)
-          True to not automatically setup or start the bot on initialization.
-
-    --bot.txMinedWaitSeconds <value>                               (default: 180)                                                       ($BOT_TX_MINED_WAIT_SECONDS)
-          How long to wait for a tx to be mined before reporting an error.
-
-    --bot.followChain <value>                                      (default: NONE)                                                      ($BOT_FOLLOW_CHAIN)
-          Which chain the bot follows
-
-    --bot.maxPendingTxs <value>                                    (default: 128)                                                       ($BOT_MAX_PENDING_TXS)
-          Do not send a tx if the node's tx pool already has this many pending txs.
-
-    --bot.flushSetupTransactions <value>                                                                                                ($BOT_FLUSH_SETUP_TRANSACTIONS)
-          Make a request for the sequencer to build a block after each setup transaction.
-
-    --bot.l2GasLimit <value>                                                                                                            ($BOT_L2_GAS_LIMIT)
-          L2 gas limit for the tx (empty to have the bot trigger an estimate gas).
-
-    --bot.daGasLimit <value>                                                                                                            ($BOT_DA_GAS_LIMIT)
-          DA gas limit for the tx (empty to have the bot trigger an estimate gas).
-
-    --bot.contract <value>                                         (default: TokenContract)                                             ($BOT_TOKEN_CONTRACT)
-          Token contract to use
-
-    --bot.maxConsecutiveErrors <value>                                                                                                  ($BOT_MAX_CONSECUTIVE_ERRORS)
-          The maximum number of consecutive errors before the bot shuts down
-
-    --bot.stopWhenUnhealthy <value>                                                                                                     ($BOT_STOP_WHEN_UNHEALTHY)
-          Stops the bot if service becomes unhealthy
-
-    --bot.ammTxs <value>                                                                                                                ($BOT_AMM_TXS)
-          Deploy an AMM and send swaps to it
-
-  TXE
-
-    --txe
-          Starts Aztec TXE with options
-
-  FAUCET
-
-    --faucet
-          Starts the Aztec faucet
-
-    --faucet.apiServer                                             (default: true)
-          Starts a simple HTTP server to access the faucet
-
-    --faucet.apiServerPort <value>                                 (default: 8080)
-          The port on which to start the api server on
-
-    --faucet.viemPollingIntervalMS <value>                         (default: 1000)                                                      ($L1_READER_VIEM_POLLING_INTERVAL_MS)
-          The polling interval viem uses in ms
-
-    --faucet.l1Mnemonic <value>                                                                                                         ($MNEMONIC)
-          The mnemonic for the faucet account
-
-    --faucet.mnemonicAccountIndex <value>                                                                                               ($FAUCET_MNEMONIC_ACCOUNT_INDEX)
-          The account to use
-
-    --faucet.interval <value>                                      (default: 3600000)                                                   ($FAUCET_INTERVAL_MS)
-          How often the faucet can be dripped
-
-    --faucet.ethAmount <value>                                     (default: 1.0)                                                       ($FAUCET_ETH_AMOUNT)
-          How much eth the faucet should drip per call
-
-    --faucet.l1Assets <value>                                                                                                           ($FAUCET_L1_ASSETS)
-          Which other L1 assets the faucet is able to drip
 ```
