@@ -263,9 +263,7 @@ describe('decoder', () => {
       1n,
       2n,
       false,
-      // TODO(#14600): correctly decode the string as string instead of 3 bigints
-      // 'xyz',
-      [120n, 121n, 122n],
+      'xyz',
       AztecAddress.fromBigInt(1n),
       // eslint-disable-next-line camelcase
       { x: 1n, y: 2n, is_infinite: false },
