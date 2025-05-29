@@ -11,8 +11,8 @@ pub contract ReturningTuple {
 
     #[private]
     #[view]
-    fn fn_that_returns_1() -> pub (bool) {
-        (true)
+    fn fn_that_returns_1() -> pub (bool,) {
+        (true,)
     }
 
     #[private]
