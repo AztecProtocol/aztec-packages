@@ -272,9 +272,14 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
 }
 
 /**
- * @brief Since in divide_no_zero_check, we check \f$ a / b=c \f$ by the constraint \f$ a= b \cdot c\f$, if \f$ a = b =
- * 0\f$, we can set \f$ c \f$ to *any value* and it will pass the constraint. Hence, when not having prior knowledge of
- * \f$ b \f$ not being zero it is essential to check.
+ * @brief Since in divide_no_zero_check, we check \f$ a / b = q \f$ by the constraint \f$ a = b \cdot q\f$, if \f$ a =
+ * b= 0\f$, we can set \f$ q \f$ to *any value* and it will pass the constraint. Hence, when not having prior knowledge
+ * of \f$ b \f$ not being zero it is essential to check.
+ *
+ * If \f$ b = 0 \f$ and is constant, this method aborts due to failed ASSERT( b !=0 ) condition inside
+ * `assert_is_not_zero()`.
+ * If \f$ b = 0 \f$ and is not constant, a `Builder` failure is set and an unsatisfiable constraint `1 = 0` is
+ * created.
  *
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::operator/(const field_t& other) const
@@ -287,9 +292,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator/(const f
 /**
  * @brief Given field elements `a` = `*this` and `b` = `other`, output \f$ a / b \f$ without checking whether \f$  b = 0
  * \f$.
- *
- * Note that If `b`== 0, this method triggers a std::runtime_error ("Trying to invert zero in the field") in invert()
- * method of the native field.
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_check(const field_t& other) const
 {
