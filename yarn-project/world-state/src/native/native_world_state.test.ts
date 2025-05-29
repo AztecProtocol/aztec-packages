@@ -235,9 +235,6 @@ describe('NativeWorldState', () => {
 
       // Creating another world state instance should fail
       await ws.close();
-      await expect(NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes)).rejects.toThrow(
-        'World state trees are out of sync',
-      );
     });
 
     it('manually clears the database', async () => {
@@ -524,8 +521,8 @@ describe('NativeWorldState', () => {
         }
       }
 
-      ws = await unsyncTrees(ws, ['PublicDataTree', 'NullifierTree'], async (ws: NativeWorldStateService) => {
-        await ws.removeHistoricalBlocks(5n);
+      ws = await unsyncTrees(ws, ['PublicDataTree', 'NullifierTree'], async (worldState: NativeWorldStateService) => {
+        await worldState.removeHistoricalBlocks(5n);
       });
 
       // Open up the world state again and try removing the first 10 historical blocks
@@ -536,6 +533,165 @@ describe('NativeWorldState', () => {
       expect(fullStatus.meta.noteHashTreeMeta.oldestHistoricBlock).toEqual(10n);
       expect(fullStatus.meta.nullifierTreeMeta.oldestHistoricBlock).toEqual(10n);
       expect(fullStatus.meta.publicDataTreeMeta.oldestHistoricBlock).toEqual(10n);
+    });
+
+    it('handles finalised block numbers being out of sync', async () => {
+      const fork = await ws.fork();
+      const provenBlockLag = 12;
+
+      for (let i = 0; i < 16; i++) {
+        const blockNumber = i + 1;
+        const provenBlock = blockNumber - provenBlockLag;
+        const { block, messages } = await mockBlock(blockNumber, 1, fork);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+
+        expect(status.summary.unfinalisedBlockNumber).toBe(BigInt(blockNumber));
+
+        if (provenBlock > 0) {
+          const provenStatus = await ws.setFinalised(BigInt(provenBlock));
+          expect(provenStatus.finalisedBlockNumber).toBe(BigInt(provenBlock));
+        } else {
+          expect(status.summary.finalisedBlockNumber).toBe(0n);
+        }
+      }
+
+      // The finalised block number is 4.
+      // We are going to move it forward for some of the trees but not others
+
+      ws = await unsyncTrees(ws, ['PublicDataTree', 'NullifierTree'], async (worldState: NativeWorldStateService) => {
+        await worldState.setFinalised(BigInt(8));
+      });
+
+      // Open up the world state again and try moving the finalised block to 12
+      // We should handle the fact that some trees are at historical block 5 and some are at 1
+      const summary = await ws.setFinalised(12n);
+      expect(summary.finalisedBlockNumber).toEqual(12n);
+      expect(summary.treesAreSynched).toBeTruthy();
+    });
+
+    it('handles pending block numbers being out of sync', async () => {
+      {
+        const fork = await ws.fork();
+
+        for (let i = 0; i < 8; i++) {
+          const blockNumber = i + 1;
+          const { block, messages } = await mockBlock(blockNumber, 1, fork);
+          await ws.handleL2BlockAndMessages(block, messages);
+        }
+      }
+
+      // The pending block number is 8, we wil now add some blocks to only some of the trees
+      ws = await unsyncTrees(ws, ['PublicDataTree', 'NullifierTree'], async (worldState: NativeWorldStateService) => {
+        const fork = await worldState.fork();
+        for (let i = 8; i < 16; i++) {
+          const blockNumber = i + 1;
+          const { block, messages } = await mockBlock(blockNumber, 1, fork);
+          await worldState.handleL2BlockAndMessages(block, messages);
+        }
+      });
+
+      {
+        const fork = await ws.fork();
+
+        // Open up the world state again and try adding another block
+        // We should re-sync the trees so they are at the same (earliest) block
+        const summary = await ws.getStatusSummary();
+        expect(summary.unfinalisedBlockNumber).toEqual(8n);
+
+        const blockNumber = 9;
+        const { block, messages } = await mockBlock(blockNumber, 1, fork);
+        const statusFull = await ws.handleL2BlockAndMessages(block, messages);
+        expect(statusFull.meta.archiveTreeMeta.unfinalisedBlockHeight).toEqual(9n);
+        expect(statusFull.meta.messageTreeMeta.unfinalisedBlockHeight).toEqual(9n);
+        expect(statusFull.meta.noteHashTreeMeta.unfinalisedBlockHeight).toEqual(9n);
+        expect(statusFull.meta.nullifierTreeMeta.unfinalisedBlockHeight).toEqual(9n);
+        expect(statusFull.meta.publicDataTreeMeta.unfinalisedBlockHeight).toEqual(9n);
+        expect(statusFull.summary.treesAreSynched).toBeTruthy();
+      }
+    });
+
+    it('handles all block numbers being out of sync', async () => {
+      {
+        const fork = await ws.fork();
+        const provenBlockLag = 12;
+
+        for (let i = 0; i < 16; i++) {
+          const blockNumber = i + 1;
+          const { block, messages } = await mockBlock(blockNumber, 1, fork);
+          const status = await ws.handleL2BlockAndMessages(block, messages);
+
+          const provenBlock = blockNumber - provenBlockLag;
+
+          if (provenBlock > 0) {
+            const provenStatus = await ws.setFinalised(BigInt(provenBlock));
+            expect(provenStatus.finalisedBlockNumber).toBe(BigInt(provenBlock));
+          } else {
+            expect(status.summary.finalisedBlockNumber).toBe(0n);
+          }
+        }
+      }
+
+      // The pending block number is 16, we wil now add some blocks to only some of the trees
+      // In addition, the proven block will move to 8
+      // We also set the historical block number to 4
+      ws = await unsyncTrees(ws, ['PublicDataTree', 'NullifierTree'], async (worldState: NativeWorldStateService) => {
+        const fork = await worldState.fork();
+        const provenBlockLag = 12;
+        for (let i = 16; i < 20; i++) {
+          const blockNumber = i + 1;
+          const { block, messages } = await mockBlock(blockNumber, 1, fork);
+          await worldState.handleL2BlockAndMessages(block, messages);
+          const provenBlock = blockNumber - provenBlockLag;
+          await worldState.setFinalised(BigInt(provenBlock));
+        }
+        await worldState.removeHistoricalBlocks(4n);
+      });
+
+      {
+        const fork = await ws.fork();
+
+        // Open up the world state again and try adding another block
+        // We should re-sync the trees so they are at the same (earliest) block
+        const expectedPendingBlockNumber = 16n;
+        const summary = await ws.getStatusSummary();
+        expect(summary.unfinalisedBlockNumber).toEqual(expectedPendingBlockNumber);
+
+        const { block, messages } = await mockBlock(Number(expectedPendingBlockNumber + 1n), 1, fork);
+        const statusFull = await ws.handleL2BlockAndMessages(block, messages);
+        expect(statusFull.summary.treesAreSynched).toBeTruthy();
+        expect(statusFull.meta.archiveTreeMeta.unfinalisedBlockHeight).toEqual(expectedPendingBlockNumber + 1n);
+        expect(statusFull.meta.messageTreeMeta.unfinalisedBlockHeight).toEqual(expectedPendingBlockNumber + 1n);
+        expect(statusFull.meta.noteHashTreeMeta.unfinalisedBlockHeight).toEqual(expectedPendingBlockNumber + 1n);
+        expect(statusFull.meta.nullifierTreeMeta.unfinalisedBlockHeight).toEqual(expectedPendingBlockNumber + 1n);
+        expect(statusFull.meta.publicDataTreeMeta.unfinalisedBlockHeight).toEqual(expectedPendingBlockNumber + 1n);
+
+        const expectedFinalisedBlockNumber = 8n;
+        const expectedHistoricalBlockNumber = 4n;
+
+        expect(statusFull.meta.archiveTreeMeta.finalisedBlockHeight).toEqual(expectedFinalisedBlockNumber);
+        expect(statusFull.meta.messageTreeMeta.finalisedBlockHeight).toEqual(expectedFinalisedBlockNumber);
+        expect(statusFull.meta.noteHashTreeMeta.finalisedBlockHeight).toEqual(expectedFinalisedBlockNumber);
+        expect(statusFull.meta.nullifierTreeMeta.finalisedBlockHeight).toEqual(expectedFinalisedBlockNumber);
+        expect(statusFull.meta.publicDataTreeMeta.finalisedBlockHeight).toEqual(expectedFinalisedBlockNumber);
+
+        expect(statusFull.meta.archiveTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber);
+        expect(statusFull.meta.messageTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber);
+        expect(statusFull.meta.noteHashTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber);
+        expect(statusFull.meta.nullifierTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber);
+        expect(statusFull.meta.publicDataTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber);
+
+        const finalisedStatus = await ws.setFinalised(expectedFinalisedBlockNumber + 1n);
+        expect(finalisedStatus.finalisedBlockNumber).toEqual(expectedFinalisedBlockNumber + 1n);
+        expect(finalisedStatus.treesAreSynched).toBeTruthy();
+
+        const fullStatus = await ws.removeHistoricalBlocks(expectedHistoricalBlockNumber + 1n);
+        expect(fullStatus.meta.archiveTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber + 1n);
+        expect(fullStatus.meta.messageTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber + 1n);
+        expect(fullStatus.meta.noteHashTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber + 1n);
+        expect(fullStatus.meta.nullifierTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber + 1n);
+        expect(fullStatus.meta.publicDataTreeMeta.oldestHistoricBlock).toEqual(expectedHistoricalBlockNumber + 1n);
+        expect(fullStatus.summary.treesAreSynched).toBeTruthy();
+      }
     });
 
     it.each([
@@ -596,7 +752,9 @@ describe('NativeWorldState', () => {
       await ws.unwindBlocks(8n);
 
       // check that it is not possible to re-org blocks that were already reorged.
-      await expect(ws.unwindBlocks(10n)).rejects.toThrow('Unable to unwind block, block not found');
+      await expect(ws.unwindBlocks(10n)).rejects.toThrow(
+        'Unable to unwind blocks to block number 10, current pending block 8',
+      );
 
       await compareChains(ws.getCommitted(), sequentialReorgState.getCommitted());
 

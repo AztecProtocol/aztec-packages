@@ -306,6 +306,8 @@ class WorldState {
 
     void validate_trees_are_equally_synched();
 
+    WorldStateStatusFull attempt_tree_resync();
+
     static bool block_state_matches_world_state(const StateReference& block_state_ref,
                                                 const StateReference& tree_state_ref);
 
