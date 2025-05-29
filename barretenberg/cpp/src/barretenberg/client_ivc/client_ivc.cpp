@@ -16,15 +16,7 @@ namespace bb {
 ClientIVC::ClientIVC(TraceSettings trace_settings)
     : trace_usage_tracker(trace_settings)
     , trace_settings(trace_settings)
-    , goblin(bn254_commitment_key)
-{
-    // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
-    // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
-    size_t commitment_key_size =
-        std::max(trace_settings.dyadic_size(), 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
-    info("BN254 commitment key size: ", commitment_key_size);
-    bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(commitment_key_size);
-}
+{}
 
 /**
  * @brief Instantiate a stdlib verification queue for use in the kernel completion logic
@@ -189,16 +181,18 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
 
-    // Construct merge proof for the present circuit
-    MergeProof merge_proof = goblin.prove_merge();
-
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
-    if (proving_key->proving_key.circuit_size > bn254_commitment_key->dyadic_size) {
-        bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(proving_key->proving_key.circuit_size);
-        goblin.commitment_key = bn254_commitment_key;
+    const size_t incoming_circuit_size = proving_key->proving_key.circuit_size;
+    if (!bn254_commitment_key || incoming_circuit_size > bn254_commitment_key->dyadic_size) {
+        info("Allocating BN254 commitment key size: ", incoming_circuit_size);
+        bn254_commitment_key.reset(); // reset the existing key if it exists
+        bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(incoming_circuit_size);
     }
     proving_key->proving_key.commitment_key = bn254_commitment_key;
+
+    // Construct merge proof for the present circuit
+    MergeProof merge_proof = goblin.prove_merge(bn254_commitment_key);
 
     vinfo("getting honk vk... precomputed?: ", precomputed_vk);
     // Update the accumulator trace usage based on the present circuit
@@ -360,6 +354,14 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 ClientIVC::Proof ClientIVC::prove()
 {
     auto mega_proof = construct_and_prove_hiding_circuit();
+
+    // Ensure the bn254 commitment key is large enough for the Translator
+    if (bn254_commitment_key->dyadic_size < 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N) {
+        bn254_commitment_key.reset();
+        bn254_commitment_key =
+            std::make_shared<CommitmentKey<curve::BN254>>(1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
+    }
+    goblin.commitment_key = bn254_commitment_key;
 
     // Construct the last merge proof for the present circuit
     MergeProof merge_proof = goblin.prove_final_merge();
