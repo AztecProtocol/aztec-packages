@@ -1,5 +1,6 @@
 use dep::aztec::{
     context::{PrivateContext, PublicContext},
+    history::nullifier_inclusion::ProveNullifierInclusion,
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::custom_note,
     messages::logs::note,
@@ -11,7 +12,7 @@ use dep::aztec::{
             GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER,
             GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT, PRIVATE_LOG_SIZE_IN_FIELDS,
         },
-        hash::poseidon2_hash_with_separator,
+        hash::{compute_siloed_nullifier, poseidon2_hash_with_separator},
         traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
         utils::arrays::array_concat,
     },
@@ -242,20 +243,20 @@ impl PartialUintNote {
         context.push_note_hash(self.compute_complete_note_hash(value));
     }
 
-    /// Computes a validity commitment for this partial note. The commitment cryptographically binds the note's private
-    /// data with the designated completer address. When the note is later completed in public execution, we can load
-    /// this commitment from the nullifier tree and verify that both the partial note (e.g. that the storage slot
-    /// corresponds to the correct owner, and that we're using the correct state variable) and completer are
-    /// legitimate.
-    pub fn compute_validity_commitment(self, completer: AztecAddress) -> Field {
-        poseidon2_hash_with_separator(
-            [self.commitment, completer.to_field()],
-            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
-        )
-    }
-
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
-    pub fn complete_from_private(self, value: u128, context: &mut PrivateContext) {
+    pub fn complete_from_private(
+        self,
+        context: &mut PrivateContext,
+        completer: AztecAddress,
+        value: u128,
+    ) {
+        // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
+        // state variable's storage slot, and it is internally consistent).
+        let validity_commitment = self.compute_validity_commitment(completer);
+        let siloed_validity_commitment =
+            compute_siloed_nullifier(context.this_address(), validity_commitment);
+        context.get_block_header().prove_nullifier_inclusion(siloed_validity_commitment);
+
         // We need to do two things:
         //  - emit an unencrypted log containing the public fields (the value) via the private log channel. The
         //  contract will later find it by searching for the expected tag (which is simply the partial note
@@ -268,6 +269,18 @@ impl PartialUintNote {
             NOTE_COMPLETION_LOG_LENGTH,
         );
         context.push_note_hash(self.compute_complete_note_hash(value));
+    }
+
+    /// Computes a validity commitment for this partial note. The commitment cryptographically binds the note's private
+    /// data with the designated completer address. When the note is later completed in public execution, we can load
+    /// this commitment from the nullifier tree and verify that both the partial note (e.g. that the storage slot
+    /// corresponds to the correct owner, and that we're using the correct state variable) and completer are
+    /// legitimate.
+    pub fn compute_validity_commitment(self, completer: AztecAddress) -> Field {
+        poseidon2_hash_with_separator(
+            [self.commitment, completer.to_field()],
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        )
     }
 
     fn compute_note_completion_log(self, value: u128) -> [Field; NOTE_COMPLETION_LOG_LENGTH] {
