@@ -1,30 +1,38 @@
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import {
+  type ACIRCallback,
+  type CircuitSimulator,
+  ExecutionError,
+  createSimulationError,
+  extractCallStack,
+  resolveAssertionMessageFromError,
+  toACVMWitness,
+  witnessMapToFields,
+} from '@aztec/simulator/client';
 import type { AbiDecoded, FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CallContext, HashedValues, PrivateExecutionResult, TxExecutionRequest, collectNested } from '@aztec/stdlib/tx';
 
-import { ExecutionError, createSimulationError, resolveAssertionMessageFromError } from '../common/errors.js';
-import { Oracle, extractCallStack, toACVMWitness, witnessMapToFields } from './acvm/index.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
-import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
-import { PrivateExecutionOracle } from './private_execution_oracle.js';
-import type { SimulationProvider } from './providers/simulation_provider.js';
-import { UtilityExecutionOracle } from './utility_execution_oracle.js';
+import { Oracle } from './oracle/oracle.js';
+import { executePrivateFunction, verifyCurrentClassId } from './oracle/private_execution.js';
+import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
+import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 
 /**
- * The ACIR simulator.
+ * The contract function simulator.
  */
-export class AcirSimulator {
+export class ContractFunctionSimulator {
   private log: Logger;
 
   constructor(
     private executionDataProvider: ExecutionDataProvider,
-    private simulationProvider: SimulationProvider,
+    private simulator: CircuitSimulator,
   ) {
     this.log = createLogger('simulator');
   }
@@ -83,7 +91,7 @@ export class AcirSimulator {
       HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       this.executionDataProvider,
-      this.simulationProvider,
+      this.simulator,
       /*totalPublicArgsCount=*/ 0,
       startSideEffectCounter,
       undefined,
@@ -92,7 +100,7 @@ export class AcirSimulator {
 
     try {
       const executionResult = await executePrivateFunction(
-        this.simulationProvider,
+        this.simulator,
         context,
         entryPointArtifact,
         contractAddress,
@@ -144,8 +152,8 @@ export class AcirSimulator {
       });
 
       const initialWitness = toACVMWitness(0, call.args);
-      const acirExecutionResult = await this.simulationProvider
-        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle))
+      const acirExecutionResult = await this.simulator
+        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle) as unknown as ACIRCallback)
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
           throw new ExecutionError(

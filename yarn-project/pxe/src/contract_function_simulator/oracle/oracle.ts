@@ -1,25 +1,32 @@
 import { Fr, Point } from '@aztec/foundation/fields';
+import type { ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
+import {
+  type ACVMField,
+  arrayOfArraysToBoundedVecOfArrays,
+  bufferToBoundedVec,
+  fromBoundedVec,
+  fromUintArray,
+  fromUintBoundedVec,
+  toACVMField,
+  toACVMFieldSingleOrArray,
+} from '@aztec/simulator/client';
 import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ContractClassLog, ContractClassLogFields, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import type { ACVMField } from '../acvm_types.js';
-import { fromBoundedVec, fromUintArray, fromUintBoundedVec } from '../deserialize.js';
-import {
-  arrayOfArraysToBoundedVecOfArrays,
-  bufferToBoundedVec,
-  toACVMField,
-  toACVMFieldSingleOrArray,
-} from '../serialize.js';
 import type { TypedOracle } from './typed_oracle.js';
 
 /**
  * A data source that has all the apis required by Aztec.nr.
  */
 export class Oracle {
-  constructor(private typedOracle: TypedOracle) {}
+  private typedOracle: TypedOracle;
+
+  constructor(typedOracle: TypedOracle) {
+    this.typedOracle = typedOracle;
+  }
 
   getRandomField(): Promise<ACVMField[]> {
     const val = this.typedOracle.getRandomField();

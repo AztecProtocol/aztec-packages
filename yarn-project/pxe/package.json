@@ -6,6 +6,7 @@
     "./server": "./dest/entrypoints/server/index.js",
     "./client/lazy": "./dest/entrypoints/client/lazy/index.js",
     "./client/bundle": "./dest/entrypoints/client/bundle/index.js",
+    "./simulator": "./dest/contract_function_simulator/index.js",
     "./config": "./dest/config/index.js",
     "./testing": "./dest/test/pxe_test_suite.js"
   },

@@ -3,6 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import type { ACIRCallback, CircuitSimulator } from '@aztec/simulator/client';
 import {
   type FunctionArtifact,
   type FunctionArtifactWithContractName,
@@ -17,18 +18,18 @@ import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 
-import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
-import { witnessMapToFields } from './acvm/deserialize.js';
-import { type ACVMWitness, Oracle, extractCallStack } from './acvm/index.js';
-import type { ExecutionDataProvider } from './execution_data_provider.js';
+import { ExecutionError, resolveAssertionMessageFromError } from '../../../../simulator/src/common/errors.js';
+import { witnessMapToFields } from '../../../../simulator/src/private/acvm/deserialize.js';
+import { type ACVMWitness, extractCallStack } from '../../../../simulator/src/private/acvm/index.js';
+import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import { Oracle } from './oracle.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
-import type { SimulationProvider } from './providers/simulation_provider.js';
 
 /**
  * Execute a private function and return the execution result.
  */
 export async function executePrivateFunction(
-  simulator: SimulationProvider,
+  simulator: CircuitSimulator,
   privateExecutionOracle: PrivateExecutionOracle,
   artifact: FunctionArtifactWithContractName,
   contractAddress: AztecAddress,
@@ -41,7 +42,7 @@ export async function executePrivateFunction(
   const acvmCallback = new Oracle(privateExecutionOracle);
   const timer = new Timer();
   const acirExecutionResult = await simulator
-    .executeUserCircuit(initialWitness, artifact, acvmCallback)
+    .executeUserCircuit(initialWitness, artifact, acvmCallback as unknown as ACIRCallback)
     .catch((err: Error) => {
       err.message = resolveAssertionMessageFromError(err, artifact);
       throw new ExecutionError(

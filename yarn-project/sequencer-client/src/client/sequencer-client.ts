@@ -46,7 +46,7 @@ export class SequencerClient {
    * @param l2BlockSource - Provides information about the previously published blocks.
    * @param l1ToL2MessageSource - Provides access to L1 to L2 messages.
    * @param prover - An instance of a block prover
-   * @param simulationProvider - An instance of a simulation provider
+   * @param simulator - An instance of a simulation provider
    * @returns A new running instance.
    */
   public static async new(

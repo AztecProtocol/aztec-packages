@@ -6,7 +6,7 @@ import {
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times } from '@aztec/foundation/collection';
-import { poseidon2Hash, poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
+import { poseidon2Hash, poseidon2HashWithSeparator, randomInt, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -19,6 +19,7 @@ import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
+import { WASMSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
   type FunctionArtifact,
@@ -39,6 +40,7 @@ import {
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
   computeNoteHashNonce,
+  computeSecretHash,
   computeUniqueNoteHash,
   computeVarArgsHash,
   deriveStorageSlotInMap,
@@ -47,7 +49,7 @@ import {
 import { KeyValidationRequest, getNonEmptyItems } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
-import type { L1ToL2Message } from '@aztec/stdlib/messaging';
+import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note } from '@aztec/stdlib/note';
 import { makeHeader } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -64,19 +66,47 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { buildL1ToL2Message } from '../test/utils.js';
-import type { ExecutionDataProvider } from './execution_data_provider.js';
+import { ContractFunctionSimulator } from '../contract_function_simulator.js';
+import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
-import { WASMSimulator } from './providers/acvm_wasm.js';
-import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
 
+/**
+ * Test utility function to craft an L1 to L2 message.
+ * @param selector - The cross chain message selector.
+ * @param contentPreimage - The args after the selector.
+ * @param targetContract - The contract to consume the message.
+ * @param secret - The secret to unlock the message.
+ * @returns The L1 to L2 message.
+ */
+export const buildL1ToL2Message = async (
+  selector: string,
+  contentPreimage: Fr[],
+  targetContract: AztecAddress,
+  secret: Fr,
+  msgIndex: Fr | number,
+) => {
+  // Write the selector into a buffer.
+  const selectorBuf = Buffer.from(selector, 'hex');
+
+  const content = sha256ToField([selectorBuf, ...contentPreimage]);
+  const secretHash = await computeSecretHash(secret);
+
+  return new L1ToL2Message(
+    new L1Actor(EthAddress.random(), 1),
+    new L2Actor(targetContract, 1),
+    content,
+    secretHash,
+    new Fr(msgIndex),
+  );
+};
+
 describe('Private Execution test suite', () => {
-  const simulationProvider = new WASMSimulator();
+  const simulator = new WASMSimulator();
 
   let executionDataProvider: MockProxy<ExecutionDataProvider>;
-  let acirSimulator: AcirSimulator;
+  let acirSimulator: ContractFunctionSimulator;
 
   let header = BlockHeader.empty();
   let logger: Logger;
@@ -308,7 +338,7 @@ describe('Private Execution test suite', () => {
       },
     );
 
-    acirSimulator = new AcirSimulator(executionDataProvider, simulationProvider);
+    acirSimulator = new ContractFunctionSimulator(executionDataProvider, simulator);
   });
 
   describe('no constructor', () => {
