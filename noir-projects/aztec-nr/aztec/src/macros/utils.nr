@@ -153,10 +153,8 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         f"[{element_typ_quote};{array_len}]".quoted_contents()
     } else if typ.as_data_type().is_some() {
         let (s, generics) = typ.as_data_type().unwrap();
-        let field_signatures = s
-            .fields(generics)
-            .map(|(_, typ): (Quoted, Type)| signature_of_type(typ))
-            .join(quote {,});
+        let field_signatures =
+            s.fields(generics).map(|(_, typ, _)| signature_of_type(typ)).join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
@@ -204,8 +202,7 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     //
     // The signature will be "foo(Field,AztecAddress)".
     let fn_name = f.name();
-    let args_signatures =
-        f.parameters().map(|(_, typ): (Quoted, Type)| signature_of_type(typ)).join(quote {,});
+    let args_signatures = f.parameters().map(|(_, typ)| signature_of_type(typ)).join(quote {,});
     let signature_quote = quote { $fn_name($args_signatures) };
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
@@ -228,7 +225,7 @@ pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
     let event_name = s.name();
     let args_signatures = s
         .fields_as_written()
-        .map(|(_, typ): (Quoted, Type)| {
+        .map(|(_, typ, _)| {
             // signature_of_type can handle structs, so this supports nested structs
             // FIXME: Field generics are not handled here!
             signature_of_type(typ)

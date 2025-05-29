@@ -512,7 +512,9 @@ export class ReadOnlyL1TxUtils {
 
   public bumpGasLimit(gasLimit: bigint, _gasConfig?: L1TxUtilsConfig): bigint {
     const gasConfig = { ...this.config, ..._gasConfig };
-    return gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
+    const bumpedGasLimit = gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
+    this.logger?.debug('Bumping gas limit', { gasLimit, gasConfig, bumpedGasLimit });
+    return bumpedGasLimit;
   }
 }
 
@@ -560,8 +562,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       } else if (gasConfig.gasLimit) {
         gasLimit = gasConfig.gasLimit;
       } else {
-        gasLimit = await this.estimateGas(account, request);
+        gasLimit = await this.estimateGas(account, request, gasConfig);
       }
+
+      this.logger?.debug('Gas limit', { gasLimit });
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 

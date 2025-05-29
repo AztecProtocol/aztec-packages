@@ -30,9 +30,6 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
     ExecutionTraceBuilder builder;
 
     // Some inputs
-    ExecInstructionSpec spec = {
-        .num_addresses = 3, .gas_cost = { .base_l2 = AVM_ADD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 }
-    };
     // Use the instruction builder - we can make the operands more complex
     const auto instr = InstructionBuilder(WireOpCode::ADD_8)
                            // All operands are direct - for simplicity
@@ -42,10 +39,9 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
                            .build();
     simulation::AddressingEvent addressing_event{
         .instruction = instr,
-        .spec = &spec,
     };
 
-    auto ex_event = simulation::ExecutionEvent::allocate();
+    simulation::ExecutionEvent ex_event;
     ex_event.inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) };
     ex_event.output = { TaggedValue::from_tag(ValueTag::U16, 8) };
     ex_event.opcode = ExecutionOpCode::ADD;
@@ -77,10 +73,6 @@ TEST(ExecutionTraceGenTest, Call)
     ExecutionTraceBuilder builder;
 
     // Inputs
-    ExecInstructionSpec call_spec = {
-        .num_addresses = 5,
-        .gas_cost = { .base_l2 = AVM_CALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_CALL_DYN_L2_GAS, .dyn_da = 0 }
-    };
     const auto call_instr = InstructionBuilder(WireOpCode::CALL)
                                 .operand<uint8_t>(2)
                                 .operand<uint8_t>(4)
@@ -91,7 +83,6 @@ TEST(ExecutionTraceGenTest, Call)
 
     simulation::AddressingEvent addressing_event{
         .instruction = call_instr,
-        .spec = &call_spec,
     };
 
     simulation::ContextEvent context_event{
@@ -99,10 +90,10 @@ TEST(ExecutionTraceGenTest, Call)
         .contract_addr = 0xdeadbeef,
     };
 
-    auto ex_event = simulation::ExecutionEvent::allocate();
+    simulation::ExecutionEvent ex_event;
     ex_event.opcode = ExecutionOpCode::CALL;
     ex_event.addressing_event = addressing_event;
-    ex_event.context_event = context_event;
+    ex_event.after_context_event = context_event;
     ex_event.next_context_id = 2;
     ex_event.inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(10),
                         /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(11),
@@ -143,14 +134,10 @@ TEST(ExecutionTraceGenTest, Return)
     ExecutionTraceBuilder builder;
 
     // Inputs
-    const ExecInstructionSpec return_spec = {
-        .num_addresses = 2, .gas_cost = { .base_l2 = AVM_RETURN_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 }
-    };
     const auto return_instr = InstructionBuilder(WireOpCode::RETURN).operand<uint8_t>(4).operand<uint8_t>(20).build();
 
     simulation::AddressingEvent addressing_event{
         .instruction = return_instr,
-        .spec = &return_spec,
     };
 
     simulation::ContextEvent context_event{
@@ -158,10 +145,10 @@ TEST(ExecutionTraceGenTest, Return)
         .contract_addr = 0xdeadbeef,
     };
 
-    auto ex_event = simulation::ExecutionEvent::allocate();
+    simulation::ExecutionEvent ex_event;
     ex_event.opcode = ExecutionOpCode::RETURN;
     ex_event.addressing_event = addressing_event;
-    ex_event.context_event = context_event;
+    ex_event.after_context_event = context_event;
     ex_event.next_context_id = 2;
     ex_event.inputs = { /*rd_size=*/MemoryValue::from<uint32_t>(2) };
     ex_event.resolved_operands = { /*rd_size_offset=*/MemoryValue::from<uint32_t>(4),
@@ -182,5 +169,71 @@ TEST(ExecutionTraceGenTest, Return)
                       Contains(Field(&R::execution_context_id, 1)),
                       Contains(Field(&R::execution_next_context_id, 2))));
 }
+
+TEST(ExecutionTraceGenTest, Gas)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    // Use the instruction builder - we can make the operands more complex
+    const auto instr = InstructionBuilder(WireOpCode::ADD_8)
+                           // All operands are direct - for simplicity
+                           .operand<uint8_t>(0)
+                           .operand<uint8_t>(0)
+                           .operand<uint8_t>(0)
+                           .build();
+    simulation::AddressingEvent addressing_event{
+        .instruction = instr,
+    };
+
+    simulation::ExecutionEvent ex_event;
+    ex_event.inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) };
+    ex_event.output = { TaggedValue::from_tag(ValueTag::U16, 8) };
+    ex_event.opcode = ExecutionOpCode::ADD;
+    ex_event.addressing_event = addressing_event;
+
+    Gas gas_limit = { .l2Gas = 110149, .daGas = 100000 };
+    Gas prev_gas_used = { .l2Gas = 100000, .daGas = 70000 };
+    Gas base_gas = { .l2Gas = 150, .daGas = 5000 };
+    Gas dynamic_gas = { .l2Gas = 5000, .daGas = 9000 };
+
+    ex_event.after_context_event.gas_limit = gas_limit; // Will OOG on l2 after dynamic gas
+    ex_event.before_context_event.gas_used = prev_gas_used;
+    ex_event.gas_event.opcode_gas = 100;
+    ex_event.gas_event.addressing_gas = 50;
+    ex_event.gas_event.base_gas = base_gas;
+    ex_event.gas_event.dynamic_gas = dynamic_gas;
+    ex_event.gas_event.dynamic_gas_factor = { .l2Gas = 2, .daGas = 1 };
+    ex_event.gas_event.oog_base_l2 = false;
+    ex_event.gas_event.oog_base_da = false;
+    ex_event.gas_event.oog_dynamic_l2 = true;
+    ex_event.gas_event.oog_dynamic_da = false;
+    ex_event.gas_event.limit_used_l2_comparison_witness = 0;
+    ex_event.gas_event.limit_used_da_comparison_witness =
+        gas_limit.daGas - prev_gas_used.daGas - base_gas.daGas - dynamic_gas.daGas * 1;
+
+    builder.process({ ex_event }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                AllOf(Contains(Field(&R::execution_opcode_gas, 100)),
+                      Contains(Field(&R::execution_addressing_gas, 50)),
+                      Contains(Field(&R::execution_base_da_gas, 5000)),
+                      Contains(Field(&R::execution_out_of_gas_base_l2, false)),
+                      Contains(Field(&R::execution_out_of_gas_base_da, false)),
+                      Contains(Field(&R::execution_out_of_gas_base, false)),
+                      Contains(Field(&R::execution_prev_l2_gas_used, 100000)),
+                      Contains(Field(&R::execution_prev_da_gas_used, 70000)),
+                      Contains(Field(&R::execution_should_run_dyn_gas_check, true)),
+                      Contains(Field(&R::execution_dynamic_l2_gas_factor, 2)),
+                      Contains(Field(&R::execution_dynamic_da_gas_factor, 1)),
+                      Contains(Field(&R::execution_dynamic_l2_gas, 5000)),
+                      Contains(Field(&R::execution_dynamic_da_gas, 9000)),
+                      Contains(Field(&R::execution_out_of_gas_dynamic_l2, true)),
+                      Contains(Field(&R::execution_out_of_gas_dynamic_da, false)),
+                      Contains(Field(&R::execution_out_of_gas_dynamic, true)),
+                      Contains(Field(&R::execution_limit_used_l2_cmp_diff, 0)),
+                      Contains(Field(&R::execution_limit_used_da_cmp_diff, 16000))));
+}
+
 } // namespace
 } // namespace bb::avm2::tracegen
