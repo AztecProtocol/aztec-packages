@@ -30,14 +30,13 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
   }
 
   uint256 public constant LIFETIME_IN_ROUNDS = 5;
+  // EIP-712 type hash for the Vote struct
+  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(address proposal)");
 
   // The quorum size
   uint256 public immutable N;
   // The round size
   uint256 public immutable M;
-
-  // EIP-712 type hash for the Vote struct
-  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(address proposal)");
 
   mapping(address instance => mapping(uint256 roundNumber => RoundAccounting)) public rounds;
 
