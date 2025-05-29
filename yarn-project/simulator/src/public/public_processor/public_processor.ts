@@ -268,16 +268,17 @@ export class PublicProcessor implements Traceable {
 
           // We now know there can't be any further access to world state. The fork is in a state where there is:
           // 1. At least one outstanding checkpoint that has not been committed (the one created before we processed the tx).
-          // 2. There may be state updates on those checkpoints that have not been committed/reverted.
+          // 2. Possible state updates on that checkpoint or any others created during execution.
 
-          // First we revert the checkpoint as managed by the ForkCheckpoint. this will revert whatever is the current checkpoint
-          // which may not be the one managed by this object. But that is ok, we do this to fulfil the ForkCheckpoint
+          // First we revert a checkpoint as managed by the ForkCheckpoint. This will revert whatever is the current checkpoint
+          // which may not be the one originally created by this object. But that is ok, we do this to fulfil the ForkCheckpoint
           // lifecycle expectations and ensure it doesn't attempt to commit later on.
           await checkpoint.revert();
 
           // Now we want to revert any/all remaining checkpoints, destroying any outstanding state updates.
           // This needs to be done directly on the underlying fork as the guarded fork has been stopped.
           await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
+
           // We should now be in a position where the fork is in a clean state and no further updates can be made to it.
           break;
         }
