@@ -36,6 +36,9 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
   // The round size
   uint256 public immutable M;
 
+  // EIP-712 type hash for the Vote struct
+  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(address proposal)");
+
   mapping(address instance => mapping(uint256 roundNumber => RoundAccounting)) public rounds;
 
   constructor(uint256 _n, uint256 _m) EIP712("EmpireBase", "1") {
@@ -189,9 +192,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
         msg.sender == proposer, Errors.GovernanceProposer__OnlyProposerCanVote(msg.sender, proposer)
       );
     } else {
-      bytes32 digest = _hashTypedDataV4(
-        keccak256(abi.encode(keccak256("voteWithSig(IPayload proposal)"), _proposal))
-      );
+      bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, _proposal)));
 
       // _sig.verify will throw if invalid, it is more my sanity that I am doing this for.
       require(
@@ -209,6 +210,10 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
     }
 
     emit VoteCast(_proposal, roundNumber, msg.sender);
+
+    if (round.yeaCount[_proposal] == N) {
+      emit ProposalExecutable(_proposal, roundNumber);
+    }
 
     return true;
   }
