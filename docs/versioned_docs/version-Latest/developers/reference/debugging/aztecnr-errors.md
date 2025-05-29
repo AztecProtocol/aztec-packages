@@ -10,7 +10,7 @@ This section contains some errors that you may encounter when writing and compil
 All smart contracts written in Aztec.nr need the `aztec` dependency. In your `Nargo.toml` under `[dependencies]`, add this:
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.4", directory="noir-projects/aztec-nr/aztec" }
 ```
 
 You can learn more about dependencies and their paths [here](../smart_contract_reference/dependencies.md).
