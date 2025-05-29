@@ -9,15 +9,12 @@
 
 namespace bb::avm2::simulation {
 
-bool MemoryInterface::is_valid_address(const FF& address)
+bool Memory::is_valid_address(const FF& address)
 {
+    // FIXME(fcarreiro): do not assert, do a boolean check.
     // address fits in 32 bits
-    return FF(static_cast<uint32_t>(address)) == address;
-}
-
-bool MemoryInterface::is_valid_address(const MemoryValue& address)
-{
-    return is_valid_address(address.as_ff()) && address.get_tag() == MemoryAddressTag;
+    range_check.assert_range(static_cast<uint128_t>(address), 32);
+    return true;
 }
 
 void Memory::set(MemoryAddress index, MemoryValue value)
@@ -52,7 +49,7 @@ void Memory::validate_tag(const MemoryValue& value) const
     }
 
     uint128_t value_as_uint128 = static_cast<uint128_t>(value.as_ff());
-    auto tag_bits = get_tag_bits(value.get_tag());
+    uint8_t tag_bits = get_tag_bits(value.get_tag());
     range_check.assert_range(value_as_uint128, tag_bits);
 }
 

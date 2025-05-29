@@ -158,16 +158,25 @@ TEST(ExecutionTraceGenTest, Call)
     Gas allocated_gas = { .l2Gas = 100, .daGas = 200 };
     simulation::ExecutionEvent ex_event = {
         .wire_instruction = call_instr,
-        .resolved_operands = { MemoryValue::from<uint32_t>(0),
-                               MemoryValue::from<uint32_t>(0),
-                               MemoryValue::from<uint32_t>(0),
-                               MemoryValue::from<uint32_t>(10),
-                               MemoryValue::from<uint32_t>(20) },
         .inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(allocated_gas.l2Gas),
                     /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(allocated_gas.daGas),
                     /*contract_address=*/MemoryValue::from<uint32_t>(0xdeadbeef) },
         .next_context_id = 2,
-        .addressing_event = { .instruction = call_instr },
+        .addressing_event = { .instruction = call_instr,
+                              .resolution_info = {
+                                { .after_relative = MemoryValue::from<uint32_t>(0),
+                                  .resolved_operand = MemoryValue::from<uint32_t>(0),
+                                  },
+                                  { .after_relative = MemoryValue::from<uint32_t>(0),
+                                  .resolved_operand = MemoryValue::from<uint32_t>(0),
+                                  },
+                                  { .after_relative = MemoryValue::from<uint32_t>(0),
+                                    .resolved_operand = MemoryValue::from<uint32_t>(0) },
+                                    { .after_relative = MemoryValue::from<uint32_t>(0),
+                                    .resolved_operand = MemoryValue::from<uint32_t>(10) },
+                                  { .after_relative = MemoryValue::from<uint32_t>(0),
+                                    .resolved_operand = MemoryValue::from<uint32_t>(20) },
+                              } },
         .after_context_event = {
             .id = 1,
             .contract_addr = 0xdeadbeef,
@@ -220,11 +229,17 @@ TEST(ExecutionTraceGenTest, Return)
 
     simulation::ExecutionEvent ex_event = {
         .wire_instruction = return_instr,
-        .resolved_operands = { /*rd_size_offset=*/MemoryValue::from<uint32_t>(4),
-                               /*rd_offset=*/MemoryValue::from<uint32_t>(5) },
         .inputs = { /*rd_size=*/MemoryValue::from<uint32_t>(2) },
         .next_context_id = 2,
-        .addressing_event = { .instruction = return_instr },
+        .addressing_event = { .instruction = return_instr,
+                              .resolution_info = {
+                                /*rd_size_offset=*/{ .after_relative = MemoryValue::from<uint32_t>(0),
+                                  .resolved_operand = MemoryValue::from<uint32_t>(4),
+                                  },
+                                  /*rd_offset=*/{ .after_relative = MemoryValue::from<uint32_t>(0),
+                                  .resolved_operand = MemoryValue::from<uint32_t>(5),
+                                  },
+                              } },
         .after_context_event = {
             .id = 1,
             .contract_addr = 0xdeadbeef,

@@ -1,18 +1,21 @@
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <numeric>
 #include <ranges>
 #include <stdexcept>
 #include <sys/types.h>
 #include <unordered_map>
 
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/vm2/common/addressing.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_call_opcode.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
@@ -26,6 +29,7 @@
 #include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 using C = bb::avm2::Column;
+using bb::avm2::simulation::AddressingEventError;
 using bb::avm2::simulation::ExecutionError;
 
 namespace bb::avm2::tracegen {
@@ -49,6 +53,46 @@ constexpr std::array<Column, NUM_OPERANDS> OPERAND_AFTER_RELATIVE_COLUMNS = {
 constexpr std::array<Column, NUM_OPERANDS> RESOLVED_OPERAND_COLUMNS = {
     C::execution_rop_0_, C::execution_rop_1_, C::execution_rop_2_, C::execution_rop_3_,
     C::execution_rop_4_, C::execution_rop_5_, C::execution_rop_6_,
+};
+constexpr std::array<Column, NUM_OPERANDS> RESOLVED_OPERAND_TAG_COLUMNS = {
+    C::execution_rop_tag_0_, C::execution_rop_tag_1_, C::execution_rop_tag_2_, C::execution_rop_tag_3_,
+    C::execution_rop_tag_4_, C::execution_rop_tag_5_, C::execution_rop_tag_6_,
+};
+constexpr std::array<Column, NUM_OPERANDS> OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS = {
+    C::execution_sel_should_apply_indirection_0_, C::execution_sel_should_apply_indirection_1_,
+    C::execution_sel_should_apply_indirection_2_, C::execution_sel_should_apply_indirection_3_,
+    C::execution_sel_should_apply_indirection_4_, C::execution_sel_should_apply_indirection_5_,
+    C::execution_sel_should_apply_indirection_6_,
+};
+constexpr std::array<Column, NUM_OPERANDS> OPERAND_RELATIVE_OVERFLOW_COLUMNS = {
+    C::execution_sel_relative_overflow_0_, C::execution_sel_relative_overflow_1_, C::execution_sel_relative_overflow_2_,
+    C::execution_sel_relative_overflow_3_, C::execution_sel_relative_overflow_4_, C::execution_sel_relative_overflow_5_,
+    C::execution_sel_relative_overflow_6_,
+};
+// constexpr std::array<Column, NUM_OPERANDS> OPERAND_SHOULD_DO_FINAL_CHECK_COLUMNS = {
+//     C::execution_sel_do_final_check_0_, C::execution_sel_do_final_check_1_, C::execution_sel_do_final_check_2_,
+//     C::execution_sel_do_final_check_3_, C::execution_sel_do_final_check_4_, C::execution_sel_do_final_check_5_,
+//     C::execution_sel_do_final_check_6_,
+// };
+// constexpr std::array<Column, NUM_OPERANDS> OPERAND_FINAL_OP_NOT_ADDRESS_COLUMNS = {
+//     C::execution_sel_final_op_not_address_0_, C::execution_sel_final_op_not_address_1_,
+//     C::execution_sel_final_op_not_address_2_, C::execution_sel_final_op_not_address_3_,
+//     C::execution_sel_final_op_not_address_4_, C::execution_sel_final_op_not_address_5_,
+//     C::execution_sel_final_op_not_address_6_,
+// };
+
+constexpr size_t TOTAL_INDIRECT_BITS = 16;
+static_assert(NUM_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
+constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_RELATIVE_COLUMNS = {
+    C::execution_sel_op_is_relative_0_, C::execution_sel_op_is_relative_1_, C::execution_sel_op_is_relative_2_,
+    C::execution_sel_op_is_relative_3_, C::execution_sel_op_is_relative_4_, C::execution_sel_op_is_relative_5_,
+    C::execution_sel_op_is_relative_6_, C::execution_sel_op_is_relative_7_,
+
+};
+constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_INDIRECT_COLUMNS = {
+    C::execution_sel_op_is_indirect_0_, C::execution_sel_op_is_indirect_1_, C::execution_sel_op_is_indirect_2_,
+    C::execution_sel_op_is_indirect_3_, C::execution_sel_op_is_indirect_4_, C::execution_sel_op_is_indirect_5_,
+    C::execution_sel_op_is_indirect_6_, C::execution_sel_op_is_indirect_7_,
 };
 
 constexpr size_t NUM_REGISTERS = 7;
@@ -301,36 +345,108 @@ void ExecutionTraceBuilder::process(
 
         bool should_resolve_address = should_check_gas && !oog_base;
         const auto& addr_event = ex_event.addressing_event;
-        bool addressing_failed = addr_event.error.has_value();
+        bool addressing_failed = std::any_of(addr_event.resolution_info.begin(),
+                                             addr_event.resolution_info.end(),
+                                             [](const auto& info) { return info.error.has_value(); });
         assert(addressing_failed == (ex_event.error == ExecutionError::ADDRESSING));
-
-        // As opposed to instruction fetching, we do have to write everything even if addressing failed.
-        // This is because addressing is a virtual gadget. Luckily, we do have all the information we need in the event.
-        auto resolved_operands = ex_event.resolved_operands;
-        assert(resolved_operands.size() <= NUM_OPERANDS);
-        resolved_operands.resize(NUM_OPERANDS, simulation::Operand::from<FF>(0));
-        auto operands_after_relative = addr_event.after_relative;
-        assert(operands_after_relative.size() <= NUM_OPERANDS);
-        operands_after_relative.resize(NUM_OPERANDS, simulation::Operand::from<FF>(0));
-
         trace.set(C::execution_sel_should_resolve_address, row, should_resolve_address ? 1 : 0);
 
         if (should_resolve_address) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
             const ExecInstructionSpec& ex_spec = EXEC_INSTRUCTION_SPEC.at(*exec_opcode);
 
-            trace.set(row,
-                      { {
-                          { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
-                          { C::execution_base_address_val, addr_event.base_address.as_ff() },
-                          { C::execution_base_address_tag, static_cast<size_t>(addr_event.base_address.get_tag()) },
-                      } });
+            auto resolution_info_vec = addr_event.resolution_info;
+            assert(resolution_info_vec.size() <= NUM_OPERANDS);
+            resolution_info_vec.resize(NUM_OPERANDS);
 
             for (size_t i = 0; i < NUM_OPERANDS; i++) {
-                trace.set(OPERAND_IS_ADDRESS_COLUMNS[i], row, ex_spec.num_addresses <= i + 1 ? 1 : 0);
-                trace.set(OPERAND_AFTER_RELATIVE_COLUMNS[i], row, operands_after_relative.at(i));
-                trace.set(RESOLVED_OPERAND_COLUMNS[i], row, resolved_operands.at(i));
+                const auto& resolution_info = resolution_info_vec.at(i);
+                bool is_address = i < ex_spec.num_addresses;
+                bool relative_oob = resolution_info.error.has_value() &&
+                                    *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
+                bool is_indirect = is_operand_indirect(ex_event.wire_instruction.indirect, i);
+                bool should_apply_indirection = is_indirect && !relative_oob;
+                // bool should_do_final_check = is_address && should_apply_indirection;
+                // bool final_op_not_address =
+                //     resolution_info.error.has_value() &&
+                //     *resolution_info.error == AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
+                uint8_t resolved_operand_tag = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
+
+                trace.set(row,
+                          { {
+                              { OPERAND_IS_ADDRESS_COLUMNS[i], is_address ? 1 : 0 },
+                              { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob ? 1 : 0 },
+                              { OPERAND_AFTER_RELATIVE_COLUMNS[i], resolution_info.after_relative },
+                              { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection ? 1 : 0 },
+                              { RESOLVED_OPERAND_COLUMNS[i], resolution_info.resolved_operand },
+                              { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag },
+                              //   { OPERAND_SHOULD_DO_FINAL_CHECK_COLUMNS[i], should_do_final_check ? 1 : 0 },
+                              //   { OPERAND_FINAL_OP_NOT_ADDRESS_COLUMNS[i], final_op_not_address ? 1 : 0 }
+                          } });
             }
+
+            // See comment in PIL file about indirect upper bits.
+            uint8_t num_relative_operands = 0;
+            for (size_t i = 0; i < TOTAL_INDIRECT_BITS / 2; i++) {
+                bool is_relative = is_operand_relative(ex_event.wire_instruction.indirect, i);
+                bool is_indirect = is_operand_indirect(ex_event.wire_instruction.indirect, i);
+                trace.set(row,
+                          { {
+                              { OPERAND_IS_RELATIVE_COLUMNS[i], is_relative ? 1 : 0 },
+                              { OPERAND_IS_INDIRECT_COLUMNS[i], is_indirect ? 1 : 0 },
+                          } });
+                if (is_relative) {
+                    num_relative_operands++;
+                }
+            }
+
+            bool do_base_check = num_relative_operands != 0;
+            bool base_address_invalid = do_base_check && addr_event.base_address.get_tag() != MemoryTag::U32;
+            FF base_address_tag_diff_inv =
+                base_address_invalid
+                    ? FF(static_cast<uint8_t>(addr_event.base_address.get_tag()) - MEM_TAG_U32).invert()
+                    : 0;
+            // Collect addressing errors. See PIL file for reference.
+            FF addressing_error_collection_inv =
+                addressing_failed
+                    ? FF(
+                          // Base address invalid.
+                          (base_address_invalid ? 1 : 0) +
+                          // Relative overflow.
+                          std::accumulate(addr_event.resolution_info.begin(),
+                                          addr_event.resolution_info.end(),
+                                          static_cast<uint32_t>(0),
+                                          [](uint32_t acc, const auto& info) {
+                                              return acc + (info.error.has_value() &&
+                                                                    *info.error ==
+                                                                        AddressingEventError::RELATIVE_COMPUTATION_OOB
+                                                                ? 1
+                                                                : 0);
+                                          }) +
+                          // Some invalid address after indirection.
+                          (std::any_of(addr_event.resolution_info.begin(),
+                                       addr_event.resolution_info.end(),
+                                       [](const auto& info) {
+                                           return info.error.has_value() &&
+                                                  *info.error ==
+                                                      AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
+                                       })
+                               ? 1
+                               : 0))
+                          .invert()
+                    : 0;
+
+            trace.set(
+                row,
+                { { { C::execution_fixed_32, 32 },
+                    { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
+                    { C::execution_addressing_error_collection_inv, addressing_error_collection_inv },
+                    { C::execution_base_address_val, addr_event.base_address.as_ff() },
+                    { C::execution_base_address_tag, static_cast<size_t>(addr_event.base_address.get_tag()) },
+                    { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
+                    { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
+                    { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
+                    { C::execution_sel_do_base_check, do_base_check ? 1 : 0 } } });
         }
 
         /**************************************************************************************************
@@ -578,6 +694,22 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         // Instruction fetching
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_result_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_body_settings>>(),
+        // Addressing
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_base_address_from_memory_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_0_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_1_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_2_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_3_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_4_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_5_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_6_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_0_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_1_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_2_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_3_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_4_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_5_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_6_settings>>(),
         // Gas
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),
