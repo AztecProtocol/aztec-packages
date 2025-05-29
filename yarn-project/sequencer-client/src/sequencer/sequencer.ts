@@ -42,6 +42,7 @@ import type { GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
 import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
 import type { SequencerConfig } from './config.js';
+import { GuardedMerkleTree } from './guarded_merkle_tree.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
 import { SequencerState, orderAttestations } from './utils.js';
@@ -450,8 +451,16 @@ export class Sequencer {
     const previousBlockHeader =
       (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? publicProcessorDBFork.getInitialHeader();
 
+    const guardedFork = new GuardedMerkleTree(publicProcessorDBFork);
+
     try {
-      const processor = this.publicProcessorFactory.create(publicProcessorDBFork, newGlobalVariables, true);
+      const processor = this.publicProcessorFactory.create(guardedFork, newGlobalVariables, true);
+
+      // Ensure that no more state updates can be made by any incomplete transactions
+      await guardedFork.stop();
+      // Revert all checkpoints to ensure we have a consistent block
+      await publicProcessorDBFork.revertAllCheckpoints();
+
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(publicProcessorDBFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages, previousBlockHeader);
