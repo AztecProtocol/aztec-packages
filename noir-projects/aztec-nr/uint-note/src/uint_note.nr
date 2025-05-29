@@ -243,7 +243,8 @@ impl PartialUintNote {
         context.push_note_hash(self.compute_complete_note_hash(value));
     }
 
-    /// Completes the partial note, creating a new note that can be used like any other UintNote.
+    /// Completes the partial note, creating a new note that can be used like any other UintNote. Same as `complete`
+    /// function but works from private context.
     pub fn complete_from_private(
         self,
         context: &mut PrivateContext,
