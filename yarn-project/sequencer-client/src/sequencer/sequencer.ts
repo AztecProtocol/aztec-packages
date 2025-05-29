@@ -495,9 +495,10 @@ export class Sequencer {
         processor.process(pendingTxs, limits, validator),
       );
 
-      // Ensure that no more state updates can be made by any incomplete transactions
+      // There may still be a transactions executing. We stop this guarded fork to prevent any further access to the world state.
       await guardedFork.stop();
-      // Revert all checkpoints to ensure we have a consistent block
+      // Now we know there is no further access, we revert any outstanding checkpoints removing any partial statue updates made.
+      // NOTE: It is important that completed transactions have all of their checkpoints committed.
       await publicProcessorDBFork.revertAllCheckpoints();
 
       if (!opts.validateOnly && failedTxs.length > 0) {

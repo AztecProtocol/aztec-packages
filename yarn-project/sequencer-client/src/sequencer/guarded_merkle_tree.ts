@@ -12,6 +12,13 @@ import type {
 } from '@aztec/stdlib/trees';
 import type { BlockHeader, StateReference } from '@aztec/stdlib/tx';
 
+/**
+ * Wraps an instance of `MerkleTreeWriteOperations` to allow the sequencer to gate access.
+ * If transactions execution goes past the deadline, the processor will continue to execute and update the world state
+ * The sequencer however requires that the world state remain constant after the deadline in order to finalise the block
+ * The sequencer provides this implementation of MerkleTreeWriteOperations to the public processor
+ */
+
 export class GuardedMerkleTree implements MerkleTreeWriteOperations {
   private isStopped = false;
   private serialQueue = new SerialQueue();
@@ -22,10 +29,11 @@ export class GuardedMerkleTree implements MerkleTreeWriteOperations {
 
   private guard() {
     if (this.isStopped) {
-      throw new Error('Access denied');
+      throw new Error('Merkle tree access has been stopped');
     }
   }
 
+  // Executes the provided function only if the guard is not stopped.
   private guardAndPush<T>(fn: () => Promise<T>): Promise<T> {
     this.guard();
     return this.serialQueue.put(() => {
@@ -34,6 +42,7 @@ export class GuardedMerkleTree implements MerkleTreeWriteOperations {
     });
   }
 
+  // Stops all further access to the merkle trees via this object
   async stop(): Promise<void> {
     await this.serialQueue.put(() => {
       this.isStopped = true;
