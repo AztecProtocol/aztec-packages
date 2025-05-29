@@ -82,6 +82,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
         ASSERT(verified);
     }
     auto translator_pairing_points = output.points_accumulator;
+    // verifier.verification_keys.eccvm_verification_key->pub_inputs_offset.fix_witness();
     translator_pairing_points.P0.x.fix_witness();
     translator_pairing_points.P0.y.fix_witness();
     translator_pairing_points.P1.x.fix_witness();
@@ -89,14 +90,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     info("Recursive Verifier: num gates = ", builder.num_gates);
     auto graph = cdg::Graph(builder, false);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    if (variables_in_one_gate.empty()) {
-        info("variables in one gate is empty");
-    } else {
-        info("size of variables in one gate == ", variables_in_one_gate.size());
-        auto first_var = std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[1];
-        info("first var == ", first_var);
-        graph.print_variable_in_one_gate(builder, first_var);
-    }
+    EXPECT_EQ(variables_in_one_gate.size(), 2);
     // auto connected_components = graph.find_connected_components();
     // info("number of connected components == ", connected_components.size());
 }
