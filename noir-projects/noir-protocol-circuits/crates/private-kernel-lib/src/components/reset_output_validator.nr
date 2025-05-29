@@ -67,11 +67,12 @@ fn is_valid_siloed_private_log(out: PrivateLog, prev: Scoped<PrivateLogData>) ->
     is_valid & (out.length == prev.inner.log.length)
 }
 
-pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> {
+pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_HINTS_LEN: u32, let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32> {
     output: PrivateKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
-    transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
+    validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN>,
+    transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
+    transient_data_squashing_amount: u32,
     note_hash_siloing_amount: u32,
     nullifier_siloing_amount: u32,
     private_log_siloing_amount: u32,
@@ -79,12 +80,13 @@ pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, 
     hints: ResetOutputHints,
 }
 
-impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> ResetOutputValidator<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, NUM_TRANSIENT_DATA_INDEX_HINTS> {
+impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_HINTS_LEN: u32, let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32> ResetOutputValidator<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN> {
     pub fn new(
         output: PrivateKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
-        transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
+        validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN>,
+        transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
+        transient_data_squashing_amount: u32,
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
         private_log_siloing_amount: u32,
@@ -96,6 +98,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             previous_kernel,
             validation_request_processor,
             transient_data_index_hints,
+            transient_data_squashing_amount,
             note_hash_siloing_amount,
             nullifier_siloing_amount,
             private_log_siloing_amount,
@@ -148,7 +151,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
     }
 
     fn validate_transient_data(self) {
-        if NUM_TRANSIENT_DATA_INDEX_HINTS == 0 {
+        if self.transient_data_squashing_amount == 0 {
             assert_eq(
                 self.hints.kept_note_hashes,
                 self.previous_kernel.end.note_hashes,

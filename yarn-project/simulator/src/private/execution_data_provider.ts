@@ -10,7 +10,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, PublicLogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
@@ -261,8 +261,8 @@ export interface ExecutionDataProvider {
   ): Promise<void>;
 
   /**
-   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Stores the found logs
-   * in CapsuleArray ready for a later retrieval in Aztec.nr.
+   * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found
+   * logs in CapsuleArray ready for a later retrieval in Aztec.nr.
    * @param contractAddress - The address of the contract that the logs are tagged for.
    * @param pendingTaggedLogArrayBaseSlot - The base slot of the pending tagged log capsule array in which found logs will be stored.
    * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
@@ -306,12 +306,15 @@ export interface ExecutionDataProvider {
   getNoteHash(leafIndex: bigint): Promise<Fr | undefined>;
 
   /**
-   * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
-   * Returns null if no such log exists, and throws if more than one exists.
+   * Searches for a public log with the corresponding `tag` and returns it along with contextual transaction
+   * information.
    *
    * @param tag - The log tag to search for.
+   * @param contractAddress - The contract address to search for the log in.
+   * @returns The public log with transaction data if found, null otherwise.
+   * @throws If more than one log with that tag exists.
    */
-  getLogByTag(tag: Fr): Promise<LogWithTxData | null>;
+  getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null>;
 
   /**
    * Removes all of a contract's notes that have been nullified from the note database.
