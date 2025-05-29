@@ -61,6 +61,33 @@ pub struct LogWithTxData<let N: u32> {
     pub first_nullifier_in_tx: Field,
 }
 
+impl<let N: u32> LogWithTxData<N> {
+    /// Returns a copy of the original log with payload max length equal to TO_LEN.
+    ///
+    /// # Arguments
+    /// * `log` - The log to convert
+    /// * `FROM_LEN` - The max length of the log payload
+    /// * `TO_LEN` - The max length of the log payload
+    ///
+    /// # Panics
+    /// If the log's content exceeds TO_LEN
+    pub fn update_max_len<let TO_LEN: u32>(self) -> LogWithTxData<TO_LEN> {
+        // We need to check that the actual log content is not longer than the max length.
+        assert(self.log_payload.len() <= TO_LEN, "Source log payload too long");
+
+        // We copy the log content to the BoundedVec of the correct max length.
+        let mut log_payload = BoundedVec::new();
+        log_payload.extend_from_bounded_vec(self.log_payload);
+
+        LogWithTxData {
+            log_payload,
+            tx_hash: self.tx_hash,
+            unique_note_hashes_in_tx: self.unique_note_hashes_in_tx,
+            first_nullifier_in_tx: self.first_nullifier_in_tx,
+        }
+    }
+}
+
 /// Fetches a public log emitted by `contract_address` that has the corresponding `tag`. Returns `Option::none` if no
 /// such log exists. Throws if more than one log with that tag exists.
 // TODO(#11627): handle multiple logs with the same tag.
@@ -73,6 +100,7 @@ pub unconstrained fn get_public_log_by_tag(
 
 /// Fetches a private log from the node that has the corresponding `tag`. Returns `Option::none` if no such log exists.
 /// Throws if more than one log with that tag exists.
+// TODO(#11627): handle multiple logs with the same tag.
 pub unconstrained fn get_private_log_by_tag(
     tag: Field,
     contract_address: AztecAddress,
@@ -116,49 +144,13 @@ pub unconstrained fn get_log_by_tag_from_contract<let MAX_LOG_PAYLOAD_LEN: u32>(
     let maybe_public_log = get_public_log_by_tag(tag, contract_address);
     if maybe_public_log.is_some() {
         let public_log = maybe_public_log.unwrap_unchecked();
-
-        // We need to check that the actual log content is not longer than the max length.
-        assert(
-            public_log.log_payload.len() <= MAX_LOG_PAYLOAD_LEN,
-            "Too long partial note completion log delivered via public log stream",
-        );
-
-        // We copy the log content to the BoundedVec of the correct max length.
-        let mut log_payload = BoundedVec::new();
-        log_payload.extend_from_bounded_vec(public_log.log_payload);
-
-        Option::some(
-            LogWithTxData {
-                log_payload,
-                tx_hash: public_log.tx_hash,
-                unique_note_hashes_in_tx: public_log.unique_note_hashes_in_tx,
-                first_nullifier_in_tx: public_log.first_nullifier_in_tx,
-            },
-        )
+        Option::some(public_log.update_max_len())
     } else {
         // We didn't manage to obtain the log from the public log stream, so we try the private one.
         let maybe_private_log = get_private_log_by_tag(tag, contract_address);
         if maybe_private_log.is_some() {
             let private_log = maybe_private_log.unwrap_unchecked();
-
-            // We need to check that the actual log content is not longer than the max length.
-            assert(
-                private_log.log_payload.len() <= MAX_LOG_PAYLOAD_LEN,
-                "Too long partial note completion log delivered via private log stream",
-            );
-
-            // We copy the log content to the BoundedVec of the correct max length.
-            let mut log_payload = BoundedVec::new();
-            log_payload.extend_from_bounded_vec(private_log.log_payload);
-
-            Option::some(
-                LogWithTxData {
-                    log_payload,
-                    tx_hash: private_log.tx_hash,
-                    unique_note_hashes_in_tx: private_log.unique_note_hashes_in_tx,
-                    first_nullifier_in_tx: private_log.first_nullifier_in_tx,
-                },
-            )
+            Option::some(private_log.update_max_len())
         } else {
             Option::none()
         }
