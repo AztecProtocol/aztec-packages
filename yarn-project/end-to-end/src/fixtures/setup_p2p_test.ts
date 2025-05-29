@@ -79,14 +79,14 @@ export async function createNode(
   dateProvider: DateProvider,
   tcpPort: number,
   bootstrapNode: string | undefined,
-  accountIndex: number,
+  addressIndex: number,
   prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
   loggerIdStorage?: AsyncLocalStorage<string>,
 ) {
   const createNode = async () => {
-    const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, accountIndex, dataDirectory);
+    const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, addressIndex, dataDirectory);
     const telemetry = getEndToEndTestTelemetryClient(metricsPort);
     return await AztecNodeService.createAndSync(validatorConfig, { telemetry, dateProvider }, { prefilledPublicData });
   };
@@ -97,16 +97,16 @@ export async function createValidatorConfig(
   config: AztecNodeConfig,
   bootstrapNodeEnr?: string,
   port?: number,
-  accountIndex: number = 1,
+  addressIndex: number = 1,
   dataDirectory?: string,
 ) {
   port = port ?? (await getPort());
 
   const attesterPrivateKey: `0x${string}` = `0x${getPrivateKeyFromIndex(
-    ATTESTER_PRIVATE_KEYS_START_INDEX + accountIndex,
+    ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex,
   )!.toString('hex')}`;
 
-  config.validatorPrivateKey = attesterPrivateKey;
+  config.validatorPrivateKeys = [attesterPrivateKey];
   config.publisherPrivateKey = attesterPrivateKey;
 
   const nodeConfig: AztecNodeConfig = {

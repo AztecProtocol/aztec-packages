@@ -76,7 +76,6 @@ export const BASE_PARITY_INDEX = 14;
 export const ROOT_PARITY_INDEX = 15;
 export const PRIVATE_KERNEL_RESET_INDEX = 20;
 export const FUNCTION_SELECTOR_NUM_BYTES = 4;
-export const INITIALIZATION_SLOT_SEPARATOR = 1000000000;
 export const INITIAL_L2_BLOCK_NUM = 1;
 export const FIELDS_PER_BLOB = 4096;
 export const BLOBS_PER_BLOCK = 3;
