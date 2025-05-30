@@ -96,7 +96,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
      * portability of our circuits.
      */
     class VerificationKey
-        : public VerificationKey_<FF, ECCVMFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<BuilderType, FF, ECCVMFlavor::PrecomputedEntities<Commitment>> {
       public:
         std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
 
@@ -108,14 +108,15 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
+            : pcs_verification_key(std::make_shared<VerifierCommitmentKey>(
+                  builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key))
         {
-            pcs_verification_key = std::make_shared<VerifierCommitmentKey>(
-                builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key);
+
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
             // `log_circuit_size` from MSGPACK and the verification key.
             this->circuit_size = FF{ 1UL << CONST_ECCVM_LOG_N };
             this->circuit_size.convert_constant_to_fixed_witness(builder);
-            this->log_circuit_size = FF{ uint64_t(CONST_ECCVM_LOG_N) };
+            this->log_circuit_size = FF{ static_cast<uint64_t>(CONST_ECCVM_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);

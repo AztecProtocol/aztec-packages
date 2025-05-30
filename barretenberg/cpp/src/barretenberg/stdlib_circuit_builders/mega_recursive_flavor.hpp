@@ -112,7 +112,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
      * This differs from Mega in how we construct the commitments.
      */
     class VerificationKey
-        : public VerificationKey_<FF, MegaFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<BuilderType, FF, MegaFlavor::PrecomputedEntities<Commitment>> {
       public:
         // Data pertaining to transfer of databus return data via public inputs of the proof
         DatabusPropagationData databus_propagation_data;

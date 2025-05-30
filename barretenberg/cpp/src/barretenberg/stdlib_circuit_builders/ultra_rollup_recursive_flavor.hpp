@@ -57,7 +57,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
      * circuits.
      */
     class VerificationKey
-        : public VerificationKey_<FF, UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<BuilderType, FF, UltraFlavor::PrecomputedEntities<Commitment>> {
       public:
         PublicComponentKey ipa_claim_public_input_key; // needs to be a circuit constant
 
