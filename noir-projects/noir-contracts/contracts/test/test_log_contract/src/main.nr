@@ -1,25 +1,23 @@
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract TestLog {
-    use dep::aztec::macros::{events::event, functions::{private, public}, storage::storage};
-    use dep::aztec::prelude::PrivateSet;
-    use dep::aztec::protocol_types::{address::AztecAddress, traits::Serialize};
-    use dep::value_note::value_note::ValueNote;
-    use aztec::event::event_interface::{
-        emit_event_in_private_log, emit_event_in_public_log, PrivateLogContent,
+    use aztec::{
+        event::event_interface::{
+            emit_event_in_private_log, emit_event_in_public_log, PrivateLogContent,
+        },
+        macros::{events::event, functions::{private, public}, storage::storage},
+        prelude::PrivateSet,
+        protocol_types::{address::AztecAddress, traits::FromField},
     };
-    use aztec::protocol_types::traits::FromField;
-    use std::meta::derive;
+    use value_note::value_note::ValueNote;
 
-    #[derive(Serialize)]
     #[event]
     struct ExampleEvent0 {
         value0: Field,
         value1: Field,
     }
 
-    #[derive(Serialize)]
     #[event]
     struct ExampleEvent1 {
         value2: AztecAddress,

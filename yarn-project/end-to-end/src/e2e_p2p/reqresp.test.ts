@@ -144,9 +144,6 @@ describe('e2e_p2p_reqresp_tx', () => {
     );
 
     const attesters = await rollupContract.getAttesters();
-    const mappedProposers = await Promise.all(
-      attesters.map(async attester => await rollupContract.getProposerForAttester(attester)),
-    );
 
     const currentTime = await t.ctx.cheatCodes.eth.timestamp();
     const slotDuration = await rollupContract.getSlotDuration();
@@ -159,7 +156,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       proposers.push(proposer);
     }
     // Get the indexes of the nodes that are responsible for the next two slots
-    const proposerIndexes = proposers.map(proposer => mappedProposers.indexOf(proposer as `0x${string}`));
+    const proposerIndexes = proposers.map(proposer => attesters.indexOf(proposer as `0x${string}`));
 
     if (proposerIndexes.some(i => i === -1)) {
       throw new Error(

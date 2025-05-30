@@ -1,7 +1,6 @@
 import {
   DefaultL1ContractsConfig,
   type DeployL1ContractsArgs,
-  ForwarderContract,
   L1TxUtils,
   RollupContract,
   SlashingProposerContract,
@@ -48,7 +47,6 @@ describe('SlasherClient', () => {
   let rollup: RollupContract;
   let slashingProposer: SlashingProposerContract;
   let l1TxUtils: L1TxUtils;
-  let forwarder: ForwarderContract;
   let depositAmount: bigint;
 
   beforeAll(async () => {
@@ -76,7 +74,6 @@ describe('SlasherClient', () => {
       initialValidators: [
         {
           attester: EthAddress.fromString(l1Client.account.address),
-          proposerEOA: EthAddress.fromString(l1Client.account.address),
           withdrawer: EthAddress.fromString(l1Client.account.address),
         },
       ],
@@ -111,13 +108,6 @@ describe('SlasherClient', () => {
     depositAmount = await rollup.getMinimumStake();
 
     await rollup.setupEpoch(l1TxUtils);
-
-    forwarder = await ForwarderContract.create(
-      privateKey.address,
-      l1Client,
-      logger,
-      deployed.l1ContractAddresses.rollupAddress.toString(),
-    );
   });
 
   afterAll(async () => {
@@ -182,15 +172,12 @@ describe('SlasherClient', () => {
         logger.info('Round info:', roundInfo);
         logger.info(`Leader votes: ${leaderVotes}`);
 
-        // Vote for the payload
-        await forwarder
-          .forward([slashingProposer.createVoteRequest(payload!.toString())], l1TxUtils, undefined, undefined, logger)
-          .catch(err => {
-            if (err.message.includes('GovernanceProposer__OnlyProposerCanVote')) {
-              return;
-            }
-            throw err;
-          });
+        await l1TxUtils.client.sendTransaction(slashingProposer.createVoteRequest(payload!.toString())).catch(err => {
+          if (err.message.includes('GovernanceProposer__OnlyProposerCanVote')) {
+            return;
+          }
+          throw err;
+        });
 
         // Check if the payload is cleared
         const slot = await rollup.getSlotNumber();

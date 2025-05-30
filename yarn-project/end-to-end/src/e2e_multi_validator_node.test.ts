@@ -14,7 +14,6 @@ import {
   type ExtendedViemWalletClient,
   RollupContract,
   createExtendedL1Client,
-  getAddressFromPrivateKey,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
@@ -65,9 +64,8 @@ describe('e2e_multi_validator_node', () => {
     const initialValidators = initialValidatorPrivateKeys.map(pk => {
       const account = privateKeyToAccount(pk);
       return {
-        attester: account.address,
-        proposerEOA: getAddressFromPrivateKey(publisherPrivateKey),
-        withdrawer: account.address,
+        attester: EthAddress.fromString(account.address),
+        withdrawer: EthAddress.fromString(account.address),
         privateKey: pk,
       };
     });

@@ -60,7 +60,6 @@ pub contract Test {
     use address_note::address_note::AddressNote;
     use value_note::value_note::ValueNote;
 
-    #[derive(Serialize)]
     #[event]
     struct ExampleEvent {
         value0: Field,

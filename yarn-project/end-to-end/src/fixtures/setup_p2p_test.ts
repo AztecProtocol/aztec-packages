@@ -17,8 +17,7 @@ import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 // Setup snapshots will create a node with index 0, and run extra bootstrap with
 // index 1, so all of our loops here need to start from 2 to avoid running validators with the same key
-export const PROPOSER_PRIVATE_KEYS_START_INDEX = 2;
-export const ATTESTER_PRIVATE_KEYS_START_INDEX = 1001;
+export const ATTESTER_PRIVATE_KEYS_START_INDEX = 2;
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -106,12 +105,9 @@ export async function createValidatorConfig(
   const attesterPrivateKey: `0x${string}` = `0x${getPrivateKeyFromIndex(
     ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex,
   )!.toString('hex')}`;
-  const proposerPrivateKey: `0x${string}` = `0x${getPrivateKeyFromIndex(
-    PROPOSER_PRIVATE_KEYS_START_INDEX + addressIndex,
-  )!.toString('hex')}`;
 
   config.validatorPrivateKeys = [attesterPrivateKey];
-  config.publisherPrivateKey = proposerPrivateKey;
+  config.publisherPrivateKey = attesterPrivateKey;
 
   const nodeConfig: AztecNodeConfig = {
     ...config,

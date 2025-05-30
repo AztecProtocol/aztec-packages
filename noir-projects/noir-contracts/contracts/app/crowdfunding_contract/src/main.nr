@@ -17,17 +17,14 @@ pub contract Crowdfunding {
         },
         messages::logs::note::encode_and_encrypt_note,
         prelude::{AztecAddress, PrivateSet, PublicImmutable},
-        protocol_types::traits::Serialize,
         utils::comparison::Comparator,
     };
     use dep::uint_note::uint_note::UintNote;
     use router::utils::privately_check_timestamp;
-    use std::meta::derive;
     use token::Token;
     // docs:end:all-deps
 
     // docs:start:withdrawal-processed-event
-    #[derive(Serialize)]
     #[event]
     struct WithdrawalProcessed {
         who: AztecAddress,

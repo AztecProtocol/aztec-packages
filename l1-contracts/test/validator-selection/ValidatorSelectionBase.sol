@@ -54,8 +54,6 @@ contract ValidatorSelectionTestBase is DecoderBase {
   Signature internal emptySignature;
   TimeCheater internal timeCheater;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
-  mapping(address proposer => uint256 privateKey) internal proposerPrivateKeys;
-  mapping(address proposer => address attester) internal proposerToAttester;
   mapping(address => bool) internal _seenValidators;
   mapping(address => bool) internal _seenCommittee;
 
@@ -119,11 +117,7 @@ contract ValidatorSelectionTestBase is DecoderBase {
     uint256 attesterPrivateKey = uint256(keccak256(abi.encode("attester", _keySalt)));
     address attester = vm.addr(attesterPrivateKey);
     attesterPrivateKeys[attester] = attesterPrivateKey;
-    uint256 proposerPrivateKey = uint256(keccak256(abi.encode("proposer", _keySalt)));
-    address proposer = vm.addr(proposerPrivateKey);
-    proposerPrivateKeys[proposer] = proposerPrivateKey;
-    proposerToAttester[proposer] = attester;
 
-    return CheatDepositArgs({attester: attester, proposer: proposer, withdrawer: address(this)});
+    return CheatDepositArgs({attester: attester, withdrawer: address(this)});
   }
 }
