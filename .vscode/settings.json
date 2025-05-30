@@ -107,7 +107,7 @@
     "*.macros": "cpp",
     "*.tpp": "cpp"
   },
-  "solidity.compileUsingRemoteVersion": "v0.8.27",
+  "solidity.defaultCompiler": "embedded",
   "solidity.formatter": "forge",
   "search.exclude": {
     "**/.yarn": true,
