@@ -23,10 +23,6 @@ bool allocator_destroyed = false;
 // Slabs that are being manually managed by the user.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::unordered_map<void*, std::shared_ptr<void>> manual_slabs;
-#ifndef NO_MULTITHREADING
-// The manual slabs unordered map is not thread-safe, so we need to manage access to it when multithreaded.
-std::mutex manual_slabs_mutex;
-#endif
 template <typename... Args> inline void dbg_info(Args... args)
 {
 #if LOGGING == 1
@@ -201,23 +197,23 @@ void SlabAllocator::release(void* ptr, size_t size)
     // dbg_info("Pooled poly memory of size: ", size, " total: ", get_total_size());
 }
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-SlabAllocator allocator;
+// SlabAllocator allocator;
 } // namespace
 
 namespace bb {
-void init_slab_allocator(size_t circuit_subgroup_size)
+void init_slab_allocator([[maybe_unused]] size_t circuit_subgroup_size)
 {
     // allocator.init(circuit_subgroup_size);
 }
 
 void* get_mem_slab_raw(size_t size)
 {
-    return aligned_alloc(size, 64);
+    return aligned_alloc(32, size);
 }
 
 std::shared_ptr<void> get_mem_slab(size_t size)
 {
-    return std::shared_ptr<void>(get_mem_slab_raw(size));
+    return { get_mem_slab_raw(size), aligned_free };
 }
 
 void free_mem_slab_raw(void* p)
