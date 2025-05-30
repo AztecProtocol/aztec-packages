@@ -37,31 +37,13 @@ template <class Flavor> class TraceToPolynomials {
 
             PROFILE_THIS_NAME("TraceData constructor");
 
-            if constexpr (IsUltraOrMegaHonk<Flavor>) {
-                // Initialize and share the wire and selector polynomials
-                for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
-                    wire = other_wire.share();
-                }
-                for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {
-                    selector = other_selector.share();
-                }
-            } else {
-                // Initialize and share the wire and selector polynomials
-                for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-                    wires[idx] = Polynomial(proving_key.circuit_size);
-                    std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
-                    proving_key.polynomial_store.put(wire_tag, wires[idx].share());
-                }
-                {
-
-                    PROFILE_THIS_NAME("selector initialization");
-
-                    for (size_t idx = 0; idx < Builder::ExecutionTrace::NUM_SELECTORS; ++idx) {
-                        selectors[idx] = Polynomial(proving_key.circuit_size);
-                        std::string selector_tag = builder.selector_names[idx] + "_lagrange";
-                        proving_key.polynomial_store.put(selector_tag, selectors[idx].share());
-                    }
-                }
+            static_assert(IsUltraOrMegaHonk<Flavor>, "TraceData is only supported for Ultra and Mega flavors");
+            // Initialize and share the wire and selector polynomials
+            for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
+                wire = other_wire.share();
+            }
+            for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {
+                selector = other_selector.share();
             }
             {
                 PROFILE_THIS_NAME("copy cycle initialization");
@@ -73,7 +55,7 @@ template <class Flavor> class TraceToPolynomials {
 
     /**
      * @brief Given a circuit, populate a proving key with wire polys, selector polys, and sigma/id polys
-     * @note By default, this method constructs an exectution trace that is sorted by gate type. Optionally, it
+     * @note By default, this method constructs an execution trace that is sorted by gate type. Optionally, it
      * constructs a trace that is both sorted and "structured" in the sense that each block/gate-type has a fixed amount
      * of space within the wire polynomials, regardless of how many actual constraints of each type exist. This is
      * useful primarily for folding since it guarantees that the set of relations that must be executed at each row is
@@ -82,7 +64,7 @@ template <class Flavor> class TraceToPolynomials {
      * @param builder
      * @param is_structured whether or not the trace is to be structured with a fixed block size
      */
-    static void populate(Builder& builder, ProvingKey&, bool is_structured = false);
+    static void populate(Builder& builder, ProvingKey& proving_key, bool is_structured = false);
 
   private:
     /**

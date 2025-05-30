@@ -193,11 +193,9 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
     // Add information about public inputs so that the cycles can be altered later; See the construction of the
     // permutation polynomials for details.
     const auto num_public_inputs = static_cast<uint32_t>(circuit_constructor.public_inputs.size());
+    static_assert(IsUltraOrMegaHonk<Flavor>);
 
-    size_t pub_inputs_offset = 0;
-    if constexpr (IsUltraOrMegaHonk<Flavor>) {
-        pub_inputs_offset = proving_key->pub_inputs_offset;
-    }
+    size_t pub_inputs_offset = proving_key->pub_inputs_offset;
     for (size_t i = 0; i < num_public_inputs; ++i) {
         uint32_t idx = static_cast<uint32_t>(i + pub_inputs_offset);
         mapping.sigmas[0].row_idx[static_cast<ptrdiff_t>(idx)] = idx;
@@ -285,6 +283,7 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
                                               const std::vector<CyclicPermutation>& copy_cycles)
 {
     constexpr bool generalized = IsUltraOrMegaHonk<Flavor>;
+    static_assert(generalized);
     auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, key, copy_cycles);
 
     // Compute Honk-style sigma and ID polynomials from the corresponding mappings

@@ -27,11 +27,10 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
     // data
     auto trace_data = construct_trace_data(builder, proving_key, is_structured);
 
-    if constexpr (IsUltraOrMegaHonk<Flavor>) {
-        proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
-    }
-    if constexpr (IsUltraOrMegaHonk<Flavor>) {
+    static_assert(IsUltraOrMegaHonk<Flavor>);
+    proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
 
+    {
         PROFILE_THIS_NAME("add_memory_records_to_proving_key");
 
         add_memory_records_to_proving_key(trace_data, builder, proving_key);
@@ -88,7 +87,8 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         auto block_size = static_cast<uint32_t>(block.size());
 
         // Save ranges over which the blocks are "active" for use in structured commitments
-        if constexpr (IsUltraOrMegaHonk<Flavor>) { // Mega and Ultra
+        static_assert(IsUltraOrMegaHonk<Flavor>);
+        { // Mega and Ultra
             PROFILE_THIS_NAME("construct_active_indices");
             if (block.size() > 0) {
                 proving_key.active_region_data.add_range(offset, offset + block.size());
@@ -100,7 +100,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         {
 
             PROFILE_THIS_NAME("populating wires and copy_cycles");
-
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
