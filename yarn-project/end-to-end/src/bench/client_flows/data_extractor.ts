@@ -5,7 +5,7 @@ import { createLogger, logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { WASMSimulator } from '@aztec/simulator/client';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
-import type { ProvingStats, ProvingTimings, SimulationStats, SimulationTimings } from '@aztec/stdlib/tx';
+import type { ProvingStats, ProvingTimings, SimulationStats } from '@aztec/stdlib/tx';
 
 import { Decoder } from 'msgpackr';
 import { readFile, readdir, writeFile } from 'node:fs/promises';

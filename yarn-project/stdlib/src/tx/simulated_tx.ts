@@ -12,7 +12,7 @@ import {
   PrivateExecutionResult,
   collectSortedContractClassLogs,
 } from './private_execution_result.js';
-import { type SimulationStats, type SimulationTimings, SimulationTimingsSchema } from './profiling.js';
+import { type SimulationStats, SimulationStatsSchema } from './profiling.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
@@ -64,7 +64,7 @@ export class TxSimulationResult {
         privateExecutionResult: PrivateExecutionResult.schema,
         publicInputs: PrivateKernelTailCircuitPublicInputs.schema,
         publicOutput: PublicSimulationOutput.schema.optional(),
-        timings: optional(SimulationTimingsSchema),
+        stats: optional(SimulationStatsSchema),
       })
       .transform(TxSimulationResult.from);
   }
