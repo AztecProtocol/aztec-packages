@@ -1,3 +1,4 @@
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
@@ -15,11 +16,6 @@ import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telem
 
 import * as crypto from 'node:crypto';
 
-// eslint-disable-next-line
-import { Blob } from '../../../blob-lib/src/blob.js';
-// TODO(MW): prover-node does not use blob-lib, probably for a good reason, so not importing it for now
-// eslint-disable-next-line
-import { BatchedBlob } from '../../../blob-lib/src/blob_batching.js';
 import type { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import { type EpochProvingJobData, validateEpochProvingJobData } from './epoch-proving-job-data.js';

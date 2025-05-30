@@ -1,3 +1,4 @@
+import { BatchedBlob } from '@aztec/blob-lib';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
@@ -13,9 +14,6 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-// TODO(MW): prover-node does not use blob-lib, probably for a good reason, so not importing it for now
-// eslint-disable-next-line
-import { BatchedBlob } from '../../../blob-lib/src/blob_batching.js';
 import { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import type { EpochProvingJobData } from './epoch-proving-job-data.js';
