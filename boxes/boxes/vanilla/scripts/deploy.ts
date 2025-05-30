@@ -12,12 +12,13 @@ import {
   type Wallet,
 } from '@aztec/aztec.js';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
-import { getEcdsaRAccount } from '@aztec/accounts/ecdsa/lazy';
+import { getEcdsaRAccount } from '@aztec/accounts/ecdsa';
 import { createStore } from '@aztec/kv-store/lmdb';
 import { getDefaultInitializer } from '@aztec/stdlib/abi';
-import { EasyPrivateVotingContract } from '../app/artifacts/EasyPrivateVoting.js';
 import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
+// @ts-ignore
+import { EasyPrivateVotingContract } from '../app/artifacts/EasyPrivateVoting.ts';
 
 const AZTEC_NODE_URL = process.env.AZTEC_NODE_URL || 'http://localhost:8080';
 const PROVER_ENABLED = process.env.PROVER_ENABLED === 'false' ? false : true;
