@@ -14,6 +14,7 @@ import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { GlobalVariables, TreeSnapshots, type Tx } from '../tx/index.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
+import { clampGasSettingsForAVM } from './gas.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
 ////////////////////////////////////////////////////////////////////////////
@@ -431,6 +432,7 @@ export class AvmTxHint {
     const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
+    const gasSettings = clampGasSettingsForAVM(tx.data.constants.txContext.gasSettings, tx.data.gasUsed);
 
     // For informational purposes. Assumed quick because it should be cached.
     const txHash = await tx.getTxHash();
@@ -438,7 +440,7 @@ export class AvmTxHint {
     return new AvmTxHint(
       txHash.hash.toString(),
       tx.data.constants.historicalHeader.globalVariables,
-      tx.data.constants.txContext.gasSettings,
+      gasSettings,
       {
         noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),

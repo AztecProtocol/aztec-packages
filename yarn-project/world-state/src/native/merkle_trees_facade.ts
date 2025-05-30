@@ -46,6 +46,24 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     return this.findLeafIndicesAfter(treeId, values, 0n);
   }
 
+  async findSiblingPaths<N extends number>(
+    treeId: MerkleTreeId,
+    values: MerkleTreeLeafType<MerkleTreeId>[],
+  ): Promise<(SiblingPath<N> | undefined)[]> {
+    const response = await this.instance.call(WorldStateMessageType.FIND_SIBLING_PATHS, {
+      leaves: values.map(leaf => serializeLeaf(hydrateLeaf(treeId, leaf))),
+      revision: this.revision,
+      treeId,
+    });
+
+    return response.paths.map(path => {
+      if (!path) {
+        return undefined;
+      }
+      return new SiblingPath(path.length, path) as any;
+    });
+  }
+
   async findLeafIndicesAfter(
     treeId: MerkleTreeId,
     leaves: MerkleTreeLeafType<MerkleTreeId>[],

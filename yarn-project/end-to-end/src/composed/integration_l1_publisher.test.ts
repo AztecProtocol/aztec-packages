@@ -17,12 +17,12 @@ import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
-import { sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { SHA256Trunc, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { ForwarderAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
+import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-builder';
@@ -143,7 +143,7 @@ describe('L1Publisher integration', () => {
       getPublishedBlocks(from, limit, _proven) {
         return Promise.resolve(
           blocks.slice(from - 1, from - 1 + limit).map(block => ({
-            signatures: [],
+            attestations: [],
             block,
             // Use L2 block number and hash for faking the L1 info
             l1: {

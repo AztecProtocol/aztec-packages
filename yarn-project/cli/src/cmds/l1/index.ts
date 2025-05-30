@@ -289,7 +289,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .addOption(l1ChainIdOption)
     .option('--attester <address>', 'ethereum address of the attester', parseEthereumAddress)
-    .option('--proposer-eoa <address>', 'ethereum address of the proposer EOA', parseEthereumAddress)
     .option('--staking-asset-handler <address>', 'ethereum address of the staking asset handler', parseEthereumAddress)
     .action(async options => {
       const { addL1Validator } = await import('./update_l1_validators.js');
@@ -299,7 +298,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         privateKey: options.privateKey,
         mnemonic: options.mnemonic,
         attesterAddress: options.attester,
-        proposerEOAAddress: options.proposerEoa,
         stakingAssetHandlerAddress: options.stakingAssetHandler,
         log,
         debugLogger,

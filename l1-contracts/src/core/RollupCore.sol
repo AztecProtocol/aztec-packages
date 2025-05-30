@@ -15,7 +15,7 @@ import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelectio
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {CheatLib} from "@aztec/core/libraries/rollup/CheatLib.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
@@ -178,11 +178,11 @@ contract RollupCore is
     return RewardLib.claimProverRewards(_recipient, _epochs);
   }
 
-  function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
+  function deposit(address _attester, address _withdrawer, bool _onCanonical)
     external
     override(IStakingCore)
   {
-    StakingLib.deposit(_attester, _proposer, _withdrawer, _onCanonical);
+    StakingLib.deposit(_attester, _withdrawer, _onCanonical);
   }
 
   function initiateWithdraw(address _attester, address _recipient)
@@ -215,10 +215,10 @@ contract RollupCore is
 
   function propose(
     ProposeArgs calldata _args,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    ExtRollupLib.propose(_args, _signatures, _blobInput, checkBlob);
+    ExtRollupLib.propose(_args, _attestations, _blobInput, checkBlob);
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {

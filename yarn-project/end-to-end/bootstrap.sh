@@ -59,6 +59,11 @@ function test {
 
 function bench_cmds {
   echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
+
+  for client_flow in client_flows/bridging client_flows/deployments client_flows/amm client_flows/account_deployments client_flows/transfers; do
+    echo "$hash:ISOLATE=1:CPUS=8:NAME=$client_flow BENCHMARK_CONFIG=key_flows LOG_LEVEL=error BENCH_OUTPUT=bench-out/ yarn-project/end-to-end/scripts/run_test.sh simple $client_flow"
+  done
+
   for dir in $bench_fixtures_dir/*; do
     for runtime in native wasm; do
       echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $runtime ../../yarn-project/end-to-end/$dir"
@@ -82,6 +87,7 @@ function build_bench {
     exit 1
   fi
   parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
+    client_flows/account_deployments \
     client_flows/deployments \
     client_flows/bridging \
     client_flows/transfers \
