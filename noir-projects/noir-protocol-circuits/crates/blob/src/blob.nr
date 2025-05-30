@@ -41,11 +41,8 @@ pub fn check_block_blob_sponge(
 }
 
 // TODO(MW): remove pub when fully moved to batching
-pub(crate) fn compute_challenge(
-    hashed_blobs_fields: Field,
-    kzg_commitment: BlobCommitment,
-) -> Field {
-    let preimage = [hashed_blobs_fields, kzg_commitment.inner[0], kzg_commitment.inner[1]];
+pub(crate) fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: [Field; 2]) -> Field {
+    let preimage = [hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1]];
     let challenge = poseidon::poseidon2::Poseidon2::hash(preimage, 3);
     challenge
 }
