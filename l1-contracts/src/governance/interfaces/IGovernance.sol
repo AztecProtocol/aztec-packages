@@ -21,7 +21,7 @@ interface IGovernance {
   event WithdrawFinalised(uint256 indexed withdrawalId);
 
   function addDepositor(address _depositor) external;
-  function openFlodgates() external;
+  function openFloodgates() external;
 
   function updateGovernanceProposer(address _governanceProposer) external;
   function updateConfiguration(DataStructures.Configuration memory _configuration) external;

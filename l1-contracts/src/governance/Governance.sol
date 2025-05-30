@@ -13,7 +13,7 @@ import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
-struct DepositControlFromHell {
+struct DepositControl {
   mapping(address caller => bool allowed) isAllowed;
   bool allDepositsAllowed;
 }
@@ -37,7 +37,7 @@ contract Governance is IGovernance {
 
   address public governanceProposer;
 
-  DepositControlFromHell internal depositControl;
+  DepositControl internal depositControl;
 
   mapping(uint256 proposalId => DataStructures.Proposal) internal proposals;
   mapping(uint256 proposalId => mapping(address user => DataStructures.Ballot)) public ballots;
@@ -95,7 +95,7 @@ contract Governance is IGovernance {
     emit DepositorAdded(_depositor);
   }
 
-  function openFlodgates() external override(IGovernance) onlySelf {
+  function openFloodgates() external override(IGovernance) onlySelf {
     depositControl.allDepositsAllowed = true;
     emit FloodGatesOpened();
   }

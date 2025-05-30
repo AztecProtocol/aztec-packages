@@ -42,7 +42,7 @@ contract LimitedDepositTest is TestBase {
     // it reverts
 
     vm.assume(_caller != address(0) && _depositor != address(0));
-    vm.assume(!governance.isAllowedToDeposit(_caller) && !governance.isAllowedToDeposit(_depositor));
+    vm.assume(!governance.isAllowedToDeposit(_depositor));
 
     vm.prank(_caller);
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__DepositNotAllowed.selector));
@@ -54,9 +54,6 @@ contract LimitedDepositTest is TestBase {
     vm.assume(_caller != address(0) && _depositor != address(0));
 
     vm.prank(address(governance));
-    governance.addDepositor(_caller);
-
-    vm.prank(address(governance));
     governance.addDepositor(_depositor);
 
     token.mint(_caller, 1000);
@@ -66,6 +63,8 @@ contract LimitedDepositTest is TestBase {
 
     vm.prank(_caller);
     governance.deposit(_depositor, 1000);
+
+    assertEq(governance.powerAt(_depositor, Timestamp.wrap(block.timestamp)), 1000);
   }
 
   function test_WhenFloodgatesAreOpen(address _caller, address _depositor) external {
@@ -74,7 +73,7 @@ contract LimitedDepositTest is TestBase {
     vm.assume(_caller != address(0) && _depositor != address(0));
 
     vm.prank(address(governance));
-    governance.openFlodgates();
+    governance.openFloodgates();
 
     token.mint(_caller, 1000);
 
