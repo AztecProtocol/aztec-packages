@@ -60,7 +60,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
     utils::check_private_balance(
         token_contract_address,
         liquidity_provider,
-        // TODO: Why don't I see the change_amount here? Does TXE handle partial notes correctly? I thought if
+        // TODO(#14647): Why don't I see the change_amount here? Does TXE handle partial notes correctly? I thought if
         // I advance the block by 1, the note should be found.
         // mint_amount - deposit_amount + change_amount,
         mint_amount - deposit_amount,
