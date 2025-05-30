@@ -7,6 +7,7 @@ use crate::{
         BatchingBlobCommitment, BlobAccumulationInputs, BlobAccumulatorPublicInputs, BLSPoint,
         compress_to_blob_commitment, FinalBlobBatchingChallenges,
     },
+    blob_public_inputs::BlobCommitment,
 };
 use bigint::{BigNum, BLS12_381_Fr as F};
 use types::{
@@ -29,7 +30,11 @@ fn evaluate_blob_for_batching(
     let blob = convert_blob_fields(blob_as_fields);
 
     let y_i: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
-    let z_i: Field = compute_challenge(hashed_blobs_fields, kzg_commitment.to_compressed_fields());
+    let z_i: Field = compute_challenge(
+        hashed_blobs_fields,
+        // TODO(MW): At some point BatchingBlobCommitment will replace BlobCommitment and we won't need this silly conversion
+        BlobCommitment { inner: kzg_commitment.to_compressed_fields() },
+    );
 
     (z_i, y_i)
 }
