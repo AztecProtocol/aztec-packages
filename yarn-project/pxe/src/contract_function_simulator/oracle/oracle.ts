@@ -1,5 +1,4 @@
 import { Fr, Point } from '@aztec/foundation/fields';
-import type { ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
 import {
   type ACVMField,
   arrayOfArraysToBoundedVecOfArrays,

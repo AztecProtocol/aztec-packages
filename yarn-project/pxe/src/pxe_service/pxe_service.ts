@@ -12,7 +12,7 @@ import {
   type ProtocolContractsProvider,
   protocolContractNames,
 } from '@aztec/protocol-contracts';
-import { type CircuitSimulator } from '@aztec/simulator/client';
+import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
   EventSelector,

@@ -3,7 +3,15 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import type { ACIRCallback, CircuitSimulator } from '@aztec/simulator/client';
+import {
+  type ACIRCallback,
+  type ACVMWitness,
+  type CircuitSimulator,
+  ExecutionError,
+  extractCallStack,
+  resolveAssertionMessageFromError,
+  witnessMapToFields,
+} from '@aztec/simulator/client';
 import {
   type FunctionArtifact,
   type FunctionArtifactWithContractName,
@@ -18,9 +26,6 @@ import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 
-import { ExecutionError, resolveAssertionMessageFromError } from '../../../../simulator/src/common/errors.js';
-import { witnessMapToFields } from '../../../../simulator/src/private/acvm/deserialize.js';
-import { type ACVMWitness, extractCallStack } from '../../../../simulator/src/private/acvm/index.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { Oracle } from './oracle.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
