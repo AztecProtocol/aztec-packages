@@ -139,4 +139,10 @@ export class GuardedMerkleTree implements MerkleTreeWriteOperations {
   revertAllCheckpoints(): Promise<void> {
     return this.guardAndPush(() => this.target.revertAllCheckpoints());
   }
+  findSiblingPaths<ID extends MerkleTreeId, N extends number>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+  ): Promise<(SiblingPath<N> | undefined)[]> {
+    return this.guardAndPush(() => this.target.findSiblingPaths(treeId, values));
+  }
 }
