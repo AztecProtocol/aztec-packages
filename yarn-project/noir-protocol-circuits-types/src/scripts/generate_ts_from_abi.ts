@@ -1,6 +1,6 @@
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { codegen } from '@aztec/noir-noir_codegen';
-import { type CompiledCircuit } from '@aztec/noir-types';
+import type { CompiledCircuit } from '@aztec/noir-types';
 
 import { pascalCase } from 'change-case';
 import { promises as fs } from 'fs';
@@ -34,7 +34,7 @@ const main = async () => {
 
   try {
     await fs.access('./src/types/');
-  } catch (error) {
+  } catch {
     await fs.mkdir('./src/types', { recursive: true });
   }
   const programs: [string, CompiledCircuit][] = [];

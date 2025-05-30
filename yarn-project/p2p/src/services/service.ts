@@ -35,7 +35,7 @@ export interface P2PService {
    * Called to have the given transaction propagated through the P2P network.
    * @param message - The message to be propagated.
    */
-  propagate<T extends Gossipable>(message: T): void;
+  propagate<T extends Gossipable>(message: T): Promise<void>;
 
   /**
    * Request information from peers via the request response protocol.

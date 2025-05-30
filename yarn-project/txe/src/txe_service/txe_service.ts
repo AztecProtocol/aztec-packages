@@ -4,7 +4,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { enrichPublicSimulationError } from '@aztec/pxe/server';
-import type { TypedOracle } from '@aztec/simulator/client';
+import type { TypedOracle } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -36,7 +36,10 @@ import { ExpectedFailureError } from '../util/expected_failure_error.js';
 export class TXEService {
   public oraclesEnabled = true;
 
-  constructor(private logger: Logger, private typedOracle: TypedOracle) {}
+  constructor(
+    private logger: Logger,
+    private typedOracle: TypedOracle,
+  ) {}
 
   static async init(logger: Logger, protocolContracts: ProtocolContract[]) {
     logger.debug(`TXE service initialized`);
@@ -363,12 +366,14 @@ export class TXEService {
     }
 
     // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
-    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note]
+    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note].
 
     const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, nonce, index, note }) => {
       // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
       const noteIsTransient = index === undefined;
       const nonzeroNoteHashCounter = noteIsTransient ? true : false;
+      // If you change the array on the next line you have to change the `unpack_retrieved_note` function in
+      // `aztec/src/note/retrieved_note.nr`
       return [contractAddress, nonce, nonzeroNoteHashCounter, ...note.items];
     });
 
@@ -588,14 +593,16 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
+  public async notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    this.typedOracle.notifySetMinRevertibleSideEffectCounter(fromSingle(minRevertibleSideEffectCounter).toNumber());
+    await this.typedOracle.notifySetMinRevertibleSideEffectCounter(
+      fromSingle(minRevertibleSideEffectCounter).toNumber(),
+    );
     return toForeignCallResult([]);
   }
 
@@ -682,14 +689,14 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  async syncNotes(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
+  async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    await this.typedOracle.syncNotes(fromSingle(pendingTaggedLogArrayBaseSlot));
+    await this.typedOracle.fetchTaggedLogs(fromSingle(pendingTaggedLogArrayBaseSlot));
     return toForeignCallResult([]);
   }
 

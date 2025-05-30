@@ -181,7 +181,10 @@ export class RequestResponseRateLimiter {
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
-  constructor(private peerScoring: PeerScoring, rateLimits: Partial<ReqRespSubProtocolRateLimits> = {}) {
+  constructor(
+    private peerScoring: PeerScoring,
+    rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
+  ) {
     this.subProtocolRateLimiters = new Map();
 
     this.rateLimits = { ...DEFAULT_RATE_LIMITS, ...rateLimits };

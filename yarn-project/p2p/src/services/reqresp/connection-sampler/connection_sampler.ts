@@ -253,7 +253,11 @@ export class ConnectionSampler {
         activeConnectionsCount: updatedActiveConnectionsCount,
       });
 
-      await stream?.close();
+      //NOTE: All other status codes indicate closed stream.
+      //Either graceful close (closed/closing) or forced close (aborted/reset)
+      if (stream.status === 'open') {
+        await stream?.close();
+      }
     } catch (error) {
       this.logger.error(`Failed to close connection to peer with stream id ${streamId}`, error);
     } finally {

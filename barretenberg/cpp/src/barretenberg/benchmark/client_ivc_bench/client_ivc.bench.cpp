@@ -43,7 +43,6 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
         ivc.prove();
     }
 }
-
 /**
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
  * @details Processes "dense" circuits of size 2^17 in a size 2^20 structured trace

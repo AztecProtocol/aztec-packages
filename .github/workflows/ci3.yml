@@ -14,7 +14,7 @@ on:
   merge_group: {}
 
 concurrency:
-  group: ${{ github.event.merge_group.head_ref || github.ref_name }}
+  group: ci3-${{ github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -41,6 +41,20 @@ jobs:
       - name: Cache Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
         run: echo "NO_CACHE=1" >> $GITHUB_ENV
+
+      - name: Compute Target Branch
+        id: target_branch
+        run: |
+          if [ "${{ github.event_name }}" == "merge_group" ]; then
+            target_branch=${{ github.event.merge_group.base_ref }}
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            target_branch=${{ github.event.pull_request.base.ref }}
+          else
+            target_branch=${{ github.ref_name }}
+          fi
+          target_branch=${target_branch#refs/heads/}
+          echo "target_branch=$target_branch" >> $GITHUB_OUTPUT
+          echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
 
       - name: Setup
         run: |
@@ -82,15 +96,15 @@ jobs:
           fi
 
       - name: Download benchmarks
-        if: github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'ci-full')
+        if: github.event_name == 'merge_group'
         run: ./ci.sh gh-bench
 
       - name: Upload benchmarks
-        if: github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'ci-full')
+        if: github.event_name == 'merge_group'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks
-          benchmark-data-dir-path: "bench/master"
+          benchmark-data-dir-path: "bench/${{ steps.target_branch.outputs.target_branch }}"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}

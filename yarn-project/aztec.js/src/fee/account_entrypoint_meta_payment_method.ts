@@ -46,9 +46,8 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
   async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
     const emptyAppCalls = await EncodedAppEntrypointCalls.fromAppExecution([]);
     // Get the execution payload for the fee, it includes the calls and potentially authWitnesses
-    const { calls: feeCalls, authWitnesses: feeAuthwitnesses } = await this.paymentMethod.getExecutionPayload(
-      gasSettings,
-    );
+    const { calls: feeCalls, authWitnesses: feeAuthwitnesses } =
+      await this.paymentMethod.getExecutionPayload(gasSettings);
     // Encode the calls for the fee
     const feePayer = await this.paymentMethod.getFeePayer(gasSettings);
     const isFeePayer = feePayer.equals(this.accountAddress);
