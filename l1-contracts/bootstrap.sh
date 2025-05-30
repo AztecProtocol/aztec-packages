@@ -119,7 +119,6 @@ function gas_report {
     --match-contract "^RollupTest$" \
     --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)" \
     --fuzz-seed 42 \
-    --isolate \
     --json \
     > gas_report.new.tmp
   jq '.' gas_report.new.tmp > gas_report.new.json
@@ -234,7 +233,6 @@ function validator_costs {
     --match-contract "BenchmarkRollupTest" \
     --match-test "test_no_validators" \
     --fuzz-seed 42 \
-    --isolate \
     > no_validators.tmp
 
   # Run test with 100 validators
@@ -243,12 +241,11 @@ function validator_costs {
     --match-contract "BenchmarkRollupTest" \
     --match-test "test_100_validators" \
     --fuzz-seed 42 \
-    --isolate \
     > with_validators.tmp
 
   file_no="no_validators.tmp"          # without validators
   file_yes="with_validators.tmp"       # with    validators
-  report="gas_benchmark.new.md"       # will be overwritten each run
+  report="gas_benchmark.new.md"        # will be overwritten each run
 
   # keep ONLY these functions, in this order
   wanted_funcs="forward setupEpoch submitEpochRootProof"

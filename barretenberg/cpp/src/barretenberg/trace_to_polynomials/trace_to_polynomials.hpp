@@ -66,7 +66,7 @@ template <class Flavor> class TraceToPolynomials {
             {
                 PROFILE_THIS_NAME("copy cycle initialization");
 
-                copy_cycles.resize(builder.variables.size());
+                copy_cycles.resize(builder.get_num_variables());
             }
         }
     };

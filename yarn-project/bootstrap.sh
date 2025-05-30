@@ -106,7 +106,7 @@ function test_cmds {
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   # noir-bb-bench: A slow pain. Figure out later.
-  for test in !(end-to-end|kv-store|noir-bb-bench)/src/**/*.test.ts; do
+  for test in !(end-to-end|kv-store|noir-bb-bench|aztec)/src/**/*.test.ts; do
     local prefix=$hash
     local cmd_env=""
 
@@ -144,6 +144,10 @@ function test_cmds {
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
   echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
+
+  if [ "$CI" -eq 0 ] || [ "${TARGET_BRANCH:-}" != "next" ]; then
+    echo "$hash yarn-project/scripts/run_test.sh aztec/src/test/testnet_compatibility.test.ts"
+  fi
 }
 
 function test {
@@ -154,6 +158,7 @@ function test {
 function bench_cmds {
   local hash=$(hash)
   echo "$hash BENCH_OUTPUT=bench-out/sim.bench.json yarn-project/scripts/run_test.sh simulator/src/public/public_tx_simulator/apps_tests/bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/native_world_state.bench.json yarn-project/scripts/run_test.sh world-state/src/native/native_bench.test.ts"
 }
 
 function release_packages {

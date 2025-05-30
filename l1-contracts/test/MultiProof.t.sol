@@ -140,6 +140,17 @@ contract MultiProofTest is RollupBase {
     assertEq(rollup.getProvenBlockNumber(), 2, "Block not proven");
 
     {
+      // Ensure that we cannot claim rewards when not toggled yet
+      vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__RewardsNotClaimable.selector));
+      rollup.claimSequencerRewards(sequencer);
+
+      vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__RewardsNotClaimable.selector));
+      rollup.claimProverRewards(alice, new Epoch[](1));
+
+      rollup.setRewardsClaimable(true);
+    }
+
+    {
       uint256 sequencerRewards = rollup.getSequencerRewards(sequencer);
       assertGt(sequencerRewards, 0, "Sequencer rewards is zero");
       vm.prank(sequencer);

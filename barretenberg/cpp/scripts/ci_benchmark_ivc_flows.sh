@@ -14,8 +14,8 @@ benchmark_output="$2"
 echo_header "bb ivc flow bench"
 
 export HARDWARE_CONCURRENCY=${CPUS:-8}
-export native_preset=${NATIVE_PRESET:-clang16-assert}
-export native_build_dir=$(scripts/cmake/preset-build-dir $native_preset)
+# E.g. build, build-debug or build-coverage
+export native_build_dir=$(scripts/native-preset-build-dir)
 
 function verify_ivc_flow {
   local flow="$1"

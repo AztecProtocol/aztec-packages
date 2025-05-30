@@ -417,6 +417,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
         uint256_t value_bit = exponent_value & 1;
         bool_t<Builder> bit;
         bit = exponent_constant ? bool_t<Builder>(ctx, value_bit.data[0]) : witness_t<Builder>(ctx, value_bit.data[0]);
+        if (!exponent_constant) {
+            bit.set_origin_tag(exponent.tag);
+        }
         exponent_bits[31 - i] = (bit);
         exponent_value >>= 1;
     }
@@ -871,7 +874,7 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
 {
     const field_t lhs = *this;
     Builder* ctx = lhs.get_context() ? lhs.get_context() : rhs.get_context();
-
+    (void)OriginTag(get_origin_tag(), rhs.get_origin_tag());
     if (lhs.is_constant() && rhs.is_constant()) {
         ASSERT(lhs.get_value() == rhs.get_value());
     } else if (lhs.is_constant()) {

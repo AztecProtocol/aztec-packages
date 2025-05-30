@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { RollupContract } from '@aztec/ethereum';
+import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
@@ -82,7 +83,8 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(withdrawAmount, nonce, burnAuthwit);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount);
 
-    const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+    const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(
+      aztecNode,
       l2TxReceipt.blockNumber!,
       l2ToL1Message,
     );
@@ -95,8 +97,8 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
       l2TxReceipt.blockNumber!,
-      l2ToL1MessageIndex,
-      siblingPath,
+      l2ToL1MessageResult!.l2MessageIndex,
+      l2ToL1MessageResult!.siblingPath,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
   });

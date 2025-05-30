@@ -20,16 +20,13 @@ pub contract Token {
 
     use dep::aztec::{
         context::{PrivateCallInterface, PrivateContext},
-        event::event_interface::EventInterface,
+        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility, view},
             storage::storage,
         },
-        messages::logs::{
-            event::encode_and_encrypt_event_unconstrained,
-            note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
-        },
+        messages::logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
         protocol_types::traits::Serialize,
     };
@@ -289,11 +286,13 @@ pub contract Token {
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
         // docs:start:encrypted_unconstrained
-        Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
+        emit_event_in_private_log(
+            Transfer { from, to, amount },
             &mut context,
-            to,
             from,
-        ));
+            to,
+            PrivateLogContent.NO_CONSTRAINTS,
+        );
         // docs:end:encrypted_unconstrained
     }
     // docs:end:transfer
@@ -428,7 +427,9 @@ pub contract Token {
     // docs:end:prepare_private_balance_increase
 
     /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
-    /// us to have it inlined in the `transfer_to_private` function which results in one fewer kernel iteration.
+    /// us to have it inlined in the `transfer_to_private` function which results in one fewer kernel iteration. Note
+    /// that in this case we don't pass `completer` as an argument to this function because in all the callsites we
+    /// want to use the message sender as the completer anyway.
     ///
     /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
     /// function.
@@ -445,21 +446,8 @@ pub contract Token {
             context,
             to,
             from,
+            context.msg_sender(),
         );
-
-        // We can't simply return the partial note because we won't be able to later on verify that it was created
-        // correctly (e.g. that the storage slot corresponds to the owner, and that we're using the balance set and not
-        // a different one) once this information is hidden in the partial note commitment. We also want to verify that
-        // only the caller of this function can complete the partial note.
-        //
-        // We achieve the above by storing a flag in public storage under a slot index equal to its
-        // `validity_commitment`. This commitment contains all the necessary information to verify the completer and
-        // to validate the partial note.
-        let validity_commitment = partial_note.compute_validity_commitment(context.msg_sender());
-
-        Token::at(context.this_address())
-            ._set_uint_partial_note_validity(validity_commitment)
-            .enqueue(context);
 
         partial_note
     }
@@ -524,17 +512,8 @@ pub contract Token {
         let from_balance = storage.public_balances.at(from_and_completer).read().sub(amount);
         storage.public_balances.at(from_and_completer).write(from_balance);
 
-        // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
-        // state variable's storage slot, and it is internally consistent). We *could* clear the storage since each
-        // partial note should only be used once, but since the AVM offers no gas refunds for doing so this would just
-        // make the transaction be more expensive. We don't worry about the validity commitment being checked against
-        // multiple times because it is up to the caller to ensure that a partial note is used only once (see function
-        // docs of `finalize_transfer_to_private`).
-        assert(
-            context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
-            "Invalid partial note or completer",
-        );
-        partial_note.complete(amount, context);
+        // We finalize the transfer by completing the partial note.
+        partial_note.complete(context, from_and_completer, amount);
     }
 
     // docs:start:mint_to_private
@@ -621,25 +600,8 @@ pub contract Token {
         let supply = storage.total_supply.read().add(amount);
         storage.total_supply.write(supply);
 
-        // We verify that the partial note we're completing is valid (i.e. it uses the correct state variable's storage
-        // slot, and it is internally consistent). We *could* clear the storage since each partial note should only be
-        // used once, but since the AVM offers no gas refunds for doing so this would just make the transaction be more
-        // expensive.
-        assert(
-            context.storage_read(partial_note.compute_validity_commitment(completer)),
-            "Invalid partial note or completer",
-        );
-        partial_note.complete(amount, context);
-    }
-
-    #[public]
-    #[internal]
-    fn _set_uint_partial_note_validity(validity_commitment: Field) {
-        // We store the partial note validity flag in a slot equal to its validity commitment. This is safe because
-        // the commitment is computed using a generator different from the one used to compute storage slots, so there
-        // can be no collisions. We could consider storing all pending partial notes in e.g. some array, but ultimately
-        // this is pointless: all we need to verify is that the note is valid.
-        context.storage_write(validity_commitment, true);
+        // We finalize the transfer by completing the partial note.
+        partial_note.complete(context, completer, amount);
     }
 
     /// Internal ///

@@ -16,6 +16,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import { LightweightBlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { SlasherClient } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -28,7 +29,6 @@ import type { SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
-import type { SlasherClient } from '../slasher/index.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -214,6 +214,10 @@ export class SequencerClient {
     this.sequencer.restart();
   }
 
+  public getSequencer(): Sequencer {
+    return this.sequencer;
+  }
+
   get coinbase(): EthAddress {
     return this.sequencer.coinbase;
   }
@@ -226,8 +230,8 @@ export class SequencerClient {
     return this.sequencer.getForwarderAddress();
   }
 
-  get validatorAddress(): EthAddress | undefined {
-    return this.sequencer.getValidatorAddress();
+  get validatorAddresses(): EthAddress[] | undefined {
+    return this.sequencer.getValidatorAddresses();
   }
 
   get maxL2BlockGas(): number | undefined {

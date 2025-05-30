@@ -25,7 +25,8 @@ jobs:
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          # default-branch: ${{ env.BRANCH_NAME }}
+          config-file: .github/release-please-${{ github.ref_name }}.json
+          target-branch: ${{ github.ref_name }}
 
   update-docs:
     name: Update docs
