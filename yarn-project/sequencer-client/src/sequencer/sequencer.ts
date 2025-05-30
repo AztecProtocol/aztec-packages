@@ -453,6 +453,7 @@ export class Sequencer {
 
     try {
       const processor = this.publicProcessorFactory.create(publicProcessorDBFork, newGlobalVariables, true);
+
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(publicProcessorDBFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages, previousBlockHeader);

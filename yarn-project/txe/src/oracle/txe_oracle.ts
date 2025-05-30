@@ -55,6 +55,7 @@ import {
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
+  GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
   type PublicTxResult,
@@ -1500,8 +1501,9 @@ export class TXE implements TypedOracle {
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
-    const simulator = new PublicTxSimulator(this.baseFork, contractsDB, globals, true, true);
-    const processor = new PublicProcessor(globals, this.baseFork, contractsDB, simulator, new TestDateProvider());
+    const guardedMerkleTrees = new GuardedMerkleTreeOperations(this.baseFork);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true);
+    const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
 
     const constantData = new TxConstantData(blockHeader, txContext, Fr.zero(), Fr.zero());
 
@@ -1654,8 +1656,9 @@ export class TXE implements TypedOracle {
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
-    const simulator = new PublicTxSimulator(this.baseFork, contractsDB, globals, true, true);
-    const processor = new PublicProcessor(globals, this.baseFork, contractsDB, simulator, new TestDateProvider());
+    const guardedMerkleTrees = new GuardedMerkleTreeOperations(this.baseFork);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true);
+    const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
 
     const constantData = new TxConstantData(blockHeader, txContext, Fr.zero(), Fr.zero());
 

@@ -14,6 +14,7 @@ import { createContractClassAndInstance } from '../../avm/fixtures/index.js';
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { addNewContractClassToTx, addNewContractInstanceToTx, createTxForPrivateOnly } from '../../fixtures/utils.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
+import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
 
 describe('Public processor contract registration/deployment tests', () => {
@@ -31,12 +32,13 @@ describe('Public processor contract registration/deployment tests', () => {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+    const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
-    const simulator = new PublicTxSimulator(merkleTrees, contractsDB, globals, /*doMerkleOperations=*/ true);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, /*doMerkleOperations=*/ true);
 
     processor = new PublicProcessor(
       globals,
-      merkleTrees,
+      guardedMerkleTrees,
       contractsDB,
       simulator,
       new TestDateProvider(),
