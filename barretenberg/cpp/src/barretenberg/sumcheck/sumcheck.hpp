@@ -255,8 +255,6 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         vinfo("finished sumcheck");
     };
 
-    // void finalize_univariate_and_send_to_verifier(size_t round_idx, SumcheckRoundUnivariate& round_univariate ) {}
-
     /**
      * @brief ZK-version of `prove` that runs Sumcheck with disabled rows and masking of Round Univariates.
      * The masking is ensured by adding random Libra univariates to the Sumcheck round univariates.
@@ -293,7 +291,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         size_t round_idx = 0;
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
-        // compute_univariate also takes into account the zk_sumcheck_data.
+        // compute_univariate also takes into account the contribution required to hide the round univariates.
         auto hiding_univariate = round.compute_hiding_univariate(full_polynomials,
                                                                  row_disabling_polynomial,
                                                                  relation_parameters,
@@ -338,7 +336,6 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
 
             PROFILE_THIS_NAME("sumcheck loop");
 
-            // Write the round univariate to the transcript
             hiding_univariate = round.compute_hiding_univariate(partially_evaluated_polynomials,
                                                                 row_disabling_polynomial,
                                                                 relation_parameters,
@@ -421,21 +418,6 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         }
         vinfo("finished sumcheck");
     };
-
-    // void finalize_univariate_and_send_to_verifier(size_t round_idx, SumcheckRoundUnivariate& round_univariate)
-    // {
-    //     transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
-    // }
-
-    // void finalize_univariate_and_send_to_verifier(size_t round_idx,
-    //                                               SumcheckRoundUnivariate& round_univariate,
-    //                                               const RelationSeparator alpha,
-    //                                               const ZKData& zk_sumcheck_data, // only populated when Flavor HasZK
-    //                                               RowDisablingPolynomial<FF> row_disabling_poly)
-    //     requires Flavor::HasZK
-    // {
-    //     // This is a no-op for ZK flavors, as the univariate is finalized in the prove method.
-    // }
 
     /**
      *
@@ -726,7 +708,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
         if constexpr (Flavor::HasZK) {
 
-            if constexpr (disablesLastRows<Flavor>) {
+            if constexpr (DisablesLastRows<Flavor>) {
                 // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the
                 // rows where all sumcheck relations are disabled
                 full_honk_purported_value *=

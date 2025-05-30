@@ -22,9 +22,6 @@ namespace bb {
 template <typename Flavor>
 concept specifiesUnivariateChunks = std::convertible_to<decltype(Flavor::MAX_CHUNK_THREAD_PORTION_SIZE), size_t>;
 
-template <typename Flavor>
-concept disablesLastRows = !std::is_same_v<Flavor, TranslatorFlavor>;
-
 /*! \brief Imlementation of the Sumcheck prover round.
     \class SumcheckProverRound
     \details
@@ -279,6 +276,12 @@ template <typename Flavor> class SumcheckProverRound {
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_separators);
     }
+
+    /**
+     * @brief In the de-facto mode of of operation for ZK, we add a randomising contribution via the Libra technique to
+     * hide the actual round univariate and also ensure the total contirbution is amended to take into account
+     * relatin execution is diabled on the last rows of the trace.
+     */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_hiding_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                                       const RowDisablingPolynomial<FF> row_disabling_polynomial,
@@ -291,7 +294,7 @@ template <typename Flavor> class SumcheckProverRound {
 
     {
         auto hiding_univariate = compute_libra_univariate(zk_sumcheck_data, round_idx);
-        if constexpr (disablesLastRows<Flavor>) {
+        if constexpr (DisablesLastRows<Flavor>) {
 
             hiding_univariate -= compute_disabled_contribution(
                 polynomials, relation_parameters, gate_separators, alpha, round_idx, row_disabling_polynomial);
@@ -313,7 +316,7 @@ template <typename Flavor> class SumcheckProverRound {
         const RelationSeparator alpha,
         const size_t round_idx,
         const RowDisablingPolynomial<FF> row_disabling_polynomial)
-        requires disablesLastRows<Flavor>
+        requires DisablesLastRows<Flavor>
     {
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator;
         ExtendedEdges extended_edges;
