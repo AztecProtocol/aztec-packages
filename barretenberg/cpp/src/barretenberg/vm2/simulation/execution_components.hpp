@@ -27,14 +27,16 @@ class ExecutionComponentsProviderInterface {
 
 class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface {
   public:
-    ExecutionComponentsProvider(const InstructionInfoDBInterface& instruction_info_db)
-        : instruction_info_db(instruction_info_db)
+    ExecutionComponentsProvider(RangeCheckInterface& range_check, const InstructionInfoDBInterface& instruction_info_db)
+        : range_check(range_check)
+        , instruction_info_db(instruction_info_db)
     {}
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
 
     std::unique_ptr<GasTrackerInterface> make_gas_tracker(ContextInterface& context) override;
 
   private:
+    RangeCheckInterface& range_check;
     const InstructionInfoDBInterface& instruction_info_db;
 
     // Sadly someone has to own these.

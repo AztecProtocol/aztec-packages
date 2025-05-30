@@ -30,8 +30,8 @@ using lookup_read_phase_length_relation = bb::avm2::lookup_tx_read_phase_length_
 using lookup_read_public_call_request_relation = bb::avm2::lookup_tx_read_public_call_request_phase_relation<FF>;
 using lookup_jump_on_revert_relation = bb::avm2::lookup_tx_phase_jump_on_revert_relation<FF>;
 
-using lookup_dispatch_exec_start_relation = bb::avm2::lookup_tx_dispatch_exec_start_relation<FF>;
-using lookup_dispatch_exec_get_revert_relation = bb::avm2::lookup_tx_dispatch_exec_get_revert_relation<FF>;
+// using lookup_dispatch_exec_start_relation = bb::avm2::lookup_tx_dispatch_exec_start_relation<FF>;
+// using lookup_dispatch_exec_get_revert_relation = bb::avm2::lookup_tx_dispatch_exec_get_revert_relation<FF>;
 
 using lookup_read_tree_insert_value_relation = bb::avm2::lookup_tx_read_tree_insert_value_relation<FF>;
 using lookup_write_tree_insert_value_relation = bb::avm2::lookup_tx_write_tree_insert_value_relation<FF>;
@@ -69,6 +69,7 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
           { C::tx_start_phase, 1 },
@@ -78,6 +79,7 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
           { C::tx_start_phase, 1 },
@@ -87,6 +89,7 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX },
           { C::tx_start_phase, 1 },
@@ -99,6 +102,7 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
             { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
             { C::tx_start_phase, 1 },
             { C::tx_read_phase_table_sel, 1 },
+            { C::tx_read_phase_length_sel, 1 },
 
             // Lookup Precomputed Table Values
             { C::tx_is_public_call_request, 1 },
@@ -130,6 +134,7 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
           { C::tx_start_phase, 1 },
@@ -139,6 +144,7 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
           { C::tx_start_phase, 1 },
@@ -148,6 +154,7 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX },
           { C::tx_start_phase, 1 },
@@ -159,6 +166,7 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::APP_LOGIC) },
           { C::tx_start_phase, 1 },
           { C::tx_read_phase_table_sel, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           // Lookup Precomputed Table Values
           { C::tx_is_public_call_request, 1 },
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX },
@@ -177,8 +185,19 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
         // Row 10
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset, AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX },
           { C::tx_is_padded, 1 },
+          { C::tx_start_phase, 1 },
+          { C::tx_end_phase, 1 } },
+
+        // Row 11
+        { { C::tx_sel, 1 },
+          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
+          { C::tx_is_padded, 1 },
+          { C::tx_is_collect_fee, 1 },
+          { C::tx_read_phase_length_sel, 0 },
+          { C::tx_read_pi_length_offset, AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
     });
@@ -207,6 +226,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -214,6 +234,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -221,6 +242,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -229,6 +251,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -236,6 +259,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -243,6 +267,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -250,6 +275,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
           { C::tx_is_padded, 1 },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_start_phase, 1 },
           { C::tx_is_revertible, 1 },
           { C::tx_reverted, 1 },
@@ -258,6 +284,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
         // Row 8 - skipping App logic
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
+          { C::tx_read_phase_length_sel, 1 },
           { C::tx_is_padded, 1 },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
