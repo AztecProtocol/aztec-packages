@@ -6,9 +6,6 @@ import Dotenv from 'dotenv-webpack';
 const require = createRequire(import.meta.url);
 
 export default (_, argv) => ({
-  target: 'web',
-  mode: argv.mode || 'production',
-  devtool: 'source-map',
   entry: {
     main: './app/main.ts',
   },
@@ -33,28 +30,22 @@ export default (_, argv) => ({
     new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
   ],
   resolve: {
-    extensions: ['.tsx', '.ts', '.js'],
+    extensions: ['.ts', '.js'],
     fallback: {
-      assert: require.resolve('assert/'),
-      crypto: false,
-      os: false,
-      fs: false,
-      path: false,
       tty: false,
-      url: false,
+      path: false,
       net: false,
-      worker_threads: false,
       buffer: require.resolve('buffer/'),
-      util: require.resolve('util/'),
-      stream: require.resolve('stream-browserify'),
     },
   },
   devServer: {
     port: 3000,
-  },
-  performance: {
-    hints: false,
-    maxEntrypointSize: 2_000_000,
-    maxAssetSize: 2_000_000,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp'
+    },
+    client: {
+      overlay: false,
+    },
   },
 });
