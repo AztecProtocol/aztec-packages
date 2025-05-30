@@ -9,7 +9,7 @@ import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
-import { type MerkleTreeWriteOperations, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { GlobalVariables, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -17,10 +17,11 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicContractsDB } from '../public_db_sources.js';
 import type { PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
+import type { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
-  let merkleTree: MockProxy<MerkleTreeWriteOperations>;
+  let merkleTree: MockProxy<GuardedMerkleTreeOperations>;
   let contractsDB: MockProxy<PublicContractsDB>;
   let publicTxSimulator: MockProxy<PublicTxSimulator>;
 
@@ -38,7 +39,7 @@ describe('public_processor', () => {
     mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1, numberOfRevertiblePublicCallRequests: 1, feePayer });
 
   beforeEach(() => {
-    merkleTree = mock<MerkleTreeWriteOperations>();
+    merkleTree = mock<GuardedMerkleTreeOperations>();
     contractsDB = mock<PublicContractsDB>();
     publicTxSimulator = mock();
 

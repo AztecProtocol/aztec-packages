@@ -18,7 +18,7 @@ import type { BlockHeader, StateReference } from '@aztec/stdlib/tx';
  * The public processor provides this implementation of MerkleTreeWriteOperations to the simulator
  */
 
-export class GuardedMerkleTree implements MerkleTreeWriteOperations {
+export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   private isStopped = false;
   private serialQueue = new SerialQueue();
 

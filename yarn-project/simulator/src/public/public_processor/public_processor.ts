@@ -35,7 +35,7 @@ import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
-import { GuardedMerkleTree } from './guarded_merkle_tree.js';
+import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
 /**
@@ -63,7 +63,7 @@ export class PublicProcessorFactory {
   ): PublicProcessor {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
 
-    const guardedFork = new GuardedMerkleTree(merkleTree);
+    const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
     const publicTxSimulator = this.createPublicTxSimulator(
       guardedFork,
       contractsDB,
@@ -119,7 +119,7 @@ export class PublicProcessor implements Traceable {
 
   constructor(
     protected globalVariables: GlobalVariables,
-    private guardedMerkleTree: GuardedMerkleTree,
+    private guardedMerkleTree: GuardedMerkleTreeOperations,
     protected contractsDB: PublicContractsDB,
     protected publicTxSimulator: PublicTxSimulator,
     private dateProvider: DateProvider,
