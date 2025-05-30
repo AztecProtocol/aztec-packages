@@ -19,7 +19,7 @@ use types::{
 
 // Evaluates a single blob:
 // - Evaluates the blob at shared challenge z and returns result y_i
-// - Calculates this blob's challenge z_i (= H(H(blob_i), C_i))
+// - Calculates this blob's challenge z_i (= H(H(blob_i), C_i)), where C_i = kzg_commitment, and blob_i = blob_as_fields[i].
 fn evaluate_blob_for_batching(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
     kzg_commitment: BatchingBlobCommitment,

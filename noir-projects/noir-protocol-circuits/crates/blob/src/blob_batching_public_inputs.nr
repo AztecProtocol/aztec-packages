@@ -6,7 +6,10 @@ use bigcurve::{
 use bigint::{BigNum, BLS12_381_Fq as Q, BLS12_381_Fr as F};
 use std::ops::{Add, Mul};
 use types::{
-    constants::{BLOB_ACCUMULATOR_PUBLIC_INPUTS, BLOCK_BLOB_PUBLIC_INPUTS, BLS12_FR_LIMBS},
+    constants::{
+        BLOB_ACCUMULATOR_PUBLIC_INPUTS, BLOCK_BLOB_PUBLIC_INPUTS, BLS12_FR_LIMBS,
+        BLS12_POINT_COMPRESSED_BYTES,
+    },
     hash::{poseidon2_hash, sha256_to_field},
     traits::{Deserialize, Empty, Serialize},
     utils::{arrays::array_splice, field::{byte_to_bits_be, field_from_bytes}, reader::Reader},
@@ -16,11 +19,11 @@ pub type BLSPoint = BLS12_381;
 
 pub struct BatchingBlobCommitment {
     pub point: BLSPoint,
-    pub compressed: [u8; 48], // TODO(MW): get Q::num_bytes from somewhere, rather than hardcoded 48
+    pub compressed: [u8; BLS12_POINT_COMPRESSED_BYTES],
 }
 
 impl BatchingBlobCommitment {
-    // The compressed form is a BLS12Fq field encoded as 2 BN fields.
+    // The compressed form is a BLS12Fq field encoded as 2 BN254Fr fields.
     // The first is the first 31 bytes, and the second is the next 17 bytes:
     pub fn to_compressed_fields(self) -> [Field; 2] {
         [
@@ -60,22 +63,21 @@ impl Eq for BatchingBlobCommitment {
 
 impl Empty for BatchingBlobCommitment {
     fn empty() -> Self {
-        Self { point: BLSPoint::point_at_infinity(), compressed: [0; 48] }
+        Self { point: BLSPoint::point_at_infinity(), compressed: [0; BLS12_POINT_COMPRESSED_BYTES] }
     }
 }
 
 // TODO(MW): get_flags() and compress_to_bytes() will eventually be part of BigCurve.
-// Ideally we would impl like:
-// impl From<BLSPoint> for BlobCommitment {
-//     }
-// }
-// impl BLSPoint {
-//     fn get_flags(point: BLSPoint) -> ([bool; 3], Q) {
-//     }
-//     fn compress_to_bytes(self) -> [u8; 48] {
-//     }
-// }
-// So, e.g., can just call point.compress_to_bytes() in future. For now:
+/**
+ * Create a compressed representation of a BLS12Point.
+ * @dev NOTE: The compression standard for BLS12-381 differs from BN curves. Instead of
+ * one is_positive flag, we have three flags to prepend:
+ * - is_compressed: indicator that the point is compressed
+ * - is_infinity: whether the point the point at infinity
+ * - is_greater: only set if is_compressed && !is_infinity && y > (p - 1)/2
+ * See https://github.com/arkworks-rs/algebra/blob/master/curves/bls12_381/src/curves/g1.rs -> serialize_with_mode() -> encoding
+ * and noble-curves/src/bls12-381.ts -> setMask()
+ */
 pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) {
     let (flags, x) = get_flags(point);
     let mut compressed = x.to_be_bytes();
@@ -175,7 +177,7 @@ impl BlobAccumulatorPublicInputs {
     * - y_acc := y_acc + (gamma^i * y_i)
     * - c_acc := c_acc + (gamma^i * c_i)
     * - gamma_acc := poseidon2(gamma_acc, poseidon2(y_i.limbs))
-    * - gamma^(i + 1) = gamma^i * final_gamma // denoted gamma_pow
+    * - gamma^(i + 1) = gamma^i * gamma // denoted gamma_pow
     *
     * Final accumulated values (from last blob of last block of epoch):
     * - v := v_acc (hash of all commitments (C_i s) to be checked on L1)
