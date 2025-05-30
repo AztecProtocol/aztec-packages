@@ -207,35 +207,21 @@ SlabAllocator allocator;
 namespace bb {
 void init_slab_allocator(size_t circuit_subgroup_size)
 {
-    allocator.init(circuit_subgroup_size);
-}
-
-std::shared_ptr<void> get_mem_slab(size_t size)
-{
-    PROFILE_THIS();
-
-    return allocator.get(size);
+    // allocator.init(circuit_subgroup_size);
 }
 
 void* get_mem_slab_raw(size_t size)
 {
-    auto slab = get_mem_slab(size);
-#ifndef NO_MULTITHREADING
-    std::unique_lock<std::mutex> lock(manual_slabs_mutex);
-#endif
-    manual_slabs[slab.get()] = slab;
-    return slab.get();
+    return aligned_alloc(size, 64);
+}
+
+std::shared_ptr<void> get_mem_slab(size_t size)
+{
+    return std::shared_ptr<void>(get_mem_slab_raw(size));
 }
 
 void free_mem_slab_raw(void* p)
 {
-    if (allocator_destroyed) {
-        aligned_free(p);
-        return;
-    }
-#ifndef NO_MULTITHREADING
-    std::unique_lock<std::mutex> lock(manual_slabs_mutex);
-#endif
-    manual_slabs.erase(p);
+    aligned_free(p);
 }
 } // namespace bb
