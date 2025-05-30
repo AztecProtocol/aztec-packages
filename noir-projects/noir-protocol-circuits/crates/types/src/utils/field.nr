@@ -34,6 +34,8 @@ pub fn field_from_bytes_32_trunc(bytes32: [u8; 32]) -> Field {
     low + high * v
 }
 
+// TODO: This currently only exists to aid point compression in compress_to_blob_commitment().
+// Once compression is part of BigCurve it can either be removed or optimised to be used elsewhere.
 pub fn byte_to_bits_be(byte: u8) -> [u1; 8] {
     let mut mut_byte = byte;
     let mut bits: [u1; 8] = [0; 8];
