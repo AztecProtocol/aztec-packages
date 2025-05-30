@@ -735,7 +735,7 @@ __metadata:
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.0"
     "@types/supertest": "npm:^2.0.12"
-    c-kzg: "npm:4.0.0-alpha.1"
+    bn.js: "npm:^5.2.1"
     colorette: "npm:^2.0.20"
     comlink: "npm:^4.4.1"
     detect-node: "npm:^2.1.0"
