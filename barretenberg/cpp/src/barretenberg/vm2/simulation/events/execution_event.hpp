@@ -16,7 +16,7 @@
 namespace bb::avm2::simulation {
 
 struct ExecutionEvent {
-    bool error = false;
+    bool exception = false; // does this event represent an an exceptional halt?
     BytecodeId bytecode_id;
     Instruction wire_instruction;
     ExecutionOpCode opcode;

@@ -1,0 +1,75 @@
+// Discarding on error in execution
+
+// This is a virtual gadget, which is part of the execution trace.
+// This subtrace is focused on managing the changes to the discard and dying_context_id columns.
+namespace execution;
+
+    // TODO(dbanks12): rename to just `sel_error` once sel_error has been renamed to something like `sel_exception`
+    // sel_revert_or_exception = sel_exception or sel_revert
+    pol commit sel_revert_or_exception;
+    sel_revert_or_exception * (1 - sel_revert_or_exception) = 0;
+    sel_revert_or_exception - 1 + (1 - sel_error) * (1 - sel_revert) = 0; // TODO(dbanks12): fix after rename
+
+    // Discard columns for error handling
+    pol commit discard; // This context or one of its ancestors errors. All side effects should be discarded.
+    pol commit dying_context_id; // The context_id of this context's oldest ancestor that reverts or errors. This is nonzero if and only if discard is 1.
+
+    // 1. discard is boolean
+    discard * (1 - discard) = 0;
+
+    // 2. Discard being 1 implies non-zero dying context and vice versa
+    // dying_context_id != 0 ⇔ discard == 1
+    // This constraint enforces that relationship
+    sel * discard * (1 - dying_context_id) = 0; // If discard is 1, dying_context_id must be non-zero
+    sel * (1 - discard) * dying_context_id = 0; // If discard is 0, dying_context_id must be 0
+
+    // 3. An instruction/row that errors must discard. In other words, if error == 1, then discard == 1 must hold true.
+    sel * sel_revert_or_exception * (1 - discard) = 0;
+
+    // Helper columns for checking if context_id == dying_context_id
+    pol commit is_dying_context; // 1 if context_id == dying_context_id
+    is_dying_context * (1 - is_dying_context) = 0; // Boolean constraint
+    pol DYING_CONTEXT_DIFF = context_id - dying_context_id;
+    pol commit dying_context_diff_inv; // Inverse of (context_id - dying_context_id) when they're different
+
+    // Constraint to check if context_id == dying_context_id
+    // If discard is 1, we need to check this relationship
+    // DYING_CONTEXT_DIFF == 0 <==> is_dying_context == 1
+    #[IS_DYING_CONTEXT_CHECK]
+    sel * discard * (DYING_CONTEXT_DIFF * (is_dying_context * (1 - dying_context_diff_inv) + dying_context_diff_inv) - 1 + is_dying_context) = 0;
+
+    // 4. By default, the values of discard and dying_context_id are propagated to the next row.
+    // 5. The propagation constraint is lifted for discard and dying_context_id on the next row if any one of the following conditions are met:
+    //    a. The next row is the first instruction of an enqueued call.
+    //    b. This instruction/row is an error in the dying context (discard == 1 && error == 1 && context_id == dying_context_id)
+    //    c. This instruction/row is a call and the nested context will eventually error (sel_enter_call == 1 && discard == 0)
+
+    // Helper columns to determine when propagation should be lifted
+    pol END_OF_ENQUEUED_CALL = sel_exit_call * (1 - has_parent_ctx);           // 5a.
+    // NOTE: we could, instead, _not_ lift propagation at enqueued call boundaries,
+    // but then we need to special case the transition from setup to app logic,
+    // since setup must have discard=0, and app logic can have discard=1.
+    // App logic to teardown wouldn't need special-casing because if teardown discards,
+    // all of app logic must discard too.
+    pol RESOLVES_DYING_CONTEXT = sel_revert_or_exception * is_dying_context;   // 5b.
+    pol NESTED_CALL_FROM_UNDISCARDED_CONTEXT = sel_enter_call * (1 - discard); // 5c.
+    // Note: if any of these ^ conditions are met, we lift the propagation constraint.
+    // Otherwise, propagation is enforced.
+    pol PROPAGATE_DISCARD = (1 - END_OF_ENQUEUED_CALL) * (1 - RESOLVES_DYING_CONTEXT) * (1 - NESTED_CALL_FROM_UNDISCARDED_CONTEXT);
+    // Note: on nested call, can't know yet whether or not the nested context will eventually revert.
+    // But, we can lift the propagation constraint, and enforce that a dying context _must_ be resolved.
+    // In this way, we allow `discard` to be raised to 1 on a nested call. And once 1, `discard` _must_
+    // be resolved in a later row by an error encountered in the dying context.
+
+    // Discard propagation
+    #[DISCARD_PROPAGATION]
+    sel * (1 - last) * PROPAGATE_DISCARD * (discard' - discard) = 0;
+    #[DYING_CONTEXT_PROPAGATION]
+    sel * (1 - last) * PROPAGATE_DISCARD * (dying_context_id' - dying_context_id) = 0;
+
+    // 6. An instruction/row cannot exit the "dying context" without an error.
+    // If discard == 1 && context_id == dying_context_id && exit == 1, then error == 1 must hold true.
+    #[DYING_CONTEXT_MUST_ERROR]
+    sel * discard * is_dying_context * sel_exit_call * (1 - sel_revert_or_exception) = 0;
+
+// TODO: other constraints?

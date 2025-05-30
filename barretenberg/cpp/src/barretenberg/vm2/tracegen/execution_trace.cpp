@@ -5,9 +5,11 @@
 #include <ranges>
 #include <stdexcept>
 #include <sys/types.h>
+#include <unordered_map>
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
@@ -34,6 +36,98 @@ std::pair<uint16_t, uint16_t> decompose_gas_value(uint32_t value)
     return { static_cast<uint16_t>(value & 0xFFFF), static_cast<uint16_t>(value >> 16) };
 }
 
+/**
+ * @brief Helper struct to track info after "discard" preprocessing.
+ */
+struct ErroringContexts {
+    bool app_logic_error = false;
+    bool teardown_error = false;
+    uint32_t app_logic_exit_context_id = 0;
+    uint32_t teardown_exit_context_id = 0;
+    std::unordered_map<uint32_t, bool> does_context_error;
+};
+
+/**
+ * @brief Preprocess execution events to determine which contexts will error.
+ *
+ * @details This is used during trace-generation to populate the `discard` and `dying_context_id` columns
+ * which must be set throughout a context that will EVENTUALLY error. So we need to do a
+ * preprocessing pass so that we can set these columns properly during trace-generation for rows
+ * in a dying context before the the actual error event is reached.
+ *
+ * @param ex_events The execution events.
+ * @return The erroring contexts.
+ */
+ErroringContexts preprocess_for_discard(
+    const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& ex_events)
+{
+    ErroringContexts dying_info;
+
+    // Preprocessing pass 1: find the events that exit the app logic and teardown phases
+    for (const auto& ex_event : ex_events) {
+        bool is_exit = ex_event.opcode == ExecutionOpCode::RETURN || ex_event.opcode == ExecutionOpCode::REVERT ||
+                       ex_event.exception;
+        bool is_top_level = ex_event.after_context_event.parent_id == 0;
+
+        if (is_exit && is_top_level) {
+            // TODO(dbanks12): confirm this should be after_context_event and not before_context_event
+            if (ex_event.after_context_event.phase == TransactionPhase::APP_LOGIC) {
+                dying_info.app_logic_error = ex_event.opcode == ExecutionOpCode::REVERT || ex_event.exception;
+                dying_info.app_logic_exit_context_id = ex_event.after_context_event.id;
+            } else if (ex_event.after_context_event.phase == TransactionPhase::TEARDOWN) {
+                dying_info.teardown_error = ex_event.opcode == ExecutionOpCode::REVERT || ex_event.exception;
+                dying_info.teardown_exit_context_id = ex_event.after_context_event.id;
+                break; // Teardown is the last phase we care about
+            }
+        }
+    }
+
+    // Preprocessing pass 2: find all contexts that error and mark them
+    for (const auto& ex_event : ex_events) {
+        if (ex_event.opcode == ExecutionOpCode::REVERT || ex_event.exception) {
+            dying_info.does_context_error[ex_event.after_context_event.id] = true;
+        }
+    }
+
+    return dying_info;
+}
+
+/**
+ * @brief Check if an entire phase should "discard" [side effects].
+ *
+ * @param phase The phase to check.
+ * @param errors The erroring contexts.
+ * @return true if the phase should be discarded, false otherwise.
+ */
+bool is_phase_discarded(TransactionPhase phase, ErroringContexts& errors)
+{
+    // Note that app logic also gets discarded if teardown errors
+    return (phase == TransactionPhase::APP_LOGIC && (errors.app_logic_error || errors.teardown_error)) ||
+           (phase == TransactionPhase::TEARDOWN && errors.teardown_error);
+}
+
+/**
+ * @brief Get the dying context ID for a phase.
+ *
+ * @param phase The phase to check.
+ * @param errors The erroring contexts.
+ * @return The dying context ID for the phase if any, 0 otherwise.
+ */
+uint32_t dying_context_for_phase(TransactionPhase phase, ErroringContexts& errors)
+{
+    switch (phase) {
+    case TransactionPhase::APP_LOGIC:
+        // Note that app logic also gets discarded if teardown errors
+        return errors.app_logic_error  ? errors.app_logic_exit_context_id
+               : errors.teardown_error ? errors.teardown_exit_context_id
+                                       : 0;
+    case TransactionPhase::TEARDOWN:
+        return errors.teardown_error ? errors.teardown_exit_context_id : 0;
+    default:
+        throw std::runtime_error("Execution events should have app logic or teardown phase");
+    }
+}
+
 } // namespace
 
 // TODO: Currently we accept the execution opcode, we need a way to map this to the actual selector for the circuit
@@ -44,17 +138,31 @@ void ExecutionTraceBuilder::process(
     using C = Column;
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
 
-    // TODO: Compute success for the call opcodes.
+    // Preprocess events to determine which contexts will error
+    ErroringContexts errors = preprocess_for_discard(ex_events);
 
     uint32_t last_seen_parent_id = 0;
     FF cached_parent_id_inv = 0;
 
+    // Some variables updated per loop iteration to track
+    // whether or not the upcoming row should "discard" [side effects].
+    uint32_t discard = 0;
+    uint32_t dying_context_id = 0;
+    bool is_first_event_in_enqueued_call = true;
+
     for (const auto& ex_event : ex_events) {
         const auto& addr_event = ex_event.addressing_event;
 
-        // TODO(ilyas): These operands will likely also need to obey the exec instruction spec, i.e. a SET will require
-        // the sole operand in op3 instead of "compactly" in op1. Ideally this encoding is done in EXEC_INSTRUCTION_SPEC
-        // and we can use that to fill in the operands here.
+        // Check if this is the first event in an enqueued call
+        if (discard == 0 && is_first_event_in_enqueued_call &&
+            is_phase_discarded(ex_event.after_context_event.phase, errors)) {
+            discard = 1;
+            dying_context_id = dying_context_for_phase(ex_event.after_context_event.phase, errors);
+        }
+
+        // TODO(ilyas): These operands will likely also need to obey the exec instruction spec, i.e. a SET will
+        // require the sole operand in op3 instead of "compactly" in op1. Ideally this encoding is done in
+        // EXEC_INSTRUCTION_SPEC and we can use that to fill in the operands here.
         auto operands = ex_event.wire_instruction.operands;
         assert(operands.size() <= operand_columns);
         operands.resize(operand_columns, simulation::Operand::from<FF>(0));
@@ -93,13 +201,14 @@ void ExecutionTraceBuilder::process(
         bool is_static_call = ex_event.opcode == ExecutionOpCode::STATICCALL;
         bool is_return = ex_event.opcode == ExecutionOpCode::RETURN;
         bool is_revert = ex_event.opcode == ExecutionOpCode::REVERT;
-        bool is_err = ex_event.error;
+        bool is_exception = ex_event.exception;
+        bool is_error = is_revert || is_exception;
         bool has_parent = ex_event.after_context_event.parent_id != 0;
-        bool sel_enter_call = (is_call || is_static_call) && !is_err;
-        bool sel_exit_call = is_return || is_revert || is_err;
+        bool sel_enter_call = (is_call || is_static_call) && !is_exception;
+        bool sel_exit_call = is_return || is_revert || is_exception;
         bool nested_exit_call = sel_exit_call && has_parent;
         // We rollback if we revert or error and we have a parent context.
-        bool rollback_context = (ex_event.opcode == ExecutionOpCode::REVERT || ex_event.error) && has_parent;
+        bool rollback_context = (ex_event.opcode == ExecutionOpCode::REVERT || ex_event.exception) && has_parent;
 
         // Cache the parent id inversion since we will repeatedly just be doing the same expensive inversion
         if (last_seen_parent_id != ex_event.after_context_event.parent_id) {
@@ -118,7 +227,7 @@ void ExecutionTraceBuilder::process(
                 { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
                 { C::execution_sel_return, is_return ? 1 : 0 },
                 { C::execution_sel_revert, is_revert ? 1 : 0 },
-                { C::execution_sel_error, ex_event.error ? 1 : 0 },
+                { C::execution_sel_error, is_exception ? 1 : 0 },
                 { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
                 { C::execution_bytecode_id, ex_event.bytecode_id },
                 // Nested Context Control Flow
@@ -244,6 +353,29 @@ void ExecutionTraceBuilder::process(
                 { C::execution_next_context_id, ex_event.next_context_id },
             } });
 
+        bool is_dying_context = discard == 1 && (ex_event.after_context_event.id == dying_context_id);
+
+        // Need to generate the item below for checking "is dying context" in circuit
+        FF dying_context_diff_inv = 0;
+        if (discard == 1 && !is_dying_context) {
+            // Compute inversion when context_id != dying_context_id
+            FF diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
+            if (!diff.is_zero()) {
+                dying_context_diff_inv = diff.invert();
+            }
+        }
+
+        // Discarding
+        trace.set(row,
+                  { {
+                      // TODO(dbanks12): fix after rename and/or move of this sel to main execution
+                      { C::execution_sel_revert_or_exception, is_error ? 1 : 0 },
+                      { C::execution_discard, discard },
+                      { C::execution_dying_context_id, dying_context_id },
+                      { C::execution_is_dying_context, is_dying_context ? 1 : 0 },
+                      { C::execution_dying_context_diff_inv, dying_context_diff_inv },
+                  } });
+
         // Base gas
         Gas gas_used_after_base = ex_event.before_context_event.gas_used + ex_event.gas_event.base_gas;
 
@@ -310,6 +442,34 @@ void ExecutionTraceBuilder::process(
                 { C::execution_limit_used_dynamic_da_cmp_diff_lo, limit_used_dynamic_da_cmp_diff_lo },
                 { C::execution_limit_used_dynamic_da_cmp_diff_hi, limit_used_dynamic_da_cmp_diff_hi },
             } });
+
+        // MORE SUPPORTING LOGIC FOR DISCARDING!
+
+        // Trace-generation is done for this event.
+        // Now, use this event to determine whether we should set/reset the discard flag for the NEXT event
+        bool event_kills_dying_context =
+            discard == 1 && is_error && ex_event.after_context_event.id == dying_context_id;
+
+        if (event_kills_dying_context) {
+            // Set/unset discard flag if the current event is the one that kills the dying context
+            dying_context_id = 0;
+            discard = 0;
+        } else if (sel_enter_call && discard == 0 && !sel_exit_call &&
+                   errors.does_context_error.contains(ex_event.next_context_id)) {
+            // If making a nested call, and discard isn't already high...
+            // if the nested context being entered eventually dies, raise discard flag and remember which context is
+            // dying NOTE: if a [STATIC]CALL instruction _itself_ exits execution, we don't set the discard flag
+            // because we aren't actually entering a new context!
+            dying_context_id = ex_event.next_context_id;
+            discard = 1;
+        }
+        // Otherwise, we aren't entering or exiting a dying context,
+        // so just propagate discard and dying context.
+        // Implicit: dying_context_id = dying_context_id; discard = discard;
+
+        // If an enqueued call just exited, next event (if any) is the first in an enqueued call.
+        // Update flag for next iteration.
+        is_first_event_in_enqueued_call = ex_event.after_context_event.parent_id == 0 && sel_exit_call;
 
         row++;
     }
