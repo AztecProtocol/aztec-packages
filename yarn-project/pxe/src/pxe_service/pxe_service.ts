@@ -49,7 +49,7 @@ import type {
 } from '@aztec/stdlib/interfaces/client';
 import type { PrivateKernelExecutionProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { LogFilter } from '@aztec/stdlib/logs';
-import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
+import { computeL2ToL1MembershipWitness, getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -205,8 +205,15 @@ export class PXEService implements PXE {
     return this.node.isL1ToL2MessageSynced(l1ToL2Message);
   }
 
-  public getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
-    return this.node.getL2ToL1MessageMembershipWitness(blockNumber, l2Tol1Message);
+  public async getL2ToL1MembershipWitness(
+    blockNumber: number,
+    l2Tol1Message: Fr,
+  ): Promise<[bigint, SiblingPath<number>]> {
+    const result = await computeL2ToL1MembershipWitness(this.node, blockNumber, l2Tol1Message);
+    if (!result) {
+      throw new Error(`L2 to L1 message not found in block ${blockNumber}`);
+    }
+    return [result.l2MessageIndex, result.siblingPath];
   }
 
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
@@ -679,9 +686,10 @@ export class PXEService implements PXE {
 
         const totalTime = totalTimer.ms();
 
-        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => ({
           functionName,
           time: witgen,
+          oracles,
         }));
 
         const timings: ProvingTimings = {
@@ -746,10 +754,13 @@ export class PXEService implements PXE {
 
         const totalTime = totalTimer.ms();
 
-        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
-          functionName,
-          time: witgen,
-        }));
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => {
+          return {
+            functionName,
+            time: witgen,
+            oracles,
+          };
+        });
 
         // Gate computation is time is not relevant for profiling, so we subtract it from the total time.
         const gateCountComputationTime =
@@ -849,9 +860,10 @@ export class PXEService implements PXE {
 
         const totalTime = totalTimer.ms();
 
-        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => ({
           functionName,
           time: witgen,
+          oracles,
         }));
 
         const timings: SimulationTimings = {

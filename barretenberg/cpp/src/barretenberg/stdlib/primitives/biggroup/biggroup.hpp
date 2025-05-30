@@ -106,6 +106,9 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             out.y = y;
         }
         out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
+
+        // Mark the element as coming out of nowhere
+        out.set_free_witness_tag();
         out.validate_on_curve();
         return out;
     }
@@ -134,6 +137,8 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     {
         this->x.convert_constant_to_fixed_witness(builder);
         this->y.convert_constant_to_fixed_witness(builder);
+        // Origin tags should be unset after fixing the witness
+        unset_free_witness_tag();
     }
 
     static element one(Builder* ctx)
@@ -353,6 +358,26 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     OriginTag get_origin_tag() const
     {
         return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+    }
+
+    /**
+     * @brief Unset the free witness flag for the element's tags
+     */
+    void unset_free_witness_tag()
+    {
+        x.unset_free_witness_tag();
+        y.unset_free_witness_tag();
+        _is_infinity.unset_free_witness_tag();
+    }
+
+    /**
+     * @brief Set the free witness flag for the element's tags
+     */
+    void set_free_witness_tag()
+    {
+        x.set_free_witness_tag();
+        y.set_free_witness_tag();
+        _is_infinity.set_free_witness_tag();
     }
 
     Fq x;
