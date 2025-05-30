@@ -4,7 +4,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
-  type ACIRCallback,
   type ACVMWitness,
   type CircuitSimulator,
   ExecutionError,

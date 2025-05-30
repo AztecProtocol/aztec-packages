@@ -48,13 +48,7 @@ import {
   extractPrivateCircuitPublicInputs,
   pickNotes,
 } from '@aztec/pxe/simulator';
-import {
-  type ACIRCallback,
-  WASMSimulator,
-  extractCallStack,
-  toACVMWitness,
-  witnessMapToFields,
-} from '@aztec/simulator/client';
+import { WASMSimulator, extractCallStack, toACVMWitness, witnessMapToFields } from '@aztec/simulator/client';
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
