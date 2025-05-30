@@ -52,15 +52,15 @@ contract MinimalDelegationTest is GSEBase {
     // Lets start
     assertEq(gse.getVotingPower(canonical), 0, "votingPowerCanonical");
 
-    help__deposit(ATTESTER, PROPOSER, WITHDRAWER, true);
+    help__deposit(ATTESTER1, WITHDRAWER, true);
 
     vm.warp(ts2);
 
-    help__deposit(PROPOSER, PROPOSER, WITHDRAWER, false);
+    help__deposit(ATTESTER2, WITHDRAWER, false);
 
     vm.warp(ts3);
 
-    help__deposit(WITHDRAWER, PROPOSER, WITHDRAWER, true);
+    help__deposit(WITHDRAWER, WITHDRAWER, true);
 
     vm.warp(ts4);
 
@@ -68,12 +68,12 @@ contract MinimalDelegationTest is GSEBase {
     _checkInstanceCanonical(address(ROLLUP), depositAmount, depositAmount, Timestamp.wrap(ts2));
     _checkInstanceCanonical(address(ROLLUP), depositAmount, depositAmount * 2, Timestamp.wrap(ts3));
 
-    assertEq(gse.getVotingPower(ATTESTER), 0, "voting power user");
-    assertEq(gse.getVotingPower(PROPOSER), 0, "voting power user");
+    assertEq(gse.getVotingPower(ATTESTER1), 0, "voting power user");
+    assertEq(gse.getVotingPower(ATTESTER2), 0, "voting power user");
     assertEq(gse.getVotingPower(WITHDRAWER), 0, "voting power user");
 
     vm.prank(WITHDRAWER);
-    gse.delegate(canonical, ATTESTER, WITHDRAWER);
+    gse.delegate(canonical, ATTESTER1, WITHDRAWER);
 
     vm.warp(ts5);
 
@@ -93,7 +93,7 @@ contract MinimalDelegationTest is GSEBase {
     }
 
     vm.prank(WITHDRAWER);
-    ROLLUP.initiateWithdraw(PROPOSER, WITHDRAWER);
+    ROLLUP.initiateWithdraw(ATTESTER2, WITHDRAWER);
 
     assertEq(governance.totalPowerAt(Timestamp.wrap(ts6)), depositAmount * 2);
 
@@ -164,7 +164,7 @@ contract MinimalDelegationTest is GSEBase {
 
     // Finalise the exit. We are doing it down here because the timetravel messes with voting
     Timestamp govUnlocks = governance.getWithdrawal(0).unlocksAt;
-    Timestamp exitAt = ROLLUP.getExit(PROPOSER).exitableAt;
+    Timestamp exitAt = ROLLUP.getExit(ATTESTER2).exitableAt;
 
     if (_overwriteDelay) {
       assertTrue(govUnlocks > exitAt, "govUnlocks > exitAt");
@@ -177,7 +177,7 @@ contract MinimalDelegationTest is GSEBase {
     if (_claim) {
       governance.finaliseWithdraw(0);
     }
-    ROLLUP.finaliseWithdraw(PROPOSER);
+    ROLLUP.finaliseWithdraw(ATTESTER2);
 
     assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), depositAmount * 2);
     assertEq(stakingAsset.balanceOf(WITHDRAWER), depositAmount);

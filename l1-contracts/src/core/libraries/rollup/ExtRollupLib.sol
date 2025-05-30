@@ -62,10 +62,8 @@ library ExtRollupLib {
     StakingLib.vote(_proposalId);
   }
 
-  function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
-    external
-  {
-    StakingLib.deposit(_attester, _proposer, _withdrawer, _onCanonical);
+  function deposit(address _attester, address _withdrawer, bool _onCanonical) external {
+    StakingLib.deposit(_attester, _withdrawer, _onCanonical);
   }
 
   function initiateWithdraw(address _attester, address _recipient) external returns (bool) {

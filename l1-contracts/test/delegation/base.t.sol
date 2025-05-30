@@ -14,8 +14,8 @@ contract GSEBase is TestBase {
   GSE internal gse;
   Governance internal governance;
 
-  address internal constant PROPOSER = address(bytes20("PROPOSER"));
-  address internal constant ATTESTER = address(bytes20("ATTESTER"));
+  address internal constant ATTESTER1 = address(bytes20("ATTESTER1"));
+  address internal constant ATTESTER2 = address(bytes20("ATTESTER2"));
   address internal constant WITHDRAWER = address(bytes20("WITHDRAWER"));
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));
 
@@ -31,24 +31,14 @@ contract GSEBase is TestBase {
     governance = builder.getConfig().governance;
   }
 
-  function help__deposit(
-    address _attester,
-    address _proposer,
-    address _withdrawer,
-    bool _onCanonical
-  ) internal {
+  function help__deposit(address _attester, address _withdrawer, bool _onCanonical) internal {
     uint256 depositAmount = ROLLUP.getMinimumStake();
     stakingAsset.mint(address(this), depositAmount);
     stakingAsset.approve(address(ROLLUP), depositAmount);
 
     uint256 balance = stakingAsset.balanceOf(address(governance));
 
-    ROLLUP.deposit({
-      _attester: _attester,
-      _proposer: _proposer,
-      _withdrawer: _withdrawer,
-      _onCanonical: _onCanonical
-    });
+    ROLLUP.deposit({_attester: _attester, _withdrawer: _withdrawer, _onCanonical: _onCanonical});
 
     assertEq(
       stakingAsset.balanceOf(address(governance)), balance + depositAmount, "invalid gov balance"
