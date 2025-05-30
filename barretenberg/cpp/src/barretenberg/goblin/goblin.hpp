@@ -39,7 +39,6 @@ class Goblin {
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
 
-    MergeProof merge_proof;
     GoblinProof goblin_proof;
 
     fq translation_batching_challenge_v;    // challenge for batching the translation polynomials
@@ -60,13 +59,7 @@ class Goblin {
      *
      * @param circuit_builder
      */
-    MergeProof prove_merge();
-
-    /**
-     * @brief Construct the final merge proof, where the prover shares a transcript with ECCVM and Translator.
-     *
-     */
-    MergeProof prove_final_merge();
+    MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>()) const;
 
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
@@ -81,12 +74,10 @@ class Goblin {
 
     /**
      * @brief Constuct a full Goblin proof (ECCVM, Translator, merge)
-     * @details The merge proof is assumed to already have been constucted in the last accumulate step. It is simply
-     * moved into the final proof here.
      *
      * @return Proof
      */
-    GoblinProof prove(MergeProof merge_proof_in = {});
+    GoblinProof prove();
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)

@@ -20,25 +20,11 @@ Goblin::Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitm
     , transcript(transcript)
 {}
 
-Goblin::MergeProof Goblin::prove_merge()
-{
-    PROFILE_THIS_NAME("Goblin::merge");
-    MergeProver merge_prover{ op_queue, commitment_key };
-    merge_proof = merge_prover.construct_proof();
-    return merge_proof;
-}
-
-/**
- * @brief The final merge prover shares a transcript with the other Goblin components
- *
- * @return Goblin::MergeProof
- */
-Goblin::MergeProof Goblin::prove_final_merge()
+Goblin::MergeProof Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript) const
 {
     PROFILE_THIS_NAME("Goblin::merge");
     MergeProver merge_prover{ op_queue, commitment_key, transcript };
-    merge_proof = merge_prover.construct_proof();
-    return merge_proof;
+    return merge_prover.construct_proof();
 }
 
 void Goblin::prove_eccvm()
@@ -60,13 +46,14 @@ void Goblin::prove_translator()
     goblin_proof.translator_proof = translator_prover.construct_proof();
 }
 
-GoblinProof Goblin::prove(MergeProof merge_proof_in)
+GoblinProof Goblin::prove()
 {
     PROFILE_THIS_NAME("Goblin::prove");
 
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
-    goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
+    goblin_proof.merge_proof = prove_merge(transcript);
+
     {
         PROFILE_THIS_NAME("prove_eccvm");
         vinfo("prove eccvm...");

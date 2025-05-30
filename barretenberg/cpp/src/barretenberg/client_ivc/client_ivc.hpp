@@ -57,6 +57,7 @@ class ClientIVC {
     using MegaProver = UltraProver_<Flavor>;
     using MegaVerifier = UltraVerifier_<Flavor>;
     using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>;
+    using Transcript = NativeTranscript;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveDeciderVerificationKeys =
@@ -148,6 +149,9 @@ class ClientIVC {
 
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
+
+    // Transcript to be shared by final merge prover, ECCVM, Translator, and Hiding Circuit provers.
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
   public:
     ProverFoldOutput fold_output; // prover accumulator and fold proof

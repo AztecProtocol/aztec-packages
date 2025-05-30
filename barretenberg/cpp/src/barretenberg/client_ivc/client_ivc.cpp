@@ -342,11 +342,9 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
 HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
     // Create a transcript to be shared by final merge prover, ECCVM, Translator, and Hiding Circuit provers.
-    goblin.transcript = std::make_shared<Goblin::Transcript>();
-    goblin.transcript->enable_manifest();
     auto decider_pk = construct_hiding_circuit_key();
     // Hiding circuit is proven by a MegaZKProver
-    MegaZKProver prover(decider_pk, goblin.transcript);
+    MegaZKProver prover(decider_pk, transcript);
     HonkProof proof = prover.construct_proof();
 
     return proof;
@@ -361,11 +359,10 @@ ClientIVC::Proof ClientIVC::prove()
 {
     auto mega_proof = construct_and_prove_hiding_circuit();
 
-    // Construct the last merge proof for the present circuit
-    MergeProof merge_proof = goblin.prove_final_merge();
+    goblin.transcript = transcript; // set the transcript to be shared by the Goblin prover
 
     // Prove ECCVM and Translator
-    return { mega_proof, goblin.prove(merge_proof) };
+    return { mega_proof, goblin.prove() };
 };
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)

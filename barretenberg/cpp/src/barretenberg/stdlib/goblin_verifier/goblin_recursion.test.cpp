@@ -73,8 +73,7 @@ TEST_F(GoblinRecursionTests, Vanilla)
 
     Goblin goblin_final;
     goblin_final.op_queue = goblin.op_queue;
-    auto merge_proof = goblin_final.prove_final_merge();
-    GoblinProof proof = goblin_final.prove(merge_proof);
+    GoblinProof proof = goblin_final.prove();
     // Verify the final ultra proof
     MegaVerifier ultra_verifier{ kernel_accum.verification_key };
     bool ultra_verified = ultra_verifier.verify_proof(kernel_accum.proof);
