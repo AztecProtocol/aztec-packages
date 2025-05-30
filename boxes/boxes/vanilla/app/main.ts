@@ -21,6 +21,7 @@ const accountDisplay =
 const statusMessage =
   document.querySelector<HTMLDivElement>('#status-message')!;
 const voteResults = document.querySelector<HTMLDivElement>('#vote-results')!;
+const testAccountNumber = document.querySelector<HTMLSelectElement>('#test-account-number')!;
 
 // Local variables
 let wallet: EmbeddedWallet;
@@ -106,7 +107,8 @@ connectTestAccountButton.addEventListener('click', async (e) => {
   button.textContent = 'Connecting test account...';
 
   try {
-    const testAccount = await wallet.connectTestAccount(0);
+    const index = Number(testAccountNumber.value) - 1;
+    const testAccount = await wallet.connectTestAccount(index);
     displayAccount();
     await updateVoteTally(testAccount);
   } catch (error) {
@@ -124,7 +126,7 @@ connectTestAccountButton.addEventListener('click', async (e) => {
 voteButton.addEventListener('click', async (e) => {
   e.preventDefault();
 
-  const candidate = parseInt(voteInput.value);
+  const candidate = Number(voteInput.value);
   if (isNaN(candidate) || candidate < 1 || candidate > 5) {
     displayError('Invalid candidate number');
     return;
@@ -180,13 +182,13 @@ async function updateVoteTally(account: Wallet) {
     account
   );
 
-  for (let i = 1; i <= 5; i++) {
-    const interaction = votingContract.methods.get_vote(i);
-
-    // Simulate the transaction
-    const value = await wallet.simulateTransaction(interaction);
-    results[i] = value;
-  }
+  await Promise.all(
+    Array.from({ length: 5 }, async (_, i) => {
+      const interaction = votingContract.methods.get_vote(i + 1);
+      const value = await wallet.simulateTransaction(interaction);
+      results[i + 1] = value;
+    })
+  );
 
   // Display the tally
   displayTally(results);
@@ -211,6 +213,7 @@ function displayAccount() {
   const connectedAccount = wallet.getConnectedAccount();
   if (!connectedAccount) {
     createAccountButton.style.display = 'block';
+    testAccountNumber.style.display = 'block';
     connectTestAccountButton.style.display = 'block';
     voteForm.style.display = 'none';
     return;
@@ -221,6 +224,7 @@ function displayAccount() {
   accountDisplay.textContent = content;
   createAccountButton.style.display = 'none';
   connectTestAccountButton.style.display = 'none';
+  testAccountNumber.style.display = 'none';
   voteForm.style.display = 'block';
 }
 

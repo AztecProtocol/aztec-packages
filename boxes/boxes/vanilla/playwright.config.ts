@@ -8,7 +8,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   workers: process.env.PLAYWRIGHT_NUM_WORKERS
-    ? parseInt(process.env.PLAYWRIGHT_NUM_WORKERS)
+    ? Number(process.env.PLAYWRIGHT_NUM_WORKERS)
     : 1,
   reporter: 'list',
   use: {
@@ -20,16 +20,16 @@ export default defineConfig({
   timeout: 400_000,
   projects: [
     {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
     },
   ],
 

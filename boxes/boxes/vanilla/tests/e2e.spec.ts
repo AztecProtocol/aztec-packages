@@ -24,6 +24,7 @@ test('create account and cast vote', async ({ page }, testInfo) => {
   await expect(page).toHaveTitle(/Private Voting/);
 
   const connectTestAccount = await page.locator('#connect-test-account');
+  const selectTestAccount = await page.locator('#test-account-number');
   const accountDisplay = await page.locator('#account-display');
   const voteButton = await page.locator('#vote-button');
   const voteInput = await page.locator('#vote-input');
@@ -31,6 +32,16 @@ test('create account and cast vote', async ({ page }, testInfo) => {
 
   // Connect test account
   await expect(connectTestAccount).toBeVisible();
+  await expect(selectTestAccount).toBeVisible();
+
+  // Select different account for each browser
+  const testAccountNumber = {
+    'chromium': 1,
+    'firefox': 2,
+    'webkit': 3,
+  }[testInfo.project.name];
+  await selectTestAccount.selectOption(testAccountNumber.toString());
+
   await connectTestAccount.click();
   await expect(accountDisplay).toBeVisible();
   await expect(accountDisplay).toHaveText(/Account: 0x[a-fA-F0-9]{4}/);
@@ -47,6 +58,7 @@ test('create account and cast vote', async ({ page }, testInfo) => {
   await expect(voteInput).toBeVisible();
   await expect(voteButton).toBeVisible();
   await voteInput.selectOption(candidateId!.toString());
+
   await voteButton.click();
 
   // This will take some time to complete (Client IVC proof generation)
