@@ -308,7 +308,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubFloodPublish: {
     env: 'P2P_GOSSIPSUB_FLOOD_PUBLISH',
     description: 'Whether to flood publish messages. - For testing purposes only',
-    ...booleanConfigHelper(true),
+    ...booleanConfigHelper(false),
   },
   gossipsubMcacheLength: {
     env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
