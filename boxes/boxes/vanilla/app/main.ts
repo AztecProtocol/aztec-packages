@@ -154,7 +154,7 @@ voteButton.addEventListener('click', async (e) => {
 
     // Update tally
     displayStatusMessage('Updating vote tally...');
-    updateVoteTally(connectedAccount);
+    await updateVoteTally(connectedAccount);
     displayStatusMessage('');
   } catch (error) {
     console.error(error);
