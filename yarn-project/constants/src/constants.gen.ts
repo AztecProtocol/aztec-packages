@@ -131,6 +131,7 @@ export const SPONGE_BLOB_LENGTH = 11;
 export const BLS12_FR_LIMBS = 3;
 export const BLS12_FQ_LIMBS = 4;
 export const BLS12_POINT = 9;
+export const BLS12_POINT_COMPRESSED_BYTES = 48;
 export const BLOB_ACCUMULATOR_PUBLIC_INPUTS = 18;
 export const FINAL_BLOB_ACCUMULATOR_PUBLIC_INPUTS = 7;
 export const BLOCK_BLOB_PUBLIC_INPUTS = 40;

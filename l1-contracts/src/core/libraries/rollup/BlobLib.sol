@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Vm} from "forge-std/Vm.sol";
@@ -51,8 +52,10 @@ library BlobLib {
     uint256 blobInputStart = 1;
     for (uint256 i = 0; i < numBlobs; i++) {
       // Commitments = arrays of bytes48 compressed points
-      blobCommitments[i] = abi.encodePacked(_blobsInput[blobInputStart:blobInputStart + 48]);
-      blobInputStart += 48;
+      blobCommitments[i] = abi.encodePacked(
+        _blobsInput[blobInputStart:blobInputStart + Constants.BLS12_POINT_COMPRESSED_BYTES]
+      );
+      blobInputStart += Constants.BLS12_POINT_COMPRESSED_BYTES;
 
       // TODO(MW): Use kzg_to_versioned_hash & VERSIONED_HASH_VERSION_KZG
       // Using bytes32 array to force bytes into memory
