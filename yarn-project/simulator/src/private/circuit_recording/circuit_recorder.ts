@@ -3,9 +3,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { ForeignCallHandler, ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
 
-import type { ACIRCallback } from '../../acvm/acvm.js';
-import type { ACVMWitness } from '../../acvm/acvm_types.js';
-import { Oracle } from '../../acvm/oracle/oracle.js';
+import type { ACIRCallback } from '../acvm/acvm.js';
+import type { ACVMWitness } from '../acvm/acvm_types.js';
 
 export type OracleCall = {
   name: string;
@@ -152,11 +151,11 @@ export class CircuitRecorder {
    */
   #wrapUserCircuitCallback(callback: ACIRCallback): ACIRCallback {
     const recordingCallback: ACIRCallback = {} as ACIRCallback;
-    const oracleMethods = Object.getOwnPropertyNames(Oracle.prototype).filter(name => name !== 'constructor');
+    const oracleMethods = Object.keys(callback);
 
     for (const name of oracleMethods) {
       const fn = callback[name as keyof ACIRCallback];
-      if (!fn) {
+      if (!fn || typeof fn !== 'function') {
         throw new Error(`Oracle method ${name} not found when setting up recording callback`);
       }
 
