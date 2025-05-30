@@ -20,11 +20,13 @@ Goblin::Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitm
     , transcript(transcript)
 {}
 
-Goblin::MergeProof Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript) const
+Goblin::MergeProof Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
 {
     PROFILE_THIS_NAME("Goblin::merge");
     MergeProver merge_prover{ op_queue, commitment_key, transcript };
-    return merge_prover.construct_proof();
+    MergeProof merge_proof = merge_prover.construct_proof();
+    merge_verification_queue.push_back(merge_proof);
+    return merge_proof;
 }
 
 void Goblin::prove_eccvm()

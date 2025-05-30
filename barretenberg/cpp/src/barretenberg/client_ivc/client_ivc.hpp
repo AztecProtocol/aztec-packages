@@ -128,7 +128,6 @@ class ClientIVC {
     // An entry in the native verification queue
     struct VerifierInputs {
         std::vector<FF> proof; // oink or PG
-        std::vector<FF> merge_proof;
         std::shared_ptr<MegaVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
@@ -137,7 +136,6 @@ class ClientIVC {
     // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
         StdlibProof<ClientCircuit> proof; // oink or PG
-        StdlibProof<ClientCircuit> merge_proof;
         std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
@@ -214,9 +212,6 @@ class ClientIVC {
     bool prove_and_verify();
 
     HonkProof decider_prove() const;
-
-    std::vector<std::shared_ptr<MegaVerificationKey>> precompute_folding_verification_keys(
-        std::vector<ClientCircuit> circuits);
 
     VerificationKey get_vk() const;
 };

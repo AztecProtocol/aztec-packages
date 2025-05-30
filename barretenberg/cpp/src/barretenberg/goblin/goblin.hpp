@@ -36,6 +36,8 @@ class Goblin {
     using MergeProof = MergeProver::MergeProof;
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
+    using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
+    using PairingPoints = MergeRecursiveVerifier::PairingPoints;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
@@ -62,7 +64,7 @@ class Goblin {
      *
      * @param circuit_builder
      */
-    MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>()) const;
+    MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
@@ -81,6 +83,31 @@ class Goblin {
      * @return Proof
      */
     GoblinProof prove();
+
+    /**
+     * @brief
+     *
+     * @param merge_proof
+     * @return PairingPoints
+     */
+    PairingPoints process_merge_verification_queue(MegaBuilder& builder)
+    {
+        PairingPoints points_accumulator;
+        for (const auto& merge_proof : merge_verification_queue) {
+            const StdlibProof<MegaBuilder> stdlib_merge_proof =
+                bb::convert_native_proof_to_stdlib(&builder, merge_proof);
+            MergeRecursiveVerifier merge_verifier{ &builder };
+            PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+            if (points_accumulator.has_data) {
+                points_accumulator.aggregate(pairing_points);
+            } else {
+                points_accumulator = pairing_points;
+            }
+        }
+        merge_verification_queue.clear(); // clear the queue after processing
+
+        return points_accumulator;
+    }
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
