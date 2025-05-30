@@ -16,6 +16,7 @@ export enum WorldStateMessageType {
 
   FIND_LEAF_INDICES,
   FIND_LOW_LEAF,
+  FIND_SIBLING_PATHS,
 
   APPEND_LEAVES,
   BATCH_INSERT,
@@ -352,6 +353,11 @@ interface FindLeafIndicesResponse {
   indices: bigint[];
 }
 
+interface FindSiblingPathsRequest extends WithTreeId, WithLeafValues, WithWorldStateRevision {}
+interface FindSiblingPathsResponse {
+  paths: Buffer[][];
+}
+
 interface FindLowLeafRequest extends WithTreeId, WithWorldStateRevision {
   key: Fr;
 }
@@ -448,6 +454,7 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.FIND_LEAF_INDICES]: FindLeafIndicesRequest;
   [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafRequest;
+  [WorldStateMessageType.FIND_SIBLING_PATHS]: FindSiblingPathsRequest;
 
   [WorldStateMessageType.APPEND_LEAVES]: AppendLeavesRequest;
   [WorldStateMessageType.BATCH_INSERT]: BatchInsertRequest;
@@ -492,6 +499,7 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.FIND_LEAF_INDICES]: FindLeafIndicesResponse;
   [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafResponse;
+  [WorldStateMessageType.FIND_SIBLING_PATHS]: FindSiblingPathsResponse;
 
   [WorldStateMessageType.APPEND_LEAVES]: void;
   [WorldStateMessageType.BATCH_INSERT]: BatchInsertResponse;

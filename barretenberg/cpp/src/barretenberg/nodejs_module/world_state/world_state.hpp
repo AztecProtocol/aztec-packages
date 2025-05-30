@@ -42,6 +42,7 @@ class WorldStateWrapper : public Napi::ObjectWrap<WorldStateWrapper> {
 
     bool find_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const;
     bool find_low_leaf(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+    bool find_sibling_paths(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 
     bool append_leaves(msgpack::object& obj, msgpack::sbuffer& buffer);
     bool batch_insert(msgpack::object& obj, msgpack::sbuffer& buffer);

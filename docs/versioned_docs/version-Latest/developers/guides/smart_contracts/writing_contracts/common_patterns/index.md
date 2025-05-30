@@ -16,7 +16,7 @@ Similarly we have discovered some anti-patterns too (like privacy leakage) that 
 We call this the "authentication witness" pattern or authwit for short.
 
 - Approve someone in private domain:
-```typescript title="authwit_to_another_sc" showLineNumbers
+```typescript title="authwit_to_another_sc" showLineNumbers 
 // 4. Give approval to bridge to burn owner's funds:
 const withdrawAmount = 9n;
 const nonce = Fr.random();
@@ -25,13 +25,13 @@ const burnAuthwit = await user1Wallet.createAuthWit({
   action: l2Token.methods.burn_private(ownerAddress, withdrawAmount, nonce),
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_private.test.ts#L70-L78" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_private.test.ts#L70-L78</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_private.test.ts#L70-L78" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_private.test.ts#L70-L78</a></sub></sup>
 
 
 Here you approve a contract to burn funds on your behalf.
 
 - Approve in public domain:
-```typescript title="authwit_public_transfer_example" showLineNumbers
+```typescript title="authwit_public_transfer_example" showLineNumbers 
 const action = asset
   .withWallet(wallets[1])
   .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
@@ -39,7 +39,7 @@ const action = asset
 const validateActionInteraction = await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true);
 await validateActionInteraction.send().wait();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76</a></sub></sup>
 
 
 Here you approve someone to transfer funds publicly on your behalf
@@ -50,7 +50,7 @@ E.g. you don't want a user to subscribe once they have subscribed already. Or yo
 
 Emit a nullifier in your function. By adding this nullifier into the tree, you prevent another nullifier from being added again. This is also why in authwit, we emit a nullifier, to prevent someone from reusing their approval.
 
-```rust title="verify_private_authwit" showLineNumbers
+```rust title="verify_private_authwit" showLineNumbers 
 pub fn verify_private_authwit(self, inner_hash: Field) -> Field {
     // The `inner_hash` is "siloed" with the `msg_sender` to ensure that only it can
     // consume the message.
@@ -66,7 +66,7 @@ pub fn verify_private_authwit(self, inner_hash: Field) -> Field {
     IS_VALID_SELECTOR
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/authwit/src/account.nr#L71-L86" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/account.nr#L71-L86</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/authwit/src/account.nr#L71-L86" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/account.nr#L71-L86</a></sub></sup>
 
 
 Note be careful to ensure that the nullifier is not deterministic and that no one could do a preimage analysis attack. More in [the anti pattern section on deterministic nullifiers](#deterministic-nullifiers)
@@ -123,7 +123,7 @@ When you send someone a note, the note hash gets added to the note hash tree. To
 1. When sending someone a note, emit the note log to the recipient (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../how_to_emit_event.md)
 2. Manually delivering it via a custom contract method, if you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`encrypt_and_emit_note` shouldn't be called in the public domain because everything is public), like in the previous section where we created a note in public that doesn't have a designated owner.
 
-```typescript title="offchain_delivery" showLineNumbers
+```typescript title="offchain_delivery" showLineNumbers 
 const txEffects = await pxe.getTxEffect(txHash);
 await contract.methods
   .deliver_transparent_note(
@@ -137,12 +137,12 @@ await contract.methods
   )
   .simulate();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/composed/e2e_persistence.test.ts#L364-L377" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_persistence.test.ts#L364-L377</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_persistence.test.ts#L364-L377" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_persistence.test.ts#L364-L377</a></sub></sup>
 
 
 Note that this requires your contract to have a utility function that processes these notes and adds them to PXE.
 
-```rust title="deliver_note_contract_method" showLineNumbers
+```rust title="deliver_note_contract_method" showLineNumbers 
 #[utility]
 unconstrained fn deliver_transparent_note(
     contract_address: AztecAddress,
@@ -154,7 +154,7 @@ unconstrained fn deliver_transparent_note(
     recipient: AztecAddress,
 ) {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr#L304-L315" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr#L304-L315</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr#L304-L315" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr#L304-L315</a></sub></sup>
 
 
 ### Revealing encrypted logs conditionally
@@ -173,7 +173,7 @@ Notes are hashed and stored in the merkle tree. While notes do have a header wit
 
 Hence, it's necessary to add a "randomness" field to your note to prevent such attacks.
 
-```rust title="address_note_def" showLineNumbers
+```rust title="address_note_def" showLineNumbers 
 #[note]
 #[derive(Eq)]
 pub struct AddressNote {
@@ -193,7 +193,7 @@ impl AddressNote {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24</a></sub></sup>
 
 
 ### L1 -- L2 interactions
@@ -238,7 +238,7 @@ E.g. for a voting contract, if your nullifier simply emits just the `user_addres
 
 Here is an example from the voting contract:
 
-```rust title="cast_vote" showLineNumbers
+```rust title="cast_vote" showLineNumbers 
 #[private]
 // annotation to mark function as private and expose private context
 fn cast_vote(candidate: Field) {
@@ -252,5 +252,5 @@ fn cast_vote(candidate: Field) {
     );
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>
 

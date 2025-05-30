@@ -528,7 +528,7 @@ Note: One Field element occupies a storage slot. Hence, structs with multiple fi
 
 #### Example
 
-```typescript title="load_private_cheatcode" showLineNumbers
+```typescript title="load_private_cheatcode" showLineNumbers 
 const mintAmount = 100n;
 
 await mintTokensToPrivate(token, wallet, admin, mintAmount);
@@ -546,7 +546,7 @@ const values = notes.map(note => note.items[2]);
 const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
 expect(balance).toEqual(mintAmount);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L181-L198" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L181-L198</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L181-L198" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L181-L198</a></sub></sup>
 
 
 ## Participate

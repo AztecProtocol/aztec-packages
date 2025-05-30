@@ -39,6 +39,7 @@ import type { NoteDataProvider } from '../storage/note_data_provider/note_data_p
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
+import { NoteValidationRequest } from './message_processing/note_validation_request.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
@@ -608,7 +609,36 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs);
   }
 
-  public async deliverNote(
+  public async validateEnqueuedNotes(
+    contractAddress: AztecAddress,
+    notePendingValidationArrayBaseSlot: Fr,
+  ): Promise<void> {
+    // We read all note validation requests and process them all concurrently. This makes the process much faster as we
+    // don't need to wait for the network round-trip.
+    const noteValidationRequests = (
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, notePendingValidationArrayBaseSlot)
+    ).map(NoteValidationRequest.fromFields);
+
+    await Promise.all(
+      noteValidationRequests.map(request =>
+        this.deliverNote(
+          request.contractAddress,
+          request.storageSlot,
+          request.nonce,
+          request.content,
+          request.noteHash,
+          request.nullifier,
+          request.txHash,
+          request.recipient,
+        ),
+      ),
+    );
+
+    // Requests are cleared once we're done.
+    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, notePendingValidationArrayBaseSlot, []);
+  }
+
+  async deliverNote(
     contractAddress: AztecAddress,
     storageSlot: Fr,
     nonce: Fr,

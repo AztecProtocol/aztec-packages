@@ -194,7 +194,7 @@ aztec-wallet register-contract $SPONSORED_FPC_ADDRESS SponsoredFPC --salt 0 --fr
 aztec-wallet deploy-account --from main --payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS
 ```
 
-The equivalent using aztec.js - get sponsored fpc address (helper functions [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/aztec/src/sandbox/sponsored_fpc.ts)) and use payment method:
+The equivalent using aztec.js - get sponsored fpc address (helper functions [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/aztec/src/sandbox/sponsored_fpc.ts)) and use payment method:
 
 ```javascript
 import { getSponsoredFPCInstance } from "../src/utils/sponsored_fpc.js"; // helper functions linked above
@@ -333,7 +333,7 @@ aztec-wallet deploy-account --from accBFJ --payment method=fee_juice,claim
 
 The equivalent using aztec.js - bridge fee juice, (pass two txs), create and use payment method:
 
-(See also the [aztec-wallet](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/cli-wallet/src/cmds/bridge_fee_juice.ts#L32) implementation to initialise a fee juice portal manager)
+(See also the [aztec-wallet](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/cli-wallet/src/cmds/bridge_fee_juice.ts#L32) implementation to initialise a fee juice portal manager)
 
 ```javascript
 import {
@@ -536,7 +536,7 @@ Please refer to the snippets in the sections above, and report any discrepancies
 
 - [`aztec` CLI tool](../../reference/environment_reference/cli_reference)
 - [`aztec-wallet` CLI tool](../../reference/environment_reference/cli_wallet_reference)
-- [`aztec.js` source](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/aztec.js)
+- [`aztec.js` source](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/aztec.js)
 - [Glossary](../../../glossary)
 - Search bar and AI above
 - Tags below :)

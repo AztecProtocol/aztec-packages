@@ -191,6 +191,10 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_leaf_indices(obj, buffer); });
 
     _dispatcher.register_target(
+        WorldStateMessageType::FIND_SIBLING_PATHS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_sibling_paths(obj, buffer); });
+
+    _dispatcher.register_target(
         WorldStateMessageType::FIND_LOW_LEAF,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_low_leaf(obj, buffer); });
 
@@ -502,6 +506,47 @@ bool WorldStateWrapper::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<FindLeafIndicesResponse> resp_msg(
         WorldStateMessageType::FIND_LEAF_INDICES, header, response);
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::find_sibling_paths(msgpack::object& obj, msgpack::sbuffer& buffer) const
+{
+    TypedMessage<TreeIdAndRevisionRequest> request;
+    obj.convert(request);
+
+    FindLeafPathsResponse response;
+
+    switch (request.value.treeId) {
+    case MerkleTreeId::NOTE_HASH_TREE:
+    case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+    case MerkleTreeId::ARCHIVE: {
+        TypedMessage<FindLeafPathsRequest<bb::fr>> r1;
+        obj.convert(r1);
+        _ws->find_sibling_paths<bb::fr>(request.value.revision, request.value.treeId, r1.value.leaves, response.paths);
+        break;
+    }
+
+    case MerkleTreeId::PUBLIC_DATA_TREE: {
+        TypedMessage<FindLeafPathsRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
+        obj.convert(r2);
+        _ws->find_sibling_paths<PublicDataLeafValue>(
+            request.value.revision, request.value.treeId, r2.value.leaves, response.paths);
+        break;
+    }
+    case MerkleTreeId::NULLIFIER_TREE: {
+        TypedMessage<FindLeafPathsRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
+        obj.convert(r3);
+        _ws->find_sibling_paths<NullifierLeafValue>(
+            request.value.revision, request.value.treeId, r3.value.leaves, response.paths);
+        break;
+    }
+    }
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<FindLeafPathsResponse> resp_msg(
+        WorldStateMessageType::FIND_SIBLING_PATHS, header, response);
     msgpack::pack(buffer, resp_msg);
 
     return true;

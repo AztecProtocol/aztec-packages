@@ -52,6 +52,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using MetaDataCallback = std::function<void(TypedResponse<TreeMetaResponse>&)>;
     using HashPathCallback = std::function<void(TypedResponse<GetSiblingPathResponse>&)>;
     using FindLeafCallback = std::function<void(TypedResponse<FindLeafIndexResponse>&)>;
+    using FindSiblingPathCallback = std::function<void(TypedResponse<FindLeafPathResponse>&)>;
     using GetLeafCallback = std::function<void(TypedResponse<GetLeafResponse>&)>;
     using CommitCallback = std::function<void(TypedResponse<CommitResponse>&)>;
     using RollbackCallback = EmptyResponseCallback;
@@ -183,6 +184,21 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
                            const block_number_t& blockNumber,
                            bool includeUncommitted,
                            const FindLeafCallback& on_completion) const;
+
+    /**
+     * @brief Returns the sibling paths for the provided leaves in the tree
+     */
+    void find_leaf_sibling_paths(const std::vector<typename Store::LeafType>& leaves,
+                                 bool includeUncommitted,
+                                 const FindSiblingPathCallback& on_completion) const;
+
+    /**
+     * @brief Returns the sibling paths for the provided leaves in the tree
+     */
+    void find_leaf_sibling_paths(const std::vector<typename Store::LeafType>& leaves,
+                                 const block_number_t& block_number,
+                                 bool includeUncommitted,
+                                 const FindSiblingPathCallback& on_completion) const;
 
     /**
      * @brief Returns the index of the provided leaf in the tree only if it exists after the index value provided
@@ -805,6 +821,83 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_fro
                     std::optional<index_t> leaf_index =
                         store_->find_leaf_index_from(leaf, start_index, requestContext, *tx);
                     response.inner.leaf_indices.emplace_back(leaf_index);
+                }
+            },
+            on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_sibling_paths(
+    const std::vector<typename Store::LeafType>& leaves,
+    bool includeUncommitted,
+    const FindSiblingPathCallback& on_completion) const
+{
+    auto job = [=, this]() -> void {
+        execute_and_report<FindLeafPathResponse>(
+            [=, this](TypedResponse<FindLeafPathResponse>& response) {
+                response.inner.leaf_paths.reserve(leaves.size());
+                ReadTransactionPtr tx = store_->create_read_transaction();
+
+                RequestContext requestContext;
+                requestContext.includeUncommitted = includeUncommitted;
+                requestContext.root = store_->get_current_root(*tx, includeUncommitted);
+
+                for (const auto& leaf : leaves) {
+                    std::optional<index_t> leaf_index = store_->find_leaf_index_from(leaf, 0, requestContext, *tx);
+                    if (!leaf_index.has_value()) {
+                        response.inner.leaf_paths.emplace_back(std::nullopt);
+                        continue;
+                    }
+                    OptionalSiblingPath optional_path =
+                        get_subtree_sibling_path_internal(leaf_index.value(), 0, requestContext, *tx);
+                    fr_sibling_path leaf_path = optional_sibling_path_to_full_sibling_path(optional_path);
+                    response.inner.leaf_paths.emplace_back(leaf_path);
+                }
+            },
+            on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_sibling_paths(
+    const std::vector<typename Store::LeafType>& leaves,
+    const block_number_t& blockNumber,
+    bool includeUncommitted,
+    const FindSiblingPathCallback& on_completion) const
+{
+    auto job = [=, this]() -> void {
+        execute_and_report<FindLeafPathResponse>(
+            [=, this](TypedResponse<FindLeafPathResponse>& response) {
+                response.inner.leaf_paths.reserve(leaves.size());
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Unable to find leaf index for block number 0");
+                }
+                ReadTransactionPtr tx = store_->create_read_transaction();
+                BlockPayload blockData;
+                if (!store_->get_block_data(blockNumber, blockData, *tx)) {
+                    throw std::runtime_error(
+                        format("Unable to find sibling path for block ", blockNumber, ", failed to get block data."));
+                }
+
+                RequestContext requestContext;
+                requestContext.blockNumber = blockNumber;
+                requestContext.includeUncommitted = includeUncommitted;
+                requestContext.maxIndex = blockData.size;
+                requestContext.root = blockData.root;
+
+                for (const auto& leaf : leaves) {
+                    std::optional<index_t> leaf_index = store_->find_leaf_index_from(leaf, 0, requestContext, *tx);
+                    if (!leaf_index.has_value()) {
+                        response.inner.leaf_paths.emplace_back(std::nullopt);
+                        continue;
+                    }
+                    OptionalSiblingPath optional_path =
+                        get_subtree_sibling_path_internal(leaf_index.value(), 0, requestContext, *tx);
+                    fr_sibling_path leaf_path = optional_sibling_path_to_full_sibling_path(optional_path);
+                    response.inner.leaf_paths.emplace_back(leaf_path);
                 }
             },
             on_completion);
