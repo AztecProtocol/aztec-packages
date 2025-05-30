@@ -10,6 +10,7 @@ mod validate_counters;
 mod validate_log_lengths;
 mod validate_note_logs;
 mod validate_private_call_requests;
+mod validate_proof;
 
 use crate::components::private_call_data_validator::PrivateCallDataValidator;
 use dep::types::{
@@ -58,7 +59,7 @@ impl PrivateCallDataValidatorBuilder {
         let private_call = self.private_call.to_private_call_data();
         let mut accumulated_note_hashes = self.previous_note_hashes;
         accumulated_note_hashes.extend_from_bounded_vec(self.private_call.note_hashes);
-        PrivateCallDataValidator::new(private_call).validate(
+        PrivateCallDataValidator::new(private_call).validate_data(
             accumulated_note_hashes.storage(),
             self.private_call.protocol_contract_tree_root,
         );
@@ -81,9 +82,14 @@ impl PrivateCallDataValidatorBuilder {
 
     pub fn validate_with_private_call_data(self, data: PrivateCallData) {
         let accumulated_note_hashes = self.previous_note_hashes;
-        PrivateCallDataValidator::new(data).validate(
+        PrivateCallDataValidator::new(data).validate_data(
             accumulated_note_hashes.storage(),
             self.private_call.protocol_contract_tree_root,
         );
+    }
+
+    pub fn validate_proof(self, is_first_call: bool) {
+        let private_call = self.private_call.to_private_call_data();
+        PrivateCallDataValidator::new(private_call).validate_proof(is_first_call);
     }
 }

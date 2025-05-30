@@ -79,7 +79,7 @@ export async function sequencers(opts: {
       ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
     );
 
-    const hash = await writeableRollup.write.deposit([who, who, who, config.minimumStake]);
+    const hash = await writeableRollup.write.deposit([who, who, who, true]);
     await publicClient.waitForTransactionReceipt({ hash });
     log(`Added in tx ${hash}`);
   } else if (command === 'remove') {

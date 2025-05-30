@@ -1,7 +1,6 @@
 use crate::{
     abis::{
         contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
-        contract_class_log::ContractClassLog,
         function_selector::FunctionSelector,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
@@ -20,6 +19,7 @@ use crate::{
     traits::{FromField, Hash, ToField},
     utils::{arrays::array_concat, field::{field_from_bytes, field_from_bytes_32_trunc}},
 };
+use std::embedded_curve_ops::EmbeddedCurveScalar;
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256::digest(bytes_to_hash);
@@ -57,6 +57,15 @@ pub fn compute_unique_note_hash(nonce: Field, siloed_note_hash: Field) -> Field 
     poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
+pub fn compute_nonce_and_unique_note_hash(
+    siloed_note_hash: Field,
+    first_nullifier: Field,
+    note_index_in_tx: u32,
+) -> Field {
+    let nonce = compute_note_hash_nonce(first_nullifier, note_index_in_tx);
+    compute_unique_note_hash(nonce, siloed_note_hash)
+}
+
 pub fn compute_siloed_note_hash(app: AztecAddress, note_hash: Field) -> Field {
     poseidon2_hash_with_separator(
         [app.to_field(), note_hash],
@@ -73,8 +82,7 @@ pub fn compute_unique_siloed_note_hash(
     if siloed_note_hash == 0 {
         0
     } else {
-        let nonce = compute_note_hash_nonce(first_nullifier, note_index_in_tx);
-        compute_unique_note_hash(nonce, siloed_note_hash)
+        compute_nonce_and_unique_note_hash(siloed_note_hash, first_nullifier, note_index_in_tx)
     }
 }
 
@@ -117,28 +125,19 @@ pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
     }
 }
 
-pub fn compute_siloed_contract_class_log_field(
-    contract_address: AztecAddress,
-    first_field: Field,
-) -> Field {
-    poseidon2_hash([contract_address.to_field(), first_field])
-}
-
-pub fn silo_contract_class_log(contract_class_log: ContractClassLog) -> ContractClassLog {
-    if contract_class_log.contract_address.is_zero() {
-        contract_class_log
-    } else {
-        let mut log = contract_class_log;
-        log.log.fields[0] = compute_siloed_contract_class_log_field(
-            contract_class_log.contract_address,
-            log.log.fields[0],
-        );
-        log
-    }
-}
-
 pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]) -> Field {
     poseidon2_hash(log)
+}
+
+pub fn compute_app_secret_key(
+    master_secret_key: EmbeddedCurveScalar,
+    app_address: AztecAddress,
+    app_secret_generator: Field,
+) -> Field {
+    poseidon2_hash_with_separator(
+        [master_secret_key.hi, master_secret_key.lo, app_address.to_field()],
+        app_secret_generator,
+    )
 }
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {

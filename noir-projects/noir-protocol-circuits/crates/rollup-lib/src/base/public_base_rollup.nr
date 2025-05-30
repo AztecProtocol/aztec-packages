@@ -5,7 +5,7 @@ use crate::{
     },
     base::components::{
         archive::perform_archive_membership_check, constants::validate_combined_constant_data,
-        PublicTubeDataValidator,
+        gas::clamp_gas_settings_for_avm, PublicTubeDataValidator,
     },
     components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
@@ -16,9 +16,10 @@ use dep::types::{
         sponge_blob::SpongeBlob, tube::PublicTubeData,
     },
     constants::{ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX},
-    hash::{silo_contract_class_log, silo_l2_to_l1_message},
+    hash::silo_l2_to_l1_message,
     merkle_tree::MembershipWitness,
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    proof::traits::Verifiable,
     traits::{Empty, Hash},
     utils::arrays::array_merge,
 };
@@ -30,7 +31,7 @@ pub struct PublicBaseRollupInputs {
     start_sponge_blob: SpongeBlob,
 
     archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
-    contract_class_logs_preimages: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     constants: ConstantRollupData,
 }
 
@@ -68,19 +69,17 @@ impl PublicBaseRollupInputs {
                 from_private.revertible_accumulated_data.contract_class_logs_hashes,
             )
         };
-        // TODO(#13914): Don't need to silo the contract class logs.
-        let mut siloed_contract_class_logs =
-            [ContractClassLog::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX];
+
+        let mut contract_class_logs = [ContractClassLog::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX];
         for i in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
             let log_hash = contract_class_logs_hashes[i];
-            let log_preimage = self.contract_class_logs_preimages[i];
-            validate_contract_class_log(log_hash, log_preimage);
+            let log_fields = self.contract_class_log_fields[i];
+            validate_contract_class_log(log_hash, log_fields);
 
-            let log = ContractClassLog {
-                log: Log::new(log_preimage, log_hash.inner.length),
+            contract_class_logs[i] = ContractClassLog {
+                log: Log::new(log_fields, log_hash.inner.length),
                 contract_address: log_hash.contract_address,
             };
-            siloed_contract_class_logs[i] = silo_contract_class_log(log);
         }
 
         TxEffect {
@@ -93,21 +92,36 @@ impl PublicBaseRollupInputs {
             public_data_writes: from_public.accumulated_data.public_data_writes,
             private_logs,
             public_logs: from_public.accumulated_data.public_logs,
-            contract_class_logs: siloed_contract_class_logs,
+            contract_class_logs,
         }
+    }
+
+    // TODO: We should probably have a general struct/function where we encapsulate validation
+    // of the AVM public inputs against the tube proof.
+    fn validate_avm_gas_limits(self) {
+        assert_eq(
+            clamp_gas_settings_for_avm(
+                self.tube_data.public_inputs.constants.tx_context.gas_settings,
+                self.tube_data.public_inputs.gas_used,
+            ),
+            self.avm_proof_data.public_inputs.gas_settings,
+            "unexpected gas settings used in the AVM",
+        );
     }
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
-        tube_data_validator.verify_proof();
+        tube_data_validator.validate_proof();
         tube_data_validator.validate_with_rollup_data(self.constants);
 
         // TODO(#8470)
-        // if !dep::std::runtime::is_unconstrained() {
-        //     self.avm_proof_data.verify();
-        //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
-        // }
+        if !dep::std::runtime::is_unconstrained() {
+            self.avm_proof_data.verify();
+            //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
+        }
+
         // TODO: Validate tube_data.public_inputs vs avm_proof_data.public_inputs
+        self.validate_avm_gas_limits();
         let reverted = self.avm_proof_data.public_inputs.reverted;
 
         let combined_constant_data = CombinedConstantData::combine(
@@ -187,7 +201,7 @@ mod tests {
             TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-        hash::{compute_siloed_contract_class_log_field, poseidon2_hash, silo_l2_to_l1_message},
+        hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
         merkle_tree::MembershipWitness,
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         tests::{
@@ -198,6 +212,10 @@ mod tests {
         traits::{Empty, Hash, ToField},
         utils::{arrays::array_concat, field::field_from_bytes},
     };
+    use types::abis::gas::Gas;
+    use types::abis::gas_fees::GasFees;
+    use types::abis::gas_settings::GasSettings;
+    use types::constants::MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
 
     struct NullifierInsertion {
         existing_index: u32,
@@ -220,7 +238,7 @@ mod tests {
         public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
         nullifiers: BoundedVec<NullifierInsertion, MAX_NULLIFIERS_PER_TEST>,
         constants: ConstantRollupData,
-        contract_class_logs_preimages: BoundedVec<[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS], MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+        contract_class_log_fields: BoundedVec<[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS], MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     }
 
     impl PublicBaseRollupInputsBuilder {
@@ -284,9 +302,9 @@ mod tests {
         unconstrained fn append_contract_class_log<let N: u32>(&mut self, log_fields: [Field; N]) {
             let padded_log_fields: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
                 array_concat(log_fields, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
-            self.contract_class_logs_preimages.push(padded_log_fields);
+            self.contract_class_log_fields.push(padded_log_fields);
 
-            let log_hash = poseidon2_hash(padded_log_fields);
+            let log_hash = compute_contract_class_log_hash(padded_log_fields);
             self.tube_data.add_contract_class_log_hash(log_hash, N);
         }
 
@@ -340,7 +358,7 @@ mod tests {
                     sibling_path: start_archive.get_sibling_path(0),
                 },
                 constants: self.constants,
-                contract_class_logs_preimages: self.contract_class_logs_preimages.storage(),
+                contract_class_log_fields: self.contract_class_log_fields.storage(),
             }
         }
 
@@ -376,7 +394,7 @@ mod tests {
                 public_data_writes: BoundedVec::new(),
                 nullifiers: BoundedVec::new(),
                 constants: ConstantRollupData::empty(),
-                contract_class_logs_preimages: BoundedVec::new(),
+                contract_class_log_fields: BoundedVec::new(),
             }
         }
     }
@@ -549,14 +567,8 @@ mod tests {
             offset += 1;
             reconstructed_tx_effects[offset] = builder.tube_data.contract_address.to_field();
             offset += 1;
-            let log_fields = builder.contract_class_logs_preimages.get(i);
-            let siloed_tag = compute_siloed_contract_class_log_field(
-                builder.tube_data.contract_address,
-                log_fields[0],
-            );
-            reconstructed_tx_effects[offset] = siloed_tag;
-            offset += 1;
-            for j in 1..log_len {
+            let log_fields = builder.contract_class_log_fields.get(i);
+            for j in 0..log_len {
                 reconstructed_tx_effects[offset] = log_fields[j];
                 offset += 1;
             }
@@ -737,6 +749,58 @@ mod tests {
 
         assert_eq(outputs.start, start_snapshot.to_partial_state_reference());
         assert_eq(outputs.end, end_snapshot.to_partial_state_reference());
+    }
+
+    #[test]
+    unconstrained fn allows_clamping_of_gas_settings_in_avm() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        let gas_used_by_private = Gas::new(0, 1000);
+
+        builder.tube_data.gas_used = gas_used_by_private;
+        builder.avm_data.gas_used = gas_used_by_private;
+
+        let mut gas_settings = GasSettings {
+            gas_limits: Gas::new(
+                0,
+                MAX_L2_GAS_PER_TX_PUBLIC_PORTION + gas_used_by_private.l2_gas + 1,
+            ),
+            teardown_gas_limits: Gas::new(0, MAX_L2_GAS_PER_TX_PUBLIC_PORTION + 1),
+            max_fees_per_gas: GasFees::new(0, 0),
+            max_priority_fees_per_gas: GasFees::new(0, 0),
+        };
+
+        builder.tube_data.tx_context.gas_settings = gas_settings;
+        // Clamped values in the AVM
+        gas_settings.gas_limits.l2_gas =
+            MAX_L2_GAS_PER_TX_PUBLIC_PORTION + gas_used_by_private.l2_gas;
+        gas_settings.teardown_gas_limits.l2_gas = MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
+        builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        builder.succeeds();
+    }
+
+    #[test(should_fail_with = "unexpected gas settings used in the AVM")]
+    unconstrained fn wrong_clamping_of_gas_settings_in_avm() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        let gas_used_by_private = Gas::new(0, 1000);
+
+        builder.tube_data.gas_used = gas_used_by_private;
+        builder.avm_data.gas_used = gas_used_by_private;
+
+        let gas_settings = GasSettings {
+            gas_limits: Gas::new(
+                0,
+                MAX_L2_GAS_PER_TX_PUBLIC_PORTION + gas_used_by_private.l2_gas + 1,
+            ),
+            teardown_gas_limits: Gas::new(0, MAX_L2_GAS_PER_TX_PUBLIC_PORTION + 1),
+            max_fees_per_gas: GasFees::new(0, 0),
+            max_priority_fees_per_gas: GasFees::new(0, 0),
+        };
+
+        builder.tube_data.tx_context.gas_settings = gas_settings;
+        builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        builder.fails();
     }
 
 }

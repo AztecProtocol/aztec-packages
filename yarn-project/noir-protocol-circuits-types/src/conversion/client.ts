@@ -25,6 +25,8 @@ import {
   type NoteHashReadRequestHints,
   Nullifier,
   type NullifierReadRequestHints,
+  PaddedSideEffectAmounts,
+  PaddedSideEffects,
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
   PendingReadHint,
@@ -70,6 +72,8 @@ import type {
   Nullifier as NullifierNoir,
   NullifierReadRequestHints as NullifierReadRequestHintsNoir,
   NullifierSettledReadHint as NullifierSettledReadHintNoir,
+  PaddedSideEffectAmounts as PaddedSideEffectAmountsNoir,
+  PaddedSideEffects as PaddedSideEffectsNoir,
   PendingReadHint as PendingReadHintNoir,
   PrivateAccumulatedData as PrivateAccumulatedDataNoir,
   PrivateCallDataWithoutPublicInputs as PrivateCallDataWithoutPublicInputsNoir,
@@ -137,6 +141,7 @@ import {
   mapTxContextFromNoir,
   mapTxContextToNoir,
   mapVerificationKeyToNoir,
+  mapVkDataToNoir,
   mapWrappedFieldToNoir,
 } from './common.js';
 
@@ -660,12 +665,7 @@ export function mapPrivateKernelDataToNoir(
   privateKernelInnerData: PrivateKernelData,
 ): PrivateKernelDataWithoutPublicInputsNoir {
   return {
-    vk: mapVerificationKeyToNoir(
-      privateKernelInnerData.verificationKey.keyAsFields,
-      CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-    ),
-    vk_index: mapFieldToNoir(new Fr(privateKernelInnerData.vkIndex)),
-    vk_path: mapTuple(privateKernelInnerData.vkPath, mapFieldToNoir),
+    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }
 
@@ -709,6 +709,27 @@ export function mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(
     mapAztecAddressFromNoir(inputs.fee_payer),
     forPublic,
   );
+}
+
+export function mapPaddedSideEffectsToNoir(paddedSideEffects: PaddedSideEffects): PaddedSideEffectsNoir {
+  return {
+    note_hashes: mapTuple(paddedSideEffects.noteHashes, mapFieldToNoir),
+    nullifiers: mapTuple(paddedSideEffects.nullifiers, mapFieldToNoir),
+    private_logs: mapTuple(paddedSideEffects.privateLogs, mapPrivateLogToNoir),
+  };
+}
+
+export function mapPaddedSideEffectAmountsToNoir(
+  paddedSideEffectAmounts: PaddedSideEffectAmounts,
+): PaddedSideEffectAmountsNoir {
+  return {
+    non_revertible_note_hashes: mapNumberToNoir(paddedSideEffectAmounts.nonRevertibleNoteHashes),
+    revertible_note_hashes: mapNumberToNoir(paddedSideEffectAmounts.revertibleNoteHashes),
+    non_revertible_nullifiers: mapNumberToNoir(paddedSideEffectAmounts.nonRevertibleNullifiers),
+    revertible_nullifiers: mapNumberToNoir(paddedSideEffectAmounts.revertibleNullifiers),
+    non_revertible_private_logs: mapNumberToNoir(paddedSideEffectAmounts.nonRevertiblePrivateLogs),
+    revertible_private_logs: mapNumberToNoir(paddedSideEffectAmounts.revertiblePrivateLogs),
+  };
 }
 
 function mapTransientDataIndexHintToNoir(indexHint: TransientDataIndexHint): TransientDataIndexHintNoir {
@@ -799,7 +820,6 @@ function mapNullifierReadRequestHintsToNoir<PENDING extends number, SETTLED exte
 export function mapKeyValidationHintToNoir(hint: KeyValidationHint): KeyValidationHintNoir {
   return {
     sk_m: mapGrumpkinScalarToNoir(hint.skM),
-    request_index: mapNumberToNoir(hint.requestIndex),
   };
 }
 
@@ -808,35 +828,35 @@ export function mapPrivateKernelResetHintsToNoir<
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
-  KEY_VALIDATION_REQUESTS extends number,
-  NUM_TRANSIENT_DATA_HINTS extends number,
+  KEY_VALIDATION_HINTS_LEN extends number,
+  TRANSIENT_DATA_HINTS_LEN extends number,
 >(
   inputs: PrivateKernelResetHints<
     NH_RR_PENDING,
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
-    KEY_VALIDATION_REQUESTS,
-    NUM_TRANSIENT_DATA_HINTS
+    KEY_VALIDATION_HINTS_LEN,
+    TRANSIENT_DATA_HINTS_LEN
   >,
 ): PrivateKernelResetHintsNoir<
   NH_RR_PENDING,
   NH_RR_SETTLED,
   NLL_RR_PENDING,
   NLL_RR_SETTLED,
-  KEY_VALIDATION_REQUESTS,
-  NUM_TRANSIENT_DATA_HINTS
+  KEY_VALIDATION_HINTS_LEN,
+  TRANSIENT_DATA_HINTS_LEN
 > {
   return {
     note_hash_read_request_hints: mapNoteHashReadRequestHintsToNoir(inputs.noteHashReadRequestHints),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
-    key_validation_hints: inputs.keyValidationHints.map(mapKeyValidationHintToNoir) as FixedLengthArray<
+    key_validation_hints: mapTuple(inputs.keyValidationHints, mapKeyValidationHintToNoir) as FixedLengthArray<
       KeyValidationHintNoir,
-      KEY_VALIDATION_REQUESTS
+      KEY_VALIDATION_HINTS_LEN
     >,
     transient_data_index_hints: inputs.transientDataIndexHints.map(mapTransientDataIndexHintToNoir) as FixedLengthArray<
       TransientDataIndexHintNoir,
-      NUM_TRANSIENT_DATA_HINTS
+      TRANSIENT_DATA_HINTS_LEN
     >,
     validation_requests_split_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
   };
