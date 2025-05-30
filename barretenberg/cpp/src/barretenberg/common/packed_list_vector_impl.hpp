@@ -13,12 +13,14 @@ PackedListVector<T>::PackedListVector(std::size_t total_elements, std::size_t nu
     , heads_(num_lists != 0 ? std::make_unique<Node*[]>(num_lists) : nullptr)
 {
     /* Allocate one big uninitialised slab; no T ctor runs here */
-    if (capacity_)
+    if (capacity_) {
         slab_.reset(reinterpret_cast<Node*>(::operator new[](capacity_ * sizeof(Node))));
+    }
 
     /* All lists start empty */
-    for (std::size_t i = 0; i < list_count_; ++i)
+    for (std::size_t i = 0; i < list_count_; ++i) {
         heads_[i] = nullptr;
+    }
 }
 
 /*----------- destructor -------------------------------------*/

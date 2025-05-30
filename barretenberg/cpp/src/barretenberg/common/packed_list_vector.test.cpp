@@ -31,13 +31,15 @@ TEST(PackedListVector, ZeroCapacityConstruction)
     bb::PackedListVector<int> plv(0, 3);
     EXPECT_EQ(plv.capacity(), 0u);
     EXPECT_EQ(plv.list_count(), 3u);
-    for (std::size_t i = 0; i < plv.list_count(); ++i)
+    for (std::size_t i = 0; i < plv.list_count(); ++i) {
         EXPECT_EQ(plv.get_list(i), nullptr);
+    }
 }
 
 TEST(PackedListVector, PositiveCapacityConstruction)
 {
-    const std::size_t N = 16, M = 5;
+    const std::size_t N = 16;
+    const std::size_t M = 5;
     bb::PackedListVector<int> plv(N, M);
     EXPECT_EQ(plv.capacity(), N);
     EXPECT_EQ(plv.size(), 0u);
@@ -84,8 +86,9 @@ TEST(PackedListVector, FibonacciSequence)
     const int fib[11] = { 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55 };
     bb::PackedListVector<int> plv(11, 1);
 
-    for (int f : fib)
+    for (int f : fib) {
         plv.add_to_list(0, f); // natural order
+    }
 
     std::vector<int> expected(fib, fib + 11);
     std::reverse(expected.begin(), expected.end()); // should come back reversed
@@ -136,15 +139,17 @@ TEST(PackedListVector, SeparateListsStayIndependent)
 // -----------------------------------------------------------------------------
 TEST(PackedListVector, NodesAreStoredContiguously)
 {
-    constexpr std::size_t N = 4;
-    bb::PackedListVector<int> plv(N, 1);
+    constexpr std::size_t N = 5;
+    bb::PackedListVector<int> plv(N, 2);
 
     auto* n0 = plv.add_to_list(0, 0);
     auto* n1 = plv.add_to_list(0, 1);
     auto* n2 = plv.add_to_list(0, 2);
     auto* n3 = plv.add_to_list(0, 3);
+    auto* n4 = plv.add_to_list(1, 3);
 
     EXPECT_EQ(reinterpret_cast<char*>(n1) - reinterpret_cast<char*>(n0), sizeof(bb::PackedListVector<int>::Node));
     EXPECT_EQ(reinterpret_cast<char*>(n2) - reinterpret_cast<char*>(n1), sizeof(bb::PackedListVector<int>::Node));
     EXPECT_EQ(reinterpret_cast<char*>(n3) - reinterpret_cast<char*>(n2), sizeof(bb::PackedListVector<int>::Node));
+    EXPECT_EQ(reinterpret_cast<char*>(n4) - reinterpret_cast<char*>(n3), sizeof(bb::PackedListVector<int>::Node));
 }
