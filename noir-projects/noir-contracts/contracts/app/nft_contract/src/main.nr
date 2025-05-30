@@ -2,18 +2,18 @@
 mod types;
 mod test;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 // Minimal NFT implementation with `AuthWit` support that allows minting in public-only and transfers in both public
 // and private.
 #[aztec]
 pub contract NFT {
     use crate::types::nft_note::{NFTNote, PartialNFTNote};
-    use dep::authwit::auth::{
+    use authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
         compute_authwit_nullifier,
     };
-    use dep::aztec::{
+    use aztec::{
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility, view},
@@ -25,10 +25,10 @@ pub contract NFT {
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
             PublicContext, PublicImmutable, PublicMutable,
         },
+        protocol_types::traits::ToField,
         utils::comparison::Comparator,
     };
-    use dep::compressed_string::FieldCompressedString;
-    use aztec::protocol_types::traits::ToField;
+    use compressed_string::FieldCompressedString;
 
     // docs:end:imports
 
