@@ -80,12 +80,11 @@ createAccountButton.addEventListener('click', async (e) => {
 
   try {
     displayStatusMessage('Creating account...');
-
     const account = await wallet.createAccountAndConnect();
     displayAccount();
+    displayStatusMessage('');
 
     await updateVoteTally(account);
-    displayStatusMessage('');
   } catch (error) {
     console.error(error);
     displayError(
@@ -173,6 +172,8 @@ voteButton.addEventListener('click', async (e) => {
 async function updateVoteTally(account: Wallet) {
   let results: { [key: number]: number } = {};
 
+  displayStatusMessage('Updating vote tally...');
+
   // Prepare contract interaction
   const votingContract = await EasyPrivateVotingContract.at(
     AztecAddress.fromString(contractAddress),
@@ -189,6 +190,7 @@ async function updateVoteTally(account: Wallet) {
 
   // Display the tally
   displayTally(results);
+  displayStatusMessage('');
 }
 
 // UI functions
