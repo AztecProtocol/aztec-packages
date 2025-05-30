@@ -11,9 +11,11 @@
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_recursive_flavor.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -214,7 +216,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
-    ASSERT(input.proof_type == HONK || HasIPAAccumulator<Flavor>);
+    ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
     ASSERT((input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK) == HasIPAAccumulator<Flavor>);
 
     // Construct an in-circuit representation of the verification key.
@@ -277,4 +279,15 @@ template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion
     UltraRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
                                                const RecursionConstraint& input,
                                                bool has_valid_witness_assignments);
+
+template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion_constraints<
+    UltraZKRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
+                                                 const RecursionConstraint& input,
+                                                 bool has_valid_witness_assignments);
+
+template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
+    UltraZKRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
+                                                  const RecursionConstraint& input,
+                                                  bool has_valid_witness_assignments);
+
 } // namespace acir_format
