@@ -49,7 +49,7 @@ function mockTxPool(): TxPool {
     getTxStatus: () => Promise.resolve(TxStatus.PENDING),
     getTxsByHash: () => Promise.resolve([]),
     hasTxs: () => Promise.resolve([]),
-    setMaxTxPoolSize: () => Promise.resolve(),
+    updateConfig: () => {},
     markTxsAsNonEvictable: () => Promise.resolve(),
   };
 }
