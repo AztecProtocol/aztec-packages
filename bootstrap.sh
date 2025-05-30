@@ -155,9 +155,14 @@ function test_cmds {
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
 
-function start_txes {
+function start_test_env {
   # Starting txe servers with incrementing port numbers.
-  trap 'kill -SIGTERM $txe_pids &>/dev/null || true' EXIT
+  trap '(kill -SIGTERM $txe_pids &>/dev/null || true) && ./spartan/bootstrap.sh stop_env' EXIT
+
+  # Start env for spartan tests in the background
+  dump_fail "spartan/bootstrap.sh start_env" &
+  spartan_pid=$!
+
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
     existing_pid=$(lsof -ti :$port || true)
@@ -179,16 +184,19 @@ function start_txes {
         j=$((j+1))
       done
   done
+
+  echo "Waiting for spartan environment to complete setup..."
+  if wait $spartan_pid; then
+    echo "Spartan environment setup completed successfully."
+  else
+    echo_stderr "Spartan environment setup failed. Exiting."
+  fi
 }
-export -f start_txes
 
 function test {
   echo_header "test all"
 
-  start_txes
-
-  # Make sure KIND starts so it is running by the time we do spartan tests.
-  # spartan/bootstrap.sh kind &>/dev/null &
+  start_test_env
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
