@@ -1,5 +1,4 @@
 #include "barretenberg/bb/cli.hpp"
-#include <jemalloc/jemalloc.h>
 
 int main(int argc, char* argv[])
 {

@@ -5,15 +5,20 @@
 // =====================
 
 #include "trace_to_polynomials.hpp"
+#include "barretenberg/common/packed_list_vector.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 
+#include "barretenberg/common/packed_list_vector_impl.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 namespace bb {
+
+// Instantiate PackedListVector for our purposes (note, should only happen in one cpp file)
+template class PackedListVector<CycleNode>;
 
 template <class Flavor>
 void TraceToPolynomials<Flavor>::populate(Builder& builder,
@@ -78,7 +83,12 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
 
     PROFILE_THIS_NAME("construct_trace_data");
 
-    TraceData trace_data{ builder, proving_key };
+    size_t num_copy_cycles = 0;
+    for (auto& block : builder.blocks.get()) {
+        num_copy_cycles += block.size() * NUM_WIRES;
+    }
+
+    TraceData trace_data{ builder, proving_key, num_copy_cycles };
 
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
     // For each block in the trace, populate wire polys, copy cycles and selector polys
@@ -98,7 +108,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
         {
-
             PROFILE_THIS_NAME("populating wires and copy_cycles");
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
@@ -108,7 +117,7 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
                     // Insert the real witness values from this block into the wire polys at the correct offset
                     trace_data.wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
-                    trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
+                    trace_data.copy_cycles.add_to_list(real_var_idx, { wire_idx, trace_row_idx });
                 }
             }
         }

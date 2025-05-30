@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/packed_list_vector.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -28,11 +29,12 @@ template <class Flavor> class TraceToPolynomials {
         std::array<Polynomial, NUM_WIRES> wires;
         std::array<Polynomial, NUM_SELECTORS> selectors;
         // A vector of sets (vectors) of addresses into the wire polynomials whose values are copy constrained
-        std::vector<CyclicPermutation> copy_cycles;
+        PackedListVector<CycleNode> copy_cycles;
         uint32_t ram_rom_offset = 0;    // offset of the RAM/ROM block in the execution trace
         uint32_t pub_inputs_offset = 0; // offset of the public inputs block in the execution trace
 
-        TraceData(Builder& builder, ProvingKey& proving_key)
+        TraceData(Builder& builder, ProvingKey& proving_key, size_t num_copy_cycles)
+            : copy_cycles(num_copy_cycles, builder.get_num_variables())
         {
 
             PROFILE_THIS_NAME("TraceData constructor");
@@ -44,11 +46,6 @@ template <class Flavor> class TraceToPolynomials {
             }
             for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {
                 selector = other_selector.share();
-            }
-            {
-                PROFILE_THIS_NAME("copy cycle initialization");
-
-                copy_cycles.resize(builder.get_num_variables());
             }
         }
     };

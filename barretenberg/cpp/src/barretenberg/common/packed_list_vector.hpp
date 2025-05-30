@@ -73,10 +73,7 @@ template <typename T> class PackedListVector {
      *-------------------------------------------------------*/
     Node* get_list(std::size_t list_index) const noexcept;
 
-    /* lightweight introspection (all O(1)) */
-    std::size_t capacity() const noexcept { return capacity_; }     // N
-    std::size_t size() const noexcept { return slab_top_; }         // used nodes
-    std::size_t list_count() const noexcept { return list_count_; } // M
+    std::size_t size() const noexcept { return list_count_; }
 
   private:
     /*--------------------------------------------------------

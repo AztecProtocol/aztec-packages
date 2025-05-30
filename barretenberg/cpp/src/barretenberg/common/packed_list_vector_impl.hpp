@@ -10,8 +10,10 @@ template <typename T>
 PackedListVector<T>::PackedListVector(std::size_t total_elements, std::size_t num_lists)
     : capacity_(total_elements)
     , list_count_(num_lists)
-    , heads_(num_lists != 0 ? std::make_unique<Node*[]>(num_lists) : nullptr)
+    , heads_(std::make_unique<Node*[]>(num_lists))
 {
+    ASSERT(num_lists > 0, "Number of lists must be greater than zero");
+    ASSERT(total_elements > 0, "Total elements must be greater than zero");
     /* Allocate one big uninitialised slab; no T ctor runs here */
     if (capacity_ != 0) {
         slab_.reset(reinterpret_cast<Node*>(::operator new[](capacity_ * sizeof(Node))));
@@ -27,8 +29,9 @@ PackedListVector<T>::PackedListVector(std::size_t total_elements, std::size_t nu
 template <typename T> PackedListVector<T>::~PackedListVector()
 {
     /* Destroy only the nodes that were actually constructed */
-    for (std::size_t i = 0; i < slab_top_; ++i)
-        std::launder(slab_.get() + i)->~Node();
+    for (std::size_t i = 0; i < slab_top_; ++i) {
+        slab_.get()[i]->~Node();
+    }
 }
 
 /*----------- add_to_list ------------------------------------*/

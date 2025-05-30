@@ -285,14 +285,14 @@ case "$cmd" in
     # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
     git fetch origin master
 
-    # build the benchmarked benches
-    parallel --line-buffered --tag -v denoise ::: \
-      "build_preset $native_preset --target bb_cli_bench" \
-      "build_preset wasm-threads --target bb_cli_bench"
+    # # build the benchmarked benches
+    # parallel --line-buffered --tag -v denoise ::: \
+    #   "build_preset $native_preset --target bb_cli_bench" \
+    #   "build_preset wasm-threads --target bb_cli_bench"
 
-    # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
     if [ -n "${1:-}" ]; then
       echo "Downloading inputs from commit $1."
+      # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
       export AZTEC_CACHE_COMMIT=$1
       export DOWNLOAD_ONLY=1
       # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
@@ -304,7 +304,6 @@ case "$cmd" in
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
-<<<<<<< Updated upstream
     function ivc_bench_cmds {
       if [ "${NO_WASM:-}" == "1" ]; then
         ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
@@ -313,9 +312,6 @@ case "$cmd" in
       fi
     }
     ivc_bench_cmds | STRICT_SCHEDULING=1 parallelise
-=======
-    ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm |grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh | STRICT_SCHEDULING=1 parallelise
->>>>>>> Stashed changes
     ;;
   "hash")
     echo $hash
