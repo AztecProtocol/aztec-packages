@@ -34,7 +34,7 @@ import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/stdlib/tx';
 import { VkData } from '@aztec/stdlib/vks';
 
-import { buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
+import { accumulateBlobs, buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
 import type { EpochProvingState } from './epoch-proving-state.js';
 import type { TxProvingState } from './tx-proving-state.js';
 
@@ -149,6 +149,30 @@ export class BlockProvingState {
     >,
   ) {
     this.blockRootProvingOutput = provingOutput;
+  }
+
+  public setBlock(block: L2Block) {
+    this.block = block;
+  }
+
+  public setStartBlobAccumulator(accumulator: BatchedBlobAccumulator) {
+    this.startBlobAccumulator = accumulator;
+  }
+
+  public setEndBlobAccumulator(accumulator: BatchedBlobAccumulator) {
+    this.endBlobAccumulator = accumulator;
+  }
+
+  public async accumulateBlobs() {
+    if (!this.block || !this.startBlobAccumulator) {
+      // We only want to accumulate once we have all txs, so we wait until the block is set.
+      return;
+    }
+    const endBlobAccumulator = await accumulateBlobs(
+      this.allTxs.map(t => t.processedTx),
+      this.startBlobAccumulator,
+    );
+    this.setEndBlobAccumulator(endBlobAccumulator);
   }
 
   // Returns the complete set of transaction proving state objects
@@ -320,7 +344,12 @@ export class BlockProvingState {
   // Returns true if we have sufficient inputs to execute the block root rollup
   public isReadyForBlockRootRollup() {
     const childProofs = this.#getChildProofsForBlockRoot();
-    return this.block !== undefined && this.rootParityProvingOutput !== undefined && childProofs.every(p => !!p);
+    return (
+      this.block !== undefined &&
+      this.rootParityProvingOutput !== undefined &&
+      this.endBlobAccumulator !== undefined &&
+      childProofs.every(p => !!p)
+    );
   }
 
   // Returns true if we have sufficient root parity inputs to execute the root parity circuit

@@ -150,6 +150,27 @@ export class EpochProvingState {
     this.finalBatchedBlob = batchedBlob;
   }
 
+  public async setBlobAccumulators(toBlock?: number) {
+    let previousAccumulator;
+    const end = toBlock ? toBlock - this.firstBlockNumber : this.blocks.length;
+    // Accumulate blobs as far as we can for this epoch.
+    for (let i = 0; i <= end; i++) {
+      const block = this.blocks[i];
+      if (!block || !block.block) {
+        // If the block proving state does not have a .block property, it may be awaiting more txs.
+        break;
+      }
+      if (!block.startBlobAccumulator) {
+        // startBlobAccumulator always exists for firstBlockNumber, so the below should never assign an undefined:
+        block.setStartBlobAccumulator(previousAccumulator!);
+      }
+      if (block.startBlobAccumulator && !block.endBlobAccumulator) {
+        await block.accumulateBlobs();
+      }
+      previousAccumulator = block.endBlobAccumulator;
+    }
+  }
+
   public getParentLocation(location: TreeNodeLocation) {
     return this.blockRootOrMergeProvingOutputs.getParentLocation(location);
   }
@@ -196,7 +217,7 @@ export class EpochProvingState {
     return {
       proof: this.rootRollupProvingOutput.proof.binaryProof,
       publicInputs: this.rootRollupProvingOutput.inputs,
-      batchedBlobInputs: this.finalBatchedBlob, // TODO(MW): rename? Inputs for batched blob verification on L1 ()
+      batchedBlobInputs: this.finalBatchedBlob,
     };
   }
 

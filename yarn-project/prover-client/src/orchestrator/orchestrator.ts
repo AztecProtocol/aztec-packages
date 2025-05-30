@@ -48,7 +48,6 @@ import {
 import { inspect } from 'util';
 
 import {
-  accumulateBlobs,
   buildHeaderAndBodyFromTxs,
   getLastSiblingPath,
   getRootTreeSiblingPath,
@@ -286,6 +285,9 @@ export class ProvingOrchestrator implements EpochProver {
     logger.verbose(`Block ${blockNumber} completed. Assembling header.`);
     await this.buildBlock(provingState, expectedHeader);
 
+    logger.debug(`Accumulating blobs for ${blockNumber}`);
+    await this.provingState?.setBlobAccumulators(blockNumber);
+
     // If the proofs were faster than the block building, then we need to try the block root rollup again here
     await this.checkAndEnqueueBlockRootRollup(provingState);
     return provingState.block!;
@@ -333,7 +335,7 @@ export class ProvingOrchestrator implements EpochProver {
     await this.verifyBuiltBlockAgainstSyncedState(l2Block, newArchive);
 
     logger.verbose(`Orchestrator finalised block ${l2Block.number}`);
-    provingState.block = l2Block;
+    provingState.setBlock(l2Block);
   }
 
   // Flagged as protected to disable in certain unit tests
@@ -892,6 +894,9 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   private async checkAndEnqueueBlockRootRollup(provingState: BlockProvingState) {
+    const blockNumber = provingState.blockNumber;
+    // Accumulate as far as we can, in case blocks came in out of order and we are behind:
+    await this.provingState?.setBlobAccumulators(blockNumber);
     if (!provingState.isReadyForBlockRootRollup()) {
       logger.debug('Not ready for block root rollup');
       return;
@@ -900,7 +905,6 @@ export class ProvingOrchestrator implements EpochProver {
       logger.debug('Block root rollup already started');
       return;
     }
-    const blockNumber = provingState.blockNumber;
 
     // TODO(palla/prover): This closes the fork only on the happy path. If this epoch orchestrator
     // is aborted and never reaches this point, it will leak the fork. We need to add a global cleanup,
@@ -912,39 +916,6 @@ export class ProvingOrchestrator implements EpochProver {
       ?.close()
       .then(() => this.dbs.delete(blockNumber))
       .catch(err => logger.error(`Error closing db for block ${blockNumber}`, err));
-
-    logger.debug(`Accumulating blobs for ${blockNumber}`);
-    // Blocks and their txs may be added here out of order, so we cannot collect and accumulate blobs until the
-    // block's txs are finalised. Like how the base rollup needs the partial start and end states from previous
-    // base iterations, the block root needs the end accumulation state of the previous block:
-    // TODO(MW): Make the below part of isReadyForBlockRootRollup?
-    if (!provingState.startBlobAccumulator) {
-      let previousAccumulator;
-      // Accumulate any blobs required from previous blocks
-      for (let index = this.provingState!.firstBlockNumber; index < blockNumber; index++) {
-        const state = this.provingState!.getBlockProvingStateByBlockNumber(index)!;
-        if (!state.startBlobAccumulator) {
-          // startBlobAccumulator always exists for firstBlockNumber, so the below should never assign an undefined:
-          state.startBlobAccumulator = previousAccumulator;
-        }
-        if (state.startBlobAccumulator && !state.endBlobAccumulator) {
-          state.endBlobAccumulator = await accumulateBlobs(
-            state.allTxs.map(t => t.processedTx),
-            state.startBlobAccumulator,
-          );
-        }
-        previousAccumulator = state.endBlobAccumulator;
-      }
-      if (!previousAccumulator) {
-        throw new Error(`No blob accumulator found for block ${blockNumber - 1}`);
-      }
-      provingState.startBlobAccumulator = previousAccumulator;
-    }
-    // Accumulate this block's blobs
-    provingState.endBlobAccumulator = await accumulateBlobs(
-      provingState.allTxs.map(t => t.processedTx),
-      provingState.startBlobAccumulator,
-    );
 
     await this.enqueueBlockRootRollup(provingState);
   }
