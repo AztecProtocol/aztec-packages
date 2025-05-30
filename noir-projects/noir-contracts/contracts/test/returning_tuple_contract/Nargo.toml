@@ -1,5 +1,5 @@
 [package]
-name = "event_only_contract"
+name = "returning_tuple_contract"
 authors = [""]
 compiler_version = ">=0.25.0"
 type = "contract"

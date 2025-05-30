@@ -522,8 +522,22 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     }
   }
 
-  private retrieveL1ToL2Message(leaf: Fr): Promise<InboxMessage | undefined> {
-    return retrieveL1ToL2Message(this.inbox.getContract(), leaf, this.l1constants.l1StartBlock);
+  private async retrieveL1ToL2Message(leaf: Fr): Promise<InboxMessage | undefined> {
+    const currentL1BlockNumber = await this.publicClient.getBlockNumber();
+    let searchStartBlock: bigint = 0n;
+    let searchEndBlock: bigint = this.l1constants.l1StartBlock - 1n;
+
+    do {
+      [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
+
+      const message = await retrieveL1ToL2Message(this.inbox.getContract(), leaf, searchStartBlock, searchEndBlock);
+
+      if (message) {
+        return message;
+      }
+    } while (searchEndBlock < currentL1BlockNumber);
+
+    return undefined;
   }
 
   private async rollbackL1ToL2Messages(localLastMessage: InboxMessage, messagesSyncPoint: L1BlockId) {
