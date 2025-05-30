@@ -148,7 +148,10 @@ else
   l1_account_mnemonic=$(./read_value.sh "aztec.l1DeploymentMnemonic" $value_yamls)
 fi
 
-echo "RUNNING TEST: $test"
+echo "Waiting for env to be ready"
+kubectl wait pod -l app==validator --for=condition=Ready -n "$namespace" --timeout=10m
+
+echo "Running test: $test"
 
 export INSTANCE_NAME="$helm_instance"
 export SPARTAN_DIR="$(pwd)/.."
