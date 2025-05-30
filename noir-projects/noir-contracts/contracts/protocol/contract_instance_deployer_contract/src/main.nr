@@ -17,9 +17,7 @@ pub contract ContractInstanceDeployer {
         utils::arrays::array_concat,
     };
     use dep::contract_class_registerer::ContractClassRegisterer;
-    use std::meta::derive;
 
-    #[derive(Serialize)]
     #[event]
     struct ContractInstanceDeployed {
         DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field,
@@ -83,7 +81,6 @@ pub contract ContractInstanceDeployer {
         }
     }
 
-    #[derive(Serialize)]
     #[event]
     struct ContractInstanceUpdated {
         DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field,

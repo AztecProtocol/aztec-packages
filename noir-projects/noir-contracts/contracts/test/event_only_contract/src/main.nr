@@ -5,13 +5,10 @@ use aztec::macros::aztec;
 #[aztec]
 contract EventOnly {
     use aztec::{
-        event::event_interface::{emit_event_in_private_log, EventInterface, PrivateLogContent},
+        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         macros::{events::event, functions::private},
-        protocol_types::traits::Serialize,
     };
-    use std::meta::derive;
 
-    #[derive(Serialize)]
     #[event]
     struct TestEvent {
         value: Field,
