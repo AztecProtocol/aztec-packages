@@ -25,7 +25,6 @@ describe('e2e_l1_with_wall_time', () => {
     const initialValidators = [
       {
         attester: EthAddress.fromString(account.address),
-        proposerEOA: EthAddress.fromString(account.address),
         withdrawer: EthAddress.fromString(account.address),
         privateKey,
       },

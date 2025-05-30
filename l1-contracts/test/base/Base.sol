@@ -242,7 +242,6 @@ contract TestBase is Test {
 
   function logAttesterConfig(AttesterConfig memory config) internal {
     emit log("attester config");
-    emit log_named_address("\tproposer  ", config.proposer);
     emit log_named_address("\twithdrawer", config.withdrawer);
   }
 

@@ -41,20 +41,18 @@ pub contract Orderbook {
         },
         oracle::notes::check_nullifier_exists,
         prelude::{AztecAddress, Map, PublicImmutable},
-        protocol_types::traits::{FromField, Serialize, ToField},
+        protocol_types::traits::{FromField, ToField},
     };
 
     use token::Token;
     use uint_note::uint_note::PartialUintNote;
 
     // The event contains only the `order_id` as the order itself can be retrieved via the `get_order` function.
-    #[derive(Serialize)]
     #[event]
     struct OrderCreated {
         order_id: Field,
     }
 
-    #[derive(Serialize)]
     #[event]
     struct OrderFulfilled {
         order_id: Field,
