@@ -99,6 +99,10 @@ tests:
     skip: true
     owners:
       - *mitch
+  - regex: "testbench/port_change.test.ts"
+    skip: true
+    owners:
+      - *sean
   # e2e tests flakes
   - regex: "src/e2e_p2p"
     error_regex: "could not listen on any available address"
@@ -201,10 +205,6 @@ tests:
       - *sean
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"
     error_regex: "✕ should stop after max retry attempts"
-    owners:
-      - *sean
-  - regex: "p2p/src/testbench/port_change.test.ts"
-    error_regex: "Timeout waiting for worker"
     owners:
       - *sean
   - regex: "yarn-project/kv-store"
