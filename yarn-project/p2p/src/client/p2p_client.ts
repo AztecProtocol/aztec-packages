@@ -122,11 +122,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.synchedBlockHashes.getAsync(number);
   }
 
-  public async updateP2PConfig(config: Partial<P2PConfig>): Promise<void> {
-    if (typeof config.maxTxPoolSize === 'number' && this.config.maxTxPoolSize !== config.maxTxPoolSize) {
-      await this.txPool.setMaxTxPoolSize(config.maxTxPoolSize);
-      this.config.maxTxPoolSize = config.maxTxPoolSize;
-    }
+  public updateP2PConfig(config: Partial<P2PConfig>): Promise<void> {
+    this.txPool.updateConfig(config);
+    return Promise.resolve();
   }
 
   public async getL2Tips(): Promise<L2Tips> {

@@ -1,6 +1,7 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -196,6 +197,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    * The maximum cumulative tx size (in bytes) of pending txs before evicting lower priority txs.
    */
   maxTxPoolSize: number;
+
+  /**
+   * If the pool is full, it will still accept a few more txs until it reached maxTxPoolOverspillFactor * maxTxPoolSize. Then it will evict
+   */
+  txPoolOverflowFactor: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -392,6 +398,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MAX_TX_POOL_SIZE',
     description: 'The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs.',
     ...numberConfigHelper(100_000_000), // 100MB
+  },
+  txPoolOverflowFactor: {
+    env: 'P2P_TX_POOL_OVERFLOW_FACTOR',
+    description: 'How much the tx pool can overflow before it starts evicting txs. Must be greater than 1',
+    ...floatConfigHelper(1.1), // 10% overflow
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
