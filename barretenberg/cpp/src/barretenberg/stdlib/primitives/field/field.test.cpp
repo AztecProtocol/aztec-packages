@@ -562,39 +562,46 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void is_zero()
+    static void test_is_zero()
     {
         Builder builder = Builder();
-
-        // yuck
-        field_ct a = (public_witness_ct(&builder, fr::random_element()));
-        field_ct b = (public_witness_ct(&builder, fr::neg_one()));
-        field_ct c_1(&builder,
-                     uint256_t(0x1122334455667788, 0x8877665544332211, 0xaabbccddeeff9933, 0x1122112211221122));
-        field_ct c_2(&builder,
-                     uint256_t(0xaabbccddeeff9933, 0x8877665544332211, 0x1122334455667788, 0x1122112211221122));
-        field_ct c_3(&builder, bb::fr::one());
-
-        field_ct c_4 = c_1 + c_2;
-        a = a * c_4 + c_4; // add some constant terms in to validate our normalization check works
-        b = b * c_4 + c_4;
-        b = (b - c_1 - c_2) / c_4;
-        b = b + c_3;
-
+        // Create constant elements
         field_ct d(&builder, fr::zero());
         field_ct e(&builder, fr::one());
-
+        // Validate that `is_zero()` check does not add any gates in this case
         const size_t old_n = builder.get_estimated_num_finalized_gates();
         bool_ct d_zero = d.is_zero();
         bool_ct e_zero = e.is_zero();
         const size_t new_n = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(old_n, new_n);
 
+        // Create witnesses
+        field_ct a = (public_witness_ct(&builder, fr::random_element()));
+        field_ct b = (public_witness_ct(&builder, fr::neg_one()));
+        // Create constants
+        field_ct c_1(&builder, engine.get_random_uint256());
+        field_ct c_2(&builder, engine.get_random_uint256());
+        field_ct c_3(&builder, bb::fr::one());
+        field_ct c_4 = c_1 + c_2;
+
+        // Ensure that `a` and `b` are not normalized
+        a = a * c_4 + c_4;
+        b = b * c_4 + c_4;         // = -c_4 + c_4
+        b = (b - c_1 - c_2) / c_4; // = (-c_1 - c_2 )/c_4 = -1
+        b = b + c_3;               //  = -1 + 1 = 0
+        EXPECT_TRUE(a.additive_constant != 0 || a.multiplicative_constant != 1);
+        EXPECT_TRUE(b.additive_constant != 0 || b.multiplicative_constant != 1);
+
         bool_ct a_zero = a.is_zero();
         bool_ct b_zero = b.is_zero();
 
+        bool_ct a_normalized_zero = a.normalize().is_zero();
+        bool_ct b_normalized_zero = b.normalize().is_zero();
+
         EXPECT_EQ(a_zero.get_value(), false);
         EXPECT_EQ(b_zero.get_value(), true);
+        EXPECT_EQ(a_normalized_zero.get_value(), false);
+        EXPECT_EQ(b_normalized_zero.get_value(), true);
         EXPECT_EQ(d_zero.get_value(), true);
         EXPECT_EQ(e_zero.get_value(), false);
 
@@ -1042,6 +1049,31 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    static void test_assert_is_zero()
+    {
+        // Create a constant 0, `assert_is_zero()` does nothing in-circuit in this case
+        field_ct elt = bb::fr::zero();
+        elt.assert_is_zero();
+        // If we apply `assert_is_zero()` to a non-zero constant, we hit an ASSERT failure
+        elt = bb::fr::random_element();
+        if (elt.get_value() != 0) {
+            EXPECT_DEATH(elt.assert_is_zero(), "field_t::assert_is_zero");
+        }
+        // Create a witness 0
+        Builder builder = Builder();
+        elt = witness_ct(&builder, bb::fr::zero());
+        elt.assert_is_zero();
+        // The circuit must be correct
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // If we apply `assert_is_zero()` to a non-zero witness, an unsatisfiable `poly_gate` constraint is created
+        field_ct non_zero_elt = witness_ct(&builder, bb::fr::random_element());
+        if (non_zero_elt.get_value() != 0) {
+            non_zero_elt.assert_is_zero();
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
+    }
+
     static void test_accumulate()
     {
         for (size_t max_vector_length = 1; max_vector_length < 100; max_vector_length++) {
@@ -1387,9 +1419,9 @@ TYPED_TEST(stdlib_field, test_larger_circuit)
 {
     TestFixture::test_larger_circuit();
 }
-TYPED_TEST(stdlib_field, is_zero)
+TYPED_TEST(stdlib_field, test_is_zero)
 {
-    TestFixture::is_zero();
+    TestFixture::test_is_zero();
 }
 TYPED_TEST(stdlib_field, madd)
 {
@@ -1479,6 +1511,10 @@ TYPED_TEST(stdlib_field, test_add_mul_with_constants)
     TestFixture::test_add_mul_with_constants();
 }
 
+TYPED_TEST(stdlib_field, test_assert_is_zero)
+{
+    TestFixture::test_assert_is_zero();
+}
 TYPED_TEST(stdlib_field, test_accumulate)
 {
     TestFixture::test_accumulate();

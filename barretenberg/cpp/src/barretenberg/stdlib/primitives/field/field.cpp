@@ -613,7 +613,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 template <typename Builder> void field_t<Builder>::assert_is_zero(std::string const& msg) const
 {
 
-    if (this->is_constant()) {
+    if (is_constant()) {
         BB_ASSERT_EQ(additive_constant == bb::fr::zero(), true, msg);
         return;
     }
@@ -681,7 +681,8 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 
 template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 {
-    if (witness_index == IS_CONSTANT) {
+    if (is_constant()) {
+        // Create a constant bool_t
         auto result = bool_t(context, (get_value() == bb::fr::zero()));
         result.set_origin_tag(get_origin_tag());
         return result;
@@ -710,7 +711,8 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
         k_inverse = witness_t(context, k_inverse_value);
     }
 
-    // k * k_inverse + is_zero - 1 = 0
+    // Create a `poly_gate` to constrain k * k_inverse + is_zero - 1 = 0 (note that `k` and `k_inverse` are normalized)
+    //      k.v * k_inverse.v * q_m + k.v * q_l + k_inverse.v * q_r + is_zero.v * q_o  - q_c = 0
     bb::fr q_m = bb::fr::one();
     bb::fr q_l = bb::fr::zero();
     bb::fr q_r = bb::fr::zero();
@@ -729,7 +731,8 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
     // is_zero * k_inverse - is_zero = 0
     q_o = bb::fr::neg_one();
     q_c = bb::fr::zero();
-
+    // Create a `poly_gate` (note that `k` and `k_inverse` are normalized)
+    //      is_zero.v * k_inverse.v * q_m + is_zero.v * q_l + k_inverse.v * q_r + is_zero.v * q_o  - q_c = 0
     context->create_poly_gate({ .a = is_zero.witness_index,
                                 .b = k_inverse.witness_index,
                                 .c = is_zero.witness_index,
