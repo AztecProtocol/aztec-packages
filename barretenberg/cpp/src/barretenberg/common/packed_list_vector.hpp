@@ -7,16 +7,16 @@
 namespace bb {
 
 /*============================================================
- *  ListNode<T>
+ *  SingleLinkListNode<T>
  *  ----------------------------------------------------------
  *  A **NON-intrusive** singly-linked list node: the user-supplied
  *  payload `T` lives by value inside the node, while the `next`
  *  pointer is managed by the container.  Your data type `T`
  *  therefore needs no special awareness of the list infrastructure.
  *===========================================================*/
-template <typename T> struct ListNode {
-    T value;                  // user payload
-    ListNode* next = nullptr; // next node in the same list (nullptr == end)
+template <typename T> struct SingleLinkListNode {
+    T value;                            // user payload
+    SingleLinkListNode* next = nullptr; // next node in the same list (nullptr == end)
 };
 
 /*============================================================
@@ -24,7 +24,7 @@ template <typename T> struct ListNode {
  *  ----------------------------------------------------------
  *  Purpose
  *  --------
- *  * Allocate **one** contiguous “slab” of `N` ListNode<T> objects
+ *  * Allocate **one** contiguous “slab” of `N` SingleLinkListNode<T> objects
  *    up-front, then carve it into **M** independent forward lists.
  *  * After construction **no further dynamic allocations** occur;
  *    pushing a value is just placement-new into the slab plus a
@@ -38,7 +38,7 @@ template <typename T> struct ListNode {
  *===========================================================*/
 template <typename T> class PackedListVector {
   public:
-    using Node = ListNode<T>;
+    using Node = SingleLinkListNode<T>;
 
     /*--------------------------------------------------------
      *  ctor / dtor

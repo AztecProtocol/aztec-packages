@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include "barretenberg/common/packed_list_vector.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -124,7 +125,7 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
     }
 };
 
-using CyclicPermutation = std::vector<cycle_node>;
+using CyclicPermutation = SingleLinkListNode<cycle_node>;
 
 namespace {
 /**

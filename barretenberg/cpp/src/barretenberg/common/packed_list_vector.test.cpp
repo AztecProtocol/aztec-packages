@@ -29,8 +29,8 @@ template <typename Node> auto collect(Node* head)
 TEST(PackedListVector, ZeroCapacityConstruction)
 {
     bb::PackedListVector<int> plv(0, 3);
-    EXPECT_EQ(plv.capacity(), 0u);
-    EXPECT_EQ(plv.list_count(), 3u);
+    EXPECT_EQ(plv.capacity(), 0);
+    EXPECT_EQ(plv.list_count(), 3);
     for (std::size_t i = 0; i < plv.list_count(); ++i) {
         EXPECT_EQ(plv.get_list(i), nullptr);
     }
@@ -42,7 +42,7 @@ TEST(PackedListVector, PositiveCapacityConstruction)
     const std::size_t M = 5;
     bb::PackedListVector<int> plv(N, M);
     EXPECT_EQ(plv.capacity(), N);
-    EXPECT_EQ(plv.size(), 0u);
+    EXPECT_EQ(plv.size(), 0);
     EXPECT_EQ(plv.list_count(), M);
 }
 
@@ -58,7 +58,7 @@ TEST(PackedListVector, SinglePushPerList)
     ASSERT_NE(n0, nullptr);
     ASSERT_NE(n1, nullptr);
 
-    EXPECT_EQ(plv.size(), 2u);
+    EXPECT_EQ(plv.size(), 2);
 
     EXPECT_EQ(plv.get_list(0)->value, 42);
     EXPECT_EQ(plv.get_list(1)->value, -3);
@@ -75,7 +75,7 @@ TEST(PackedListVector, MultiplePushesPreserveLIFO)
 
     std::vector<int> vals = collect(plv.get_list(0));
     EXPECT_EQ(vals, (std::vector<int>{ 3, 2, 1 }));
-    EXPECT_EQ(plv.size(), 3u);
+    EXPECT_EQ(plv.size(), 3);
 }
 
 // -----------------------------------------------------------------------------
@@ -94,7 +94,7 @@ TEST(PackedListVector, FibonacciSequence)
     std::reverse(expected.begin(), expected.end()); // should come back reversed
 
     EXPECT_EQ(collect(plv.get_list(0)), expected);
-    EXPECT_EQ(plv.size(), 11u);
+    EXPECT_EQ(plv.size(), 11);
 }
 
 // -----------------------------------------------------------------------------

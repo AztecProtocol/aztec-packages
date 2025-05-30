@@ -13,7 +13,7 @@ PackedListVector<T>::PackedListVector(std::size_t total_elements, std::size_t nu
     , heads_(num_lists != 0 ? std::make_unique<Node*[]>(num_lists) : nullptr)
 {
     /* Allocate one big uninitialised slab; no T ctor runs here */
-    if (capacity_) {
+    if (capacity_ != 0) {
         slab_.reset(reinterpret_cast<Node*>(::operator new[](capacity_ * sizeof(Node))));
     }
 
