@@ -1144,10 +1144,12 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        field_ct witness = witness_ct(&builder, bb::fr::neg_one());
+        field_ct witness = witness_ct(&builder, bb::fr::random_element());
         witness.fix_witness();
-        EXPECT_TRUE(CircuitChecker::check(builder));
+        // Validate that the negated value of the witness is recorded in q_c.
+        EXPECT_TRUE(builder.blocks.arithmetic.q_c().back() == -witness.get_value());
     }
+
     static void test_ranged_less_than()
     {
         Builder builder = Builder();

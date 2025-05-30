@@ -328,7 +328,7 @@ template <typename Builder> class field_t {
     }
 
     /**
-     * Fix a witness. The value of the witness is constrained with a selector
+     * Fix a witness. The value of the witness is constrained with a selector.
      * */
     void fix_witness()
     {
