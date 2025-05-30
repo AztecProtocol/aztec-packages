@@ -853,7 +853,7 @@ void field_t<Builder>::create_range_constraint(const size_t num_bits, std::strin
             ASSERT(uint256_t(get_value()).get_msb() < num_bits);
         } else {
             context->decompose_into_default_range(
-                normalize().get_witness_index(), num_bits, bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
+                get_normalized_witness_index(), num_bits, bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
         }
     }
 }

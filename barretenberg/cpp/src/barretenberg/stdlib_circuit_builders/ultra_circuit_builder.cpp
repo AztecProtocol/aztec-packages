@@ -858,7 +858,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
-    // If the value is out of range, set the composer error to the given msg.
+    // If the value is out of range, set the CircuitBuilder error to the given msg.
     if (val.get_msb() >= num_bits && !this->failed()) {
         this->failure(msg);
     }

@@ -1139,6 +1139,15 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_TRUE(result.get_value() == single_summand.get_value() && result.additive_constant == 0 &&
                     result.multiplicative_constant == 1);
     }
+
+    static void test_fix_witness()
+    {
+        Builder builder = Builder();
+
+        field_ct witness = witness_ct(&builder, bb::fr::neg_one());
+        witness.fix_witness();
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
     static void test_ranged_less_than()
     {
         Builder builder = Builder();
@@ -1422,6 +1431,10 @@ TYPED_TEST(stdlib_field, test_larger_circuit)
 TYPED_TEST(stdlib_field, test_is_zero)
 {
     TestFixture::test_is_zero();
+}
+TYPED_TEST(stdlib_field, test_fix_witness)
+{
+    TestFixture::test_fix_witness();
 }
 TYPED_TEST(stdlib_field, madd)
 {
