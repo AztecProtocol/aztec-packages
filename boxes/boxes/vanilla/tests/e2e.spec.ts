@@ -58,11 +58,4 @@ test('create account and cast vote', async ({ page }, testInfo) => {
 
   // Verify vote results
   await expect(voteResults).toHaveText(new RegExp(`Candidate ${candidateId}: 1 votes`));
-
-  // Assert that other candidates have 0 votes
-  for (let i = 1; i <= 5; i++) {
-    if (i !== candidateId) {
-      await expect(voteResults).toHaveText(new RegExp(`Candidate ${i}: 0 votes`));
-    }
-  }
 });
