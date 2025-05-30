@@ -56,7 +56,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
     auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
-    uint32_t offset = 0;
+    size_t offset = 0;
     // First key field is circuit size
     builder.set_variable(key_fields[offset++].witness_index, 1 << log_circuit_size);
     // Second key field is number of public inputs
@@ -114,7 +114,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         }
     }
 
-    // first 8 witness commitments
+    // first NUM_WITNESS_ENTITIES witness commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
@@ -123,6 +123,20 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
         builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
         offset += 4;
+    }
+
+    if constexpr (Flavor::HasZK) {
+        // Libra concatenation commitment
+        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+        auto frs = field_conversion::convert_to_bn254_frs(comm);
+        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
+        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
+        offset += 4;
+        // libra sum
+        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
+        offset++;
     }
 
     // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs, where 8 is the maximum relation
@@ -136,6 +150,33 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
         builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
         offset++;
+    }
+
+    if constexpr (Flavor::HasZK) {
+        // Libra claimed evaluation
+        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
+        offset++;
+        // Libra grand sum commitment
+        auto set_random_commitment = [&](size_t& offset) {
+            auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+            auto frs = field_conversion::convert_to_bn254_frs(comm);
+            builder.set_variable(proof_fields[offset].witness_index, frs[0]);
+            builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
+            builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
+            builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
+            offset += 4;
+        };
+        set_random_commitment(offset);
+        // Libra quotient commitment
+        set_random_commitment(offset);
+        // Gemini masking commitment
+        set_random_commitment(offset);
+        // Gemini masking evaluation
+        auto set_random_evaluation = [&](size_t& offset) {
+            builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
+            offset++;
+        };
+        set_random_evaluation(offset);
     }
 
     // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
@@ -153,6 +194,14 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; i++) {
         builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
         offset++;
+    }
+
+    if constexpr (Flavor::HasZK) {
+        // NUM_SMALL_IPA_EVALUATIONS libra evals
+        for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
+            builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
+            offset++;
+        }
     }
 
     // lastly the shplonk batched quotient commitment and kzg quotient commitment
@@ -194,6 +243,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         builder.set_variable(proof_fields[offset + 1].witness_index, a_zero_frs[1]);
         offset += 2;
     }
+
     BB_ASSERT_EQ(offset, proof_size + public_inputs_size);
 }
 } // namespace
@@ -251,6 +301,9 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         size_t total_num_public_inputs = input.public_inputs.size() + bb::PAIRING_POINTS_SIZE;
         if constexpr (HasIPAAccumulator<Flavor>) {
             total_num_public_inputs += bb::IPA_CLAIM_SIZE;
+        }
+        if constexpr (Flavor::HasZK) {
+            // some stuff here
         }
         create_dummy_vkey_and_proof<Flavor>(
             builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
