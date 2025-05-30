@@ -1,6 +1,9 @@
 use crate::components::tail_to_public_output_composer::meter_gas_used;
 use dep::types::{
-    abis::{gas::Gas, public_call_request::PublicCallRequest},
+    abis::{
+        accumulated_data::PrivateToPublicAccumulatedData, gas::Gas,
+        public_call_request::PublicCallRequest,
+    },
     constants::{
         AVM_L2_GAS_PER_NOTE_HASH_WRITE, AVM_L2_GAS_PER_NULLIFIER_WRITE, DA_BYTES_PER_FIELD,
         DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG,
@@ -12,8 +15,7 @@ use dep::types::{
 
 #[test]
 fn meter_gas_used_empty_succeeds() {
-    let builder = FixtureBuilder::new();
-    let empty_data = builder.to_private_to_public_accumulated_data();
+    let empty_data = PrivateToPublicAccumulatedData::empty();
     let teardown_call_request = PublicCallRequest::empty();
     let teardown_gas_limits = Gas::new(1, 2);
     let gas = meter_gas_used(
@@ -27,11 +29,10 @@ fn meter_gas_used_empty_succeeds() {
 
 #[test]
 fn meter_gas_used_with_teardown_call_succeeds() {
-    let builder = FixtureBuilder::new();
-    let empty_data = builder.to_private_to_public_accumulated_data();
+    let empty_data = PrivateToPublicAccumulatedData::empty();
 
     let mut teardown_call_request = PublicCallRequest::empty();
-    teardown_call_request.contract_address = builder.contract_address;
+    teardown_call_request.contract_address.inner = 123;
 
     let teardown_gas_limits = Gas::new(1, 2);
 
@@ -47,54 +48,53 @@ fn meter_gas_used_with_teardown_call_succeeds() {
 #[test]
 fn meter_gas_used_everything_succeeds() {
     // Non-revertible data.
-    let mut non_revertible_builder = FixtureBuilder::new();
+    let mut builder = FixtureBuilder::new();
 
     let num_note_hashes_non_revertible = 3;
-    non_revertible_builder.append_note_hashes(num_note_hashes_non_revertible);
+    builder.append_note_hashes(num_note_hashes_non_revertible);
 
     let num_nullifiers_non_revertible = 1;
-    non_revertible_builder.append_nullifiers(num_nullifiers_non_revertible);
+    builder.append_nullifiers(num_nullifiers_non_revertible);
 
     let num_l2_to_l1_msgs_non_revertible = 0;
-    non_revertible_builder.append_l2_to_l1_msgs(num_l2_to_l1_msgs_non_revertible);
+    builder.append_l2_to_l1_msgs(num_l2_to_l1_msgs_non_revertible);
 
     let private_log_lengths_non_revertible = [9, 6, 3];
-    non_revertible_builder.append_private_logs_with_lengths(private_log_lengths_non_revertible);
+    builder.append_private_logs_with_lengths(private_log_lengths_non_revertible);
 
     let contract_class_log_length_non_revertible = 51;
-    non_revertible_builder.add_contract_class_log_hash(
-        3001,
-        contract_class_log_length_non_revertible,
-    );
+    builder.add_contract_class_log_hash(3001, contract_class_log_length_non_revertible);
 
     let num_public_calls_non_revertible = 1;
-    non_revertible_builder.append_public_call_requests(num_public_calls_non_revertible);
+    builder.append_public_call_requests(num_public_calls_non_revertible);
+
+    builder.end_setup();
 
     // Revertible data.
-    let mut revertible_builder = FixtureBuilder::new();
-
     let num_note_hashes_revertible = 1;
-    revertible_builder.append_note_hashes(num_note_hashes_revertible);
+    builder.append_note_hashes(num_note_hashes_revertible);
 
     let num_nullifiers_revertible = 2;
-    revertible_builder.append_nullifiers(num_nullifiers_revertible);
+    builder.append_nullifiers(num_nullifiers_revertible);
 
     let num_l2_to_l1_msgs_revertible = 1;
-    revertible_builder.append_l2_to_l1_msgs(num_l2_to_l1_msgs_revertible);
+    builder.append_l2_to_l1_msgs(num_l2_to_l1_msgs_revertible);
 
     let private_log_lengths_revertible = [7, 11];
-    revertible_builder.append_private_logs_with_lengths(private_log_lengths_revertible);
+    builder.append_private_logs_with_lengths(private_log_lengths_revertible);
 
     let contract_class_log_length_revertible = 0;
 
     let num_public_calls_revertible = 1;
-    revertible_builder.append_public_call_requests(num_public_calls_revertible);
+    builder.append_public_call_requests(num_public_calls_revertible);
 
     // Compute gas.
-    let non_revertible_data = non_revertible_builder.to_private_to_public_accumulated_data();
-    let revertible_data = revertible_builder.to_private_to_public_accumulated_data();
+    let non_revertible_data = builder.to_private_to_public_accumulated_data(false);
+    let revertible_data = builder.to_private_to_public_accumulated_data(true);
+
     let mut teardown_call_request = PublicCallRequest::empty();
-    teardown_call_request.contract_address = non_revertible_builder.contract_address;
+    teardown_call_request.contract_address = builder.contract_address;
+
     let teardown_gas_limits = Gas::new(1, 2);
 
     let gas = meter_gas_used(
