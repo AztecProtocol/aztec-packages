@@ -460,13 +460,6 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
      * @param relation_params contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    /**
-     * @brief Expression for generic log-derivative-based set permutation.
-     * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
-     * @param in an std::array containing the fully extended Accumulator edges.
-     * @param relation_params contains beta, gamma, and public_input_delta, ....
-     * @param scaling_factor optional term to scale the evaluation before adding to evals.
-     */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,
                            const AllEntities& in,
