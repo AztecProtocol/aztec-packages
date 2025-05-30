@@ -18,7 +18,7 @@ The Aztec full node is a critical infrastructure component that allows users to 
 Before following this guide, make sure you:
 
 - Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox)
-- You are using the correct version for the testnet by running `aztec-up alpha-testnet`
+- You are using the correct version for the testnet by running `aztec-up -v 0.87.5`
 - Are running a Linux or MacOS machine with access to a terminal
 
 Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.

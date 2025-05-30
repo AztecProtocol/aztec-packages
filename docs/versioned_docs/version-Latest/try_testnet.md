@@ -24,7 +24,7 @@ id: try_testnet
 
 ## Chain Information
 
-**Version**: `alpha-testnet`, `0.87.2`
+**Version**: `0.87.5`
 
 **Node URL**: `https://aztec-alpha-testnet-fullnode.zkv.xyz`
 
