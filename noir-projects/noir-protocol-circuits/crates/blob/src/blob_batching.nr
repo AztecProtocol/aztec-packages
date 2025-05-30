@@ -19,7 +19,7 @@ use types::{
 
 // Evaluates a single blob:
 // - Evaluates the blob at shared challenge z and returns result y_i
-// - Calculates this blob's challenge z_i (= H(H(blob_i), C_i))
+// - Calculates this blob's challenge z_i (= H(H(blob_i), C_i)), where C_i = kzg_commitment, and blob_i = blob_as_fields[i].
 fn evaluate_blob_for_batching(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
     kzg_commitment: BatchingBlobCommitment,
@@ -67,10 +67,13 @@ pub fn evaluate_blobs_and_batch(
             hashed_blobs_fields,
             final_blob_challenges.z,
         );
-        if !(y_i.is_zero()) & !(single_blob_fields[0] == 0) {
+        // TODO(MW): If the evaluation being zero is sufficient to say the blob i is empty, remove the range check.
+        // The range check exists because we cannot use c_i (it's injected and L1 relies on this circuit to check whether the blob is
+        // empty for c_i = O) or z_i (z_i relies on the hashed_blobs_fields, which is the hash of the items in ALL block blobs, not just i).
+        let is_empty_blob = sponge_blob.fields <= i * FIELDS_PER_BLOB;
+        if (!y_i.is_zero()) & (!is_empty_blob) {
             // Only accumulate if the blob is non empty
             if is_empty(end_accumulator) {
-                // TODO(MW): move this if is_empty() statement to .accumulate()?
                 // Init only if accumulator is empty:
                 //  - This will be checked in root, where the left input's start acc will be constrained to be zero
                 //  - No other accs can be zero since each block_merge checks left's end acc == right's start acc
