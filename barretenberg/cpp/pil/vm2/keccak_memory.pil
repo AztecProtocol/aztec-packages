@@ -1,0 +1,183 @@
+include "memory.pil";
+include "constants_gen.pil";
+
+namespace keccak_memory;
+
+// This gadget is only dedicated to read and write memory slices corresponding
+// to the input and output of keccakf1600. An input and output state for keccakf1600
+// is composed of 25 U64 contiguous memory values. This gadget will read or write
+// 25 such values based on a passed memory offset. It read/writes the 25 values
+// and for the read case checks that each tag is U64. Otherwise, we return a tag error.
+//
+// Precondition: We assume the passed offset being such that offset + 24 < 2^32, so
+//               that the slice fits into the memory space.
+
+// We use a multi-row computation to shift the read/written values to the row where the lookup
+// applies. values are indexed according to 2 indices 0 <= i,j <= 4 in accordance to keccak
+// state values: val{ij}
+
+//#################################################################################################
+//                  High-Level Trace Structure Columns
+//#################################################################################################
+//   ctr   sel   start   last   rw  addr  tag   val val00  val01  val02 ....  val44  single_tag_error  tag_error
+//    1     1      1      0      0   38    U64        43    267     0           238       0                 1
+//    2     1      0      0      0   39    U64       267     0           238              0                 1
+//    3     1      0      0      0   40    FF   17    0                                   1                 1
+//    ...  ...    ...    ...     0   ..    U64  **    **     ***                          0                 0
+//    25    1      0      1      0   62    U64  238  238                                  0                 0
+
+// A read/write memory operation is performed at each row at memory offset `addr`, `rw` boolean indicates
+// whether we write or read. The column val stores the read/write value and tag the tag value.
+// We set val00 being val except when a tag error occurs, we set a zero value. This is to ensure
+// that the main keccak permutation can operate over valid U64 values. One could avoid these dummy
+// computations but at the cost of higher relations in keccak permutation gadget. So, it is more
+// efficient to "sanitize" inputs here.
+// Each column value val{ij} is shifted to the right going bottom-up and finally are laid out
+// horizontally in the first row.
+// For a read operation, single_tag_error is toggled whenever tag is not U64. To consolidate
+// all the single_tag_error values, we accumulate them in tag_error. The accumulation is not a sum 
+// but tag_error is set to 1 whenever the next row is 1 or single_tag_error == 1, basically
+// tag_error = tag_error' OR single_tag_error.
+
+pol commit sel;
+sel * (1 - sel) = 0;
+
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel + last = 0;
+
+pol commit start;
+start * (1 - start) = 0;
+
+pol commit ctr;
+pol commit val;
+pol commit addr;
+pol commit tag;
+pol commit space_id;
+pol commit tag_error;
+pol commit single_tag_error;
+
+// Values for memory slice
+pol commit val00, val01, val02, val03, val04,
+           val10, val11, val12, val13, val14,
+           val20, val21, val22, val23, val24,
+           val30, val31, val32, val33, val34,
+           val40, val41, val42, val43, val44;
+
+// We enforce the initial str to be set to 1.
+start * (ctr - 1) = 0;
+
+// sel == 1 <==> ctr != 0
+pol commit ctr_inv;
+#[SEL_CTR_NON_ZERO]
+ctr * ((1 - sel) * (1 - ctr_inv) + ctr_inv) - sel = 0;
+
+#[CTR_INCREMENT]
+// Note: sel factor is required for an empty row to satisfy this relation
+sel * (1 - last) * (ctr' - ctr - 1) = 0;
+
+// Last ctr of a multi-rows processing of a slice
+pol commit last;
+last * (1 - last) = 0;
+
+// We define last == 1 <==> ctr == 25
+pol commit ctr_min_num_25_inv;
+#[LAST]
+sel * ((ctr - 25) * (last * (1 - ctr_min_num_25_inv) + ctr_min_num_25_inv) + last - 1) = 0;
+
+pol commit rw;
+rw * (1 - rw) = 0; // TODO: Not needed if constrained in memory trace
+
+single_tag_error * (1 - single_tag_error) = 0;
+
+#[NO_TAG_ERROR_ON_WRITE]
+rw * single_tag_error = 0;
+
+#[TAG_ERROR_INIT]
+last * (tag_error - single_tag_error) = 0;
+
+#[TAG_ERROR_PROPAGATION]
+(1 - last) * (tag_error - 1 + (1 - single_tag_error) * (1 - tag_error')) = 0;
+
+// No need to enforce a boolean constraint for tag_error as it follows from the above constraints.
+
+#[MEM_ADDR_INCREMENT]
+(1 - last) * (addr + 1 - addr') = 0;
+
+#[SPACEID_PROPAGATION]
+(1 - last) * (space_id - space_id') = 0;
+
+// Check if the tag is U64
+// We constrain single_tag_error == 1 <==> tag is not U64.
+pol commit tag_min_u64_inv;
+pol TAG_MIN_U64 = tag - constants.MEM_TAG_U64;
+#[SINGLE_TAG_ERROR]
+sel * (TAG_MIN_U64 * ((1 - single_tag_error) * (1 - tag_min_u64_inv) + tag_min_u64_inv) - single_tag_error) = 0;
+
+#[SINGLE_TAG_ERROR_BOOLEAN]
+single_tag_error * (1 - single_tag_error) = 0;
+
+// Set zero when tag is incorrect.
+#[VAL00]
+val00 = (1 - single_tag_error) * val;
+
+#[VAL01]
+val01 = (1 - last) * val00';
+#[VAL02]
+val02 = (1 - last) * val01';
+#[VAL03]
+val03 = (1 - last) * val02';
+#[VAL04]
+val04 = (1 - last) * val03';
+
+#[VAL10]
+val10 = (1 - last) * val04';
+#[VAL11]
+val11 = (1 - last) * val10';
+#[VAL12]
+val12 = (1 - last) * val11';
+#[VAL13]
+val13 = (1 - last) * val12';
+#[VAL14]
+val14 = (1 - last) * val13';
+
+#[VAL20]
+val20 = (1 - last) * val14';
+#[VAL21]
+val21 = (1 - last) * val20';
+#[VAL22]
+val22 = (1 - last) * val21';
+#[VAL23]
+val23 = (1 - last) * val22';
+#[VAL24]
+val24 = (1 - last) * val23';
+
+#[VAL30]
+val30 = (1 - last) * val24';
+#[VAL31]
+val31 = (1 - last) * val30';
+#[VAL32]
+val32 = (1 - last) * val31';
+#[VAL33]
+val33 = (1 - last) * val32';
+#[VAL34]
+val34 = (1 - last) * val33';
+
+#[VAL40]
+val40 = (1 - last) * val34';
+#[VAL41]
+val41 = (1 - last) * val40';
+#[VAL42]
+val42 = (1 - last) * val41';
+#[VAL43]
+val43 = (1 - last) * val42';
+#[VAL44]
+val44 = (1 - last) * val43';
+
+// Memory permutation
+// TODO: Proper memory permutation (not a lookup), add clks in the tuple and introduce a specific
+// selector for keccak in memory sub-trace.
+#[KECCAK_MEM_TO_MEM]
+sel {addr, val, tag, rw, space_id}
+in // TODO: replace with `is` (permutation)
+memory.sel {memory.address, memory.value, memory.tag, memory.rw, memory.space_id};
