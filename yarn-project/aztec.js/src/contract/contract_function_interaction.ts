@@ -1,12 +1,5 @@
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
-import {
-  type AbiDecoded,
-  type FunctionAbi,
-  FunctionSelector,
-  FunctionType,
-  decodeFromAbi,
-  encodeArguments,
-} from '@aztec/stdlib/abi';
+import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { Capsule, HashedValues, SimulationStats, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
