@@ -2,7 +2,14 @@ import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { Capsule, HashedValues, SimulationTimings, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
+import type {
+  Capsule,
+  HashedValues,
+  SimulationStats,
+  SimulationTimings,
+  TxExecutionRequest,
+  TxProfileResult,
+} from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
@@ -24,12 +31,7 @@ type SimulationReturn<T extends boolean | undefined> = T extends true
       /**
        * Additional metadata about the simulation
        */
-      meta: {
-        /**
-         * Timings of the different operations performed, including per function breakdown
-         */
-        timings?: SimulationTimings;
-      };
+      meta: SimulationStats;
       /**
        * Return value of the function
        */
@@ -134,7 +136,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
       if (options.includeMetadata) {
         return {
-          meta: { timings: utilityResult.timings },
+          meta: { stats: utilityResult.stats },
           result: utilityResult.result,
         };
       } else {
@@ -169,7 +171,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
 
     if (options.includeMetadata) {
-      return { meta: { timings: simulatedTx.timings }, result: returnValue };
+      return { meta: { stats: simulatedTx.stats }, result: returnValue };
     } else {
       return returnValue;
     }

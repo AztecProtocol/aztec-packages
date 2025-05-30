@@ -171,11 +171,8 @@ export async function setupPXEService(
   }
 
   const simulator = new WASMSimulator();
-  const recorder = process.env.CIRCUIT_RECORD_DIR
-    ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
-    : new MemoryCircuitRecorder();
-  const simulatorWithRecorder = new SimulatorRecorderWrapper(simulator, recorder);
-  const pxe = await createPXEServiceWithSimulator(aztecNode, simulatorWithRecorder, pxeServiceConfig, {
+
+  const pxe = await createPXEServiceWithSimulator(aztecNode, simulator, pxeServiceConfig, {
     useLogSuffix,
   });
 

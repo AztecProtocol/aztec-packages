@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import {
   type CircuitSimulator,
   ExecutionError,
@@ -52,6 +53,7 @@ export class ContractFunctionSimulator {
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
+    const simulatorSetupTimer = new Timer();
     const header = await this.executionDataProvider.getBlockHeader();
 
     await verifyCurrentClassId(contractAddress, this.executionDataProvider);
@@ -97,6 +99,8 @@ export class ContractFunctionSimulator {
       scopes,
     );
 
+    const setupTime = simulatorSetupTimer.ms();
+
     try {
       const executionResult = await executePrivateFunction(
         this.simulator,
@@ -105,6 +109,7 @@ export class ContractFunctionSimulator {
         contractAddress,
         request.functionSelector,
       );
+      const simulatorTeardownTimer = new Timer();
       const { usedTxRequestHashForNonces } = noteCache.finish();
       const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
 
@@ -118,6 +123,13 @@ export class ContractFunctionSimulator {
           return new HashedValues(calldata, r.calldataHash);
         }),
       );
+
+      const teardownTime = simulatorTeardownTimer.ms();
+
+      // Add simulator overhead to topmost call in the stack
+      if (executionResult.profileResult) {
+        executionResult.profileResult.timings.witgen += setupTime + teardownTime;
+      }
 
       return new PrivateExecutionResult(executionResult, firstNullifierHint, publicFunctionsCalldata);
     } catch (err) {
@@ -174,4 +186,8 @@ export class ContractFunctionSimulator {
     }
   }
   // docs:end:execute_utility_function
+
+  getStats() {
+    return this.executionDataProvider.getStats();
+  }
 }

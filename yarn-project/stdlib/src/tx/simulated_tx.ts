@@ -12,7 +12,7 @@ import {
   PrivateExecutionResult,
   collectSortedContractClassLogs,
 } from './private_execution_result.js';
-import { type SimulationTimings, SimulationTimingsSchema } from './profiling.js';
+import { type SimulationStats, type SimulationTimings, SimulationTimingsSchema } from './profiling.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
@@ -44,7 +44,7 @@ export class TxSimulationResult {
     public privateExecutionResult: PrivateExecutionResult,
     public publicInputs: PrivateKernelTailCircuitPublicInputs,
     public publicOutput?: PublicSimulationOutput,
-    public timings?: SimulationTimings,
+    public stats?: SimulationStats,
   ) {}
 
   get gasUsed(): GasUsed {
@@ -74,20 +74,20 @@ export class TxSimulationResult {
       fields.privateExecutionResult,
       fields.publicInputs,
       fields.publicOutput,
-      fields.timings,
+      fields.stats,
     );
   }
 
   static fromPrivateSimulationResultAndPublicOutput(
     privateSimulationResult: PrivateSimulationResult,
     publicOutput?: PublicSimulationOutput,
-    timings?: SimulationTimings,
+    stats?: SimulationStats,
   ) {
     return new TxSimulationResult(
       privateSimulationResult.privateExecutionResult,
       privateSimulationResult.publicInputs,
       publicOutput,
-      timings,
+      stats,
     );
   }
 
