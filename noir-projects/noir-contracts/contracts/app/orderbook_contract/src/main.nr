@@ -33,7 +33,7 @@ use aztec::macros::aztec;
 pub contract Orderbook {
     use crate::{config::Config, order::Order};
     use aztec::{
-        event::event_interface::EventInterface,
+        event::event_interface::emit_event_in_public_log,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility},
@@ -42,7 +42,6 @@ pub contract Orderbook {
         oracle::notes::check_nullifier_exists,
         prelude::{AztecAddress, Map, PublicImmutable},
         protocol_types::traits::{FromField, Serialize, ToField},
-        unencrypted_logs::unencrypted_event_emission::encode_event,
     };
 
     use token::Token;
@@ -118,7 +117,7 @@ pub contract Orderbook {
         // unique.
         storage.orders.at(order_id).initialize(order);
 
-        OrderCreated { order_id }.emit(encode_event(&mut context));
+        emit_event_in_public_log(OrderCreated { order_id }, &mut context);
     }
 
     /// Privately fulfills an existing order in the orderbook
@@ -186,7 +185,7 @@ pub contract Orderbook {
             &mut context,
         );
 
-        OrderFulfilled { order_id }.emit(encode_event(&mut context));
+        emit_event_in_public_log(OrderFulfilled { order_id }, &mut context);
     }
 
     /// Returns the order and whether it has been fulfilled.
