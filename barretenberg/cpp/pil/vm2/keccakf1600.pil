@@ -2,6 +2,7 @@ include "bitwise.pil";
 include "constants_gen.pil";
 include "range_check.pil";
 include "precomputed.pil";
+include "keccak_memory.pil";
 
 namespace keccakf1600;
 
