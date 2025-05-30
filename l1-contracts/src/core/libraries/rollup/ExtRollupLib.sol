@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
+// solhint-disable imports-order
 pragma solidity >=0.8.27;
 
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
@@ -8,9 +9,11 @@ import {ValidatorSelectionLib} from "./../validator-selection/ValidatorSelection
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 import {ProposeLib, ProposeArgs, CommitteeAttestation} from "./ProposeLib.sol";
+import {RewardLib} from "./RewardLib.sol";
+import {StakingLib} from "./../staking/StakingLib.sol";
+
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
-
 library ExtRollupLib {
   using TimeLib for Timestamp;
 
@@ -39,6 +42,33 @@ library ExtRollupLib {
   function setupSeedSnapshotForNextEpoch() external {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     ValidatorSelectionLib.setSampleSeedForNextEpoch(currentEpoch);
+  }
+
+  function claimSequencerRewards(address _recipient) external returns (uint256) {
+    return RewardLib.claimSequencerRewards(_recipient);
+  }
+
+  function claimProverRewards(address _recipient, Epoch[] memory _epochs)
+    external
+    returns (uint256)
+  {
+    return RewardLib.claimProverRewards(_recipient, _epochs);
+  }
+
+  function setSlasher(address _slasher) external {
+    StakingLib.setSlasher(_slasher);
+  }
+
+  function vote(uint256 _proposalId) external {
+    StakingLib.vote(_proposalId);
+  }
+
+  function deposit(address _attester, address _withdrawer, bool _onCanonical) external {
+    StakingLib.deposit(_attester, _withdrawer, _onCanonical);
+  }
+
+  function initiateWithdraw(address _attester, address _recipient) external returns (bool) {
+    return StakingLib.initiateWithdraw(_attester, _recipient);
   }
 
   function getEpochProofPublicInputs(

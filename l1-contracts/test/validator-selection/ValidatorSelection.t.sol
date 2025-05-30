@@ -27,6 +27,7 @@ import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 
+import {GSE} from "@aztec/core/staking/GSE.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
@@ -270,7 +271,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testInsufficientSigsMove() public setup(4) progressEpochs(2) {
-    rollup.getGSE().addRollup(address(0xdead));
+    GSE gse = rollup.getGSE();
+    address caller = gse.owner();
+    vm.prank(caller);
+    gse.addRollup(address(0xdead));
     assertEq(rollup.getCurrentEpochCommittee().length, 4);
     _testBlock(
       "mixed_block_1",
