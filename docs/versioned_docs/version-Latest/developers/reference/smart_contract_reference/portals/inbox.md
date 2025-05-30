@@ -11,7 +11,7 @@ The `Inbox` is a contract deployed on L1 that handles message passing from L1 to
 
 Sends a message from L1 to L2.
 
-```solidity title="send_l1_to_l2_message" showLineNumbers
+```solidity title="send_l1_to_l2_message" showLineNumbers 
 /**
  * @notice Inserts a new message into the Inbox
  * @dev Emits `MessageSent` with data for easy access by the sequencer
@@ -26,7 +26,7 @@ function sendL2Message(
   bytes32 _secretHash
 ) external returns (bytes32, uint256);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49</a></sub></sup>
 
 
 
@@ -47,7 +47,7 @@ function sendL2Message(
 
 Allows the `Rollup` to consume multiple messages in a single transaction.
 
-```solidity title="consume" showLineNumbers
+```solidity title="consume" showLineNumbers 
 /**
  * @notice Consumes the current tree, and starts a new one if needed
  * @dev Only callable by the rollup contract
@@ -60,13 +60,13 @@ Allows the `Rollup` to consume multiple messages in a single transaction.
  */
 function consume(uint256 _toConsume) external returns (bytes32);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L51-L63" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L51-L63</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L51-L63" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L51-L63</a></sub></sup>
 
 
 | Name           | Type        | Description                |
 | -------------- | ----------- | -------------------------- |
-| ReturnValue    | `bytes32`   | Root of the consumed tree. |
+| ReturnValue    | `bytes32`   | Root of the consumed tree. | 
 
 #### Edge cases
 
-- Will revert with `Inbox__Unauthorized()` if `msg.sender != ROLLUP` (rollup contract is sometimes referred to as state transitioner in the docs).
+- Will revert with `Inbox__Unauthorized()` if `msg.sender != ROLLUP` (rollup contract is sometimes referred to as state transitioner in the docs). 

@@ -1,7 +1,7 @@
 use aztec::macros::aztec;
 
 /// This contract is used to test that the private event synchronization is working correctly even when the contract
-/// doesn't work with notes.
+/// doesn't use notes.
 #[aztec]
 contract EventOnly {
     use aztec::{

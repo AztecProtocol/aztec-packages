@@ -16,7 +16,7 @@ You will likely want to define your note in a new file and import it into your c
 
 A note type can be defined with the macro `#[note]` used on a struct:
 
-```rust title="state_vars-CardNote" showLineNumbers
+```rust title="state_vars-CardNote" showLineNumbers 
 // We derive the Serialize trait because this struct is returned from a contract function. When returned,
 // the struct is serialized using the Serialize trait and added to a hasher via the `add_to_hasher` utility.
 // We use a hash rather than the serialized struct itself to keep circuit inputs constant.
@@ -28,7 +28,7 @@ pub struct CardNote {
     owner: AztecAddress,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14</a></sub></sup>
 
 
 In this example, we are implementing a card note that holds a number of `points` as `u8`.

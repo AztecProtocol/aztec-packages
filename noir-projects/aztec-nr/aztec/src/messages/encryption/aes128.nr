@@ -278,7 +278,7 @@ impl LogEncryption for AES128 {
         let ciphertext_without_eph_pk_x = bytes_from_fields(ciphertext_without_eph_pk_x_fields);
 
         // First byte of the ciphertext represents the ephemeral public key sign
-        let eph_pk_sign_bool = ciphertext_without_eph_pk_x.get(0) as bool;
+        let eph_pk_sign_bool = ciphertext_without_eph_pk_x.get(0) != 0;
         // With the sign and the x-coordinate of the ephemeral public key, we can reconstruct the point
         let eph_pk = point_from_x_coord_and_sign(eph_pk_x, eph_pk_sign_bool);
 

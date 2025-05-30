@@ -23,10 +23,10 @@ cmake --version
 # Checkout tracy 0.11.1, build the headless capture tool and then capture a trace
 ssh $BOX "
 	set -eux ;
-	! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy ;
+	! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy --depth 1 ;
 	cd ~/tracy/capture ;
+	git fetch origin 5d542dc09f3d9378d005092a4ad446bd405f819a ;
   git checkout 5d542dc09f3d9378d005092a4ad446bd405f819a ;
-	sudo apt-get install -y libdbus-1-dev libdbus-glib-1-dev libtbb-dev libfreetype-dev ;
 	mkdir -p build && cd build && cmake -DNO_FILESELECTOR=ON -DCMAKE_MESSAGE_LOG_LEVEL=Warning .. && make -j ;
 	cd ~/aztec-packages/barretenberg/cpp/ ;
 	cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning --preset $PRESET && cmake --build --preset $PRESET --target $TARGET ;
@@ -40,7 +40,7 @@ ssh $BOX "
 " &
 # If on ubuntu will need to build tracy checked out at 0.11.1 and comment this out
 # If on windows can use windows tracy build
-brew install tracy@0.11.1
+brew install tracy
 wait # TODO(AD) hack - not sure why needed
 scp $BOX:/mnt/user-data/$USER/tracy/capture/build/trace-$TARGET .
 tracy trace-$TARGET

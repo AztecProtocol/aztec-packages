@@ -37,7 +37,7 @@ describe("token contract", () => {
 
 Let's set up our test suite. We'll make sure the Sandbox is running, create two fresh accounts to test with, and deploy an instance of our contract. `aztec.js` provides the helper functions we need to do this:
 
-```javascript title="setup" showLineNumbers
+```javascript title="setup" showLineNumbers 
 let owner, recipient, token;
 
 beforeAll(async () => {
@@ -50,7 +50,7 @@ beforeAll(async () => {
   await token.methods.mint_to_private(owner.getAddress(), owner.getAddress(), initialBalance).send().wait();
 }, 120_000);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L13-L25" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L13-L25</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L13-L25" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L13-L25</a></sub></sup>
 
 
 :::tip
@@ -61,7 +61,7 @@ Instead of creating new accounts in our test suite, we can use the ones already 
 
 Now that we have a working test environment, we can write our first test for exercising the `transfer` function on the token contract. We will use the same `aztec.js` methods we used when building our dapp:
 
-```javascript title="test" showLineNumbers
+```javascript title="test" showLineNumbers 
 it('increases recipient funds on transfer', async () => {
   expect(await token.withWallet(recipient).methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(0n);
   await token.methods.transfer(recipient.getAddress(), 20).send().wait();
@@ -70,7 +70,7 @@ it('increases recipient funds on transfer', async () => {
   );
 }, 30_000);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L27-L35" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L27-L35</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L27-L35" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L27-L35</a></sub></sup>
 
 
 In this example, we assert that the `recipient`'s balance is increased by the amount transferred. We could also test that the `owner`'s funds are decremented by the same amount, or that a transaction that attempts to send more funds than those available would fail.

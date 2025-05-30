@@ -3,8 +3,9 @@ use crate::{
     messages::{
         discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
+        processing::enqueue_note_for_validation,
     },
-    oracle::message_discovery::{deliver_note, get_public_log_by_tag},
+    oracle::message_processing::get_public_log_by_tag,
     utils::array,
 };
 
@@ -125,20 +126,15 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
             );
 
             discovered_notes.for_each(|discovered_note| {
-                // TODO:(#10728): decide how to handle notes that fail delivery. This could be due to e.g. a
-                // temporary node connectivity issue - is simply throwing good enough here?
-                assert(
-                    deliver_note(
-                        contract_address,
-                        pending_partial_note.storage_slot,
-                        discovered_note.nonce,
-                        complete_packed_note,
-                        discovered_note.note_hash,
-                        discovered_note.inner_nullifier,
-                        log.tx_hash,
-                        pending_partial_note.recipient,
-                    ),
-                    "Failed to deliver note",
+                enqueue_note_for_validation(
+                    contract_address,
+                    pending_partial_note.storage_slot,
+                    discovered_note.nonce,
+                    complete_packed_note,
+                    discovered_note.note_hash,
+                    discovered_note.inner_nullifier,
+                    log.tx_hash,
+                    pending_partial_note.recipient,
                 );
             });
 

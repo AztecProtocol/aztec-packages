@@ -7,7 +7,7 @@ pub mod private_notes;
 
 use crate::messages::{
     discovery::{private_logs::process_private_log, private_notes::MAX_NOTE_PACKED_LEN},
-    processing::{get_private_logs, pending_tagged_log::PendingTaggedLog},
+    processing::{get_private_logs, pending_tagged_log::PendingTaggedLog, validate_enqueued_notes},
 };
 
 pub struct NoteHashAndNullifier {
@@ -80,4 +80,8 @@ pub unconstrained fn discover_new_messages<Env>(
         contract_address,
         compute_note_hash_and_nullifier,
     );
+
+    // Finally we validate all notes that were found as part of the previous processes, resulting in them being added to
+    // PXE's database and retrievable via oracles.
+    validate_enqueued_notes(contract_address);
 }
