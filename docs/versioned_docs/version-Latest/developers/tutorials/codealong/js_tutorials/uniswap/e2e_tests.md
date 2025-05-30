@@ -189,7 +189,7 @@ it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', asy
   logger.info('DAI balance after swap  : ', daiL2BalanceAfterSwap.toString());
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L174-L357" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L174-L357</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L174-L357" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L174-L357</a></sub></sup>
 
 
 ## Public flow test
@@ -428,6 +428,6 @@ it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', asy
 //   logger.info('DAI balance after swap  : ', daiL2BalanceAfterSwap.toString());
 // });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L360-L593" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L360-L593</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L360-L593" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L360-L593</a></sub></sup>
 
 

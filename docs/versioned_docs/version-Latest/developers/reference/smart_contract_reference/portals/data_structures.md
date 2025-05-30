@@ -21,7 +21,7 @@ struct L1Actor {
   uint256 chainId;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/libraries/DataStructures.sol#L11-L21" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/libraries/DataStructures.sol#L11-L21</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/l1-contracts/src/core/libraries/DataStructures.sol#L11-L21" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/libraries/DataStructures.sol#L11-L21</a></sub></sup>
 
 
 | Name           | Type    | Description |
@@ -45,7 +45,7 @@ struct L2Actor {
   uint256 version;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/libraries/DataStructures.sol#L23-L33" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/libraries/DataStructures.sol#L23-L33</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/l1-contracts/src/core/libraries/DataStructures.sol#L23-L33" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/libraries/DataStructures.sol#L23-L33</a></sub></sup>
 
 
 | Name           | Type    | Description |
@@ -74,7 +74,7 @@ struct L1ToL2Msg {
   uint256 index;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/libraries/DataStructures.sol#L35-L51" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/libraries/DataStructures.sol#L35-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/l1-contracts/src/core/libraries/DataStructures.sol#L35-L51" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/libraries/DataStructures.sol#L35-L51</a></sub></sup>
 
 
 | Name           | Type    | Description |
@@ -102,7 +102,7 @@ struct L2ToL1Msg {
   bytes32 content;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/libraries/DataStructures.sol#L53-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/libraries/DataStructures.sol#L53-L66</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/l1-contracts/src/core/libraries/DataStructures.sol#L53-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/libraries/DataStructures.sol#L53-L66</a></sub></sup>
 
 
 | Name           | Type    | Description |

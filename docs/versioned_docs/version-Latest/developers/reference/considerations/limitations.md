@@ -198,7 +198,7 @@ pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 32;
 pub global MAX_PUBLIC_LOGS_PER_TX: u32 = 8;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L28-L97" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L28-L97</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L28-L97" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L28-L97</a></sub></sup>
 
 
 #### What are the consequences?

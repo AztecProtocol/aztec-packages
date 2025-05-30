@@ -15,7 +15,7 @@ This tutorial is for the sandbox and will need adjustments if deploying to testn
 
 ## Prerequisites
 
-- A running Aztec sandbox at version 0.87.4. Install with `aztec-up 0.87.4`.
+- A running Aztec sandbox at version 0.87.5. Install with `aztec-up 0.87.5`.
 
 ## Set up the project
 
@@ -40,7 +40,7 @@ mkdir src
 3. Add necessary yarn packages
 
 ```sh
-yarn add @aztec/aztec.js@0.87.4 @aztec/accounts@0.87.4 @aztec/noir-contracts.js@0.87.4 typescript @types/node
+yarn add @aztec/aztec.js@0.87.5 @aztec/accounts@0.87.5 @aztec/noir-contracts.js@0.87.5 typescript @types/node
 ```
 
 :::note Match tool and dependency versions
@@ -219,7 +219,7 @@ const bob = bobWallet.getAddress();
 logger.info(`Loaded alice's account at ${alice.toString()}`);
 logger.info(`Loaded bob's account at ${bob.toString()}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120</a></sub></sup>
 
 
 An explanation on accounts on Aztec can be found [here](../../../../aztec/concepts/accounts/index.md).
@@ -235,7 +235,7 @@ const initialSupply = 1_000_000n;
 
 const tokenContractAlice = await deployToken(aliceWallet, initialSupply, logger);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128</a></sub></sup>
 
 
 `yarn start` will now give something like this:
@@ -277,7 +277,7 @@ logger.info(`Alice's balance ${aliceBalance}`);
 let bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
 logger.info(`Bob's balance ${bobBalance}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147</a></sub></sup>
 
 
 Running now should yield output:
@@ -328,7 +328,7 @@ logger.info(`Alice's balance ${aliceBalance}`);
 bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
 logger.info(`Bob's balance ${bobBalance}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166</a></sub></sup>
 
 
 Our output should now look like this:
@@ -374,7 +374,7 @@ logger.info(`Alice's balance ${aliceBalance}`);
 bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
 logger.info(`Bob's balance ${bobBalance}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188</a></sub></sup>
 
 
 Our complete output should now be something like:

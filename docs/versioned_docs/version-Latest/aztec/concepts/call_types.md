@@ -105,7 +105,7 @@ Private functions from other contracts can be called either regularly or statica
 ```rust title="private_call" showLineNumbers 
 let _ = Token::at(stable_coin).burn_private(from, amount, nonce).call(&mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L254-L256" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L254-L256</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L254-L256" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L254-L256</a></sub></sup>
 
 
 Unlike the EVM however, private execution doesn't revert in the traditional way: in case of error (e.g. a failed assertion, a state changing operation in a static context, etc.) the proof generation simply fails and no transaction request is generated, spending no network gas or user funds.
@@ -121,7 +121,7 @@ Lending::at(context.this_address())
     ._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset)
     .enqueue(&mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123</a></sub></sup>
 
 
 It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can be very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[internal]`.
@@ -131,7 +131,7 @@ A common pattern is to enqueue public calls to check some validity condition on 
 ```rust title="enqueueing" showLineNumbers 
 Router::at(ROUTER_ADDRESS).check_block_number(operation, value).call(context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr#L17-L19" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr#L17-L19</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr#L17-L19" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr#L17-L19</a></sub></sup>
 
 
 Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
@@ -142,7 +142,7 @@ An example of how a deadline can be checked using the router contract follows:
 ```rust title="call-check-deadline" showLineNumbers 
 privately_check_timestamp(Comparator.LT, config.deadline, &mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L68-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L68-L70</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L68-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L68-L70</a></sub></sup>
 
 
 `privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the router contract:
@@ -162,7 +162,7 @@ pub fn privately_check_block_number(operation: u8, value: Field, context: &mut P
     Router::at(ROUTER_ADDRESS).check_block_number(operation, value).call(context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr#L5-L21" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr#L5-L21</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr#L5-L21" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr#L5-L21</a></sub></sup>
 
 
 This is what the implementation of the check timestamp functionality looks like:
@@ -186,7 +186,7 @@ fn _check_timestamp(operation: u8, value: u64) {
     assert(compare(lhs_field, operation, rhs_field), "Timestamp mismatch.");
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr#L13-L31" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr#L13-L31</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr#L13-L31" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr#L13-L31</a></sub></sup>
 
 
 :::note
@@ -195,7 +195,7 @@ To add it as a dependency point to the aztec-packages repository instead:
 
 ```toml
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.87.4", directory = "noir-projects/noir-contracts/contracts/protocol/router_contract/src" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.87.5", directory = "noir-projects/noir-contracts/contracts/protocol/router_contract/src" }
 ```
 
 :::
@@ -217,7 +217,7 @@ Token::at(config.accepted_asset)
     .transfer_in_public(context.msg_sender(), context.this_address(), max_fee, nonce)
     .enqueue(&mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L156-L160" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L156-L160</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L156-L160" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L156-L160</a></sub></sup>
 
 
 :::note
@@ -243,14 +243,14 @@ fn get_authorized() -> AztecAddress {
     storage.authorized.get_current_value()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L42-L50" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L42-L50</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L42-L50" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L42-L50</a></sub></sup>
 
 
 ```typescript title="simulate_function" showLineNumbers 
 const balance = await contract.methods.balance_of_public(newWallet.getAddress()).simulate();
 expect(balance).toEqual(1n);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L54-L57" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L54-L57</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L54-L57" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L54-L57</a></sub></sup>
 
 
 :::warning
@@ -265,7 +265,7 @@ This creates and returns a transaction request, which includes proof of correct 
 const call = token.methods.transfer(recipient.getAddress(), 200n);
 await expect(call.simulate()).rejects.toThrow(/Balance too low/);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126</a></sub></sup>
 
 
 #### `send`
@@ -275,5 +275,5 @@ This is the same as [`prove`](#prove) except it also broadcasts the transaction 
 ```typescript title="send_tx" showLineNumbers 
 await contract.methods.buy_pack(seed).send().wait();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_card_game.test.ts#L129-L131" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_card_game.test.ts#L129-L131</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/e2e_card_game.test.ts#L129-L131" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_card_game.test.ts#L129-L131</a></sub></sup>
 

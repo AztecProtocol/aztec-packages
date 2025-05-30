@@ -76,7 +76,7 @@ const store = await createStore("pxe1", {
   dataStoreMapSizeKB: 1e6,
 });
 
-const pxe = await createPXEService(node, fullConfig, { store });
+const pxe = await createPXEService(node, fullConfig, true, store);
 ```
 
 ## Paying for fees

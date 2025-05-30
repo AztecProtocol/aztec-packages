@@ -23,7 +23,7 @@ Import the capsules module:
 ```rust title="import_capsules" showLineNumbers 
 use dep::aztec::oracle::capsules;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/protocol/contract_class_registerer_contract/src/main.nr#L37-L39" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/contract_class_registerer_contract/src/main.nr#L37-L39</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/protocol/contract_class_registerer_contract/src/main.nr#L37-L39" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/contract_class_registerer_contract/src/main.nr#L37-L39</a></sub></sup>
 
 
 ### 2. Store and load data
@@ -39,7 +39,7 @@ let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] =
         .unwrap()
 };
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/protocol/contract_class_registerer_contract/src/main.nr#L49-L57" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/contract_class_registerer_contract/src/main.nr#L49-L57</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/protocol/contract_class_registerer_contract/src/main.nr#L49-L57" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/contract_class_registerer_contract/src/main.nr#L49-L57</a></sub></sup>
 
 
 The data is stored per contract address and slot. When loading, you'll get back an `Option<T>` - `None` if no data exists at that slot.

@@ -21,7 +21,7 @@ At the top of your JavaScript file, you can import what you need, eg:
 import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, type Wallet, sleep } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_2_pxes.test.ts#L3-L6" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_2_pxes.test.ts#L3-L6</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/e2e_2_pxes.test.ts#L3-L6" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_2_pxes.test.ts#L3-L6</a></sub></sup>
 
 
 ## Flow

@@ -58,7 +58,7 @@ const publicClient = getPublicClient({
   l1ChainId: foundry.id,
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/spartan/smoke.test.ts#L52-L58" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/spartan/smoke.test.ts#L52-L58</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/spartan/smoke.test.ts#L52-L58" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/spartan/smoke.test.ts#L52-L58</a></sub></sup>
 
 
 After importing:
@@ -73,7 +73,7 @@ Create a new fee juice portal manager and bridge fee juice publicly to Aztec:
 const portal = await L1FeeJuicePortalManager.new(pxe, l1Client, log);
 const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/spartan/setup_test_wallets.ts#L110-L113" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/spartan/setup_test_wallets.ts#L110-L113</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/spartan/setup_test_wallets.ts#L110-L113" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/spartan/setup_test_wallets.ts#L110-L113</a></sub></sup>
 
 
 For the mechanisms to complete bridging between L1 and Aztec, we have to wait for 2 Aztec blocks to progress. This can be triggered manually by sending 2 transactions in the sandbox, or by waiting for 2 blocks on a public network. After this, an account should have its fee juice ready to use in transactions.
@@ -109,7 +109,7 @@ const { transactionFee } = await bananaCoin.methods
   .send({ fee: { gasSettings, paymentMethod } })
   .wait();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts#L96-L102" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts#L96-L102</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts#L96-L102" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts#L96-L102</a></sub></sup>
 
 
 **The equivalent to specify fees via CLI...**
@@ -132,7 +132,7 @@ const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claim);
 const sentTx = account.deploy({ fee: { paymentMethod } });
 const txHash = await sentTx.getTxHash();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/bot/src/factory.ts#L124-L129" target="_blank" rel="noopener noreferrer">Source code: yarn-project/bot/src/factory.ts#L124-L129</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/bot/src/factory.ts#L124-L129" target="_blank" rel="noopener noreferrer">Source code: yarn-project/bot/src/factory.ts#L124-L129</a></sub></sup>
 
 
 **The equivalent to specify fees via CLI...**
@@ -153,7 +153,7 @@ const receipt = await feeJuiceContract
   .send({ fee: { gasSettings, paymentMethod } })
   .wait();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts#L77-L84" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts#L77-L84</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts#L77-L84" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts#L77-L84</a></sub></sup>
 
 
 ### Fee Paying Contract
@@ -202,12 +202,12 @@ const tx = await bananaCoin.methods
   })
   .wait();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_fees/public_payments.test.ts#L58-L68" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_fees/public_payments.test.ts#L58-L68</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/e2e_fees/public_payments.test.ts#L58-L68" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_fees/public_payments.test.ts#L58-L68</a></sub></sup>
 
 
 In this example, thanks to this FPC's `accepted_asset` being banana tokens, Alice only needs to hold this token and not fee juice. The asset that a FPC accepts for paying fees is determined when the FPC is deployed. The function being called happens to also be a transfer of banana tokens to Bob.
 
-More on FPCs [here](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.4/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr)
+More on FPCs [here](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.5/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr)
 
 See this [section](../../reference/environment_reference/cli_wallet_reference.md#fee-paying-contract) for paying fees via an FPC using the CLI wallet.
 
@@ -249,7 +249,7 @@ const paymentMethod = new SponsoredFeePaymentMethod(sponseredFPC.address);
 You can see an example implementation for `getSponsoredFPCInstance()` [here](https://github.com/AztecProtocol/aztec-packages/blob/360a5f628b4edaf1ea9b328d9e9231f60fdc81a0/yarn-project/aztec/src/sandbox/sponsored_fpc.ts#L5).
 
 Once this is set up, a transaction can specify this as the `paymentMethod` in the fee object.
-You can see an example of how to get a deployed instance of a sponsored FPC in the sandbox [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/aztec/src/sandbox/sponsored_fpc.ts#L15).
+You can see an example of how to get a deployed instance of a sponsored FPC in the sandbox [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/aztec/src/sandbox/sponsored_fpc.ts#L15).
 For example, a contract can be deployed with an fpc as follows:
 
 ```ts
@@ -278,12 +278,12 @@ export type UserFeeOptions = {
   estimatedGasPadding?: number;
 };
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/entrypoints/src/interfaces.ts#L79-L93" target="_blank" rel="noopener noreferrer">Source code: yarn-project/entrypoints/src/interfaces.ts#L79-L93</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/entrypoints/src/interfaces.ts#L79-L93" target="_blank" rel="noopener noreferrer">Source code: yarn-project/entrypoints/src/interfaces.ts#L79-L93</a></sub></sup>
 
 
 ### Fee Payment Method
 
-The `paymentMethod` is an object for the type of payment. Each of the implementations can be found [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/aztec.js/src/fee). For example:
+The `paymentMethod` is an object for the type of payment. Each of the implementations can be found [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/aztec.js/src/fee). For example:
 
 ```javascript title="fee_juice_method" showLineNumbers 
 /**
@@ -291,7 +291,7 @@ The `paymentMethod` is an object for the type of payment. Each of the implementa
  */
 export class FeeJuicePaymentMethod implements FeePaymentMethod {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/aztec.js/src/fee/fee_juice_payment_method.ts#L6-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/fee/fee_juice_payment_method.ts#L6-L11</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/aztec.js/src/fee/fee_juice_payment_method.ts#L6-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/fee/fee_juice_payment_method.ts#L6-L11</a></sub></sup>
 
 
 ### Gas Settings
@@ -306,7 +306,7 @@ export class GasSettings {
     public readonly maxPriorityFeesPerGas: GasFees,
   ) {}
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20</a></sub></sup>
 
 
 import { Gas_Settings_Components, Gas_Settings } from '@site/src/components/Snippets/general_snippets';

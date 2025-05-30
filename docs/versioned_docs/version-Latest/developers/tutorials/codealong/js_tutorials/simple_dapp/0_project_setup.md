@@ -12,10 +12,10 @@ We'll use [`yarn`](https://yarnpkg.com/) for managing our project and dependenci
 node -v
 ```
 
-and ensure that you are running sandbox version 0.87.4.
+and ensure that you are running sandbox version 0.87.5.
 
 ```bash
-aztec-up 0.87.4
+aztec-up 0.87.5
 ```
 
 2. Create a new folder and initialize a new project.
@@ -29,7 +29,7 @@ yarn init -yp
 3. Add the `aztec.js` and `accounts` libraries as dependencies. Also add `noir-contracts.js` for quick use of example contracts:
 
 ```sh
-yarn add @aztec/aztec.js@0.87.4 @aztec/accounts@0.87.4 @aztec/noir-contracts.js@0.87.4
+yarn add @aztec/aztec.js@0.87.5 @aztec/accounts@0.87.5 @aztec/noir-contracts.js@0.87.5
 ```
 
 and yarn config:

@@ -58,7 +58,7 @@ pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CA
 pub public_teardown_call_request: PublicCallRequest,
 pub l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L52-L75" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L52-L75</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L52-L75" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L52-L75</a></sub></sup>
 
 
 ### Private Context Broken Down
@@ -75,7 +75,7 @@ pub struct PrivateContextInputs {
     pub start_side_effect_counter: u32,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14</a></sub></sup>
 
 
 As shown in the snippet, the application context is made up of 4 main structures. The call context, the block header, and the private global variables.
@@ -90,7 +90,7 @@ pub struct CallContext {
     pub is_static_call: bool,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16</a></sub></sup>
 
 
 The call context contains information about the current call being made:
@@ -125,7 +125,7 @@ pub struct BlockHeader {
     pub total_mana_used: Field,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20</a></sub></sup>
 
 
 ### Transaction Context
@@ -139,7 +139,7 @@ pub struct TxContext {
     pub gas_settings: GasSettings,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14</a></sub></sup>
 
 
 ### Args Hash
@@ -162,7 +162,7 @@ Some data structures impose time constraints, e.g. they may make it so that a va
 ```rust title="max-block-number" showLineNumbers 
 pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230</a></sub></sup>
 
 
 A transaction that requests a maximum block number will never be included in a block with a block number larger than the requested value, since it would be considered invalid. This can also be used to make transactions automatically expire after some time if not included.
@@ -217,5 +217,5 @@ pub struct GlobalVariables {
     pub gas_fees: GasFees,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20</a></sub></sup>
 

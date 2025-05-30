@@ -26,7 +26,7 @@ function sendL2Message(
   bytes32 _secretHash
 ) external returns (bytes32, uint256);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49</a></sub></sup>
 
 
 
@@ -60,7 +60,7 @@ Allows the `Rollup` to consume multiple messages in a single transaction.
  */
 function consume(uint256 _toConsume) external returns (bytes32);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L51-L63" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L51-L63</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L51-L63" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L51-L63</a></sub></sup>
 
 
 | Name           | Type        | Description                |

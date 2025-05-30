@@ -33,7 +33,7 @@ import { type AccountWallet, Fr, type PXE, TxStatus, createPXEClient, waitForPXE
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L1-L6" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L1-L6</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L1-L6" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L1-L6</a></sub></sup>
 
 
 You should also import the [Typescript class you generated](../smart_contracts/how_to_compile_contract.md#typescript-interfaces):
@@ -41,7 +41,7 @@ You should also import the [Typescript class you generated](../smart_contracts/h
 ```typescript title="import_contract" showLineNumbers 
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L7-L10" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L7-L10</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L7-L10" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L7-L10</a></sub></sup>
 
 
 ## Create a PXE client
@@ -52,7 +52,7 @@ Currently, testing Aztec.nr smart contracts means testing them against the PXE t
 const pxe = createPXEClient(PXE_URL);
 await waitForPXE(pxe);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L19-L22" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L19-L22</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L19-L22" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L19-L22</a></sub></sup>
 
 
 and use the accounts that are initialized with it:
@@ -64,7 +64,7 @@ token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName
   .send()
   .deployed();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L32-L38" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L32-L38</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L32-L38" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L32-L38</a></sub></sup>
 
 
 Alternatively, you can [create a new account.](./create_account.md).
@@ -88,7 +88,7 @@ This debug information will be populated in the transaction receipt. You can log
 const tx = await asset.methods.transfer(accounts[1].address, totalBalance).send().wait();
 const txEffects = await node.getTxEffect(tx.txHash);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_token_contract/private_transfer_recursion.test.ts#L25-L28" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_token_contract/private_transfer_recursion.test.ts#L25-L28</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/e2e_token_contract/private_transfer_recursion.test.ts#L25-L28" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_token_contract/private_transfer_recursion.test.ts#L25-L28</a></sub></sup>
 
 
 You can also log directly from Aztec contracts. Read [this guide](../../reference/debugging/index.md#logging-in-aztecnr) for some more information.
@@ -103,7 +103,7 @@ We can check that a call to a private function would fail by simulating it local
 const call = token.methods.transfer(recipient.getAddress(), 200n);
 await expect(call.simulate()).rejects.toThrow(/Balance too low/);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126</a></sub></sup>
 
 
 Under the hood, the `send()` method executes a simulation, so we can just call the usual `send().wait()` to catch the same failure.
@@ -112,7 +112,7 @@ Under the hood, the `send()` method executes a simulation, so we can just call t
 const call = token.methods.transfer(recipient.getAddress(), 200n);
 await expect(call.simulate()).rejects.toThrow(/Balance too low/);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L123-L126</a></sub></sup>
 
 
 #### A transaction is dropped
@@ -129,7 +129,7 @@ const provenCall2 = await call2.prove();
 await provenCall1.send().wait();
 await expect(provenCall2.send().wait()).rejects.toThrow(/dropped|nullifier/i);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L130-L139" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L130-L139</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L130-L139" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L130-L139</a></sub></sup>
 
 
 #### A public call fails locally
@@ -140,7 +140,7 @@ Public function calls can be caught failing locally similar to how we catch priv
 const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
 await expect(call.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L143-L146" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L143-L146</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L143-L146" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L143-L146</a></sub></sup>
 
 
 #### A public call fails on the sequencer
@@ -158,7 +158,7 @@ const ownerPublicBalanceSlot = await cheats.aztec.computeSlotInMap(
 const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
 expect(balance.value).toEqual(100n);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L150-L160" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L150-L160</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L150-L160" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L150-L160</a></sub></sup>
 
 
 ```
@@ -176,7 +176,7 @@ cheats = await CheatCodes.create(ETHEREUM_HOSTS.split(','), pxe);
 // The balances mapping is indexed by user address
 ownerSlot = await cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L74-L78" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L74-L78</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L74-L78" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L74-L78</a></sub></sup>
 
 
 #### Querying private state
@@ -196,7 +196,7 @@ const values = notes.map(note => note.note.items[2]);
 const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
 expect(balance).toEqual(100n);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L82-L94" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L82-L94</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L82-L94" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L82-L94</a></sub></sup>
 
 
 #### Querying public state
@@ -212,7 +212,7 @@ const ownerPublicBalanceSlot = await cheats.aztec.computeSlotInMap(
 const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
 expect(balance.value).toEqual(100n);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L98-L106" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L98-L106</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L98-L106" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L98-L106</a></sub></sup>
 
 
 ### Logs
@@ -233,7 +233,7 @@ const filter = {
 const logs = (await pxe.getPublicLogs(filter)).logs;
 expect(logs[0].log.getEmittedFields()).toEqual([value]);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L110-L119" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L110-L119</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L110-L119" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L110-L119</a></sub></sup>
 
 
 ## Cheats

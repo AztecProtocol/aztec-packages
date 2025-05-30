@@ -67,7 +67,7 @@ pub trait NoteHash {
     unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/note/note_interface.nr#L5-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/note/note_interface.nr#L5-L37</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/aztec/src/note/note_interface.nr#L5-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/note/note_interface.nr#L5-L37</a></sub></sup>
 
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
@@ -110,7 +110,7 @@ An example of `PrivateMutable` usage in the account contracts is keeping track o
 ```rust title="storage-private-mutable-declaration" showLineNumbers 
 legendary_card: PrivateMutable<CardNote, Context>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L30-L32" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L30-L32</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L30-L32" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L30-L32</a></sub></sup>
 
 
 ### `new`
@@ -120,7 +120,7 @@ As part of the initialization of the `Storage` struct, the `PrivateMutable` is c
 ```rust title="start_vars_private_mutable" showLineNumbers 
 legendary_card: PrivateMutable::new(context, 3),
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L57-L59" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L57-L59</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L57-L59" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L57-L59</a></sub></sup>
 
 
 ### `initialize`
@@ -143,7 +143,7 @@ Extend on what happens if you try to use non-initialized state.
 
 ### `is_initialized`
 
-An unconstrained method to check whether the PrivateMutable has been initialized or not. It takes an optional owner and returns a boolean. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/state_vars/private_mutable.nr).
+An unconstrained method to check whether the PrivateMutable has been initialized or not. It takes an optional owner and returns a boolean. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/aztec/src/state_vars/private_mutable.nr).
 
 ```rust title="private_mutable_is_initialized" showLineNumbers 
 #[utility]
@@ -151,7 +151,7 @@ unconstrained fn is_legendary_initialized() -> bool {
     storage.legendary_card.is_initialized()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L139-L144" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L139-L144</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L139-L144" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L139-L144</a></sub></sup>
 
 
 ### `replace`
@@ -167,7 +167,7 @@ storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
     context.msg_sender(),
 ));
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L130-L136" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L130-L136</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L130-L136" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L130-L136</a></sub></sup>
 
 
 If two people are trying to modify the PrivateMutable at the same time, only one will succeed as we don't allow duplicate nullifiers! Developers should put in place appropriate access controls to avoid race conditions (unless a race is intended!).
@@ -179,7 +179,7 @@ This function allows us to get the note of a PrivateMutable, essentially reading
 ```rust title="state_vars-PrivateMutableGet" showLineNumbers 
 let card = storage.legendary_card.get_note().note;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L124-L126" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L124-L126</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L124-L126" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L124-L126</a></sub></sup>
 
 
 #### Nullifying Note reads
@@ -194,7 +194,7 @@ Functionally similar to [`get_note`](#get_note), but executed in unconstrained f
 
 ## `PrivateImmutable<NoteType>`
 
-`PrivateImmutable` (formerly known as `ImmutableSingleton`) represents a unique private state variable that, as the name suggests, is immutable. Once initialized, its value cannot be altered. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/state_vars/private_immutable.nr).
+`PrivateImmutable` (formerly known as `ImmutableSingleton`) represents a unique private state variable that, as the name suggests, is immutable. Once initialized, its value cannot be altered. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/aztec/src/state_vars/private_immutable.nr).
 
 ### `new`
 
@@ -203,7 +203,7 @@ As part of the initialization of the `Storage` struct, the `PrivateMutable` is c
 ```rust title="storage-private-immutable-declaration" showLineNumbers 
 private_immutable: PrivateImmutable<CardNote, Context>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L38-L40" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L38-L40</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L38-L40" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L38-L40</a></sub></sup>
 
 
 ### `initialize`
@@ -230,14 +230,14 @@ fn initialize_private_immutable(randomness: Field, points: u8) {
     ));
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L99-L110" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L99-L110</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L99-L110" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L99-L110</a></sub></sup>
 
 
 Once initialized, an PrivateImmutable's value remains unchangeable. This method can only be called once.
 
 ### `is_initialized`
 
-An unconstrained method to check if the PrivateImmutable has been initialized. Takes an optional owner and returns a boolean. You can find the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/state_vars/private_immutable.nr).
+An unconstrained method to check if the PrivateImmutable has been initialized. Takes an optional owner and returns a boolean. You can find the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/aztec/src/state_vars/private_immutable.nr).
 
 ### `get_note`
 
@@ -251,7 +251,7 @@ fn get_imm_card() -> CardNote {
     storage.private_immutable.get_note()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L146-L151" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L146-L151</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L146-L151" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L146-L151</a></sub></sup>
 
 
 Unlike a `PrivateMutable`, the `get_note` function for an PrivateImmutable doesn't nullify the current note in the background. This means that multiple accounts can concurrently call this function to read the value.
@@ -266,14 +266,14 @@ Functionally similar to `get_note`, but executed unconstrained and can be used b
 
 `PrivateSet` is used for managing a collection of notes. All notes in a `PrivateSet` are of the same `NoteType`. But whether these notes all belong to one entity, or are accessible and editable by different entities, is up to the developer. The set is a collection of notes inserted into the data-tree, but notes are never removed from the tree itself, they are only nullified.
 
-You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/state_vars/private_set.nr).
+You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/aztec/src/state_vars/private_set.nr).
 
 And can be added to the `Storage` struct as follows. Here adding a set for a custom note.
 
 ```rust title="storage-set-declaration" showLineNumbers 
 set: PrivateSet<CardNote, Context>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L35-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L35-L37</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L35-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L35-L37</a></sub></sup>
 
 
 ### `new`
@@ -285,7 +285,7 @@ We can initialize the set as follows:
 ```rust title="storage-set-init" showLineNumbers 
 set: PrivateSet::new(context, 5),
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L68-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L68-L70</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L68-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L68-L70</a></sub></sup>
 
 
 ### `insert`
@@ -297,7 +297,7 @@ A hash of the note will be generated, and inserted into the note hash tree, allo
 ```rust title="insert" showLineNumbers 
 self.set.insert(addend_note).emit(encode_and_encrypt_note(self.context, owner, sender));
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr#L36-L38" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr#L36-L38</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr#L36-L38" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr#L36-L38</a></sub></sup>
 
 
 ### `insert_from_public`
@@ -310,17 +310,17 @@ The usage is similar to using the `insert` method with the difference that this 
 
 This function pops (gets, removes and returns) the notes the account has access to based on the provided filter.
 
-The kernel circuits are constrained to a maximum number of notes this function can return at a time. Check [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr) and look for `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` for the up-to-date number.
+The kernel circuits are constrained to a maximum number of notes this function can return at a time. Check [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr) and look for `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` for the up-to-date number.
 
 Because of this limit, we should always consider using the second argument `NoteGetterOptions` to limit the number of notes we need to read and constrain in our programs. This is quite important as every extra call increases the time used to prove the program and we don't want to spend more time than necessary.
 
-An example of such options is using the [filter_notes_min_sum (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/value-note/src/filter.nr) to get "enough" notes to cover a given value. Essentially, this function will return just enough notes to cover the amount specified such that we don't need to read all our notes. For users with a lot of notes, this becomes increasingly important.
+An example of such options is using the [filter_notes_min_sum (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/value-note/src/filter.nr) to get "enough" notes to cover a given value. Essentially, this function will return just enough notes to cover the amount specified such that we don't need to read all our notes. For users with a lot of notes, this becomes increasingly important.
 
 ```rust title="pop_notes" showLineNumbers 
 let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
 let notes = self.set.pop_notes(options);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr#L43-L46" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr#L43-L46</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr#L43-L46" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr#L43-L46</a></sub></sup>
 
 
 ### `get_notes`
@@ -341,10 +341,10 @@ Functionally similar to [`get_notes`](#get_notes), but executed unconstrained an
 let mut options = NoteViewerOptions::new();
 let notes = set.view_notes(options.set_offset(offset));
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/value-note/src/balance_utils.nr#L15-L18" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/value-note/src/balance_utils.nr#L15-L18</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/value-note/src/balance_utils.nr#L15-L18" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/value-note/src/balance_utils.nr#L15-L18</a></sub></sup>
 
 
-There's also a limit on the maximum number of notes that can be returned in one go. To find the current limit, refer to [this file (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/note/constants.nr) and look for `MAX_NOTES_PER_PAGE`.
+There's also a limit on the maximum number of notes that can be returned in one go. To find the current limit, refer to [this file (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/aztec/src/note/constants.nr) and look for `MAX_NOTES_PER_PAGE`.
 
 The key distinction is that this method is unconstrained. It does not perform a check to verify if the notes actually exist, which is something the [`get_notes`](#get_notes) method does under the hood. Therefore, it should only be used in an unconstrained contract function.
 
@@ -354,7 +354,7 @@ This function requires a `NoteViewerOptions`. The `NoteViewerOptions` is essenti
 
 `NoteGetterOptions` encapsulates a set of configurable options for filtering and retrieving a selection of notes from a data oracle. Developers can design instances of `NoteGetterOptions`, to determine how notes should be filtered and returned to the functions of their smart contracts.
 
-You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/note/note_getter_options.nr).
+You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/aztec/src/note/note_getter_options.nr).
 
 ### `selects: BoundedVec<Option<Select>, N>`
 
@@ -449,7 +449,7 @@ where
         .set_offset(offset)
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L14-L28" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L14-L28</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L14-L28" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L14-L28</a></sub></sup>
 
 
 The first value of `.select` and `.sort` indicates the property of the note we're looking for. For this we use helper functions that are autogenerated from the note definition. `CardNote` that has the following fields:
@@ -466,7 +466,7 @@ pub struct CardNote {
     owner: AztecAddress,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14</a></sub></sup>
 
 
 `CardNote::properties()` will return a struct with the values to pass for each field, which are related to their indices inside the `CardNote` struct, internal offset and length.
@@ -493,7 +493,7 @@ where
         .select(CardNote::properties().owner, Comparator.EQ, account)
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L30-L45" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L30-L45</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L30-L45" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L30-L45</a></sub></sup>
 
 
 While `selects` lets us find notes with specific values, `filter` lets us find notes in a more dynamic way. The function below picks the cards whose points are at least `min_points`, although this now can be done by using the select function with a GTE comparator:
@@ -514,7 +514,7 @@ pub fn filter_min_points(
     selected_cards
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L47-L62" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L47-L62</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L47-L62" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L47-L62</a></sub></sup>
 
 
 We can use it as a filter to further reduce the number of the final notes:
@@ -532,7 +532,7 @@ where
     )
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L64-L76" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L64-L76</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L64-L76" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L64-L76</a></sub></sup>
 
 
 One thing to remember is, `filter` will be applied on the notes after they are picked from the database, so it is more efficient to use select with comparators where possible. Another side effect of this is that it's possible that the actual notes we end up getting are fewer than the limit.
@@ -548,7 +548,7 @@ where
     options.sort(CardNote::properties().points, SortOrder.DESC).set_limit(1)
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L78-L86" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L78-L86</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L78-L86" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr#L78-L86</a></sub></sup>
 
 
 #### Example 2
@@ -558,7 +558,7 @@ An example of how we can use a Comparator to select notes when calling a Noir co
 ```typescript title="state_vars-NoteGetterOptionsComparatorExampleTs" showLineNumbers 
 contract.methods.read_note_values(Comparator.GTE, 5).simulate(),
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_note_getter.test.ts#L49-L51" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_note_getter.test.ts#L49-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/e2e_note_getter.test.ts#L49-L51" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_note_getter.test.ts#L49-L51</a></sub></sup>
 
 
 In this example, we use the above typescript code to invoke a call to our Noir contract below. This Noir contract function takes an input to match with, and a comparator to use when fetching and selecting notes from storage.
@@ -570,5 +570,5 @@ unconstrained fn read_note(comparator: u8, amount: Field) -> BoundedVec<CardNote
     storage.set.view_notes(options.select(CardNote::properties().points, comparator, amount))
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L112-L118" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L112-L118</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L112-L118" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L112-L118</a></sub></sup>
 

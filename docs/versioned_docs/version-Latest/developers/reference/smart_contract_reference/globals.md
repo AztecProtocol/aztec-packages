@@ -19,7 +19,7 @@ pub struct TxContext {
     pub gas_settings: GasSettings,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14</a></sub></sup>
 
 
 The private global variables are equal to the transaction context and contain:
@@ -58,7 +58,7 @@ pub struct GlobalVariables {
     pub gas_fees: GasFees,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20</a></sub></sup>
 
 
 The public global variables contain the values present in the `private global variables` described above, with the addition of:

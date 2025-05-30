@@ -40,7 +40,7 @@ Import the typescript artifact into your file.
 ```typescript title="import_artifact" showLineNumbers 
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7</a></sub></sup>
 
 
 Then you can use the `Contract` class **or** the [generated contract class](#using-generated-contract-class) to deploy the contract.
@@ -67,7 +67,7 @@ async function main() {
   writeFileSync('addresses.json', JSON.stringify(addresses, null, 2));
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32</a></sub></sup>
 
 
 #### Deploy Arguments
@@ -92,7 +92,7 @@ export type DeployOptions = {
   skipInitialization?: boolean;
 } & SendMethodOptions;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/aztec.js/src/contract/deploy_method.ts#L32-L45" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/deploy_method.ts#L32-L45</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/aztec.js/src/contract/deploy_method.ts#L32-L45" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/deploy_method.ts#L32-L45</a></sub></sup>
 
 
 ### Using generated contract class

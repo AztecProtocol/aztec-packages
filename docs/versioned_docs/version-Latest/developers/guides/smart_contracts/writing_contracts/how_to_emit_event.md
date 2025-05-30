@@ -21,7 +21,7 @@ Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
     from,
 ));
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L291-L297" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L291-L297</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L291-L297" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L291-L297</a></sub></sup>
 
 
 - `encode_and_encrypt_event` Sends an encrypted message to `recipient` with the content of the event, which they will discover when processing private logs.
@@ -31,7 +31,7 @@ Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
 Developer can choose whether to emit encrypted events or not. Emitting the events means that they will be posted to Ethereum, in blobs, and will inherit the availability guarantees of Ethereum. Developers may choose not to emit events and to share information with recipients off-chain, or through alternative mechanisms that are to be developed (e.g. alternative, cheaper data availability solutions).
 :::
 
-You can find the implementation of event logging [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/messages/logs/event.nr)
+You can find the implementation of event logging [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/aztec-nr/aztec/src/messages/logs/event.nr)
 
 ### Processing encrypted events
 
@@ -46,7 +46,7 @@ let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
 event0.emit(encode_event(&mut context));
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/test/test_log_contract/src/main.nr#L53-L57" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_log_contract/src/main.nr#L53-L57</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/test/test_log_contract/src/main.nr#L53-L57" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_log_contract/src/main.nr#L53-L57</a></sub></sup>
 
 
 ## Public Logs
@@ -62,7 +62,7 @@ context.emit_public_log(/*message=*/ value);
 context.emit_public_log(/*message=*/ [10, 20, 30]);
 context.emit_public_log(/*message=*/ "Hello, world!");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L359-L363" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L359-L363</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L359-L363" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L359-L363</a></sub></sup>
 
 
 ### Querying the unencrypted event
@@ -77,7 +77,7 @@ const logFilter = {
 };
 const publicLogs = (await pxe.getPublicLogs(logFilter)).logs;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_ordering.test.ts#L23-L30" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_ordering.test.ts#L23-L30</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/e2e_ordering.test.ts#L23-L30" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_ordering.test.ts#L23-L30</a></sub></sup>
 
 
 ## Costs

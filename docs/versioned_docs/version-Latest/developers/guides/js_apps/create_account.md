@@ -15,7 +15,7 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { Fr, GrumpkinScalar, createPXEClient } from '@aztec/aztec.js';
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L2-L6" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L2-L6</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L2-L6" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L2-L6</a></sub></sup>
 
 
 ## Define arguments needed
@@ -26,7 +26,7 @@ const pxe = createPXEClient(PXE_URL);
 const secretKey = Fr.random();
 const signingPrivateKey = GrumpkinScalar.random();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L18-L23" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L18-L23</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L18-L23" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L18-L23</a></sub></sup>
 
 
 ## Create the wallet with these args
@@ -38,7 +38,7 @@ const newAccount = await getSchnorrAccount(pxe, secretKey, signingPrivateKey);
 await newAccount.deploy({ deployWallet: wallet }).wait();
 const newWallet = await newAccount.getWallet();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L25-L31" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L25-L31</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/end-to-end/src/composed/docs_examples.test.ts#L25-L31" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/docs_examples.test.ts#L25-L31</a></sub></sup>
 
 
 Now you have a new wallet in your PXE! To learn how to use this wallet to deploy a contract, read [this guide](./deploy_contract.md).

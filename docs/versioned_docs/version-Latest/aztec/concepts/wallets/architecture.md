@@ -39,7 +39,7 @@ export interface AccountInterface extends EntrypointInterface, AuthWitnessProvid
   getVersion(): Fr;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/aztec.js/src/account/interface.ts#L6-L25" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/account/interface.ts#L6-L25</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/aztec.js/src/account/interface.ts#L6-L25" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/account/interface.ts#L6-L25</a></sub></sup>
 
 
 ## PXE interface
@@ -386,5 +386,5 @@ export interface PXE {
   getPublicEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/stdlib/src/interfaces/pxe.ts#L49-L388" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/interfaces/pxe.ts#L49-L388</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/stdlib/src/interfaces/pxe.ts#L49-L388" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/interfaces/pxe.ts#L49-L388</a></sub></sup>
 

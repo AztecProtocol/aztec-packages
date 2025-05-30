@@ -24,7 +24,7 @@ fn simple_macro_example(a: Field, b: Field) -> Field {
     a + b
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L156-L161" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L156-L161</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L156-L161" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L156-L161</a></sub></sup>
 
 
 #### After expansion
@@ -61,7 +61,7 @@ fn simple_macro_example_expanded(
     // ************************************************************
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L167-L212" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L167-L212</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L167-L212" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L167-L212</a></sub></sup>
 
 
 #### The expansion broken down
@@ -72,7 +72,7 @@ Viewing the expanded Aztec contract uncovers a lot about how Aztec contracts int
 ```rust title="context-example-inputs" showLineNumbers 
 inputs: PrivateContextInputs,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L171-L173" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L171-L173</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L171-L173" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L171-L173</a></sub></sup>
 
 
 Private function calls are able to interact with each other through orchestration from within the kernel circuits. The kernel circuit forwards information to each contract function (recall each contract function is a circuit). This information then becomes part of the private context.
@@ -84,7 +84,7 @@ The kernel checks that all of the values passed to each circuit in a function ca
 ```rust title="context-example-return" showLineNumbers 
 ) -> PrivateCircuitPublicInputs {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L179-L181" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L179-L181</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L179-L181" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L179-L181</a></sub></sup>
 
 
 The contract function must return information about the execution back to the kernel. This is done through a rigid structure we call the `PrivateCircuitPublicInputs`.
@@ -100,7 +100,7 @@ let mut args_hasher = dep::aztec::hash::ArgsHasher::new();
 args_hasher.add(a);
 args_hasher.add(b);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L184-L188" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L184-L188</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L184-L188" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L184-L188</a></sub></sup>
 
 
 _What is the hasher and why is it needed?_
@@ -111,7 +111,7 @@ Inside the kernel circuits, the inputs to functions are reduced to a single valu
 ```rust title="context-example-context" showLineNumbers 
 let mut context = PrivateContext::new(inputs, args_hasher.hash());
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L190-L192" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L190-L192</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L190-L192" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L190-L192</a></sub></sup>
 
 
 Each Aztec function has access to a [context](context) object. This object, although labelled a global variable, is created locally on a users' device. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
@@ -121,7 +121,7 @@ let mut return_hasher = dep::aztec::hash::ArgsHasher::new();
 return_hasher.add(result);
 context.set_return_hash(return_hasher);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L201-L205" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L201-L205</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L201-L205" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L201-L205</a></sub></sup>
 
 
 We use the kernel to pass information between circuits. This means that the return values of functions must also be passed to the kernel (where they can be later passed on to another function).
@@ -131,7 +131,7 @@ We achieve this by pushing return values to the execution context, which we then
 ```rust title="storage-example-context" showLineNumbers 
 let mut storage = Storage::init(&mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L193-L195" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L193-L195</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L193-L195" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L193-L195</a></sub></sup>
 
 
 When a `Storage` struct is declared within a contract, the `storage` keyword is made available. As shown in the macro expansion above, this calls the init function on the storage struct with the current function's context.
@@ -142,7 +142,7 @@ Any state variables declared in the `Storage` struct can now be accessed as norm
 ```rust title="context-example-finish" showLineNumbers 
 context.finish()
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L207-L209" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L207-L209</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L207-L209" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L207-L209</a></sub></sup>
 
 
 This function takes the application context, and converts it into the `PrivateCircuitPublicInputs` structure. This structure is then passed to the kernel circuit.
@@ -190,7 +190,7 @@ public async runUtility(call: FunctionCall, authwits: AuthWitness[], scopes?: Az
     });
 
     const initialWitness = toACVMWitness(0, call.args);
-    const acirExecutionResult = await this.simulator
+    const acirExecutionResult = await this.simulationProvider
       .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle))
       .catch((err: Error) => {
         err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
@@ -213,7 +213,7 @@ public async runUtility(call: FunctionCall, authwits: AuthWitness[], scopes?: Az
   }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/simulator/src/private/simulator.ts#L121-L169" target="_blank" rel="noopener noreferrer">Source code: yarn-project/simulator/src/private/simulator.ts#L121-L169</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/yarn-project/simulator/src/private/simulator.ts#L121-L169" target="_blank" rel="noopener noreferrer">Source code: yarn-project/simulator/src/private/simulator.ts#L121-L169</a></sub></sup>
 
 
 This:
@@ -231,7 +231,7 @@ pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
     storage.balances.at(owner).balance_of()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L639-L644" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L639-L644</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L639-L644" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L639-L644</a></sub></sup>
 
 
 :::info
@@ -255,7 +255,7 @@ fn set_minter(minter: AztecAddress, approve: bool) {
     storage.minters.at(minter).write(approve);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L183-L193" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L183-L193</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L183-L193" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L183-L193</a></sub></sup>
 
 
 Under the hood:

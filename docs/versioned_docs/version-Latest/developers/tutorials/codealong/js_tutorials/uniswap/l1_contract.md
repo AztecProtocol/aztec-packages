@@ -44,7 +44,7 @@ contract UniswapPortal {
     bytes32 contentHash;
   }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/test/portals/UniswapPortal.sol#L12-L48" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/UniswapPortal.sol#L12-L48</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/l1-contracts/test/portals/UniswapPortal.sol#L12-L48" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/UniswapPortal.sol#L12-L48</a></sub></sup>
 
 
 ## Public swap
@@ -155,7 +155,7 @@ function swapPublic(
   );
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/test/portals/UniswapPortal.sol#L50-L155" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/UniswapPortal.sol#L50-L155</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/l1-contracts/test/portals/UniswapPortal.sol#L50-L155" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/UniswapPortal.sol#L50-L155</a></sub></sup>
 
 
 1. It fetches the input and output tokens we are swapping. The Uniswap portal only needs to know the portal addresses of the input and output as they store the underlying ERC20 token address.
@@ -279,7 +279,7 @@ This works very similarly to the public flow.
   }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/test/portals/UniswapPortal.sol#L157-L258" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/UniswapPortal.sol#L157-L258</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.5/l1-contracts/test/portals/UniswapPortal.sol#L157-L258" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/UniswapPortal.sol#L157-L258</a></sub></sup>
 
 
 You can find the corresponding function on the [L2 contracts page](./l2_contract.md#private-swap).
