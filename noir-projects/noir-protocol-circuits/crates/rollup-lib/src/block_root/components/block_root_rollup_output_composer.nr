@@ -235,29 +235,25 @@ impl BlockRootRollupOutputComposer {
         self,
         data: BlockRootRollupBlobData,
     ) -> BlobAccumulatorPublicInputs {
-        evaluate_blobs_and_batch(
-            data.blobs_fields,
-            data.blob_commitments,
-            self.merged_rollup.end_sponge_blob,
-            self.data.final_blob_challenges,
-            self.data.start_blob_accumulator,
-        )
-        // TODO(MW): Remove below once simulation of above is tested
-        // if !dep::std::runtime::is_unconstrained() {
-        //     evaluate_blobs(
-        //         data.blobs_fields,
-        //         data.blob_commitments,
-        //         self.merged_rollup.end_sponge_blob,
-        //     )
-        // } else {
-        //     // Safety: TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
-        //     unsafe {
-        //         blob::mock_blob_oracle::evaluate_blobs(
-        //             data.blobs_fields,
-        //             data.blob_commitments,
-        //             self.merged_rollup.end_sponge_blob,
-        //         )
-        //     }
-        // }
+        if !dep::std::runtime::is_unconstrained() {
+            evaluate_blobs_and_batch(
+                data.blobs_fields,
+                data.blob_commitments,
+                self.merged_rollup.end_sponge_blob,
+                self.data.final_blob_challenges,
+                self.data.start_blob_accumulator,
+            )
+        } else {
+            // Safety: TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
+            unsafe {
+                blob::mock_blob_oracle::evaluate_blobs_and_batch(
+                    data.blobs_fields,
+                    data.blob_commitments,
+                    self.merged_rollup.end_sponge_blob,
+                    self.data.final_blob_challenges,
+                    self.data.start_blob_accumulator,
+                )
+            }
+        }
     }
 }

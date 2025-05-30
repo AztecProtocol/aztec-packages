@@ -68,6 +68,7 @@ contract RollupBase is DecoderBase {
     BlockLog memory parentBlockLog = rollup.getBlock(startBlockNumber - 1);
 
     // What are these even?
+    // ^ public inputs to the root proof?
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: parentBlockLog.archive,
       endArchive: endFull.block.archive,
@@ -75,17 +76,11 @@ contract RollupBase is DecoderBase {
     });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
-    bytes memory blobPublicInputs;
 
     uint256 size = endBlockNumber - startBlockNumber + 1;
     for (uint256 i = 0; i < size; i++) {
       fees[i * 2] = bytes32(uint256(uint160(bytes20(("sequencer"))))); // Need the address to be left padded within the bytes32
       fees[i * 2 + 1] = bytes32(uint256(blockFees[startBlockNumber + i]));
-
-      string memory blockName = string.concat(_name, Strings.toString(startBlockNumber + i));
-      DecoderBase.Full memory blockFull = load(blockName);
-      blobPublicInputs =
-        abi.encodePacked(blobPublicInputs, this.getBlobPublicInputs(blockFull.block.blobInputs));
     }
 
     // All the way down here if reverting.
@@ -100,7 +95,7 @@ contract RollupBase is DecoderBase {
         end: endBlockNumber,
         args: args,
         fees: fees,
-        blobPublicInputs: blobPublicInputs,
+        blobInputs: endFull.block.batchedBlobInputs,
         proof: ""
       })
     );
@@ -131,7 +126,7 @@ contract RollupBase is DecoderBase {
   ) private {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
-    bytes memory blobInputs = full.block.blobInputs;
+    bytes memory blobCommitments = full.block.blobCommitments;
 
     Slot slotNumber = Slot.wrap(_slotNumber);
 
@@ -161,13 +156,7 @@ contract RollupBase is DecoderBase {
       DecoderBase.updateHeaderInboxRoot(header, rollup.getInbox().getRoot(full.block.blockNumber));
 
     {
-      bytes32[] memory blobHashes = new bytes32[](1);
-      // The below is the blob hash == bytes [1:33] of _blobInput
-      bytes32 blobHash;
-      assembly {
-        blobHash := mload(add(blobInputs, 0x21))
-      }
-      blobHashes[0] = blobHash;
+      bytes32[] memory blobHashes = this.getBlobHashes(blobCommitments);
       // https://github.com/foundry-rs/foundry/issues/10074
       // don't add blob hashes if forge gas report is true
       if (!vm.envOr("FORGE_GAS_REPORT", false)) {
@@ -189,7 +178,7 @@ contract RollupBase is DecoderBase {
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);
     }
-    rollup.propose(args, attestations, blobInputs);
+    rollup.propose(args, attestations, blobCommitments);
 
     if (_revertMsg.length > 0) {
       return;
@@ -250,32 +239,30 @@ contract RollupBase is DecoderBase {
     }
   }
 
-  function getBlobPublicInputs(bytes calldata _blobsInput)
+  function getBlobHashes(bytes calldata _blobCommitments)
     public
     pure
-    returns (bytes memory blobPublicInputs)
+    returns (bytes32[] memory blobHashes)
   {
-    uint8 numBlobs = uint8(_blobsInput[0]);
-    blobPublicInputs = abi.encodePacked(numBlobs, blobPublicInputs);
+    uint8 numBlobs = uint8(_blobCommitments[0]);
+    blobHashes = new bytes32[](numBlobs);
+    // Add 1 for the numBlobs prefix
+    uint256 blobInputStart = 1;
     for (uint256 i = 0; i < numBlobs; i++) {
-      // Add 1 for the numBlobs prefix
-      uint256 blobInputStart = i * 192 + 1;
-      // We want to extract the bytes we use for public inputs:
-      //  * input[32:64]   - z
-      //  * input[64:96]   - y
-      //  * input[96:144]  - commitment C
-      // Out of 192 bytes per blob.
-      blobPublicInputs =
-        abi.encodePacked(blobPublicInputs, _blobsInput[blobInputStart + 32:blobInputStart + 144]);
+      // blobInputs = [numBlobs, ...blobCommitments], numBlobs is one byte, each commitment is 48
+      bytes32[1] memory blobHash = [
+        sha256(
+          abi.encodePacked(
+            _blobCommitments[blobInputStart:blobInputStart + Constants.BLS12_POINT_COMPRESSED_BYTES]
+          )
+        )
+      ];
+      blobInputStart += Constants.BLS12_POINT_COMPRESSED_BYTES;
+      // EVM blobHash = VERSIONED_HASH_VERSION_KZG + sha256(blobCommitment)[1:] => hash the commitment and replace first byte with version
+      assembly {
+        mstore8(blobHash, 0x01)
+      }
+      blobHashes[i] = blobHash[0];
     }
-  }
-
-  function getBlobPublicInputsHash(bytes calldata _blobPublicInputs)
-    public
-    pure
-    returns (bytes32 publicInputsHash)
-  {
-    uint8 numBlobs = uint8(_blobPublicInputs[0]);
-    publicInputsHash = sha256(abi.encodePacked(_blobPublicInputs[1:1 + numBlobs * 112]));
   }
 }

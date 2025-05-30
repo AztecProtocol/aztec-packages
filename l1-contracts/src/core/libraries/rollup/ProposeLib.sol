@@ -8,6 +8,7 @@ import {
   BlockLog,
   BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -43,7 +44,7 @@ struct ProposePayload {
 struct InterimProposeValues {
   bytes32[] blobHashes;
   bytes32 blobsHashesCommitment;
-  bytes32 blobPublicInputsHash;
+  bytes[] blobCommitments;
   bytes32 inHash;
   uint256 outboxMinsize;
   bytes32 headerHash;
@@ -94,7 +95,7 @@ library ProposeLib {
     InterimProposeValues memory v;
     // Since an invalid blob hash here would fail the consensus checks of
     // the header, the `blobInput` is implicitly accepted by consensus as well.
-    (v.blobHashes, v.blobsHashesCommitment, v.blobPublicInputsHash) =
+    (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) =
       BlobLib.validateBlobs(_blobInput, _checkBlob);
 
     Header memory header = HeaderLib.decode(_args.header);
@@ -140,7 +141,21 @@ library ProposeLib {
       components.proverCost
     );
 
-    rollupStore.blobPublicInputsHashes[blockNumber] = v.blobPublicInputsHash;
+    uint256 i = 0;
+    bytes32 currentblobCommitmentsHash = rollupStore.blobCommitmentsHash[blockNumber - 1];
+    // If we are at the first block of an epoch, we reinitialise the blobCommitmentsHash.
+    // Blob commitments are collected and proven per root rollup proof => per epoch.
+    bool isFirstBlockOfEpoch =
+      currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
+    if (isFirstBlockOfEpoch) {
+      // Initialise the blobAccumulatorHash
+      currentblobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(v.blobCommitments[i++]));
+    }
+    for (i; i < v.blobCommitments.length; i++) {
+      currentblobCommitmentsHash =
+        Hash.sha256ToField(abi.encodePacked(currentblobCommitmentsHash, v.blobCommitments[i]));
+    }
+    rollupStore.blobCommitmentsHash[blockNumber] = currentblobCommitmentsHash;
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
     v.inHash = rollupStore.config.inbox.consume(blockNumber);
