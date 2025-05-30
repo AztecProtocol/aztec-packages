@@ -460,13 +460,6 @@ export class RollupContract {
     return this.rollup.read.getStakingAsset();
   }
 
-  getProposerForAttester(attester: Hex | EthAddress) {
-    if (attester instanceof EthAddress) {
-      attester = attester.toString();
-    }
-    return this.rollup.read.getProposerForAttester([attester]);
-  }
-
   setupEpoch(l1TxUtils: L1TxUtils) {
     return l1TxUtils.sendAndMonitorTransaction({
       to: this.address,

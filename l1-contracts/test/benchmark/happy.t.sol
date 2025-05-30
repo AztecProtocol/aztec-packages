@@ -133,9 +133,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
-  mapping(address proposer => address attester) internal proposerToAttester;
 
-  Forwarder internal baseForwarder = new Forwarder(address(this));
+  Forwarder internal baseForwarder = new Forwarder();
 
   modifier prepare(uint256 _validatorCount) {
     // We deploy a the rollup and sets the time and all to
@@ -162,12 +161,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       address attester = vm.addr(attesterPrivateKey);
       attesterPrivateKeys[attester] = attesterPrivateKey;
 
-      address proposer = address(new Forwarder(attester));
-
-      proposerToAttester[proposer] = attester;
-
-      initialValidators[i - 1] =
-        CheatDepositArgs({attester: attester, proposer: proposer, withdrawer: address(this)});
+      initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
@@ -323,19 +317,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         skipBlobCheck(address(rollup));
 
-        address[] memory targets = new address[](1);
-        targets[0] = address(rollup);
-
-        bytes[] memory data = new bytes[](1);
-        data[0] = abi.encodeCall(IRollupCore.propose, (b.proposeArgs, b.attestations, b.blobInputs));
-
-        if (proposer == address(0)) {
-          baseForwarder.forward(targets, data);
-        } else {
-          address caller = proposerToAttester[proposer];
-          vm.prank(caller);
-          Forwarder(proposer).forward(targets, data);
-        }
+        // @note This is checking the happy path, if there are additional voting it would need to
+        // be using a forwarder.
+        vm.prank(proposer);
+        rollup.propose(b.proposeArgs, b.attestations, b.blobInputs);
 
         nextSlot = nextSlot + Slot.wrap(1);
       }
