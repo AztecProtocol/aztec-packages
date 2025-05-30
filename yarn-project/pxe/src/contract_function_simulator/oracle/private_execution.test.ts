@@ -78,6 +78,7 @@ jest.setTimeout(60_000);
  * @param contentPreimage - The args after the selector.
  * @param targetContract - The contract to consume the message.
  * @param secret - The secret to unlock the message.
+ * @param msgIndex - The index of the message in the L1 to L2 message tree.
  * @returns The L1 to L2 message.
  */
 export const buildL1ToL2Message = async (

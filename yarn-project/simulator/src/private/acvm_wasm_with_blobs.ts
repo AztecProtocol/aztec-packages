@@ -10,7 +10,7 @@ import type { ACVMSuccess } from './acvm_native.js';
 import { type CircuitSimulator, enrichNoirError } from './circuit_simulator.js';
 
 /**
- * A simulation provider that uses the WASM simulator with the ability to handle blobs via the foreign call handler.
+ * A circuit simulator that uses the WASM simulator with the ability to handle blobs via the foreign call handler.
  * This class is temporary while brillig cannot handle the blob math, and it is kept separate
  * because the zkg commitment library used in the blob code is not browser compatible.
  *

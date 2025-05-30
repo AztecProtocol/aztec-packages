@@ -9,7 +9,7 @@ import type { CircuitSimulator } from '../circuit_simulator.js';
 import type { CircuitRecorder } from './circuit_recorder.js';
 
 /**
- * Takes a simulation provider and wraps it in a circuit recorder. See CircuitRecorder for more details on how circuit
+ * Takes a circuit simulator and wraps it in a circuit recorder. See CircuitRecorder for more details on how circuit
  * recording works.
  */
 export class SimulatorRecorderWrapper implements CircuitSimulator {
