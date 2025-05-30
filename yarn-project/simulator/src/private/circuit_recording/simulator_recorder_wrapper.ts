@@ -2,19 +2,19 @@ import type { ForeignCallHandler } from '@aztec/noir-protocol-circuits-types/typ
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
-import type { ACIRCallback, ACIRCallbackStats, ACIRExecutionResult } from '../../acvm/acvm.js';
-import type { ACVMWitness } from '../../acvm/acvm_types.js';
+import type { ACIRCallback, ACIRCallbackStats, ACIRExecutionResult } from '../acvm/acvm.js';
+import type { ACVMWitness } from '../acvm/acvm_types.js';
 import type { ACVMSuccess } from '../acvm_native.js';
-import type { SimulationProvider } from '../simulation_provider.js';
+import type { CircuitSimulator } from '../circuit_simulator.js';
 import type { CircuitRecorder } from './circuit_recorder.js';
 
 /**
- * Takes a simulation provider and wraps it in a circuit recorder. See CircuitRecorder for more details on how circuit
+ * Takes a circuit simulator and wraps it in a circuit recorder. See CircuitRecorder for more details on how circuit
  * recording works.
  */
-export class SimulationProviderRecorderWrapper implements SimulationProvider {
+export class SimulatorRecorderWrapper implements CircuitSimulator {
   constructor(
-    private simulator: SimulationProvider,
+    private simulator: CircuitSimulator,
     private recorder: CircuitRecorder,
   ) {}
 

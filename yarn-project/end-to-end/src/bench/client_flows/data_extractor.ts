@@ -16,13 +16,13 @@ import { type Log, type ProverType, ProxyLogger, generateBenchmark } from './ben
 type NativeProverConfig = { bbBinaryPath?: string; bbWorkingDirectory?: string };
 
 async function createProver(config: NativeProverConfig = {}, log: Logger) {
-  const simulationProvider = new WASMSimulator();
+  const simulator = new WASMSimulator();
   if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
-    return { prover: new BBWASMBundlePrivateKernelProver(simulationProvider, 16, log), type: 'wasm' as ProverType };
+    return { prover: new BBWASMBundlePrivateKernelProver(simulator, 16, log), type: 'wasm' as ProverType };
   } else {
     const bbConfig = config as Required<NativeProverConfig>;
     return {
-      prover: await BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, simulationProvider, log),
+      prover: await BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, simulator, log),
       type: 'native' as ProverType,
     };
   }
