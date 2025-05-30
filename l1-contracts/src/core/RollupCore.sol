@@ -182,11 +182,11 @@ contract RollupCore is
     ExtRollupLib.vote(_proposalId);
   }
 
-  function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
+  function deposit(address _attester, address _withdrawer, bool _onCanonical)
     external
     override(IStakingCore)
   {
-    ExtRollupLib.deposit(_attester, _proposer, _withdrawer, _onCanonical);
+    ExtRollupLib.deposit(_attester, _withdrawer, _onCanonical);
   }
 
   function initiateWithdraw(address _attester, address _recipient)

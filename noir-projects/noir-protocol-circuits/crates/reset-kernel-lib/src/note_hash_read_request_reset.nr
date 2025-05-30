@@ -39,10 +39,10 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
     }
 }
 
-pub struct NoteHashReadRequestHints<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
+pub struct NoteHashReadRequestHints<let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
     pub read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    pub pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
-    pub settled_read_hints: [NoteHashSettledReadHint; NUM_SETTLED_HINTS],
+    pub pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
+    pub settled_read_hints: [NoteHashSettledReadHint; SETTLED_READ_HINTS_LEN],
 }
 
 mod tests {
@@ -65,13 +65,15 @@ mod tests {
         traits::{Empty, FromField, is_empty_array},
     };
 
-    struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32> {
+    struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
         contract_address: AztecAddress,
         read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
         read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
         pending_values: [ScopedNoteHash; PENDING_VALUE_LEN],
-        pending_read_hints: [PendingReadHint; NUM_PENDING_READS],
-        leaf_preimages: [NoteHashLeafPreimage; NUM_SETTLED_READS],
+        pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
+        pending_read_amount: u32,
+        leaf_preimages: [NoteHashLeafPreimage; SETTLED_READ_HINTS_LEN],
+        settled_read_amount: u32,
     }
 
     impl TestBuilder<5, 4, 3, 2> {
@@ -125,13 +127,14 @@ mod tests {
                 read_request_statuses,
                 pending_values,
                 pending_read_hints,
+                pending_read_amount: pending_read_hints.len(),
                 leaf_preimages,
+                settled_read_amount: leaf_preimages.len(),
             }
         }
     }
 
-    impl<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32> TestBuilder<READ_REQUEST_LEN, PENDING_VALUE_LEN, NUM_PENDING_READS, NUM_SETTLED_READS> {
-
+    impl<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> TestBuilder<READ_REQUEST_LEN, PENDING_VALUE_LEN, PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN> {
         fn build_tree(
             self,
         ) -> NonEmptyMerkleTree<2, NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT - 1, 1> {
@@ -182,7 +185,9 @@ mod tests {
                 self.pending_values,
                 self.read_request_statuses,
                 self.pending_read_hints,
+                self.pending_read_amount,
                 settled_hints,
+                self.settled_read_amount,
                 tree_root,
                 unverified_read_requests,
             );

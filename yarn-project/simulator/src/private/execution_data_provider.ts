@@ -287,16 +287,7 @@ export interface ExecutionDataProvider {
    * @param txHash - The transaction in which the note was added to the note hash tree
    * @param recipient - The account that discovered the note
    */
-  deliverNote(
-    contractAddress: AztecAddress,
-    storageSlot: Fr,
-    nonce: Fr,
-    content: Fr[],
-    noteHash: Fr,
-    nullifier: Fr,
-    txHash: TxHash,
-    recipient: AztecAddress,
-  ): Promise<void>;
+  validateEnqueuedNotes(contractAddress: AztecAddress, notePendingValidationArrayBaseSlot: Fr): Promise<void>;
 
   /**
    * Gets note hash in the note hash tree at the given leaf index.

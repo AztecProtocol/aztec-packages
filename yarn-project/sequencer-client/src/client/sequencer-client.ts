@@ -94,12 +94,7 @@ export class SequencerClient {
             config.customForwarderContractAddress.toString(),
             config.l1Contracts.rollupAddress.toString(),
           )
-        : await ForwarderContract.create(
-            l1Client.account.address,
-            l1Client,
-            log,
-            config.l1Contracts.rollupAddress.toString(),
-          );
+        : await ForwarderContract.create(l1Client, log, config.l1Contracts.rollupAddress.toString());
 
     const governanceProposerContract = new GovernanceProposerContract(
       l1Client,
@@ -230,8 +225,8 @@ export class SequencerClient {
     return this.sequencer.getForwarderAddress();
   }
 
-  get validatorAddress(): EthAddress | undefined {
-    return this.sequencer.getValidatorAddress();
+  get validatorAddresses(): EthAddress[] | undefined {
+    return this.sequencer.getValidatorAddresses();
   }
 
   get maxL2BlockGas(): number | undefined {

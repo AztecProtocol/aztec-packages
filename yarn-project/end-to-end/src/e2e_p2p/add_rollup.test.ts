@@ -29,6 +29,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -323,10 +324,7 @@ describe('e2e_p2p_add_rollup', () => {
           contentOutFromRollup,
         ]);
 
-        const [l2MessageIndex, siblingPath] = await node.getL2ToL1MessageMembershipWitness(
-          l2OutgoingReceipt!.blockNumber!,
-          leaf,
-        );
+        const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(node, l2OutgoingReceipt!.blockNumber, leaf);
 
         // We need to mark things as proven
         const cheatcodes = CheatCodes.createRollup(l1RpcUrls, l1ContractAddresses);
@@ -347,8 +345,10 @@ describe('e2e_p2p_add_rollup', () => {
             args: [
               l2ToL1Message,
               BigInt(l2OutgoingReceipt!.blockNumber!),
-              BigInt(l2MessageIndex),
-              siblingPath.toBufferArray().map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
+              BigInt(l2ToL1MessageResult!.l2MessageIndex),
+              l2ToL1MessageResult!.siblingPath
+                .toBufferArray()
+                .map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
             ],
           }),
         });

@@ -14,7 +14,10 @@ fn split_to_public__succeeds() {
     builder.append_private_logs(2);
     builder.add_contract_class_log_hash(2, 200);
     builder.append_public_call_requests(1);
-    builder.end_setup();
+
+    // Get the current counter as the min_revertible_side_effect_counter.
+    let min_revertible_side_effect_counter = builder.counter;
+
     // Revertibles.
     builder.append_note_hashes(3);
     builder.append_nullifiers(1);
@@ -22,14 +25,16 @@ fn split_to_public__succeeds() {
     builder.append_private_logs(2);
     builder.append_public_call_requests(2);
 
-    let combined_data = builder.to_private_to_public_accumulated_data();
+    // The min_revertible_side_effect_counter is not set, so everything is included in the non-revertible accumulated data.
+    let combined_data = builder.to_private_to_public_accumulated_data(false /* revertible */);
+
     let padded_side_effect_amounts = PaddedSideEffectAmounts::empty();
 
     // Safety: This is a test.
     let (non_revertible, revertible) = unsafe {
         split_to_public(
             builder.to_private_accumulated_data_builder(),
-            builder.min_revertible_side_effect_counter,
+            min_revertible_side_effect_counter,
             padded_side_effect_amounts,
         )
     };
@@ -79,7 +84,10 @@ fn split_to_public__with_padded_succeeds() {
     builder.append_note_hashes(2);
     builder.append_nullifiers(2);
     builder.append_private_logs(1);
-    builder.end_setup();
+
+    // Get the current counter as the min_revertible_side_effect_counter.
+    let min_revertible_side_effect_counter = builder.counter;
+
     // Revertibles.
     builder.append_note_hashes(3);
     builder.append_nullifiers(1);
@@ -89,7 +97,8 @@ fn split_to_public__with_padded_succeeds() {
     builder.append_padded_nullifiers(5);
     builder.append_padded_private_logs(2);
 
-    let combined_data = builder.to_private_to_public_accumulated_data();
+    // The min_revertible_side_effect_counter is not set, so everything is included in the non-revertible accumulated data.
+    let combined_data = builder.to_private_to_public_accumulated_data(false /* revertible */);
 
     let padded_side_effect_amounts = PaddedSideEffectAmounts {
         non_revertible_note_hashes: 3,
@@ -104,7 +113,7 @@ fn split_to_public__with_padded_succeeds() {
     let (non_revertible, revertible) = unsafe {
         split_to_public(
             builder.to_private_accumulated_data_builder(),
-            builder.min_revertible_side_effect_counter,
+            min_revertible_side_effect_counter,
             padded_side_effect_amounts,
         )
     };

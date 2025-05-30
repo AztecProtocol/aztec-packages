@@ -621,8 +621,9 @@ export class ReqResp {
             const response = await handler(connection.remotePeer, msg);
 
             if (protocol === ReqRespSubProtocol.GOODBYE) {
+              // NOTE: The stream was already closed by Goodbye handler
+              // peerManager.goodbyeReceived(peerId, reason); will call libp2p.hangUp closing all active streams and connections
               // Don't respond
-              await stream.close();
               return;
             }
 
@@ -656,7 +657,11 @@ export class ReqResp {
         stream,
       );
     } finally {
-      await stream.close();
+      //NOTE: All other status codes indicate closed stream.
+      //Either graceful close (closed/closing) or forced close (aborted/reset)
+      if (stream.status === 'open') {
+        await stream.close();
+      }
     }
   }
 

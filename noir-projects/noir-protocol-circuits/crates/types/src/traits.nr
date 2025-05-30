@@ -158,7 +158,7 @@ impl FromField for Field {
 impl FromField for bool {
     #[inline_always]
     fn from_field(value: Field) -> Self {
-        value as bool
+        value != 0
     }
 }
 impl FromField for u1 {

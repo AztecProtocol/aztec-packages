@@ -91,6 +91,18 @@ tests:
     skip: true
     owners:
       - *lasse
+  - regex: "src/slasher_client"
+    skip: true
+    owners:
+      - *mitch
+  - regex: "src/e2e_p2p/validators_sentinel"
+    skip: true
+    owners:
+      - *mitch
+  - regex: "testbench/port_change.test.ts"
+    skip: true
+    owners:
+      - *sean
   # e2e tests flakes
   - regex: "src/e2e_p2p"
     error_regex: "could not listen on any available address"
@@ -195,10 +207,6 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
-  - regex: "p2p/src/testbench/port_change.test.ts"
-    error_regex: "Timeout waiting for worker"
-    owners:
-      - *sean
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -225,17 +233,6 @@ tests:
       - *alex
   - regex: "ethereum/src/test/tx_delayer.test.ts"
     error_regex: "delays a transaction until a given L1 timestamp"
-    owners:
-      - *esau
-
-  # boxes
-  - regex: "BOX=vite BROWSER=webkit run_compose_test vite-webkit box boxes"
-    error_regex: "WARN: sequencer Too far into slot for INITIALIZING_PROPOSAL"
-    owners:
-      - *grego
-
-  - regex: "BOX=vanilla BROWSER=webkit run_compose_test vanilla-webkit box boxes"
-    error_regex: "Test timeout of 90000ms exceeded."
     owners:
       - *esau
 

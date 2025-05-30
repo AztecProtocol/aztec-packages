@@ -17,12 +17,7 @@ contract FinaliseWithdrawTest is StakingBase {
     stakingAsset.mint(address(this), MINIMUM_STAKE);
     stakingAsset.approve(address(staking), MINIMUM_STAKE);
 
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _onCanonical: true
-    });
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
     staking.finaliseWithdraw(ATTESTER);
@@ -40,12 +35,7 @@ contract FinaliseWithdrawTest is StakingBase {
     stakingAsset.mint(address(this), MINIMUM_STAKE);
     stakingAsset.approve(address(staking), MINIMUM_STAKE);
 
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _onCanonical: true
-    });
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);

@@ -19,7 +19,6 @@ import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct AttesterConfig {
   address withdrawer;
-  address proposer;
 }
 
 struct InstanceStaking {
@@ -29,14 +28,11 @@ struct InstanceStaking {
 }
 
 interface IGSECore {
-  event Deposit(
-    address indexed instance, address indexed attester, address proposer, address withdrawer
-  );
+  event Deposit(address indexed instance, address indexed attester, address withdrawer);
 
   function setGovernance(Governance _governance) external;
   function addRollup(address _rollup) external;
-  function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
-    external;
+  function deposit(address _attester, address _withdrawer, bool _onCanonical) external;
   function withdraw(address _attester, uint256 _amount) external returns (uint256, bool, uint256);
   function delegate(address _instance, address _attester, address _delegatee) external;
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
@@ -79,10 +75,7 @@ interface IGSE is IGSECore {
     external
     view
     returns (uint256);
-  function getProposer(address _instance, address _attester)
-    external
-    view
-    returns (address, bool, address);
+
   function getAttestersFromIndicesAtTime(
     address _instance,
     Timestamp _timestamp,
@@ -163,12 +156,11 @@ contract GSECore is IGSECore, Ownable {
    * @dev     Deposits only allowed to and by listed rollups.
    *
    * @param _attester     - The attester address of the validator
-   * @param _proposer     - The proposer address of the validator
    * @param _withdrawer   - The withdrawer address of the validator
    * @param _onCanonical  - Whether to deposit into the specific instance, or canonical
    *  @dev Must be the current canonical for `_onCanonical = true` to be valid.
    */
-  function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
+  function deposit(address _attester, address _withdrawer, bool _onCanonical)
     external
     override(IGSECore)
     onlyRollup
@@ -197,8 +189,7 @@ contract GSECore is IGSECore, Ownable {
       Errors.Staking__AlreadyRegistered(instanceAddress, _attester)
     );
 
-    instances[instanceAddress].configOf[_attester] =
-      AttesterConfig({withdrawer: _withdrawer, proposer: _proposer});
+    instances[instanceAddress].configOf[_attester] = AttesterConfig({withdrawer: _withdrawer});
 
     if (delegation.getDelegatee(instanceAddress, _attester) == address(0)) {
       delegation.delegate(instanceAddress, _attester, instanceAddress);
@@ -212,7 +203,7 @@ contract GSECore is IGSECore, Ownable {
     STAKING_ASSET.approve(address(gov), MINIMUM_DEPOSIT);
     gov.deposit(address(this), MINIMUM_DEPOSIT);
 
-    emit Deposit(instanceAddress, _attester, _proposer, _withdrawer);
+    emit Deposit(instanceAddress, _attester, _withdrawer);
   }
 
   /**
@@ -439,7 +430,7 @@ contract GSE is IGSE, GSECore {
       _getInstanceStoreWithAttester(_instance, _attester);
 
     if (!attesterExists) {
-      return AttesterConfig({withdrawer: address(0), proposer: address(0)});
+      return AttesterConfig({withdrawer: address(0)});
     }
 
     return instanceStaking.configOf[_attester];
@@ -460,22 +451,6 @@ contract GSE is IGSE, GSECore {
     }
 
     return (instanceStaking.configOf[_attester].withdrawer, true, instanceAddress);
-  }
-
-  // @todo We are using the proposer function downstream when verifying a propose block, if it have been moved
-  // to a new canonical, then we have that the following would end up returning address 0 as the proposer, essentially opening up a
-  // attack where anyone can propose in those blocks... Therefore we NEED a way for it to not just be empty in here.
-  function getProposer(address _instance, address _attester)
-    external
-    view
-    override(IGSE)
-    returns (address proposer, bool attesterExists, address instanceAddress)
-  {
-    InstanceStaking storage instanceStaking;
-    (instanceStaking, attesterExists, instanceAddress) =
-      _getInstanceStoreWithAttester(_instance, _attester);
-
-    return (instanceStaking.configOf[_attester].proposer, true, instanceAddress);
   }
 
   function balanceOf(address _instance, address _attester)

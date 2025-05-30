@@ -284,7 +284,7 @@ export type SetupOptions = {
   /** Salt to use in L1 contract deployment */
   salt?: number;
   /** An initial set of validators */
-  initialValidators?: Operator[];
+  initialValidators?: (Operator & { privateKey: `0x${string}` })[];
   /** Anvil Start time */
   l1StartTime?: number;
   /** The anvil time where we should at the earliest be seeing L2 blocks */
@@ -356,6 +356,9 @@ export async function setup(
   let anvil: Anvil | undefined;
   try {
     const config = { ...getConfigEnvVars(), ...opts };
+    // use initialValidators for the node config
+    config.validatorPrivateKeys = opts.initialValidators?.map(v => v.privateKey);
+
     config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
     // For tests we only want proving enabled if specifically requested
     config.realProofs = !!opts.realProofs;
@@ -417,9 +420,6 @@ export async function setup(
       config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
     }
 
-    // Made as separate values such that keys can change, but for test they will be the same.
-    config.validatorPrivateKey = config.publisherPrivateKey;
-
     if (PXE_URL) {
       // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
       return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
@@ -440,7 +440,12 @@ export async function setup(
         config.l1RpcUrls,
         publisherHdAccount!,
         logger,
-        { ...opts, genesisArchiveRoot, feeJuicePortalInitialBalance: fundingNeeded },
+        {
+          ...opts,
+          genesisArchiveRoot,
+          feeJuicePortalInitialBalance: fundingNeeded,
+          initialValidators: opts.initialValidators,
+        },
         chain,
       ));
 
@@ -840,11 +845,6 @@ export async function createForwarderContract(
   rollupAddress: Hex,
 ) {
   const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
-  const forwarderContract = await ForwarderContract.create(
-    l1Client.account.address,
-    l1Client,
-    createLogger('forwarder'),
-    rollupAddress,
-  );
+  const forwarderContract = await ForwarderContract.create(l1Client, createLogger('forwarder'), rollupAddress);
   return forwarderContract;
 }
