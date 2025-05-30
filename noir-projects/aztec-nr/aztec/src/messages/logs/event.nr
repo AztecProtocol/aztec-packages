@@ -2,12 +2,12 @@ use crate::{
     event::event_interface::EventInterface,
     messages::{
         encoding::encode_message,
-        encryption::{aes128::AES128, log_encryption::{LogEncryption, PRIVATE_LOG_CIPHERTEXT_LEN}},
+        encryption::{aes128::AES128, log_encryption::LogEncryption},
         msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
     },
     prelude::AztecAddress,
 };
-use protocol_types::traits::{Serialize, ToField};
+use protocol_types::{constants::PRIVATE_LOG_CIPHERTEXT_LEN, traits::{Serialize, ToField}};
 
 /// Creates an encrypted private event message (i.e. one of type `PRIVATE_EVENT_MSG_TYPE_ID`) by encoding the contents
 /// of the event and then encrypting them for `recipient`.
