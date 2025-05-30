@@ -255,5 +255,5 @@ export function collectNested<T>(
 }
 
 export class PrivateExecutionProfileResult {
-  constructor(public timings: { witgen: number }) {}
+  constructor(public timings: { witgen: number; oracles?: Record<string, { times: number[] }> }) {}
 }

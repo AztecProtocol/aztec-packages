@@ -2931,7 +2931,7 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
         cir.vars_of_interest.insert({ this->real_variable_index[tup.first], tup.second });
     }
 
-    for (auto var : this->variables) {
+    for (const auto& var : this->get_variables()) {
         cir.variables.push_back(var);
     }
 

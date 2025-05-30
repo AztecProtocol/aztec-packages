@@ -249,7 +249,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         }
         // Check the size of the recursive verifier
         if constexpr (std::same_as<RecursiveFlavor, MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-            uint32_t NUM_GATES_EXPECTED = 871733;
+            uint32_t NUM_GATES_EXPECTED = 871531;
             BB_ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()),
                          NUM_GATES_EXPECTED,
                          "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "
@@ -392,4 +392,8 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
     TestFixture::test_recursive_verification_fails();
 };
 
+#ifdef DISABLE_HEAVY_TESTS
+// Null test
+TEST(RecursiveVerifierTest, DoNothingTestToEnsureATestExists) {}
+#endif
 } // namespace bb::stdlib::recursion::honk

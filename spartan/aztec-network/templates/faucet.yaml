@@ -72,8 +72,8 @@ spec:
               value: "{{ .Values.ethereum.chainId }}"
             - name: MNEMONIC
               value: "{{ .Values.aztec.l1DeploymentMnemonic }}"
-            - name: FAUCET_MNEMONIC_ACCOUNT_INDEX
-              value: "{{ .Values.faucet.accountIndex }}"
+            - name: FAUCET_MNEMONIC_ADDRESS_INDEX
+              value: "{{ .Values.faucet.addressIndex }}"
             - name: FAUCET_L1_ASSETS
               value: "{{ .Values.faucet.l1Assets }}"
             - name: LOG_JSON

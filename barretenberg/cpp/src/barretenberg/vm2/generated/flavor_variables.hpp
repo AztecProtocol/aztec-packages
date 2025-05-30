@@ -14,6 +14,7 @@
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/ff_gt.hpp"
+#include "relations/gas.hpp"
 #include "relations/instr_fetching.hpp"
 #include "relations/keccakf1600.hpp"
 #include "relations/memory.hpp"
@@ -36,7 +37,9 @@
 #include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
+#include "relations/lookups_execution.hpp"
 #include "relations/lookups_ff_gt.hpp"
+#include "relations/lookups_gas.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_nullifier_check.hpp"
@@ -51,11 +54,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2120;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 73;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2159;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 154;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2337;
+    static constexpr size_t NUM_ALL_ENTITIES = 2386;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -73,6 +76,7 @@ struct AvmFlavorVariables {
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::ff_gt<FF_>,
+        avm2::gas<FF_>,
         avm2::instr_fetching<FF_>,
         avm2::keccakf1600<FF_>,
         avm2::memory<FF_>,
@@ -120,8 +124,12 @@ struct AvmFlavorVariables {
         lookup_context_ctx_stack_call_relation<FF_>,
         lookup_context_ctx_stack_return_relation<FF_>,
         lookup_context_ctx_stack_rollback_relation<FF_>,
+        lookup_execution_exec_spec_read_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
+        lookup_gas_addressing_gas_read_relation<FF_>,
+        lookup_gas_limit_used_da_range_relation<FF_>,
+        lookup_gas_limit_used_l2_range_relation<FF_>,
         lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_instr_abs_diff_positive_relation<FF_>,

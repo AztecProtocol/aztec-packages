@@ -34,6 +34,7 @@ export interface PrivateExecutionStep {
   timings: {
     witgen: number;
     gateCount?: number;
+    oracles?: Record<string, { times: number[] }>;
   };
 }
 

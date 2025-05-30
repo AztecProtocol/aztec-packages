@@ -25,6 +25,7 @@ include "public_data_check.pil";
 include "update_check.pil";
 include "nullifier_check.pil";
 include "public_inputs.pil";
+include "gas.pil";
 
 namespace execution;
 
@@ -92,3 +93,20 @@ last * sel' = 0;
 
 // These are needed to have a non-empty set of columns for each type.
 pol public input;
+
+#[EXEC_SPEC_READ]
+sel {
+    ex_opcode,
+    opcode_gas,
+    base_da_gas,
+    dynamic_l2_gas,
+    dynamic_da_gas
+    // Mem ops, subtrace selectors, etc
+} in
+precomputed.sel_exec_spec {
+    precomputed.clk,
+    precomputed.exec_opcode_opcode_gas,
+    precomputed.exec_opcode_base_da_gas,
+    precomputed.exec_opcode_dynamic_l2_gas,
+    precomputed.exec_opcode_dynamic_da_gas
+};

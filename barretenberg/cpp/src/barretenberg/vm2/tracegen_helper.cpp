@@ -73,6 +73,7 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_to_radix_p_decompositions(trace));
             AVM_TRACK_TIME("tracegen/precomputed/memory_tag_ranges",
                            precomputed_builder.process_memory_tag_range(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/addressing_gas", precomputed_builder.process_addressing_gas(trace));
         },
     };
 }
@@ -319,7 +320,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
                                                   PublicDataTreeCheckTraceBuilder::lookup_jobs(),
                                                   UpdateCheckTraceBuilder::lookup_jobs(),
                                                   NullifierTreeCheckTraceBuilder::lookup_jobs(),
-                                                  MemoryTraceBuilder::lookup_jobs());
+                                                  MemoryTraceBuilder::lookup_jobs(),
+                                                  ExecutionTraceBuilder::lookup_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

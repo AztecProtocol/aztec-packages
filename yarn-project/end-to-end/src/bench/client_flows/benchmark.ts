@@ -94,7 +94,19 @@ export class ProxyLogger {
 
 export type ProverType = 'wasm' | 'native';
 
-type Step = Pick<PrivateExecutionStep, 'functionName' | 'gateCount'> & { time: number; accGateCount?: number };
+type OracleRecording = {
+  calls: number;
+  max: number;
+  min: number;
+  avg: number;
+  total: number;
+};
+
+type Step = Pick<PrivateExecutionStep, 'functionName' | 'gateCount'> & {
+  time: number;
+  accGateCount?: number;
+  oracles: Record<string, OracleRecording>;
+};
 
 type ClientFlowBenchmark = {
   name: string;
@@ -169,6 +181,21 @@ export function generateBenchmark(
         gateCount: step.gateCount,
         accGateCount: previousAccGateCount + step.gateCount!,
         time: step.timings.witgen,
+        oracles: Object.entries(step.timings.oracles ?? {}).reduce(
+          (acc, [oracleName, oracleData]) => {
+            const total = oracleData.times.reduce((sum, time) => sum + time, 0);
+            const calls = oracleData.times.length;
+            acc[oracleName] = {
+              calls,
+              max: Math.max(...oracleData.times),
+              min: Math.min(...oracleData.times),
+              total,
+              avg: total / calls,
+            };
+            return acc;
+          },
+          {} as Record<string, OracleRecording>,
+        ),
       },
     ];
   }, []);

@@ -30,6 +30,7 @@ import {
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type ArchiverEmitter,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
@@ -88,7 +89,7 @@ export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & 
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
+export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implements ArchiveSource, Traceable {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
    */
@@ -522,8 +523,22 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     }
   }
 
-  private retrieveL1ToL2Message(leaf: Fr): Promise<InboxMessage | undefined> {
-    return retrieveL1ToL2Message(this.inbox.getContract(), leaf, this.l1constants.l1StartBlock);
+  private async retrieveL1ToL2Message(leaf: Fr): Promise<InboxMessage | undefined> {
+    const currentL1BlockNumber = await this.publicClient.getBlockNumber();
+    let searchStartBlock: bigint = 0n;
+    let searchEndBlock: bigint = this.l1constants.l1StartBlock - 1n;
+
+    do {
+      [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
+
+      const message = await retrieveL1ToL2Message(this.inbox.getContract(), leaf, searchStartBlock, searchEndBlock);
+
+      if (message) {
+        return message;
+      }
+    } while (searchEndBlock < currentL1BlockNumber);
+
+    return undefined;
   }
 
   private async rollbackL1ToL2Messages(localLastMessage: InboxMessage, messagesSyncPoint: L1BlockId) {
@@ -623,6 +638,15 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
           await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
           this.log.info(`Updated proven chain to block ${provenBlockNumber}`, {
             provenBlockNumber,
+          });
+          const provenSlotNumber =
+            localBlockForDestinationProvenBlockNumber.header.globalVariables.slotNumber.toBigInt();
+          const provenEpochNumber = getEpochAtSlot(provenSlotNumber, this.l1constants);
+          this.emit(L2BlockSourceEvents.L2BlockProven, {
+            type: L2BlockSourceEvents.L2BlockProven,
+            blockNumber: provenBlockNumber,
+            slotNumber: provenSlotNumber,
+            epochNumber: provenEpochNumber,
           });
         } else {
           this.log.trace(`Proven block ${provenBlockNumber} already stored.`);
@@ -1131,6 +1155,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
     // TODO(#13569): Compute proper finalized block number based on L1 finalized block.
     // We just force it 2 epochs worth of proven data for now.
+    // NOTE: update end-to-end/src/e2e_epochs/epochs_empty_blocks.test.ts as that uses finalised blocks in computations
     const finalizedBlockNumber = Math.max(provenBlockNumber - this.l1constants.epochDuration * 2, 0);
 
     const [latestBlockHeader, provenBlockHeader, finalizedBlockHeader] = await Promise.all([
