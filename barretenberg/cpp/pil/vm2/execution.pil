@@ -117,6 +117,7 @@ precomputed.sel_exec_spec {
 // Register 2 contains allocated da gas
 // Register 3 contains the address of the contract to call
 
+// TODO: Remove this as a column when we can lookup with constants
 pol commit constant_32;
 sel_enter_call * (32 - constant_32) = 0;
 
@@ -127,7 +128,7 @@ pol DA_GAS_LEFT = da_gas_limit - da_gas_used;
 
 // L2 gas clamping
 
-// Hint of whether the allocated gas is less than the left gas
+// Helper column containing whether the allocated gas is less than the left gas
 pol commit call_is_l2_gas_allocated_lt_left;
 call_is_l2_gas_allocated_lt_left * (1 - call_is_l2_gas_allocated_lt_left) = 0;
 
@@ -148,7 +149,7 @@ sel_enter_call * ((reg1 - L2_GAS_LEFT) * call_is_l2_gas_allocated_lt_left + L2_G
 
 // DA gas clamping
 
-// Hint of whether the allocated gas is less than the left gas
+// Helper column containing whether the allocated gas is less than the left gas
 pol commit call_is_da_gas_allocated_lt_left;
 call_is_da_gas_allocated_lt_left * (1 - call_is_da_gas_allocated_lt_left) = 0;
 
