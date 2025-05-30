@@ -267,24 +267,22 @@ void ExecutionTraceBuilder::process(
             Gas gas_left = ex_event.after_context_event.gas_limit - ex_event.after_context_event.gas_used;
 
             uint32_t allocated_l2_gas = registers[0].as<uint32_t>();
-            bool call_is_l2_gas_allocated_lt_left = allocated_l2_gas < gas_left.l2Gas;
-            uint32_t call_allocated_left_l2_cmp_diff = call_is_l2_gas_allocated_lt_left
-                                                           ? gas_left.l2Gas - allocated_l2_gas - 1
-                                                           : allocated_l2_gas - gas_left.l2Gas;
+            bool is_l2_gas_allocated_lt_left = allocated_l2_gas < gas_left.l2Gas;
+            uint32_t allocated_left_l2_cmp_diff =
+                is_l2_gas_allocated_lt_left ? gas_left.l2Gas - allocated_l2_gas - 1 : allocated_l2_gas - gas_left.l2Gas;
 
             uint32_t allocated_da_gas = registers[1].as<uint32_t>();
-            bool call_is_da_gas_allocated_lt_left = allocated_da_gas < gas_left.daGas;
-            uint32_t call_allocated_left_da_cmp_diff = call_is_da_gas_allocated_lt_left
-                                                           ? gas_left.daGas - allocated_da_gas - 1
-                                                           : allocated_da_gas - gas_left.daGas;
+            bool is_da_gas_allocated_lt_left = allocated_da_gas < gas_left.daGas;
+            uint32_t allocated_left_da_cmp_diff =
+                is_da_gas_allocated_lt_left ? gas_left.daGas - allocated_da_gas - 1 : allocated_da_gas - gas_left.daGas;
 
             trace.set(row,
                       { {
                           { C::execution_constant_32, 32 },
-                          { C::execution_call_is_l2_gas_allocated_lt_left, call_is_l2_gas_allocated_lt_left },
-                          { C::execution_call_allocated_left_l2_cmp_diff, call_allocated_left_l2_cmp_diff },
-                          { C::execution_call_is_da_gas_allocated_lt_left, call_is_da_gas_allocated_lt_left },
-                          { C::execution_call_allocated_left_da_cmp_diff, call_allocated_left_da_cmp_diff },
+                          { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
+                          { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
+                          { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
+                          { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
                       } });
         }
 
