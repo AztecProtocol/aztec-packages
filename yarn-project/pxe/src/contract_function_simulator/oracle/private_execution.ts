@@ -47,7 +47,7 @@ export async function executePrivateFunction(
   const acvmCallback = new Oracle(privateExecutionOracle);
   const timer = new Timer();
   const acirExecutionResult = await simulator
-    .executeUserCircuit(initialWitness, artifact, acvmCallback as unknown as ACIRCallback)
+    .executeUserCircuit(initialWitness, artifact, acvmCallback.toACIRCallback())
     .catch((err: Error) => {
       err.message = resolveAssertionMessageFromError(err, artifact);
       throw new ExecutionError(

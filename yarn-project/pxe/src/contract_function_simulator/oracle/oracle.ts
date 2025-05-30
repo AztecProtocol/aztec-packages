@@ -1,5 +1,6 @@
 import { Fr, Point } from '@aztec/foundation/fields';
 import {
+  type ACIRCallback,
   type ACVMField,
   arrayOfArraysToBoundedVecOfArrays,
   bufferToBoundedVec,
@@ -25,6 +26,17 @@ export class Oracle {
 
   constructor(typedOracle: TypedOracle) {
     this.typedOracle = typedOracle;
+  }
+
+  toACIRCallback(): ACIRCallback {
+    return Object.getOwnPropertyNames(Oracle.prototype)
+      .filter(
+        name => name !== 'constructor' && name != 'toACIRCallback' && typeof this[name as keyof Oracle] === 'function',
+      )
+      .reduce((acc, name) => {
+        acc[name] = this[name as keyof Omit<Oracle, 'toACIRCallback' | 'typedOracle' | 'constructor'>].bind(this);
+        return acc;
+      }, {} as ACIRCallback);
   }
 
   getRandomField(): Promise<ACVMField[]> {

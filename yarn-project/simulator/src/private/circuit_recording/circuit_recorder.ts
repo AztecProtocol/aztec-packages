@@ -151,11 +151,11 @@ export class CircuitRecorder {
    */
   #wrapUserCircuitCallback(callback: ACIRCallback): ACIRCallback {
     const recordingCallback: ACIRCallback = {} as ACIRCallback;
-    const oracleMethods = Object.getOwnPropertyNames(callback).filter(name => name !== 'constructor');
+    const oracleMethods = Object.keys(callback);
 
     for (const name of oracleMethods) {
       const fn = callback[name as keyof ACIRCallback];
-      if (!fn) {
+      if (!fn || typeof fn !== 'function') {
         throw new Error(`Oracle method ${name} not found when setting up recording callback`);
       }
 

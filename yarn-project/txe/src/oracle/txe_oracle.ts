@@ -868,7 +868,7 @@ export class TXE implements TypedOracle {
       const args = await this.loadFromExecutionCache(argsHash);
       const initialWitness = toACVMWitness(0, args);
       const acirExecutionResult = await this.simulator
-        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle) as unknown as ACIRCallback)
+        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
           throw new ExecutionError(
@@ -925,7 +925,7 @@ export class TXE implements TypedOracle {
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
     const acirExecutionResult = await this.simulator
-      .executeUserCircuit(initialWitness, artifact, acvmCallback as unknown as ACIRCallback)
+      .executeUserCircuit(initialWitness, artifact, acvmCallback.toACIRCallback())
       .catch((err: Error) => {
         err.message = resolveAssertionMessageFromError(err, artifact);
 
