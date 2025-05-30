@@ -103,7 +103,6 @@ impl BlockRootRollupOutputComposer {
             self.data.start_blob_accumulator
         } else {
             if is_empty(self.data.start_blob_accumulator) {
-                // If the first block in an epoch is empty, what does the next block's blobscommitmenthash look like? is it replicated on l1?
                 BlobAccumulatorPublicInputs::init(
                     empty_effect_blob_accumulation_input,
                     self.data.final_blob_challenges.gamma,

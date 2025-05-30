@@ -702,7 +702,6 @@ contract RollupTest is RollupBase {
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {
-    // TODO(MW): invalid v, z, y, C tests
     _proposeBlock({_name: "mixed_block_1", _slotNumber: 0});
 
     DecoderBase.Data memory data = load("mixed_block_1").block;
@@ -718,6 +717,33 @@ contract RollupTest is RollupBase {
     BlockLog memory blockLog = rollup.getBlock(0);
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHash));
     _submitEpochProof(1, 1, blockLog.archive, data.archive, blobProofInputs, address(0));
+  }
+
+  function testTooManyBlocks() public setUpFor("mixed_block_1") {
+    _proposeBlock("mixed_block_1", 1);
+    DecoderBase.Data memory data = load("mixed_block_1").block;
+
+    // Set the pending block number to be Constants.AZTEC_MAX_EPOCH_DURATION + 2, so we don't revert early with a different case
+    stdstore.target(address(rollup)).sig("getPendingBlockNumber()").checked_write(
+      Constants.AZTEC_MAX_EPOCH_DURATION + 2
+    );
+
+    BlockLog memory blockLog = rollup.getBlock(0);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__TooManyBlocksInEpoch.selector,
+        Constants.AZTEC_MAX_EPOCH_DURATION,
+        Constants.AZTEC_MAX_EPOCH_DURATION + 1
+      )
+    );
+    _submitEpochProof(
+      1,
+      Constants.AZTEC_MAX_EPOCH_DURATION + 2,
+      blockLog.archive,
+      data.archive,
+      data.batchedBlobInputs,
+      address(0)
+    );
   }
 
   function _submitEpochProof(

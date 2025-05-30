@@ -70,9 +70,10 @@ library Errors {
   error Rollup__NonZeroDaFee(); // 0xd9c75f52
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
   error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
-  error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end);
-  error Rollup__StartIsNotFirstBlockOfEpoch();
-  error Rollup__StartIsNotBuildingOnProven();
+  error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end); // 0xb64ec33e
+  error Rollup__StartIsNotFirstBlockOfEpoch(); // 0x4ef11e0d
+  error Rollup__StartIsNotBuildingOnProven(); // 0x4a59f42e
+  error Rollup__TooManyBlocksInEpoch(uint256 expected, uint256 actual); // 0x7d5b1408
   error Rollup__AlreadyClaimed(address prover, Epoch epoch);
   error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__PastDeadline(Slot deadline, Slot currentSlot);

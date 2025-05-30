@@ -147,7 +147,7 @@ library ProposeLib {
     // Blob commitments are collected and proven per root rollup proof => per epoch.
     bool isFirstBlockOfEpoch =
       currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
-    if (isFirstBlockOfEpoch && v.blobCommitments.length != 0) {
+    if (isFirstBlockOfEpoch) {
       // Initialise the blobAccumulatorHash
       currentblobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(v.blobCommitments[i++]));
     }

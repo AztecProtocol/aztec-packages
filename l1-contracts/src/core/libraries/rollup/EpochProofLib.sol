@@ -326,7 +326,11 @@ library EpochProofLib {
     bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.provenBlockNumber;
     require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
 
-    // TODO(MW): Should we assert end - start < AZTEC_MAX_EPOCH_DURATION here?
+    bool isWithinEpochDuration = _end - _start <= Constants.AZTEC_MAX_EPOCH_DURATION;
+    require(
+      isWithinEpochDuration,
+      Errors.Rollup__TooManyBlocksInEpoch(Constants.AZTEC_MAX_EPOCH_DURATION, _end - _start)
+    );
 
     return endEpoch;
   }
