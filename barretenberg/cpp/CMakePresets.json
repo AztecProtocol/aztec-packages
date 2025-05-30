@@ -431,14 +431,15 @@
       }
     },
     {
-      "name": "coverage",
+      "name": "clang16-coverage",
       "displayName": "Build with coverage",
-      "description": "Build default preset but with coverage enabled",
-      "inherits": "default",
+      "description": "Build clang16 preset but with coverage enabled",
+      "inherits": "clang16",
       "binaryDir": "build-coverage",
       "cacheVariables": {
         "COVERAGE": "ON",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "DISABLE_ASM": "ON",
+        "DISABLE_AZTEC_VM": "ON"
       }
     },
     {
@@ -731,9 +732,9 @@
       "configurePreset": "ubsan"
     },
     {
-      "name": "coverage",
-      "inherits": "default",
-      "configurePreset": "coverage"
+      "name": "clang16-coverage",
+      "inherits": "clang16-dbg-fast",
+      "configurePreset": "clang16-coverage"
     },
     {
       "name": "wasm",
@@ -847,9 +848,9 @@
       "configurePreset": "smt-verification"
     },
     {
-      "name": "coverage",
+      "name": "clang16-coverage",
       "inherits": "default",
-      "configurePreset": "coverage"
+      "configurePreset": "clang16-coverage"
     },
     {
       "name": "wasm",

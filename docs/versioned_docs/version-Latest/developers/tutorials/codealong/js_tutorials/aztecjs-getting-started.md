@@ -15,7 +15,7 @@ This tutorial is for the sandbox and will need adjustments if deploying to testn
 
 ## Prerequisites
 
-- A running Aztec sandbox at version 0.87.3. Install with `aztec-up 0.87.3`.
+- A running Aztec sandbox at version 0.87.4. Install with `aztec-up 0.87.4`.
 
 ## Set up the project
 
@@ -40,7 +40,7 @@ mkdir src
 3. Add necessary yarn packages
 
 ```sh
-yarn add @aztec/aztec.js@0.87.3 @aztec/accounts@0.87.3 @aztec/noir-contracts.js@0.87.3 typescript @types/node
+yarn add @aztec/aztec.js@0.87.4 @aztec/accounts@0.87.4 @aztec/noir-contracts.js@0.87.4 typescript @types/node
 ```
 
 :::note Match tool and dependency versions
@@ -208,7 +208,7 @@ Great! The Sandbox is running and we are able to interact with it.
 
 The sandbox is preloaded with multiple accounts so you don't have to sit and create them. Let's load these accounts. Add this code to the `main()` function in `index.ts` below the code that's there:
 
-```typescript title="load_accounts" showLineNumbers
+```typescript title="load_accounts" showLineNumbers 
 ////////////// LOAD SOME ACCOUNTS FROM THE SANDBOX //////////////
 // The sandbox comes with a set of created accounts. Load them
 const accounts = await getDeployedTestAccountsWallets(pxe);
@@ -219,7 +219,7 @@ const bob = bobWallet.getAddress();
 logger.info(`Loaded alice's account at ${alice.toString()}`);
 logger.info(`Loaded bob's account at ${bob.toString()}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L110-L120</a></sub></sup>
 
 
 An explanation on accounts on Aztec can be found [here](../../../../aztec/concepts/accounts/index.md).
@@ -228,14 +228,14 @@ An explanation on accounts on Aztec can be found [here](../../../../aztec/concep
 
 Now that we have our accounts loaded, let's move on to deploy our pre-compiled token smart contract. You can find the full code for the contract [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/app/token_contract/src). Add this to `index.ts` below the code you added earlier:
 
-```typescript title="Deployment" showLineNumbers
+```typescript title="Deployment" showLineNumbers 
 ////////////// DEPLOY OUR TOKEN CONTRACT //////////////
 
 const initialSupply = 1_000_000n;
 
 const tokenContractAlice = await deployToken(aliceWallet, initialSupply, logger);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L122-L128</a></sub></sup>
 
 
 `yarn start` will now give something like this:
@@ -263,7 +263,7 @@ A token contract wouldn't be very useful if you aren't able to query the balance
 
 Call the `balance_of_private` function using the following code (paste this):
 
-```typescript title="Balance" showLineNumbers
+```typescript title="Balance" showLineNumbers 
 
 ////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////
 
@@ -277,7 +277,7 @@ logger.info(`Alice's balance ${aliceBalance}`);
 let bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
 logger.info(`Bob's balance ${bobBalance}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L133-L147</a></sub></sup>
 
 
 Running now should yield output:
@@ -313,7 +313,7 @@ Now lets transfer some funds from Alice to Bob by calling the `transfer` functio
 
 Here is the Typescript code to call the `transfer` function, add this to your `index.ts` at the bottom of the `main` function:
 
-```typescript title="Transfer" showLineNumbers
+```typescript title="Transfer" showLineNumbers 
 ////////////// TRANSFER FUNDS FROM ALICE TO BOB //////////////
 
 // We will now transfer tokens from ALice to Bob
@@ -328,7 +328,7 @@ logger.info(`Alice's balance ${aliceBalance}`);
 bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
 logger.info(`Bob's balance ${bobBalance}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L152-L166</a></sub></sup>
 
 
 Our output should now look like this:
@@ -356,7 +356,7 @@ This function starts as private to set up the creation of a [partial note](../..
 
 Let's now use these functions to mint some tokens to Bob's account using Typescript, add this to `index.ts`:
 
-```typescript title="Mint" showLineNumbers
+```typescript title="Mint" showLineNumbers 
 ////////////// MINT SOME MORE TOKENS TO BOB'S ACCOUNT //////////////
 
 // Now mint some further funds for Bob
@@ -374,7 +374,7 @@ logger.info(`Alice's balance ${aliceBalance}`);
 bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
 logger.info(`Bob's balance ${bobBalance}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L171-L188</a></sub></sup>
 
 
 Our complete output should now be something like:

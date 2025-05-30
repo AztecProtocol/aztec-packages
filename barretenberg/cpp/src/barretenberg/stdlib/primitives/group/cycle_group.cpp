@@ -159,6 +159,7 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
     result._is_constant = false;
     result._is_standard = true;
     result.validate_is_on_curve();
+    result.set_free_witness_tag();
     return result;
 }
 
@@ -196,6 +197,7 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
     result._is_standard = true;
+    result.unset_free_witness_tag();
     return result;
 }
 
@@ -682,6 +684,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     } else {
         lambda =
             field_t::from_witness(this->get_context(other), (y2.get_value() - y1.get_value()) / x_diff.get_value());
+        // We need to manually propagate the origin tag
+        lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
         field_t::evaluate_polynomial_identity(x_diff, lambda, -y2, y1);
     }
 
@@ -751,6 +755,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     } else {
         lambda =
             field_t::from_witness(this->get_context(other), (-y2.get_value() - y1.get_value()) / x_diff.get_value());
+        // We need to manually propagate the origin tag
+        lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
         field_t::evaluate_polynomial_identity(x_diff, lambda, y2, y1);
     }
 
@@ -860,6 +866,8 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     const uint256_t hi_v = value_u256.slice(LO_BITS, HI_BITS);
     field_t lo = witness_t(context, lo_v);
     field_t hi = witness_t(context, hi_v);
+    lo.set_free_witness_tag();
+    hi.set_free_witness_tag();
     return cycle_scalar(lo, hi);
 }
 
@@ -882,6 +890,8 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     const uint256_t hi_v = bitstring.slice(LO_BITS, HI_BITS);
     field_t lo = witness_t(context, lo_v);
     field_t hi = witness_t(context, hi_v);
+    lo.set_free_witness_tag();
+    hi.set_free_witness_tag();
     cycle_scalar result{ lo, hi, num_bits, true, false };
     return result;
 }
@@ -1016,6 +1026,10 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(Big
         // Step 3: instantiate both slices as witnesses and validate their sum equals limb1
         field_t limb_1_lo = field_t::from_witness(ctx, limb_1_lo_v);
         field_t limb_1_hi = field_t::from_witness(ctx, limb_1_hi_v);
+
+        // We need to propagate the origin tag to the chunks of limb1
+        limb_1_lo.set_origin_tag(limb1.get_origin_tag());
+        limb_1_hi.set_origin_tag(limb1.get_origin_tag());
         limb1.assert_equal(limb_1_hi * limb_1_hi_multiplicand + limb_1_lo);
 
         // Step 4: apply range constraints to validate both slices represent the expected contributions to *this.lo and
@@ -1072,6 +1086,8 @@ template <typename Builder> void cycle_group<Builder>::cycle_scalar::validate_sc
 
         // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
         if (!lo.is_constant()) {
+            // We need to manually propagate the origin tag
+            borrow.set_origin_tag(lo.get_origin_tag());
             if constexpr (IS_ULTRA) {
                 get_context()->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
             } else {

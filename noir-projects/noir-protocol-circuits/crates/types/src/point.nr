@@ -25,7 +25,7 @@ impl Empty for Point {
 
 impl Deserialize<POINT_LENGTH> for Point {
     fn deserialize(serialized: [Field; POINT_LENGTH]) -> Point {
-        Point { x: serialized[0], y: serialized[1], is_infinite: serialized[2] as bool }
+        Point { x: serialized[0], y: serialized[1], is_infinite: serialized[2] != 0 }
     }
 }
 // TODO(#11356): use compact representation here.

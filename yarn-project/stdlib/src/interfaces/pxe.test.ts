@@ -444,6 +444,10 @@ class MockPXE implements PXE {
     expect(l2Tol1Message).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random<number>(4)]);
   }
+  getL2ToL1Messages(blockNumber: number): Promise<Fr[][] | undefined> {
+    expect(typeof blockNumber).toEqual('number');
+    return Promise.resolve([[Fr.random()], [Fr.random(), Fr.random()]]);
+  }
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
   }
