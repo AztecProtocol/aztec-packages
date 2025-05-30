@@ -37,7 +37,6 @@ import {
   RequestResponseRateLimiter,
   prettyPrintRateLimitStatus,
 } from './rate-limiter/rate_limiter.js';
-import { DEFAULT_RATE_LIMITS } from './rate-limiter/rate_limits.js';
 import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqRespStatus } from './status.js';
 
 /**
