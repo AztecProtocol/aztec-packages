@@ -42,8 +42,8 @@ export type SimulateMethodOptions = Pick<
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
-  /** Whether to include the metadata in the simulation result, instead of just the return of the function */
-  includeMetadata?: boolean;
+  /** Whether to include statistics in the simulation result, instead of just the return of the function */
+  includeStats?: boolean;
 };
 
 /**

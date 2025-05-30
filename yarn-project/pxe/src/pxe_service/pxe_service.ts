@@ -362,6 +362,7 @@ export class PXEService implements PXE {
 
   /**
    * Simulate a utility function call on the given contract.
+   * @param contractFunctionSimulator - The simulator to use for the function call.
    * @param call - The function call to execute.
    * @param authWitnesses - Authentication witnesses required for the function call.
    * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all

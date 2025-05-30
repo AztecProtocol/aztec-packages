@@ -95,10 +95,15 @@ export class ProxyLogger {
 export type ProverType = 'wasm' | 'native';
 
 type CallRecording = {
+  // Number of times the function has been called
   calls: number;
+  // Maximum time taken by the function (in ms)
   max: number;
+  // Minimum time taken by the function (in ms)
   min: number;
+  // Average time taken by the function (in ms)
   avg: number;
+  // Total time spent in the function, computed as sum of all calls (in ms)
   total: number;
 };
 

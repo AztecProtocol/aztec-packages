@@ -36,7 +36,13 @@ export class ContractClassNotFoundError extends Error {
   }
 }
 
+/*
+ * Collected stats during the execution of a transaction.
+ */
 export type ExecutionStats = {
+  /**
+   * Contains an entry for each RPC call performed during the execution
+   */
   nodeRPCCalls: NodeStats;
 };
 
