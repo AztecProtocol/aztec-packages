@@ -1044,34 +1044,68 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
     static void test_accumulate()
     {
+        for (size_t max_vector_length = 1; max_vector_length < 100; max_vector_length++) {
+            Builder builder = Builder();
+            std::vector<bb::fr> native_input(max_vector_length, 0);
+            for (auto& entry : native_input) {
+                entry = bb::fr::random_element();
+            }
+
+            // Compute the native sum
+            bb::fr native_sum = std::accumulate(native_input.begin(), native_input.end(), bb::fr::zero());
+            std::vector<field_ct> input(max_vector_length);
+            size_t idx = 0;
+            // Convert native vector to a vector of field_t elements. Every 5th element is set to be constant.
+            for (auto& native_entry : native_input) {
+                field_ct entry = ((idx % 5) == 0) ? field_ct(native_entry) : witness_ct(&builder, native_entry);
+                input.emplace_back(entry);
+                idx++;
+            }
+            // Compute the accumulation result
+            field_ct sum = field_ct::accumulate(input);
+            EXPECT_EQ(native_sum, sum.get_value());
+
+            // Check that the result is normalized
+            if (!sum.is_constant()) {
+                EXPECT_TRUE(sum.multiplicative_constant == 1 && sum.additive_constant == 0);
+            }
+
+            EXPECT_TRUE(CircuitChecker::check(builder));
+
+            // Check that the number of gates is as expected
+            size_t num_witnesses = max_vector_length - (max_vector_length + 4) / 5;
+            size_t padding = (3 - (num_witnesses % 3)) % 3;
+            size_t expected_num_gates = (num_witnesses + padding) / 3;
+
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - 1, expected_num_gates);
+
+            // Check that the accumulation of constant entries does not create a witness
+            std::vector<field_ct> constant_input;
+            for (auto& entry : input) {
+                if (entry.is_constant()) {
+                    constant_input.emplace_back(entry);
+                }
+            }
+            field_ct constant_sum = field_ct::accumulate(constant_input);
+            EXPECT_TRUE(constant_sum.is_constant());
+        }
+        // Test edge cases
+        // 1. Accumulating an empty vector should not be possible
+        std::vector<field_ct> empty_input;
+        field_ct result;
+        EXPECT_DEATH(result = field_ct::accumulate(empty_input), "Trying to accumulate the entries of an empty vector");
+        // 2. Check that the result of accumulating a single witness summand is correct and normalized.
         Builder builder = Builder();
-        const size_t max_vector_length = 100;
-
-        std::vector<bb::fr> native_input(max_vector_length, 0);
-        for (auto& entry : native_input) {
-            entry = bb::fr::random_element();
-        }
-
-        // Compute the native sum
-        bb::fr native_sum = std::accumulate(native_input.begin(), native_input.end(), bb::fr::zero());
-        std::vector<field_ct> input(max_vector_length);
-        size_t idx = 0;
-        // Convert native vector to a vector of field_t elements. Every 5th element is set to be constant.
-        for (auto& native_entry : native_input) {
-            field_ct entry = ((idx % 5) == 0) ? field_ct(native_entry) : witness_ct(&builder, native_entry);
-            input.emplace_back(entry);
-            idx++;
-        }
-        // Compute the accumulation result
-        field_ct sum = field_ct::accumulate(input);
-        EXPECT_EQ(native_sum, sum.get_value());
-        builder.finalize_circuit(false);
-        EXPECT_TRUE(CircuitChecker::check(builder));
-        // The number of gates added must be equal to the number of witness elements in the vector (max_vector_length -
-        // max_vector_length/5) divided by 3 (as we accumulate 3 witnesses at a time) incremented by 1 due to padding.
-        // We need to subtract 1 from LHS to account for a constant 0 variable created by default UltraCircuitBuilder
-        // constructor.
-        EXPECT_EQ(builder.get_estimated_num_finalized_gates() - 1, (max_vector_length - max_vector_length / 5) / 3 + 1);
+        field_ct single_summand = witness_ct(&builder, bb::fr::random_element());
+        single_summand += field_ct(bb::fr(3));
+        single_summand *= field_ct(bb::fr(2));
+        // `single_summand` isn't normalized anymore
+        EXPECT_TRUE(single_summand.additive_constant != 0 && single_summand.multiplicative_constant != 1);
+        std::vector<field_ct> single_element_input{ single_summand };
+        // The accumulation result is expected to be normalized
+        result = field_ct::accumulate(single_element_input);
+        EXPECT_TRUE(result.get_value() == single_summand.get_value() && result.additive_constant == 0 &&
+                    result.multiplicative_constant == 1);
     }
     static void test_ranged_less_than()
     {

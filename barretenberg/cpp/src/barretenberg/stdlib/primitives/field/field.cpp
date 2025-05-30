@@ -641,7 +641,7 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
 template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::string const& msg) const
 {
 
-    if (this->is_constant()) {
+    if (is_constant()) {
         BB_ASSERT_EQ(additive_constant != bb::fr::zero(), true, msg);
         return;
     }
@@ -1056,19 +1056,17 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const std::vector<field_t>& input)
 {
-    if (input.empty()) {
-        return field_t<Builder>(bb::fr::zero());
-    }
+    ASSERT(!input.empty(), "Trying to accumulate the entries of an empty vector");
+
     if (input.size() == 1) {
         return input[0].normalize();
     }
 
     if constexpr (HasPlookup<Builder>) {
-        Builder* ctx = nullptr;
         std::vector<field_t> accumulator;
         field_t constant_term = bb::fr::zero();
 
-        // Step 1: remove constant terms from input field elements
+        // Remove constant terms from input field elements
         for (const auto& element : input) {
             if (element.is_constant()) {
                 constant_term += element;
@@ -1079,27 +1077,32 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
         if (accumulator.empty()) {
             return constant_term;
         }
+        // Add the accumulated constant term to the first witness. It does not create any gates - only the additive
+        // constant of `accumulator[0]` is updated.
+        if (accumulator.size() != input.size()) {
+            accumulator[0] += constant_term;
+        }
 
         // At this point, the `accumulator` vector consisting of witnesses is not empty, so we can extract the context.
-        ctx = accumulator[0].get_context();
+        Builder* ctx = accumulator[0].get_context();
 
         // Step 2: compute output value
         size_t num_elements = accumulator.size();
         // If `input` contains non-constant `field_t` elements, add the accumulated constant value to the output value,
         // else initialize by 0.
-        bb::fr output = (accumulator.size() != input.size()) ? constant_term.get_value() : bb::fr::zero();
+        bb::fr output = bb::fr::zero();
         for (const auto& acc : accumulator) {
             output += acc.get_value();
         }
 
-        // Step 3: pad accumulator to be a multiple of 3
+        // Pad the accumulator with zeroes so that its size is a multiple of 3.
         const size_t num_padding_wires = (num_elements % 3) == 0 ? 0 : 3 - (num_elements % 3);
         for (size_t i = 0; i < num_padding_wires; ++i) {
             accumulator.emplace_back(field_t<Builder>::from_witness_index(ctx, ctx->zero_idx));
         }
         num_elements = accumulator.size();
-
         const size_t num_gates = (num_elements / 3);
+        // Last gate is handled separetely
         const size_t last_gate_idx = num_gates - 1;
 
         field_t total = witness_t(ctx, output);
@@ -1114,10 +1117,10 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
         // which leads us to equations
         //      d_{i+1} = d_{i} - a_i - b_i - c_i for i = 0, ..., last_idx - 1;
         //      0       = d_{i} - a_i - b_i - c_i for i = last_gate_idx,
-        // that are turned into constraints.
+        // that are turned into constraints below.
 
         for (size_t i = 0; i < last_gate_idx; ++i) {
-            // For i < last_gate_idx, we create a `big_add_gate` constraining
+            // For i < last_gate_idx, we create a `big_add_gate` constraint
             //      a_i.v * q_l + b_i.v* q_r + c_i.v * q_o + d_i.v * q_4 + q_c + w_4_omega = 0
             // where
             //      q_l       :=  a_i_mul
@@ -1148,7 +1151,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
 
         // For i = last_gate_idx, we create a `big_add_gate` constraining
         //      a_i.v * q_l + b_i.v * q_r + c_i.v * q_o + d_i.v * q_4 + q_c = 0
-        //
         ctx->create_big_add_gate({
             accumulator[3 * last_gate_idx].witness_index,
             accumulator[3 * last_gate_idx + 1].witness_index,
@@ -1159,7 +1161,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
             accumulator[3 * last_gate_idx + 2].multiplicative_constant,
             -1,
             accumulator[3 * last_gate_idx].additive_constant + accumulator[3 * last_gate_idx + 1].additive_constant +
-                accumulator[3 * last_gate_idx + 1].additive_constant,
+                accumulator[3 * last_gate_idx + 2].additive_constant,
         });
         OriginTag new_tag{};
         for (const auto& single_input : input) {
