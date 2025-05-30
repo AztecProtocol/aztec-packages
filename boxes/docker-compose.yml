@@ -46,6 +46,7 @@ services:
     command: "yarn workspace aztec-example-$BOX test --project=$BROWSER"
     environment:
       HARDWARE_CONCURRENCY: 4
+      PLAYWRIGHT_NUM_WORKERS: 3
       DEBUG: "aztec:*"
       DEBUG_COLORS: "true"
       ETHEREUM_HOSTS: http://ethereum:8545

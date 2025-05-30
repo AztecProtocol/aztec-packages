@@ -38,13 +38,9 @@ function test_cmds {
     done
   done
 
-  # Only run vanilla tests with `chromium` for now, because:
-  # 1. This test includes ClientIVC proof generation in playwright and can take a long time to finish.
-  # 2. Proving in Playwright is flaky for Firefox and Webkit.
-  # 3. The vanilla app expects the contracts to be deployed and address configured in the app during build,
-  # so we would need a separate app build to run tests in parallel.
-  # This can be refactored once other boxes are updated to use browser proving.
-  echo "$hash:ONLY_TERM_PARENT=1 BOX=vanilla BROWSER=chromium run_compose_test vanilla-chromium box boxes"
+  # The vanilla app works with deployed contracts configured during the build.
+  # To avoid building the app three times, we test it with one sandbox and multiple browsers.
+  echo "$hash:ONLY_TERM_PARENT=1 BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes"
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
