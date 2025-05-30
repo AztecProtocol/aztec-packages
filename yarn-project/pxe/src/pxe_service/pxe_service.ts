@@ -12,7 +12,7 @@ import {
   type ProtocolContractsProvider,
   protocolContractNames,
 } from '@aztec/protocol-contracts';
-import { AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
   EventSelector,
@@ -73,6 +73,8 @@ import { inspect } from 'util';
 
 import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
+import { ContractFunctionSimulator } from '../contract_function_simulator/contract_function_simulator.js';
+import { readCurrentClassId } from '../contract_function_simulator/oracle/private_execution.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
@@ -106,7 +108,7 @@ export class PXEService implements PXE {
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
-    private simulator: AcirSimulator,
+    private contractFunctionSimulator: ContractFunctionSimulator,
     private packageVersion: string,
     private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
@@ -126,7 +128,7 @@ export class PXEService implements PXE {
     node: AztecNode,
     store: AztecAsyncKVStore,
     proofCreator: PrivateKernelProver,
-    simulationProvider: SimulationProvider,
+    simulator: CircuitSimulator,
     protocolContractsProvider: ProtocolContractsProvider,
     config: PXEServiceConfig,
     loggerOrSuffix?: string | Logger,
@@ -168,7 +170,7 @@ export class PXEService implements PXE {
       privateEventDataProvider,
       log,
     );
-    const simulator = new AcirSimulator(pxeOracleInterface, simulationProvider);
+    const contractFunctionSimulator = new ContractFunctionSimulator(pxeOracleInterface, simulator);
     const jobQueue = new SerialQueue();
 
     const pxeService = new PXEService(
@@ -182,7 +184,7 @@ export class PXEService implements PXE {
       taggingDataProvider,
       addressDataProvider,
       privateEventDataProvider,
-      simulator,
+      contractFunctionSimulator,
       packageVersion,
       proverEnabled,
       proofCreator,
@@ -342,7 +344,13 @@ export class PXEService implements PXE {
     const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
-      const result = await this.simulator.run(txRequest, contractAddress, functionSelector, msgSender, scopes);
+      const result = await this.contractFunctionSimulator.run(
+        txRequest,
+        contractAddress,
+        functionSelector,
+        msgSender,
+        scopes,
+      );
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
       return result;
     } catch (err) {
@@ -363,7 +371,7 @@ export class PXEService implements PXE {
    */
   async #simulateUtility(call: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
     try {
-      return this.simulator.runUtility(call, authWitnesses ?? [], scopes);
+      return this.contractFunctionSimulator.runUtility(call, authWitnesses ?? [], scopes);
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractDataProvider, this.log);

@@ -38,20 +38,17 @@ import {
 import {
   ExecutionNoteCache,
   HashedValuesCache,
-  type MessageLoadOracleInputs,
+  MessageLoadOracleInputs,
   type NoteData,
   Oracle,
   PrivateExecutionOracle,
   type TypedOracle,
   UtilityExecutionOracle,
-  WASMSimulator,
   executePrivateFunction,
-  extractCallStack,
   extractPrivateCircuitPublicInputs,
   pickNotes,
-  toACVMWitness,
-  witnessMapToFields,
-} from '@aztec/simulator/client';
+} from '@aztec/pxe/simulator';
+import { WASMSimulator, extractCallStack, toACVMWitness, witnessMapToFields } from '@aztec/simulator/client';
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
@@ -172,7 +169,7 @@ export class TXE implements TypedOracle {
 
   private node: AztecNode;
 
-  private simulationProvider = new WASMSimulator();
+  private simulator = new WASMSimulator();
 
   public noteCache: ExecutionNoteCache;
 
@@ -872,8 +869,8 @@ export class TXE implements TypedOracle {
 
       const args = await this.loadFromExecutionCache(argsHash);
       const initialWitness = toACVMWitness(0, args);
-      const acirExecutionResult = await this.simulationProvider
-        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle))
+      const acirExecutionResult = await this.simulator
+        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
           throw new ExecutionError(
@@ -929,8 +926,8 @@ export class TXE implements TypedOracle {
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
-    const acirExecutionResult = await this.simulationProvider
-      .executeUserCircuit(initialWitness, artifact, acvmCallback)
+    const acirExecutionResult = await this.simulator
+      .executeUserCircuit(initialWitness, artifact, acvmCallback.toACIRCallback())
       .catch((err: Error) => {
         err.message = resolveAssertionMessageFromError(err, artifact);
 
@@ -1390,7 +1387,7 @@ export class TXE implements TypedOracle {
       HashedValuesCache.create(),
       noteCache,
       this.pxeOracleInterface,
-      this.simulationProvider,
+      this.simulator,
       0,
       1,
     );
@@ -1401,7 +1398,7 @@ export class TXE implements TypedOracle {
     let result;
     try {
       const executionResult = await executePrivateFunction(
-        this.simulationProvider,
+        this.simulator,
         context,
         artifact,
         targetContractAddress,

@@ -9,9 +9,9 @@ import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
 
-import type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
-import type { ACVMWitness } from '../acvm/acvm_types.js';
-import type { SimulationProvider } from './simulation_provider.js';
+import type { ACIRCallback, ACIRExecutionResult } from './acvm/acvm.js';
+import type { ACVMWitness } from './acvm/acvm_types.js';
+import type { CircuitSimulator } from './circuit_simulator.js';
 
 const logger = createLogger('simulator:acvm-native');
 
@@ -137,7 +137,7 @@ export async function executeNativeCircuit(
   }
 }
 
-export class NativeACVMSimulator implements SimulationProvider {
+export class NativeACVMSimulator implements CircuitSimulator {
   constructor(
     private workingDirectory: string,
     private pathToAcvm: string,

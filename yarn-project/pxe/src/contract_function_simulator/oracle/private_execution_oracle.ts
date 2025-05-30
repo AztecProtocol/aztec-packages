@@ -1,6 +1,7 @@
 import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
 import {
   type FunctionAbi,
   type FunctionArtifact,
@@ -24,13 +25,12 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import { type NoteData, toACVMWitness } from './acvm/index.js';
-import type { ExecutionDataProvider } from './execution_data_provider.js';
-import type { ExecutionNoteCache } from './execution_note_cache.js';
-import type { HashedValuesCache } from './hashed_values_cache.js';
-import { pickNotes } from './pick_notes.js';
+import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import type { ExecutionNoteCache } from '../execution_note_cache.js';
+import type { HashedValuesCache } from '../hashed_values_cache.js';
+import { pickNotes } from '../pick_notes.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
-import type { SimulationProvider } from './providers/simulation_provider.js';
+import type { NoteData } from './typed_oracle.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 /**
@@ -71,7 +71,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     executionDataProvider: ExecutionDataProvider,
-    private provider: SimulationProvider,
+    private simulator: CircuitSimulator,
     private totalPublicCalldataCount: number,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -394,7 +394,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       this.executionCache,
       this.noteCache,
       this.executionDataProvider,
-      this.provider,
+      this.simulator,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,
@@ -402,7 +402,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     );
 
     const childExecutionResult = await executePrivateFunction(
-      this.provider,
+      this.simulator,
       context,
       targetArtifact,
       targetContractAddress,

@@ -12,9 +12,9 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule, TxHash } from '@aztec/stdlib/tx';
 
-import { type NoteData, TypedOracle } from './acvm/index.js';
-import type { ExecutionDataProvider } from './execution_data_provider.js';
-import { pickNotes } from './pick_notes.js';
+import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import { pickNotes } from '../pick_notes.js';
+import { type NoteData, TypedOracle } from './typed_oracle.js';
 
 /**
  * The oracle for an execution of utility contract functions.

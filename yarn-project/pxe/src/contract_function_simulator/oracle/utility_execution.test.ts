@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';
@@ -8,15 +9,14 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
-import type { ExecutionDataProvider } from './execution_data_provider.js';
-import { WASMSimulator } from './providers/acvm_wasm.js';
-import { AcirSimulator } from './simulator.js';
+import { ContractFunctionSimulator } from '../contract_function_simulator.js';
+import type { ExecutionDataProvider } from '../execution_data_provider.js';
 
 describe('Utility Execution test suite', () => {
-  const simulationProvider = new WASMSimulator();
+  const simulator = new WASMSimulator();
 
   let executionDataProvider: ReturnType<typeof mock<ExecutionDataProvider>>;
-  let acirSimulator: AcirSimulator;
+  let acirSimulator: ContractFunctionSimulator;
 
   beforeEach(() => {
     executionDataProvider = mock<ExecutionDataProvider>();
@@ -25,7 +25,7 @@ describe('Utility Execution test suite', () => {
     executionDataProvider.getChainId.mockResolvedValue(1);
     executionDataProvider.getVersion.mockResolvedValue(1);
 
-    acirSimulator = new AcirSimulator(executionDataProvider, simulationProvider);
+    acirSimulator = new ContractFunctionSimulator(executionDataProvider, simulator);
   });
 
   describe('private token contract', () => {
