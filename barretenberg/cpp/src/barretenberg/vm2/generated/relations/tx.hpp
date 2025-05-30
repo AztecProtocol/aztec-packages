@@ -13,8 +13,8 @@ template <typename FF_> class txImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 16> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 7, 6, 3,
-                                                                            5, 6, 3, 6, 6, 2, 4, 4 };
+    static constexpr std::array<size_t, 17> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 7, 6, 3, 5,
+                                                                            6, 5, 4, 6, 6, 2, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -110,47 +110,55 @@ template <typename FF_> class txImpl {
         }
         { // PRECOMP_READ_SELECTOR
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::tx_read_phase_table_sel) - (FF(1) - in.get(C::tx_is_padded)) * in.get(C::tx_start_phase));
+            auto tmp = in.get(C::tx_sel) * (in.get(C::tx_read_phase_table_sel) -
+                                            (FF(1) - in.get(C::tx_is_padded)) * in.get(C::tx_start_phase) *
+                                                in.get(C::tx_is_public_call_request));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
-        { // DECR_REM_PHASE_EVENTS
+        { // READ_PI_LENGTH_SEL
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * tx_NOT_PHASE_END *
-                       (in.get(C::tx_remaining_phase_counter_shift) - (in.get(C::tx_remaining_phase_counter) - FF(1)));
+            auto tmp = in.get(C::tx_sel) * (in.get(C::tx_read_phase_length_sel) -
+                                            in.get(C::tx_start_phase) * (FF(1) - in.get(C::tx_is_collect_fee)));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        { // INCR_READ_PI_OFFSET
+        { // DECR_REM_PHASE_EVENTS
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * tx_NOT_PHASE_END *
-                       (in.get(C::tx_read_pi_offset_shift) - (in.get(C::tx_read_pi_offset) + FF(1)));
+                       (in.get(C::tx_remaining_phase_counter_shift) - (in.get(C::tx_remaining_phase_counter) - FF(1)));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INCR_READ_PI_OFFSET
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::tx_is_tree_insert_phase) -
-                 (in.get(C::tx_sel_revertible_append_note_hash) + in.get(C::tx_sel_non_revertible_append_note_hash) +
-                  in.get(C::tx_sel_revertible_append_nullifier) + in.get(C::tx_sel_non_revertible_append_nullifier)));
+            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * tx_NOT_PHASE_END *
+                       (in.get(C::tx_read_pi_offset_shift) - (in.get(C::tx_read_pi_offset) + FF(1)));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * ((FF(1) - in.get(C::tx_reverted)) * in.get(C::tx_is_tree_insert_phase) -
-                                            in.get(C::tx_successful_tree_insert));
+            auto tmp =
+                (in.get(C::tx_is_tree_insert_phase) -
+                 (in.get(C::tx_sel_revertible_append_note_hash) + in.get(C::tx_sel_non_revertible_append_note_hash) +
+                  in.get(C::tx_sel_revertible_append_nullifier) + in.get(C::tx_sel_non_revertible_append_nullifier)));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * ((FF(1) - in.get(C::tx_reverted)) * in.get(C::tx_is_tree_insert_phase) -
+                                            in.get(C::tx_successful_tree_insert));
+            tmp *= scaling_factor;
+            std::get<15>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp = in.get(C::tx_sel) * ((FF(1) - in.get(C::tx_reverted)) * in.get(C::tx_is_l2_l1_msg_phase) -
                                             in.get(C::tx_successful_msg_emit));
             tmp *= scaling_factor;
-            std::get<15>(evals) += typename Accumulator::View(tmp);
+            std::get<16>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -175,8 +183,10 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
         case 10:
             return "PRECOMP_READ_SELECTOR";
         case 11:
-            return "DECR_REM_PHASE_EVENTS";
+            return "READ_PI_LENGTH_SEL";
         case 12:
+            return "DECR_REM_PHASE_EVENTS";
+        case 13:
             return "INCR_READ_PI_OFFSET";
         }
         return std::to_string(index);
@@ -189,8 +199,9 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
     static constexpr size_t SR_REM_COUNT_IS_ZERO = 8;
     static constexpr size_t SR_REM_COUNT_IS_ONE = 9;
     static constexpr size_t SR_PRECOMP_READ_SELECTOR = 10;
-    static constexpr size_t SR_DECR_REM_PHASE_EVENTS = 11;
-    static constexpr size_t SR_INCR_READ_PI_OFFSET = 12;
+    static constexpr size_t SR_READ_PI_LENGTH_SEL = 11;
+    static constexpr size_t SR_DECR_REM_PHASE_EVENTS = 12;
+    static constexpr size_t SR_INCR_READ_PI_OFFSET = 13;
 };
 
 } // namespace bb::avm2

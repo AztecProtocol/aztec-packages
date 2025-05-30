@@ -83,7 +83,7 @@ struct lookup_tx_read_phase_length_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_LENGTH";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::tx_start_phase;
+    static constexpr Column SRC_SELECTOR = Column::tx_read_phase_length_sel;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_read_phase_length_counts;
     static constexpr Column INVERSES = Column::lookup_tx_read_phase_length_inv;
@@ -128,113 +128,6 @@ using lookup_tx_read_public_call_request_phase_settings =
 template <typename FF_>
 using lookup_tx_read_public_call_request_phase_relation =
     lookup_relation_base<FF_, lookup_tx_read_public_call_request_phase_settings>;
-
-/////////////////// lookup_tx_dispatch_exec_start ///////////////////
-
-struct lookup_tx_dispatch_exec_start_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_TX_DISPATCH_EXEC_START";
-    static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 17;
-    static constexpr Column SRC_SELECTOR = Column::tx_is_public_call_request;
-    static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_start;
-    static constexpr Column COUNTS = Column::lookup_tx_dispatch_exec_start_counts;
-    static constexpr Column INVERSES = Column::lookup_tx_dispatch_exec_start_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_context_id,
-        ColumnAndShifts::tx_next_context_id,
-        ColumnAndShifts::tx_msg_sender,
-        ColumnAndShifts::tx_contract_addr,
-        ColumnAndShifts::tx_is_static,
-        ColumnAndShifts::tx_prev_note_hash_tree_root,
-        ColumnAndShifts::tx_prev_note_hash_tree_size,
-        ColumnAndShifts::tx_prev_num_note_hashes_emitted,
-        ColumnAndShifts::tx_prev_nullifier_tree_size,
-        ColumnAndShifts::tx_prev_num_nullifiers_emitted,
-        ColumnAndShifts::tx_prev_public_data_tree_root,
-        ColumnAndShifts::tx_prev_public_data_tree_size,
-        ColumnAndShifts::tx_prev_num_pub_data_writes_emitted,
-        ColumnAndShifts::tx_prev_l2_gas_used,
-        ColumnAndShifts::tx_prev_da_gas_used,
-        ColumnAndShifts::tx_l2_gas_limit,
-        ColumnAndShifts::tx_da_gas_limit
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_next_context_id,
-        ColumnAndShifts::execution_msg_sender,
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_is_static,
-        ColumnAndShifts::execution_prev_note_hash_tree_root,
-        ColumnAndShifts::execution_prev_note_hash_tree_size,
-        ColumnAndShifts::execution_prev_num_note_hashes_emitted,
-        ColumnAndShifts::execution_prev_nullifier_tree_size,
-        ColumnAndShifts::execution_prev_num_nullifiers_emitted,
-        ColumnAndShifts::execution_prev_public_data_tree_root,
-        ColumnAndShifts::execution_prev_public_data_tree_size,
-        ColumnAndShifts::execution_prev_num_pub_data_writes_emitted,
-        ColumnAndShifts::execution_prev_l2_gas_used,
-        ColumnAndShifts::execution_prev_da_gas_used,
-        ColumnAndShifts::execution_l2_gas_limit,
-        ColumnAndShifts::execution_da_gas_limit
-    };
-};
-
-using lookup_tx_dispatch_exec_start_settings = lookup_settings<lookup_tx_dispatch_exec_start_settings_>;
-template <typename FF_>
-using lookup_tx_dispatch_exec_start_relation = lookup_relation_base<FF_, lookup_tx_dispatch_exec_start_settings>;
-
-/////////////////// lookup_tx_dispatch_exec_get_revert ///////////////////
-
-struct lookup_tx_dispatch_exec_get_revert_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_TX_DISPATCH_EXEC_GET_REVERT";
-    static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 16;
-    static constexpr Column SRC_SELECTOR = Column::tx_is_public_call_request;
-    static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_end;
-    static constexpr Column COUNTS = Column::lookup_tx_dispatch_exec_get_revert_counts;
-    static constexpr Column INVERSES = Column::lookup_tx_dispatch_exec_get_revert_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_context_id,
-        ColumnAndShifts::tx_next_context_id,
-        ColumnAndShifts::tx_reverted,
-        ColumnAndShifts::tx_next_note_hash_tree_root,
-        ColumnAndShifts::tx_next_note_hash_tree_size,
-        ColumnAndShifts::tx_next_num_note_hashes_emitted,
-        ColumnAndShifts::tx_next_nullifier_tree_root,
-        ColumnAndShifts::tx_next_nullifier_tree_size,
-        ColumnAndShifts::tx_next_num_nullifiers_emitted,
-        ColumnAndShifts::tx_next_public_data_tree_root,
-        ColumnAndShifts::tx_next_public_data_tree_size,
-        ColumnAndShifts::tx_next_num_pub_data_writes_emitted,
-        ColumnAndShifts::tx_next_l1_l2_tree_root,
-        ColumnAndShifts::tx_next_l1_l2_tree_size,
-        ColumnAndShifts::tx_next_l2_gas_used,
-        ColumnAndShifts::tx_next_da_gas_used
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_next_context_id,
-        ColumnAndShifts::execution_sel_error,
-        ColumnAndShifts::execution_note_hash_tree_root,
-        ColumnAndShifts::execution_note_hash_tree_size,
-        ColumnAndShifts::execution_num_note_hashes_emitted,
-        ColumnAndShifts::execution_nullifier_tree_root,
-        ColumnAndShifts::execution_nullifier_tree_size,
-        ColumnAndShifts::execution_num_nullifiers_emitted,
-        ColumnAndShifts::execution_public_data_tree_root,
-        ColumnAndShifts::execution_public_data_tree_size,
-        ColumnAndShifts::execution_num_pub_data_writes_emitted,
-        ColumnAndShifts::execution_l1_l2_tree_root,
-        ColumnAndShifts::execution_l1_l2_tree_size,
-        ColumnAndShifts::execution_l2_gas_used,
-        ColumnAndShifts::execution_da_gas_used
-    };
-};
-
-using lookup_tx_dispatch_exec_get_revert_settings = lookup_settings<lookup_tx_dispatch_exec_get_revert_settings_>;
-template <typename FF_>
-using lookup_tx_dispatch_exec_get_revert_relation =
-    lookup_relation_base<FF_, lookup_tx_dispatch_exec_get_revert_settings>;
 
 /////////////////// lookup_tx_read_tree_insert_value ///////////////////
 

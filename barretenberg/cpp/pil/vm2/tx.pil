@@ -2,6 +2,15 @@ include "public_inputs.pil";
 include "execution.pil";
 include "precomputed.pil";
 
+// Refer to https://excalidraw.com/#json=XcT7u7Ak5rZhWqT51KwTW,VPI-Q1D7hW8_lYhf6V4bNg for a visual guide to the tx trace.
+// The tx trace manages the various phases that a transaction will undergo while it is being executed.
+// These different phases for a tx include:
+// (a) Non-Revertible Private Insertion of nullifiers, note hashes and L2 to L1 Messages
+// (b) Non-Revertible SETUP phase
+// (c) Revertible Private insertion of nullifiers, note hashes and L2 to L1 Messages
+// (d) Revertible APPLOGIC phase
+// (e) Revertible TEARDOWN phase
+// (f) Non-Revertible Collect Gas Phase
 
 // Things that are still underconstrained
 // 1) Context id and next context id: Continuity and incrementing for select phases
@@ -67,7 +76,7 @@ namespace tx;
     // if is_padded = 1, read_phase_table_sel = 0
     // We cannot re-use start_phase, because we still want to read the lengths to constrain remaining_phase_counter = 0;
     #[PRECOMP_READ_SELECTOR]
-    read_phase_table_sel = (1 - is_padded) * start_phase;
+    sel * (read_phase_table_sel - ((1 - is_padded) * start_phase * is_public_call_request)) = 0;
     #[READ_PHASE_TABLE]
     read_phase_table_sel { 
         phase_value, 
@@ -110,8 +119,11 @@ namespace tx;
 
     // === Phase Lengths === 
     // Read the number of steps in the phase from public inputs
+    pol commit read_phase_length_sel;
+    #[READ_PI_LENGTH_SEL]
+    sel * (read_phase_length_sel - start_phase * (1 - is_collect_fee)) = 0;
     #[READ_PHASE_LENGTH]
-    start_phase { read_pi_length_offset, remaining_phase_counter } in
+    read_phase_length_sel { read_pi_length_offset, remaining_phase_counter } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     // Phase events decrement at each row
@@ -124,6 +136,11 @@ namespace tx;
 
     // === Public Call Request Phase ===
     pol commit is_public_call_request;
+    pol commit msg_sender;
+    pol commit contract_addr;
+    pol commit is_static;
+    pol commit calldata_hash;
+
     // Read information relating to the public call request from public inputs
     #[READ_PUBLIC_CALL_REQUEST_PHASE]
     is_public_call_request {
@@ -141,102 +158,99 @@ namespace tx;
         public_inputs.cols[3]
     };
 
-    pol commit msg_sender;
-    pol commit contract_addr;
-    pol commit is_static;
-    pol commit calldata_hash;
-
-    pol commit context_id; // Constrain
-    pol commit next_context_id; // Constrain
+    pol commit context_id; // TODO: Constrain
+    pol commit next_context_id; // TODO: Constrain
 
     // Public Call Requests are dispatch to the execution trace
     // We match the values to the start of an enqueued call in the execution trace
-    #[DISPATCH_EXEC_START]
-    is_public_call_request {
-        context_id,
-        next_context_id,
-        msg_sender,
-        contract_addr,
-        is_static,
-        // Tree State
-        prev_note_hash_tree_root,
-        prev_note_hash_tree_size,
-        prev_num_note_hashes_emitted,
-        prev_nullifier_tree_size,
-        prev_num_nullifiers_emitted,
-        prev_public_data_tree_root,
-        prev_public_data_tree_size,
-        prev_num_pub_data_writes_emitted,
-        // Gas Info
-        prev_l2_gas_used,
-        prev_da_gas_used,
-        l2_gas_limit,
-        da_gas_limit
-    } in
-    execution.enqueued_call_start {
-        execution.context_id,
-        execution.next_context_id,
-        execution.msg_sender,
-        execution.contract_address,
-        execution.is_static,
-        // Tree State
-        execution.prev_note_hash_tree_root,
-        execution.prev_note_hash_tree_size,
-        execution.prev_num_note_hashes_emitted,
-        execution.prev_nullifier_tree_size,
-        execution.prev_num_nullifiers_emitted,
-        execution.prev_public_data_tree_root,
-        execution.prev_public_data_tree_size,
-        execution.prev_num_pub_data_writes_emitted,
-        // Gas Info
-        execution.prev_l2_gas_used,
-        execution.prev_da_gas_used,
-        execution.l2_gas_limit,
-        execution.da_gas_limit
-    };
+    // Commented out for now since we dont have enqueued call flags in execution set
+    // #[DISPATCH_EXEC_START]
+    // is_public_call_request {
+    //     context_id,
+    //     next_context_id,
+    //     msg_sender,
+    //     contract_addr,
+    //     is_static,
+    //     // Tree State
+    //     prev_note_hash_tree_root,
+    //     prev_note_hash_tree_size,
+    //     prev_num_note_hashes_emitted,
+    //     prev_nullifier_tree_size,
+    //     prev_num_nullifiers_emitted,
+    //     prev_public_data_tree_root,
+    //     prev_public_data_tree_size,
+    //     prev_num_pub_data_writes_emitted,
+    //     // Gas Info
+    //     prev_l2_gas_used,
+    //     prev_da_gas_used,
+    //     l2_gas_limit,
+    //     da_gas_limit
+    // } in
+    // execution.enqueued_call_start {
+    //     execution.context_id,
+    //     execution.next_context_id,
+    //     execution.msg_sender,
+    //     execution.contract_address,
+    //     execution.is_static,
+    //     // Tree State
+    //     execution.prev_note_hash_tree_root,
+    //     execution.prev_note_hash_tree_size,
+    //     execution.prev_num_note_hashes_emitted,
+    //     execution.prev_nullifier_tree_size,
+    //     execution.prev_num_nullifiers_emitted,
+    //     execution.prev_public_data_tree_root,
+    //     execution.prev_public_data_tree_size,
+    //     execution.prev_num_pub_data_writes_emitted,
+    //     // Gas Info
+    //     execution.prev_l2_gas_used,
+    //     execution.prev_da_gas_used,
+    //     execution.l2_gas_limit,
+    //     execution.da_gas_limit
+    // };
 
     // We retrieve the return values at the end of an enqueued call in the execution trace
-    #[DISPATCH_EXEC_GET_REVERT]
-    is_public_call_request { 
-        context_id,
-        next_context_id,
-        reverted,
-        // Tree State
-        next_note_hash_tree_root,
-        next_note_hash_tree_size,
-        next_num_note_hashes_emitted,
-        next_nullifier_tree_root,
-        next_nullifier_tree_size,
-        next_num_nullifiers_emitted,
-        next_public_data_tree_root,
-        next_public_data_tree_size,
-        next_num_pub_data_writes_emitted,
-        next_l1_l2_tree_root,
-        next_l1_l2_tree_size,
-        // Gas Info
-        next_l2_gas_used,
-        next_da_gas_used
-    } in
-    execution.enqueued_call_end { 
-        execution.context_id,
-        execution.next_context_id,
-        execution.sel_error,
-        // Tree State
-        execution.note_hash_tree_root,
-        execution.note_hash_tree_size,
-        execution.num_note_hashes_emitted,
-        execution.nullifier_tree_root,
-        execution.nullifier_tree_size,
-        execution.num_nullifiers_emitted,
-        execution.public_data_tree_root,
-        execution.public_data_tree_size,
-        execution.num_pub_data_writes_emitted,
-        execution.l1_l2_tree_root,
-        execution.l1_l2_tree_size,
-        // Gas Info
-        execution.l2_gas_used,
-        execution.da_gas_used
-    };
+    // Commented out for now since we dont have enqueued call flags in execution set
+    //#[DISPATCH_EXEC_GET_REVERT]
+    //is_public_call_request { 
+    //    context_id,
+    //    next_context_id,
+    //    reverted,
+    //    // Tree State
+    //    next_note_hash_tree_root,
+    //    next_note_hash_tree_size,
+    //    next_num_note_hashes_emitted,
+    //    next_nullifier_tree_root,
+    //    next_nullifier_tree_size,
+    //    next_num_nullifiers_emitted,
+    //    next_public_data_tree_root,
+    //    next_public_data_tree_size,
+    //    next_num_pub_data_writes_emitted,
+    //    next_l1_l2_tree_root,
+    //    next_l1_l2_tree_size,
+    //    // Gas Info
+    //    next_l2_gas_used,
+    //    next_da_gas_used
+    //} in
+    //execution.enqueued_call_end { 
+    //    execution.context_id,
+    //    execution.next_context_id,
+    //    execution.sel_error,
+    //    // Tree State
+    //    execution.note_hash_tree_root,
+    //    execution.note_hash_tree_size,
+    //    execution.num_note_hashes_emitted,
+    //    execution.nullifier_tree_root,
+    //    execution.nullifier_tree_size,
+    //    execution.num_nullifiers_emitted,
+    //    execution.public_data_tree_root,
+    //    execution.public_data_tree_size,
+    //    execution.num_pub_data_writes_emitted,
+    //    execution.l1_l2_tree_root,
+    //    execution.l1_l2_tree_size,
+    //    // Gas Info
+    //    execution.l2_gas_used,
+    //    execution.da_gas_used
+    //};
 
     // === Tree Insertion Options for tree ===
     pol commit sel_revertible_append_note_hash;

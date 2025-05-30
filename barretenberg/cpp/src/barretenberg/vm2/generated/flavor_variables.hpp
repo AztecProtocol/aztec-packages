@@ -62,6 +62,7 @@ struct AvmFlavorVariables {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 73;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2168;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 154;
@@ -98,10 +99,13 @@ struct AvmFlavorVariables {
 =======
     static constexpr size_t NUM_ALL_ENTITIES = 2481;
 =======
+=======
+>>>>>>> ae45cd608d (fix: bulk tests)
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2192;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 149;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2269;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 159;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2428;
 >>>>>>> 05b14accee (fix: update scoped msg serialisation)
 =======
@@ -144,6 +148,9 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_ALL_ENTITIES = 2536;
 >>>>>>> 4586f403db (test: working lookups)
 >>>>>>> f3c06c4570 (test: working lookups)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2515;
+>>>>>>> ae45cd608d (fix: bulk tests)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -264,8 +271,6 @@ struct AvmFlavorVariables {
         lookup_to_radix_limb_less_than_radix_range_relation<FF_>,
         lookup_to_radix_limb_p_diff_range_relation<FF_>,
         lookup_to_radix_limb_range_relation<FF_>,
-        lookup_tx_dispatch_exec_get_revert_relation<FF_>,
-        lookup_tx_dispatch_exec_start_relation<FF_>,
         lookup_tx_phase_jump_on_revert_relation<FF_>,
         lookup_tx_read_l2_l1_msg_relation<FF_>,
         lookup_tx_read_phase_length_relation<FF_>,

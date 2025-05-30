@@ -72,21 +72,12 @@ TEST_F(TxExecutionTest, simulateTx)
 
     auto setup_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*setup_context, halted()).WillByDefault(Return(true)); // dont do any actual
-    EXPECT_CALL(*setup_context, get_msg_sender()).WillOnce(ReturnRef(tx.setupEnqueuedCalls[0].msgSender));
-    EXPECT_CALL(*setup_context, get_address()).WillOnce(ReturnRef(tx.setupEnqueuedCalls[0].contractAddress));
-    EXPECT_CALL(*setup_context, get_is_static()).WillOnce(Return(tx.setupEnqueuedCalls[0].isStaticCall));
 
     auto app_logic_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*app_logic_context, halted()).WillByDefault(Return(true));
-    EXPECT_CALL(*app_logic_context, get_msg_sender()).WillOnce(ReturnRef(tx.appLogicEnqueuedCalls[0].msgSender));
-    EXPECT_CALL(*app_logic_context, get_address()).WillOnce(ReturnRef(tx.appLogicEnqueuedCalls[0].contractAddress));
-    EXPECT_CALL(*app_logic_context, get_is_static()).WillOnce(Return(tx.appLogicEnqueuedCalls[0].isStaticCall));
 
     auto teardown_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*teardown_context, halted()).WillByDefault(Return(true));
-    EXPECT_CALL(*teardown_context, get_msg_sender()).WillOnce(ReturnRef(tx.teardownEnqueuedCall->msgSender));
-    EXPECT_CALL(*teardown_context, get_address()).WillOnce(ReturnRef(tx.teardownEnqueuedCall->contractAddress));
-    EXPECT_CALL(*teardown_context, get_is_static()).WillOnce(Return(tx.teardownEnqueuedCall->isStaticCall));
 
     EXPECT_CALL(context_provider, make_enqueued_context(_, _, _, _, _, _))
         .WillOnce(Return(std::move(setup_context)))

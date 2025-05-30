@@ -15,7 +15,6 @@ class ContextProviderInterface {
   public:
     virtual ~ContextProviderInterface() = default;
 
-    // TODO: Update this, these params are temporary
     virtual std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
                                                                   AztecAddress msg_sender,
                                                                   ContextInterface& parent_context,

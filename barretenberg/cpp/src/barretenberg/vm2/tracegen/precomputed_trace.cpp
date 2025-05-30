@@ -330,23 +330,9 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 {
     using C = Column;
 
-    // Non Revertible Note Hash
-    auto nr_note_hash = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_NOTE_INSERTION);
-    trace.set(0,
-              {
-                  {
-                      { C::precomputed_phase_sel, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
-                      { C::precomputed_sel_non_revertible_append_note_hash, 1 },
-
-                      { C::precomputed_read_public_input_offset, nr_note_hash.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, nr_note_hash.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, nr_note_hash.write_pi_offset },
-                  },
-              });
     // Non Revertible Nullifiers
     auto nr_nullifiers = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_NULLIFIER_INSERTION);
-    trace.set(1,
+    trace.set(0,
               {
                   {
                       { C::precomputed_phase_sel, 1 },
@@ -356,6 +342,20 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_read_public_input_offset, nr_nullifiers.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, nr_nullifiers.read_pi_length_offset },
                       { C::precomputed_write_public_input_offset, nr_nullifiers.write_pi_offset },
+                  },
+              });
+    // Non Revertible Note Hash
+    auto nr_note_hash = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_NOTE_INSERTION);
+    trace.set(1,
+              {
+                  {
+                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
+                      { C::precomputed_sel_non_revertible_append_note_hash, 1 },
+
+                      { C::precomputed_read_public_input_offset, nr_note_hash.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, nr_note_hash.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, nr_note_hash.write_pi_offset },
                   },
               });
     // Non Revertible L2 to L1 Messages
@@ -386,25 +386,9 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_write_public_input_offset, setup.write_pi_offset },
                   },
               });
-    // Revertible Note Hash
-    auto r_note_hash = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_NOTE_INSERTION);
-    trace.set(4,
-              {
-                  {
-                      { C::precomputed_phase_sel, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
-                      { C::precomputed_sel_revertible_append_note_hash, 1 },
-                      { C::precomputed_is_revertible, 1 },
-                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
-
-                      { C::precomputed_read_public_input_offset, r_note_hash.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, r_note_hash.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, r_note_hash.write_pi_offset },
-                  },
-              });
     // Revertible Nullifiers
     auto r_nullifiers = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_NULLIFIER_INSERTION);
-    trace.set(5,
+    trace.set(4,
               {
                   {
                       { C::precomputed_phase_sel, 1 },
@@ -416,6 +400,22 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_read_public_input_offset, r_nullifiers.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, r_nullifiers.read_pi_length_offset },
                       { C::precomputed_write_public_input_offset, r_nullifiers.write_pi_offset },
+                  },
+              });
+    // Revertible Note Hash
+    auto r_note_hash = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_NOTE_INSERTION);
+    trace.set(5,
+              {
+                  {
+                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
+                      { C::precomputed_sel_revertible_append_note_hash, 1 },
+                      { C::precomputed_is_revertible, 1 },
+                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
+
+                      { C::precomputed_read_public_input_offset, r_note_hash.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, r_note_hash.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, r_note_hash.write_pi_offset },
                   },
               });
     // Revertible L2 to L1 Messages

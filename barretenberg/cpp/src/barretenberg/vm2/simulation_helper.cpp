@@ -126,7 +126,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
-    ExecutionComponentsProvider execution_components(instruction_info_db);
+    ExecutionComponentsProvider execution_components(range_check, instruction_info_db);
 
     Alu alu(alu_emitter);
     ContextProvider context_provider(bytecode_manager, range_check, memory_emitter);

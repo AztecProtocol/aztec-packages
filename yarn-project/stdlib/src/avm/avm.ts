@@ -415,13 +415,11 @@ export class AvmTxHint {
       noteHashes: Fr[];
       nullifiers: Fr[];
       l2ToL1Messages: ScopedL2ToL1Message[];
-      // TODO: add as needed.
     },
     public readonly revertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
       l2ToL1Messages: ScopedL2ToL1Message[];
-      // TODO: add as needed.
     },
     public readonly setupEnqueuedCalls: AvmEnqueuedCallHint[],
     public readonly appLogicEnqueuedCalls: AvmEnqueuedCallHint[],

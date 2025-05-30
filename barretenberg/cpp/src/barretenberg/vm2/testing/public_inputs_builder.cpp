@@ -247,7 +247,7 @@ PublicInputsBuilder& PublicInputsBuilder::rand_public_setup_call_requests(size_t
             .calldataHash = FF::random_element(), // Placeholder for actual calldata hash
         };
     }
-    public_inputs.publicCallRequestArrayLengths.setupCalls += n;
+    public_inputs.publicCallRequestArrayLengths.setupCalls += static_cast<uint32_t>(n);
     return *this;
 }
 
