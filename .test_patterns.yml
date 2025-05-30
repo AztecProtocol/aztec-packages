@@ -102,6 +102,10 @@ tests:
     error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
     owners:
       - *sean
+  - regex: "src/e2e_p2p/reqresp"
+    error_regex: 'CodeError: writable end state is "writing" not "ready"'
+    owners:
+      - *sean
   - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
@@ -178,6 +182,10 @@ tests:
     owners:
       - *sean
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    error_regex: "CodeError: writable end state is .writing. not .ready."
+    owners:
+      - *sean
+  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
@@ -211,17 +219,6 @@ tests:
       - *alex
   - regex: "ethereum/src/test/tx_delayer.test.ts"
     error_regex: "delays a transaction until a given L1 timestamp"
-    owners:
-      - *esau
-
-  # boxes
-  - regex: "BOX=vite BROWSER=webkit run_compose_test vite-webkit box boxes"
-    error_regex: "WARN: sequencer Too far into slot for INITIALIZING_PROPOSAL"
-    owners:
-      - *grego
-
-  - regex: "BOX=vanilla BROWSER=webkit run_compose_test vanilla-webkit box boxes"
-    error_regex: "Test timeout of 90000ms exceeded."
     owners:
       - *esau
 

@@ -2,6 +2,8 @@ import { type AccountWalletWithSecretKey, type AztecAddress, Contract } from '@a
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
+
 export async function authorizeAction(
   wallet: AccountWalletWithSecretKey,
   functionName: string,
@@ -28,7 +30,7 @@ export async function authorizeAction(
   const action = contract.methods[functionName](...functionArgs);
 
   const setAuthwitnessInteraction = await wallet.setPublicAuthWit({ caller, action }, true);
-  const witness = await setAuthwitnessInteraction.send().wait();
+  const witness = await setAuthwitnessInteraction.send().wait({ timeout: DEFAULT_TX_TIMEOUT_S });
 
   log(`Authorized action ${functionName} on contract ${contractAddress} for caller ${caller}`);
 

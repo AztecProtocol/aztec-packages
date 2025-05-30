@@ -115,7 +115,7 @@ template <IsUltraOrMegaHonk Flavor> HonkProof DeciderProver_<Flavor>::construct_
     // Fiat-Shamir: rho, y, x, z
     // Execute Shplemini PCS
     execute_pcs_rounds();
-    vinfo("finished decider proving.");
+
     return export_proof();
 }
 

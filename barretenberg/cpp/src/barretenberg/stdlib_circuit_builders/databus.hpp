@@ -13,9 +13,8 @@
 namespace bb {
 
 // We assume all kernels have space for two return data commitments on their public inputs
-constexpr uint32_t NUM_DATABUS_COMMITMENTS = 2;
 constexpr uint32_t PROPAGATED_DATABUS_COMMITMENT_SIZE = 8;
-constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = PROPAGATED_DATABUS_COMMITMENT_SIZE * NUM_DATABUS_COMMITMENTS;
+constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = PROPAGATED_DATABUS_COMMITMENT_SIZE * 2; // Two databus comms
 
 /**
  * @brief A DataBus column

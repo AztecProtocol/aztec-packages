@@ -67,16 +67,19 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* w
 WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out);
 WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out);
 WASM_EXPORT void acir_prove_ultra_starknet_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out);
+WASM_EXPORT void acir_prove_ultra_starknet_zk_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out);
 
 WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result);
 WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result);
 WASM_EXPORT void acir_verify_ultra_keccak_zk_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result);
 WASM_EXPORT void acir_verify_ultra_starknet_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result);
+WASM_EXPORT void acir_verify_ultra_starknet_zk_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result);
 
 WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out);
 WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t** out);
 WASM_EXPORT void acir_write_vk_ultra_keccak_zk_honk(uint8_t const* acir_vec, uint8_t** out);
 WASM_EXPORT void acir_write_vk_ultra_starknet_honk(uint8_t const* acir_vec, uint8_t** out);
+WASM_EXPORT void acir_write_vk_ultra_starknet_zk_honk(uint8_t const* acir_vec, uint8_t** out);
 
 WASM_EXPORT void acir_proof_as_fields_ultra_honk(uint8_t const* proof_buf, fr::vec_out_buf out);
 

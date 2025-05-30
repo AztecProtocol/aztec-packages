@@ -1,11 +1,11 @@
-import createDebug from 'debug';
-import { getSharedMemoryAvailable } from './helpers/node/index.js';
+import { getSharedMemoryAvailable, getAvailableThreads } from './helpers/node/index.js';
 import { fetchCode } from './fetch_code/index.js';
+import { createDebugLogger } from '../log/index.js';
 
 export async function fetchModuleAndThreads(
   desiredThreads = 32,
   wasmPath?: string,
-  logger: (msg: string) => void = createDebug('bb.js:fetch_mat'),
+  logger: (msg: string) => void = createDebugLogger('fetch_mat'),
 ) {
   const shared = getSharedMemoryAvailable();
 
@@ -19,20 +19,4 @@ export async function fetchModuleAndThreads(
   const module = await WebAssembly.compile(code);
   logger('Compilation of bb wasm complete');
   return { module, threads: limitedThreads };
-}
-
-async function getAvailableThreads(logger: (msg: string) => void): Promise<number> {
-  if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
-    return navigator.hardwareConcurrency;
-  } else {
-    try {
-      const os = await import('os');
-      return os.cpus().length;
-    } catch (e: any) {
-      logger(
-        `Could not detect environment to query number of threads. Falling back to one thread. Error: ${e.message ?? e}`,
-      );
-      return 1;
-    }
-  }
 }

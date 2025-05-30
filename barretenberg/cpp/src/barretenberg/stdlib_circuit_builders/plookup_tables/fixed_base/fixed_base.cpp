@@ -110,7 +110,7 @@ grumpkin::g1::affine_element table::generate_generator_offset(const grumpkin::g1
  */
 bool table::lookup_table_exists_for_point(const affine_element& input)
 {
-    return (input == LHS_GENERATOR_POINT || input == RHS_GENERATOR_POINT);
+    return (input == lhs_generator_point() || input == rhs_generator_point());
 }
 
 /**
@@ -123,10 +123,10 @@ bool table::lookup_table_exists_for_point(const affine_element& input)
 std::optional<std::array<MultiTableId, 2>> table::get_lookup_table_ids_for_point(
     const grumpkin::g1::affine_element& input)
 {
-    if (input == LHS_GENERATOR_POINT) {
+    if (input == lhs_generator_point()) {
         return { { FIXED_BASE_LEFT_LO, FIXED_BASE_LEFT_HI } };
     }
-    if (input == RHS_GENERATOR_POINT) {
+    if (input == rhs_generator_point()) {
         return { { FIXED_BASE_RIGHT_LO, FIXED_BASE_RIGHT_HI } };
     }
     return {};
@@ -284,10 +284,10 @@ template MultiTable table::get_fixed_base_table<3, table::BITS_PER_HI_SCALAR>(Mu
 const table::all_multi_tables& table::fixed_base_tables()
 {
     static const table::all_multi_tables tables = {
-        table::generate_tables<BITS_PER_LO_SCALAR>(lhs_base_point_lo),
-        table::generate_tables<BITS_PER_HI_SCALAR>(lhs_base_point_hi),
-        table::generate_tables<BITS_PER_LO_SCALAR>(rhs_base_point_lo),
-        table::generate_tables<BITS_PER_HI_SCALAR>(rhs_base_point_hi),
+        table::generate_tables<BITS_PER_LO_SCALAR>(lhs_base_point_lo()),
+        table::generate_tables<BITS_PER_HI_SCALAR>(lhs_base_point_hi()),
+        table::generate_tables<BITS_PER_LO_SCALAR>(rhs_base_point_lo()),
+        table::generate_tables<BITS_PER_HI_SCALAR>(rhs_base_point_hi()),
     };
     return tables;
 }
@@ -300,10 +300,10 @@ const table::all_multi_tables& table::fixed_base_tables()
 const std::array<table::affine_element, table::NUM_FIXED_BASE_MULTI_TABLES>& table::fixed_base_table_offset_generators()
 {
     static const std::array<table::affine_element, table::NUM_FIXED_BASE_MULTI_TABLES> tables = {
-        table::generate_generator_offset<BITS_PER_LO_SCALAR>(lhs_base_point_lo),
-        table::generate_generator_offset<BITS_PER_HI_SCALAR>(lhs_base_point_hi),
-        table::generate_generator_offset<BITS_PER_LO_SCALAR>(rhs_base_point_lo),
-        table::generate_generator_offset<BITS_PER_HI_SCALAR>(rhs_base_point_hi),
+        table::generate_generator_offset<BITS_PER_LO_SCALAR>(lhs_base_point_lo()),
+        table::generate_generator_offset<BITS_PER_HI_SCALAR>(lhs_base_point_hi()),
+        table::generate_generator_offset<BITS_PER_LO_SCALAR>(rhs_base_point_lo()),
+        table::generate_generator_offset<BITS_PER_HI_SCALAR>(rhs_base_point_hi()),
     };
     return tables;
 }

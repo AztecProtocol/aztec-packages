@@ -10,7 +10,8 @@
 
 namespace bb::numeric {
 template <class base_uint>
-constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod_base(const uintx& b) const
+std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod_base(const uintx& b) const
+
 {
     ASSERT(b != 0);
     if (*this == 0) {
@@ -68,7 +69,7 @@ constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod
  *
  * @return The inverse of *this modulo modulus
  **/
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::unsafe_invmod(const uintx& modulus) const
+template <class base_uint> uintx<base_uint> uintx<base_uint>::unsafe_invmod(const uintx& modulus) const
 {
 
     uintx t1 = 0;
@@ -100,7 +101,7 @@ template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::unsafe_i
  * @param modulus The modulus
  * @return The inverse of *this modulo modulus
  **/
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::invmod(const uintx& modulus) const
+template <class base_uint> uintx<base_uint> uintx<base_uint>::invmod(const uintx& modulus) const
 {
     ASSERT((*this) != 0);
     if (modulus == 0) {
@@ -114,20 +115,7 @@ template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::invmod(c
     return this->unsafe_invmod(modulus);
 }
 
-/**
- * Viewing `this` as a bit string, and counting bits from 0, slices a substring.
- * @returns the uintx equal to the substring of bits from (and including) the `start`-th bit, to (but excluding) the
- * `end`-th bit of `this`.
- */
-template <class base_uint>
-constexpr uintx<base_uint> uintx<base_uint>::slice(const uint64_t start, const uint64_t end) const
-{
-    const uint64_t range = end - start;
-    const uintx mask = range == base_uint::length() ? -uintx(1) : (uintx(1) << range) - 1;
-    return ((*this) >> start) & mask;
-}
-
-template <class base_uint> constexpr bool uintx<base_uint>::get_bit(const uint64_t bit_index) const
+template <class base_uint> bool uintx<base_uint>::get_bit(const uint64_t bit_index) const
 {
     if (bit_index >= base_uint::length()) {
         return hi.get_bit(bit_index - base_uint::length());
@@ -135,35 +123,12 @@ template <class base_uint> constexpr bool uintx<base_uint>::get_bit(const uint64
     return lo.get_bit(bit_index);
 }
 
-template <class base_uint> constexpr uint64_t uintx<base_uint>::get_msb() const
-{
-    uint64_t hi_idx = hi.get_msb();
-    uint64_t lo_idx = lo.get_msb();
-    return (hi_idx || (hi > base_uint(0))) ? (hi_idx + base_uint::length()) : lo_idx;
-}
-
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator+(const uintx& other) const
-{
-    base_uint res_lo = lo + other.lo;
-    bool carry = res_lo < lo;
-    base_uint res_hi = hi + other.hi + ((carry) ? base_uint(1) : base_uint(0));
-    return { res_lo, res_hi };
-};
-
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator-(const uintx& other) const
-{
-    base_uint res_lo = lo - other.lo;
-    bool borrow = res_lo > lo;
-    base_uint res_hi = hi - other.hi - ((borrow) ? base_uint(1) : base_uint(0));
-    return { res_lo, res_hi };
-}
-
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator-() const
+template <class base_uint> uintx<base_uint> uintx<base_uint>::operator-() const
 {
     return uintx(0) - *this;
 }
 
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator*(const uintx& other) const
+template <class base_uint> uintx<base_uint> uintx<base_uint>::operator*(const uintx& other) const
 {
     const auto lolo = lo.mul_extended(other.lo);
     const auto lohi = lo.mul_extended(other.hi);
@@ -175,7 +140,7 @@ template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator
 }
 
 template <class base_uint>
-constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::mul_extended(const uintx& other) const
+std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::mul_extended(const uintx& other) const
 {
     const auto lolo = lo.mul_extended(other.lo);
     const auto lohi = lo.mul_extended(other.hi);
@@ -202,53 +167,49 @@ constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::mul_ex
     return { uintx(t0, t1), uintx(t2, t3) };
 }
 
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator/(const uintx& other) const
+template <class base_uint> uintx<base_uint> uintx<base_uint>::operator/(const uintx& other) const
+
 {
     return divmod(other).first;
 }
 
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator%(const uintx& other) const
+template <class base_uint> uintx<base_uint> uintx<base_uint>::operator%(const uintx& other) const
+
 {
     return divmod(other).second;
 }
-// 0x2af0296feca4188a80fd373ebe3c64da87a232934abb3a99f9c4cd59e6758a65
-// 0x1182c6cdb54193b51ca27c1932b95c82bebac691e3996e5ec5e1d4395f3023e3
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator&(const uintx& other) const
-{
-    return { lo & other.lo, hi & other.hi };
-}
 
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator^(const uintx& other) const
+template <class base_uint> uintx<base_uint> uintx<base_uint>::operator^(const uintx& other) const
 {
     return { lo ^ other.lo, hi ^ other.hi };
 }
 
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator|(const uintx& other) const
+template <class base_uint> uintx<base_uint> uintx<base_uint>::operator|(const uintx& other) const
 {
     return { lo | other.lo, hi | other.hi };
 }
 
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator~() const
+template <class base_uint> uintx<base_uint> uintx<base_uint>::operator~() const
 {
     return { ~lo, ~hi };
 }
 
-template <class base_uint> constexpr bool uintx<base_uint>::operator==(const uintx& other) const
+template <class base_uint> bool uintx<base_uint>::operator==(const uintx& other) const
 {
     return ((lo == other.lo) && (hi == other.hi));
 }
 
-template <class base_uint> constexpr bool uintx<base_uint>::operator!=(const uintx& other) const
+template <class base_uint> bool uintx<base_uint>::operator!=(const uintx& other) const
 {
     return !(*this == other);
 }
 
-template <class base_uint> constexpr bool uintx<base_uint>::operator!() const
+template <class base_uint> bool uintx<base_uint>::operator!() const
 {
     return *this == uintx(0ULL);
 }
 
-template <class base_uint> constexpr bool uintx<base_uint>::operator>(const uintx& other) const
+template <class base_uint> bool uintx<base_uint>::operator>(const uintx& other) const
 {
     bool hi_gt = hi > other.hi;
     bool lo_gt = lo > other.lo;
@@ -257,94 +218,23 @@ template <class base_uint> constexpr bool uintx<base_uint>::operator>(const uint
     return gt;
 }
 
-template <class base_uint> constexpr bool uintx<base_uint>::operator>=(const uintx& other) const
+template <class base_uint> bool uintx<base_uint>::operator>=(const uintx& other) const
 {
     return (*this > other) || (*this == other);
 }
 
-template <class base_uint> constexpr bool uintx<base_uint>::operator<(const uintx& other) const
+template <class base_uint> bool uintx<base_uint>::operator<(const uintx& other) const
 {
     return other > *this;
 }
 
-template <class base_uint> constexpr bool uintx<base_uint>::operator<=(const uintx& other) const
+template <class base_uint> bool uintx<base_uint>::operator<=(const uintx& other) const
 {
     return (*this < other) || (*this == other);
 }
 
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator>>(const uint64_t other) const
-{
-    const uint64_t total_shift = other;
-    if (total_shift >= length()) {
-        return uintx(0);
-    }
-    if (total_shift == 0) {
-        return *this;
-    }
-    const uint64_t num_shifted_limbs = total_shift >> (base_uint(base_uint::length()).get_msb());
+template <class base_uint> std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod(const uintx& b) const
 
-    const uint64_t limb_shift = total_shift & static_cast<uint64_t>(base_uint::length() - 1);
-
-    std::array<base_uint, 2> shifted_limbs = { 0, 0 };
-    if (limb_shift == 0) {
-        shifted_limbs[0] = lo;
-        shifted_limbs[1] = hi;
-    } else {
-        const uint64_t remainder_shift = static_cast<uint64_t>(base_uint::length()) - limb_shift;
-
-        shifted_limbs[1] = hi >> limb_shift;
-
-        base_uint remainder = (hi) << remainder_shift;
-
-        shifted_limbs[0] = (lo >> limb_shift) + remainder;
-    }
-    uintx result(0);
-    if (num_shifted_limbs == 0) {
-        result.hi = shifted_limbs[1];
-        result.lo = shifted_limbs[0];
-    } else {
-        result.lo = shifted_limbs[1];
-    }
-    return result;
-}
-
-template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator<<(const uint64_t other) const
-{
-    const uint64_t total_shift = other;
-    if (total_shift >= length()) {
-        return uintx(0);
-    }
-    if (total_shift == 0) {
-        return *this;
-    }
-    const uint64_t num_shifted_limbs = total_shift >> (base_uint(base_uint::length()).get_msb());
-    const uint64_t limb_shift = total_shift & static_cast<uint64_t>(base_uint::length() - 1);
-
-    std::array<base_uint, 2> shifted_limbs = { 0, 0 };
-    if (limb_shift == 0) {
-        shifted_limbs[0] = lo;
-        shifted_limbs[1] = hi;
-    } else {
-        const uint64_t remainder_shift = static_cast<uint64_t>(base_uint::length()) - limb_shift;
-
-        shifted_limbs[0] = lo << limb_shift;
-
-        base_uint remainder = lo >> remainder_shift;
-
-        shifted_limbs[1] = (hi << limb_shift) + remainder;
-    }
-    uintx result(0);
-    if (num_shifted_limbs == 0) {
-        result.hi = shifted_limbs[1];
-        result.lo = shifted_limbs[0];
-    } else {
-        result.hi = shifted_limbs[0];
-    }
-    return result;
-}
-
-template <class base_uint>
-constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod(const uintx& b) const
 {
     constexpr uint256_t BN254FQMODULUS256 =
         uint256_t(0x3C208C16D87CFD47UL, 0x97816a916871ca8dUL, 0xb85045b68181585dUL, 0x30644e72e131a029UL);
@@ -375,18 +265,18 @@ constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod
  *
  * @tparam base_uint
  * @tparam modulus
- * @return constexpr std::pair<uintx<base_uint>, uintx<base_uint>>
+ * @return std::pair<uintx<base_uint>, uintx<base_uint>>
  */
 template <class base_uint>
 template <base_uint modulus>
-constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reduction() const
+std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reduction() const
 {
     // N.B. k could be modulus.get_msb() + 1 if we have strong bounds on the max value of (*self)
     //      (a smaller k would allow us to fit `redc_parameter` into `base_uint` and not `uintx`)
     constexpr size_t k = base_uint::length() - 1;
     // N.B. computation of redc_parameter requires division operation - if this cannot be precomputed (or amortized over
     // multiple reductions over the same modulus), barrett_reduction is much slower than divmod
-    constexpr uintx redc_parameter = ((uintx(1) << (k * 2)).divmod_base(uintx(modulus))).first;
+    static const uintx redc_parameter = ((uintx(1) << (k * 2)).divmod_base(uintx(modulus))).first;
 
     const auto x = *this;
 

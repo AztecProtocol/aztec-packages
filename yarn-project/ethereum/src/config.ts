@@ -44,10 +44,10 @@ export type L1ContractsConfig = {
 
 export const DefaultL1ContractsConfig = {
   ethereumSlotDuration: 12,
-  aztecSlotDuration: 24,
-  aztecEpochDuration: 16,
+  aztecSlotDuration: 36,
+  aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
-  aztecProofSubmissionWindow: 31, // you have a full epoch to submit a proof after the epoch to prove ends
+  aztecProofSubmissionWindow: 64, // you have a full epoch to submit a proof after the epoch to prove ends
   minimumStake: BigInt(100e18),
   slashingQuorum: 6,
   slashingRoundSize: 10,

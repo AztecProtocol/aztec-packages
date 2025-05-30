@@ -1,4 +1,5 @@
 #include "grumpkin.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 #include <chrono>
 #include <gtest/gtest.h>
 
@@ -328,4 +329,10 @@ TEST(grumpkin, BadPoints)
         c *= grumpkin::fr(4);
     }
     EXPECT_TRUE(res);
+}
+
+TEST(grumpkin, CheckPrecomputedGenerators)
+{
+    ASSERT_TRUE((bb::check_precomputed_generators<grumpkin::g1, "pedersen_hash_length", 1UL>()));
+    ASSERT_TRUE((bb::check_precomputed_generators<grumpkin::g1, "DEFAULT_DOMAIN_SEPARATOR", 8UL>()));
 }

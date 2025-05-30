@@ -95,7 +95,9 @@ export function reqGoodbyeHandler(peerManager: PeerManager): ReqRespSubProtocolH
 
     peerManager.goodbyeReceived(peerId, reason);
 
-    // Return a buffer of length 1 as an acknowledgement: this is allowed to fail
+    // NOTE: In the current implementation this won't be sent to peer,
+    // as the connection to peer has been already closed by peerManager.goodbyeReceived
+    // We have this just to satisfy interface
     return Promise.resolve(Buffer.from([0x0]));
   };
 }

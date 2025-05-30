@@ -138,6 +138,10 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                sumcheck_output.claimed_libra_evaluation);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Investigate if normalize() calls are needed.
+    pairing_points[0] = pairing_points[0].normalize();
+    pairing_points[1] = pairing_points[1].normalize();
     output.points_accumulator.aggregate(pairing_points);
 
     // Extract the IPA claim from the public inputs

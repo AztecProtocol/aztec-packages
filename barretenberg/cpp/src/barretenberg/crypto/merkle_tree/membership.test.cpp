@@ -232,7 +232,7 @@ TEST(crypto_merkle_tree, test_update_memberships)
     std::vector<field_ct> new_roots_ct;
 
     for (size_t i = 0; i < old_indices.size(); i++) {
-        auto idx_vec = field_ct(witness_ct(&builder, uint256_t(old_indices[i]))).decompose_into_bits(depth);
+        auto idx_vec = field_ct(witness_ct(&builder, uint256_t(old_indices[i]))).decompose_into_bits();
         old_indices_ct.push_back(idx_vec);
         old_values_ct.push_back(witness_ct(&builder, old_values[i]));
         old_hash_paths_ct.push_back(create_witness_hash_path(builder, old_hash_paths[i]));

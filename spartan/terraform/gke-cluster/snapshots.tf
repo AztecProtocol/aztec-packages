@@ -52,6 +52,7 @@ resource "google_storage_bucket_object" "alpha_testnet_json" {
   content = jsonencode({
     version = ""
     config = {
+      maxTxsPerBlock = 8
       governanceProposerPayload = "0x0000000000000000000000000000000000000000"
     }
   })

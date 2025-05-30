@@ -173,8 +173,8 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
             // Set the pairing point accumulator indices. This should exist for all flavors.
             ASSERT(circuit.pairing_inputs_public_input_key.is_set() &&
-                   "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a \
-                   default one through a method in PairingPoints.");
+                   "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a "
+                   "default one through a method in PairingPoints.");
             proving_key.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
             if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices

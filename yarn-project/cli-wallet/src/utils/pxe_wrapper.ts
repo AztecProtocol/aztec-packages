@@ -1,6 +1,8 @@
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { type AztecNode, type PXE, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
+export const DEFAULT_TX_TIMEOUT_S = 180;
+
 /*
  * Wrapper class for PXE service, avoids initialization issues due to
  * closures when providing PXE service to injected commander.js commands

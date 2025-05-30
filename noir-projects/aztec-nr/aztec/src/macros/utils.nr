@@ -111,6 +111,14 @@ pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Typ
                 $hasher_name.add_multiple($serialized_name[i]);
             }
         }
+    } else if typ.as_tuple().is_some() {
+        let tuple_len = typ.as_tuple().unwrap().len();
+        let mut tuple_quotes: [Quoted] = [];
+        for i in 0..tuple_len {
+            let element_quote = quote { $hasher_name.add_multiple(dep::aztec::protocol_types::traits::Serialize::serialize($name.$i)); };
+            tuple_quotes = tuple_quotes.push_back(element_quote);
+        }
+        tuple_quotes.join(quote {})
     } else if typ.as_str().is_some() {
         quote {
             $hasher_name.add_multiple($name.as_bytes().map(| byte: u8 | byte as Field));

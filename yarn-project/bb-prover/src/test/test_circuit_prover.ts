@@ -36,7 +36,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { WitnessMap } from '@aztec/noir-types';
-import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
+import { type CircuitSimulator, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
   type ProofAndVerificationKey,
@@ -88,7 +88,7 @@ export class TestCircuitProver implements ServerCircuitProver {
   private logger = createLogger('bb-prover:test-prover');
 
   constructor(
-    private simulationProvider?: SimulationProvider,
+    private simulator?: CircuitSimulator,
     private opts: TestDelay = { proverTestDelayType: 'fixed', proverTestDelayMs: 0 },
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
@@ -351,7 +351,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     let witness: WitnessMap;
     if (
       ['BlockRootRollupArtifact', 'SingleTxBlockRootRollupArtifact'].includes(artifactName) ||
-      this.simulationProvider == undefined
+      this.simulator == undefined
     ) {
       // TODO(#10323): Native ACVM simulator does not support foreign call handler so we use the wasm simulator
       // when simulating block root rollup and single tx block root rollup circuits or when the native ACVM simulator
@@ -365,7 +365,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       ).witness;
     } else {
       witness = (
-        await this.simulationProvider.executeProtocolCircuit(
+        await this.simulator.executeProtocolCircuit(
           witnessMap,
           getSimulatedServerCircuitArtifact(artifactName),
           undefined, // Native ACM simulator does not support foreign call handler

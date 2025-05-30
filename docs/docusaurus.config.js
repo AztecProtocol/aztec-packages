@@ -63,7 +63,7 @@ const config = {
           },
           routeBasePath: "/",
           include: ["**/*.{md,mdx}"],
-          exclude: !process.env.PROTOCOL_SPECS ? ['protocol-specs/**'] : [],
+          exclude: !process.env.PROTOCOL_SPECS ? ["protocol-specs/**"] : [],
 
           remarkPlugins: [math],
           rehypePlugins: [
@@ -76,6 +76,7 @@ const config = {
               },
             ],
           ],
+          includeCurrentVersion: false,
           versions: (() => {
             const versionObject = {};
             if (process.env.ENV === "dev") {

@@ -94,17 +94,16 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
     }
-
-    // Get some values for a valid aggregation object and use them here to avoid divide by 0 or other issues.
-    std::array<fr, PairingPoints<Builder>::PUBLIC_INPUTS_SIZE> dummy_pairing_points_values =
-        PairingPoints<Builder>::construct_dummy();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Using SMALL_DUMMY_VALUE might resolve this
+    // issue.
+    fr SMALL_DUMMY_VALUE(2); // arbtirary small value that shouldn't cause builder problems.
+    // The aggregation object
     for (size_t i = 0; i < PairingPoints<Builder>::PUBLIC_INPUTS_SIZE; i++) {
-        builder.assert_equal(builder.add_variable(dummy_pairing_points_values[i]), proof_fields[offset].witness_index);
+        builder.assert_equal(builder.add_variable(SMALL_DUMMY_VALUE), proof_fields[offset].witness_index);
         offset++;
     }
 
     // IPA claim
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1392): Don't use random elements here.
     if constexpr (HasIPAAccumulator<Flavor>) {
         for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
             builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);

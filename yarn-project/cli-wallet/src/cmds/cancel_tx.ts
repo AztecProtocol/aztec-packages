@@ -5,6 +5,8 @@ import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
+
 export async function cancelTx(
   wallet: AccountWalletWithSecretKey,
   {
@@ -46,7 +48,7 @@ export async function cancelTx(
   const txProvingResult = await wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
   const sentTx = new SentTx(wallet, wallet.sendTx(txProvingResult.toTx()));
   try {
-    await sentTx.wait();
+    await sentTx.wait({ timeout: DEFAULT_TX_TIMEOUT_S });
 
     log('Transaction has been cancelled');
 

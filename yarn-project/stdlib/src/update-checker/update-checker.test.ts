@@ -92,7 +92,8 @@ describe('UpdateChecker', () => {
     [
       'newRollupVersion',
       () => {
-        getCanonicalRollupVersion.mockResolvedValueOnce(randomBigInt(1000n));
+        // ensure the new version is completely different to the previous one
+        getCanonicalRollupVersion.mockResolvedValueOnce(1000n + randomBigInt(1000n));
       },
     ],
     [

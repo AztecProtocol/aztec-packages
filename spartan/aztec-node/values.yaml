@@ -54,6 +54,8 @@ node:
   ## Example: "X-API-KEY"
   l1ConsensusHostApiKeyHeaders: []
 
+  preStartScript: ""
+
   startCmd:
     - --node
     - --archiver
@@ -137,6 +139,9 @@ service:
     # kubernetes.io/ingress.global-static-ip-name: my-static-ip
     hosts: []
     # - node.example.com
+
+  headless:
+    enabled: true
 
   p2p:
     enabled: true

@@ -10,9 +10,14 @@ import { AbiDecodedSchema } from '../schemas/schemas.js';
 type FunctionTiming = {
   functionName: string;
   time: number;
+  oracles?: Record<string, { times: number[] }>;
 };
 
-const FunctionTimingSchema = z.object({ functionName: z.string(), time: z.number() });
+const FunctionTimingSchema = z.object({
+  functionName: z.string(),
+  time: z.number(),
+  oracles: optional(z.record(z.string(), z.object({ times: z.array(z.number()) }))),
+});
 
 export type ProvingTimings = {
   sync?: number;

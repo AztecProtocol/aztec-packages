@@ -6,7 +6,7 @@ Let's start by setting up a regular Javascript NodeJS project. Feel free to skip
 
 We'll use [`yarn`](https://yarnpkg.com/) for managing our project and dependencies, though you can also use `npm` or your Javascript package manager of choice.
 
-1. Ensure your node version matches the definition in the [prerequisites](../../../../getting_started.md#prerequisites)
+1. Ensure your node version is compatible with the [prerequisites](../../../../getting_started.md#prerequisites)
 
 ```sh
 node -v
@@ -31,3 +31,11 @@ yarn init -yp
 ```sh
 yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix
 ```
+
+and yarn config:
+
+```sh
+echo "nodeLinker: node-modules" > .yarnrc.yml
+```
+
+Then run: `yarn install`

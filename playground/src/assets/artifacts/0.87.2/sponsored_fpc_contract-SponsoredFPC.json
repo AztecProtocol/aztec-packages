@@ -1,0 +1,1717 @@
+{
+  "transpiled": true,
+  "noir_version": "1.0.0-beta.5+0000000000000000000000000000000000000000",
+  "name": "SponsoredFPC",
+  "functions": [
+    {
+      "name": "sponsor_unconditionally",
+      "is_unconstrained": false,
+      "custom_attributes": [
+        "private"
+      ],
+      "abi": {
+        "parameters": [
+          {
+            "name": "inputs",
+            "type": {
+              "kind": "struct",
+              "path": "aztec::context::inputs::private_context_inputs::PrivateContextInputs",
+              "fields": [
+                {
+                  "name": "call_context",
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::abis::call_context::CallContext",
+                    "fields": [
+                      {
+                        "name": "msg_sender",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                          "fields": [
+                            {
+                              "name": "inner",
+                              "type": {
+                                "kind": "field"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "contract_address",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                          "fields": [
+                            {
+                              "name": "inner",
+                              "type": {
+                                "kind": "field"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "function_selector",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::abis::function_selector::FunctionSelector",
+                          "fields": [
+                            {
+                              "name": "inner",
+                              "type": {
+                                "kind": "integer",
+                                "sign": "unsigned",
+                                "width": 32
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "is_static_call",
+                        "type": {
+                          "kind": "boolean"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "historical_header",
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::block_header::BlockHeader",
+                    "fields": [
+                      {
+                        "name": "last_archive",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot",
+                          "fields": [
+                            {
+                              "name": "root",
+                              "type": {
+                                "kind": "field"
+                              }
+                            },
+                            {
+                              "name": "next_available_leaf_index",
+                              "type": {
+                                "kind": "integer",
+                                "sign": "unsigned",
+                                "width": 32
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "content_commitment",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::content_commitment::ContentCommitment",
+                          "fields": [
+                            {
+                              "name": "num_txs",
+                              "type": {
+                                "kind": "field"
+                              }
+                            },
+                            {
+                              "name": "blobs_hash",
+                              "type": {
+                                "kind": "field"
+                              }
+                            },
+                            {
+                              "name": "in_hash",
+                              "type": {
+                                "kind": "field"
+                              }
+                            },
+                            {
+                              "name": "out_hash",
+                              "type": {
+                                "kind": "field"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "state",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::state_reference::StateReference",
+                          "fields": [
+                            {
+                              "name": "l1_to_l2_message_tree",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot",
+                                "fields": [
+                                  {
+                                    "name": "root",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  },
+                                  {
+                                    "name": "next_available_leaf_index",
+                                    "type": {
+                                      "kind": "integer",
+                                      "sign": "unsigned",
+                                      "width": 32
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "partial",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::partial_state_reference::PartialStateReference",
+                                "fields": [
+                                  {
+                                    "name": "note_hash_tree",
+                                    "type": {
+                                      "kind": "struct",
+                                      "path": "aztec::protocol_types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot",
+                                      "fields": [
+                                        {
+                                          "name": "root",
+                                          "type": {
+                                            "kind": "field"
+                                          }
+                                        },
+                                        {
+                                          "name": "next_available_leaf_index",
+                                          "type": {
+                                            "kind": "integer",
+                                            "sign": "unsigned",
+                                            "width": 32
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "name": "nullifier_tree",
+                                    "type": {
+                                      "kind": "struct",
+                                      "path": "aztec::protocol_types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot",
+                                      "fields": [
+                                        {
+                                          "name": "root",
+                                          "type": {
+                                            "kind": "field"
+                                          }
+                                        },
+                                        {
+                                          "name": "next_available_leaf_index",
+                                          "type": {
+                                            "kind": "integer",
+                                            "sign": "unsigned",
+                                            "width": 32
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "name": "public_data_tree",
+                                    "type": {
+                                      "kind": "struct",
+                                      "path": "aztec::protocol_types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot",
+                                      "fields": [
+                                        {
+                                          "name": "root",
+                                          "type": {
+                                            "kind": "field"
+                                          }
+                                        },
+                                        {
+                                          "name": "next_available_leaf_index",
+                                          "type": {
+                                            "kind": "integer",
+                                            "sign": "unsigned",
+                                            "width": 32
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "global_variables",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::abis::global_variables::GlobalVariables",
+                          "fields": [
+                            {
+                              "name": "chain_id",
+                              "type": {
+                                "kind": "field"
+                              }
+                            },
+                            {
+                              "name": "version",
+                              "type": {
+                                "kind": "field"
+                              }
+                            },
+                            {
+                              "name": "block_number",
+                              "type": {
+                                "kind": "field"
+                              }
+                            },
+                            {
+                              "name": "slot_number",
+                              "type": {
+                                "kind": "field"
+                              }
+                            },
+                            {
+                              "name": "timestamp",
+                              "type": {
+                                "kind": "integer",
+                                "sign": "unsigned",
+                                "width": 64
+                              }
+                            },
+                            {
+                              "name": "coinbase",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::address::eth_address::EthAddress",
+                                "fields": [
+                                  {
+                                    "name": "inner",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "fee_recipient",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                                "fields": [
+                                  {
+                                    "name": "inner",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "gas_fees",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::abis::gas_fees::GasFees",
+                                "fields": [
+                                  {
+                                    "name": "fee_per_da_gas",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  },
+                                  {
+                                    "name": "fee_per_l2_gas",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "total_fees",
+                        "type": {
+                          "kind": "field"
+                        }
+                      },
+                      {
+                        "name": "total_mana_used",
+                        "type": {
+                          "kind": "field"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "tx_context",
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::transaction::tx_context::TxContext",
+                    "fields": [
+                      {
+                        "name": "chain_id",
+                        "type": {
+                          "kind": "field"
+                        }
+                      },
+                      {
+                        "name": "version",
+                        "type": {
+                          "kind": "field"
+                        }
+                      },
+                      {
+                        "name": "gas_settings",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::abis::gas_settings::GasSettings",
+                          "fields": [
+                            {
+                              "name": "gas_limits",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::abis::gas::Gas",
+                                "fields": [
+                                  {
+                                    "name": "da_gas",
+                                    "type": {
+                                      "kind": "integer",
+                                      "sign": "unsigned",
+                                      "width": 32
+                                    }
+                                  },
+                                  {
+                                    "name": "l2_gas",
+                                    "type": {
+                                      "kind": "integer",
+                                      "sign": "unsigned",
+                                      "width": 32
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "teardown_gas_limits",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::abis::gas::Gas",
+                                "fields": [
+                                  {
+                                    "name": "da_gas",
+                                    "type": {
+                                      "kind": "integer",
+                                      "sign": "unsigned",
+                                      "width": 32
+                                    }
+                                  },
+                                  {
+                                    "name": "l2_gas",
+                                    "type": {
+                                      "kind": "integer",
+                                      "sign": "unsigned",
+                                      "width": 32
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "max_fees_per_gas",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::abis::gas_fees::GasFees",
+                                "fields": [
+                                  {
+                                    "name": "fee_per_da_gas",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  },
+                                  {
+                                    "name": "fee_per_l2_gas",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "max_priority_fees_per_gas",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::abis::gas_fees::GasFees",
+                                "fields": [
+                                  {
+                                    "name": "fee_per_da_gas",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  },
+                                  {
+                                    "name": "fee_per_l2_gas",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "start_side_effect_counter",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 32
+                  }
+                }
+              ]
+            },
+            "visibility": "private"
+          }
+        ],
+        "return_type": {
+          "abi_type": {
+            "kind": "struct",
+            "path": "aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs",
+            "fields": [
+              {
+                "name": "call_context",
+                "type": {
+                  "kind": "struct",
+                  "path": "aztec::protocol_types::abis::call_context::CallContext",
+                  "fields": [
+                    {
+                      "name": "msg_sender",
+                      "type": {
+                        "kind": "struct",
+                        "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                        "fields": [
+                          {
+                            "name": "inner",
+                            "type": {
+                              "kind": "field"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "contract_address",
+                      "type": {
+                        "kind": "struct",
+                        "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                        "fields": [
+                          {
+                            "name": "inner",
+                            "type": {
+                              "kind": "field"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "function_selector",
+                      "type": {
+                        "kind": "struct",
+                        "path": "aztec::protocol_types::abis::function_selector::FunctionSelector",
+                        "fields": [
+                          {
+                            "name": "inner",
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 32
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "is_static_call",
+                      "type": {
+                        "kind": "boolean"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "args_hash",
+                "type": {
+                  "kind": "field"
+                }
+              },
+              {
+                "name": "returns_hash",
+                "type": {
+                  "kind": "field"
+                }
+              },
+              {
+                "name": "min_revertible_side_effect_counter",
+                "type": {
+                  "kind": "integer",
+                  "sign": "unsigned",
+                  "width": 32
+                }
+              },
+              {
+                "name": "is_fee_payer",
+                "type": {
+                  "kind": "boolean"
+                }
+              },
+              {
+                "name": "max_block_number",
+                "type": {
+                  "kind": "struct",
+                  "path": "aztec::protocol_types::abis::max_block_number::MaxBlockNumber",
+                  "fields": [
+                    {
+                      "name": "_opt",
+                      "type": {
+                        "kind": "struct",
+                        "path": "std::option::Option",
+                        "fields": [
+                          {
+                            "name": "_is_some",
+                            "type": {
+                              "kind": "boolean"
+                            }
+                          },
+                          {
+                            "name": "_value",
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 32
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "note_hash_read_requests",
+                "type": {
+                  "kind": "array",
+                  "length": 16,
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::abis::read_request::ReadRequest",
+                    "fields": [
+                      {
+                        "name": "value",
+                        "type": {
+                          "kind": "field"
+                        }
+                      },
+                      {
+                        "name": "counter",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "nullifier_read_requests",
+                "type": {
+                  "kind": "array",
+                  "length": 16,
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::abis::read_request::ReadRequest",
+                    "fields": [
+                      {
+                        "name": "value",
+                        "type": {
+                          "kind": "field"
+                        }
+                      },
+                      {
+                        "name": "counter",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "key_validation_requests_and_generators",
+                "type": {
+                  "kind": "array",
+                  "length": 16,
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::abis::validation_requests::key_validation_request_and_generator::KeyValidationRequestAndGenerator",
+                    "fields": [
+                      {
+                        "name": "request",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::abis::validation_requests::key_validation_request::KeyValidationRequest",
+                          "fields": [
+                            {
+                              "name": "pk_m",
+                              "type": {
+                                "kind": "struct",
+                                "path": "std::embedded_curve_ops::EmbeddedCurvePoint",
+                                "fields": [
+                                  {
+                                    "name": "x",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  },
+                                  {
+                                    "name": "y",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  },
+                                  {
+                                    "name": "is_infinite",
+                                    "type": {
+                                      "kind": "boolean"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "sk_app",
+                              "type": {
+                                "kind": "field"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "sk_app_generator",
+                        "type": {
+                          "kind": "field"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "note_hashes",
+                "type": {
+                  "kind": "array",
+                  "length": 16,
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::abis::note_hash::NoteHash",
+                    "fields": [
+                      {
+                        "name": "value",
+                        "type": {
+                          "kind": "field"
+                        }
+                      },
+                      {
+                        "name": "counter",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "nullifiers",
+                "type": {
+                  "kind": "array",
+                  "length": 16,
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::abis::nullifier::Nullifier",
+                    "fields": [
+                      {
+                        "name": "value",
+                        "type": {
+                          "kind": "field"
+                        }
+                      },
+                      {
+                        "name": "counter",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      },
+                      {
+                        "name": "note_hash",
+                        "type": {
+                          "kind": "field"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "private_call_requests",
+                "type": {
+                  "kind": "array",
+                  "length": 5,
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::abis::private_call_request::PrivateCallRequest",
+                    "fields": [
+                      {
+                        "name": "call_context",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::abis::call_context::CallContext",
+                          "fields": [
+                            {
+                              "name": "msg_sender",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                                "fields": [
+                                  {
+                                    "name": "inner",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "contract_address",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                                "fields": [
+                                  {
+                                    "name": "inner",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "function_selector",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::abis::function_selector::FunctionSelector",
+                                "fields": [
+                                  {
+                                    "name": "inner",
+                                    "type": {
+                                      "kind": "integer",
+                                      "sign": "unsigned",
+                                      "width": 32
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "is_static_call",
+                              "type": {
+                                "kind": "boolean"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "args_hash",
+                        "type": {
+                          "kind": "field"
+                        }
+                      },
+                      {
+                        "name": "returns_hash",
+                        "type": {
+                          "kind": "field"
+                        }
+                      },
+                      {
+                        "name": "start_side_effect_counter",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      },
+                      {
+                        "name": "end_side_effect_counter",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "public_call_requests",
+                "type": {
+                  "kind": "array",
+                  "length": 16,
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::abis::side_effect::counted::Counted",
+                    "fields": [
+                      {
+                        "name": "inner",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::abis::public_call_request::PublicCallRequest",
+                          "fields": [
+                            {
+                              "name": "msg_sender",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                                "fields": [
+                                  {
+                                    "name": "inner",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "contract_address",
+                              "type": {
+                                "kind": "struct",
+                                "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                                "fields": [
+                                  {
+                                    "name": "inner",
+                                    "type": {
+                                      "kind": "field"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "is_static_call",
+                              "type": {
+                                "kind": "boolean"
+                              }
+                            },
+                            {
+                              "name": "calldata_hash",
+                              "type": {
+                                "kind": "field"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "counter",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "public_teardown_call_request",
+                "type": {
+                  "kind": "struct",
+                  "path": "aztec::protocol_types::abis::public_call_request::PublicCallRequest",
+                  "fields": [
+                    {
+                      "name": "msg_sender",
+                      "type": {
+                        "kind": "struct",
+                        "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                        "fields": [
+                          {
+                            "name": "inner",
+                            "type": {
+                              "kind": "field"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "contract_address",
+                      "type": {
+                        "kind": "struct",
+                        "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                        "fields": [
+                          {
+                            "name": "inner",
+                            "type": {
+                              "kind": "field"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "is_static_call",
+                      "type": {
+                        "kind": "boolean"
+                      }
+                    },
+                    {
+                      "name": "calldata_hash",
+                      "type": {
+                        "kind": "field"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "l2_to_l1_msgs",
+                "type": {
+                  "kind": "array",
+                  "length": 2,
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::messaging::l2_to_l1_message::L2ToL1Message",
+                    "fields": [
+                      {
+                        "name": "recipient",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::address::eth_address::EthAddress",
+                          "fields": [
+                            {
+                              "name": "inner",
+                              "type": {
+                                "kind": "field"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "content",
+                        "type": {
+                          "kind": "field"
+                        }
+                      },
+                      {
+                        "name": "counter",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "private_logs",
+                "type": {
+                  "kind": "array",
+                  "length": 16,
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::abis::private_log::PrivateLogData",
+                    "fields": [
+                      {
+                        "name": "log",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::abis::log::Log",
+                          "fields": [
+                            {
+                              "name": "fields",
+                              "type": {
+                                "kind": "array",
+                                "length": 18,
+                                "type": {
+                                  "kind": "field"
+                                }
+                              }
+                            },
+                            {
+                              "name": "length",
+                              "type": {
+                                "kind": "integer",
+                                "sign": "unsigned",
+                                "width": 32
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "note_hash_counter",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      },
+                      {
+                        "name": "counter",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "contract_class_logs_hashes",
+                "type": {
+                  "kind": "array",
+                  "length": 1,
+                  "type": {
+                    "kind": "struct",
+                    "path": "aztec::protocol_types::abis::side_effect::counted::Counted",
+                    "fields": [
+                      {
+                        "name": "inner",
+                        "type": {
+                          "kind": "struct",
+                          "path": "aztec::protocol_types::abis::log_hash::LogHash",
+                          "fields": [
+                            {
+                              "name": "value",
+                              "type": {
+                                "kind": "field"
+                              }
+                            },
+                            {
+                              "name": "length",
+                              "type": {
+                                "kind": "integer",
+                                "sign": "unsigned",
+                                "width": 32
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "counter",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "start_side_effect_counter",
+                "type": {
+                  "kind": "integer",
+                  "sign": "unsigned",
+                  "width": 32
+                }
+              },
+              {
+                "name": "end_side_effect_counter",
+                "type": {
+                  "kind": "integer",
+                  "sign": "unsigned",
+                  "width": 32
+                }
+              },
+              {
+                "name": "historical_header",
+                "type": {
+                  "kind": "struct",
+                  "path": "aztec::protocol_types::block_header::BlockHeader",
+                  "fields": [
+                    {
+                      "name": "last_archive",
+                      "type": {
+                        "kind": "struct",
+                        "path": "aztec::protocol_types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot",
+                        "fields": [
+                          {
+                            "name": "root",
+                            "type": {
+                              "kind": "field"
+                            }
+                          },
+                          {
+                            "name": "next_available_leaf_index",
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 32
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "content_commitment",
+                      "type": {
+                        "kind": "struct",
+                        "path": "aztec::protocol_types::content_commitment::ContentCommitment",
+                        "fields": [
+                          {
+                            "name": "num_txs",
+                            "type": {
+                              "kind": "field"
+                            }
+                          },
+                          {
+                            "name": "blobs_hash",
+                            "type": {
+                              "kind": "field"
+                            }
+                          },
+                          {
+                            "name": "in_hash",
+                            "type": {
+                              "kind": "field"
+                            }
+                          },
+                          {
+                            "name": "out_hash",
+                            "type": {
+                              "kind": "field"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "state",
+                      "type": {
+                        "kind": "struct",
+                        "path": "aztec::protocol_types::state_reference::StateReference",
+                        "fields": [
+                          {
+                            "name": "l1_to_l2_message_tree",
+                            "type": {
+                              "kind": "struct",
+                              "path": "aztec::protocol_types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot",
+                              "fields": [
+                                {
+                                  "name": "root",
+                                  "type": {
+                                    "kind": "field"
+                                  }
+                                },
+                                {
+                                  "name": "next_available_leaf_index",
+                                  "type": {
+                                    "kind": "integer",
+                                    "sign": "unsigned",
+                                    "width": 32
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "name": "partial",
+                            "type": {
+                              "kind": "struct",
+                              "path": "aztec::protocol_types::partial_state_reference::PartialStateReference",
+                              "fields": [
+                                {
+                                  "name": "note_hash_tree",
+                                  "type": {
+                                    "kind": "struct",
+                                    "path": "aztec::protocol_types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot",
+                                    "fields": [
+                                      {
+                                        "name": "root",
+                                        "type": {
+                                          "kind": "field"
+                                        }
+                                      },
+                                      {
+                                        "name": "next_available_leaf_index",
+                                        "type": {
+                                          "kind": "integer",
+                                          "sign": "unsigned",
+                                          "width": 32
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                {
+                                  "name": "nullifier_tree",
+                                  "type": {
+                                    "kind": "struct",
+                                    "path": "aztec::protocol_types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot",
+                                    "fields": [
+                                      {
+                                        "name": "root",
+                                        "type": {
+                                          "kind": "field"
+                                        }
+                                      },
+                                      {
+                                        "name": "next_available_leaf_index",
+                                        "type": {
+                                          "kind": "integer",
+                                          "sign": "unsigned",
+                                          "width": 32
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                {
+                                  "name": "public_data_tree",
+                                  "type": {
+                                    "kind": "struct",
+                                    "path": "aztec::protocol_types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot",
+                                    "fields": [
+                                      {
+                                        "name": "root",
+                                        "type": {
+                                          "kind": "field"
+                                        }
+                                      },
+                                      {
+                                        "name": "next_available_leaf_index",
+                                        "type": {
+                                          "kind": "integer",
+                                          "sign": "unsigned",
+                                          "width": 32
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "global_variables",
+                      "type": {
+                        "kind": "struct",
+                        "path": "aztec::protocol_types::abis::global_variables::GlobalVariables",
+                        "fields": [
+                          {
+                            "name": "chain_id",
+                            "type": {
+                              "kind": "field"
+                            }
+                          },
+                          {
+                            "name": "version",
+                            "type": {
+                              "kind": "field"
+                            }
+                          },
+                          {
+                            "name": "block_number",
+                            "type": {
+                              "kind": "field"
+                            }
+                          },
+                          {
+                            "name": "slot_number",
+                            "type": {
+                              "kind": "field"
+                            }
+                          },
+                          {
+                            "name": "timestamp",
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 64
+                            }
+                          },
+                          {
+                            "name": "coinbase",
+                            "type": {
+                              "kind": "struct",
+                              "path": "aztec::protocol_types::address::eth_address::EthAddress",
+                              "fields": [
+                                {
+                                  "name": "inner",
+                                  "type": {
+                                    "kind": "field"
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "name": "fee_recipient",
+                            "type": {
+                              "kind": "struct",
+                              "path": "aztec::protocol_types::address::aztec_address::AztecAddress",
+                              "fields": [
+                                {
+                                  "name": "inner",
+                                  "type": {
+                                    "kind": "field"
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "name": "gas_fees",
+                            "type": {
+                              "kind": "struct",
+                              "path": "aztec::protocol_types::abis::gas_fees::GasFees",
+                              "fields": [
+                                {
+                                  "name": "fee_per_da_gas",
+                                  "type": {
+                                    "kind": "field"
+                                  }
+                                },
+                                {
+                                  "name": "fee_per_l2_gas",
+                                  "type": {
+                                    "kind": "field"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "total_fees",
+                      "type": {
+                        "kind": "field"
+                      }
+                    },
+                    {
+                      "name": "total_mana_used",
+                      "type": {
+                        "kind": "field"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "tx_context",
+                "type": {
+                  "kind": "struct",
+                  "path": "aztec::protocol_types::transaction::tx_context::TxContext",
+                  "fields": [
+                    {
+                      "name": "chain_id",
+                      "type": {
+                        "kind": "field"
+                      }
+                    },
+                    {
+                      "name": "version",
+                      "type": {
+                        "kind": "field"
+                      }
+                    },
+                    {
+                      "name": "gas_settings",
+                      "type": {
+                        "kind": "struct",
+                        "path": "aztec::protocol_types::abis::gas_settings::GasSettings",
+                        "fields": [
+                          {
+                            "name": "gas_limits",
+                            "type": {
+                              "kind": "struct",
+                              "path": "aztec::protocol_types::abis::gas::Gas",
+                              "fields": [
+                                {
+                                  "name": "da_gas",
+                                  "type": {
+                                    "kind": "integer",
+                                    "sign": "unsigned",
+                                    "width": 32
+                                  }
+                                },
+                                {
+                                  "name": "l2_gas",
+                                  "type": {
+                                    "kind": "integer",
+                                    "sign": "unsigned",
+                                    "width": 32
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "name": "teardown_gas_limits",
+                            "type": {
+                              "kind": "struct",
+                              "path": "aztec::protocol_types::abis::gas::Gas",
+                              "fields": [
+                                {
+                                  "name": "da_gas",
+                                  "type": {
+                                    "kind": "integer",
+                                    "sign": "unsigned",
+                                    "width": 32
+                                  }
+                                },
+                                {
+                                  "name": "l2_gas",
+                                  "type": {
+                                    "kind": "integer",
+                                    "sign": "unsigned",
+                                    "width": 32
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "name": "max_fees_per_gas",
+                            "type": {
+                              "kind": "struct",
+                              "path": "aztec::protocol_types::abis::gas_fees::GasFees",
+                              "fields": [
+                                {
+                                  "name": "fee_per_da_gas",
+                                  "type": {
+                                    "kind": "field"
+                                  }
+                                },
+                                {
+                                  "name": "fee_per_l2_gas",
+                                  "type": {
+                                    "kind": "field"
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "name": "max_priority_fees_per_gas",
+                            "type": {
+                              "kind": "struct",
+                              "path": "aztec::protocol_types::abis::gas_fees::GasFees",
+                              "fields": [
+                                {
+                                  "name": "fee_per_da_gas",
+                                  "type": {
+                                    "kind": "field"
+                                  }
+                                },
+                                {
+                                  "name": "fee_per_l2_gas",
+                                  "type": {
+                                    "kind": "field"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "visibility": "databus"
+        },
+        "error_types": {
+          "5019202896831570965": {
+            "error_kind": "string",
+            "string": "attempt to add with overflow"
+          },
+          "17843811134343075018": {
+            "error_kind": "string",
+            "string": "Stack too deep"
+          }
+        }
+      },
+      "bytecode": "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",
+      "debug_symbols": "nZTBjoMgEED/hbMHELAz/ZWmaahlGxOihmqTTeO/79ARux5sml58CsyDGYSHuPjzeD017U93E/vDQ5xjE0JzPYWudkPTtdT6EDI9dqXYq0LsNMMwLKNi7BjAwCdAMhSDLcAWYAuwBdgCbAG2AFuQLCVBMUqGZhiGZZClnKZC5BROQ/Q+ZfAvJ8q0d9G3g9i3YwiFuLswPgfdetc+ObhIvbIQvr0QSfjTBJ/epuIVLbdDEao5GBGX8HKHHwsqMwuUlOU3htKAmhVlpfSiQLsy6G2DUQpng1HWLgb78RqMgiwwryTsuox2Ox4s5jpCpTdX8M6AKlcBUOM3BpCwGKzeMsAbg8x7Cfqrn8HiUoZKKrnayiN9ubqJ61Or6HTQpMow6HSkie8uNu4cfBqSJGNb5wj6HH773JNvgj52tb+M0Sf76zog+cFiUeGR3NRyQCiU1McpLecP",
+      "brillig_names": [
+        "debug_log_oracle_wrapper"
+      ],
+      "verification_key": "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"
+    },
+    {
+      "name": "sync_private_state",
+      "is_unconstrained": true,
+      "custom_attributes": [
+        "utility"
+      ],
+      "abi": {
+        "parameters": [],
+        "return_type": null,
+        "error_types": {
+          "17843811134343075018": {
+            "error_kind": "string",
+            "string": "Stack too deep"
+          }
+        }
+      },
+      "bytecode": "H4sIAAAAAAAA/7WTPQ+CMBCGi2KUjzjgoD+jBAyM+LG4OLpXCkpUSAB3frqQXENtwKjAJU17FJ5736OVUB0SzDLqEAyyglmBecTtj8vhQY67hakIdfvku9i2lQZ/Peq3FGBKw/Ax4w/UfzwFzr6o+bwXVndWDo1b66g+H0P5Z/9vSP+LD5418GpAXnmew/oS5Nt74t+Oz8c5SNnXTR1EgnIxdK5CSd0lcZ4SP99QmgZZJhJGDWTUQlU56pVE8YG26fmRdgrSLEpikSZ/Sav6yu6lXLyr8eA57hCOizHTMAb+BDV3X+b2+feXkKuCJ+bT+1Nn6BAztEhI1oRS2yeGwK+CP38vlizs4eEFAAA=",
+      "debug_symbols": "nZPfioQgFIff5Vx34f+0VxmGwcoGQSycWliid18bdKYWXJa58WSe7+tX6Qq9aZf7zfphfEBzWaEN1jl7v7mx07Mdfby7AtoHTKGhFWAGDY+FQ1PHIqBR21ZB7r/NwZi9/SCI2kkH42do/OJcBV/aLc+mx6T9s846xFVUgfF9rFE4WGf2q61606iMYsSZSDhGAvGXQvGTA5cdtcwGidiLF+TEkzLPCU885+9XwLT+bwBJ6xyAq1IAVuYZVYlnQn4UQLIcQMlSAFHm43dPvCDikwCKkCRQlJcCyD8CyLyHavTrF1zjVHc2nLb2tquC1a0zaTosvjuszt9TXslHYwpjZ/olmN10OB9xvGBZEXrd9qf9AA==",
+      "brillig_names": [
+        "sync_private_state"
+      ]
+    },
+    {
+      "name": "public_dispatch",
+      "is_unconstrained": true,
+      "custom_attributes": [
+        "public"
+      ],
+      "abi": {
+        "parameters": [
+          {
+            "name": "selector",
+            "type": {
+              "kind": "field"
+            },
+            "visibility": "private"
+          }
+        ],
+        "return_type": null,
+        "error_types": {
+          "1752556835457866331": {
+            "error_kind": "string",
+            "string": "No public functions"
+          }
+        }
+      },
+      "bytecode": "JwAABAEqAAABBRhSVSgKJhpbPAAAAQ==",
+      "debug_symbols": "XY1bCoAgEEX3Mt+toK1EiI9RBkRl0iDEvWeRIH3ee+6jgkFVnKBg4wHrVkExeU9O+Khlphi6W9sCQ4rMiN2CiW97D0hN/C+dkkkqj5+0JeiJ5isNMk4TR42mMD5LL2t7uwE=",
+      "brillig_names": [
+        "public_dispatch"
+      ]
+    }
+  ],
+  "outputs": {
+    "globals": {},
+    "structs": {
+      "functions": [
+        {
+          "fields": [
+            {
+              "name": "parameters",
+              "type": {
+                "fields": [],
+                "kind": "struct",
+                "path": "SponsoredFPC::sponsor_unconditionally_parameters"
+              }
+            }
+          ],
+          "kind": "struct",
+          "path": "SponsoredFPC::sponsor_unconditionally_abi"
+        },
+        {
+          "fields": [
+            {
+              "name": "parameters",
+              "type": {
+                "fields": [],
+                "kind": "struct",
+                "path": "SponsoredFPC::sync_private_state_parameters"
+              }
+            }
+          ],
+          "kind": "struct",
+          "path": "SponsoredFPC::sync_private_state_abi"
+        }
+      ]
+    }
+  },
+  "file_map": {
+    "137": {
+      "path": "/home/aztec-dev/aztec-packages/noir-projects/aztec-nr/aztec/src/oracle/execution.nr",
+      "source": "use dep::protocol_types::address::AztecAddress;\n\n#[oracle(getContractAddress)]\nunconstrained fn get_contract_address_oracle() -> AztecAddress {}\n\n#[oracle(getBlockNumber)]\nunconstrained fn get_block_number_oracle() -> u32 {}\n\n#[oracle(getChainId)]\nunconstrained fn get_chain_id_oracle() -> Field {}\n\n#[oracle(getVersion)]\nunconstrained fn get_version_oracle() -> Field {}\n\npub unconstrained fn get_contract_address() -> AztecAddress {\n    get_contract_address_oracle()\n}\n\npub unconstrained fn get_block_number() -> u32 {\n    get_block_number_oracle()\n}\n\npub unconstrained fn get_chain_id() -> Field {\n    get_chain_id_oracle()\n}\n\npub unconstrained fn get_version() -> Field {\n    get_version_oracle()\n}\n"
+    },
+    "279": {
+      "path": "/home/aztec-dev/aztec-packages/noir-projects/noir-protocol-circuits/crates/types/src/debug_log.nr",
+      "source": "/// Utility function to console.log data in the acir simulator.\n/// Example:\n///   debug_log(\"blah blah this is a debug string\");\npub fn debug_log<let N: u32>(msg: str<N>) {\n    debug_log_format(msg, []);\n}\n\n/// Utility function to console.log data in the acir simulator. This variant receives a format string in which the\n/// `${k}` tokens will be replaced with the k-eth value in the `args` array.\n/// Examples:\n///   debug_log_format(\"get_2(slot:{0}) =>\\n\\t0:{1}\\n\\t1:{2}\", [storage_slot, note0_hash, note1_hash]);\n///   debug_log_format(\"whole array: {}\", [e1, e2, e3, e4]);\npub fn debug_log_format<let M: u32, let N: u32>(msg: str<M>, args: [Field; N]) {\n    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe\n    // to call.\n    unsafe { debug_log_oracle_wrapper(msg, args) };\n}\n\npub unconstrained fn debug_log_oracle_wrapper<let M: u32, let N: u32>(\n    msg: str<M>,\n    args: [Field; N],\n) {\n    debug_log_oracle(msg, args.as_slice());\n}\n\n// WARNING: sometimes when using debug logs the ACVM errors with: `thrown: \"solver opcode resolution error: cannot solve opcode: expression has too many unknowns x155\"`\n#[oracle(debugLog)]\nunconstrained fn debug_log_oracle<let M: u32>(_msg: str<M>, args: [Field]) {}\n"
+    },
+    "50": {
+      "path": "/home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/fees/sponsored_fpc_contract/src/main.nr",
+      "source": "use dep::aztec::macros::aztec;\n\n/// FOR TESTING ONLY\n/// Sponsored Fee Payment Contract (Sponsored FPC)\n/// This contract covers transaction fees for users unconditionally.\n#[aztec]\npub contract SponsoredFPC {\n    use dep::aztec::macros::functions::private;\n\n    /// Sponsors the transaction unconditionally.\n    #[private]\n    fn sponsor_unconditionally() {\n        // Set the FPC as the fee payer of the tx.\n        context.set_as_fee_payer();\n    }\n}\n"
+    },
+    "59": {
+      "path": "/home/aztec-dev/aztec-packages/noir-projects/aztec-nr/aztec/src/context/private_context.nr",
+      "source": "use crate::{\n    context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},\n    hash::{ArgsHasher, hash_args_array, hash_calldata_array},\n    keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},\n    messaging::process_l1_to_l2_message,\n    oracle::{\n        block_header::get_block_header_at,\n        call_private_function::call_private_function_internal,\n        enqueue_public_function_call::{\n            notify_enqueued_public_function_call, notify_set_min_revertible_side_effect_counter,\n            notify_set_public_teardown_function_call,\n        },\n        execution_cache,\n        key_validation_request::get_key_validation_request,\n        notes::{notify_created_nullifier, notify_nullified_note},\n    },\n};\nuse dep::protocol_types::{\n    abis::{\n        call_context::CallContext,\n        function_selector::FunctionSelector,\n        gas_settings::GasSettings,\n        log_hash::LogHash,\n        max_block_number::MaxBlockNumber,\n        note_hash::NoteHash,\n        nullifier::Nullifier,\n        private_call_request::PrivateCallRequest,\n        private_circuit_public_inputs::PrivateCircuitPublicInputs,\n        private_log::{PrivateLog, PrivateLogData},\n        public_call_request::PublicCallRequest,\n        read_request::ReadRequest,\n        side_effect::Counted,\n        validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},\n    },\n    address::{AztecAddress, EthAddress},\n    block_header::BlockHeader,\n    constants::{\n        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,\n        MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,\n        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,\n        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,\n        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,\n        PRIVATE_LOG_SIZE_IN_FIELDS,\n    },\n    messaging::l2_to_l1_message::L2ToL1Message,\n    traits::{Empty, Hash, ToField},\n    utils::arrays::array_concat,\n};\n\n// When finished, one can call .finish() to convert back to the abi\npub struct PrivateContext {\n    // docs:start:private-context\n    pub inputs: PrivateContextInputs,\n    pub side_effect_counter: u32,\n\n    pub min_revertible_side_effect_counter: u32,\n    pub is_fee_payer: bool,\n\n    pub args_hash: Field,\n    pub return_hash: Field,\n\n    pub max_block_number: MaxBlockNumber,\n\n    pub note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,\n    pub nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,\n    key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,\n\n    pub note_hashes: BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL>,\n    pub nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_CALL>,\n\n    pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,\n    pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,\n    pub public_teardown_call_request: PublicCallRequest,\n    pub l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,\n    // docs:end:private-context\n\n    // Header of a block whose state is used during private execution (not the block the transaction is included in).\n    pub historical_header: BlockHeader,\n\n    pub private_logs: BoundedVec<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,\n    pub contract_class_logs_hashes: BoundedVec<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,\n\n    // Contains the last key validation request for each key type. This is used to cache the last request and avoid\n    // fetching the same request multiple times.\n    // The index of the array corresponds to the key type (0 nullifier, 1 incoming, 2 outgoing, 3 tagging).\n    pub last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],\n}\n\nimpl PrivateContext {\n    pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {\n        PrivateContext {\n            inputs,\n            side_effect_counter: inputs.start_side_effect_counter + 1,\n            min_revertible_side_effect_counter: 0,\n            is_fee_payer: false,\n            args_hash,\n            return_hash: 0,\n            max_block_number: MaxBlockNumber::empty(),\n            note_hash_read_requests: BoundedVec::new(),\n            nullifier_read_requests: BoundedVec::new(),\n            key_validation_requests_and_generators: BoundedVec::new(),\n            note_hashes: BoundedVec::new(),\n            nullifiers: BoundedVec::new(),\n            historical_header: inputs.historical_header,\n            private_call_requests: BoundedVec::new(),\n            public_call_requests: BoundedVec::new(),\n            public_teardown_call_request: PublicCallRequest::empty(),\n            l2_to_l1_msgs: BoundedVec::new(),\n            private_logs: BoundedVec::new(),\n            contract_class_logs_hashes: BoundedVec::new(),\n            last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],\n        }\n    }\n\n    pub fn msg_sender(self) -> AztecAddress {\n        self.inputs.call_context.msg_sender\n    }\n\n    pub fn this_address(self) -> AztecAddress {\n        self.inputs.call_context.contract_address\n    }\n\n    pub fn chain_id(self) -> Field {\n        self.inputs.tx_context.chain_id\n    }\n\n    pub fn version(self) -> Field {\n        self.inputs.tx_context.version\n    }\n\n    pub fn gas_settings(self) -> GasSettings {\n        self.inputs.tx_context.gas_settings\n    }\n\n    pub fn selector(self) -> FunctionSelector {\n        self.inputs.call_context.function_selector\n    }\n\n    pub fn get_args_hash(self) -> Field {\n        self.args_hash\n    }\n\n    pub fn push_note_hash(&mut self, note_hash: Field) {\n        self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });\n    }\n\n    pub fn push_nullifier(&mut self, nullifier: Field) {\n        notify_created_nullifier(nullifier);\n        self.nullifiers.push(\n            Nullifier { value: nullifier, note_hash: 0, counter: self.next_counter() },\n        );\n    }\n\n    pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {\n        let nullifier_counter = self.next_counter();\n        notify_nullified_note(nullifier, nullified_note_hash, nullifier_counter);\n        self.nullifiers.push(\n            Nullifier {\n                value: nullifier,\n                note_hash: nullified_note_hash,\n                counter: nullifier_counter,\n            },\n        );\n    }\n\n    // Returns the header of a block whose state is used during private execution (not the block the transaction is\n    // included in).\n    pub fn get_block_header(self) -> BlockHeader {\n        self.historical_header\n    }\n\n    // Returns the header of an arbitrary block whose block number is less than or equal to the block number\n    // of historical header.\n    pub fn get_block_header_at(self, block_number: u32) -> BlockHeader {\n        get_block_header_at(block_number, self)\n    }\n\n    pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {\n        self.return_hash = returns_hasher.hash();\n        execution_cache::store(returns_hasher.fields, self.return_hash);\n    }\n\n    pub fn finish(self) -> PrivateCircuitPublicInputs {\n        PrivateCircuitPublicInputs {\n            call_context: self.inputs.call_context,\n            args_hash: self.args_hash,\n            returns_hash: self.return_hash,\n            min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,\n            is_fee_payer: self.is_fee_payer,\n            max_block_number: self.max_block_number,\n            note_hash_read_requests: self.note_hash_read_requests.storage(),\n            nullifier_read_requests: self.nullifier_read_requests.storage(),\n            key_validation_requests_and_generators: self\n                .key_validation_requests_and_generators\n                .storage(),\n            note_hashes: self.note_hashes.storage(),\n            nullifiers: self.nullifiers.storage(),\n            private_call_requests: self.private_call_requests.storage(),\n            public_call_requests: self.public_call_requests.storage(),\n            public_teardown_call_request: self.public_teardown_call_request,\n            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),\n            start_side_effect_counter: self.inputs.start_side_effect_counter,\n            end_side_effect_counter: self.side_effect_counter,\n            private_logs: self.private_logs.storage(),\n            contract_class_logs_hashes: self.contract_class_logs_hashes.storage(),\n            historical_header: self.historical_header,\n            tx_context: self.inputs.tx_context,\n        }\n    }\n\n    pub fn set_as_fee_payer(&mut self) {\n        dep::protocol_types::debug_log::debug_log_format(\n            \"Setting {0} as fee payer\",\n            [self.this_address().to_field()],\n        );\n        self.is_fee_payer = true;\n    }\n\n    pub fn end_setup(&mut self) {\n        // dep::protocol_types::debug_log::debug_log_format(\n        //     \"Ending setup at counter {0}\",\n        //     [self.side_effect_counter as Field]\n        // );\n        self.min_revertible_side_effect_counter = self.side_effect_counter;\n        notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);\n    }\n\n    // docs:start:max-block-number\n    pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {\n        // docs:end:max-block-number\n        self.max_block_number =\n            MaxBlockNumber::min_with_u32(self.max_block_number, max_block_number);\n    }\n\n    pub fn push_note_hash_read_request(&mut self, note_hash: Field) {\n        let side_effect = ReadRequest { value: note_hash, counter: self.next_counter() };\n        self.note_hash_read_requests.push(side_effect);\n    }\n\n    pub fn push_nullifier_read_request(&mut self, nullifier: Field) {\n        let request = ReadRequest { value: nullifier, counter: self.next_counter() };\n        self.nullifier_read_requests.push(request);\n    }\n\n    pub fn request_nsk_app(&mut self, npk_m_hash: Field) -> Field {\n        self.request_sk_app(npk_m_hash, NULLIFIER_INDEX)\n    }\n\n    pub fn request_ovsk_app(&mut self, ovpk_m_hash: Field) -> Field {\n        self.request_sk_app(ovpk_m_hash, OUTGOING_INDEX)\n    }\n\n    fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {\n        let cached_request = self.last_key_validation_requests[key_index as u32].unwrap_or(\n            KeyValidationRequest::empty(),\n        );\n\n        if cached_request.pk_m.hash() == pk_m_hash {\n            // We get a match so the cached request is the latest one\n            cached_request.sk_app\n        } else {\n            // We didn't get a match meaning the cached result is stale\n            // Typically we'd validate keys by showing that they are the preimage of `pk_m_hash`, but that'd require\n            // the oracle returning the master secret keys, which could cause malicious contracts to leak it or learn\n            // about secrets from other contracts. We therefore silo secret keys, and rely on the private kernel to\n            // validate that we siloed secret key corresponds to correct siloing of the master secret key that hashes\n            // to `pk_m_hash`.\n\n            // Safety: Kernels verify that the key validation request is valid and below we verify that a request\n            // for the correct public key has been received.\n            let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };\n            assert_eq(request.pk_m.hash(), pk_m_hash, \"Obtained invalid key validation request\");\n\n            self.key_validation_requests_and_generators.push(\n                KeyValidationRequestAndGenerator {\n                    request,\n                    sk_app_generator: sk_generators[key_index as u32],\n                },\n            );\n            self.last_key_validation_requests[key_index as u32] = Option::some(request);\n            request.sk_app\n        }\n    }\n\n    // docs:start:context_message_portal\n    pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {\n        // docs:end:context_message_portal\n        let message = L2ToL1Message { recipient, content, counter: self.next_counter() };\n        self.l2_to_l1_msgs.push(message);\n    }\n\n    // docs:start:context_consume_l1_to_l2_message\n    // docs:start:consume_l1_to_l2_message\n    pub fn consume_l1_to_l2_message(\n        &mut self,\n        content: Field,\n        secret: Field,\n        sender: EthAddress,\n        leaf_index: Field,\n    ) {\n        // docs:end:context_consume_l1_to_l2_message\n        let nullifier = process_l1_to_l2_message(\n            self.historical_header.state.l1_to_l2_message_tree.root,\n            self.this_address(),\n            sender,\n            self.chain_id(),\n            self.version(),\n            content,\n            secret,\n            leaf_index,\n        );\n\n        // Push nullifier (and the \"commitment\" corresponding to this can be \"empty\")\n        self.push_nullifier(nullifier)\n    }\n    // docs:end:consume_l1_to_l2_message\n\n    pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS], length: u32) {\n        let counter = self.next_counter();\n        let private_log =\n            PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter: 0, counter };\n        self.private_logs.push(private_log);\n    }\n\n    pub fn emit_raw_note_log(\n        &mut self,\n        log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],\n        length: u32,\n        note_hash_counter: u32,\n    ) {\n        let counter = self.next_counter();\n        let private_log =\n            PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter, counter };\n        self.private_logs.push(private_log);\n    }\n\n    pub fn call_private_function<let ARGS_COUNT: u32>(\n        &mut self,\n        contract_address: AztecAddress,\n        function_selector: FunctionSelector,\n        args: [Field; ARGS_COUNT],\n    ) -> ReturnsHash {\n        let args_hash = hash_args_array(args);\n        execution_cache::store(args, args_hash);\n        self.call_private_function_with_args_hash(\n            contract_address,\n            function_selector,\n            args_hash,\n            false,\n        )\n    }\n\n    pub fn static_call_private_function<let ARGS_COUNT: u32>(\n        &mut self,\n        contract_address: AztecAddress,\n        function_selector: FunctionSelector,\n        args: [Field; ARGS_COUNT],\n    ) -> ReturnsHash {\n        let args_hash = hash_args_array(args);\n        execution_cache::store(args, args_hash);\n        self.call_private_function_with_args_hash(\n            contract_address,\n            function_selector,\n            args_hash,\n            true,\n        )\n    }\n\n    pub fn call_private_function_no_args(\n        &mut self,\n        contract_address: AztecAddress,\n        function_selector: FunctionSelector,\n    ) -> ReturnsHash {\n        self.call_private_function_with_args_hash(contract_address, function_selector, 0, false)\n    }\n\n    pub fn static_call_private_function_no_args(\n        &mut self,\n        contract_address: AztecAddress,\n        function_selector: FunctionSelector,\n    ) -> ReturnsHash {\n        self.call_private_function_with_args_hash(contract_address, function_selector, 0, true)\n    }\n\n    pub fn call_private_function_with_args_hash(\n        &mut self,\n        contract_address: AztecAddress,\n        function_selector: FunctionSelector,\n        args_hash: Field,\n        is_static_call: bool,\n    ) -> ReturnsHash {\n        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;\n        let start_side_effect_counter = self.side_effect_counter;\n\n        // Safety: The oracle simulates the private call and returns the value of the side effects counter after\n        // execution of the call (which means that end_side_effect_counter - start_side_effect_counter is\n        // the number of side effects that took place), along with the hash of the return values. We validate these\n        // by requesting a private kernel iteration in which the return values are constrained to hash\n        // to `returns_hash` and the side effects counter to increment from start to end.\n        let (end_side_effect_counter, returns_hash) = unsafe {\n            call_private_function_internal(\n                contract_address,\n                function_selector,\n                args_hash,\n                start_side_effect_counter,\n                is_static_call,\n            )\n        };\n\n        self.private_call_requests.push(\n            PrivateCallRequest {\n                call_context: CallContext {\n                    msg_sender: self.this_address(),\n                    contract_address,\n                    function_selector,\n                    is_static_call,\n                },\n                args_hash,\n                returns_hash,\n                start_side_effect_counter,\n                end_side_effect_counter,\n            },\n        );\n\n        // TODO (fees) figure out why this crashes the prover and enable it\n        // we need this in order to pay fees inside child call contexts\n        // assert(\n        //     (item.public_inputs.min_revertible_side_effect_counter == 0 as u32)\n        //     | (item.public_inputs.min_revertible_side_effect_counter\n        //         > self.min_revertible_side_effect_counter)\n        // );\n        // if item.public_inputs.min_revertible_side_effect_counter\n        //     > self.min_revertible_side_effect_counter {\n        //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;\n        // }\n        self.side_effect_counter = end_side_effect_counter + 1;\n        ReturnsHash::new(returns_hash)\n    }\n\n    pub fn call_public_function<let ARGS_COUNT: u32>(\n        &mut self,\n        contract_address: AztecAddress,\n        function_selector: FunctionSelector,\n        args: [Field; ARGS_COUNT],\n    ) {\n        let calldata = array_concat([function_selector.to_field()], args);\n        let calldata_hash = hash_calldata_array(calldata);\n        execution_cache::store(calldata, calldata_hash);\n        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)\n    }\n\n    pub fn static_call_public_function<let ARGS_COUNT: u32>(\n        &mut self,\n        contract_address: AztecAddress,\n        function_selector: FunctionSelector,\n        args: [Field; ARGS_COUNT],\n    ) {\n        let calldata = array_concat([function_selector.to_field()], args);\n        let calldata_hash = hash_calldata_array(calldata);\n        execution_cache::store(calldata, calldata_hash);\n        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)\n    }\n\n    pub fn call_public_function_no_args(\n        &mut self,\n        contract_address: AztecAddress,\n        function_selector: FunctionSelector,\n    ) {\n        let calldata_hash = hash_calldata_array([function_selector.to_field()]);\n        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)\n    }\n\n    pub fn static_call_public_function_no_args(\n        &mut self,\n        contract_address: AztecAddress,\n        function_selector: FunctionSelector,\n    ) {\n        let calldata_hash = hash_calldata_array([function_selector.to_field()]);\n        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)\n    }\n\n    pub fn call_public_function_with_calldata_hash(\n        &mut self,\n        contract_address: AztecAddress,\n        calldata_hash: Field,\n        is_static_call: bool,\n    ) {\n        let counter = self.next_counter();\n\n        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;\n\n        notify_enqueued_public_function_call(\n            contract_address,\n            calldata_hash,\n            counter,\n            is_static_call,\n        );\n\n        let call_request = PublicCallRequest {\n            msg_sender: self.this_address(),\n            contract_address,\n            is_static_call,\n            calldata_hash,\n        };\n\n        self.public_call_requests.push(Counted::new(call_request, counter));\n    }\n\n    pub fn set_public_teardown_function<let ARGS_COUNT: u32>(\n        &mut self,\n        contract_address: AztecAddress,\n        function_selector: FunctionSelector,\n        args: [Field; ARGS_COUNT],\n    ) {\n        let calldata = array_concat([function_selector.to_field()], args);\n        let calldata_hash = hash_calldata_array(calldata);\n        execution_cache::store(calldata, calldata_hash);\n        self.set_public_teardown_function_with_calldata_hash(contract_address, calldata_hash, false)\n    }\n\n    pub fn set_public_teardown_function_with_calldata_hash(\n        &mut self,\n        contract_address: AztecAddress,\n        calldata_hash: Field,\n        is_static_call: bool,\n    ) {\n        let counter = self.next_counter();\n\n        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;\n\n        notify_set_public_teardown_function_call(\n            contract_address,\n            calldata_hash,\n            counter,\n            is_static_call,\n        );\n\n        self.public_teardown_call_request = PublicCallRequest {\n            msg_sender: self.this_address(),\n            contract_address,\n            is_static_call,\n            calldata_hash,\n        };\n    }\n\n    fn next_counter(&mut self) -> u32 {\n        let counter = self.side_effect_counter;\n        self.side_effect_counter += 1;\n        counter\n    }\n}\n\nimpl Empty for PrivateContext {\n    fn empty() -> Self {\n        PrivateContext {\n            inputs: PrivateContextInputs::empty(),\n            side_effect_counter: 0 as u32,\n            min_revertible_side_effect_counter: 0 as u32,\n            is_fee_payer: false,\n            args_hash: 0,\n            return_hash: 0,\n            max_block_number: MaxBlockNumber::empty(),\n            note_hash_read_requests: BoundedVec::new(),\n            nullifier_read_requests: BoundedVec::new(),\n            key_validation_requests_and_generators: BoundedVec::new(),\n            note_hashes: BoundedVec::new(),\n            nullifiers: BoundedVec::new(),\n            private_call_requests: BoundedVec::new(),\n            public_call_requests: BoundedVec::new(),\n            public_teardown_call_request: PublicCallRequest::empty(),\n            l2_to_l1_msgs: BoundedVec::new(),\n            historical_header: BlockHeader::empty(),\n            private_logs: BoundedVec::new(),\n            contract_class_logs_hashes: BoundedVec::new(),\n            last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],\n        }\n    }\n}\n"
+    },
+    "62": {
+      "path": "/home/aztec-dev/aztec-packages/noir-projects/aztec-nr/aztec/src/context/utility_context.nr",
+      "source": "use crate::oracle::{\n    execution::{get_block_number, get_chain_id, get_contract_address, get_version},\n    storage::storage_read,\n};\nuse dep::protocol_types::{address::AztecAddress, traits::Packable};\n\npub struct UtilityContext {\n    block_number: u32,\n    contract_address: AztecAddress,\n    version: Field,\n    chain_id: Field,\n}\n\nimpl UtilityContext {\n    pub unconstrained fn new() -> Self {\n        // We could call these oracles on the getters instead of at creation, which makes sense given that they might\n        // not even be accessed. However any performance gains are minimal, and we'd rather fail early if a user\n        // incorrectly attempts to create a UtilityContext in an environment in which these oracles are not\n        // available.\n        let block_number = get_block_number();\n        let contract_address = get_contract_address();\n        let chain_id = get_chain_id();\n        let version = get_version();\n        Self { block_number, contract_address, version, chain_id }\n    }\n\n    pub unconstrained fn at(contract_address: AztecAddress) -> Self {\n        let block_number = get_block_number();\n        let chain_id = get_chain_id();\n        let version = get_version();\n        Self { block_number, contract_address, version, chain_id }\n    }\n\n    pub unconstrained fn at_historical(contract_address: AztecAddress, block_number: u32) -> Self {\n        let chain_id = get_chain_id();\n        let version = get_version();\n        Self { block_number, contract_address, version, chain_id }\n    }\n\n    pub fn block_number(self) -> u32 {\n        self.block_number\n    }\n\n    pub fn this_address(self) -> AztecAddress {\n        self.contract_address\n    }\n\n    pub fn version(self) -> Field {\n        self.version\n    }\n\n    pub fn chain_id(self) -> Field {\n        self.chain_id\n    }\n\n    pub unconstrained fn raw_storage_read<let N: u32>(\n        self: Self,\n        storage_slot: Field,\n    ) -> [Field; N] {\n        storage_read(self.this_address(), storage_slot, self.block_number())\n    }\n\n    pub unconstrained fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T\n    where\n        T: Packable<N>,\n    {\n        T::unpack(self.raw_storage_read(storage_slot))\n    }\n}\n"
+    },
+    "95": {
+      "path": "/home/aztec-dev/aztec-packages/noir-projects/aztec-nr/aztec/src/macros/functions/utils.nr",
+      "source": "use crate::macros::{\n    functions::{abi_export::create_fn_abi_export, call_interface_stubs::stub_fn, stub_registry},\n    notes::NOTES,\n    utils::{\n        add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_contract_library_method,\n        is_fn_initializer, is_fn_internal, is_fn_private, is_fn_public, is_fn_test, is_fn_utility,\n        is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,\n    },\n};\nuse protocol_types::meta::generate_serialize_to_fields;\nuse std::meta::type_of;\n\npub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {\n    let fn_abi = create_fn_abi_export(f);\n    let fn_stub = stub_fn(f);\n    stub_registry::register(f.module(), fn_stub);\n\n    // If a function is further modified as unconstrained, we throw an error\n    if f.is_unconstrained() {\n        let name = f.name();\n        panic(\n            f\"Function {name} is annotated with #[private] but marked as unconstrained, remove unconstrained keyword\",\n        );\n    }\n\n    let module_has_initializer = module_has_initializer(f.module());\n    let module_has_storage = module_has_storage(f.module());\n\n    // Private functions undergo a lot of transformations from their Aztec.nr form into a circuit that can be fed to the\n    // Private Kernel Circuit.\n    // First we change the function signature so that it also receives `PrivateContextInputs`, which contain information\n    // about the execution context (e.g. the caller).\n    let original_params = f.parameters();\n    f.set_parameters(&[(\n        quote { inputs },\n        quote { crate::context::inputs::private_context_inputs::PrivateContextInputs }.as_type(),\n    )]\n        .append(original_params));\n\n    let mut body = f.body().as_block().unwrap();\n\n    // The original params are hashed and passed to the `context` object, so that the kernel can verify we've received\n    // the correct values.\n    // TODO: Optimize args_hasher for small number of arguments\n    let args_hasher_name = quote { args_hasher };\n    let args_hasher = original_params.fold(\n        quote {\n            let mut $args_hasher_name = dep::aztec::hash::ArgsHasher::new();\n        },\n        |args_hasher, param: (Quoted, Type)| {\n            let (name, typ) = param;\n            let appended_arg = add_to_hasher(args_hasher_name, name, typ);\n            quote {\n                $args_hasher\n                $appended_arg\n            }\n        },\n    );\n\n    let context_creation = quote {\n        let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, dep::aztec::protocol_types::traits::Hash::hash($args_hasher_name));\n    };\n\n    // Modifications introduced by the different marker attributes.\n    let internal_check = if is_fn_internal(f) {\n        create_internal_check(f)\n    } else {\n        quote {}\n    };\n\n    let view_check = if is_fn_view(f) {\n        create_view_check(f)\n    } else {\n        quote {}\n    };\n\n    let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {\n        (create_assert_correct_initializer_args(f), create_mark_as_initialized(f))\n    } else {\n        (quote {}, quote {})\n    };\n\n    let storage_init = if module_has_storage {\n        quote {\n            // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is\n            // referenced. We instead ignore 'unused variable' warnings for it.\n            #[allow(unused_variables)]\n            let storage = Storage::init(&mut context);\n        }\n    } else {\n        quote {}\n    };\n\n    // Initialization checks are not included in contracts that don't have initializers.\n    let init_check = if module_has_initializer & !is_fn_initializer(f) & !fn_has_noinitcheck(f) {\n        create_init_check(f)\n    } else {\n        quote {}\n    };\n\n    // All private functions perform message discovery, since they may need to access notes. This is slightly\n    // inefficient and could be improved by only doing it once we actually attempt to read any.\n    let message_discovery_call = if NOTES.len() > 0 {\n        create_message_discovery_call()\n    } else {\n        quote {}\n    };\n\n    // Finally, we need to change the return type to be `PrivateCircuitPublicInputs`, which is what the Private Kernel\n    // circuit expects.\n    let return_value_var_name = quote { macro__returned__values };\n\n    let return_value_type = f.return_type();\n    let return_value = if body.len() == 0 {\n        quote {}\n    } else if return_value_type != type_of(()) {\n        // The original return value is passed to a second args hasher which the context receives.\n        let (body_without_return, last_body_expr) = body.pop_back();\n        let return_value = last_body_expr.quoted();\n        let return_value_assignment =\n            quote { let $return_value_var_name: $return_value_type = $return_value; };\n        let return_hasher_name = quote { return_hasher };\n        let return_value_into_hasher =\n            add_to_hasher(return_hasher_name, return_value_var_name, return_value_type);\n\n        body = body_without_return;\n\n        quote {\n            let mut $return_hasher_name = dep::aztec::hash::ArgsHasher::new();\n            $return_value_assignment\n            $return_value_into_hasher\n            context.set_return_hash($return_hasher_name);\n        }\n    } else {\n        let (body_without_return, last_body_expr) = body.pop_back();\n        if !last_body_expr.has_semicolon()\n            & last_body_expr.as_for().is_none()\n            & last_body_expr.as_assert().is_none()\n            & last_body_expr.as_for_range().is_none()\n            & last_body_expr.as_assert_eq().is_none()\n            & last_body_expr.as_let().is_none() {\n            let unused_return_value_name = f\"_{return_value_var_name}\".quoted_contents();\n            body = body_without_return.push_back(\n                quote { let $unused_return_value_name = $last_body_expr; }.as_expr().unwrap(),\n            );\n        }\n        quote {}\n    };\n\n    let context_finish = quote { context.finish() };\n\n    let to_prepend = quote {\n        $args_hasher\n        $context_creation\n        $assert_initializer\n        $init_check\n        $internal_check\n        $view_check\n        $storage_init\n        $message_discovery_call\n    };\n\n    let to_append = quote {\n        $return_value\n        $mark_as_initialized\n        $context_finish\n    };\n    let modified_body = modify_fn_body(body, to_prepend, to_append);\n    f.set_body(modified_body);\n    f.set_return_type(\n        quote { dep::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }\n            .as_type(),\n    );\n    f.set_return_data();\n\n    fn_abi\n}\n\npub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {\n    let fn_abi = create_fn_abi_export(f);\n    let fn_stub = stub_fn(f);\n    stub_registry::register(f.module(), fn_stub);\n\n    // If a function is further modified as unconstrained, we throw an error\n    if f.is_unconstrained() {\n        let name = f.name();\n        panic(\n            f\"Function {name} is annotated with #[public] but marked as unconstrained, remove unconstrained keyword\",\n        );\n    }\n\n    let module_has_initializer = module_has_initializer(f.module());\n    let module_has_storage = module_has_storage(f.module());\n\n    // Public functions undergo a lot of transformations from their Aztec.nr form.\n    let original_params = f.parameters();\n    let args_len = original_params\n        .map(|(name, typ): (Quoted, Type)| {\n            generate_serialize_to_fields(name, typ, false).0.len()\n        })\n        .fold(0, |acc: u32, val: u32| acc + val);\n\n    // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.\n    let context_creation = quote {\n        let mut context = dep::aztec::context::public_context::PublicContext::new(|| {\n        // We start from 1 because we skip the selector for the dispatch function.\n        let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(1, $args_len);\n        dep::aztec::hash::hash_args_array(serialized_args)\n        });\n    };\n\n    // Modifications introduced by the different marker attributes.\n    let internal_check = if is_fn_internal(f) {\n        create_internal_check(f)\n    } else {\n        quote {}\n    };\n\n    let view_check = if is_fn_view(f) {\n        create_view_check(f)\n    } else {\n        quote {}\n    };\n\n    let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {\n        (create_assert_correct_initializer_args(f), create_mark_as_initialized(f))\n    } else {\n        (quote {}, quote {})\n    };\n\n    let storage_init = if module_has_storage {\n        // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is\n        // referenced. We instead ignore 'unused variable' warnings for it.\n        quote {\n            #[allow(unused_variables)]\n            let storage = Storage::init(&mut context);\n        }\n    } else {\n        quote {}\n    };\n\n    // Initialization checks are not included in contracts that don't have initializers.\n    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) & !is_fn_initializer(f) {\n        create_init_check(f)\n    } else {\n        quote {}\n    };\n\n    let to_prepend = quote {\n        $context_creation\n        $assert_initializer\n        $init_check\n        $internal_check\n        $view_check\n        $storage_init\n    };\n\n    let to_append = quote {\n        $mark_as_initialized\n    };\n\n    let body = f.body().as_block().unwrap();\n    let modified_body = modify_fn_body(body, to_prepend, to_append);\n    f.set_body(modified_body);\n\n    // All public functions are automatically made unconstrained, even if they were not marked as such. This is because\n    // instead of compiling into a circuit, they will compile to bytecode that will be later transpiled into AVM\n    // bytecode.\n    f.set_unconstrained(true);\n    f.set_return_public(true);\n\n    fn_abi\n}\n\npub(crate) comptime fn transform_utility(f: FunctionDefinition) -> Quoted {\n    let fn_abi = create_fn_abi_export(f);\n    let fn_stub = stub_fn(f);\n    stub_registry::register(f.module(), fn_stub);\n\n    // Check if function is marked as unconstrained\n    if !f.is_unconstrained() {\n        let name = f.name();\n        panic(\n            f\"Function {name} is annotated with #[utility] but not marked as unconstrained, add unconstrained keyword\",\n        );\n    }\n\n    // Create utility context\n    let context_creation =\n        quote { let mut context = dep::aztec::context::utility_context::UtilityContext::new(); };\n    let module_has_storage = module_has_storage(f.module());\n\n    // Initialize Storage if module has storage\n    let storage_init = if module_has_storage {\n        quote {\n            // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is\n            // referenced. We instead ignore 'unused variable' warnings for it.\n            #[allow(unused_variables)]\n            let storage = Storage::init(context);\n        }\n    } else {\n        quote {}\n    };\n\n    // All utility functions perform message discovery, since they may need to access private notes that would be\n    // found during this process. This is slightly inefficient and could be improved by only doing it once we actually\n    // attempt to read any.\n    let message_discovery_call = if NOTES.len() > 0 {\n        create_message_discovery_call()\n    } else {\n        quote {}\n    };\n\n    // Inject context creation, storage initialization, and message discovery call at the beginning of the function\n    // body.\n    let to_prepend = quote {\n        $context_creation\n        $storage_init\n        $message_discovery_call\n    };\n    let body = f.body().as_block().unwrap();\n    let modified_body = modify_fn_body(body, to_prepend, quote {});\n    f.set_body(modified_body);\n\n    f.set_return_public(true);\n\n    fn_abi\n}\n\ncomptime fn create_internal_check(f: FunctionDefinition) -> Quoted {\n    let name = f.name();\n    let assertion_message = f\"Function {name} can only be called internally\";\n    quote { assert(context.msg_sender() == context.this_address(), $assertion_message); }\n}\n\ncomptime fn create_view_check(f: FunctionDefinition) -> Quoted {\n    let name = f.name();\n    let assertion_message = f\"Function {name} can only be called statically\";\n    if is_fn_private(f) {\n        // Here `context` is of type context::PrivateContext\n        quote { assert(context.inputs.call_context.is_static_call == true, $assertion_message); }\n    } else {\n        // Here `context` is of type context::PublicContext\n        quote { assert(context.is_static_call(), $assertion_message); }\n    }\n}\n\ncomptime fn create_assert_correct_initializer_args(f: FunctionDefinition) -> Quoted {\n    let fn_visibility = get_fn_visibility(f);\n    f\"dep::aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_{fn_visibility}(context);\"\n        .quoted_contents()\n}\n\ncomptime fn create_mark_as_initialized(f: FunctionDefinition) -> Quoted {\n    let fn_visibility = get_fn_visibility(f);\n    f\"dep::aztec::macros::functions::initialization_utils::mark_as_initialized_{fn_visibility}(&mut context);\"\n        .quoted_contents()\n}\n\ncomptime fn create_init_check(f: FunctionDefinition) -> Quoted {\n    let fn_visibility = get_fn_visibility(f);\n    f\"dep::aztec::macros::functions::initialization_utils::assert_is_initialized_{fn_visibility}(&mut context);\"\n        .quoted_contents()\n}\n\n/// Injects a call to `aztec::messages::discovery::discover_new_messages`, causing for new notes to be added to PXE and made\n/// available for the current execution.\npub(crate) comptime fn create_message_discovery_call() -> Quoted {\n    quote {\n        /// Safety: message discovery returns nothing and is performed solely for its side-effects. It is therefore\n        /// always safe to call.\n        unsafe {\n            dep::aztec::messages::discovery::discover_new_messages(\n                context.this_address(),\n                _compute_note_hash_and_nullifier,\n            );\n        };\n    }\n}\n\n/// Checks if each function in the module is marked with either #[private], #[public], #[utility],\n/// #[contract_library_method], or #[test]. Non-macroified functions are not allowed in contracts.\npub(crate) comptime fn check_each_fn_macroified(m: Module) {\n    for f in m.functions() {\n        let name = f.name();\n        if !is_fn_private(f)\n            & !is_fn_public(f)\n            & !is_fn_utility(f)\n            & !is_fn_contract_library_method(f)\n            & !is_fn_test(f) {\n            panic(\n                f\"Function {name} must be marked as either #[private], #[public], #[utility], #[contract_library_method], or #[test]\",\n            );\n        }\n    }\n}\n"
+    }
+  }
+}
