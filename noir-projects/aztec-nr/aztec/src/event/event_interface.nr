@@ -55,6 +55,11 @@ where
     );
     let log_content = prefix_with_tag(ciphertext, sender, recipient);
 
+    // We commit to the event such that we can later verify that the event is legitimate (this is necessary for
+    // out-of-band event delivery).
+    let event_hash = event.compute_event_hash();
+    context.push_note_hash(event_hash);
+
     context.emit_private_log(log_content, log_content.len());
 }
 
@@ -77,4 +82,13 @@ where
 
 pub trait EventInterface {
     fn get_event_type_id() -> EventSelector;
+
+    /// Returns the non-siloed event hash, i.e. the inner hash computed by the contract during private execution. Event
+    /// hashes are later siloed by contract address and nonce by the kernels before being committed to the state tree.
+    ///
+    /// This should be a commitment to the packed event, and some random value (to prevent brute force trial-hashing
+    /// attacks).
+    // TODO(#8999): In any of the implementations we don't currently inject randomness. Consider doing that once
+    // the linked issue is addressed.
+    fn compute_event_hash(self) -> Field;
 }
