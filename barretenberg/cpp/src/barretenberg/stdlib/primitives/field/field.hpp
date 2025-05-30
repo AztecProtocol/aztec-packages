@@ -328,13 +328,15 @@ template <typename Builder> class field_t {
     }
 
     /**
-     * Fix a witness. The value of the witness is constrained with a selector.
+     * Fix a witness. The value of a witness is constrained with a selector.
+     * This means that any attempt to change the value of a fixed witness would lead to changing the q_c selector and
+     * its commitment.
      * */
     void fix_witness()
     {
-        ASSERT(witness_index != IS_CONSTANT);
+        ASSERT(!is_constant());
         auto context = get_context();
-        ASSERT(context != nullptr);
+        ASSERT(context);
         // Let     a := *this;
         //       q_l :=  1
         //       q_c := -*this.get_value()

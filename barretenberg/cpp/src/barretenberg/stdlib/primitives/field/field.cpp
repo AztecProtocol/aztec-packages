@@ -1246,7 +1246,7 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
         bool_t<Builder> bit = get_bit(context, num_bits - 1 - i, val_u256);
         bit.set_origin_tag(tag);
         result[num_bits - 1 - i] = bit;
-        bb::fr scaling_factor_value = fr(2).pow(static_cast<uint64_t>(num_bits - 1 - i));
+        bb::fr scaling_factor_value = uint256_t(1) << (num_bits - 1 - i);
         field_t<Builder> scaling_factor(context, scaling_factor_value);
 
         sum = sum + (scaling_factor * bit);
@@ -1258,15 +1258,15 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
     this->assert_equal(sum); // `this` and `sum` are both normalized here.
 
     // If value can be larger than modulus we must enforce unique representation
-    constexpr uint256_t modulus_minus_one = fr::modulus - 1;
+    static constexpr uint256_t modulus_minus_one = fr::modulus - 1;
     auto modulus_bits = modulus_minus_one.get_msb() + 1;
     if (num_bits >= modulus_bits) {
         // r - 1 = p_lo + 2**128 * p_hi
-        const fr p_lo = modulus_minus_one.slice(0, 128);
-        const fr p_hi = modulus_minus_one.slice(128, 256);
+        static constexpr fr p_lo = modulus_minus_one.slice(0, 128);
+        static constexpr fr p_hi = modulus_minus_one.slice(128, 256);
 
         // `shift` is used to shift high limbs. It has the dual purpose of representing a borrowed bit.
-        const fr shift = fr(uint256_t(1) << 128);
+        static constexpr fr shift = fr(uint256_t(1) << 128);
         // We always borrow from 2**128*p_hi. We handle whether this was necessary later.
         // y_lo = (2**128 + p_lo) - sum_lo
         field_t<Builder> y_lo = (-sum) + (p_lo + shift);
