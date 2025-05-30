@@ -46,8 +46,11 @@ pub fn check_block_blob_sponge(
 }
 
 // TODO(MW): remove pub when fully moved to batching
-pub(crate) fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: [Field; 2]) -> Field {
-    let preimage = [hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1]];
+pub(crate) fn compute_challenge(
+    hashed_blobs_fields: Field,
+    kzg_commitment: BlobCommitment,
+) -> Field {
+    let preimage = [hashed_blobs_fields, kzg_commitment.inner[0], kzg_commitment.inner[1]];
     let challenge = poseidon::poseidon2::Poseidon2::hash(preimage, 3);
     challenge
 }
@@ -59,7 +62,7 @@ pub(crate) fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: [Fie
 // TODO(MW): remove pub when fully moved to batching
 pub(crate) fn evaluate_blob(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
-    kzg_commitment: [Field; 2],
+    kzg_commitment: BlobCommitment,
     hashed_blobs_fields: Field,
 ) -> BlobPublicInputs {
     let challenge_z: Field = compute_challenge(hashed_blobs_fields, kzg_commitment);
@@ -68,7 +71,7 @@ pub(crate) fn evaluate_blob(
 
     let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
 
-    BlobPublicInputs { z: challenge_z, y, kzg_commitment: BlobCommitment { inner: kzg_commitment } }
+    BlobPublicInputs { z: challenge_z, y, kzg_commitment }
 }
 
 // Evaluates each blob required for a block
@@ -85,11 +88,8 @@ pub fn evaluate_blobs(
     let mut result = BlockBlobPublicInputs::empty();
     for i in 0..BLOBS_PER_BLOCK {
         let single_blob_fields = array_splice(blobs_as_fields, i * FIELDS_PER_BLOB);
-        result.inner[i] = evaluate_blob(
-            single_blob_fields,
-            kzg_commitments[i].inner,
-            hashed_blobs_fields,
-        );
+        result.inner[i] =
+            evaluate_blob(single_blob_fields, kzg_commitments[i], hashed_blobs_fields);
         if (result.inner[i].is_zero()) & (single_blob_fields[0] == 0) {
             // We use empty PIs for empty blobs, to make it simpler to verify on L1.
             // Since our fields come from the base rollup, we know they are tightly packed
@@ -434,7 +434,7 @@ mod tests {
         let kzg_commitment_in = BlobCommitment { inner: [1, 2] }; // this is made-up nonsense.
         let padded_blob_fields = pad_end(blob, 0);
         let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
-        let output = evaluate_blob(blob, kzg_commitment_in.inner, hashed_blob);
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
         let challenge_z = F::from(output.z);
         let y = output.y;
         // Our blob is all 0s, apart from one commitment of value 1 at position 0
@@ -479,7 +479,7 @@ mod tests {
         let kzg_commitment_in = BlobCommitment { inner: [1, 2] }; // this is made-up nonsense.
         let padded_blob_fields = pad_end(blob, 0);
         let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
-        let output = evaluate_blob(blob, kzg_commitment_in.inner, hashed_blob);
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
         let expected_z = poseidon::poseidon2::Poseidon2::hash(
             [sponge_blob.squeeze(), kzg_commitment_in.inner[0], kzg_commitment_in.inner[1]],
             3,
@@ -506,7 +506,7 @@ mod tests {
 
         let padded_blob_fields = pad_end(blob, 0);
         let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
-        let output = evaluate_blob(blob, kzg_commitment_in.inner, hashed_blob);
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
 
         // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
         let expected_y: F = F::from_limbs([
