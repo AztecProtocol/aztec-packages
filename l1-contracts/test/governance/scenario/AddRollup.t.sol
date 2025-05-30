@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
+// solhint-disable
 pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
@@ -81,8 +82,7 @@ contract AddRollupTest is TestBase {
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       validators[i - 1] = validator;
-      initialValidators[i - 1] =
-        CheatDepositArgs({attester: validator, proposer: validator, withdrawer: validator});
+      initialValidators[i - 1] = CheatDepositArgs({attester: validator, withdrawer: validator});
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
@@ -143,7 +143,7 @@ contract AddRollupTest is TestBase {
       while (gse.supplyOf(gse.getCanonical()) < gse.totalSupply() / 3) {
         token.mint(address(this), rollup.getMinimumStake());
         token.approve(address(rollup), rollup.getMinimumStake());
-        rollup.deposit(address(uint160(val)), address(this), address(this), false);
+        rollup.deposit(address(uint160(val)), address(this), false);
         val++;
       }
 
