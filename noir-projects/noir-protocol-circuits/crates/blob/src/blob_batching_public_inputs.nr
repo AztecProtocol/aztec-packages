@@ -223,21 +223,23 @@ impl BlobAccumulatorPublicInputs {
 
     // Completes the final checks for the last accumulator state. This is called in the root rollup and
     // exists here to avoid importing bignum's to_field in the rollup_lib.
-    pub fn finalize_and_validate(self, injected: FinalBlobBatchingChallenges) -> Self {
+    pub fn finalize_and_validate(
+        self,
+        injected: FinalBlobBatchingChallenges,
+    ) -> FinalBlobAccumulatorPublicInputs {
         assert(self.z == injected.z, "Final blob challenge z mismatch.");
         let gamma = poseidon2_hash([self.gamma, self.z]);
         assert(
             gamma == bigint::bignum::to_field(injected.gamma),
             "Final blob challenge gamma mismatch.",
         );
-        // TODO(MW): Return struct of just blob_commitments_hash, z, y, and C for final root PI
-        Self {
+        // TODO(MW): Refactor BlobBatchingCommitment once BlobCommitment can be safely deleted
+        let c = compress_to_blob_commitment(self.c).to_compressed_fields();
+        FinalBlobAccumulatorPublicInputs {
             blob_commitments_hash: self.blob_commitments_hash,
             z: self.z,
             y: self.y,
-            c: self.c,
-            gamma,
-            gamma_pow: self.gamma_pow,
+            c,
         }
     }
 }
@@ -313,7 +315,7 @@ impl Deserialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs
 *    - used such that y = sum_i { gamma^i * y_i }, and C = sum_i { gamma^i * C_i }
 *      for all blob evaluations y_i (see above) and commitments C_i.
 *
-* Iteratively calculated by BlobAccumulatorPublicInputs.accumulate() below. See also precomputeBatchedBlobChallenges() in ts.
+* Iteratively calculated by BlobAccumulatorPublicInputs.accumulate() above. See also precomputeBatchedBlobChallenges() in ts.
 */
 pub struct FinalBlobBatchingChallenges {
     pub z: Field,
@@ -351,9 +353,35 @@ impl Deserialize<BLS12_FR_LIMBS + 1> for FinalBlobBatchingChallenges {
 }
 
 /**
+* Final values of a batched blob. Output in the root rollup circuit and validated on L1.
+*
+* - blob_commitments_hash = sha256( ...sha256(sha256(C_0), C_1) ... C_n)
+* - z = poseidon2( ...poseidon2(poseidon2(z_0, z_1), z_2) ... z_n)
+* - y = y_0 + gamma * y_1 + gamma^2 * y_2 + ... + gamma^n * y_n
+* - c = C_0 + gamma * C_1 + gamma^2 * C_2 + ... + gamma^n * C_n
+*
+* Gamma has served its purpose in the 'random' linear combination and is not required as a public input.
+*/
+pub struct FinalBlobAccumulatorPublicInputs {
+    pub blob_commitments_hash: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
+    pub z: Field, // Challenge at which the batched blob polynomial is evaluated (BN254Fr)
+    pub y: F, // Batched blob's evaluation y (BLS12Fr)
+    pub c: [Field; 2], // Batched blob's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq }) compressed to 48 bytes, stored in 2 fields of 31 and 17 bytes
+}
+
+impl Eq for FinalBlobAccumulatorPublicInputs {
+    fn eq(self, other: Self) -> bool {
+        (self.blob_commitments_hash.eq(other.blob_commitments_hash))
+            & (self.z.eq(other.z))
+            & (self.y.eq(other.y))
+            & (self.c.eq(other.c))
+    }
+}
+
+/**
 * - start_blob_accumulator: Accumulated opening proofs for all blobs before this block range.
 * - end_blob_accumulator: Accumulated opening proofs for all blobs after adding this block range.
-* - final_challenges: Final values z and gamma, shared across the epoch.
+* - final_blob_challenges: Final values z and gamma, shared across the epoch.
 */
 pub struct BlockBlobPublicInputs {
     pub start_blob_accumulator: BlobAccumulatorPublicInputs,

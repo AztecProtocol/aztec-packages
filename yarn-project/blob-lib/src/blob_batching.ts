@@ -137,7 +137,7 @@ export class BatchedBlob {
 }
 
 /**
- * See nr BlobPublicInputsAcc for more info (TODO(MW): doc)
+ * See nr BlobAccumulatorPublicInputs for more info (TODO(MW): doc)
  */
 export class BatchedBlobAccumulator {
   constructor(
