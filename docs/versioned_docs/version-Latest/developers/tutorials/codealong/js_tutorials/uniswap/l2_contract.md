@@ -9,7 +9,7 @@ This page goes over the code in the L2 contract for Uniswap, which works alongsi
 
 ### Setup and constructor
 
-```rust title="uniswap_setup" showLineNumbers
+```rust title="uniswap_setup" showLineNumbers 
 mod util;
 
 // Demonstrates how to use portal contracts to swap on L1 Uniswap with funds on L2
@@ -44,13 +44,13 @@ pub contract Uniswap {
         storage.portal_address.initialize(portal_address);
     }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L1-L35" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L1-L35</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L1-L35" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L1-L35</a></sub></sup>
 
 We just need to store the portal address for the token that we want to swap.
 
 ### Public swap
 
-```rust title="swap_public" showLineNumbers
+```rust title="swap_public" showLineNumbers 
 #[public]
 fn swap_public(
     sender: AztecAddress,
@@ -124,7 +124,7 @@ fn swap_public(
     context.message_portal(storage.portal_address.read(), content_hash);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L37-L110" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L37-L110</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L37-L110" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L37-L110</a></sub></sup>
 
 
 1. We check that `msg.sender()` has appropriate approval to call this on behalf of the sender by constructing an authwit message and checking if `from` has given the approval (read more about authwit [here](../../../../../aztec/concepts/advanced/authwit.md)).
@@ -150,7 +150,7 @@ You can find the corresponding function on the [L1 contracts page](./l1_contract
 
 ### Private swap
 
-```rust title="swap_private" showLineNumbers
+```rust title="swap_private" showLineNumbers 
 #[private]
 fn swap_private(
     input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
@@ -222,7 +222,7 @@ fn swap_private(
     context.message_portal(storage.portal_address.read(), content_hash);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L112-L183" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L112-L183</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L112-L183" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L112-L183</a></sub></sup>
 
 
 This uses a util function `compute_swap_private_content_hash()` - find that [here](#utils)
@@ -239,7 +239,7 @@ This flow works similarly to the public flow with a few notable changes:
 
 Both public and private swap functions call this function:
 
-```rust title="authwit_uniswap_set" showLineNumbers
+```rust title="authwit_uniswap_set" showLineNumbers 
 // This helper method approves the bridge to burn this contract's funds and exits the input asset to L1
 // Assumes contract already has funds.
 // Assume `token` relates to `token_bridge` (ie token_bridge.token == token)
@@ -276,14 +276,14 @@ fn _approve_bridge_and_exit_input_asset_to_L1(
         .call(&mut context)
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L185-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L185-L221</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L185-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L185-L221</a></sub></sup>
 
 
 ## Utils
 
 ### Compute content hash for public
 
-```rust title="uniswap_public_content_hash" showLineNumbers
+```rust title="uniswap_public_content_hash" showLineNumbers 
 use dep::aztec::prelude::{AztecAddress, EthAddress};
 use dep::aztec::protocol_types::{hash::sha256_to_field, traits::ToField};
 
@@ -341,14 +341,14 @@ pub fn compute_swap_public_content_hash(
     content_hash
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr#L1-L58" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr#L1-L58</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr#L1-L58" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr#L1-L58</a></sub></sup>
 
 
 This method computes the L2 to L1 message content hash for the public. To find out how it is consumed on L1, view the [L1 contracts page](./l1_contract.md)
 
 ### Compute content hash for private
 
-```rust title="compute_swap_private_content_hash" showLineNumbers
+```rust title="compute_swap_private_content_hash" showLineNumbers 
 // This method computes the L2 to L1 message content hash for the private
 // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected
 pub fn compute_swap_private_content_hash(
@@ -399,7 +399,7 @@ pub fn compute_swap_private_content_hash(
     content_hash
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr#L60-L110" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr#L60-L110</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr#L60-L110" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr#L60-L110</a></sub></sup>
 
 
 This method computes the L2 to L1 message content hash for the private. To find out how it is consumed on L1, view the [L1 contracts page](./l1_contract.md).

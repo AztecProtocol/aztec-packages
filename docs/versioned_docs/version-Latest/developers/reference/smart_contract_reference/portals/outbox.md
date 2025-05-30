@@ -11,7 +11,7 @@ The `Outbox` is a contract deployed on L1 that handles message passing from the 
 
 Inserts the root of a merkle tree containing all of the L2 to L1 messages in a block specified by _l2BlockNumber.
 
-```solidity title="outbox_insert" showLineNumbers
+```solidity title="outbox_insert" showLineNumbers 
 /**
  * @notice Inserts the root of a merkle tree containing all of the L2 to L1 messages in
  * a block specified by _l2BlockNumber.
@@ -23,7 +23,7 @@ Inserts the root of a merkle tree containing all of the L2 to L1 messages in a b
  */
 function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight) external;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L22-L33" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L22-L33</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L22-L33" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L22-L33</a></sub></sup>
 
 
 
@@ -35,7 +35,7 @@ function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight) exter
 
 #### Edge cases
 
-- Will revert with `Outbox__Unauthorized()` if `msg.sender != ROLLUP_CONTRACT`.
+- Will revert with `Outbox__Unauthorized()` if `msg.sender != ROLLUP_CONTRACT`. 
 - Will revert with `Errors.Outbox__RootAlreadySetAtBlock(uint256 l2BlockNumber)` if the root for the specific block has already been set.
 - Will revert with `Errors.Outbox__InsertingInvalidRoot()` if the rollup is trying to insert bytes32(0) as the root.
 
@@ -43,7 +43,7 @@ function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight) exter
 
 Allows a recipient to consume a message from the `Outbox`.
 
-```solidity title="outbox_consume" showLineNumbers
+```solidity title="outbox_consume" showLineNumbers 
 /**
  * @notice Consumes an entry from the Outbox
  * @dev Only useable by portals / recipients of messages
@@ -62,7 +62,7 @@ function consume(
   bytes32[] calldata _path
 ) external;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53</a></sub></sup>
 
 
 
@@ -75,7 +75,7 @@ function consume(
 
 #### Edge cases
 
-- Will revert with `Outbox__InvalidRecipient(address expected, address actual);` if `msg.sender != _message.recipient.actor`.
+- Will revert with `Outbox__InvalidRecipient(address expected, address actual);` if `msg.sender != _message.recipient.actor`. 
 - Will revert with `Outbox__InvalidChainId()` if `block.chainid != _message.recipient.chainId`.
 - Will revert with `Outbox__NothingToConsumeAtBlock(uint256 l2BlockNumber)` if the root for the block has not been set yet.
 - Will revert with `Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex)` if the message at leafIndex for the block has already been consumed.
@@ -87,7 +87,7 @@ function consume(
 
 Checks to see if an index of the L2 to L1 message tree for a specific block has been consumed.
 
-```solidity title="outbox_has_message_been_consumed_at_block_and_index" showLineNumbers
+```solidity title="outbox_has_message_been_consumed_at_block_and_index" showLineNumbers 
 /**
  * @notice Checks to see if an index of the L2 to L1 message tree for a specific block has been consumed
  * @dev - This function does not throw. Out-of-bounds access is considered valid, but will always return false
@@ -99,7 +99,7 @@ function hasMessageBeenConsumedAtBlockAndIndex(uint256 _l2BlockNumber, uint256 _
   view
   returns (bool);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L55-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L55-L66</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L55-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L55-L66</a></sub></sup>
 
 
 
