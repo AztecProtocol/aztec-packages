@@ -1756,7 +1756,8 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
 
     // uint256_t comparison_maximum = uint256_t(modulus_u512.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4));
     // uint256_t additive_term = comparison_maximum;
-    // TODO: This is terribly inefficient. We should change it.
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14656): This is terribly inefficient. We should
+    // change it.
     uint512_t constant_to_add = modulus_u512;
     while (constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo <= limb_3_maximum_value) {
         constant_to_add += modulus_u512;
@@ -1846,7 +1847,7 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& ot
     }
     Builder* ctx = context ? context : (other.context ? other.context : predicate.context);
 
-    // TODO: use field_t::conditional_assign method
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14657): use field_t::conditional_assign method
     field_t binary_limb_0 = static_cast<field_t<Builder>>(predicate).madd(
         other.binary_basis_limbs[0].element - binary_basis_limbs[0].element, binary_basis_limbs[0].element);
     field_t binary_limb_1 = static_cast<field_t<Builder>>(predicate).madd(
@@ -1953,7 +1954,8 @@ template <typename Builder, typename T> void bigfield<Builder, T>::reduction_che
 {
 
     if (is_constant()) { // this seems not a reduction check, but actually computing the reduction
-                         // TODO THIS IS UGLY WHY CAN'T WE JUST DO (*THIS) = REDUCED?
+                         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14658) THIS IS UGLY WHY CAN'T WE
+                         // JUST DO (*THIS) = REDUCED?
         uint256_t reduced_value = (get_value() % modulus_u512).lo;
         bigfield reduced(context, uint256_t(reduced_value));
         // Save tags
@@ -2185,7 +2187,8 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
         return;
     }
     OriginTag new_tag = get_origin_tag();
-    // TODO: handle situation where some limbs are constant and others are not constant
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14660): handle situation where some limbs are
+    // constant and others are not constant
     const auto [quotient_value, remainder_value] = get_value().divmod(target_basis.modulus);
 
     bigfield quotient(context);
@@ -2263,7 +2266,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     bigfield to_mul = input_to_mul;
     bigfield quotient = input_quotient;
 
-    // TODO(suyash): what if left and to_mul both do not have a context?
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14661): what if left and to_mul both do not have a
+    // context?
     Builder* ctx = left.context ? left.context : to_mul.context;
 
     uint512_t max_b0 = (left.binary_basis_limbs[1].maximum_value * to_mul.binary_basis_limbs[0].maximum_value);
