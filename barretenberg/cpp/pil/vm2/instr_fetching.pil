@@ -19,8 +19,8 @@ include "constants_gen.pil";
 // a static specification in precomputed.pil (see WIRE INSTRUCTION SPEC table)
 // corresponding to the operand decomposition (sel_op_dc_XXX).
 // All the other relations deal with error handling (except lookups/interactions).
-// We handle 4 possible different errors and consolidate into a single one: parsing_err.
-// Only parsing_err is propagated to the execution trace.
+// We handle 4 possible different errors and consolidate into a single one: sel_parsing_err.
+// Only sel_parsing_err is propagated to the execution trace.
 // List of errors:
 // 1) pc_out_of_range: pc is out-of-range if pc >= bytecode_size.
 //    - bytecode_size is retrieved from bc_decomposition.pil at pc == 0.
@@ -76,9 +76,11 @@ pol commit tag_out_of_range; // copied from precomputed.pil
 pol PARSING_ERROR_EXCEPT_TAG_ERROR = pc_out_of_range + opcode_out_of_range + instr_out_of_range;
 
 // If any error occurs, we toggle the following boolean:
-pol commit parsing_err;
-parsing_err = PARSING_ERROR_EXCEPT_TAG_ERROR + tag_out_of_range;
-parsing_err * (1 - parsing_err) = 0; // enforces disjoint errors
+pol commit sel_parsing_err;
+// FIXME: constrain this again once all execution opcodes are supported.
+// See InstrDeserializationError::INVALID_EXECUTION_OPCODE.
+// sel_parsing_err = PARSING_ERROR_EXCEPT_TAG_ERROR + tag_out_of_range;
+sel_parsing_err * (1 - sel_parsing_err) = 0; // enforces disjoint errors
 
 
 // ****************************************************************************

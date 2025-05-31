@@ -173,6 +173,19 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
 {
     TraceContainer trace;
 
+    fill_trace_columns(trace, std::move(events), public_inputs);
+    fill_trace_interactions(trace);
+
+    check_interactions(trace);
+    print_trace_stats(trace);
+
+    return trace;
+}
+
+void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
+                                           EventsContainer&& events,
+                                           const PublicInputs& public_inputs)
+{
     // We process the events in parallel. Ideally the jobs should access disjoint column sets.
     {
         auto jobs = concatenate(
@@ -303,7 +316,10 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
             });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
+}
 
+void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
+{
     // Now we can compute lookups and permutations.
     {
         auto jobs_interactions = concatenate_jobs(Poseidon2TraceBuilder::lookup_jobs(),
@@ -326,10 +342,6 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }
-
-    check_interactions(trace);
-    print_trace_stats(trace);
-    return trace;
 }
 
 TraceContainer AvmTraceGenHelper::generate_precomputed_columns()

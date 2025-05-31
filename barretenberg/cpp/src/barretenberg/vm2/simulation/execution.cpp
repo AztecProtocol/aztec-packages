@@ -146,29 +146,38 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             auto pc = context.get_pc();
             ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
 
+            //// Temporality group 1 starts ////
+
             // We try to fetch an instruction.
+            ex_event.error = ExecutionError::INSTRUCTION_FETCHING; // Set preemptively.
             Instruction instruction = context.get_bytecode_manager().read_instruction(pc);
             ex_event.wire_instruction = instruction;
-
-            get_gas_tracker().set_instruction(instruction);
-
-            // Go from a wire instruction to an execution opcode.
-            const WireInstructionSpec& wire_spec = instruction_info_db.get(instruction.opcode);
-            context.set_next_pc(pc + wire_spec.size_in_bytes);
             debug("@", pc, " ", instruction.to_string());
-            ExecutionOpCode opcode = wire_spec.exec_opcode;
-            ex_event.opcode = opcode;
+            context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
 
-            auto addressing = execution_components.make_addressing(ex_event.addressing_event);
+            //// Temporality group 2 starts ////
 
+            // Gas checking may throw OOG.
+            ex_event.error = ExecutionError::GAS;           // Set preemptively.
+            get_gas_tracker().set_instruction(instruction); // This accesses specs, consider changing.
             get_gas_tracker().consume_base_gas();
 
+            //// Temporality group 3 starts ////
+
             // Resolve the operands.
+            ex_event.error = ExecutionError::ADDRESSING; // Set preemptively.
+            auto addressing = execution_components.make_addressing(ex_event.addressing_event);
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
             ex_event.resolved_operands = resolved_operands;
 
+            //// Temporality group 4+ starts (to be defined) ////
+
             // Execute the opcode.
-            dispatch_opcode(opcode, context, resolved_operands);
+            ex_event.error = ExecutionError::DISPATCHING; // Set preemptively.
+            dispatch_opcode(instruction.get_exec_opcode(), context, resolved_operands);
+
+            // If we made it this far, there was no error.
+            ex_event.error = ExecutionError::NONE;
         } catch (const std::exception& e) {
             info("Exceptional halt: ", e.what());
             context.halt();
@@ -265,8 +274,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         call_with_operands(&Execution::jumpi, context, resolved_operands);
         break;
     default:
-        // TODO: should be caught by parsing.
-        throw std::runtime_error("Unknown opcode");
+        // TODO: Make this an assertion once all execution opcodes are supported.
+        vinfo("Warning: dispatch ignored for unknown execution opcode: ", static_cast<uint32_t>(opcode));
+        break;
     }
 }
 
