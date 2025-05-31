@@ -326,7 +326,8 @@ pub trait Deserialize<let N: u32> {
 impl<let N: u32> Deserialize<N> for str<N> {
     #[inline_always]
     fn deserialize(fields: [Field; N]) -> Self {
-        str::<N>::from(fields.map(|value| value as u8))
+        let bytes: [u8; N] = fields.map(|value| value as u8);
+        bytes.into()
     }
 }
 
