@@ -64,7 +64,7 @@ template <typename FF> class Graph_ {
     Graph_(Graph_&& other) = delete;
     Graph_& operator=(const Graph_& other) = delete;
     Graph_&& operator=(Graph_&& other) = delete;
-    Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor);
+    Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor, bool graph = true);
 
     /**
      * @brief Convert a vector of variable indices to their real indices

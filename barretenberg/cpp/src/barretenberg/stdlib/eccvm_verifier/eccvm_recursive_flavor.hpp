@@ -117,6 +117,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
             this->circuit_size.convert_constant_to_fixed_witness(builder);
             this->log_circuit_size = FF{ uint64_t(CONST_ECCVM_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
+            // num_public_inputs && pub_inputs aren't used in the circuit
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
 
