@@ -98,11 +98,8 @@ class Goblin {
                 bb::convert_native_proof_to_stdlib(&builder, merge_proof);
             MergeRecursiveVerifier merge_verifier{ &builder };
             PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
-            if (points_accumulator.has_data) {
-                points_accumulator.aggregate(pairing_points);
-            } else {
-                points_accumulator = pairing_points;
-            }
+
+            points_accumulator.aggregate(pairing_points);
         }
         merge_verification_queue.clear(); // clear the queue after processing
 

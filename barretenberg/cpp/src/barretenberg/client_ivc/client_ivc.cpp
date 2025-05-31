@@ -148,19 +148,17 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         instantiate_stdlib_verification_queue(circuit);
     }
 
-    // Perform recursive verification and databus consistency checks for each entry in the verification queue
+    // Perform Oink/PG recursive verification and databus consistency checks for each entry in the verification queue
     PairingPoints points_accumulator;
     for (auto& verifier_input : stdlib_verification_queue) {
         PairingPoints pairing_points =
             perform_recursive_verification_and_databus_consistency_checks(circuit, verifier_input);
-        if (points_accumulator.has_data) {
-            points_accumulator.aggregate(pairing_points);
-        } else {
-            points_accumulator = pairing_points;
-        }
+
+        points_accumulator.aggregate(pairing_points);
     }
     stdlib_verification_queue.clear();
 
+    // Perform merge recursive verification for each entry in the merge verification queue
     PairingPoints merge_pairing_points = goblin.process_merge_verification_queue(circuit);
 
     points_accumulator.aggregate(merge_pairing_points);
