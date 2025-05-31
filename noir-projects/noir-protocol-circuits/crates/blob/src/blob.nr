@@ -1,7 +1,4 @@
-use crate::{
-    blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
-    config::{D_INV, LOG_FIELDS_PER_BLOB, ROOTS},
-};
+use crate::config::{D_INV, LOG_FIELDS_PER_BLOB, ROOTS};
 
 use bigint::{BigNum, BLS12_381_Fr as F};
 use std::ops::{Mul, Neg};
@@ -9,8 +6,6 @@ use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
     hash::poseidon2_hash_subarray,
-    traits::Empty,
-    utils::arrays::array_splice,
 };
 
 // TODO(MW): remove pub when fully moved to batching
@@ -46,58 +41,10 @@ pub fn check_block_blob_sponge(
 }
 
 // TODO(MW): remove pub when fully moved to batching
-pub(crate) fn compute_challenge(
-    hashed_blobs_fields: Field,
-    kzg_commitment: BlobCommitment,
-) -> Field {
-    let preimage = [hashed_blobs_fields, kzg_commitment.inner[0], kzg_commitment.inner[1]];
+pub(crate) fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: [Field; 2]) -> Field {
+    let preimage = [hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1]];
     let challenge = poseidon::poseidon2::Poseidon2::hash(preimage, 3);
     challenge
-}
-
-// Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
-// we don't actually need to operate on it so we've simply encoded it as fitting inside a
-// [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
-// See yarn-project/foundation/src/blob/index.ts -> commitmentToFields() for encoding
-// TODO(MW): remove pub when fully moved to batching
-pub(crate) fn evaluate_blob(
-    blob_as_fields: [Field; FIELDS_PER_BLOB],
-    kzg_commitment: BlobCommitment,
-    hashed_blobs_fields: Field,
-) -> BlobPublicInputs {
-    let challenge_z: Field = compute_challenge(hashed_blobs_fields, kzg_commitment);
-    let challenge_z_as_bignum = F::from(challenge_z);
-    let blob = convert_blob_fields(blob_as_fields);
-
-    let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
-
-    BlobPublicInputs { z: challenge_z, y, kzg_commitment }
-}
-
-// Evaluates each blob required for a block
-pub fn evaluate_blobs(
-    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    kzg_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
-    mut sponge_blob: SpongeBlob,
-) -> BlockBlobPublicInputs {
-    // Note that with multiple blobs per block, each blob uses the same hashed_blobs_fields in:
-    // challenge_z = H(hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1])
-    // This is ok, because each commitment is unique to the blob, and we need hashed_blobs_fields to encompass
-    // all fields in the blob, which it does.
-    let hashed_blobs_fields = check_block_blob_sponge(blobs_as_fields, sponge_blob);
-    let mut result = BlockBlobPublicInputs::empty();
-    for i in 0..BLOBS_PER_BLOCK {
-        let single_blob_fields = array_splice(blobs_as_fields, i * FIELDS_PER_BLOB);
-        result.inner[i] =
-            evaluate_blob(single_blob_fields, kzg_commitments[i], hashed_blobs_fields);
-        if (result.inner[i].is_zero()) & (single_blob_fields[0] == 0) {
-            // We use empty PIs for empty blobs, to make it simpler to verify on L1.
-            // Since our fields come from the base rollup, we know they are tightly packed
-            // and should contain no 0 values among valid values => single_blob_fields[0] == 0.
-            result.inner[i] = BlobPublicInputs::empty();
-        }
-    }
-    result
 }
 
 /**
@@ -405,9 +352,9 @@ mod tests {
     // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
     use crate::{
         blob::{
-            barycentric_evaluate_blob_at_z, check_block_blob_sponge, evaluate_blob, evaluate_blobs,
+            barycentric_evaluate_blob_at_z, check_block_blob_sponge, compute_challenge,
+            convert_blob_fields,
         },
-        blob_public_inputs::BlobCommitment,
         config::{D, D_INV},
     };
     use super::{__compute_partial_sums, __compute_sum};
@@ -416,8 +363,62 @@ mod tests {
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
         tests::{fixture_builder::FixtureBuilder, utils::pad_end},
-        traits::Serialize,
+        traits::{Empty, Serialize},
+        utils::arrays::array_splice,
     };
+
+    // Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
+    // we don't actually need to operate on it so we've simply encoded it as fitting inside a
+    // [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
+    // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields() for encoding
+    pub struct TestBlobEvaluationOutputs {
+        pub z: Field,
+        pub y: F,
+        pub c: [Field; 2],
+    }
+
+    impl Empty for TestBlobEvaluationOutputs {
+        fn empty() -> Self {
+            Self { z: 0, y: F::zero(), c: [0, 0] }
+        }
+    }
+
+    fn evaluate_blob(
+        blob_as_fields: [Field; FIELDS_PER_BLOB],
+        kzg_commitment: [Field; 2],
+        hashed_blobs_fields: Field,
+    ) -> TestBlobEvaluationOutputs {
+        let challenge_z: Field = compute_challenge(hashed_blobs_fields, kzg_commitment);
+        let challenge_z_as_bignum = F::from(challenge_z);
+        let blob = convert_blob_fields(blob_as_fields);
+
+        let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
+
+        TestBlobEvaluationOutputs { z: challenge_z, y, c: kzg_commitment }
+    }
+
+    pub fn evaluate_blobs(
+        blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
+        kzg_commitments: [[Field; 2]; BLOBS_PER_BLOCK],
+        mut sponge_blob: SpongeBlob,
+    ) -> [TestBlobEvaluationOutputs; BLOBS_PER_BLOCK] {
+        // Note that with multiple blobs per block, each blob uses the same hashed_blobs_fields in:
+        // challenge_z = H(hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1])
+        // This is ok, because each commitment is unique to the blob, and we need hashed_blobs_fields to encompass
+        // all fields in the blob, which it does.
+        let hashed_blobs_fields = check_block_blob_sponge(blobs_as_fields, sponge_blob);
+        let mut result = [TestBlobEvaluationOutputs::empty(); BLOBS_PER_BLOCK];
+        for i in 0..BLOBS_PER_BLOCK {
+            let single_blob_fields = array_splice(blobs_as_fields, i * FIELDS_PER_BLOB);
+            result[i] = evaluate_blob(single_blob_fields, kzg_commitments[i], hashed_blobs_fields);
+            if (result[i].y.is_zero()) {
+                // We replace the whole struct in this test method to clear out z - it is a hash so even if
+                // all blob fields are 0, z will be non-0.
+                result[i] = TestBlobEvaluationOutputs::empty();
+            }
+        }
+        result
+    }
 
     #[test]
     unconstrained fn test_one_note() {
@@ -431,7 +432,7 @@ mod tests {
         let mut sponge_blob = SpongeBlob::new(blob_fields.len());
         sponge_blob.absorb(blob_fields, blob_fields.len());
 
-        let kzg_commitment_in = BlobCommitment { inner: [1, 2] }; // this is made-up nonsense.
+        let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
         let padded_blob_fields = pad_end(blob, 0);
         let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
@@ -476,12 +477,12 @@ mod tests {
         let mut sponge_blob = SpongeBlob::new(blob_fields.len());
         sponge_blob.absorb(blob_fields, blob_fields.len());
 
-        let kzg_commitment_in = BlobCommitment { inner: [1, 2] }; // this is made-up nonsense.
+        let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
         let padded_blob_fields = pad_end(blob, 0);
         let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
         let expected_z = poseidon::poseidon2::Poseidon2::hash(
-            [sponge_blob.squeeze(), kzg_commitment_in.inner[0], kzg_commitment_in.inner[1]],
+            [sponge_blob.squeeze(), kzg_commitment_in[0], kzg_commitment_in[1]],
             3,
         );
         assert(expected_z == output.z);
@@ -497,12 +498,10 @@ mod tests {
         let mut sponge_blob = SpongeBlob::new(400);
         sponge_blob.absorb(blob, 400);
 
-        let kzg_commitment_in = BlobCommitment {
-            inner: [
-                0x00b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e7750,
-                0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea,
-            ],
-        };
+        let kzg_commitment_in = [
+            0x00b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e7750,
+            0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea,
+        ];
 
         let padded_blob_fields = pad_end(blob, 0);
         let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
@@ -531,12 +530,10 @@ mod tests {
         let mut sponge_blob = SpongeBlob::new(FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
         sponge_blob.absorb(blob, FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
 
-        let kzg_commitment_in = BlobCommitment {
-            inner: [
-                0x00ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3,
-                0x000000000000000000000000000000d195faad1967cdf005acf73088b0e8474a,
-            ],
-        };
+        let kzg_commitment_in = [
+            0x00ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3,
+            0x000000000000000000000000000000d195faad1967cdf005acf73088b0e8474a,
+        ];
 
         let output = evaluate_blobs(blob, [kzg_commitment_in; BLOBS_PER_BLOCK], sponge_blob);
 
@@ -547,7 +544,7 @@ mod tests {
             0x52fd,
         ]);
         for j in 0..BLOBS_PER_BLOCK {
-            assert(expected_y == output.inner[j].y);
+            assert(expected_y == output[j].y);
         }
     }
 
