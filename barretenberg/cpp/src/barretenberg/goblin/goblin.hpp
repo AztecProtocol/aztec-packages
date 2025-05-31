@@ -10,6 +10,7 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/goblin/types.hpp"
+#include "barretenberg/stdlib/merge_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
@@ -35,11 +36,12 @@ class Goblin {
     using MergeProof = MergeProver::MergeProof;
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
+    using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
+    using PairingPoints = MergeRecursiveVerifier::PairingPoints;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
 
-    MergeProof merge_proof;
     GoblinProof goblin_proof;
 
     fq translation_batching_challenge_v;    // challenge for batching the translation polynomials
@@ -52,6 +54,8 @@ class Goblin {
             std::make_shared<TranslatorVerificationKey>();
     };
 
+    std::vector<MergeProof> merge_verification_queue; // queue of merge proofs to be verified
+
     Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr,
            const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
@@ -60,13 +64,7 @@ class Goblin {
      *
      * @param circuit_builder
      */
-    MergeProof prove_merge();
-
-    /**
-     * @brief Construct the final merge proof, where the prover shares a transcript with ECCVM and Translator.
-     *
-     */
-    MergeProof prove_final_merge();
+    void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
@@ -81,12 +79,32 @@ class Goblin {
 
     /**
      * @brief Constuct a full Goblin proof (ECCVM, Translator, merge)
-     * @details The merge proof is assumed to already have been constucted in the last accumulate step. It is simply
-     * moved into the final proof here.
      *
      * @return Proof
      */
-    GoblinProof prove(MergeProof merge_proof_in = {});
+    GoblinProof prove();
+
+    /**
+     * @brief
+     *
+     * @param merge_proof
+     * @return PairingPoints
+     */
+    PairingPoints process_merge_verification_queue(MegaBuilder& builder)
+    {
+        PairingPoints points_accumulator;
+        for (const auto& merge_proof : merge_verification_queue) {
+            const StdlibProof<MegaBuilder> stdlib_merge_proof =
+                bb::convert_native_proof_to_stdlib(&builder, merge_proof);
+            MergeRecursiveVerifier merge_verifier{ &builder };
+            PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+
+            points_accumulator.aggregate(pairing_points);
+        }
+        merge_verification_queue.clear(); // clear the queue after processing
+
+        return points_accumulator;
+    }
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
