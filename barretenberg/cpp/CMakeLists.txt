@@ -20,7 +20,7 @@ endif(DOXYGEN_FOUND)
 
 option(DISABLE_ASM "Disable custom assembly" OFF)
 option(DISABLE_ADX "Disable ADX assembly variant" OFF)
-option(DISABLE_AZTEC_VM "Don't build Aztec VM (acceptable if iterating on core proving)" OFF)
+option(DISABLE_AZTEC_VM "Don't build Aztec VM (acceptable if iterating on core proving)" ON)
 option(MULTITHREADING "Enable multi-threading" ON)
 option(OMP_MULTITHREADING "Enable OMP multi-threading" OFF)
 option(FUZZING "Build ONLY fuzzing harnesses" OFF)
