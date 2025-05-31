@@ -11,6 +11,7 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {IGSE} from "@aztec/core/staking/GSE.sol";
 
 import {
   ProposalLib,
@@ -33,7 +34,7 @@ contract LimitedDepositTest is TestBase {
     token = IMintableERC20(address(new TestERC20("test", "TEST", address(this))));
 
     registry = new Registry(address(this), token);
-    governanceProposer = new GovernanceProposer(registry, 677, 1000);
+    governanceProposer = new GovernanceProposer(registry, IGSE(address(0x03)), 677, 1000);
 
     governance = new Governance(token, address(governanceProposer), address(this));
   }
