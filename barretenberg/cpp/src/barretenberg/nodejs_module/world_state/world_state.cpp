@@ -264,6 +264,14 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return revert_checkpoint(obj, buffer); });
 
     _dispatcher.register_target(
+        WorldStateMessageType::COMMIT_ALL_CHECKPOINTS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit_all_checkpoints(obj, buffer); });
+
+    _dispatcher.register_target(
+        WorldStateMessageType::REVERT_ALL_CHECKPOINTS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return revert_all_checkpoints(obj, buffer); });
+
+    _dispatcher.register_target(
         WorldStateMessageType::COPY_STORES,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return copy_stores(obj, buffer); });
 }
@@ -854,6 +862,34 @@ bool WorldStateWrapper::revert_checkpoint(msgpack::object& obj, msgpack::sbuffer
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::REVERT_CHECKPOINT, header, {});
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::commit_all_checkpoints(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<ForkIdOnlyRequest> request;
+    obj.convert(request);
+
+    _ws->commit_all_checkpoints(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COMMIT_ALL_CHECKPOINTS, header, {});
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::revert_all_checkpoints(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<ForkIdOnlyRequest> request;
+    obj.convert(request);
+
+    _ws->revert_all_checkpoints(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::REVERT_ALL_CHECKPOINTS, header, {});
     msgpack::pack(buffer, resp_msg);
 
     return true;
