@@ -1,5 +1,78 @@
 # Changelog
 
+## [0.88.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.4...v0.88.0) (2025-05-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* L1 access control on governance deposits ([#14577](https://github.com/AztecProtocol/aztec-packages/issues/14577))
+* Voting Delegation ([#14571](https://github.com/AztecProtocol/aztec-packages/issues/14571))
+* remove proposer as separate address ([#14346](https://github.com/AztecProtocol/aztec-packages/issues/14346))
+* re-do event emission API ([#14478](https://github.com/AztecProtocol/aztec-packages/issues/14478))
+* verify tube vs avm public inputs in public base ([#14572](https://github.com/AztecProtocol/aztec-packages/issues/14572))
+* batch note validation check ([#14595](https://github.com/AztecProtocol/aztec-packages/issues/14595))
+* multi-validator node ([#14344](https://github.com/AztecProtocol/aztec-packages/issues/14344))
+* Compute L2 trees outside of the node ([#14566](https://github.com/AztecProtocol/aztec-packages/issues/14566))
+* throwing when reading uninitialized PublicImmutable ([#14580](https://github.com/AztecProtocol/aztec-packages/issues/14580))
+* Clamp AVM gas in public base ([#14581](https://github.com/AztecProtocol/aztec-packages/issues/14581))
+* Avoid overflows in AVM gas ([#14559](https://github.com/AztecProtocol/aztec-packages/issues/14559))
+
+### Features
+
+* `PublicImmutable` initialization optimization ([#14608](https://github.com/AztecProtocol/aztec-packages/issues/14608)) ([139f14d](https://github.com/AztecProtocol/aztec-packages/commit/139f14dcf037422f5fab7dff0c62ee66590d743a))
+* Added world state query to retrieve sibling paths by leaf value ([#14578](https://github.com/AztecProtocol/aztec-packages/issues/14578)) ([9dd9e03](https://github.com/AztecProtocol/aztec-packages/commit/9dd9e0384bbd4266ee324670c92f4c6ebac772b2))
+* auto-deriving `Serialize` for events ([#14630](https://github.com/AztecProtocol/aztec-packages/issues/14630)) ([fcb841c](https://github.com/AztecProtocol/aztec-packages/commit/fcb841ccc053a8ec0956a595a6dabb1604f88d30))
+* Avoid overflows in AVM gas ([#14559](https://github.com/AztecProtocol/aztec-packages/issues/14559)) ([564db1d](https://github.com/AztecProtocol/aztec-packages/commit/564db1d861ddbc263836413e429d0772ce8a3397))
+* batch note validation check ([#14595](https://github.com/AztecProtocol/aztec-packages/issues/14595)) ([3777a06](https://github.com/AztecProtocol/aztec-packages/commit/3777a06555c4d4ddad4cad993f9c48aea8ea3e65))
+* Clamp AVM gas in public base ([#14581](https://github.com/AztecProtocol/aztec-packages/issues/14581)) ([58d892b](https://github.com/AztecProtocol/aztec-packages/commit/58d892baec3e1019c128879b4c514536ce10362b))
+* L1 access control on governance deposits ([#14577](https://github.com/AztecProtocol/aztec-packages/issues/14577)) ([cff9772](https://github.com/AztecProtocol/aztec-packages/commit/cff97728f4eed70eb709db706cdb7392b665e9a3))
+* multi-validator node ([#14344](https://github.com/AztecProtocol/aztec-packages/issues/14344)) ([ddb4e24](https://github.com/AztecProtocol/aztec-packages/commit/ddb4e248e6f21bf3d1423d462614b8efe59c7eeb)), closes [#14291](https://github.com/AztecProtocol/aztec-packages/issues/14291)
+* re-do event emission API ([#14478](https://github.com/AztecProtocol/aztec-packages/issues/14478)) ([81d4fa0](https://github.com/AztecProtocol/aztec-packages/commit/81d4fa033a692a669c784416fdf0af4f72e1a89f))
+* remove proposer as separate address ([#14346](https://github.com/AztecProtocol/aztec-packages/issues/14346)) ([35f585d](https://github.com/AztecProtocol/aztec-packages/commit/35f585d17d8399a47854d077ee031605e29e1aef))
+* throwing when reading uninitialized PublicImmutable ([#14580](https://github.com/AztecProtocol/aztec-packages/issues/14580)) ([0ccd45b](https://github.com/AztecProtocol/aztec-packages/commit/0ccd45bb6c3b4fcac95cdc0eea72b2dfe7bb3e74))
+* Transcript  i̶n̶security ([#13796](https://github.com/AztecProtocol/aztec-packages/issues/13796)) ([4139f85](https://github.com/AztecProtocol/aztec-packages/commit/4139f858033f84147ca19e5db211f27fda0bb6ab))
+* Voting Delegation ([#14571](https://github.com/AztecProtocol/aztec-packages/issues/14571)) ([11d125b](https://github.com/AztecProtocol/aztec-packages/commit/11d125b52a7b6203a439c459d49e0a39a538290f))
+
+
+### Bug Fixes
+
+* Attempt tree re-sync after application stop ([#14437](https://github.com/AztecProtocol/aztec-packages/issues/14437)) ([a7af546](https://github.com/AztecProtocol/aztec-packages/commit/a7af5467a3ca000277ecfabb52db592ae63acda7))
+* do not cast numeric to bool ([#14593](https://github.com/AztecProtocol/aztec-packages/issues/14593)) ([8b957b9](https://github.com/AztecProtocol/aztec-packages/commit/8b957b9b9e87810041fe72ef1578ff1a3e34300a))
+* do not run concurrent idb transactions ([#14609](https://github.com/AztecProtocol/aztec-packages/issues/14609)) ([5a6f36a](https://github.com/AztecProtocol/aztec-packages/commit/5a6f36a0b971b5e8f9505a055c894bd11c333ec5))
+* **docs:** Update create pxe interface ([#14587](https://github.com/AztecProtocol/aztec-packages/issues/14587)) ([b3b9c05](https://github.com/AztecProtocol/aztec-packages/commit/b3b9c0513e3260d72854a251665315909bccd148))
+* Don't manually close stream on p2p/reqresp/goodbye ([#14531](https://github.com/AztecProtocol/aztec-packages/issues/14531)) ([38cec7d](https://github.com/AztecProtocol/aztec-packages/commit/38cec7d2642e68923de945a15b616d205ef523ce))
+* Fixes race condition in public processor ([#14605](https://github.com/AztecProtocol/aztec-packages/issues/14605)) ([00b84b9](https://github.com/AztecProtocol/aztec-packages/commit/00b84b9d686de567a123812045745d79f59ec941))
+* prevent world-state from spamming the logs ([#14594](https://github.com/AztecProtocol/aztec-packages/issues/14594)) ([8c725de](https://github.com/AztecProtocol/aztec-packages/commit/8c725dea4592cbff6c484139b3e745ecfee4bb81))
+* profile_tracy_capture_mainframe_view_local.sh ([#14623](https://github.com/AztecProtocol/aztec-packages/issues/14623)) ([13774b8](https://github.com/AztecProtocol/aztec-packages/commit/13774b8f0fbf93a0aeeb8b92af04a906ebe5b8f6))
+* verify tube vs avm public inputs in public base ([#14572](https://github.com/AztecProtocol/aztec-packages/issues/14572)) ([76edcf7](https://github.com/AztecProtocol/aztec-packages/commit/76edcf761f511c39b7cd53e1a31f9ea65babf90d))
+
+
+### Miscellaneous
+
+* add testnet compat test ([#14601](https://github.com/AztecProtocol/aztec-packages/issues/14601)) ([1fbb350](https://github.com/AztecProtocol/aztec-packages/commit/1fbb35083547656ec72ca30e35cbb0484ea41b48))
+* **bb:** disable aztec vm in gcc syntax check ([#14455](https://github.com/AztecProtocol/aztec-packages/issues/14455)) ([0d9a974](https://github.com/AztecProtocol/aztec-packages/commit/0d9a974f9ba506d5b16baaecf8f326ef9e50fbdc))
+* bump bignum to 0.7.3 ([#14638](https://github.com/AztecProtocol/aztec-packages/issues/14638)) ([954091d](https://github.com/AztecProtocol/aztec-packages/commit/954091d90d79096124d49ac81bf446d091bdd225))
+* Compute L2 trees outside of the node ([#14566](https://github.com/AztecProtocol/aztec-packages/issues/14566)) ([9ede9fb](https://github.com/AztecProtocol/aztec-packages/commit/9ede9fbdac4657fb8a58280ef98c506728fb38f3))
+* **docs:** Add scheduled typesense index job ([#14615](https://github.com/AztecProtocol/aztec-packages/issues/14615)) ([5f42e1b](https://github.com/AztecProtocol/aztec-packages/commit/5f42e1bfa8cc14058c4a6a91a3f4c62dcc658a6e))
+* fix flakey test ([#14592](https://github.com/AztecProtocol/aztec-packages/issues/14592)) ([c511f72](https://github.com/AztecProtocol/aztec-packages/commit/c511f727b44385e1e29e7fa87072ba76d88f23e3))
+* Merge master into next ([21c9591](https://github.com/AztecProtocol/aztec-packages/commit/21c9591bc57214386b342ba164db98a9f6551285))
+* Merge master into next ([10d6b0f](https://github.com/AztecProtocol/aztec-packages/commit/10d6b0f30af93037b71465efb150543953b1c2be))
+* Merge master into next ([ec7af98](https://github.com/AztecProtocol/aztec-packages/commit/ec7af98d6f5963ab2da2af310932ff5fff0a81e2))
+* Merge master into next ([e63be60](https://github.com/AztecProtocol/aztec-packages/commit/e63be60d3bb35e26742ffbc7abc63f7ed485b54d))
+* Merge master into next ([61ca3c5](https://github.com/AztecProtocol/aztec-packages/commit/61ca3c5210913304e6e3c01f50c5092ecf4b88cf))
+* Merge master into next ([c051f39](https://github.com/AztecProtocol/aztec-packages/commit/c051f391ce6d6c8b731fd7146db8222e3df2fe56))
+* Merge master into next ([29f3b89](https://github.com/AztecProtocol/aztec-packages/commit/29f3b891250295e373261e275302b2818a5c0ad0))
+* Merge master into next ([616b0c7](https://github.com/AztecProtocol/aztec-packages/commit/616b0c7150a8a9414b03a2fe4c23c67a98fb88ca))
+* Merge master into next ([cd1471a](https://github.com/AztecProtocol/aztec-packages/commit/cd1471a14a4fb00b93ce0355389fdf3a0a04e049))
+* remove bigfield `pow` with witness exponent. ([#14563](https://github.com/AztecProtocol/aztec-packages/issues/14563)) ([32612f8](https://github.com/AztecProtocol/aztec-packages/commit/32612f8b38a28709d9e7c00fa63a0232dff94a59))
+* stdlib field pre-audit pt.1 ([#14527](https://github.com/AztecProtocol/aztec-packages/issues/14527)) ([4793d90](https://github.com/AztecProtocol/aztec-packages/commit/4793d908709648e8cff5da8d53f6e294f8a1de6f))
+
+
+### Documentation
+
+* create v0.87.4 as latest ([#14607](https://github.com/AztecProtocol/aztec-packages/issues/14607)) ([78c2469](https://github.com/AztecProtocol/aztec-packages/commit/78c2469e345c1916ddcc11eccaa27ac8d4c96abc))
+* update cli ref in node doc ([#14574](https://github.com/AztecProtocol/aztec-packages/issues/14574)) ([d54a8af](https://github.com/AztecProtocol/aztec-packages/commit/d54a8af21952d37d7e603bb856ad13a9a94aa2c3))
+
 ## [0.87.4](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.3...v0.87.4) (2025-05-28)
 
 
