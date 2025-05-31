@@ -69,7 +69,7 @@ template <typename T> class PackedListVector {
      *  get_list
      *  -------------------------------------------------------
      *  Returns the head pointer of list `list_index` or
-     *  nullptr if the list is empty.  Safe to call anytime.
+     *  nullptr if the list is empty.
      *-------------------------------------------------------*/
     Node* get_list(std::size_t list_index) const noexcept;
 

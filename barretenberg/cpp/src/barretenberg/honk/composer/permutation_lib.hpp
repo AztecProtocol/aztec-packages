@@ -89,7 +89,7 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
     {
         PROFILE_THIS_NAME("PermutationMapping constructor");
 
-        parallel_for_range(circuit_size, [&](size_t start, size_t end) {
+        parallel_for_range(circuit_size, [&](uint32_t start, uint32_t end) {
             // Initialize every element to point to itself
             for (uint8_t col_idx = 0; col_idx < NUM_WIRES; ++col_idx) {
                 for (uint32_t row_idx = start; row_idx < end; ++row_idx) {
@@ -141,7 +141,6 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
 
     // Represents the idx of a variable in circuit_constructor.variables (needed only for generalized)
     std::span<const uint32_t> real_variable_tags = circuit_constructor.real_variable_tags;
-
     // Go through each cycle
     for (size_t cycle_idx = 0; cycle_idx < wire_copy_cycles.size(); ++cycle_idx) {
         PackedListVector<CycleNode>::Node* start_node = wire_copy_cycles.get_list(cycle_idx);
@@ -150,11 +149,11 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
         for (auto* current_node = start_node; current_node != nullptr; current_node = current_node->next) {
             cycle_nodes.push_back(current_node);
         }
-        std::reverse(cycle_nodes.begin(), cycle_nodes.end());
+        // std::reverse(cycle_nodes.begin(), cycle_nodes.end());
         // for (auto* current_node = start_node; current_node != nullptr; current_node = current_node->next) {
         for (auto* current_node : cycle_nodes) {
             // Get the indices (column, row) of the current node in the cycle
-            const auto current_row = static_cast<ptrdiff_t>(current_node->value.gate_idx);
+            const auto current_row = current_node->value.gate_idx;
             const auto current_column = current_node->value.wire_idx;
 
             // If the current node is last in the cycle, then the next is the first one
@@ -168,8 +167,8 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
             entry.sigma.col_idx = next_column;
 
             if constexpr (generalized) {
-                const bool first_node = (current_node == start_node);
-                const bool last_node = (current_node->next == nullptr);
+                const bool last_node = (current_node == start_node);
+                const bool first_node = (current_node->next == nullptr);
 
                 if (first_node) {
                     entry.id.is_tag = true;
@@ -190,10 +189,11 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
     size_t pub_inputs_offset = proving_key->pub_inputs_offset;
     for (size_t i = 0; i < num_public_inputs; ++i) {
         uint32_t idx = static_cast<uint32_t>(i + pub_inputs_offset);
-        mapping.sigmas[0].row_idx[static_cast<ptrdiff_t>(idx)] = idx;
-        mapping.sigmas[0].col_idx[static_cast<ptrdiff_t>(idx)] = 0;
-        mapping.sigmas[0].is_public_input[static_cast<ptrdiff_t>(idx)] = true;
-        if (mapping.sigmas[0].is_tag[static_cast<ptrdiff_t>(idx)]) {
+        Entry& entry = mapping.get_mapping_entry(0, idx);
+        entry.sigma.row_idx = idx;
+        entry.sigma.col_idx = 0;
+        entry.sigma.is_public_input = true;
+        if (entry.sigma.is_tag) {
             std::cerr << "MAPPING IS BOTH A TAG AND A PUBLIC INPUT" << std::endl;
         }
     }
@@ -217,21 +217,17 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
     const PermutationMapping<Flavor::NUM_WIRES, true>& permutation_mappings,
     typename Flavor::ProvingKey* proving_key)
 {
+    PROFILE_THIS();
     using FF = typename Flavor::FF;
     const size_t num_gates = proving_key->circuit_size;
 
     size_t domain_size = proving_key->active_region_data.size();
     size_t wire_idx = 0;
-    for (auto& [sigma_poly, id_poly] : zip_view(sigma_polynomials, id_polynomials)) {
+    for (auto [sigma_poly, id_poly] : zip_view(sigma_polynomials, id_polynomials)) {
         parallel_for_range(domain_size, [&](size_t start, size_t end) {
             for (size_t i = start; i < end; ++i) {
                 const size_t poly_idx = proving_key->active_region_data.get_idx(i);
                 const auto& entry = permutation_mappings.get_mapping_entry(wire_idx, poly_idx);
-                // const auto idx = static_cast<ptrdiff_t>(poly_idx);
-                // const auto& current_row_idx = permutation_mappings[wire_idx].row_idx[idx];
-                // const auto& current_col_idx = permutation_mappings[wire_idx].col_idx[idx];
-                // const auto& current_is_tag = permutation_mappings[wire_idx].is_tag[idx];
-                // const auto& current_is_public_input = permutation_mappings[wire_idx].is_public_input[idx];
                 auto poly_pairs = std::array{ std::pair(sigma_poly, entry.sigma), std::pair(id_poly, entry.id) };
                 for (auto [poly, subentry] : poly_pairs) {
                     const auto current_row_idx = subentry.row_idx;
@@ -284,20 +280,7 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
     auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, key, copy_cycles);
 
     // Compute Honk-style sigma and ID polynomials from the corresponding mappings
-    {
-
-        PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
-
-        compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
-            key->polynomials.get_sigmas(), mapping.sigmas, key);
-    }
-    {
-
-        PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
-
-        compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
-            key->polynomials.get_ids(), mapping.ids, key);
-    }
+    compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
+        key->polynomials.get_sigmas(), key->polynomials.get_ids(), mapping, key);
 }
-
 } // namespace bb

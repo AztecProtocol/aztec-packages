@@ -5,11 +5,13 @@
 // =====================
 
 #include "trace_to_polynomials.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/packed_list_vector.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 
 #include "barretenberg/common/packed_list_vector_impl.hpp"
+#include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
@@ -80,7 +82,6 @@ template <class Flavor>
 typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::construct_trace_data(
     Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
-
     PROFILE_THIS_NAME("construct_trace_data");
 
     size_t num_copy_cycles = 0;

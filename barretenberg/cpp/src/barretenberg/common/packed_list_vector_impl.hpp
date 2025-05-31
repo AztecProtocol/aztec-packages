@@ -28,9 +28,10 @@ PackedListVector<T>::PackedListVector(std::size_t total_elements, std::size_t nu
 /*----------- destructor -------------------------------------*/
 template <typename T> PackedListVector<T>::~PackedListVector()
 {
-    /* Destroy only the nodes that were actually constructed */
+    /* Destroy only the nodes that were actually constructed
+     * Note in practice this is a no-op. */
     for (std::size_t i = 0; i < slab_top_; ++i) {
-        slab_.get()[i]->~Node();
+        slab_.get()[i].~Node();
     }
 }
 
