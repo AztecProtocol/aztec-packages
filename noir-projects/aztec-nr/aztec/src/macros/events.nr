@@ -17,6 +17,13 @@ comptime fn generate_event_interface(s: TypeDefinition) -> Quoted {
             fn get_event_type_id() -> aztec::protocol_types::abis::event_selector::EventSelector {
                 $from_field($event_type_id)
             }
+
+            fn compute_event_hash(self) -> Field {
+                // TODO(#11571): Ideally we would use the Packable trait here, but packing events is not supported yet.
+                let inputs = aztec::protocol_types::traits::Serialize::serialize(self);
+                // Event hash is committed to the note hash tree so we use the same generator index as for notes
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
+            }
         }
     }
 }
