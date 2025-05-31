@@ -34,4 +34,14 @@ if (NOT(FUZZING))
             -ldw -lelf
         )
     endif()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules (JEMALLOC jemalloc)
+
+    pkg_search_module(JEMALLOC REQUIRED jemalloc)
+    include_directories(${JEMALLOC_INCLUDE_DIRS})
+
+    target_link_libraries(bb
+        PRIVATE
+        ${JEMALLOC_LIBRARIES}
+    )
 endif()
