@@ -82,6 +82,9 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
         return mapping_allocation.get()[col_idx * circuit_size + row_idx];
     }
 
+    /**
+     * @brief Construct a permutation mapping default initialized so every element is in a cycle by itself
+     */
     PermutationMapping(size_t circuit_size)
         // Hacky allocation to avoid zero-initialization.
         : mapping_allocation(reinterpret_cast<Entry*>(::operator new[](circuit_size* NUM_WIRES * sizeof(Entry))))
@@ -144,39 +147,34 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
     // Go through each cycle
     for (size_t cycle_idx = 0; cycle_idx < wire_copy_cycles.size(); ++cycle_idx) {
         PackedListVector<CycleNode>::Node* start_node = wire_copy_cycles.get_list(cycle_idx);
-        std::vector<PackedListVector<CycleNode>::Node*> cycle_nodes;
-        // Collect all nodes in the cycle
         for (auto* current_node = start_node; current_node != nullptr; current_node = current_node->next) {
-            cycle_nodes.push_back(current_node);
-        }
-        // std::reverse(cycle_nodes.begin(), cycle_nodes.end());
-        // for (auto* current_node = start_node; current_node != nullptr; current_node = current_node->next) {
-        for (auto* current_node : cycle_nodes) {
             // Get the indices (column, row) of the current node in the cycle
-            const auto current_row = current_node->value.gate_idx;
-            const auto current_column = current_node->value.wire_idx;
+            const uint32_t current_row = current_node->value.gate_idx;
+            const uint32_t current_column = current_node->value.wire_idx;
 
             // If the current node is last in the cycle, then the next is the first one
-            auto* next_node = current_node->next != nullptr ? current_node->next : start_node;
-            const auto next_row = next_node->value.gate_idx;
-            const auto next_column = static_cast<uint8_t>(next_node->value.wire_idx);
+            // NOTE: our list is backwards, so the 'next' node is actually the previous one in the cycle.
+            auto* prev_node = current_node->next != nullptr ? current_node->next : start_node;
+            const uint32_t prev_row = prev_node->value.gate_idx;
+            const uint32_t prev_column = prev_node->value.wire_idx;
 
             // Point current node to the next node
-            Entry& entry = mapping.get_mapping_entry(current_column, current_row);
-            entry.sigma.row_idx = next_row;
-            entry.sigma.col_idx = next_column;
+            Entry& prev_entry = mapping.get_mapping_entry(prev_column, prev_row);
+            prev_entry.sigma.row_idx = current_row;
+            prev_entry.sigma.col_idx = static_cast<uint8_t>(current_column);
 
             if constexpr (generalized) {
-                const bool last_node = (current_node == start_node);
-                const bool first_node = (current_node->next == nullptr);
+                // NOTE: list is backwards, so being the start_node means we are the last node
+                const bool last_node = (prev_node == start_node);
+                const bool first_node = (prev_node->next == nullptr);
 
                 if (first_node) {
-                    entry.id.is_tag = true;
-                    entry.id.row_idx = real_variable_tags[cycle_idx];
+                    prev_entry.id.is_tag = true;
+                    prev_entry.id.row_idx = real_variable_tags[cycle_idx];
                 }
                 if (last_node) {
-                    entry.sigma.is_tag = true;
-                    entry.sigma.row_idx = circuit_constructor.tau.at(real_variable_tags[cycle_idx]);
+                    prev_entry.sigma.is_tag = true;
+                    prev_entry.sigma.row_idx = circuit_constructor.tau.at(real_variable_tags[cycle_idx]);
                 }
             }
         }
@@ -228,7 +226,7 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
             for (size_t i = start; i < end; ++i) {
                 const size_t poly_idx = proving_key->active_region_data.get_idx(i);
                 const auto& entry = permutation_mappings.get_mapping_entry(wire_idx, poly_idx);
-                auto poly_pairs = std::array{ std::pair(sigma_poly, entry.sigma), std::pair(id_poly, entry.id) };
+                auto poly_pairs = std::array{ std::pair(&sigma_poly, entry.sigma), std::pair(&id_poly, entry.id) };
                 for (auto [poly, subentry] : poly_pairs) {
                     const auto current_row_idx = subentry.row_idx;
                     const auto current_col_idx = subentry.col_idx;
@@ -245,14 +243,14 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
                         // These indices are chosen so they can easily be computed by the verifier. They can expect
                         // the running product to be equal to the "public input delta" that is computed
                         // in <honk/utils/grand_product_delta.hpp>
-                        poly.at(poly_idx) = -FF(current_row_idx + 1 + num_gates * current_col_idx);
+                        poly->at(poly_idx) = -FF(current_row_idx + 1 + num_gates * current_col_idx);
                     } else if (current_is_tag) {
                         // Set evaluations to (arbitrary) values disjoint from non-tag values
-                        poly.at(poly_idx) = num_gates * Flavor::NUM_WIRES + current_row_idx;
+                        poly->at(poly_idx) = num_gates * Flavor::NUM_WIRES + current_row_idx;
                     } else {
                         // For the regular permutation we simply point to the next location by setting the
                         // evaluation to its idx
-                        poly.at(poly_idx) = FF(current_row_idx + num_gates * current_col_idx);
+                        poly->at(poly_idx) = FF(current_row_idx + num_gates * current_col_idx);
                     }
                 }
             }
