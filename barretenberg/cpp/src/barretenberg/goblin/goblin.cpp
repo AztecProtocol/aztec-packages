@@ -20,13 +20,11 @@ Goblin::Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitm
     , transcript(transcript)
 {}
 
-Goblin::MergeProof Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
+void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
 {
     PROFILE_THIS_NAME("Goblin::merge");
     MergeProver merge_prover{ op_queue, commitment_key, transcript };
-    MergeProof merge_proof = merge_prover.construct_proof();
-    merge_verification_queue.push_back(merge_proof);
-    return merge_proof;
+    merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
 void Goblin::prove_eccvm()
@@ -54,7 +52,10 @@ GoblinProof Goblin::prove()
 
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
-    goblin_proof.merge_proof = prove_merge(transcript);
+    prove_merge(transcript);
+    ASSERT(merge_verification_queue.size() == 1,
+           "Goblin::prove: merge_verification_queue should contain only a single proof at this stage.");
+    goblin_proof.merge_proof = merge_verification_queue.back();
 
     {
         PROFILE_THIS_NAME("prove_eccvm");

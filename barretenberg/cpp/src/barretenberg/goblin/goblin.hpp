@@ -64,7 +64,7 @@ class Goblin {
      *
      * @param circuit_builder
      */
-    MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
