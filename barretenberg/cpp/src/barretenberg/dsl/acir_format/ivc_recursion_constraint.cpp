@@ -255,9 +255,9 @@ std::shared_ptr<ClientIVC::DeciderVerificationKey> create_mock_decider_vk()
 /**
  * @brief Create a mock merge proof which has the correct structure but is not necessarily valid
  *
- * @return ClientIVC::MergeProof
+ * @return Goblin::MergeProof
  */
-ClientIVC::MergeProof create_dummy_merge_proof()
+Goblin::MergeProof create_dummy_merge_proof()
 {
     using FF = ClientIVC::FF;
 
