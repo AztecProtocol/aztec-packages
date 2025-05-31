@@ -80,7 +80,7 @@ contract Governance is IGovernance {
       gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
       quorum: 0.1e18,
       voteDifferential: 0.04e18,
-      minimumVotes: 1000e18
+      minimumVotes: 400e18
     });
     configuration.assertValid();
 

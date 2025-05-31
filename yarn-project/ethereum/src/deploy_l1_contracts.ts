@@ -265,6 +265,7 @@ export const deploySharedContracts = async (
 
   const governanceProposerAddress = await deployer.deploy(l1Artifacts.governanceProposer, [
     registryAddress.toString(),
+    gseAddress.toString(),
     args.governanceProposerQuorum,
     args.governanceProposerRoundSize,
   ]);
