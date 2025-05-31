@@ -136,14 +136,14 @@ aztec-wallet \
   -a add-liquidity-nonce
 
 aztec-wallet \
-  create-authwit transfer_to_public contracts:amm \
+  create-authwit transfer_to_public_and_prepare_private_balance_increase contracts:amm \
   -ca contracts:token_0 \
   --args accounts:main contracts:amm $amount_0_max secrets:add-liquidity-nonce \
   -f accounts:main \
   -a add_liquidity_token_0
 
 aztec-wallet \
-  create-authwit transfer_to_public contracts:amm \
+  create-authwit transfer_to_public_and_prepare_private_balance_increase contracts:amm \
   -ca contracts:token_1 \
   --args accounts:main contracts:amm $amount_1_max secrets:add-liquidity-nonce \
   -f accounts:main \

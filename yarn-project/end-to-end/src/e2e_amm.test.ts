@@ -102,12 +102,12 @@ describe('AMM', () => {
       const amount1Min = lpBalancesBefore.token1 / 2n;
 
       // First we need to add authwits such that the AMM can transfer the tokens from the liquidity provider. These
-      // authwits are for the full amount, since the AMM will first transfer that to itself, and later refund any excess
-      // during public execution.
+      // authwits are for the full amount, since the AMM will first transfer that to itself, and later refund any
+      // excess during public execution.
       const nonceForAuthwits = Fr.random();
       const token0Authwit = await liquidityProvider.createAuthWit({
         caller: amm.address,
-        action: token0.methods.transfer_to_public(
+        action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
           liquidityProvider.getAddress(),
           amm.address,
           amount0Max,
@@ -116,7 +116,7 @@ describe('AMM', () => {
       });
       const token1Authwit = await liquidityProvider.createAuthWit({
         caller: amm.address,
-        action: token1.methods.transfer_to_public(
+        action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
           liquidityProvider.getAddress(),
           amm.address,
           amount1Max,
@@ -156,7 +156,7 @@ describe('AMM', () => {
       const liquidityTokenSupplyBefore = await liquidityToken.methods.total_supply().simulate();
 
       // The pool currently has the same number of tokens for token0 and token1, since that is the ratio the first
-      // liquidity provider used. Our maximum values have a diferent ratio (6:5 instead of 1:1), so we will end up
+      // liquidity provider used. Our maximum values have a different ratio (6:5 instead of 1:1), so we will end up
       // adding the maximum amount that does result in the correct ratio (i.e. using amount1Max and a 1:1 ratio).
       const amount0Max = (lpBalancesBefore.token0 * 6n) / 10n;
       const amount0Min = (lpBalancesBefore.token0 * 4n) / 10n;
@@ -171,9 +171,9 @@ describe('AMM', () => {
       // public execution. We expect for there to be excess since our maximum amounts do not have the same balance ratio
       // as the pool currently holds.
       const nonceForAuthwits = Fr.random();
-      const token1Authwih = await otherLiquidityProvider.createAuthWit({
+      const token1Authwit = await otherLiquidityProvider.createAuthWit({
         caller: amm.address,
-        action: token0.methods.transfer_to_public(
+        action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
           otherLiquidityProvider.getAddress(),
           amm.address,
           amount0Max,
@@ -182,7 +182,7 @@ describe('AMM', () => {
       });
       const token2Authwit = await otherLiquidityProvider.createAuthWit({
         caller: amm.address,
-        action: token1.methods.transfer_to_public(
+        action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
           otherLiquidityProvider.getAddress(),
           amm.address,
           amount1Max,
@@ -193,7 +193,7 @@ describe('AMM', () => {
       await amm
         .withWallet(otherLiquidityProvider)
         .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits)
-        .send({ authWitnesses: [token1Authwih, token2Authwit] })
+        .send({ authWitnesses: [token1Authwit, token2Authwit] })
         .wait();
 
       const ammBalancesAfter = await getAmmBalances();
@@ -266,7 +266,12 @@ describe('AMM', () => {
       const nonceForAuthwits = Fr.random();
       const swapAuthwit = await swapper.createAuthWit({
         caller: amm.address,
-        action: token1.methods.transfer_to_public(swapper.getAddress(), amm.address, amountInMax, nonceForAuthwits),
+        action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
+          swapper.getAddress(),
+          amm.address,
+          amountInMax,
+          nonceForAuthwits,
+        ),
       });
 
       await amm
@@ -293,7 +298,7 @@ describe('AMM', () => {
         .methods.balance_of_private(otherLiquidityProvider.getAddress())
         .simulate();
 
-      // Because private burning requires first transfering the tokens into the AMM, we again need to provide an
+      // Because private burning requires first transferring the tokens into the AMM, we again need to provide an
       // authwit.
       const nonceForAuthwits = Fr.random();
       const liquidityAuthwit = await otherLiquidityProvider.createAuthWit({
