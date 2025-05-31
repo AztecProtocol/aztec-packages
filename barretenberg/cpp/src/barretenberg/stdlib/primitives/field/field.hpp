@@ -256,7 +256,7 @@ template <typename Builder> class field_t {
     static void evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
     static void evaluate_polynomial_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
 
-    static field_t accumulate(const std::vector<field_t>& to_add);
+    static field_t accumulate(const std::vector<field_t>& input);
 
     /**
      * multiply *this by `to_mul` and add `to_add`
@@ -328,13 +328,20 @@ template <typename Builder> class field_t {
     }
 
     /**
-     * Fix a witness. The value of the witness is constrained with a selector
+     * Fix a witness. The value of a witness is constrained with a selector.
+     * This means that any attempt to change the value of a fixed witness would lead to changing the q_c selector and
+     * its commitment.
      * */
     void fix_witness()
     {
-        ASSERT(witness_index != IS_CONSTANT);
+        ASSERT(!is_constant());
         auto context = get_context();
-        ASSERT(context != nullptr);
+        ASSERT(context);
+        // Let     a := *this;
+        //       q_l :=  1
+        //       q_c := -*this.get_value()
+        // Create an aritmetic gate constraining
+        //       a.v * q_l - q_c = 0
         context->fix_witness(witness_index, get_value());
         unset_free_witness_tag();
     }
@@ -387,13 +394,13 @@ template <typename Builder> class field_t {
 
         // Let q = (a < b)
         // Assume both a and b are < K where K = 2^{num_bits} - 1
-        // if q == 1, then  0 < b - a - 1 < K
-        // if q == 0, then  0 < b - a + K - 1 < K
+        //    q == 1 <=>  0 < b - a - 1     < K
+        //    q == 0 <=>  0 < b - a + K - 1 < K
         // i.e. for any bool value of q:
-        // (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
-        // q.(b - a - b + a) + b - a + K - 1 - (K - 1).q - q = r
-        // b - a + (K - 1) - (K).q = r
-        uint256_t range_constant = (uint256_t(1) << num_bits);
+        //    (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
+        //     q * (b - a - b + a) + b - a + K - 1 - (K - 1) * q - q = r < K
+        //     b - a + (K - 1) - K * q = r < K
+        static constexpr uint256_t range_constant = (uint256_t(1) << num_bits);
         bool predicate_witness = uint256_t(a.get_value()) < uint256_t(b.get_value());
         bool_t<Builder> predicate(witness_t<Builder>(ctx, predicate_witness));
         field_t predicate_valid = b.add_two(-(a) + range_constant - 1, -field_t(predicate) * range_constant);

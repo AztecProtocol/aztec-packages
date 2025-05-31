@@ -562,39 +562,46 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void is_zero()
+    static void test_is_zero()
     {
         Builder builder = Builder();
-
-        // yuck
-        field_ct a = (public_witness_ct(&builder, fr::random_element()));
-        field_ct b = (public_witness_ct(&builder, fr::neg_one()));
-        field_ct c_1(&builder,
-                     uint256_t(0x1122334455667788, 0x8877665544332211, 0xaabbccddeeff9933, 0x1122112211221122));
-        field_ct c_2(&builder,
-                     uint256_t(0xaabbccddeeff9933, 0x8877665544332211, 0x1122334455667788, 0x1122112211221122));
-        field_ct c_3(&builder, bb::fr::one());
-
-        field_ct c_4 = c_1 + c_2;
-        a = a * c_4 + c_4; // add some constant terms in to validate our normalization check works
-        b = b * c_4 + c_4;
-        b = (b - c_1 - c_2) / c_4;
-        b = b + c_3;
-
+        // Create constant elements
         field_ct d(&builder, fr::zero());
         field_ct e(&builder, fr::one());
-
+        // Validate that `is_zero()` check does not add any gates in this case
         const size_t old_n = builder.get_estimated_num_finalized_gates();
         bool_ct d_zero = d.is_zero();
         bool_ct e_zero = e.is_zero();
         const size_t new_n = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(old_n, new_n);
 
+        // Create witnesses
+        field_ct a = (public_witness_ct(&builder, fr::random_element()));
+        field_ct b = (public_witness_ct(&builder, fr::neg_one()));
+        // Create constants
+        field_ct c_1(&builder, engine.get_random_uint256());
+        field_ct c_2(&builder, engine.get_random_uint256());
+        field_ct c_3(&builder, bb::fr::one());
+        field_ct c_4 = c_1 + c_2;
+
+        // Ensure that `a` and `b` are not normalized
+        a = a * c_4 + c_4;
+        b = b * c_4 + c_4;         // = -c_4 + c_4
+        b = (b - c_1 - c_2) / c_4; // = (-c_1 - c_2 )/c_4 = -1
+        b = b + c_3;               //  = -1 + 1 = 0
+        EXPECT_TRUE(a.additive_constant != 0 || a.multiplicative_constant != 1);
+        EXPECT_TRUE(b.additive_constant != 0 || b.multiplicative_constant != 1);
+
         bool_ct a_zero = a.is_zero();
         bool_ct b_zero = b.is_zero();
 
+        bool_ct a_normalized_zero = a.normalize().is_zero();
+        bool_ct b_normalized_zero = b.normalize().is_zero();
+
         EXPECT_EQ(a_zero.get_value(), false);
         EXPECT_EQ(b_zero.get_value(), true);
+        EXPECT_EQ(a_normalized_zero.get_value(), false);
+        EXPECT_EQ(b_normalized_zero.get_value(), true);
         EXPECT_EQ(d_zero.get_value(), true);
         EXPECT_EQ(e_zero.get_value(), false);
 
@@ -787,7 +794,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
      * `val_256`. We supply bit vectors to test some failure cases.
      */
 
-    static void decompose_into_bits()
+    static void test_decompose_into_bits()
     {
         using witness_supplier_type = std::function<witness_ct(Builder * ctx, uint64_t, uint256_t)>;
 
@@ -1040,6 +1047,107 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
+    }
+
+    static void test_assert_is_zero()
+    {
+        // Create a constant 0, `assert_is_zero()` does nothing in-circuit in this case
+        field_ct elt = bb::fr::zero();
+        elt.assert_is_zero();
+        // If we apply `assert_is_zero()` to a non-zero constant, we hit an ASSERT failure
+        elt = bb::fr::random_element();
+        if (elt.get_value() != 0) {
+            EXPECT_DEATH(elt.assert_is_zero(), "field_t::assert_is_zero");
+        }
+        // Create a witness 0
+        Builder builder = Builder();
+        elt = witness_ct(&builder, bb::fr::zero());
+        elt.assert_is_zero();
+        // The circuit must be correct
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // If we apply `assert_is_zero()` to a non-zero witness, an unsatisfiable `poly_gate` constraint is created
+        field_ct non_zero_elt = witness_ct(&builder, bb::fr::random_element());
+        if (non_zero_elt.get_value() != 0) {
+            non_zero_elt.assert_is_zero();
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
+    }
+
+    static void test_accumulate()
+    {
+        for (size_t max_vector_length = 1; max_vector_length < 100; max_vector_length++) {
+            Builder builder = Builder();
+            std::vector<bb::fr> native_input(max_vector_length, 0);
+            for (auto& entry : native_input) {
+                entry = bb::fr::random_element();
+            }
+
+            // Compute the native sum
+            bb::fr native_sum = std::accumulate(native_input.begin(), native_input.end(), bb::fr::zero());
+            std::vector<field_ct> input(max_vector_length);
+            size_t idx = 0;
+            // Convert native vector to a vector of field_t elements. Every 5th element is set to be constant.
+            for (auto& native_entry : native_input) {
+                field_ct entry = ((idx % 5) == 0) ? field_ct(native_entry) : witness_ct(&builder, native_entry);
+                input.emplace_back(entry);
+                idx++;
+            }
+            // Compute the accumulation result
+            field_ct sum = field_ct::accumulate(input);
+            EXPECT_EQ(native_sum, sum.get_value());
+
+            // Check that the result is normalized
+            if (!sum.is_constant()) {
+                EXPECT_TRUE(sum.multiplicative_constant == 1 && sum.additive_constant == 0);
+            }
+
+            EXPECT_TRUE(CircuitChecker::check(builder));
+
+            // Check that the number of gates is as expected
+            size_t num_witnesses = max_vector_length - (max_vector_length + 4) / 5;
+            size_t padding = (3 - (num_witnesses % 3)) % 3;
+            size_t expected_num_gates = (num_witnesses + padding) / 3;
+
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - 1, expected_num_gates);
+
+            // Check that the accumulation of constant entries does not create a witness
+            std::vector<field_ct> constant_input;
+            for (auto& entry : input) {
+                if (entry.is_constant()) {
+                    constant_input.emplace_back(entry);
+                }
+            }
+            field_ct constant_sum = field_ct::accumulate(constant_input);
+            EXPECT_TRUE(constant_sum.is_constant());
+        }
+        // Test edge cases
+        // 1. Accumulating an empty vector should not be possible
+        std::vector<field_ct> empty_input;
+        field_ct result;
+        EXPECT_DEATH(result = field_ct::accumulate(empty_input), "Trying to accumulate the entries of an empty vector");
+        // 2. Check that the result of accumulating a single witness summand is correct and normalized.
+        Builder builder = Builder();
+        field_ct single_summand = witness_ct(&builder, bb::fr::random_element());
+        single_summand += field_ct(bb::fr(3));
+        single_summand *= field_ct(bb::fr(2));
+        // `single_summand` isn't normalized anymore
+        EXPECT_TRUE(single_summand.additive_constant != 0 && single_summand.multiplicative_constant != 1);
+        std::vector<field_ct> single_element_input{ single_summand };
+        // The accumulation result is expected to be normalized
+        result = field_ct::accumulate(single_element_input);
+        EXPECT_TRUE(result.get_value() == single_summand.get_value() && result.additive_constant == 0 &&
+                    result.multiplicative_constant == 1);
+    }
+
+    static void test_fix_witness()
+    {
+        Builder builder = Builder();
+
+        field_ct witness = witness_ct(&builder, bb::fr::random_element());
+        witness.fix_witness();
+        // Validate that the negated value of the witness is recorded in q_c.
+        EXPECT_TRUE(builder.blocks.arithmetic.q_c().back() == -witness.get_value());
     }
 
     static void test_ranged_less_than()
@@ -1322,9 +1430,13 @@ TYPED_TEST(stdlib_field, test_larger_circuit)
 {
     TestFixture::test_larger_circuit();
 }
-TYPED_TEST(stdlib_field, is_zero)
+TYPED_TEST(stdlib_field, test_is_zero)
 {
-    TestFixture::is_zero();
+    TestFixture::test_is_zero();
+}
+TYPED_TEST(stdlib_field, test_fix_witness)
+{
+    TestFixture::test_fix_witness();
 }
 TYPED_TEST(stdlib_field, madd)
 {
@@ -1350,9 +1462,9 @@ TYPED_TEST(stdlib_field, three_bit_table)
 {
     TestFixture::three_bit_table();
 }
-TYPED_TEST(stdlib_field, decompose_into_bits)
+TYPED_TEST(stdlib_field, test_decompose_into_bits)
 {
-    TestFixture::decompose_into_bits();
+    TestFixture::test_decompose_into_bits();
 }
 TYPED_TEST(stdlib_field, test_assert_is_in_set)
 {
@@ -1412,4 +1524,13 @@ TYPED_TEST(stdlib_field, test_add_two)
 TYPED_TEST(stdlib_field, test_add_mul_with_constants)
 {
     TestFixture::test_add_mul_with_constants();
+}
+
+TYPED_TEST(stdlib_field, test_assert_is_zero)
+{
+    TestFixture::test_assert_is_zero();
+}
+TYPED_TEST(stdlib_field, test_accumulate)
+{
+    TestFixture::test_accumulate();
 }
