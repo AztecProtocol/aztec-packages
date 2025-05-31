@@ -60,7 +60,7 @@ class Goblin {
      *
      * @param circuit_builder
      */
-    MergeProof prove_merge();
+    MergeProof prove_merge(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr);
 
     /**
      * @brief Construct the final merge proof, where the prover shares a transcript with ECCVM and Translator.
