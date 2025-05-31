@@ -1,6 +1,7 @@
 import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
 import {
   type FunctionAbi,
@@ -363,6 +364,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
   ) {
+    const simulatorSetupTimer = new Timer();
     this.log.debug(
       `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
     );
@@ -401,6 +403,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       this.scopes,
     );
 
+    const setupTime = simulatorSetupTimer.ms();
+
     const childExecutionResult = await executePrivateFunction(
       this.simulator,
       context,
@@ -416,6 +420,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     this.nestedExecutions.push(childExecutionResult);
 
     const publicInputs = childExecutionResult.publicInputs;
+
+    // Add simulator overhead to this call
+    if (childExecutionResult.profileResult) {
+      childExecutionResult.profileResult.timings.witgen += setupTime;
+    }
+
     return {
       endSideEffectCounter: publicInputs.endSideEffectCounter,
       returnsHash: publicInputs.returnsHash,
