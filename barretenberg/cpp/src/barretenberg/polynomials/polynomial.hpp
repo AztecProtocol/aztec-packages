@@ -405,11 +405,12 @@ template <typename Fr> class Polynomial {
      * @tparam T a convertible type
      * @param vec the vector
      */
-    template <typename T> void copy_vector(const std::vector<T>& vec)
+    template <typename T> void copy_vector(const std::vector<T>& vec, size_t offset = 0)
     {
+        // Ensure enough memory is allocated to accomodate the vector
         BB_ASSERT_LTE(vec.size(), end_index());
-        BB_ASSERT_LTE(vec.size() - start_index(), size());
-        for (size_t i = start_index(); i < vec.size(); i++) {
+        BB_ASSERT_LTE(vec.size() - start_index() - offset, size());
+        for (size_t i = start_index() + offset; i < vec.size(); i++) {
             at(i) = vec[i];
         }
     }
