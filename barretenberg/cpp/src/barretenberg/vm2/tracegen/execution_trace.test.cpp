@@ -95,37 +95,49 @@ TEST(ExecutionTraceGenTest, Call)
     ex_event.addressing_event = addressing_event;
     ex_event.after_context_event = context_event;
     ex_event.next_context_id = 2;
-    ex_event.inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(10),
-                        /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(11),
+    Gas allocated_gas = { .l2Gas = 100, .daGas = 200 };
+    ex_event.inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(allocated_gas.l2Gas),
+                        /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(allocated_gas.daGas),
                         /*contract_address=*/MemoryValue::from<uint32_t>(0xdeadbeef) };
     ex_event.resolved_operands = { MemoryValue::from<uint32_t>(0),
                                    MemoryValue::from<uint32_t>(0),
                                    MemoryValue::from<uint32_t>(0),
                                    MemoryValue::from<uint32_t>(10),
                                    MemoryValue::from<uint32_t>(20) };
+    Gas gas_limit = { .l2Gas = 1000, .daGas = 2000 };
+    Gas gas_used = { .l2Gas = 500, .daGas = 1900 };
+    Gas gas_left = gas_limit - gas_used;
+    ex_event.after_context_event.gas_limit = gas_limit;
+    ex_event.after_context_event.gas_used = gas_used;
 
     builder.process({ ex_event }, trace);
-    EXPECT_THAT(trace.as_rows(),
-                AllOf(Contains(Field(&R::execution_sel, 1)),
-                      Contains(Field(&R::execution_sel_call, 1)),
-                      Contains(Field(&R::execution_sel_enter_call, 1)),
-                      Contains(Field(&R::execution_rop4, 10)),
-                      Contains(Field(&R::execution_rop5, 20)),
-                      Contains(Field(&R::execution_reg1, 10)),
-                      Contains(Field(&R::execution_reg2, 11)),
-                      Contains(Field(&R::execution_reg3, 0xdeadbeef)),
-                      Contains(Field(&R::execution_mem_tag1, /*U32=*/4)),
-                      Contains(Field(&R::execution_mem_tag2, /*U32=*/4)),
-                      Contains(Field(&R::execution_mem_tag3, /*FF=*/0)),
-                      Contains(Field(&R::execution_mem_op1, 1)),
-                      Contains(Field(&R::execution_mem_op2, 1)),
-                      Contains(Field(&R::execution_mem_op3, 1)),
-                      Contains(Field(&R::execution_rw1, 0)),
-                      Contains(Field(&R::execution_rw2, 0)),
-                      Contains(Field(&R::execution_rw3, 0)),
-                      Contains(Field(&R::execution_is_static, 0)),
-                      Contains(Field(&R::execution_context_id, 1)),
-                      Contains(Field(&R::execution_next_context_id, 2))));
+    EXPECT_THAT(
+        trace.as_rows(),
+        AllOf(Contains(Field(&R::execution_sel, 1)),
+              Contains(Field(&R::execution_sel_call, 1)),
+              Contains(Field(&R::execution_sel_enter_call, 1)),
+              Contains(Field(&R::execution_rop4, 10)),
+              Contains(Field(&R::execution_rop5, 20)),
+              Contains(Field(&R::execution_reg1, allocated_gas.l2Gas)),
+              Contains(Field(&R::execution_reg2, allocated_gas.daGas)),
+              Contains(Field(&R::execution_reg3, 0xdeadbeef)),
+              Contains(Field(&R::execution_mem_tag1, /*U32=*/4)),
+              Contains(Field(&R::execution_mem_tag2, /*U32=*/4)),
+              Contains(Field(&R::execution_mem_tag3, /*FF=*/0)),
+              Contains(Field(&R::execution_mem_op1, 1)),
+              Contains(Field(&R::execution_mem_op2, 1)),
+              Contains(Field(&R::execution_mem_op3, 1)),
+              Contains(Field(&R::execution_rw1, 0)),
+              Contains(Field(&R::execution_rw2, 0)),
+              Contains(Field(&R::execution_rw3, 0)),
+              Contains(Field(&R::execution_is_static, 0)),
+              Contains(Field(&R::execution_context_id, 1)),
+              Contains(Field(&R::execution_next_context_id, 2)),
+              Contains(Field(&R::execution_constant_32, 32)),
+              Contains(Field(&R::execution_call_is_l2_gas_allocated_lt_left, true)),
+              Contains(Field(&R::execution_call_allocated_left_l2_cmp_diff, gas_left.l2Gas - allocated_gas.l2Gas - 1)),
+              Contains(Field(&R::execution_call_is_da_gas_allocated_lt_left, false)),
+              Contains(Field(&R::execution_call_allocated_left_da_cmp_diff, allocated_gas.daGas - gas_left.daGas))));
 }
 
 TEST(ExecutionTraceGenTest, Return)

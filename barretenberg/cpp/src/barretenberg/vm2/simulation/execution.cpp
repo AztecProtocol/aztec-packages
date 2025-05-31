@@ -60,19 +60,18 @@ void Execution::call(ContextInterface& context,
     const auto& contract_address = memory.get(addr);
     set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address });
 
-    // TODO(ilyas): How will we tag check these?
-
-    // TODO clamp the gas limits based on available gas
+    // TODO(ilyas): How will we tag check these? We are just throwing right now on the first tag mismatch.
+    Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
+        Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
 
     // Cd size and cd offset loads are deferred to (possible) calldatacopy
-    auto nested_context = execution_components.make_nested_context(
-        contract_address,
-        /*msg_sender=*/context.get_address(),
-        /*parent_context=*/context,
-        /*cd_offset_addr=*/cd_offset,
-        /*cd_size_addr=*/cd_size,
-        /*is_static=*/false,
-        /*gas_limit=*/Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
+    auto nested_context = execution_components.make_nested_context(contract_address,
+                                                                   /*msg_sender=*/context.get_address(),
+                                                                   /*parent_context=*/context,
+                                                                   /*cd_offset_addr=*/cd_offset,
+                                                                   /*cd_size_addr=*/cd_size,
+                                                                   /*is_static=*/false,
+                                                                   gas_limit);
 
     // We do not recurse. This context will be use on the next cycle of execution.
     handle_enter_call(context, std::move(nested_context));

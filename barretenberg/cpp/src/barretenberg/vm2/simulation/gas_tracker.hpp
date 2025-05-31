@@ -15,6 +15,8 @@ class GasTrackerInterface {
     // @throws OutOfGasException.
     virtual void consume_dynamic_gas(Gas dynamic_gas_factor) = 0;
 
+    virtual Gas compute_gas_limit_for_call(Gas allocated_gas) = 0;
+
     // Events
     virtual GasEvent finish() = 0;
 };
@@ -56,6 +58,7 @@ class GasTracker final : public GasTrackerInterface {
     void set_instruction(const Instruction& instruction) override;
     void consume_base_gas() override;
     void consume_dynamic_gas(Gas dynamic_gas_factor) override;
+    Gas compute_gas_limit_for_call(Gas allocated_gas) override;
     GasEvent finish() override;
 
   private:

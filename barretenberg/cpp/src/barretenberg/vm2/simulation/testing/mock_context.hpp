@@ -56,6 +56,8 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(Gas, get_parent_gas_used, (), (const, override));
     MOCK_METHOD(Gas, get_parent_gas_limit, (), (const, override));
 
+    MOCK_METHOD(Gas, gas_left, (), (const, override));
+
     // Event Emitting
     MOCK_METHOD(ContextEvent, serialize_context_event, (), (override));
 };

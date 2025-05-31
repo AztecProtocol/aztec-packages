@@ -41,4 +41,52 @@ using lookup_execution_exec_spec_read_settings = lookup_settings<lookup_executio
 template <typename FF_>
 using lookup_execution_exec_spec_read_relation = lookup_relation_base<FF_, lookup_execution_exec_spec_read_settings>;
 
+/////////////////// lookup_execution_call_allocated_left_l2_range ///////////////////
+
+struct lookup_execution_call_allocated_left_l2_range_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EXECUTION_CALL_ALLOCATED_LEFT_L2_RANGE";
+    static constexpr std::string_view RELATION_NAME = "execution";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_execution_call_allocated_left_l2_range_counts;
+    static constexpr Column INVERSES = Column::lookup_execution_call_allocated_left_l2_range_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::execution_call_allocated_left_l2_cmp_diff, ColumnAndShifts::execution_constant_32
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_execution_call_allocated_left_l2_range_settings =
+    lookup_settings<lookup_execution_call_allocated_left_l2_range_settings_>;
+template <typename FF_>
+using lookup_execution_call_allocated_left_l2_range_relation =
+    lookup_relation_base<FF_, lookup_execution_call_allocated_left_l2_range_settings>;
+
+/////////////////// lookup_execution_call_allocated_left_da_range ///////////////////
+
+struct lookup_execution_call_allocated_left_da_range_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EXECUTION_CALL_ALLOCATED_LEFT_DA_RANGE";
+    static constexpr std::string_view RELATION_NAME = "execution";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_execution_call_allocated_left_da_range_counts;
+    static constexpr Column INVERSES = Column::lookup_execution_call_allocated_left_da_range_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::execution_call_allocated_left_da_cmp_diff, ColumnAndShifts::execution_constant_32
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_execution_call_allocated_left_da_range_settings =
+    lookup_settings<lookup_execution_call_allocated_left_da_range_settings_>;
+template <typename FF_>
+using lookup_execution_call_allocated_left_da_range_relation =
+    lookup_relation_base<FF_, lookup_execution_call_allocated_left_da_range_settings>;
+
 } // namespace bb::avm2

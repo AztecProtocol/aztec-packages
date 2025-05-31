@@ -63,6 +63,8 @@ class ContextInterface {
     virtual Gas get_parent_gas_used() const = 0;
     virtual Gas get_parent_gas_limit() const = 0;
 
+    virtual Gas gas_left() const = 0;
+
     // Events
     virtual ContextEvent serialize_context_event() = 0;
 };
@@ -123,6 +125,8 @@ class BaseContext : public ContextInterface {
 
     Gas get_gas_used() const override { return gas_used; }
     Gas get_gas_limit() const override { return gas_limit; }
+
+    Gas gas_left() const override { return gas_limit - gas_used; }
 
     void set_gas_used(Gas gas_used) override { this->gas_used = gas_used; }
 

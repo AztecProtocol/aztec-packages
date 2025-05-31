@@ -114,6 +114,7 @@ struct Gas {
     bool operator==(const Gas& other) const = default;
 
     Gas operator+(const Gas& other) const { return { l2Gas + other.l2Gas, daGas + other.daGas }; }
+    Gas operator-(const Gas& other) const { return { l2Gas - other.l2Gas, daGas - other.daGas }; }
 
     MSGPACK_FIELDS(l2Gas, daGas);
 };

@@ -174,6 +174,33 @@ TEST_F(GasTrackerTest, OutOfGasDynamicPhaseWithOverflow)
     EXPECT_EQ(event.limit_used_da_comparison_witness, limit_used_da_comparison_witness);
 }
 
+TEST_F(GasTrackerTest, GasLimitForCall)
+{
+    GasTracker tracker(instruction_info_db, context, range_check);
+    Gas gas_left = Gas{ 500, 200 };
+    Gas allocated_gas = Gas{ 100, 150 };
+
+    EXPECT_CALL(context, gas_left()).WillOnce(testing::Return(gas_left));
+
+    EXPECT_CALL(range_check, assert_range(gas_left.l2Gas - allocated_gas.l2Gas - 1, 32));
+    EXPECT_CALL(range_check, assert_range(gas_left.daGas - allocated_gas.daGas - 1, 32));
+    EXPECT_EQ(tracker.compute_gas_limit_for_call(allocated_gas), allocated_gas);
+}
+
+TEST_F(GasTrackerTest, GasLimitForCallClamping)
+{
+    GasTracker tracker(instruction_info_db, context, range_check);
+    Gas gas_left = Gas{ 500, 200 };
+    Gas allocated_gas = Gas{ 1000, 100 };
+    Gas clamped_gas = Gas{ 500, 100 };
+
+    EXPECT_CALL(context, gas_left()).WillOnce(testing::Return(gas_left));
+
+    EXPECT_CALL(range_check, assert_range(allocated_gas.l2Gas - gas_left.l2Gas, 32));
+    EXPECT_CALL(range_check, assert_range(gas_left.daGas - allocated_gas.daGas - 1, 32));
+    EXPECT_EQ(tracker.compute_gas_limit_for_call(allocated_gas), clamped_gas);
+}
+
 TEST_F(GasTrackerTest, GasEvent)
 {
     instruction.opcode = WireOpCode::CALLDATACOPY;
