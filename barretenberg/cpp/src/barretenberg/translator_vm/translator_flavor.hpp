@@ -72,19 +72,23 @@ class TranslatorFlavor {
     // The number of interleaved_* wires
     static constexpr size_t NUM_INTERLEAVED_WIRES = 4;
 
-    // Number of wires
-    static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
-
+    // The bitness of the range constraint
+    static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
     // The step in the DeltaRangeConstraint relation i.e. the maximum difference between two consecutive values
     static constexpr size_t SORT_STEP = 3;
+
+    static constexpr size_t SORTED_STEPS_COUNT = (1 << MICRO_LIMB_BITS) / SORT_STEP + 1;
+    static_assert(SORTED_STEPS_COUNT * (NUM_INTERLEAVED_WIRES + 1) < MINI_CIRCUIT_SIZE * INTERLEAVING_GROUP_SIZE,
+                  "Translator circuit is too small for defined range constraint relation "
+                  "(TranslatorDeltaRangeConstraintRelation). ");
+
+    // Number of wires
+    static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
     // The result of evaluating the polynomials in the nonnative form in translator circuit, stored as limbs and
     // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
     // responsible for checking it against the evaluations received from ECCVM.
     static constexpr size_t RESULT_ROW = CircuitBuilder::RESULT_ROW;
-
-    // The bitness of the range constraint
-    static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
 
     // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one
     static constexpr const std::array<FF, 5>& negative_modulus_limbs()
@@ -103,10 +107,10 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 186;
+    static constexpr size_t NUM_ALL_ENTITIES = 187;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 9;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
@@ -180,7 +184,8 @@ class TranslatorFlavor {
                               lagrange_result_row,          // column 5
                               lagrange_last_in_minicircuit, // column 6
                               lagrange_masking,             // column 7
-                              lagrange_real_last);          // column 8
+                              lagrange_real_first,          // column 8
+                              lagrange_real_last);          // column 9
     };
 
     template <typename DataType> class InterleavedRangeConstraints {
@@ -754,6 +759,7 @@ class TranslatorFlavor {
                        lagrange_result_row,
                        lagrange_last_in_minicircuit,
                        lagrange_masking,
+                       lagrange_real_first,
                        lagrange_real_last);
     };
 
@@ -895,6 +901,7 @@ class TranslatorFlavor {
             this->lagrange_last_in_minicircuit = "__LAGRANGE_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
             this->lagrange_masking = "__LAGRANGE_MASKING";
+            this->lagrange_real_first = "__LAGRANGE_REAL_FIRST";
             this->lagrange_real_last = "__LAGRANGE_REAL_LAST";
         };
     };
@@ -913,6 +920,7 @@ class TranslatorFlavor {
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
             this->lagrange_masking = verification_key->lagrange_masking;
+            this->lagrange_real_first = verification_key->lagrange_real_first;
             this->lagrange_real_last = verification_key->lagrange_real_last;
         }
     }; // namespace bb
