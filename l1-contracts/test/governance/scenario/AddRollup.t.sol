@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
+// solhint-disable
 pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
@@ -21,15 +22,29 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {TestConstants} from "../../harnesses/TestConstants.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../../builder/RollupBuilder.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE, GSE} from "@aztec/core/staking/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
+import {FakeRollup} from "../governance/TestPayloads.sol";
+import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload.sol";
+import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 
-/**
- * @title UpgradeGovernanceProposerTest
- * @author Aztec Labs
- * @notice A test that showcases an upgrade of the governance system, here the governanceProposer contract.
- */
-contract UpgradeGovernanceProposerTest is TestBase {
+contract BadRollup {
+  IGSE public immutable gse;
+
+  constructor(IGSE _gse) {
+    gse = _gse;
+  }
+
+  function getVersion() external view returns (uint256) {
+    return uint256(keccak256(abi.encodePacked(bytes("aztec_rollup"), block.chainid, address(this))));
+  }
+
+  function getGSE() external view returns (GSE) {
+    return GSE(address(gse));
+  }
+}
+
+contract AddRollupTest is TestBase {
   using ProposalLib for DataStructures.Proposal;
 
   IMintableERC20 internal token;
@@ -78,8 +93,11 @@ contract UpgradeGovernanceProposerTest is TestBase {
     registry.transferOwnership(address(governance));
   }
 
-  function test_UpgradeIntoNewVersion() external {
-    payload = IPayload(address(new NewGovernanceProposerPayload(registry, gse)));
+  function test_AddRollup(bool _break) external {
+    BadRollup newRollup = new BadRollup(gse);
+    payload = IPayload(
+      address(new RegisterNewRollupVersionPayload(registry, IInstance(address(newRollup))))
+    );
     vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(1))));
 
     for (uint256 i = 0; i < 10; i++) {
@@ -117,22 +135,32 @@ contract UpgradeGovernanceProposerTest is TestBase {
     assertTrue(governance.getProposalState(0) == DataStructures.ProposalState.Executable);
     assertEq(governance.governanceProposer(), address(governanceProposer));
 
+    if (_break) {
+      // We keep adding attesters until we have that for this specific rollup (non-following)
+      // is > 1/3, such that it cannot pass.
+      uint256 val = 1;
+
+      while (gse.supplyOf(gse.getCanonical()) < gse.totalSupply() / 3) {
+        token.mint(address(this), rollup.getMinimumStake());
+        token.approve(address(rollup), rollup.getMinimumStake());
+        rollup.deposit(address(uint160(val)), address(this), false);
+        val++;
+      }
+
+      // While Errors.GovernanceProposer__GSEPayloadInvalid.selector is the error, we are catching it
+      // So the expected error is that the call failed and the address of it.
+      vm.expectRevert(
+        abi.encodeWithSelector(Errors.Governance__CallFailed.selector, address(gsePayload))
+      );
+    }
+
     governance.execute(0);
 
-    assertNotEq(governance.governanceProposer(), address(governanceProposer));
-    address newGovernanceProposer =
-      address(NewGovernanceProposerPayload(address(payload)).NEW_GOVERNANCE_PROPOSER());
-    assertEq(governance.governanceProposer(), newGovernanceProposer);
-
-    // Ensure that we cannot push a proposal after the upgrade.
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__CallerNotGovernanceProposer.selector,
-        address(governanceProposer),
-        newGovernanceProposer
-      )
-    );
-    vm.prank(address(governanceProposer));
-    governance.propose(payload);
+    if (_break) {
+      assertEq(address(registry.getCanonicalRollup()), address(rollup));
+    } else {
+      assertNotEq(address(registry.getCanonicalRollup()), address(rollup));
+      assertEq(address(registry.getCanonicalRollup()), address(newRollup));
+    }
   }
 }

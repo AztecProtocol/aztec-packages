@@ -14,6 +14,20 @@ import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.
 
 import {Test} from "forge-std/Test.sol";
 
+// Stack the layers to avoid the stack too deep 🧌
+struct ConfigFlags {
+  bool makeCanonical;
+  bool makeGovernance;
+  bool updateOwnerships;
+  bool openFloodgates;
+}
+
+struct ConfigValues {
+  uint256 mintFeeAmount;
+  uint256 govProposerN;
+  uint256 govProposerM;
+}
+
 struct Config {
   address deployer;
   TestERC20 testERC20;
@@ -24,10 +38,8 @@ struct Config {
   RewardDistributor rewardDistributor;
   GenesisState genesisState;
   RollupConfigInput rollupConfigInput;
-  uint256 mintFeeAmount;
-  bool makeCanonical;
-  bool makeGovernance;
-  bool updateOwnerships;
+  ConfigValues values;
+  ConfigFlags flags;
 }
 
 /**
@@ -45,9 +57,13 @@ contract RollupBuilder is Test {
     config.genesisState = TestConstants.getGenesisState();
     config.rollupConfigInput = TestConstants.getRollupConfigInput();
 
-    config.makeCanonical = true;
-    config.makeGovernance = true;
-    config.updateOwnerships = true;
+    config.values.govProposerN = 1;
+    config.values.govProposerM = 1;
+
+    config.flags.makeCanonical = true;
+    config.flags.makeGovernance = true;
+    config.flags.updateOwnerships = true;
+    config.flags.openFloodgates = true;
   }
 
   function setTestERC20(TestERC20 _testERC20) public returns (RollupBuilder) {
@@ -87,22 +103,37 @@ contract RollupBuilder is Test {
   }
 
   function setMintFeeAmount(uint256 _mintFeeAmount) public returns (RollupBuilder) {
-    config.mintFeeAmount = _mintFeeAmount;
+    config.values.mintFeeAmount = _mintFeeAmount;
+    return this;
+  }
+
+  function setGovProposerN(uint256 _govProposerN) public returns (RollupBuilder) {
+    config.values.govProposerN = _govProposerN;
+    return this;
+  }
+
+  function setGovProposerM(uint256 _govProposerM) public returns (RollupBuilder) {
+    config.values.govProposerM = _govProposerM;
     return this;
   }
 
   function setMakeCanonical(bool _makeCanonical) public returns (RollupBuilder) {
-    config.makeCanonical = _makeCanonical;
+    config.flags.makeCanonical = _makeCanonical;
     return this;
   }
 
   function setMakeGovernance(bool _makeGovernance) public returns (RollupBuilder) {
-    config.makeGovernance = _makeGovernance;
+    config.flags.makeGovernance = _makeGovernance;
     return this;
   }
 
   function setUpdateOwnerships(bool _updateOwnerships) public returns (RollupBuilder) {
-    config.updateOwnerships = _updateOwnerships;
+    config.flags.updateOwnerships = _updateOwnerships;
+    return this;
+  }
+
+  function setOpenFloodgates(bool _openFloodgates) public returns (RollupBuilder) {
+    config.flags.openFloodgates = _openFloodgates;
     return this;
   }
 
@@ -171,13 +202,23 @@ contract RollupBuilder is Test {
       );
     }
 
-    if (config.makeGovernance) {
-      GovernanceProposer proposer = new GovernanceProposer(config.registry, 1, 1);
-      config.governance = new Governance(config.testERC20, address(proposer));
+    if (config.flags.makeGovernance) {
+      GovernanceProposer proposer = new GovernanceProposer(
+        config.registry, config.gse, config.values.govProposerN, config.values.govProposerM
+      );
+      config.governance = new Governance(config.testERC20, address(proposer), address(config.gse));
       vm.label(address(config.governance), "Governance");
+      vm.label(address(proposer), "GovernanceProposer");
 
       vm.prank(config.gse.owner());
       config.gse.setGovernance(config.governance);
+
+      if (config.flags.openFloodgates) {
+        vm.prank(address(config.governance));
+        config.governance.openFloodgates();
+
+        assertEq(config.governance.isAllDepositsAllowed(), true);
+      }
     }
 
     config.rollup = new Rollup(
@@ -190,11 +231,11 @@ contract RollupBuilder is Test {
       config.rollupConfigInput
     );
 
-    if (config.makeCanonical) {
+    if (config.flags.makeCanonical) {
       address feeAssetPortal = address(config.rollup.getFeeAssetPortal());
 
       vm.prank(config.testERC20.owner());
-      config.testERC20.mint(feeAssetPortal, config.mintFeeAmount);
+      config.testERC20.mint(feeAssetPortal, config.values.mintFeeAmount);
 
       vm.prank(config.registry.owner());
       config.registry.addRollup(config.rollup);
@@ -203,7 +244,7 @@ contract RollupBuilder is Test {
       config.gse.addRollup(address(config.rollup));
     }
 
-    if (config.updateOwnerships) {
+    if (config.flags.updateOwnerships) {
       if (config.deployer != config.testERC20.owner()) {
         vm.prank(config.testERC20.owner());
         config.testERC20.transferOwnership(config.deployer);
@@ -214,7 +255,7 @@ contract RollupBuilder is Test {
         config.registry.transferOwnership(config.deployer);
       }
 
-      address expGov = config.makeGovernance ? address(config.governance) : config.deployer;
+      address expGov = config.flags.makeGovernance ? address(config.governance) : config.deployer;
       if (expGov != config.rollup.owner()) {
         vm.prank(config.rollup.owner());
         config.rollup.transferOwnership(expGov);
