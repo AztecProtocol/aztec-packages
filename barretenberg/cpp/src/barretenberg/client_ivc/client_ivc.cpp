@@ -117,7 +117,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
 
     // Recursively verify the merge proof for the circuit being recursively verified
     RecursiveMergeVerifier merge_verifier{ &circuit };
-    PairingPoints pairing_points = merge_verifier.verify_proof(verifier_inputs.merge_proof);
+    PairingPoints pairing_points =
+        merge_verifier.verify_proof(verifier_inputs.merge_proof, decider_vk->verification_key->ecc_op_subtable_size);
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
