@@ -9,6 +9,8 @@ workdir="/home/fuzzer"
 
 CRASHES="$workdir/crash-reports"
 [[ -d "$CRASHES" ]] ||  mkdir "$CRASHES" 2> /dev/null
+UNSORTED_CRASHES="$CRASHES/unsorted"
+[[ -d "$UNSORTED_CRASHES" ]] || mkdir "$UNSORTED_CRASHES" 2> /dev/null
 
 OUTPUT="$workdir/output"
 [[ -d "$OUTPUT" ]] || mkdir "$OUTPUT" 2> /dev/null
@@ -17,6 +19,8 @@ fuzzer=''
 verbosity='0'
 timeout='2592000' # 1 month
 mode='fuzzing'
+jobs=4
+workers=0
 
 show_fuzzers() {
     echo "The following fuzzers are available:"
@@ -35,6 +39,8 @@ show_help() {
     echo "  -v, --verbose               Enable fuzzer's verbose mode (default: $timeout)"
     echo "  -f, --fuzzer <fuzzer_name>  Specify the fuzzer to use"
     echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $timeout - 1 month)"
+    echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs)"
+    echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
     echo "  -m, --mode <mode>           Set the mode of operation (fuzzing or coverage) (default: $mode)"
     echo "  -h, --help                  Display this help and exit"
     echo "  --show-fuzzers              Display the available fuzzers"
@@ -116,24 +122,37 @@ fi
 [[ -d "$OUTPUT" ]] || mkdir "$OUTPUT"
 printf "Output directory is: %s\n" "$OUTPUT";
 
-# Test on the existing crashes
-if compgen -G "$CRASHES/*" &> /dev/null; then
-    for x in "$CRASHES"/*; do
-        "$post_fuzzer" "$x" &> /dev/null;
-        status=$?;
-        if [[ "$status" -ne 0 ]]; then
-            "$post_fuzzer" "$x" &> "$OUTPUT"/result.txt;
-            printf "Existing %s resulted in exit status %d\n" "$x" "$status";
-            exit 1;
-        fi
-    done;
+regress() {
+    src="$1"
+    echo "Entering $src...";
+    if compgen -G "$src/*" &> /dev/null; then
+        for x in "$src"/*; do
+            echo "Testing $x"
+            "$main_fuzzer" "$x" &> /dev/null;
+            status=$?;
+            if [[ "$status" -ne 0 ]]; then
+                "$post_fuzzer" "$x" &> "$OUTPUT"/result.txt;
+                cp "$x" "$OUTPUT";
+                cp "$x" "$CRASHES" 2>/dev/null;
+                printf "Existing %s resulted in exit status %d\n" "$x" "$status";
+                exit 1;
+            fi
+        done;
+    echo "Leaving $src..."
+    echo;
 fi
+}
+
+echo "Start regression testing"
+regress "$CRASHES";
+regress "$UNSORTED_CRASHES";
+echo "End of regression"
 
 fuzz() {
     TMPOUT="$(mktemp -d)"
     [[ -d "$TMPOUT" ]] || mkdir "$TMPOUT"
-    echo "Start $fuzzer with: max_total_time: $timeout, 4 workers and 4 jobs"
-    "$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -workers=4 -jobs=4 -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 &> "$TMPOUT/session.log";
+    echo "Start $fuzzer with: max_total_time: $timeout, $jobs jobs and $workers jobs"
+    "$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -jobs="$jobs" -workers="$workers"  -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 &> "$TMPOUT/session.log";
     echo "Fuzzer stopped"
 
     files=("$TMPOUT"/crash-*)
@@ -143,14 +162,14 @@ fuzz() {
         echo "Start minimization"
         for crash in "${files[@]}"; do
             crash_name=$(basename "$crash")
-            echo "Minimizing $crash_name: $(wc -c $crash | awk '{print $1}')B"
+            echo "Minimizing $crash_name: $(wc -c < $crash)B"
 
             MINDIR=$(mktemp -d)
             mv "$TMPOUT/$crash_name" "$MINDIR";
             "$main_fuzzer" -minimize_crash=1 -runs=10000 -artifact_prefix="$MINDIR/" "$MINDIR/$crash_name" &>> "$TMPOUT/minimize.log"
 
             smallest_crash=$(ls -S "$MINDIR/" | tail -n 1);
-            echo "Minimized  $smallest_crash: $(wc -c $MINDIR/$smallest_crash | awk '{print $1}')B"
+            echo "Minimized  $smallest_crash: $(wc -c < $MINDIR/$smallest_crash)B"
 
             cp "$MINDIR/$smallest_crash" "$OUTPUT"
             "$post_fuzzer" "$MINDIR/$smallest_crash" &> "$OUTPUT/$smallest_crash"_result.txt
