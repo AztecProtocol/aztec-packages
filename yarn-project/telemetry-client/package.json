@@ -1,5 +1,6 @@
 {
   "name": "@aztec/telemetry-client",
+  "version": "0.1.0",
   "inherits": [
     "../package.common.json"
   ],

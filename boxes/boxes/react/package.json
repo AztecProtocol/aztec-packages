@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/react",
+  "name": "aztec-example-react",
   "description": "React App",
   "private": true,
   "version": "0.1.0",
@@ -46,7 +46,7 @@
     "yup": "^1.2.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.49.0",
+    "@playwright/test": "1.52.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^22.15.17",
     "@types/react": "^18.2.15",

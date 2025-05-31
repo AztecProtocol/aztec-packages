@@ -32,11 +32,15 @@ function test {
 }
 
 function test_cmds {
-  for browser in chromium webkit firefox; do
-    for box in vanilla react vite; do
-      echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
-    done
-  done
+  # for browser in chromium webkit firefox; do
+  #   for box in react vite; do
+  #     echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
+  #   done
+  # done
+
+  # The vanilla app works with deployed contracts configured during the build.
+  # To avoid building the app three times, we test it with one sandbox and multiple browsers.
+  echo "$hash:ONLY_TERM_PARENT=1 BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes"
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.

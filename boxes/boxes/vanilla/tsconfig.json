@@ -6,5 +6,10 @@
     "moduleResolution": "Bundler",
     "skipLibCheck": true
   },
-  "include": ["src", "artifacts"]
+  "include": [
+    "app/**/*.ts",
+    "tests/**/*.ts",
+    "scripts/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
 }
