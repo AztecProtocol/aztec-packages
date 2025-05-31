@@ -207,7 +207,16 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
         return elements;
     }
 
-    fr hash() { return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(to_field_elements()); }
+    fr hash()
+    {
+        fr challenge = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(to_field_elements());
+        // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
+        static constexpr size_t LO_BITS = fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
+
+        auto converted = static_cast<uint256_t>(challenge);
+        uint256_t lo = converted.slice(0, LO_BITS);
+        return lo;
+    }
 };
 
 /**
@@ -266,7 +275,15 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         return elements;
     }
 
-    FF hash(Builder& builder) { return stdlib::poseidon2<Builder>::hash(builder, to_field_elements()); }
+    FF hash(Builder& builder)
+    {
+        // use existing field-splitting code in cycle_scalar
+        FF challenge = stdlib::poseidon2<Builder>::hash(builder, to_field_elements());
+        using cycle_scalar = typename stdlib::cycle_group<Builder>::cycle_scalar;
+        const cycle_scalar scalar = cycle_scalar(challenge);
+        scalar.lo.create_range_constraint(cycle_scalar::LO_BITS);
+        return scalar.lo;
+    }
 };
 
 // Because of how Gemini is written, it is important to put the polynomials out in this order.
