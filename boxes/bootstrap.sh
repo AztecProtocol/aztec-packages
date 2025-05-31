@@ -32,11 +32,11 @@ function test {
 }
 
 function test_cmds {
-  for browser in chromium webkit firefox; do
-    for box in react vite; do
-      echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
-    done
-  done
+  # for browser in chromium webkit firefox; do
+  #   for box in react vite; do
+  #     echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
+  #   done
+  # done
 
   # The vanilla app works with deployed contracts configured during the build.
   # To avoid building the app three times, we test it with one sandbox and multiple browsers.

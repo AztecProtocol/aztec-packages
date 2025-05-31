@@ -17,8 +17,8 @@
     "build-app": "webpack --mode production",
     "build": "yarn build-contracts && yarn build-app",
     "serve": "webpack serve --mode production --port ${PORT:-3000}",
-    "prep-test": "yarn playwright install --with-deps && PROVER_ENABLED=false yarn deploy-contracts && yarn build-app",
-    "test": "yarn prep-test && yarn playwright test",
+    "prep-test": "PROVER_ENABLED=false yarn deploy-contracts && yarn build-app",
+    "test": "yarn prep-test && npx playwright test",
     "lint": "prettier --check ./src"
   },
   "dependencies": {
@@ -32,7 +32,7 @@
     "@aztec/stdlib": "latest"
   },
   "devDependencies": {
-    "@playwright/test": "1.49.0",
+    "@playwright/test": "1.52.0",
     "@types/node": "^22.15.17",
     "buffer": "^6.0.3",
     "css-loader": "^6.10.0",

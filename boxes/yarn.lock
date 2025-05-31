@@ -1488,14 +1488,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@playwright/test@npm:1.49.0":
-  version: 1.49.0
-  resolution: "@playwright/test@npm:1.49.0"
+"@playwright/test@npm:1.52.0":
+  version: 1.52.0
+  resolution: "@playwright/test@npm:1.52.0"
   dependencies:
-    playwright: "npm:1.49.0"
+    playwright: "npm:1.52.0"
   bin:
     playwright: cli.js
-  checksum: 10c0/2890d52ee45bd83b5501f17a77c77f12ba934d257fda4b288405c6d91f94b83c4fcbdff3c0be89c2aaeea3d13576b72ec9a70be667ff844b342044afd72a246e
+  checksum: 10c0/1c428b421593eb4f79b7c99783a389c3ab3526c9051ec772749f4fca61414dfa9f2344eba846faac5f238084aa96c836364a91d81d3034ac54924f239a93e247
   languageName: node
   linkType: hard
 
@@ -3395,7 +3395,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
-    "@playwright/test": "npm:1.49.0"
+    "@playwright/test": "npm:1.52.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.15.17"
     "@types/react": "npm:^18.2.15"
@@ -3450,7 +3450,7 @@ __metadata:
     "@aztec/noir-contracts.js": "npm:latest"
     "@aztec/pxe": "npm:latest"
     "@aztec/stdlib": "npm:latest"
-    "@playwright/test": "npm:1.49.0"
+    "@playwright/test": "npm:1.52.0"
     "@types/node": "npm:^22.15.17"
     buffer: "npm:^6.0.3"
     css-loader: "npm:^6.10.0"
@@ -9317,27 +9317,27 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playwright-core@npm:1.49.0":
-  version: 1.49.0
-  resolution: "playwright-core@npm:1.49.0"
+"playwright-core@npm:1.52.0":
+  version: 1.52.0
+  resolution: "playwright-core@npm:1.52.0"
   bin:
     playwright-core: cli.js
-  checksum: 10c0/22c1a72fabdcc87bd1cd4d40a032d2c5b94cf94ba7484dc182048c3fa1c8ec26180b559d8cac4ca9870e8fd6bdf5ef9d9f54e7a31fd60d67d098fcffc5e4253b
+  checksum: 10c0/640945507e6ca2144e9f596b2a6ecac042c2fd3683ff99e6271e9a7b38f3602d415f282609d569456f66680aab8b3c5bb1b257d8fb63a7fc0ed648261110421f
   languageName: node
   linkType: hard
 
-"playwright@npm:1.49.0":
-  version: 1.49.0
-  resolution: "playwright@npm:1.49.0"
+"playwright@npm:1.52.0":
+  version: 1.52.0
+  resolution: "playwright@npm:1.52.0"
   dependencies:
     fsevents: "npm:2.3.2"
-    playwright-core: "npm:1.49.0"
+    playwright-core: "npm:1.52.0"
   dependenciesMeta:
     fsevents:
       optional: true
   bin:
     playwright: cli.js
-  checksum: 10c0/e94d662747cd147d0573570fec90dadc013c1097595714036fc8934a075c5a82ab04a49111b03b1f762ea86429bdb7c94460901896901e20970b30ce817cc93f
+  checksum: 10c0/2c6edf1e15e59bbaf77f3fa0fe0ac975793c17cff835d9c8b8bc6395a3b6f1c01898b3058ab37891b2e4d424bcc8f1b4844fe70d943e0143d239d7451408c579
   languageName: node
   linkType: hard
 
