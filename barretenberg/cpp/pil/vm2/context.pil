@@ -58,6 +58,38 @@ namespace execution;
     pol commit parent_l2_gas_used;
     pol commit parent_da_gas_used;
 
+    // ==== Tree State ===
+    pol commit prev_note_hash_tree_root;
+    pol commit prev_note_hash_tree_size;
+    pol commit prev_num_note_hashes_emitted;
+
+    pol commit prev_nullifier_tree_root;
+    pol commit prev_nullifier_tree_size;
+    pol commit prev_num_nullifiers_emitted;
+
+    pol commit prev_public_data_tree_root;
+    pol commit prev_public_data_tree_size;
+    pol commit prev_num_pub_data_writes_emitted;
+
+    pol commit prev_l1_l2_tree_root;
+    pol commit prev_l1_l2_tree_size;
+
+    // Next Tree State
+    pol commit note_hash_tree_root;
+    pol commit note_hash_tree_size;
+    pol commit num_note_hashes_emitted;
+
+    pol commit nullifier_tree_root;
+    pol commit nullifier_tree_size;
+    pol commit num_nullifiers_emitted;
+
+    pol commit public_data_tree_root;
+    pol commit public_data_tree_size;
+    pol commit num_pub_data_writes_emitted;
+
+    pol commit l1_l2_tree_root;
+    pol commit l1_l2_tree_size;
+    
     // ==== Helper columns ====
     // TODO: These context modifiers also need to factor in when a new enqueued call occurs
     pol NOT_LAST_EXEC = sel * sel';

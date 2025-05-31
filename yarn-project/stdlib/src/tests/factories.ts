@@ -1493,10 +1493,12 @@ export function makeAvmTxHint(seed = 0): AvmTxHint {
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
+      l2ToL1Messages: makeArray((seed % 20) + 4, i => makeScopedL2ToL1Message(i), seed + 0x3000),
     },
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x3000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x4000),
+      l2ToL1Messages: makeArray((seed % 20) + 4, i => makeScopedL2ToL1Message(i), seed + 0x5000),
     },
     makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x5000), // setupEnqueuedCalls
     makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x6000), // appLogicEnqueuedCalls

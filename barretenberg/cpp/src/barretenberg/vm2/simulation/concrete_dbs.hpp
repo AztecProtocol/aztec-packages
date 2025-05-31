@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/address_derivation.hpp"
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
@@ -50,6 +51,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
 
     // Unconstrained.
     const TreeSnapshots& get_tree_roots() const override;
+    TreeStates get_tree_state() const override;
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
@@ -64,6 +66,9 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // Throws if the nullifier already exists
     void nullifier_write(const FF& nullifier) override;
 
+    bool note_hash_exists(const FF& note_hash) const override;
+    void note_hash_write(const FF& note_hash) override;
+
     LowLevelMerkleDBInterface& as_unconstrained() const override { return raw_merkle_db; }
 
   private:
@@ -72,6 +77,14 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // It's usually ok for mutexes but a gadget is big...
     PublicDataTreeCheckInterface& public_data_tree_check;
     NullifierTreeCheckInterface& nullifier_tree_check;
+
+    // Counters only in the HighLevel interface.
+    uint32_t nullifier_counter = 0;
+    uint32_t note_hash_counter = 0;
+    uint32_t l2_to_l1_msg_counter = 0;
+    // Set for semantics.
+    using Slot = FF;
+    std::unordered_set<Slot> storage_set;
 };
 
 } // namespace bb::avm2::simulation
