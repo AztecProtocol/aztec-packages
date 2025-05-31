@@ -63,7 +63,7 @@ import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMa
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
-import type { P2PService, PeerDiscoveryService } from '../service.js';
+import type { P2PBlockReceivedCallback, P2PService, PeerDiscoveryService } from '../service.js';
 
 interface ValidationResult {
   name: string;
@@ -101,7 +101,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param block - The block received from the peer.
    * @returns The attestation for the block, if any.
    */
-  private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation | undefined>;
+  private blockReceivedCallback: P2PBlockReceivedCallback;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
 
@@ -446,8 +446,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
     protocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
+    pinnedPeerId: PeerId | undefined,
   ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
-    return this.reqresp.sendBatchRequest(protocol, requests);
+    return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId);
   }
 
   /**
@@ -458,9 +459,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return this.peerDiscoveryService.getEnr();
   }
 
-  public registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>) {
+  public registerBlockReceivedCallback(callback: P2PBlockReceivedCallback) {
     this.blockReceivedCallback = callback;
-    this.logger.verbose('Block received callback registered');
   }
 
   /**
@@ -610,7 +610,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!result || !block) {
       return;
     }
-    await this.processValidBlockProposal(block);
+    await this.processValidBlockProposal(block, source);
   }
 
   // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -620,7 +620,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.P2P_ID]: await block.p2pMessageIdentifier().then(i => i.toString()),
   }))
-  private async processValidBlockProposal(block: BlockProposal) {
+  private async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
     this.logger.verbose(
       `Received block ${block.blockNumber.toNumber()} for slot ${block.slotNumber.toNumber()} from external peer.`,
       {
@@ -632,7 +632,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     );
     // Mark the txs in this proposal as non-evictable
     await this.mempools.txPool.markTxsAsNonEvictable(block.payload.txHashes);
-    const attestation = await this.blockReceivedCallback(block);
+    const attestation = await this.blockReceivedCallback(block, sender);
 
     // TODO: fix up this pattern - the abstraction is not nice
     // The attestation can be undefined if no handler is registered / the validator deems the block invalid

@@ -7,7 +7,7 @@ import type {
 } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
-import type { ProvingTimings, SimulationTimings } from '@aztec/stdlib/tx';
+import type { ProvingStats, ProvingTimings, SimulationStats, SimulationTimings } from '@aztec/stdlib/tx';
 
 import assert from 'node:assert';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -94,24 +94,30 @@ export class ProxyLogger {
 
 export type ProverType = 'wasm' | 'native';
 
-type OracleRecording = {
+type CallRecording = {
+  // Number of times the function has been called
   calls: number;
+  // Maximum time taken by the function (in ms)
   max: number;
+  // Minimum time taken by the function (in ms)
   min: number;
+  // Average time taken by the function (in ms)
   avg: number;
+  // Total time spent in the function, computed as sum of all calls (in ms)
   total: number;
 };
 
 type Step = Pick<PrivateExecutionStep, 'functionName' | 'gateCount'> & {
   time: number;
   accGateCount?: number;
-  oracles: Record<string, OracleRecording>;
+  oracles: Record<string, CallRecording>;
 };
 
 type ClientFlowBenchmark = {
   name: string;
   timings: Omit<ProvingTimings & SimulationTimings, 'perFunction'> & { witgen: number };
   maxMemory: number;
+  rpc: Record<string, CallRecording>;
   proverType: ProverType;
   minimumTrace: StructuredTrace;
   totalGateCount: number;
@@ -158,7 +164,7 @@ function getMaxMemory(logs: Log[]): number {
 export function generateBenchmark(
   flow: string,
   logs: Log[],
-  timings: ProvingTimings | SimulationTimings,
+  stats: ProvingStats | SimulationStats,
   privateExecutionSteps: PrivateExecutionStep[],
   proverType: ProverType,
   error: string | undefined,
@@ -194,11 +200,12 @@ export function generateBenchmark(
             };
             return acc;
           },
-          {} as Record<string, OracleRecording>,
+          {} as Record<string, CallRecording>,
         ),
       },
     ];
   }, []);
+  const timings = stats.timings;
   const totalGateCount = steps[steps.length - 1].accGateCount;
   return {
     name: flow,
@@ -209,6 +216,21 @@ export function generateBenchmark(
       unaccounted: timings.unaccounted,
       witgen: timings.perFunction.reduce((acc, fn) => acc + fn.time, 0),
     },
+    rpc: Object.entries(stats.nodeRPCCalls ?? {}).reduce(
+      (acc, [RPCName, RPCCalls]) => {
+        const total = RPCCalls.times.reduce((sum, time) => sum + time, 0);
+        const calls = RPCCalls.times.length;
+        acc[RPCName] = {
+          calls,
+          max: Math.max(...RPCCalls.times),
+          min: Math.min(...RPCCalls.times),
+          total,
+          avg: total / calls,
+        };
+        return acc;
+      },
+      {} as Record<string, CallRecording>,
+    ),
     maxMemory,
     proverType,
     minimumTrace: minimumTrace!,
@@ -219,6 +241,7 @@ export function generateBenchmark(
 }
 
 export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): GithubActionBenchmarkResult[] {
+  const totalRPCCalls = Object.values(benchmark.rpc).reduce((acc, call) => acc + call.calls, 0);
   const benches = [
     {
       name: `${benchmark.name}/witgen`,
@@ -246,6 +269,11 @@ export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): Git
       name: `${benchmark.name}/total_gate_count`,
       value: benchmark.totalGateCount,
       unit: 'gates',
+    },
+    {
+      name: `${benchmark.name}/rpc`,
+      value: totalRPCCalls,
+      unit: 'calls',
     },
   ];
   if (benchmark.timings.proving) {
@@ -278,7 +306,7 @@ export async function captureProfile(
   if (expectedSteps !== undefined && result.executionSteps.length !== expectedSteps) {
     throw new Error(`Expected ${expectedSteps} execution steps, got ${result.executionSteps.length}`);
   }
-  const benchmark = generateBenchmark(label, logs, result.timings, result.executionSteps, 'wasm', undefined);
+  const benchmark = generateBenchmark(label, logs, result.stats, result.executionSteps, 'wasm', undefined);
 
   const ivcFolder = process.env.CAPTURE_IVC_FOLDER;
   if (ivcFolder) {
