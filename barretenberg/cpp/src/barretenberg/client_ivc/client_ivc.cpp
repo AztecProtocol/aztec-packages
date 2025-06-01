@@ -158,8 +158,8 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
     stdlib_verification_queue.clear();
 
-    // Perform merge recursive verification for each entry in the merge verification queue
-    PairingPoints merge_pairing_points = goblin.process_merge_verification_queue(circuit);
+    // Perform recursive verification for each entry in the merge verification queue
+    PairingPoints merge_pairing_points = goblin.perform_merge_recursive_verification(circuit);
 
     points_accumulator.aggregate(merge_pairing_points);
     points_accumulator.set_public();
@@ -291,8 +291,8 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
         builder.add_public_variable(fold_proof[i]);
     }
 
-    // Perform merge recursive verification of the last merge proof
-    PairingPoints points_accumulator = goblin.process_merge_verification_queue(builder);
+    // Perform recursive verification of the last merge proof
+    PairingPoints points_accumulator = goblin.perform_merge_recursive_verification(builder);
 
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =

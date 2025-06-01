@@ -129,8 +129,6 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
         verification_key->databus_propagation_data = bb::DatabusPropagationData::kernel_default();
     }
 
-    std::vector<FF> merge_proof = create_dummy_merge_proof();
-
     return ClientIVC::VerifierInputs{ proof, verification_key, verification_type };
 }
 

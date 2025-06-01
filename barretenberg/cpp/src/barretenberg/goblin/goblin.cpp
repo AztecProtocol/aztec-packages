@@ -6,7 +6,6 @@
 
 #include "goblin.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
@@ -52,7 +51,7 @@ GoblinProof Goblin::prove()
 
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
-    prove_merge(transcript);
+    prove_merge(transcript); // Use shared transcript for merge proving
     ASSERT(merge_verification_queue.size() == 1,
            "Goblin::prove: merge_verification_queue should contain only a single proof at this stage.");
     goblin_proof.merge_proof = merge_verification_queue.back();
@@ -70,6 +69,21 @@ GoblinProof Goblin::prove()
         vinfo("finished translator proving.");
     }
     return goblin_proof;
+}
+
+Goblin::PairingPoints Goblin::perform_merge_recursive_verification(MegaBuilder& builder)
+{
+    PairingPoints points_accumulator;
+    for (const auto& merge_proof : merge_verification_queue) {
+        const StdlibProof<MegaBuilder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(&builder, merge_proof);
+        MergeRecursiveVerifier merge_verifier{ &builder };
+        PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+
+        points_accumulator.aggregate(pairing_points);
+    }
+    merge_verification_queue.clear(); // clear the queue after processing
+
+    return points_accumulator;
 }
 
 bool Goblin::verify(const GoblinProof& proof, const std::shared_ptr<Transcript>& transcript)
