@@ -593,6 +593,10 @@ template <typename Builder, typename T> class bigfield {
     /**
      * @brief Compute the maximum number of bits for quotient range proof to protect against CRT underflow
      *
+     * @details When multiplying a and b, we need to check that: a * b = q * p + r, and each side of the equation
+     * is less than the maximum product M = 2^t * n. The quotient q is a size of the non-native field, and we need to
+     * ensure it fits within the available bits. q * p + r < M  ==>  q < (M - r_max) / p
+     *
      * @param remainders_max Maximum sizes of resulting remainders
      * @return Desired length of range proof
      */
