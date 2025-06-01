@@ -95,31 +95,6 @@ spec:
               start_cmd=("node" "/usr/src/yarn-project/aztec/dest/bin/index.js" "start")
               pod_index=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF}')
 
-              {{- if or (has "--sequencer" .Values.node.startCmd) (has "--prover-node" .Values.node.startCmd) }}
-              if [[ -f /config/l1-publisher/mnemonic ]]; then
-                mnemonic=$(cat /config/l1-publisher/mnemonic)
-                mnemonic_start_index=$(cat /config/l1-publisher/mnemonicStartIndex)
-
-
-                export L1_PUBLISHER_KEY=$(cast wallet private-key --mnemonic "$mnemonic" --mnemonic-index $(($mnemonic_start_index + $pod_index)))
-                export VALIDATOR_PRIVATE_KEY=$L1_PUBLISHER_KEY
-                export SEQ_PUBLISHER_PRIVATE_KEY=$L1_PUBLISHER_KEY
-
-              elif [[ -f /config/l1-publisher/privateKeys ]]; then
-                line_index=$(($pod_index + 1))
-                export L1_PUBLISHER_KEY=$(sed -n -e "${line_index}p;${line_index}q" /config/l1-publisher/privateKeys)
-
-                if [[ -z $L1_PUBLISHER_KEY ]]; then
-                  echo "Private key for pod $K8S_POD_NAME not found"
-                  exit 1
-                fi
-
-              else
-                echo "No mnemonic or private keys configured."
-                exit 1
-              fi
-              {{- end }}
-
               start_cmd+=({{ join " " .Values.node.startCmd }})
 
               {{- if .Values.node.preStartScript }}
@@ -148,9 +123,15 @@ spec:
             - name: init-nodeport
               mountPath: /env
             {{- end }}
-            - name: l1-publisher
-              mountPath: /config/l1-publisher
-              readOnly: true
+          envFrom:
+            {{- if .Values.node.configMapEnabled }}
+            - configMapRef:
+                name: {{ include "chart.fullname" . }}
+            {{- end }}
+            {{- if .Values.node.secretEnabled }}
+            - secretRef:
+                name: {{ include "chart.fullname" . }}
+            {{- end }}
           env:
             - name: POD_IP
               valueFrom:
@@ -164,8 +145,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: node
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
@@ -199,22 +178,6 @@ spec:
               value: "{{ .Values.service.p2p.port }}"
             - name: P2P_QUERY_FOR_IP
               value: "true"
-            {{- if .Values.node.remoteUrl.archiver }}
-            - name: ARCHIVER_URL
-              value: {{ .Values.node.remoteUrl.archiver | quote }}
-            {{- end }}
-            {{- if .Values.node.remoteUrl.proverBroker }}
-            - name: PROVER_BROKER_HOST
-              value: {{ .Values.node.remoteUrl.proverBroker | quote }}
-            {{- end }}
-            {{- if .Values.node.remoteUrl.blobSink }}
-            - name: BLOB_SINK_URL
-              value: {{ .Values.node.remoteUrl.blobSink | quote }}
-            {{- end }}
-            {{- if gt (len .Values.node.remoteUrl.proverCoordinationNodes) 0 }}
-            - name: PROVER_COORDINATION_NODE_URLS
-              value: {{ join "," .Values.node.remoteUrl.proverCoordinationNodes | quote }}
-            {{- end }}
             {{- if gt (len .Values.global.l1ExecutionUrls) 0 }}
             - name: ETHEREUM_HOSTS
               value: {{ join "," .Values.global.l1ExecutionUrls | quote }}
@@ -227,8 +190,6 @@ spec:
             - name: L1_CONSENSUS_HOST_API_KEY_HEADERS
               value: {{ join "," .Values.global.l1ConsensusHostApiKeyHeaders | quote }}
             {{- end }}
-            - name: ARCHIVER_POLLING_INTERVAL_MS
-              value: "10000"
             - name: DATA_DIRECTORY
               value: {{ .Values.node.storage.dataDirectory | quote }}
             - name: DATA_STORE_MAP_SIZE_KB
@@ -253,8 +214,6 @@ spec:
             - name: PROVER_ID
               value: {{ .Values.node.coinbase | quote }}
             {{- end }}
-            - name: SENTINEL_ENABLED
-              value: {{ .Values.node.sentinel.enabled | quote }}
           ports:
             - containerPort: {{ .Values.service.httpPort }}
               name: http-rpc
@@ -272,11 +231,6 @@ spec:
           resources:
             {{- toYaml .Values.node.resources | nindent 12 }}
       volumes:
-        {{- if or (has "--sequencer" .Values.node.startCmd) (has "--prover-node" .Values.node.startCmd) }}
-        - name: l1-publisher
-          secret:
-            secretName: {{ include "chart.fullname" . }}-l1-publisher
-        {{- end }}
         {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
         - name: init-nodeport
           emptyDir: {}

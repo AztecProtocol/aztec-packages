@@ -50,29 +50,19 @@ node:
   # -- Log level - info, verbose, debug, trace
   logLevel: "info"
 
-  l1Publisher:
-    privateKeys: []
-    mnemonic:
-    mnemonicStartIndex:
-
   preStartScript: null
 
   startCmd:
     - --node
     - --archiver
 
-  remoteUrl:
-    archiver:
-    proverBroker:
-    proverCoordinationNodes: []
-    blobSink:
+  env: {}
+
+  configMapEnabled: false
+  secretEnabled: false
 
   # the address that will receive block or proof rewards
   coinbase:
-
-  # -- Sentinel configuration - gathers slashing information
-  sentinel:
-    enabled: false
 
   # -- Metrics configuration
   metrics:
