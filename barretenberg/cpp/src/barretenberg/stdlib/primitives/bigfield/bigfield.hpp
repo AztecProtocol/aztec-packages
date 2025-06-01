@@ -692,6 +692,7 @@ template <typename Builder, typename T> class bigfield {
     // as we would reduce the limbs before they reach this size.
     static constexpr uint64_t PROHIBITED_LIMB_BITS = MAX_UNREDUCED_LIMB_BITS + 5;
 
+    // If we encounter this maximum value of a bigfield we need to reduce it.
     static constexpr uint256_t get_maximum_unreduced_limb_value() { return uint256_t(1) << MAX_UNREDUCED_LIMB_BITS; }
 
     // If we encounter this maximum value of a limb we stop execution
