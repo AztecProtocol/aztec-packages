@@ -233,10 +233,10 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
         lo_nibble.create_range_constraint(4, "bigfield: lo_nibble too large");
         hi_nibble.create_range_constraint(4, "bigfield: hi_nibble too large");
 
-        const field_t<Builder> sum = lo_nibble + (hi_nibble * 16);
+        const uint256_t hi_nibble_shift = uint256_t(1) << 4;
+        const field_t<Builder> sum = lo_nibble + (hi_nibble * hi_nibble_shift);
         sum.assert_equal(split_byte);
-        return std::make_pair<field_t<Builder>, field_t<Builder>>((field_t<Builder>)lo_nibble,
-                                                                  (field_t<Builder>)hi_nibble);
+        return std::make_pair<field_t<Builder>, field_t<Builder>>(lo_nibble, hi_nibble);
     };
 
     const auto reconstruct_two_limbs = [&split_byte_into_nibbles](Builder* ctx,
@@ -245,12 +245,23 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
                                                                   const field_t<Builder>& split_byte) {
         const auto [lo_nibble, hi_nibble] = split_byte_into_nibbles(ctx, split_byte);
 
-        field_t<Builder> hi_limb = hi_nibble + hi_bytes * 16;
-        field_t<Builder> lo_limb = lo_bytes + lo_nibble * field_t<Builder>(ctx, uint256_t(1) << 64);
-        return std::make_pair<field_t<Builder>, field_t<Builder>>((field_t<Builder>)lo_limb, (field_t<Builder>)hi_limb);
+        const uint256_t hi_bytes_shift = uint256_t(1) << 4;
+        const uint256_t lo_nibble_shift = uint256_t(1) << 64;
+        field_t<Builder> hi_limb = hi_nibble + hi_bytes * hi_bytes_shift;
+        field_t<Builder> lo_limb = lo_bytes + lo_nibble * lo_nibble_shift;
+        return std::make_pair<field_t<Builder>, field_t<Builder>>(lo_limb, hi_limb);
     };
     Builder* ctx = bytes.get_context();
 
+    // The input bytes are interpreted as a 256-bit integer, which is split into 4 limbs as follows:
+    //
+    //                       overlap byte                                      overlap byte
+    //                            ↓                                                  ↓
+    // [ b31 b30  ...  b25 b24 | b23 | b22 b21  ...  b16 b15 | b14  b13 ... b8 b7 | b06 | b5 b4  ...  b1 b0 ]
+    // |--------------------------|--------------------------|-----------------------|----------------------|
+    // ↑         68 bits          ↑         68 bits          ↑         68 bits       ↑         52 bits      ↑
+    // [         limb l0          |         limb l1          |         limb l2       |         limb l3      ]
+    //
     const field_t<Builder> hi_8_bytes(bytes.slice(0, 6));
     const field_t<Builder> mid_split_byte(bytes.slice(6, 1));
     const field_t<Builder> mid_8_bytes(bytes.slice(7, 8));

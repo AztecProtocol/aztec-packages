@@ -202,7 +202,21 @@ template <typename Builder, typename T> class bigfield {
         return result;
     };
 
+    /**
+     * @brief Constructs a bigfield element from a 256-bit byte array.
+     *
+     * This constructor interprets the input byte array as a 256-bit little-endian integer,
+     * and decomposes it into 4 limbs as follows:
+     *
+     * - Limb 0: 68 bits — bytes b24 to b31 and the high 4 bits of b23
+     * - Limb 1: 68 bits — bytes b14 to b22, and the low 4 bits of b23
+     * - Limb 2: 68 bits — bytes b7 to b14 and the high 4 bits of b6
+     * - Limb 3: 52 bits — bytes b0 to b5 and the low 4 bits of b6
+     *
+     * @param bytes The 32-byte input representing the 256-bit integer (little-endian).
+     */
     bigfield(const byte_array<Builder>& bytes);
+
     bigfield(const bigfield& other);
     bigfield(bigfield&& other);
 
