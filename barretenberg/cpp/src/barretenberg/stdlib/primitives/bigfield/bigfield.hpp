@@ -683,13 +683,14 @@ template <typename Builder, typename T> class bigfield {
     static constexpr uint64_t MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW =
         (bb::fr::modulus.get_msb() - MAX_ADDITION_LOG - NUM_LIMB_BITS) / 2;
 
-    // If the logarithm of the maximum value of a limb is more than this, we need to reduce
-    static constexpr uint64_t MAX_UNREDUCED_LIMB_BITS =
-        NUM_LIMB_BITS + 10; // We allowa an element to be added to itself 10 times. There is no actual usecase
+    // If the logarithm of the maximum value of a limb is more than this, we need to reduce.
+    // We allow an element to be added to itself 10 times, so we allow the limb to grow by 10 bits.
+    // Number 10 is arbitrary, there's no actual usecase for adding 1024 elements together.
+    static constexpr uint64_t MAX_UNREDUCED_LIMB_BITS = NUM_LIMB_BITS + 10;
 
-    static constexpr uint64_t PROHIBITED_LIMB_BITS =
-        MAX_UNREDUCED_LIMB_BITS +
-        5; // Shouldn't be reachable through addition, reduction should happen earlier. If we detect this, we stop
+    // If we reach this size of a limb, we stop execution (as safety measure). This should never reach during addition
+    // as we would reduce the limbs before they reach this size.
+    static constexpr uint64_t PROHIBITED_LIMB_BITS = MAX_UNREDUCED_LIMB_BITS + 5;
 
     static constexpr uint256_t get_maximum_unreduced_limb_value() { return uint256_t(1) << MAX_UNREDUCED_LIMB_BITS; }
 
