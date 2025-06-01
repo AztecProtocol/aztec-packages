@@ -668,21 +668,7 @@ template <typename Builder, typename T> class bigfield {
         ASSERT(add_term + maximum_default_bigint < get_maximum_crt_product());
         return ((product_sum + add_term) >= get_maximum_crt_product());
     }
-    // static bool mul_quotient_crt_check(const uint1024_t& q, const std::vector<uint1024_t>& remainders)
-    // {
-    //     uint1024_t product = (q * modulus_u512);
-    //     for (const auto& add : remainders) {
-    //         product += add;
-    //     }
-    //     std::cout << "product = " << product << std::endl;
-    //     std::cout << "crt product = " << get_maximum_crt_product() << std::endl;
 
-    //     if (product >= get_maximum_crt_product()) {
-    //         count++;
-    //         std::cout << "count = " << count << std::endl;
-    //     }
-    //     return (product >= get_maximum_crt_product());
-    // }
     // a (currently generous) upper bound on the log of number of fr additions in any of the class operations
     static constexpr uint64_t MAX_ADDITION_LOG = 10;
     // the rationale of the expression is we should not overflow Fr when applying any bigfield operation (e.g. *) and
