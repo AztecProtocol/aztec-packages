@@ -58,9 +58,10 @@ class Goblin {
            const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
-     * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
+     * @brief Construct a merge proof for the goblin ECC ops in the provided circuit; append the proof to the
+     * merge_verification_queue.
      *
-     * @param circuit_builder
+     * @param transcript
      */
     void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 

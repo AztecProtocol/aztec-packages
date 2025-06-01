@@ -352,7 +352,8 @@ ClientIVC::Proof ClientIVC::prove()
 {
     auto mega_proof = construct_and_prove_hiding_circuit();
 
-    goblin.transcript = transcript; // set the transcript to be shared by the Goblin prover
+    // A transcript is shared between the Hiding circuit prover and the Goblin prover
+    goblin.transcript = transcript;
 
     // Prove ECCVM and Translator
     return { mega_proof, goblin.prove() };
