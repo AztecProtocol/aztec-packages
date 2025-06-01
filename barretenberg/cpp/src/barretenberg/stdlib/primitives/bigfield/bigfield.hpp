@@ -671,10 +671,16 @@ template <typename Builder, typename T> class bigfield {
 
     // a (currently generous) upper bound on the log of number of fr additions in any of the class operations
     static constexpr uint64_t MAX_ADDITION_LOG = 10;
-    // the rationale of the expression is we should not overflow Fr when applying any bigfield operation (e.g. *) and
-    // starting with this max limb size
 
-    static constexpr uint64_t MAXIMUM_SIZE_THAT_WOULDNT_OVERFLOW =
+    // The rationale of the expression is we should not overflow Fr when applying any bigfield operation (e.g. *) and
+    // starting with this max limb size
+    //
+    // In multiplication of bigfield elements a * b, we encounter sum of limbs multiplications of form: 2^L . ai . bj.
+    // Suppose we are adding 2^k such terms. Let Q be the max bitsize of a limb. We want to ensure that the sum
+    // doesn't overflow the native field modulus. Hence:
+    // 2^k . 2^L . 2^Q . 2^Q < n  ==> Q < (log(n) - k - L) / 2
+    //
+    static constexpr uint64_t MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW =
         (bb::fr::modulus.get_msb() - MAX_ADDITION_LOG - NUM_LIMB_BITS) / 2;
 
     // If the logarithm of the maximum value of a limb is more than this, we need to reduce
@@ -690,7 +696,7 @@ template <typename Builder, typename T> class bigfield {
     // If we encounter this maximum value of a limb we stop execution
     static constexpr uint256_t get_prohibited_maximum_limb_value() { return uint256_t(1) << PROHIBITED_LIMB_BITS; }
 
-    static_assert(PROHIBITED_LIMB_BITS < MAXIMUM_SIZE_THAT_WOULDNT_OVERFLOW);
+    static_assert(PROHIBITED_LIMB_BITS < MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW);
 
   private:
     static std::pair<uint512_t, uint512_t> compute_quotient_remainder_values(const bigfield& a,
