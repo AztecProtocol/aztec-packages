@@ -79,7 +79,7 @@ TEST_F(TxExecutionTest, simulateTx)
     auto teardown_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*teardown_context, halted()).WillByDefault(Return(true));
 
-    EXPECT_CALL(context_provider, make_enqueued_context(_, _, _, _, _, _))
+    EXPECT_CALL(context_provider, make_enqueued_context)
         .WillOnce(Return(std::move(setup_context)))
         .WillOnce(Return(std::move(app_logic_context)))
         .WillOnce(Return(std::move(teardown_context)));

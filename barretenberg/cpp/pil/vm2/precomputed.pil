@@ -129,7 +129,7 @@ pol constant sel_addressing_gas;
 pol constant addressing_gas;
 
 // Phase Table for Tx Trace
-pol constant phase_sel; // Selector for phase table
+pol constant sel_phase; // Selector for phase table
 pol constant phase_value; // { NR_PRIVATE_INSERTS, SETUP, R_PRIVATE_INSERTS, APPLOGIC, TEARDOWN}
 pol constant is_public_call_request_phase;
 pol constant is_l2_l1_message_phase;

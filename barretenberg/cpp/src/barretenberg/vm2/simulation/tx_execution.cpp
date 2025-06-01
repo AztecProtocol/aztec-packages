@@ -36,24 +36,6 @@ void TxExecution::emit_public_call_request(const EnqueuedCallHint& call,
                          } });
 }
 
-void TxExecution::emit_private_append_tree(
-    const FF& leaf_value, uint64_t size, TreeStates&& prev_tree_state, Gas gas, Gas gas_limit, TransactionPhase phase)
-{
-    events.emit(TxEvent{
-        .phase = phase,
-        .prev_tree_state = std::move(prev_tree_state),
-        .next_tree_state = merkle_db.get_tree_state(),
-        .prev_gas_used = gas,
-        .gas_used = gas, // Gas charged outside AVM for private inserts
-        .gas_limit = gas_limit,
-        .event =
-            PrivateAppendTreeEvent{
-                .leaf_value = leaf_value,
-                .size = size,
-            },
-    });
-}
-
 // Simulates the entire transaction execution phases.
 // There are multiple distinct transaction phases that are executed in order:
 // (1) Non-revertible insertions of nullifiers, note hashes, and L2 to L1 messages.
@@ -198,6 +180,7 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
                              .event = PrivateAppendTreeEvent{ .leaf_value = siloed_note_hash } });
         prev_tree_state = next_tree_state;
     }
+
     // 3. Write l2_l1 messages
     for (const auto& l2_to_l1_msg : tx.nonRevertibleAccumulatedData.l2ToL1Messages) {
         // Tree state does not change when writing L2 to L1 messages.
@@ -232,9 +215,9 @@ void TxExecution::insert_revertibles(const Tx& tx)
                              .event = PrivateAppendTreeEvent{ .leaf_value = siloed_nullifier } });
         prev_tree_state = next_tree_state;
     }
+
     // 2. Write the note hashes
     for (const auto& note_hash : tx.revertibleAccumulatedData.noteHashes) {
-
         // todo: this silo/unique-fying needs to be constrained  by the avm. (#14544)
         // This is guaranteed to not fail by a private kernel, otherwise we can't prove
         FF first_nullifier = tx.revertibleAccumulatedData.nullifiers[0];
@@ -252,6 +235,7 @@ void TxExecution::insert_revertibles(const Tx& tx)
                              .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
         prev_tree_state = next_tree_state;
     }
+
     // 3. Write L2 to L1 messages.
     for (const auto& l2_to_l1_msg : tx.revertibleAccumulatedData.l2ToL1Messages) {
         // Tree state does not change when writing L2 to L1 messages.

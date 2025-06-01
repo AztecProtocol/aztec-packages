@@ -335,7 +335,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     trace.set(0,
               {
                   {
-                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
                       { C::precomputed_sel_non_revertible_append_nullifier, 1 },
 
@@ -349,7 +349,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     trace.set(1,
               {
                   {
-                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
                       { C::precomputed_sel_non_revertible_append_note_hash, 1 },
 
@@ -363,7 +363,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     trace.set(2,
               {
                   {
-                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
                       { C::precomputed_is_l2_l1_message_phase, 1 },
 
@@ -377,7 +377,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     trace.set(3,
               {
                   {
-                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
                       { C::precomputed_is_public_call_request_phase, 1 },
 
@@ -391,7 +391,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     trace.set(4,
               {
                   {
-                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
                       { C::precomputed_sel_revertible_append_nullifier, 1 },
                       { C::precomputed_is_revertible, 1 },
@@ -407,7 +407,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     trace.set(5,
               {
                   {
-                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
                       { C::precomputed_sel_revertible_append_note_hash, 1 },
                       { C::precomputed_is_revertible, 1 },
@@ -423,7 +423,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     trace.set(6,
               {
                   {
-                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
                       { C::precomputed_is_l2_l1_message_phase, 1 },
                       { C::precomputed_is_revertible, 1 },
@@ -439,7 +439,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     trace.set(7,
               {
                   {
-                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::APP_LOGIC) },
                       { C::precomputed_is_public_call_request_phase, 1 },
                       { C::precomputed_is_revertible, 1 },
@@ -455,7 +455,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     trace.set(8,
               {
                   {
-                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                       { C::precomputed_is_public_call_request_phase, 1 },
                       { C::precomputed_is_revertible, 1 },
@@ -471,7 +471,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     trace.set(9,
               {
                   {
-                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
                       { C::precomputed_sel_collect_fee, 1 },
                       { C::precomputed_is_revertible, 0 },
@@ -482,4 +482,5 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                   },
               });
 }
+
 } // namespace bb::avm2::tracegen

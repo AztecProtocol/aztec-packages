@@ -100,7 +100,7 @@ TEST_F(ExecutionSimulationTest, Call)
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
 
-    EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _, Gas{ 2, 3 }))
+    EXPECT_CALL(context_provider, make_nested_context(nested_address, parent_address, _, _, _, _, Gas{ 2, 3 }))
         .WillOnce(Return(std::move(nested_context)));
 
     execution.call(context,

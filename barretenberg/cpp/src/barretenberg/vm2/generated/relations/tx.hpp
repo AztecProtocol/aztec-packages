@@ -110,7 +110,7 @@ template <typename FF_> class txImpl {
         }
         { // READ_PI_LENGTH_SEL
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (in.get(C::tx_read_phase_length_sel) -
+            auto tmp = in.get(C::tx_sel) * (in.get(C::tx_sel_read_phase_length) -
                                             in.get(C::tx_start_phase) * (FF(1) - in.get(C::tx_is_collect_fee)));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);

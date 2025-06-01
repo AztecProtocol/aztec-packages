@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 #include "barretenberg/vm2/tracegen/lib/phase_spec.hpp"
+
 #include <cstdint>
 #include <unordered_map>
 #include <variant>
@@ -14,6 +15,7 @@
 namespace bb::avm2::tracegen {
 
 namespace {
+
 // helper type for the visitor #4
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
@@ -152,7 +154,6 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::Priv
                                                           uint32_t l2_l1_msg_counter,
                                                           bool reverted)
 {
-
     return {
         { Column::tx_is_l2_l1_msg_phase, 1 },
 
@@ -192,7 +193,7 @@ std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase)
         { Column::tx_phase_value, static_cast<uint8_t>(phase) },
         { Column::tx_is_padded, 1 },
         { Column::tx_start_phase, 1 },
-        { Column::tx_read_phase_length_sel, phase == TransactionPhase::COLLECT_GAS_FEES ? 0 : 1 },
+        { Column::tx_sel_read_phase_length, phase == TransactionPhase::COLLECT_GAS_FEES ? 0 : 1 },
         // This is temporary because AvmVerifierTests.GoodPublicInputs doesnt collect gas fees, every transaction
         // needs a collect gas fee
         { Column::tx_is_collect_fee, phase == TransactionPhase::COLLECT_GAS_FEES ? 1 : 0 },
@@ -214,6 +215,7 @@ std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase)
 
     };
 }
+
 } // namespace
 
 void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation::TxEvent>::Container& events,
@@ -240,10 +242,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                                                              TransactionPhase::APP_LOGIC,
                                                              TransactionPhase::TEARDOWN,
                                                              TransactionPhase::COLLECT_GAS_FEES };
-
-    // We bucket the events by phase to make it easier to detect phases with no events
-    // It has to be a map so that we can use the enum as a key ()
-    std::map<TransactionPhase, std::vector<const simulation::TxEvent*>> phase_map;
 
     for (const auto& tx_event : events) {
         // Minus 1 since the enum is 1-indexed
@@ -285,7 +283,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                           { C::tx_phase_value, static_cast<uint8_t>(tx_event->phase) },
                           { C::tx_is_padded, 0 },
                           { C::tx_start_phase, phase_counter == 0 ? 1 : 0 },
-                          { C::tx_read_phase_length_sel,
+                          { C::tx_sel_read_phase_length,
                             phase_counter == 0 && tx_event->phase != TransactionPhase::COLLECT_GAS_FEES ? 1 : 0 },
                           { C::tx_is_revertible, is_revertible(tx_event->phase) ? 1 : 0 },
 

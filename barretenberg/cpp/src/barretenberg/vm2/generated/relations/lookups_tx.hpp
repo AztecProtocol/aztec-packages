@@ -18,7 +18,7 @@ struct lookup_tx_read_phase_table_settings_ {
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 12;
     static constexpr Column SRC_SELECTOR = Column::tx_start_phase;
-    static constexpr Column DST_SELECTOR = Column::precomputed_phase_sel;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_phase;
     static constexpr Column COUNTS = Column::lookup_tx_read_phase_table_counts;
     static constexpr Column INVERSES = Column::lookup_tx_read_phase_table_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -62,7 +62,7 @@ struct lookup_tx_phase_jump_on_revert_settings_ {
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::tx_reverted;
-    static constexpr Column DST_SELECTOR = Column::precomputed_phase_sel;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_phase;
     static constexpr Column COUNTS = Column::lookup_tx_phase_jump_on_revert_counts;
     static constexpr Column INVERSES = Column::lookup_tx_phase_jump_on_revert_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -83,7 +83,7 @@ struct lookup_tx_read_phase_length_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_LENGTH";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::tx_read_phase_length_sel;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_read_phase_length;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_read_phase_length_counts;
     static constexpr Column INVERSES = Column::lookup_tx_read_phase_length_inv;

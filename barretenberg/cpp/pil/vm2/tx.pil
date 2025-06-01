@@ -12,11 +12,7 @@ include "precomputed.pil";
 // (e) Revertible TEARDOWN phase
 // (f) Non-Revertible Collect Gas Phase
 
-// Things that are still underconstrained
-// 1) Context id and next context id: Continuity and incrementing for select phases
-// 2) Ending the tx trace at the Collect Gas Fee phase
-// 3) Tree States: Continuity and changes
-
+// Things that are still underconstrained - see issue tracker #14666
 namespace tx;
 
     pol commit sel;
@@ -26,6 +22,9 @@ namespace tx;
 
     pol commit phase_value;
     // is is_padded = 1, this is a padded row
+    // A padded row exists for a phase (refer to a to f above for the phases) that is unused for this transaction
+    // This means that the length of values to read for it is 0. We still need to perform some check to prevent
+    // malicious skipping of valid phases.
     pol commit is_padded;
     is_padded * (1 - is_padded) = 0;
 
@@ -88,7 +87,7 @@ namespace tx;
         sel_revertible_append_nullifier
     }
     in
-    precomputed.phase_sel {
+    precomputed.sel_phase {
         precomputed.phase_value, 
         precomputed.is_public_call_request_phase,
         precomputed.is_l2_l1_message_phase,
@@ -108,15 +107,15 @@ namespace tx;
     // If a phase reverts (when it is allowed to), it jumps to a known next phase
     #[PHASE_JUMP_ON_REVERT]
     reverted { phase_value, phase_value' } in
-    precomputed.phase_sel { precomputed.phase_value, precomputed.next_phase_on_revert};
+    precomputed.sel_phase { precomputed.phase_value, precomputed.next_phase_on_revert};
 
     // === Phase Lengths === 
     // Read the number of steps in the phase from public inputs
-    pol commit read_phase_length_sel;
+    pol commit sel_read_phase_length;
     #[READ_PI_LENGTH_SEL]
-    sel * (read_phase_length_sel - start_phase * (1 - is_collect_fee)) = 0;
+    sel * (sel_read_phase_length - start_phase * (1 - is_collect_fee)) = 0;
     #[READ_PHASE_LENGTH]
-    read_phase_length_sel { read_pi_length_offset, remaining_phase_counter } in
+    sel_read_phase_length { read_pi_length_offset, remaining_phase_counter } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     // Phase events decrement at each row

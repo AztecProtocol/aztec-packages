@@ -58,103 +58,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 73;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2168;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 154;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2395;
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2386;
-=======
-=======
->>>>>>> c7676162ca (fix: update scoped msg serialisation)
-=======
-=======
->>>>>>> d3d836e12e (fix: rebase)
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 6f5a3f36e4 (fix: comments)
->>>>>>> 92b5fee5e4 (fix: comments)
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 89;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2231;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 157;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2481;
->>>>>>> 433a257f9e (wip)
->>>>>>> c24d3feeee (wip)
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2477;
->>>>>>> c7676162ca (fix: update scoped msg serialisation)
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2477;
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2481;
-=======
-=======
->>>>>>> ae45cd608d (fix: bulk tests)
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2268;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2277;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 159;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2428;
->>>>>>> 05b14accee (fix: update scoped msg serialisation)
-=======
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 85;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2197;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 149;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2431;
->>>>>>> fa5a415779 (fix: comments)
->>>>>>> 6f5a3f36e4 (fix: comments)
-<<<<<<< HEAD
->>>>>>> 92b5fee5e4 (fix: comments)
-=======
-=======
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2296;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 153;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2498;
->>>>>>> 5c61ff2ec2 (fix: rebase)
-<<<<<<< HEAD
->>>>>>> d3d836e12e (fix: rebase)
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2532;
->>>>>>> f73bc267a7 (fix: comments)
-<<<<<<< HEAD
->>>>>>> bf201997ab (fix: comments)
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2535;
->>>>>>> b4e92fcba2 (fix: constrain more)
-<<<<<<< HEAD
->>>>>>> 317b6ac652 (fix: constrain more)
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2536;
->>>>>>> 4586f403db (test: working lookups)
->>>>>>> f3c06c4570 (test: working lookups)
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2515;
->>>>>>> ae45cd608d (fix: bulk tests)
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2514;
->>>>>>> ebbcb14706 (fix: simplify precomp lookup)
+    static constexpr size_t NUM_ALL_ENTITIES = 2523;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
