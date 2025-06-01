@@ -393,6 +393,13 @@ template <typename Builder, typename T> class bigfield {
 
     void self_reduce() const;
 
+    /**
+     * @brief Check if the bigfield is constant, i.e. its prime limb is constant.
+     *
+     * @return true if the bigfield is constant, false otherwise.
+     *
+     * TODO(https://github.com/AztecProtocol/aztec-packages/issues/14662): should we check if all limbs are constants?
+     */
     bool is_constant() const { return prime_basis_limb.witness_index == IS_CONSTANT; }
 
     /**
