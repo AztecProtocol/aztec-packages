@@ -456,16 +456,6 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
     return result;
 }
 
-/**
- * @brief Create constraints for summing three
- * bigfield elements efficiently
- *
- * @tparam Builder
- * @tparam T
- * @param add_a
- * @param add_b
- * @return The sum of three terms
- */
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::add_two(const bigfield& add_a, const bigfield& add_b) const
 {
