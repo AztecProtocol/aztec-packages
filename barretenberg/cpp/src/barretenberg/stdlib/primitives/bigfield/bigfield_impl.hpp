@@ -308,22 +308,6 @@ template <typename Builder, typename T> uint512_t bigfield<Builder, T>::get_maxi
     return t0 + t1 + t2 + t3;
 }
 
-/**
- * @brief Add a field element to the lower limb. CAUTION (the element has to be constrained before using this
- * function)
- *
- * @details Sometimes we need to add a small constrained value to a bigfield element (for example, a boolean value),
- * but we don't want to construct a full bigfield element for that as it would take too many gates. If the maximum
- * value of the field element being added is small enough, we can simply add it to the lowest limb and increase its
- * maximum value. That will create 2 additional constraints instead of 5/3 needed to add 2 bigfield elements and
- * several needed to construct a bigfield element.
- *
- * @tparam Builder Builder
- * @tparam T Field Parameters
- * @param other Field element that will be added to the lower
- * @param other_maximum_value The maximum value of other
- * @return bigfield<Builder, T> Result
- */
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::add_to_lower_limb(const field_t<Builder>& other,
                                                              uint256_t other_maximum_value) const
