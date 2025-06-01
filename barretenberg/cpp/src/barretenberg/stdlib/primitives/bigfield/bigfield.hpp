@@ -352,7 +352,18 @@ template <typename Builder, typename T> class bigfield {
      */
     bigfield operator+(const bigfield& other) const;
 
+    /**
+     * @brief Create constraints for summing three
+     * bigfield elements efficiently
+     *
+     * @tparam Builder
+     * @tparam T
+     * @param add_a
+     * @param add_b
+     * @return The sum of three terms
+     */
     bigfield add_two(const bigfield& add_a, const bigfield& add_b) const;
+
     bigfield operator-(const bigfield& other) const;
     bigfield operator*(const bigfield& other) const;
 
