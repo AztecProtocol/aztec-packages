@@ -15,18 +15,30 @@ image:
 # -- Pod management policy
 podManagementPolicy: Parallel
 
-# -- Network name - this is a predefined network - alpha-testnet, devnet
-network:
+# global config for all Aztec nodes in an instalation
+global:
+  # Which rollup contract we want to follow from the registry
+  aztecRollupVersion: "canonical"
+  # -- Network name - this is a predefined network - alpha-testnet, devnet
+  aztecNetwork: ""
+  # -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
+  customAztecNetwork:
+    enabled: false
+    l1ChainId:
+    registryContractAddress:
+    slashFactoryAddress:
+    feeAssetHandlerContractAddress:
 
-# -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
-customNetwork:
-  l1ChainId:
-  registryContractAddress:
-  slashFactoryAddress:
-  feeAssetHandlerContractAddress:
-
-# Which rollup contract we want to follow from the registry
-rollupVersion: "canonical"
+  # -- Ethereum configuration
+  # -- Ethereum hosts - comma separated list of hosts (geth, reth are currently supported)
+  l1ExecutionUrls: []
+  # -- L1 consensus host urls - comma separated list of urls
+  l1ConsensusUrls: []
+  ## Only when api key is required via header, otherwise just provide in l1ConsensusHostUrls
+  ## Example: "1234abcd"
+  l1ConsensusHostApiKeys: []
+  ## Example: "X-API-KEY"
+  l1ConsensusHostApiKeyHeaders: []
 
 # -- Use host network - this will disable nodePort service and use host networking instead
 hostNetwork: false
@@ -43,18 +55,7 @@ node:
     mnemonic:
     mnemonicStartIndex:
 
-  # -- Ethereum configuration
-  # -- Ethereum hosts - comma separated list of hosts (geth, reth are currently supported)
-  l1ExecutionUrls: []
-  # -- L1 consensus host urls - comma separated list of urls
-  l1ConsensusUrls: []
-  ## Only when api key is required via header, otherwise just provide in l1ConsensusHostUrls
-  ## Example: "1234abcd"
-  l1ConsensusHostApiKeys: []
-  ## Example: "X-API-KEY"
-  l1ConsensusHostApiKeyHeaders: []
-
-  preStartScript: ""
+  preStartScript: null
 
   startCmd:
     - --node

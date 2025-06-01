@@ -170,18 +170,18 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            {{- if .Values.network }}
+            {{- if .Values.global.aztecNetwork }}
             - name: NETWORK
-              value: "{{ .Values.network }}"
-            {{- else }}
+              value: "{{ .Values.global.aztecNetwork }}"
+            {{- else if .Values.global.customAztecNetwork.enabled }}
             - name: REGISTRY_CONTRACT_ADDRESS
-              value: "{{ .Values.customNetwork.registryContractAddress }}"
+              value: "{{ .Values.global.customAztecNetwork.registryContractAddress }}"
             - name: L1_CHAIN_ID
-              value: "{{ .Values.customNetwork.l1ChainId }}"
+              value: "{{ .Values.global.customAztecNetwork.l1ChainId }}"
             - name: SLASH_FACTORY_ADDRESS
-              value: "{{ .Values.customNetwork.slashFactoryAddress }}"
+              value: "{{ .Values.global.customAztecNetwork.slashFactoryAddress }}"
             - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
-              value: "{{ .Values.customNetwork.feeAssetHandlerContractAddress }}"
+              value: "{{ .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}"
             {{- end }}
             - name: NODE_OPTIONS
               value: {{ join " " .Values.node.nodeJsOptions | quote }}
@@ -215,17 +215,17 @@ spec:
             - name: PROVER_COORDINATION_NODE_URLS
               value: {{ join "," .Values.node.remoteUrl.proverCoordinationNodes | quote }}
             {{- end }}
-            {{- if gt (len .Values.node.l1ExecutionUrls) 0 }}
+            {{- if gt (len .Values.global.l1ExecutionUrls) 0 }}
             - name: ETHEREUM_HOSTS
-              value: {{ join "," .Values.node.l1ExecutionUrls | quote }}
+              value: {{ join "," .Values.global.l1ExecutionUrls | quote }}
             {{- end }}
-            {{- if gt (len .Values.node.l1ConsensusUrls) 0 }}
+            {{- if gt (len .Values.global.l1ConsensusUrls) 0 }}
             - name: L1_CONSENSUS_HOST_URLS
-              value: {{ join "," .Values.node.l1ConsensusUrls | quote }}
+              value: {{ join "," .Values.global.l1ConsensusUrls | quote }}
             - name: L1_CONSENSUS_HOST_API_KEYS
-              value: {{ join "," .Values.node.l1ConsensusHostApiKeys | quote }}
+              value: {{ join "," .Values.global.l1ConsensusHostApiKeys | quote }}
             - name: L1_CONSENSUS_HOST_API_KEY_HEADERS
-              value: {{ join "," .Values.node.l1ConsensusHostApiKeyHeaders | quote }}
+              value: {{ join "," .Values.global.l1ConsensusHostApiKeyHeaders | quote }}
             {{- end }}
             - name: ARCHIVER_POLLING_INTERVAL_MS
               value: "10000"
