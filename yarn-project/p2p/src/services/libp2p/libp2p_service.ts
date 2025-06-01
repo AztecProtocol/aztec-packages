@@ -48,6 +48,7 @@ import { createLibp2p } from 'libp2p';
 import type { P2PConfig } from '../../config.js';
 import type { MemPools } from '../../mem_pools/interface.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
+import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
 import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
 import { type MessageValidator, createTxMessageValidators } from '../../msg_validators/tx_validator/factory.js';
 import { DoubleSpendTxValidator, TxProofValidator } from '../../msg_validators/tx_validator/index.js';
@@ -80,6 +81,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private jobQueue: SerialQueue = new SerialQueue();
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
+  private msgIdSeenCache = new MessageSeenValidator(60); // 1 hour TTL
 
   // Message validators
   private attestationValidator: AttestationValidator;
@@ -508,6 +510,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       messageId: p2pMessage.id,
       messageLatency,
     });
+    if (!this.msgIdSeenCache.addMessage(msgId)) {
+      this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
+      return;
+    }
     if (msg.topic === this.topicStrings[TopicType.tx]) {
       await this.handleGossipedTx(p2pMessage.payload, msgId, source);
     }
@@ -621,8 +627,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     [Attributes.P2P_ID]: await block.p2pMessageIdentifier().then(i => i.toString()),
   }))
   private async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
-    this.logger.verbose(
-      `Received block ${block.blockNumber.toNumber()} for slot ${block.slotNumber.toNumber()} from external peer.`,
+    const slot = block.slotNumber.toBigInt();
+    const previousSlot = slot - 1n;
+    const epoch = slot / 32n;
+    this.logger.info(
+      `Received block ${block.blockNumber.toNumber()} for slot ${slot}, epoch ${epoch} from external peer.`,
       {
         p2pMessageIdentifier: await block.p2pMessageIdentifier(),
         slot: block.slotNumber.toNumber(),
@@ -630,6 +639,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         block: block.blockNumber.toNumber(),
       },
     );
+    const attestationsForPreviousSlot = await this.mempools.attestationPool!.getAttestationsForSlot(previousSlot);
+    this.logger.info(`Received ${attestationsForPreviousSlot.length} attestations for slot ${previousSlot}`);
     // Mark the txs in this proposal as non-evictable
     await this.mempools.txPool.markTxsAsNonEvictable(block.payload.txHashes);
     const attestation = await this.blockReceivedCallback(block, sender);
