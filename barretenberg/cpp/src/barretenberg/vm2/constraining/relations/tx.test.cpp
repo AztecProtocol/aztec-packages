@@ -67,21 +67,33 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
 
         // Row 1
         { { C::tx_sel, 1 },
-          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
+          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_is_tree_insert_phase, 1 },
+          { C::tx_sel_non_revertible_append_nullifier, 1 },
+
+          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
           { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
-            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
+            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
+          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
+
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
         // Row 2
         { { C::tx_sel, 1 },
-          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
+          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_is_tree_insert_phase, 1 },
+          { C::tx_sel_non_revertible_append_note_hash, 1 },
+
+          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
           { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
-            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
+            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
+          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
+
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -89,9 +101,14 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
           { C::tx_is_padded, 1 },
+          { C::tx_is_l2_l1_msg_phase, 1 },
+
+          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
           { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX },
+          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
+
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -101,7 +118,6 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
             { C::tx_sel, 1 },
             { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
             { C::tx_start_phase, 1 },
-            { C::tx_read_phase_table_sel, 1 },
             { C::tx_read_phase_length_sel, 1 },
 
             // Lookup Precomputed Table Values
@@ -132,21 +148,31 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
 
         // Row 6
         { { C::tx_sel, 1 },
-          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
+          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_is_tree_insert_phase, 1 },
+          { C::tx_sel_revertible_append_nullifier, 1 },
+          { C::tx_is_revertible, 1 },
+          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
           { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
-            AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
+            AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
+          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
         // Row 7
         { { C::tx_sel, 1 },
-          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
+          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
           { C::tx_is_padded, 1 },
+          { C::tx_is_tree_insert_phase, 1 },
+          { C::tx_sel_revertible_append_note_hash, 1 },
+          { C::tx_is_revertible, 1 },
+          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
           { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
-            AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
+            AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
+          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -154,9 +180,13 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
           { C::tx_is_padded, 1 },
+          { C::tx_is_l2_l1_msg_phase, 1 },
+          { C::tx_is_revertible, 1 },
+          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
           { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX },
+          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -165,7 +195,6 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::APP_LOGIC) },
           { C::tx_start_phase, 1 },
-          { C::tx_read_phase_table_sel, 1 },
           { C::tx_read_phase_length_sel, 1 },
           // Lookup Precomputed Table Values
           { C::tx_is_public_call_request, 1 },
@@ -188,6 +217,9 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
           { C::tx_read_phase_length_sel, 1 },
           { C::tx_read_pi_length_offset, AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX },
           { C::tx_is_padded, 1 },
+          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX },
+          { C::tx_is_public_call_request, 1 },
+          { C::tx_is_revertible, 1 },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -196,6 +228,7 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
           { C::tx_is_padded, 1 },
           { C::tx_is_collect_fee, 1 },
+          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX },
           { C::tx_read_phase_length_sel, 0 },
           { C::tx_read_pi_length_offset, AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX },
           { C::tx_start_phase, 1 },
@@ -224,7 +257,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
 
         // Row 1
         { { C::tx_sel, 1 },
-          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
+          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
           { C::tx_is_padded, 1 },
           { C::tx_read_phase_length_sel, 1 },
           { C::tx_start_phase, 1 },
@@ -232,7 +265,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
 
         // Row 2
         { { C::tx_sel, 1 },
-          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
+          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
           { C::tx_is_padded, 1 },
           { C::tx_read_phase_length_sel, 1 },
           { C::tx_start_phase, 1 },
@@ -257,7 +290,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
 
         // Row 5
         { { C::tx_sel, 1 },
-          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
+          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
           { C::tx_is_padded, 1 },
           { C::tx_read_phase_length_sel, 1 },
           { C::tx_start_phase, 1 },
@@ -265,7 +298,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
 
         // Row 6
         { { C::tx_sel, 1 },
-          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
+          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
           { C::tx_is_padded, 1 },
           { C::tx_read_phase_length_sel, 1 },
           { C::tx_start_phase, 1 },
@@ -313,6 +346,22 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
 
         // Row 1
         { { C::tx_sel, 1 },
+          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
+          { C::tx_start_phase, 1 },
+
+          { C::tx_read_pi_length_offset,
+            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
+          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
+          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
+
+          { C::tx_is_tree_insert_phase, 1 },
+          { C::tx_leaf_value, test_public_inputs.previousNonRevertibleAccumulatedData.nullifiers[0] },
+          { C::tx_prev_num_nullifiers_emitted, 0 },
+          { C::tx_next_num_nullifiers_emitted, 1 },
+          { C::tx_end_phase, 1 } },
+
+        // Row 2
+        { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
           { C::tx_start_phase, 1 },
 
@@ -327,21 +376,6 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_next_num_note_hashes_emitted, 1 },
           { C::tx_end_phase, 1 } },
 
-        // Row 2
-        { { C::tx_sel, 1 },
-          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
-          { C::tx_start_phase, 1 },
-
-          { C::tx_read_pi_length_offset,
-            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
-          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
-
-          { C::tx_is_tree_insert_phase, 1 },
-          { C::tx_leaf_value, test_public_inputs.previousNonRevertibleAccumulatedData.nullifiers[0] },
-          { C::tx_prev_num_nullifiers_emitted, 0 },
-          { C::tx_next_num_nullifiers_emitted, 1 },
-          { C::tx_end_phase, 1 } },
         // Row 3
         { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
@@ -372,22 +406,6 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
 
         // Row 5
         { { C::tx_sel, 1 },
-          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
-          { C::tx_start_phase, 1 },
-
-          { C::tx_read_pi_length_offset,
-            AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
-          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 1 },
-
-          { C::tx_is_tree_insert_phase, 1 },
-          { C::tx_leaf_value, test_public_inputs.previousRevertibleAccumulatedData.noteHashes[0] },
-          { C::tx_prev_num_note_hashes_emitted, 1 },
-          { C::tx_next_num_note_hashes_emitted, 2 },
-          { C::tx_end_phase, 1 } },
-
-        // Row 6
-        { { C::tx_sel, 1 },
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
           { C::tx_start_phase, 1 },
 
@@ -400,6 +418,22 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_leaf_value, test_public_inputs.previousRevertibleAccumulatedData.nullifiers[0] },
           { C::tx_prev_num_nullifiers_emitted, 1 },
           { C::tx_next_num_nullifiers_emitted, 2 },
+          { C::tx_end_phase, 1 } },
+
+        // Row 6
+        { { C::tx_sel, 1 },
+          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
+          { C::tx_start_phase, 1 },
+
+          { C::tx_read_pi_length_offset,
+            AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
+          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
+          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 1 },
+
+          { C::tx_is_tree_insert_phase, 1 },
+          { C::tx_leaf_value, test_public_inputs.previousRevertibleAccumulatedData.noteHashes[0] },
+          { C::tx_prev_num_note_hashes_emitted, 1 },
+          { C::tx_next_num_note_hashes_emitted, 2 },
           { C::tx_end_phase, 1 } },
 
         // Row 7

@@ -23,6 +23,35 @@ template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 constexpr size_t NUM_PHASES = 10; // See TransactionPhase enum
 
+bool is_revertible(TransactionPhase phase)
+{
+    return phase == TransactionPhase::R_NOTE_INSERTION || phase == TransactionPhase::R_NULLIFIER_INSERTION ||
+           phase == TransactionPhase::R_L2_TO_L1_MESSAGE || phase == TransactionPhase::APP_LOGIC ||
+           phase == TransactionPhase::TEARDOWN;
+}
+
+bool is_tree_insert_phase(TransactionPhase phase)
+{
+    return phase == TransactionPhase::NR_NOTE_INSERTION || phase == TransactionPhase::NR_NULLIFIER_INSERTION ||
+           phase == TransactionPhase::R_NOTE_INSERTION || phase == TransactionPhase::R_NULLIFIER_INSERTION;
+}
+
+bool is_l2_l1_msg_phase(TransactionPhase phase)
+{
+    return phase == TransactionPhase::NR_L2_TO_L1_MESSAGE || phase == TransactionPhase::R_L2_TO_L1_MESSAGE;
+}
+
+bool is_public_call_request_phase(TransactionPhase phase)
+{
+    return phase == TransactionPhase::SETUP || phase == TransactionPhase::APP_LOGIC ||
+           phase == TransactionPhase::TEARDOWN;
+}
+
+bool is_collect_fee_phase(TransactionPhase phase)
+{
+    return phase == TransactionPhase::COLLECT_GAS_FEES;
+}
+
 // This is a helper to insert the previous and next tree state
 std::vector<std::pair<Column, FF>> insert_tree_state(const TreeStates& prev_tree_state,
                                                      const TreeStates& next_tree_state)
@@ -87,13 +116,14 @@ std::vector<std::pair<Column, FF>> handle_pi_read_write(TransactionPhase phase,
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_enqueued_call_event(const simulation::EnqueuedCallEvent& event,
-                                                              uint32_t phase_counter)
+std::vector<std::pair<Column, FF>> handle_enqueued_call_event(const simulation::EnqueuedCallEvent& event)
 {
     return {
-        { Column::tx_is_public_call_request, 1 },    { Column::tx_read_phase_table_sel, phase_counter == 0 ? 1 : 0 },
-        { Column::tx_msg_sender, event.msg_sender }, { Column::tx_contract_addr, event.contract_address },
-        { Column::tx_is_static, event.is_static },   { Column::tx_calldata_hash, event.calldata_hash },
+        { Column::tx_is_public_call_request, 1 },
+        { Column::tx_msg_sender, event.msg_sender },
+        { Column::tx_contract_addr, event.contract_address },
+        { Column::tx_is_static, event.is_static },
+        { Column::tx_calldata_hash, event.calldata_hash },
         { Column::tx_reverted, event.success },
     };
 };
@@ -102,8 +132,6 @@ std::vector<std::pair<Column, FF>> handle_append_tree_event(const simulation::Pr
                                                             TransactionPhase phase,
                                                             bool reverted)
 {
-    bool is_revertible =
-        phase == TransactionPhase::R_NOTE_INSERTION || phase == TransactionPhase::R_NULLIFIER_INSERTION;
     return {
         { Column::tx_is_tree_insert_phase, 1 },
         { Column::tx_leaf_value, event.leaf_value },
@@ -115,7 +143,6 @@ std::vector<std::pair<Column, FF>> handle_append_tree_event(const simulation::Pr
         { Column::tx_sel_revertible_append_nullifier, phase == TransactionPhase::R_NULLIFIER_INSERTION },
 
         // Revertible
-        { Column::tx_is_revertible, is_revertible ? 1 : 0 },
         { Column::tx_successful_tree_insert, reverted ? 0 : 1 },
         { Column::tx_reverted, reverted ? 1 : 0 },
     };
@@ -157,6 +184,9 @@ std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation
 
 std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase)
 {
+    // We should throw here - but tests are currently unsuitable
+    // assert(phase != TransactionPhase::COLLECT_GAS_FEES);
+
     return {
         { Column::tx_sel, 1 },
         { Column::tx_phase_value, static_cast<uint8_t>(phase) },
@@ -167,9 +197,23 @@ std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase)
         // needs a collect gas fee
         { Column::tx_is_collect_fee, phase == TransactionPhase::COLLECT_GAS_FEES ? 1 : 0 },
         { Column::tx_end_phase, 1 },
+        // Selector specific
+        { Column::tx_is_tree_insert_phase, is_tree_insert_phase(phase) ? 1 : 0 },
+        { Column::tx_is_public_call_request, is_public_call_request_phase(phase) ? 1 : 0 },
+        { Column::tx_is_l2_l1_msg_phase, is_l2_l1_msg_phase(phase) ? 1 : 0 },
+        { Column::tx_is_collect_fee, is_collect_fee_phase(phase) ? 1 : 0 },
+
+        { Column::tx_sel_revertible_append_note_hash, phase == TransactionPhase::R_NOTE_INSERTION ? 1 : 0 },
+        { Column::tx_sel_revertible_append_nullifier, phase == TransactionPhase::R_NULLIFIER_INSERTION ? 1 : 0 },
+        { Column::tx_sel_non_revertible_append_note_hash, phase == TransactionPhase::NR_NOTE_INSERTION ? 1 : 0 },
+        { Column::tx_sel_non_revertible_append_nullifier, phase == TransactionPhase::NR_NULLIFIER_INSERTION ? 1 : 0 },
+
+        { Column::tx_is_collect_fee, is_collect_fee_phase(phase) ? 1 : 0 },
+
+        { Column::tx_is_revertible, is_revertible(phase) ? 1 : 0 },
+
     };
 }
-
 } // namespace
 
 void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation::TxEvent>::Container& events,
@@ -178,20 +222,20 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     using C = Column;
     uint32_t row = 1; // Shifts
 
-    // A nuance of the tracegen for the tx trace is that if there are no events in a phase, we still need to emit a row
-    // for this "skipped" row. This row is needed to simplify the circuit constraints and ensure that we have continuity
-    // in the tree state propagation
+    // A nuance of the tracegen for the tx trace is that if there are no events in a phase, we still need to emit a
+    // row for this "skipped" row. This row is needed to simplify the circuit constraints and ensure that we have
+    // continuity in the tree state propagation
 
     // We bucket the events by phase to make it easier to detect phases with no events
     std::array<std::vector<const simulation::TxEvent*>, NUM_PHASES> phase_buckets = {};
     // We have the phases in iterable form so that in the main loop when we and empty phase
     // we can map back to this enum
-    std::array<TransactionPhase, NUM_PHASES> phase_array = { TransactionPhase::NR_NOTE_INSERTION,
-                                                             TransactionPhase::NR_NULLIFIER_INSERTION,
+    std::array<TransactionPhase, NUM_PHASES> phase_array = { TransactionPhase::NR_NULLIFIER_INSERTION,
+                                                             TransactionPhase::NR_NOTE_INSERTION,
                                                              TransactionPhase::NR_L2_TO_L1_MESSAGE,
                                                              TransactionPhase::SETUP,
-                                                             TransactionPhase::R_NOTE_INSERTION,
                                                              TransactionPhase::R_NULLIFIER_INSERTION,
+                                                             TransactionPhase::R_NOTE_INSERTION,
                                                              TransactionPhase::R_L2_TO_L1_MESSAGE,
                                                              TransactionPhase::APP_LOGIC,
                                                              TransactionPhase::TEARDOWN,
@@ -243,6 +287,8 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                           { C::tx_start_phase, phase_counter == 0 ? 1 : 0 },
                           { C::tx_read_phase_length_sel,
                             phase_counter == 0 && tx_event->phase != TransactionPhase::COLLECT_GAS_FEES ? 1 : 0 },
+                          { C::tx_is_revertible, is_revertible(tx_event->phase) ? 1 : 0 },
+
                           { C::tx_end_phase, phase_counter == phase.size() - 1 ? 1 : 0 },
                       } });
 
@@ -250,8 +296,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             std::visit(
                 overloaded{
                     [&](const simulation::EnqueuedCallEvent& event) {
-                        trace.set(C::tx_is_revertible, row, tx_event->phase != TransactionPhase::SETUP ? 1 : 0);
-                        trace.set(row, handle_enqueued_call_event(event, phase_counter));
+                        trace.set(row, handle_enqueued_call_event(event));
                         // No explicit write counter for this phase
                         trace.set(
                             row,
@@ -276,8 +321,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                         }
                     },
                     [&](const simulation::PrivateEmitL2L1MessageEvent& event) {
-                        trace.set(
-                            C::tx_is_revertible, row, tx_event->phase == TransactionPhase::R_L2_TO_L1_MESSAGE ? 1 : 0);
                         trace.set(row, handle_l2_l1_msg_event(event, l2_l1_msg_counter, tx_event->reverted));
                         trace.set(
                             row, handle_pi_read_write(tx_event->phase, phase_length, phase_counter, l2_l1_msg_counter));

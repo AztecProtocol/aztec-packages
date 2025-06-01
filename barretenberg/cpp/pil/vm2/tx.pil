@@ -70,15 +70,8 @@ namespace tx;
     #[REM_COUNT_IS_ONE]
     sel * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
     
-    // This lookup extracts the start value of a new phase based on the precomputed table
-    // Start phase is guarded by is_padded, so padding rows do not read from public inputs
-    pol commit read_phase_table_sel;
-    // if is_padded = 1, read_phase_table_sel = 0
-    // We cannot re-use start_phase, because we still want to read the lengths to constrain remaining_phase_counter = 0;
-    #[PRECOMP_READ_SELECTOR]
-    sel * (read_phase_table_sel - ((1 - is_padded) * start_phase * is_public_call_request)) = 0;
     #[READ_PHASE_TABLE]
-    read_phase_table_sel { 
+    start_phase { 
         phase_value, 
         is_public_call_request, 
         is_l2_l1_msg_phase,
@@ -270,7 +263,8 @@ namespace tx;
     // TODO: Use gadget to update the tree
     // TODO: Write the tree value to public inputs
     pol commit successful_tree_insert;
-    sel * ((1 - reverted) * is_tree_insert_phase - successful_tree_insert) = 0;
+    // A tree insert phase must be successful if it didnt revert or isnt a padded row
+    sel * ((1 - reverted - is_padded) * is_tree_insert_phase - successful_tree_insert) = 0;
 
     #[WRITE_TREE_INSERT_VALUE]
     successful_tree_insert { write_pi_offset, leaf_value } in
@@ -320,7 +314,8 @@ namespace tx;
     public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2], public_inputs.cols[3] };
 
     pol commit successful_msg_emit;
-    sel * ((1 - reverted) * is_l2_l1_msg_phase - successful_msg_emit) = 0;
+    // A msg emit phase must be successful if it didnt revert or isnt a padded row
+    sel * ((1 - reverted - is_padded) * is_l2_l1_msg_phase - successful_msg_emit) = 0;
 
     #[WRITE_L2_L1_MSG]
     successful_msg_emit { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, /* l2_l1_counter=*/precomputed.zero, l2_l1_msg_contract_address } in

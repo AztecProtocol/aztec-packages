@@ -102,9 +102,10 @@ struct AvmFlavorVariables {
 =======
 >>>>>>> ae45cd608d (fix: bulk tests)
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2269;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2268;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 159;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
 <<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2428;
 >>>>>>> 05b14accee (fix: update scoped msg serialisation)
@@ -151,6 +152,9 @@ struct AvmFlavorVariables {
 =======
     static constexpr size_t NUM_ALL_ENTITIES = 2515;
 >>>>>>> ae45cd608d (fix: bulk tests)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2514;
+>>>>>>> ebbcb14706 (fix: simplify precomp lookup)
 
     // Need to be templated for recursive verifier
     template <typename FF_>

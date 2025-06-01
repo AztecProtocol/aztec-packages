@@ -17,7 +17,7 @@ struct lookup_tx_read_phase_table_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_TABLE";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 12;
-    static constexpr Column SRC_SELECTOR = Column::tx_read_phase_table_sel;
+    static constexpr Column SRC_SELECTOR = Column::tx_start_phase;
     static constexpr Column DST_SELECTOR = Column::precomputed_phase_sel;
     static constexpr Column COUNTS = Column::lookup_tx_read_phase_table_counts;
     static constexpr Column INVERSES = Column::lookup_tx_read_phase_table_inv;

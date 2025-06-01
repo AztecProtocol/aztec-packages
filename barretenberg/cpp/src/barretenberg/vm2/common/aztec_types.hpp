@@ -16,12 +16,12 @@ using AffinePoint = grumpkin::g1::affine_element;
 using EthAddress = FF;
 
 enum TransactionPhase {
-    NR_NOTE_INSERTION = 1,
-    NR_NULLIFIER_INSERTION = 2,
+    NR_NULLIFIER_INSERTION = 1,
+    NR_NOTE_INSERTION = 2,
     NR_L2_TO_L1_MESSAGE = 3,
     SETUP = 4,
-    R_NOTE_INSERTION = 5,
-    R_NULLIFIER_INSERTION = 6,
+    R_NULLIFIER_INSERTION = 5,
+    R_NOTE_INSERTION = 6,
     R_L2_TO_L1_MESSAGE = 7,
     APP_LOGIC = 8,
     TEARDOWN = 9,
