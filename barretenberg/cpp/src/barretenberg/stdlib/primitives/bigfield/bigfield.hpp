@@ -220,6 +220,19 @@ template <typename Builder, typename T> class bigfield {
     bigfield(const bigfield& other);
     bigfield(bigfield&& other);
 
+    /**
+     * @brief Creates a bigfield element from a uint512_t.
+     * Bigfield element is constructed as a witness and not a circuit constant
+     *
+     * @param ctx
+     * @param value
+     * @param can_overflow Can the input value have more than log2(modulus) bits?
+     * @param maximum_bitlength Provide the explicit maximum bitlength if known. Otherwise bigfield max value will be
+     * either log2(modulus) bits iff can_overflow = false, or (4 * NUM_LIMB_BITS) iff can_overflow = true
+     * @return bigfield<Builder, T>
+     *
+     * @details This method is 1 gate more efficient than constructing from 2 field_ct elements.
+     */
     static bigfield create_from_u512_as_witness(Builder* ctx,
                                                 const uint512_t& value,
                                                 const bool can_overflow = false,
