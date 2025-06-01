@@ -575,6 +575,15 @@ template <typename Builder, typename T> class bigfield {
         return (uint512_t(1) << ((maximum_product_bits >> 1) + arbitrary_secure_margin)) - uint512_t(1);
     }
 
+    /**
+     * @brief Compute the maximum product of two bigfield elements in CRT: M = 2^t * n.
+     *
+     * @details When we multiply two bigfield elements a and b, we need to check that: a * b = q * p + r,
+     * where q is the quotient, r is the remainder, and p is the size of the non-native field. With the CRT, we should
+     * have both sizes less than the maximum product M = 2^t * n.
+     *
+     * @return uint1024_t Maximum product of two bigfield elements in CRT form
+     */
     static constexpr uint1024_t get_maximum_crt_product()
     {
         uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
