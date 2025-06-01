@@ -22,6 +22,7 @@
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
+#include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
@@ -310,6 +311,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
                                                   RangeCheckTraceBuilder::lookup_jobs(),
                                                   BitwiseTraceBuilder::lookup_jobs(),
                                                   Sha256TraceBuilder::lookup_jobs(),
+                                                  KeccakF1600TraceBuilder::lookup_jobs(),
                                                   BytecodeTraceBuilder::lookup_jobs(),
                                                   ClassIdDerivationTraceBuilder::lookup_jobs(),
                                                   EccTraceBuilder::lookup_jobs(),
