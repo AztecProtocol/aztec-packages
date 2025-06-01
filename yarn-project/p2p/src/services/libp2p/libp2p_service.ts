@@ -81,7 +81,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private jobQueue: SerialQueue = new SerialQueue();
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
-  private msgIdSeenCache = new MessageSeenValidator(60); // 1 hour TTL
+  private msgIdSeenValidator: MessageSeenValidator;
 
   // Message validators
   private attestationValidator: AttestationValidator;
@@ -121,6 +121,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     protected logger = createLogger('p2p:libp2p_service'),
   ) {
     super(telemetry, 'LibP2PService');
+
+    this.msgIdSeenValidator = new MessageSeenValidator(config.seenCacheTTLMinutes);
 
     const versions = getVersions(config);
     this.protocolVersion = compressComponentVersions(versions);
@@ -510,10 +512,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       messageId: p2pMessage.id,
       messageLatency,
     });
-    if (!this.msgIdSeenCache.addMessage(msgId)) {
+    if (!this.msgIdSeenValidator.addMessage(msgId)) {
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
       return;
     }
+
     if (msg.topic === this.topicStrings[TopicType.tx]) {
       await this.handleGossipedTx(p2pMessage.payload, msgId, source);
     }
