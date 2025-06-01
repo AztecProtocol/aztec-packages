@@ -336,7 +336,22 @@ template <typename Builder, typename T> class bigfield {
      */
     bigfield add_to_lower_limb(const field_t<Builder>& other, uint256_t other_maximum_value) const;
 
+    /**
+     * @brief Adds two bigfield elements. Inputs are reduced to the modulus if necessary. Requires 4 gates if both
+     * elements are witnesses.
+     *
+     * @details Naive addition of two bigfield elements would require 5 gates: 4 gates to add the binary basis limbs and
+     * 1 gate to add the prime basis limbs. However, if both elements are witnesses, we can use an optimised addition
+     * trick that uses 4 gates instead of 5. In this case, we add the prime basis limbs and one of the binary basis
+     * limbs in a single gate.
+     *
+     * @tparam Builder
+     * @tparam T
+     * @param other
+     * @return bigfield<Builder, T>
+     */
     bigfield operator+(const bigfield& other) const;
+
     bigfield add_two(const bigfield& add_a, const bigfield& add_b) const;
     bigfield operator-(const bigfield& other) const;
     bigfield operator*(const bigfield& other) const;
