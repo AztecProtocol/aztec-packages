@@ -612,7 +612,7 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
-     * Check that the maximum value of a bigfield product with added values overflows ctf modulus.
+     * Check that the maximum value of a bigfield product with added values overflows crt modulus.
      *
      * @param a_max multiplicand maximum value
      * @param b_max multiplier maximum value
@@ -625,7 +625,7 @@ template <typename Builder, typename T> class bigfield {
                                                   const std::vector<bigfield>& to_add)
     {
         uint1024_t product = a_max * b_max;
-        uint1024_t add_term;
+        uint1024_t add_term = 0;
         for (const auto& add : to_add) {
             add_term += add.get_maximum_value();
         }
@@ -653,8 +653,8 @@ template <typename Builder, typename T> class bigfield {
         std::vector<uint1024_t> products;
         ASSERT(as_max.size() == bs_max.size());
         // Computing individual products
-        uint1024_t product_sum;
-        uint1024_t add_term;
+        uint1024_t product_sum = 0;
+        uint1024_t add_term = 0;
         for (size_t i = 0; i < as_max.size(); i++) {
             product_sum += uint1024_t(as_max[i]) * uint1024_t(bs_max[i]);
         }
