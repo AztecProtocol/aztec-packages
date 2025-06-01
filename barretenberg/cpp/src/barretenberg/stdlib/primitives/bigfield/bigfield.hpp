@@ -783,6 +783,27 @@ template <typename Builder, typename T> class bigfield {
                                  const bigfield& right,
                                  const bigfield& quotient,
                                  const bigfield& remainder);
+
+    /**
+     * @brief Check if the bigfield element needs to be reduced.
+     *
+     * @details This function checks if the bigfield element is within the valid range and reduces it if necessary.
+     * When multiplying bigfield elements a and b, we need to ensure that each side of the equation:
+     *      a * b = q * p + r
+     * (a) holds modulo the size of the native field n,
+     * (b) holds modulo the size of the bigger ring 2^t.
+     * (c) is less than the maximum value: M = 2^t * n.
+     * This implies a, b must always be less than √M, and their limbs must be less than the maximum limb value.
+     *
+     * Given a bigfield element c, this function applies these checks:
+     *  (i) c < √M (see note below).
+     * (ii) each limb (binary basis) of c is less than the maximum limb value.
+     *
+     * These checks prevent our field arithmetic from overflowing the native modulus boundary, whilst ensuring we can
+     * still use the chinese remainder theorem to validate field multiplications with a reduced number of range checks.
+     *
+     * Note: We actually apply a stricter bound, see @ref get_maximum_unreduced_value for an explanation.
+     */
     void reduction_check() const;
 
     void sanity_check() const;

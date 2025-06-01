@@ -1868,18 +1868,6 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     return is_equal;
 }
 
-/**
- * REDUCTION CHECK
- *
- * When performing bigfield operations, we need to ensure the maximum value is less than:
- *      sqrt(2^{272} * native_modulus)
- *
- * We also need to ensure each binary basis limb is less than the maximum limb value
- *
- * This prevents our field arithmetic from overflowing the native modulus boundary, whilst ensuring we can
- * still use the chinese remainder theorem to validate field multiplications with a reduced number of range checks
- *
- **/
 template <typename Builder, typename T> void bigfield<Builder, T>::reduction_check() const
 {
 
