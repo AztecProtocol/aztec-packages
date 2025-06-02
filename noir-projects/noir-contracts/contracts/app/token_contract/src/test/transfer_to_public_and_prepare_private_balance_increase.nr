@@ -45,6 +45,10 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
     );
     utils::check_public_balance(token_contract_address, amm_contract, deposit_amount);
 
+    // We need to advance the block by 1 for the partial note validity commitment to be committed to the nullifier
+    // tree.
+    env.advance_block_by(1);
+
     // Now we finalize the partial change note by impersonating the AMM contract and calling the finalize function
     // --> this should send the `change_amount` from AMM's public balance to liquidity provider's private balance
     let change_amount = deposit_amount / (2 as u128);
@@ -60,10 +64,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
     utils::check_private_balance(
         token_contract_address,
         liquidity_provider,
-        // TODO(#14647): Why don't I see the change_amount here? Does TXE handle partial notes correctly? I thought if
-        // I advance the block by 1, the note should be found.
-        // mint_amount - deposit_amount + change_amount,
-        mint_amount - deposit_amount,
+        mint_amount - deposit_amount + change_amount,
     );
     utils::check_public_balance(
         token_contract_address,
