@@ -52,7 +52,7 @@ import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
 <General.InstallationInstructions />
 
-Now install the latest testnet version of aztec: `aztec-up alpha-testnet`
+Now install the latest testnet version of aztec: `aztec-up latest`
 
 
 Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
@@ -177,7 +177,6 @@ aztec start --node --archiver --sequencer \
   --sequencer.validatorPrivateKey 0xYourPrivateKey \
   --sequencer.coinbase 0xYourAddress \
   --p2p.p2pIp 999.99.999.99 \
-  --p2p.maxTxPoolSize 1000000000
 ```
 
 :::tip
@@ -245,7 +244,7 @@ name: aztec-node
 services:
   node:
     network_mode: host # Optional, run with host networking
-    image: aztecprotocol/aztec:alpha-testnet
+    image: aztecprotocol/aztec:latest
     environment:
       ETHEREUM_HOSTS: ""
       L1_CONSENSUS_HOST_URLS: ""
