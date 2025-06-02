@@ -54,7 +54,7 @@ template <typename Curve> struct ClaimBatcher_ {
     InterleavedBatch get_interleaved() { return (interleaved) ? *interleaved : InterleavedBatch{}; }
     size_t get_groups_to_be_interleaved_size() { return (interleaved) ? interleaved->commitments_groups[0].size() : 0; }
 
-    size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
+    uint32_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
     Fr get_unshifted_batch_scalar() const { return unshifted ? unshifted->scalar : Fr{ 0 }; }
 

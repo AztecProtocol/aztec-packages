@@ -158,10 +158,7 @@ template <typename Builder> class field_t {
     // N.B. we implicitly range-constrain 'exponent' to be a 32-bit integer!
     field_t pow(const field_t& exponent) const;
 
-    template <uint32_t exponent> field_t pow() const
-    {
-        static constexpr uint32_t num_bits = numeric::get_msb32(exponent);
-    };
+    field_t pow(const uint32_t& exponent) const;
 
     field_t operator+=(const field_t& other)
     {
