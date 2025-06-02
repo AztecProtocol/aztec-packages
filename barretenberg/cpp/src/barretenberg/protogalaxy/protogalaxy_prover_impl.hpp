@@ -113,7 +113,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vecto
  * @brief Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
  */
 template <class DeciderProvingKeys>
-FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderProvingKeys>::update_target_sum_and_fold(
+void ProtogalaxyProver_<DeciderProvingKeys>::update_target_sum_and_fold(
     const DeciderProvingKeys& keys,
     const CombinerQuotient& combiner_quotient,
     const UnivariateRelationSeparator& alphas,
@@ -171,8 +171,6 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
          zip_view(univariate_relation_parameters.get_to_fold(), accumulator->relation_parameters.get_to_fold())) {
         value = univariate.evaluate(combiner_challenge);
     }
-
-    return FoldingResult<Flavor>{ .accumulator = accumulator, .proof = std::move(transcript->proof_data) };
 }
 
 template <class DeciderProvingKeys>
@@ -208,10 +206,9 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
         combiner_quotient_round(accumulator->gate_challenges, deltas, keys_to_fold);
     vinfo("combiner quotient round");
 
-    const FoldingResult<Flavor> result = update_target_sum_and_fold(
-        keys_to_fold, combiner_quotient, alphas, relation_parameters, perturbator_evaluation);
+    update_target_sum_and_fold(keys_to_fold, combiner_quotient, alphas, relation_parameters, perturbator_evaluation);
     vinfo("folded");
 
-    return result;
+    return FoldingResult<Flavor>{ .accumulator = keys_to_fold[0], .proof = std::move(transcript->proof_data) };
 }
 } // namespace bb

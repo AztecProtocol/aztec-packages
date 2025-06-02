@@ -100,11 +100,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
      * multiplication of matrices whose columns are polynomials, as well as taking similar linear combinations of the
      * relation parameters.
      */
-    FoldingResult<Flavor> update_target_sum_and_fold(const DeciderProvingKeys_& keys,
-                                                     const CombinerQuotient& combiner_quotient,
-                                                     const UnivariateRelationSeparator& alphas,
-                                                     const UnivariateRelationParameters& univariate_relation_parameters,
-                                                     const FF& perturbator_evaluation);
+    void update_target_sum_and_fold(const DeciderProvingKeys_& keys,
+                                    const CombinerQuotient& combiner_quotient,
+                                    const UnivariateRelationSeparator& alphas,
+                                    const UnivariateRelationParameters& univariate_relation_parameters,
+                                    const FF& perturbator_evaluation);
 
     /**
      * @brief Execute the folding prover.
