@@ -124,11 +124,11 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     });
   }
 
-  recordTxHashComputation(durationMs: number) {
+  recordTxHashComputation(durationUs: number) {
     assert(this.currentTxLabel, 'Cannot record tx hash computation time when no tx is live');
     const txMetrics = this.txMetrics.get(this.currentTxLabel)!;
     assert(txMetrics.txHashMs === undefined, 'Cannot RE-record tx hash computation time');
-    txMetrics.txHashMs = durationMs;
+    txMetrics.txHashMs = durationUs / 1000;
   }
 
   recordPrivateEffectsInsertion(durationUs: number, type: 'revertible' | 'non-revertible') {
