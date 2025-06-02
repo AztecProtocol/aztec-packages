@@ -1,6 +1,7 @@
 use protocol_types::{
-    hash::compute_siloed_private_log_field, address::AztecAddress,
-    constants::{PRIVATE_LOG_CIPHERTEXT_LEN, MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_PLAINTEXT_LEN},
+    address::AztecAddress,
+    constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN, PUBLIC_LOG_PLAINTEXT_LEN},
+    hash::compute_siloed_private_log_field,
 };
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
@@ -122,7 +123,6 @@ pub unconstrained fn get_log_by_tag_from_contract<let MAX_LOG_PAYLOAD_LEN: u32>(
         }
     }
 }
-
 
 pub(crate) unconstrained fn validate_enqueued_notes(
     contract_address: AztecAddress,
