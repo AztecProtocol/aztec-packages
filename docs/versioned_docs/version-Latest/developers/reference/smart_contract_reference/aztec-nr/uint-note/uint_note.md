@@ -34,10 +34,10 @@ UintNote::get_value(self);
 
 ### partial
 
-/ Creates a partial note that will hide the owner and storage slot but not the value, since the note will be later / completed in public. This is a powerful technique for scenarios in which the value cannot be known in private / (e.g. because it depends on some public state, such as a DEX). /// The returned `PartialUintNote` value must be sent to public execution via a secure channel, since it is not / possible to verify the integrity of its contents due to it hiding information. The recommended ways to do this / are to retrieve it from public storage, or to receive it in an internal public function call. /// Each partial note should only be used once, since otherwise multiple notes would be linked together and known to / belong to the same owner. /// As part of the partial note creation process, a log will be sent to `recipient` from `sender` so that they can / discover the note. `recipient` will typically be the same as `owner`.
+/ Creates a partial note that will hide the owner and storage slot but not the value, since the note will be later / completed in public. This is a powerful technique for scenarios in which the value cannot be known in private / (e.g. because it depends on some public state, such as a DEX). /// This function inserts a partial note validity commitment into the nullifier tree to be later on able to verify / that the partial note and completer are legitimate. See function docs of `compute_validity_commitment` for more / details. /// Each partial note should only be used once, since otherwise multiple notes would be linked together and known to / belong to the same owner. /// As part of the partial note creation process, a log will be sent to `recipient` from `sender` so that they can / discover the note. `recipient` will typically be the same as `owner`.
 
 ```rust
-UintNote::partial(owner, storage_slot, context, recipient, sender, );
+UintNote::partial(owner, storage_slot, context, recipient, sender, completer, );
 ```
 
 #### Parameters
@@ -48,6 +48,7 @@ UintNote::partial(owner, storage_slot, context, recipient, sender, );
 | context | &mut PrivateContext |
 | recipient | AztecAddress |
 | sender | AztecAddress |
+| completer | AztecAddress |
 |  |  |
 
 # UintPartialNotePrivateContent
@@ -90,9 +91,25 @@ UintPartialNotePrivateContent::compute_partial_commitment(self, storage_slot);
 
 ## Methods
 
+### complete
+
+/ Completes the partial note, creating a new note that can be used like any other UintNote.
+
+```rust
+PartialUintNote::complete(self, context, completer, value);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| self |  |
+| context | &mut PublicContext |
+| completer | AztecAddress |
+| value | u128 |
+
 ### compute_validity_commitment
 
-/ Computes a partial note validity commitment. This commitment is stored in public storage when creating the / partial note in private and then is used to check that completer and note are valid upon partial note / completion in public (completer is the entity that can complete the partial note).
+/ Computes a validity commitment for this partial note. The commitment cryptographically binds the note's private / data with the designated completer address. When the note is later completed in public execution, we can load / this commitment from the nullifier tree and verify that both the partial note (e.g. that the storage slot / corresponds to the correct owner, and that we're using the correct state variable) and completer are / legitimate.
 
 ```rust
 PartialUintNote::compute_validity_commitment(self, completer);
@@ -103,21 +120,6 @@ PartialUintNote::compute_validity_commitment(self, completer);
 | --- | --- |
 | self |  |
 | completer | AztecAddress |
-
-### complete
-
-/ Completes the partial note, creating a new note that can be used like any other UintNote.
-
-```rust
-PartialUintNote::complete(self, value, context);
-```
-
-#### Parameters
-| Name | Type |
-| --- | --- |
-| self |  |
-| value | u128 |
-| context | &mut PublicContext |
 
 ### compute_note_completion_log
 

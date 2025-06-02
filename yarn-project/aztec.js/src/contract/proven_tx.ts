@@ -1,4 +1,4 @@
-import { type ProvingTimings, Tx } from '@aztec/stdlib/tx';
+import { type ProvingStats, Tx } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { SentTx } from './sent_tx.js';
@@ -11,7 +11,7 @@ export class ProvenTx extends Tx {
     protected wallet: Wallet,
     tx: Tx,
     // eslint-disable-next-line jsdoc/require-jsdoc
-    public timings?: ProvingTimings,
+    public stats?: ProvingStats,
   ) {
     super(tx.data, tx.clientIvcProof, tx.contractClassLogs, tx.publicFunctionCalldata);
   }

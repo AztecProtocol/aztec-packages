@@ -1,5 +1,11 @@
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
+export type TxPoolOptions = {
+  maxTxPoolSize?: number;
+  txPoolOverflowFactor?: number;
+  archivedTxLimit?: number;
+};
+
 /**
  * Interface of a transaction pool. The pool includes tx requests and is kept up-to-date by a P2P client.
  */
@@ -95,7 +101,7 @@ export interface TxPool {
    * Configure the maximum size of the tx pool
    * @param maxSizeBytes - The maximum size in bytes of the mempool. Set to undefined to disable it
    */
-  setMaxTxPoolSize(maxSizeBytes: number | undefined): Promise<void>;
+  updateConfig(config: TxPoolOptions): void;
 
   /** Returns whether the pool is empty. */
   isEmpty(): Promise<boolean>;
