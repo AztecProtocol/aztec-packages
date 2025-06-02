@@ -163,7 +163,7 @@ export class WriteTransaction extends ReadTransaction {
 
   public override async *iterate(
     startKey: Uint8Array,
-    endKey?: Uint8Array | undefined,
+    endKey?: Uint8Array,
     reverse?: boolean,
     limit?: number,
   ): AsyncIterable<[Uint8Array, Uint8Array]> {
@@ -181,7 +181,7 @@ export class WriteTransaction extends ReadTransaction {
 
   public override async *iterateIndex(
     startKey: Uint8Array,
-    endKey?: Uint8Array | undefined,
+    endKey?: Uint8Array,
     reverse?: boolean,
     limit?: number,
   ): AsyncIterable<[Uint8Array, Uint8Array[]]> {

@@ -42,7 +42,7 @@ import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract }
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -73,7 +73,7 @@ describe('e2e_p2p_add_rollup', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
-        ...SHORTENED_BLOCK_TIME_CONFIG,
+        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
         governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
@@ -286,7 +286,11 @@ describe('e2e_p2p_add_rollup', () => {
     ) => {
       // Bridge assets into the rollup, and consume the message.
       // We are doing some of the things that are in the crosschain harness, but we don't actually want the full thing
-      const pxeService = await createPXEService(node, { ...getPXEServiceConfig(), proverEnabled: false }, true);
+      const pxeService = await createPXEService(
+        node,
+        { ...getPXEServiceConfig(), proverEnabled: false },
+        { useLogSuffix: true },
+      );
       await deployFundedSchnorrAccount(pxeService, aliceAccount, undefined, undefined);
 
       const alice = await getSchnorrWalletWithSecretKey(

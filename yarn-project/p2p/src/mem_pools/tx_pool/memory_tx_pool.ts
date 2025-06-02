@@ -5,7 +5,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
-import type { TxPool } from './tx_pool.js';
+import type { TxPool, TxPoolOptions } from './tx_pool.js';
 
 /**
  * In-memory implementation of the Transaction Pool.
@@ -24,7 +24,10 @@ export class InMemoryTxPool implements TxPool {
    * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
    * @param log - A logger.
    */
-  constructor(telemetry: TelemetryClient = getTelemetryClient(), private log = createLogger('p2p:tx_pool')) {
+  constructor(
+    telemetry: TelemetryClient = getTelemetryClient(),
+    private log = createLogger('p2p:tx_pool'),
+  ) {
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();
@@ -84,6 +87,10 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve(
       Array.from(this.minedTxs.entries()).map(([txHash, blockNumber]) => [TxHash.fromBigInt(txHash), blockNumber]),
     );
+  }
+
+  public getPendingTxCount(): Promise<number> {
+    return Promise.resolve(this.pendingTxs.size);
   }
 
   public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
@@ -183,9 +190,7 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve(Array.from(this.txs.keys()).map(x => TxHash.fromBigInt(x)));
   }
 
-  setMaxTxPoolSize(_maxSizeBytes: number | undefined): Promise<void> {
-    return Promise.resolve();
-  }
+  updateConfig(_config: TxPoolOptions): void {}
 
   markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
     return Promise.resolve();

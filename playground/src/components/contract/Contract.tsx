@@ -155,7 +155,7 @@ const deployedContractCss = css({
   },
 });
 
-const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
+const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_private_state', 'public_dispatch'];
 
 export function ContractComponent() {
   const [currentContract, setCurrentContract] = useState<Contract | null>(null);

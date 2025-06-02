@@ -163,16 +163,16 @@ export class BotRunner implements BotRunnerApi, Traceable {
   @trackSpan('Bot.work')
   async #work() {
     if (this.config.maxPendingTxs > 0) {
-      const pendingTxs = await this.node.getPendingTxs();
-      if (pendingTxs.length >= this.config.maxPendingTxs) {
-        this.log.verbose(`Not sending bot tx since node has ${pendingTxs.length} pending txs`);
+      const pendingTxCount = await this.node.getPendingTxCount();
+      if (pendingTxCount >= this.config.maxPendingTxs) {
+        this.log.verbose(`Not sending bot tx since node has ${pendingTxCount} pending txs`);
         return;
       }
     }
 
     try {
       await this.run();
-    } catch (err) {
+    } catch {
       // Already logged in run()
       if (this.config.maxConsecutiveErrors > 0 && this.consecutiveErrors >= this.config.maxConsecutiveErrors) {
         this.log.error(`Too many errors bot is unhealthy`);

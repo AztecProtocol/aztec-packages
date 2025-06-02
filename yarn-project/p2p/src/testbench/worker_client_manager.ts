@@ -257,7 +257,7 @@ class WorkerClientManager {
       // Try to gracefully stop the process
       try {
         process.send({ type: 'STOP' });
-      } catch (e) {
+      } catch {
         // If sending the message fails, force kill immediately
         clearTimeout(forceKillTimeout);
         try {
@@ -291,7 +291,7 @@ class WorkerClientManager {
                 if (!p.killed) {
                   p.kill('SIGKILL');
                 }
-              } catch (e) {
+              } catch {
                 // Ignore errors when force killing
               }
             });

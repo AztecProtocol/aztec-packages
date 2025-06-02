@@ -47,7 +47,10 @@ export class NoteAndSlot {
 }
 
 export class CountedContractClassLog implements IsEmpty {
-  constructor(public log: ContractClassLog, public counter: number) {}
+  constructor(
+    public log: ContractClassLog,
+    public counter: number,
+  ) {}
 
   static get schema(): ZodFor<CountedContractClassLog> {
     return z
@@ -252,5 +255,5 @@ export function collectNested<T>(
 }
 
 export class PrivateExecutionProfileResult {
-  constructor(public timings: { witgen: number }) {}
+  constructor(public timings: { witgen: number; oracles?: Record<string, { times: number[] }> }) {}
 }

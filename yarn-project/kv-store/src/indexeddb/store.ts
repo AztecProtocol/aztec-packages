@@ -1,6 +1,6 @@
 import type { Logger } from '@aztec/foundation/log';
 
-import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
+import { type DBSchema, type IDBPDatabase, type IDBPTransaction, deleteDB, openDB } from 'idb';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { Key, StoreSize, Value } from '../interfaces/common.js';
@@ -38,9 +38,9 @@ export interface AztecIDBSchema extends DBSchema {
  */
 
 export class AztecIndexedDBStore implements AztecAsyncKVStore {
-  #log: Logger;
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #name: string;
+  #currentTx?: IDBPTransaction<AztecIDBSchema, ['data'], 'readwrite'>;
 
   #containers = new Set<
     | IndexedDBAztecArray<any>
@@ -50,9 +50,12 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     | IndexedDBAztecSingleton<any>
   >();
 
-  constructor(rootDB: IDBPDatabase<AztecIDBSchema>, public readonly isEphemeral: boolean, log: Logger, name: string) {
+  constructor(
+    rootDB: IDBPDatabase<AztecIDBSchema>,
+    public readonly isEphemeral: boolean,
+    name: string,
+  ) {
     this.#rootDB = rootDB;
-    this.#log = log;
     this.#name = name;
   }
   /**
@@ -82,7 +85,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
       },
     });
 
-    const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, log, name);
+    const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, name);
     return kvStore;
   }
 
@@ -151,18 +154,24 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @returns A promise that resolves to the return value of the callback
    */
   async transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
-    const tx = this.#rootDB.transaction('data', 'readwrite');
+    // We can only have one transaction at a time for the same store
+    // So we need to wait for the current one to finish
+    if (this.#currentTx) {
+      await this.#currentTx.done;
+    }
+    this.#currentTx = this.#rootDB.transaction('data', 'readwrite');
     for (const container of this.#containers) {
-      container.db = tx.store;
+      container.db = this.#currentTx.store;
     }
     // Avoid awaiting this promise so it doesn't get scheduled in the next microtask
     // By then, the tx would be closed
     const runningPromise = callback();
     // Wait for the transaction to finish
-    await tx.done;
+    await this.#currentTx.done;
     for (const container of this.#containers) {
       container.db = undefined;
     }
+
     // Return the result of the callback.
     // Tx is guaranteed to already be closed, so the await doesn't hurt anything here
     return await runningPromise;
