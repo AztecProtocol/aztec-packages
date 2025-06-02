@@ -204,9 +204,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   txPoolOverflowFactor: number;
 
   /**
-   * The node's seen cache TTL in minutes
+   * The node's seen message ID cache size
    */
-  seenCacheTTLMinutes: number;
+  seenMessageCacheSize: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -409,10 +409,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'How much the tx pool can overflow before it starts evicting txs. Must be greater than 1',
     ...floatConfigHelper(1.1), // 10% overflow
   },
-  seenCacheTTLMinutes: {
-    env: 'P2P_SEEN_CACHE_TTL_MINUTES',
-    description: 'The number of minutes to keep message IDs in the seen cache.',
-    ...numberConfigHelper(1440), // 24 hours
+  seenMessageCacheSize: {
+    env: 'P2P_SEEN_MSG_CACHE_SIZE',
+    description: 'The number of messages to keep in the seen message cache',
+    ...numberConfigHelper(100_000), // 100K
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,

@@ -1,63 +1,52 @@
 import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
 
 import { MessageSeenValidator } from './msg_seen_validator.js';
 
 describe('MsgSeenValidator', () => {
   let validator: MessageSeenValidator;
-  let currentTime = new Date();
-  const logger = createLogger('p2p:msg_seen_validator_test');
 
   const makeMsgId = () => Fr.random().toString();
 
-  const timeProvider = () => {
-    return currentTime;
-  };
-
-  afterAll(() => {
-    logger.info('Finished test \n\n\n\n');
+  it('throws if created with invalid length', () => {
+    expect(() => new MessageSeenValidator(0)).toThrow('Queue length must be greater than 0');
+    expect(() => new MessageSeenValidator(-1)).toThrow('Queue length must be greater than 0');
   });
 
   it('adds a message successfully', () => {
-    validator = new MessageSeenValidator(60); // 1 hour TTL
+    validator = new MessageSeenValidator(10); // 10 messages max
     const msgId = makeMsgId();
     expect(validator.addMessage(msgId)).toBe(true);
   });
 
-  it('fails to add a message that has already been seen within the time window', () => {
-    validator = new MessageSeenValidator(60); // 1 hour TTL
+  it('fails to add a message that is already in the queue', () => {
+    validator = new MessageSeenValidator(10); // 10 messages max
     const msgId = makeMsgId();
     validator.addMessage(msgId);
     // should fail
     expect(validator.addMessage(msgId)).toBe(false);
   });
 
-  it('adds a duplicate message after the time limit', () => {
-    validator = new MessageSeenValidator(60, timeProvider); // 1 hour TTL
+  it('adds a duplicate message after it has exited the queue', () => {
+    validator = new MessageSeenValidator(10); // 10 messages max
     const msgId = makeMsgId();
-    currentTime = new Date();
+
     expect(validator.addMessage(msgId)).toBe(true);
 
-    currentTime = new Date(currentTime.getTime() + (61 * 60 + 1) * 1000); // 1 hour, 1 minute and 1 second later
-    expect(validator.addMessage(msgId)).toBe(true);
-  });
+    // Can't add the message again
+    expect(validator.addMessage(msgId)).toBe(false);
 
-  it('adds multiple messages', () => {
-    validator = new MessageSeenValidator(5, timeProvider); // 5 minutes TTL
-
-    const messageIDs = Array.from({ length: 5 }, () => makeMsgId());
-
-    for (let i = 0; i < 5; i++) {
-      const msgId = messageIDs[i];
-      expect(validator.addMessage(msgId)).toBe(true);
-      // can't add the first message again
-      expect(validator.addMessage(messageIDs[0])).toBe(false);
-      currentTime = new Date(currentTime.getTime() + 61 * 1000); // 1 minute, 1 second later
+    // add 9 more messages
+    for (let i = 0; i < 9; i++) {
+      expect(validator.addMessage(makeMsgId())).toBe(true);
     }
-    // still can't add the first ID again
-    expect(validator.addMessage(messageIDs[0])).toBe(false);
-    // now move on 1 minute and we can
-    currentTime = new Date(currentTime.getTime() + 60 * 1000);
-    expect(validator.addMessage(messageIDs[0])).toBe(true);
+
+    // Still can't add the message
+    expect(validator.addMessage(msgId)).toBe(false);
+
+    // Now add one more
+    expect(validator.addMessage(makeMsgId())).toBe(true);
+
+    // now we should be able to add the first message again
+    expect(validator.addMessage(msgId)).toBe(true);
   });
 });

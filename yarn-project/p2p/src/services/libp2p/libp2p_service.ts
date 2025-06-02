@@ -81,7 +81,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private jobQueue: SerialQueue = new SerialQueue();
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
-  private msgIdSeenValidator: MessageSeenValidator;
+  private msgIdSeenValidators: Record<TopicType, MessageSeenValidator> = {} as Record<TopicType, MessageSeenValidator>;
 
   // Message validators
   private attestationValidator: AttestationValidator;
@@ -122,7 +122,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   ) {
     super(telemetry, 'LibP2PService');
 
-    this.msgIdSeenValidator = new MessageSeenValidator(config.seenCacheTTLMinutes);
+    this.msgIdSeenValidators[TopicType.tx] = new MessageSeenValidator(config.seenMessageCacheSize);
+    this.msgIdSeenValidators[TopicType.block_proposal] = new MessageSeenValidator(config.seenMessageCacheSize);
+    this.msgIdSeenValidators[TopicType.block_attestation] = new MessageSeenValidator(config.seenMessageCacheSize);
 
     const versions = getVersions(config);
     this.protocolVersion = compressComponentVersions(versions);
@@ -498,6 +500,28 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return result.recipients.length;
   }
 
+  protected preValidateReceivedMessage(msg: Message, msgId: string, source: PeerId) {
+    const getValidator = () => {
+      if (msg.topic === this.topicStrings[TopicType.tx]) {
+        return this.msgIdSeenValidators[TopicType.tx];
+      }
+      if (msg.topic === this.topicStrings[TopicType.block_attestation]) {
+        return this.msgIdSeenValidators[TopicType.block_attestation];
+      }
+      if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
+        return this.msgIdSeenValidators[TopicType.block_proposal];
+      }
+    };
+
+    const validator = getValidator();
+
+    if (!validator || !validator.addMessage(msgId)) {
+      this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
+      return false;
+    }
+    return true;
+  }
+
   /**
    * Handles a new gossip message that was received by the client.
    * @param topic - The message's topic.
@@ -512,8 +536,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       messageId: p2pMessage.id,
       messageLatency,
     });
-    if (!this.msgIdSeenValidator.addMessage(msgId)) {
-      this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
+
+    if (!this.preValidateReceivedMessage(msg, msgId, source)) {
       return;
     }
 
