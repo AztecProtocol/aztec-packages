@@ -1,6 +1,7 @@
 import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK } from '@aztec/constants';
 import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Field, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 // Importing directly from 'c-kzg' does not work:
 import cKzg from 'c-kzg';
@@ -10,7 +11,7 @@ import { Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
 const { computeKzgProof, verifyKzgProof } = cKzg;
 
 /**
- * A class to create, manage, and prove EVM blobs.
+ * A class to create, manage, and prove batched EVM blobs.
  */
 export class BatchedBlob {
   constructor(
@@ -44,29 +45,21 @@ export class BatchedBlob {
         `Too many blobs (${numBlobs}) sent to batch(). The maximum is ${BLOBS_PER_BLOCK * AZTEC_MAX_EPOCH_DURATION}.`,
       );
     }
-    const { z, gamma } = await this.precomputeBatchedBlobChallenges(blobs);
-    // Now we have the precalculated values (z and gamma), we can create a multi opening proof of all input blobs:
-    let acc = await BatchedBlobAccumulator.initialize(blobs[0], z, BLS12Fr.fromBN254Fr(gamma));
-    // We start at i = 1, because we have initialized using the first blob:
-    for (let i = 1; i < blobs.length; i++) {
-      acc = await acc.accumulate(blobs[i]);
-    }
-    // All values in acc are final, apart from gamma := poseidon2(gammaAcc, z):
-    const calculatedGamma = await poseidon2Hash([acc.gammaAcc, z]);
-    // Check final values:
-    if (!acc.zAcc.equals(z)) {
-      throw new Error(`Blob batching mismatch: accumulated z ${acc.zAcc} does not equal injected z ${z}`);
-    }
-    if (!calculatedGamma.equals(gamma)) {
-      throw new Error(
-        `Blob batching mismatch: accumulated gamma ${calculatedGamma} does not equal injected gamma ${gamma}`,
-      );
-    }
-    if (!verifyKzgProof(acc.cAcc.compress(), acc.zAcc.toBuffer(), acc.yAcc.toBuffer(), acc.qAcc.compress())) {
-      throw new Error(`KZG proof did not verify.`);
-    }
+    // Precalculate the values (z and gamma) and initialize the accumulator:
+    let acc = await this.newAccumulator(blobs);
+    // Now we can create a multi opening proof of all input blobs:
+    acc = await acc.accumulateBlobs(blobs);
+    return await acc.finalize();
+  }
 
-    return new BatchedBlob(acc.blobCommitmentsHashAcc, acc.zAcc, acc.yAcc, acc.cAcc, acc.qAcc);
+  /**
+   * Returns an empty BatchedBlobAccumulator with precomputed challenges from all blobs in the epoch.
+   * @dev MUST input all blobs to be broadcast. Does not work in multiple calls because z and gamma are calculated
+   *      beforehand from ALL blobs.
+   */
+  static async newAccumulator(blobs: Blob[]): Promise<BatchedBlobAccumulator> {
+    const finalBlobChallenges = await this.precomputeBatchedBlobChallenges(blobs);
+    return BatchedBlobAccumulator.newWithChallenges(finalBlobChallenges);
   }
 
   /**
@@ -79,7 +72,7 @@ export class BatchedBlob {
    *    - used such that y = sum_i { gamma^i * y_i }, and C = sum_i { gamma^i * C_i }, for all blob evaluations y_i (see above) and commitments C_i.
    * @returns Challenges z and gamma.
    */
-  static async precomputeBatchedBlobChallenges(blobs: Blob[]): Promise<{ z: Fr; gamma: Fr }> {
+  static async precomputeBatchedBlobChallenges(blobs: Blob[]): Promise<FinalBlobBatchingChallenges> {
     // We need to precompute the final challenge values to evaluate the blobs.
     let z = blobs[0].challengeZ;
     // We start at i = 1, because z is initialised as the first blob's challenge.
@@ -97,7 +90,21 @@ export class BatchedBlob {
     }
     gamma = await poseidon2Hash([gamma, z]);
 
-    return { z, gamma };
+    return new FinalBlobBatchingChallenges(z, BLS12Fr.fromBN254Fr(gamma));
+  }
+
+  static async precomputeEmptyBatchedBlobChallenges(): Promise<FinalBlobBatchingChallenges> {
+    const blobs = [await Blob.fromFields([])];
+    // We need to precompute the final challenge values to evaluate the blobs.
+    const z = blobs[0].challengeZ;
+    // Now we have a shared challenge for all blobs, evaluate them...
+    const proofObjects = blobs.map(b => computeKzgProof(b.data, z.toBuffer()));
+    const evaluations = proofObjects.map(([_, evaluation]) => BLS12Fr.fromBuffer(Buffer.from(evaluation)));
+    // ...and find the challenge for the linear combination of blobs.
+    let gamma = await hashNoirBigNumLimbs(evaluations[0]);
+    gamma = await poseidon2Hash([gamma, z]);
+
+    return new FinalBlobBatchingChallenges(z, BLS12Fr.fromBN254Fr(gamma));
   }
 
   // Returns ethereum's versioned blob hash, following kzg_to_versioned_hash: https://eips.ethereum.org/EIPS/eip-4844#helpers
@@ -137,7 +144,46 @@ export class BatchedBlob {
 }
 
 /**
- * See nr BlobAccumulatorPublicInputs for more info (TODO(MW): doc)
+ * Final values z and gamma are injected into each block root circuit. We ensure they are correct by:
+ * - Checking equality in each block merge circuit and propagating up
+ * - Checking final z_acc == z in root circuit
+ * - Checking final gamma_acc == gamma in root circuit
+ *
+ *  - z = H(...H(H(z_0, z_1) z_2)..z_n)
+ *    - where z_i = H(H(fields of blob_i), C_i),
+ *    - used such that p_i(z) = y_i = Blob.evaluationY for all n blob polynomials p_i().
+ *  - gamma = H(H(...H(H(y_0, y_1) y_2)..y_n), z)
+ *    - used such that y = sum_i { gamma^i * y_i }, and C = sum_i { gamma^i * C_i }
+ *      for all blob evaluations y_i (see above) and commitments C_i.
+ *
+ * Iteratively calculated by BlobAccumulatorPublicInputs.accumulate() in nr. See also precomputeBatchedBlobChallenges() above.
+ */
+export class FinalBlobBatchingChallenges {
+  constructor(
+    public readonly z: Fr,
+    public readonly gamma: BLS12Fr,
+  ) {}
+
+  equals(other: FinalBlobBatchingChallenges) {
+    return this.z.equals(other.z) && this.gamma.equals(other.gamma);
+  }
+
+  static empty(): FinalBlobBatchingChallenges {
+    return new FinalBlobBatchingChallenges(Fr.ZERO, BLS12Fr.ZERO);
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): FinalBlobBatchingChallenges {
+    const reader = BufferReader.asReader(buffer);
+    return new FinalBlobBatchingChallenges(Fr.fromBuffer(reader), reader.readObject(BLS12Fr));
+  }
+
+  toBuffer() {
+    return serializeToBuffer(this.z, this.gamma);
+  }
+}
+
+/**
+ * See noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching_public_inputs.nr -> BlobAccumulatorPublicInputs
  */
 export class BatchedBlobAccumulator {
   constructor(
@@ -159,19 +205,30 @@ export class BatchedBlobAccumulator {
     public readonly gammaAcc: Fr,
     /** Simply gamma^(i + 1) at blob i. Used for calculating the i'th element of the above linear comb.s */
     public readonly gammaPow: BLS12Fr,
-    /** Final challenge values used in evaluation. Optimistically input here and checked in the final acc. */
-    public readonly finalZ: Fr,
-    public readonly finalGamma: BLS12Fr,
+    /** Final challenge values used in evaluation. Optimistically input and checked in the final acc. */
+    public readonly finalBlobChallenges: FinalBlobBatchingChallenges,
   ) {}
 
   /**
    * Init the first accumulation state of the epoch.
    * We assume the input blob has not been evaluated at z.
+   *
+   * First state of the accumulator:
+   * - v_acc := sha256(C_0)
+   * - z_acc := z_0
+   * - y_acc := gamma^0 * y_0 = y_0
+   * - c_acc := gamma^0 * c_0 = c_0
+   * - gamma_acc := poseidon2(y_0.limbs)
+   * - gamma^(i + 1) = gamma^1 = gamma // denoted gamma_pow_acc
+   *
    * TODO(MW): When moved to batching, we should ONLY evaluate individual blobs at z => won't need finalZ input.
    * @returns An initial blob accumulator.
    */
-  static async initialize(blob: Blob, finalZ: Fr, finalGamma: BLS12Fr): Promise<BatchedBlobAccumulator> {
-    const [q, evaluation] = computeKzgProof(blob.data, finalZ.toBuffer());
+  static async initialize(
+    blob: Blob,
+    finalBlobChallenges: FinalBlobBatchingChallenges,
+  ): Promise<BatchedBlobAccumulator> {
+    const [q, evaluation] = computeKzgProof(blob.data, finalBlobChallenges.z.toBuffer());
     const firstY = BLS12Fr.fromBuffer(Buffer.from(evaluation));
     // Here, i = 0, so:
     return new BatchedBlobAccumulator(
@@ -180,10 +237,26 @@ export class BatchedBlobAccumulator {
       firstY, // yAcc = gamma^0 * y_0 = 1 * y_0
       BLS12Point.decompress(blob.commitment), // cAcc = gamma^0 * C_0 = 1 * C_0
       BLS12Point.decompress(Buffer.from(q)), // qAcc = gamma^0 * Q_0 = 1 * Q_0
-      await hashNoirBigNumLimbs(firstY), // gammaAcc = posiedon2(y_0.limbs)
-      finalGamma, // gammaPow = gamma^(i + 1) = gamma^1 = gamma
-      finalZ,
-      finalGamma,
+      await hashNoirBigNumLimbs(firstY), // gammaAcc = poseidon2(y_0.limbs)
+      finalBlobChallenges.gamma, // gammaPow = gamma^(i + 1) = gamma^1 = gamma
+      finalBlobChallenges,
+    );
+  }
+
+  /**
+   * Create the empty accumulation state of the epoch.
+   * @returns An empty blob accumulator with challenges.
+   */
+  static newWithChallenges(finalBlobChallenges: FinalBlobBatchingChallenges): BatchedBlobAccumulator {
+    return new BatchedBlobAccumulator(
+      Fr.ZERO,
+      Fr.ZERO,
+      BLS12Fr.ZERO,
+      BLS12Point.ZERO,
+      BLS12Point.ZERO,
+      Fr.ZERO,
+      BLS12Fr.ZERO,
+      finalBlobChallenges,
     );
   }
 
@@ -194,20 +267,83 @@ export class BatchedBlobAccumulator {
    * @returns An updated blob accumulator.
    */
   async accumulate(blob: Blob) {
-    const [q, evaluation] = computeKzgProof(blob.data, this.finalZ.toBuffer());
-    const thisY = BLS12Fr.fromBuffer(Buffer.from(evaluation));
+    if (this.isEmptyState()) {
+      return BatchedBlobAccumulator.initialize(blob, this.finalBlobChallenges);
+    } else {
+      const [q, evaluation] = computeKzgProof(blob.data, this.finalBlobChallenges.z.toBuffer());
+      const thisY = BLS12Fr.fromBuffer(Buffer.from(evaluation));
 
-    // Moving from i - 1 to i, so:
-    return new BatchedBlobAccumulator(
-      sha256ToField([this.blobCommitmentsHashAcc, blob.commitment]), // blobCommitmentsHashAcc := sha256(blobCommitmentsHashAcc, C_i)
-      await poseidon2Hash([this.zAcc, blob.challengeZ]), // zAcc := poseidon2(zAcc, z_i)
-      this.yAcc.add(thisY.mul(this.gammaPow)), // yAcc := yAcc + (gamma^i * y_i)
-      this.cAcc.add(BLS12Point.decompress(blob.commitment).mul(this.gammaPow)), // cAcc := cAcc + (gamma^i * C_i)
-      this.qAcc.add(BLS12Point.decompress(Buffer.from(q)).mul(this.gammaPow)), // qAcc := qAcc + (gamma^i * C_i)
-      await poseidon2Hash([this.gammaAcc, await hashNoirBigNumLimbs(thisY)]), // gammaAcc := poseidon2(gammaAcc, poseidon2(y_i.limbs))
-      this.gammaPow.mul(this.finalGamma), // gammaPow = gamma^(i + 1) = gamma^i * final_gamma
-      this.finalZ,
-      this.finalGamma,
+      // Moving from i - 1 to i, so:
+      return new BatchedBlobAccumulator(
+        sha256ToField([this.blobCommitmentsHashAcc, blob.commitment]), // blobCommitmentsHashAcc := sha256(blobCommitmentsHashAcc, C_i)
+        await poseidon2Hash([this.zAcc, blob.challengeZ]), // zAcc := poseidon2(zAcc, z_i)
+        this.yAcc.add(thisY.mul(this.gammaPow)), // yAcc := yAcc + (gamma^i * y_i)
+        this.cAcc.add(BLS12Point.decompress(blob.commitment).mul(this.gammaPow)), // cAcc := cAcc + (gamma^i * C_i)
+        this.qAcc.add(BLS12Point.decompress(Buffer.from(q)).mul(this.gammaPow)), // qAcc := qAcc + (gamma^i * C_i)
+        await poseidon2Hash([this.gammaAcc, await hashNoirBigNumLimbs(thisY)]), // gammaAcc := poseidon2(gammaAcc, poseidon2(y_i.limbs))
+        this.gammaPow.mul(this.finalBlobChallenges.gamma), // gammaPow = gamma^(i + 1) = gamma^i * final_gamma
+        this.finalBlobChallenges,
+      );
+    }
+  }
+
+  /**
+   * Given blobs, accumulate all state.
+   * We assume the input blobs have not been evaluated at z.
+   * @returns An updated blob accumulator.
+   */
+  async accumulateBlobs(blobs: Blob[]) {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    let acc: BatchedBlobAccumulator = this; // TODO(MW): this.clone()
+    for (let i = 0; i < blobs.length; i++) {
+      acc = await acc.accumulate(blobs[i]);
+    }
+    return acc;
+  }
+
+  /**
+   * Finalize accumulation state of the epoch.
+   * We assume ALL blobs in the epoch have been accumulated.
+   *
+   * Final accumulated values:
+   * - v := v_acc (hash of all commitments (C_i s) to be checked on L1)
+   * - z := z_acc (final challenge, at which all blobs are evaluated)
+   * - y := y_acc (final opening to be checked on L1)
+   * - c := c_acc (final commitment to be checked on L1)
+   * - gamma := poseidon2(gamma_acc, z) (challenge for linear combination of y and C, above)
+   *
+   * @returns A batched blob.
+   */
+  async finalize(): Promise<BatchedBlob> {
+    // All values in acc are final, apart from gamma := poseidon2(gammaAcc, z):
+    const calculatedGamma = await poseidon2Hash([this.gammaAcc, this.zAcc]);
+    // Check final values:
+    if (!this.zAcc.equals(this.finalBlobChallenges.z)) {
+      throw new Error(
+        `Blob batching mismatch: accumulated z ${this.zAcc} does not equal injected z ${this.finalBlobChallenges.z}`,
+      );
+    }
+    if (!calculatedGamma.equals(this.finalBlobChallenges.gamma.toBN254Fr())) {
+      throw new Error(
+        `Blob batching mismatch: accumulated gamma ${calculatedGamma} does not equal injected gamma ${this.finalBlobChallenges.gamma.toBN254Fr()}`,
+      );
+    }
+    if (!verifyKzgProof(this.cAcc.compress(), this.zAcc.toBuffer(), this.yAcc.toBuffer(), this.qAcc.compress())) {
+      throw new Error(`KZG proof did not verify.`);
+    }
+
+    return new BatchedBlob(this.blobCommitmentsHashAcc, this.zAcc, this.yAcc, this.cAcc, this.qAcc);
+  }
+
+  isEmptyState() {
+    return (
+      this.blobCommitmentsHashAcc.isZero() &&
+      this.zAcc.isZero() &&
+      this.yAcc.isZero() &&
+      this.cAcc.isZero() &&
+      this.qAcc.isZero() &&
+      this.gammaAcc.isZero() &&
+      this.gammaPow.isZero()
     );
   }
 }

@@ -73,10 +73,12 @@ pub fn evaluate_blobs_and_batch(
         let is_empty_blob = sponge_blob.fields <= i * FIELDS_PER_BLOB;
         if (!y_i.is_zero()) & (!is_empty_blob) {
             // Only accumulate if the blob is non empty
-            if is_empty(end_accumulator) {
+            if (is_empty(end_accumulator)) & (i == 0) {
                 // Init only if accumulator is empty:
                 //  - This will be checked in root, where the left input's start acc will be constrained to be zero
                 //  - No other accs can be zero since each block_merge checks left's end acc == right's start acc
+                // This can only happen at blob i = 0 for the first block of the epoch. Note: i == 0 was only added above in the hope
+                // that noir would be able to optimise out init gates for i > 0!
                 end_accumulator = BlobAccumulatorPublicInputs::init(
                     BlobAccumulationInputs { z_i, y_i, c_i },
                     final_blob_challenges.gamma,
@@ -161,7 +163,7 @@ mod tests {
 
         assert_eq(final_acc.z, final_challenges.z);
         // Since i = 1, gamma_pow = gamma^1 = gamma:
-        assert_eq(res.gamma_pow, final_challenges.gamma);
+        assert_eq(res.gamma_pow_acc, final_challenges.gamma);
 
         // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
         let expected_y: F = F::from_limbs([
@@ -270,7 +272,7 @@ mod tests {
 
         assert_eq(final_acc.z, final_challenges.z);
         assert_eq(
-            output.gamma_pow,
+            output.gamma_pow_acc,
             final_challenges.gamma.__pow(F::from(BLOBS_PER_BLOCK as Field)),
         );
 
