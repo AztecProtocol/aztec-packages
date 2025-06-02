@@ -5,7 +5,7 @@ use crate::{
     },
     base::components::{
         archive::perform_archive_membership_check, constants::validate_combined_constant_data,
-        fees::compute_effective_gas_fees, PublicTubeDataValidator,
+        PublicTubeDataValidator,
     },
     components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
@@ -93,23 +93,11 @@ impl PublicBaseRollupInputs {
         }
     }
 
-    fn validate_avm_effective_gas_fees(self) {
-        assert_eq(
-            compute_effective_gas_fees(
-                self.constants.global_variables.gas_fees,
-                self.tube_data.public_inputs.constants.tx_context.gas_settings,
-            ),
-            self.avm_proof_data.public_inputs.effective_gas_fees,
-            "incorrect effective gas fees used in the AVM",
-        );
-    }
-
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
         tube_data_validator.validate_proof();
         tube_data_validator.validate_with_rollup_data(self.constants);
         tube_data_validator.validate_with_avm_data(self.avm_proof_data.public_inputs);
-        self.validate_avm_effective_gas_fees();
 
         // TODO(#8470)
         if !dep::std::runtime::is_unconstrained() {
@@ -817,10 +805,11 @@ mod tests {
         builder.succeeds();
     }
 
-    #[test(should_fail_with = "incorrect effective gas fees used in the AVM")]
-    unconstrained fn wrong_effective_gas_fees() {
+    #[test(should_fail_with = "unexpected effective gas fees used in the AVM")]
+    unconstrained fn wrong_avm_effective_gas_fees() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.constants.global_variables.gas_fees = GasFees::new(100, 100);
+        builder.avm_data.global_variables.gas_fees = builder.constants.global_variables.gas_fees;
 
         let gas_settings = GasSettings {
             gas_limits: Gas::new(1000, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
