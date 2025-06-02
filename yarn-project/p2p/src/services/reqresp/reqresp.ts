@@ -666,16 +666,19 @@ export class ReqResp {
         errorStatus = e.status;
       }
 
-      const sendErrorChunk = this.sendErrorChunk(errorStatus);
-
-      // Return and yield the response chunk
-      await pipe(
-        stream,
-        async function* (_source: any) {
-          yield* sendErrorChunk;
-        },
-        stream,
-      );
+      if (stream.status === 'open') {
+        const sendErrorChunk = this.sendErrorChunk(errorStatus);
+        // Return and yield the response chunk
+        await pipe(
+          stream,
+          async function* (_source: any) {
+            yield* sendErrorChunk;
+          },
+          stream,
+        );
+      } else {
+        this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
+      }
     } finally {
       //NOTE: All other status codes indicate closed stream.
       //Either graceful close (closed/closing) or forced close (aborted/reset)
