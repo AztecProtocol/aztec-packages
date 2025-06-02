@@ -190,16 +190,22 @@ pub(crate) mod tests {
         let expected_gamma_acc = poseidon2_hash(output
             .blob_public_inputs
             .end_blob_accumulator
-            .y
+            .y_acc
             .get_limbs()
             .map(|l| l as Field));
 
         // We have a single blob, so the accumulated outputs are just those after a single evaluation:
-        assert_eq(output.blob_public_inputs.end_blob_accumulator.z, expected_challenge_z);
-        assert_eq(output.blob_public_inputs.end_blob_accumulator.z, expected_challenge_z_fixture);
-        assert_eq(output.blob_public_inputs.end_blob_accumulator.c, injected_blob_commitment.point);
+        assert_eq(output.blob_public_inputs.end_blob_accumulator.z_acc, expected_challenge_z);
+        assert_eq(
+            output.blob_public_inputs.end_blob_accumulator.z_acc,
+            expected_challenge_z_fixture,
+        );
+        assert_eq(
+            output.blob_public_inputs.end_blob_accumulator.c_acc,
+            injected_blob_commitment.point,
+        );
         assert_eq(injected_blob_commitment_fields, expected_blob_commitment_fields_fixture);
-        assert_eq(output.blob_public_inputs.end_blob_accumulator.gamma, expected_gamma_acc);
+        assert_eq(output.blob_public_inputs.end_blob_accumulator.gamma_acc, expected_gamma_acc);
     }
 
     // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob_batching.test.ts -> 'should construct and verify a batch of 3 full blobs'
@@ -285,7 +291,7 @@ pub(crate) mod tests {
         let output = builder.execute();
         let final_acc = output.blob_public_inputs.end_blob_accumulator;
 
-        assert_eq(final_acc.z, builder.inputs.final_blob_challenges.z);
+        assert_eq(final_acc.z_acc, builder.inputs.final_blob_challenges.z);
 
         // y is a BLS Fr field with value 0x0cd2fd9a46ba70fd7f212d08ec7283024b0b1ff9446b1f78a482fb7443e49b57
         let expected_y_limbs =
@@ -319,9 +325,9 @@ pub(crate) mod tests {
         let expected_blob_commitments_hash =
             0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
 
-        assert_eq(final_acc.y.get_limbs(), expected_y_limbs);
-        assert_eq(final_acc.c, expected_c);
-        assert_eq(final_acc.blob_commitments_hash, expected_blob_commitments_hash);
+        assert_eq(final_acc.y_acc.get_limbs(), expected_y_limbs);
+        assert_eq(final_acc.c_acc, expected_c);
+        assert_eq(final_acc.blob_commitments_hash_acc, expected_blob_commitments_hash);
     }
 
     #[test(should_fail_with = "block's first blob sponge was not empty")]
