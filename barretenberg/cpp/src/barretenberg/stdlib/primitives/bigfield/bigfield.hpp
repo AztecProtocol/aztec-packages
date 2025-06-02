@@ -401,11 +401,6 @@ template <typename Builder, typename T> class bigfield {
     bigfield operator-(const bigfield& other) const;
     bigfield operator*(const bigfield& other) const;
 
-    /**
-     * FOR TESTING PURPOSES ONLY DO NOT USE THIS IN PRODUCTION CODE FOR THE LOVE OF GOD!
-     **/
-    bigfield bad_mul(const bigfield& other) const;
-
     bigfield operator/(const bigfield& other) const;
     bigfield operator-() const { return bigfield(get_context(), uint256_t(0)) - *this; }
 
