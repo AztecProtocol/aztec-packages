@@ -59,6 +59,9 @@ You can now interact with the deployed contract using the web app:
 You can also run the E2E tests:
 
 ```sh
+# Install playwright browsers
+yarn playwright install --with-deps
+
 yarn test
 ```
 

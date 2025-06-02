@@ -6,6 +6,9 @@ import Dotenv from 'dotenv-webpack';
 const require = createRequire(import.meta.url);
 
 export default (_, argv) => ({
+  target: 'web',
+  devtool: 'source-map',
+  mode: argv.mode || 'development',
   entry: {
     main: './app/main.ts',
   },
