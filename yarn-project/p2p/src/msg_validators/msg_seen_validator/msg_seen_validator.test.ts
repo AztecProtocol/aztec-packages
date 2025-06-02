@@ -49,4 +49,13 @@ describe('MsgSeenValidator', () => {
     // now we should be able to add the first message again
     expect(validator.addMessage(msgId)).toBe(true);
   });
+
+  it('can take many more messages than the queue length', () => {
+    validator = new MessageSeenValidator(10); // 10 messages max
+
+    // add 1000 messages
+    for (let i = 0; i < 1000; i++) {
+      expect(validator.addMessage(makeMsgId())).toBe(true);
+    }
+  });
 });
