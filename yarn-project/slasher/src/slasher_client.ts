@@ -348,15 +348,22 @@ export class SlasherClient {
 
     await this.slashingProposer
       .executeRound(this.l1TxUtils, round)
-      .then(() => {
-        this.log.info('Round executed', { round });
+      .then(({ receipt }) => {
+        this.log.info('Round executed', { round, receipt });
+        this.log.info('Round executed', { round, receipt });
       })
       .catch(err => {
         if (err instanceof ProposalAlreadyExecutedError) {
           this.log.debug('Round already executed', { round });
           return;
+        } else {
+          this.log.error('Error executing round', err);
+          this.log.error('Error executing round', err);
+          this.log.error('Error executing round', err);
+          this.log.error('Error executing round', err);
+          this.log.error('Error executing round', err);
+          throw err;
         }
-        throw err;
       });
   }
 
