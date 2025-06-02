@@ -89,8 +89,13 @@ export class TxCollector {
     }
 
     // This will request from the network any txs that are missing
-    const retrievedTxs = await this.p2pClient.getTxsByHash(txHashes, peerWhoSentTheProposal);
-    const missingTxs = compactArray(retrievedTxs.map((tx, index) => (tx === undefined ? txHashes[index] : undefined)));
-    return { txs: retrievedTxs as Tx[], missing: missingTxs };
+    // NOTE: this could still return missing txs so we need to (1) be careful to handle undefined and (2) keep the txs in the correct order for re-execution
+    const maybeRetrievedTxs = await this.p2pClient.getTxsByHash(txHashes, peerWhoSentTheProposal);
+    const missingTxs = compactArray(
+      maybeRetrievedTxs.map((tx, index) => (tx === undefined ? txHashes[index] : undefined)),
+    );
+    // if we found all txs, this is a noop. If we didn't find all txs then validate the ones we did find and tell the validator to skip attestations because missingTxs.length > 0
+    const retrievedTxs = compactArray(maybeRetrievedTxs);
+    return { txs: retrievedTxs, missing: missingTxs };
   }
 }
