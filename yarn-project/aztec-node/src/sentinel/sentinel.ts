@@ -48,6 +48,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       | 'slashInactivityCreateTargetPercentage'
       | 'slashInactivityCreatePenalty'
       | 'slashInactivitySignalTargetPercentage'
+      | 'slashInactivityMaxPenalty'
       | 'slashPayloadTtlSeconds'
     >,
     protected logger = createLogger('node:sentinel'),
@@ -175,18 +176,29 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
   }
 
-  public async shouldSlash(validator: `0x${string}`, _amount: bigint, _offense: Offence): Promise<boolean> {
+  public async shouldSlash(validator: `0x${string}`, amount: bigint, _offense: Offence): Promise<boolean> {
     const l1Constants = this.epochCache.getL1Constants();
     const ttlL2Slots = this.config.slashPayloadTtlSeconds / l1Constants.slotDuration;
     const ttlEpochs = BigInt(Math.ceil(ttlL2Slots / l1Constants.epochDuration));
 
     const currentEpoch = this.epochCache.getEpochAndSlotNow().epoch;
     const performance = await this.store.getProvenPerformance(EthAddress.fromString(validator));
-    return (
+    const isCriminal =
       performance
         .filter(p => p.epoch >= currentEpoch - ttlEpochs)
-        .findIndex(p => p.missed / p.total >= this.config.slashInactivitySignalTargetPercentage) !== -1
-    );
+        .findIndex(p => p.missed / p.total >= this.config.slashInactivitySignalTargetPercentage) !== -1;
+    if (isCriminal) {
+      if (amount <= this.config.slashInactivityMaxPenalty) {
+        return true;
+      } else {
+        this.logger.warn(`Validator ${validator} is a criminal but the penalty is too high`, {
+          amount,
+          maxPenalty: this.config.slashInactivityMaxPenalty,
+        });
+        return false;
+      }
+    }
+    return false;
   }
 
   /**

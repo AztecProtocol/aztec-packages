@@ -49,11 +49,13 @@ describe('sentinel', () => {
     | 'slashInactivityCreateTargetPercentage'
     | 'slashInactivityCreatePenalty'
     | 'slashInactivitySignalTargetPercentage'
+    | 'slashInactivityMaxPenalty'
     | 'slashPayloadTtlSeconds'
   > = {
     slashInactivityCreatePenalty: 100n,
     slashInactivityCreateTargetPercentage: 0.8,
     slashInactivitySignalTargetPercentage: 0.6,
+    slashInactivityMaxPenalty: 100n,
     slashPayloadTtlSeconds: 60 * 60,
   };
 
@@ -362,6 +364,7 @@ class TestSentinel extends Sentinel {
       | 'slashInactivityCreateTargetPercentage'
       | 'slashInactivityCreatePenalty'
       | 'slashInactivitySignalTargetPercentage'
+      | 'slashInactivityMaxPenalty'
       | 'slashPayloadTtlSeconds'
     >,
     protected override blockStream: L2BlockStream,

@@ -20,7 +20,7 @@ describe('EpochPruneWatcher', () => {
   beforeEach(async () => {
     l2BlockSource = new EventEmitter() as unknown as L2BlockSourceEventEmitter;
     epochCache = mock<EpochCache>();
-    watcher = new EpochPruneWatcher(l2BlockSource, epochCache, penalty);
+    watcher = new EpochPruneWatcher(l2BlockSource, epochCache, penalty, penalty);
     await watcher.start();
   });
 

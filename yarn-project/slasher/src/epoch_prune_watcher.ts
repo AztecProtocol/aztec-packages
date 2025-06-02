@@ -19,6 +19,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     private l2BlockSource: L2BlockSourceEventEmitter,
     private epochCache: EpochCache,
     private penalty: bigint,
+    private maxPenalty: bigint,
   ) {
     super();
     this.log.info('EpochPruneWatcher initialized');
@@ -84,7 +85,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
 
   public shouldSlash(validator: `0x${string}`, amount: bigint, _offense: Offence): Promise<boolean> {
     for (const epoch of this.prunedEpochs.keys()) {
-      if (this.wantToSlashForEpoch(validator, amount, epoch)) {
+      if (this.wantToSlashForEpoch(validator, amount, epoch) && amount <= this.maxPenalty) {
         return Promise.resolve(true);
       }
     }
