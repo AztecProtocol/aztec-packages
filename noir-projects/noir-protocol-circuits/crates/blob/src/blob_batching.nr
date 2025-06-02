@@ -5,7 +5,7 @@ use crate::{
     },
     blob_batching_public_inputs::{
         BatchingBlobCommitment, BlobAccumulationInputs, BlobAccumulatorPublicInputs, BLSPoint,
-        compress_to_blob_commitment,
+        compress_to_blob_commitment, FinalBlobBatchingChallenges,
     },
     blob_public_inputs::BlobCommitment,
 };
@@ -48,8 +48,7 @@ pub fn evaluate_blobs_and_batch(
     blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
     kzg_commitments_points: [BLSPoint; BLOBS_PER_BLOCK],
     mut sponge_blob: SpongeBlob,
-    challenge_z: Field, // shared over epoch, verified in root
-    challenge_gamma: F, // shared over epoch, verified in root
+    final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: BlobAccumulatorPublicInputs,
 ) -> BlobAccumulatorPublicInputs {
     // See components.nr out_sponge definition as to why we copy here:
@@ -62,8 +61,12 @@ pub fn evaluate_blobs_and_batch(
     for i in 0..BLOBS_PER_BLOCK {
         let single_blob_fields = array_splice(blobs_as_fields, i * FIELDS_PER_BLOB);
         let c_i = compress_to_blob_commitment(kzg_commitments_points[i]);
-        let (z_i, y_i) =
-            evaluate_blob_for_batching(single_blob_fields, c_i, hashed_blobs_fields, challenge_z);
+        let (z_i, y_i) = evaluate_blob_for_batching(
+            single_blob_fields,
+            c_i,
+            hashed_blobs_fields,
+            final_blob_challenges.z,
+        );
         // TODO(MW): If the evaluation being zero is sufficient to say the blob i is empty, remove the range check.
         // The range check exists because we cannot use c_i (it's injected and L1 relies on this circuit to check whether the blob is
         // empty for c_i = O) or z_i (z_i relies on the hashed_blobs_fields, which is the hash of the items in ALL block blobs, not just i).
@@ -78,12 +81,12 @@ pub fn evaluate_blobs_and_batch(
                 // that noir would be able to optimise out init gates for i > 0!
                 end_accumulator = BlobAccumulatorPublicInputs::init(
                     BlobAccumulationInputs { z_i, y_i, c_i },
-                    challenge_gamma,
+                    final_blob_challenges.gamma,
                 );
             } else {
                 end_accumulator = end_accumulator.accumulate(
                     BlobAccumulationInputs { z_i, y_i, c_i },
-                    challenge_gamma,
+                    final_blob_challenges.gamma,
                 );
             }
         }
@@ -100,7 +103,7 @@ mod tests {
     };
     use crate::blob_batching_public_inputs::FinalBlobBatchingChallenges;
     use bigcurve::{BigCurveTrait, curves::bls12_381::BLS12_381 as BLSPoint};
-    use bigint::{BigNum, BLS12_381_Fq as Q, BLS12_381_Fr as F};
+    use bigint::{BigNum, BLS12_381_Fr as F};
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
@@ -153,16 +156,14 @@ mod tests {
             pad_end(blob, 0),
             kzg_commitments_in,
             sponge_blob,
-            final_challenges.z,
-            final_challenges.gamma,
+            final_challenges,
             BlobAccumulatorPublicInputs::empty(),
         );
         let final_acc = res.finalize_and_validate(final_challenges);
 
         assert_eq(final_acc.z, final_challenges.z);
-        assert_eq(F::from(final_acc.gamma), final_challenges.gamma);
         // Since i = 1, gamma_pow = gamma^1 = gamma:
-        assert_eq(final_acc.gamma_pow, final_challenges.gamma);
+        assert_eq(res.gamma_pow_acc, final_challenges.gamma);
 
         // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
         let expected_y: F = F::from_limbs([
@@ -172,14 +173,14 @@ mod tests {
         ]);
         assert_eq(final_acc.y, expected_y);
 
+        let blob_commitment = compress_to_blob_commitment(kzg_commitments_in[0]);
+
         // Since i = 1, blob_commitments_hash is just the sha256 hash of the single (compressed) commitment
-        let expected_blob_commitments_hash = sha256_to_field(
-            compress_to_blob_commitment(kzg_commitments_in[0]).compressed,
-        );
+        let expected_blob_commitments_hash = sha256_to_field(blob_commitment.compressed);
         assert_eq(final_acc.blob_commitments_hash, expected_blob_commitments_hash);
 
         // Since i = 1, C = gamma^0 * C_0 = C_0
-        assert_eq(final_acc.c, kzg_commitments_in[0]);
+        assert_eq(final_acc.c, blob_commitment.to_compressed_fields());
     }
 
     // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob_batching.test.ts -> 'should construct and verify a batch of 3 full blobs'
@@ -263,17 +264,15 @@ mod tests {
             blob,
             kzg_commitments_in,
             sponge_blob,
-            final_challenges.z,
-            final_challenges.gamma,
+            final_challenges,
             start_acc,
         );
         // Finalize the output (actually done in the root circuit)
         let final_acc = output.finalize_and_validate(final_challenges);
 
         assert_eq(final_acc.z, final_challenges.z);
-        assert_eq(F::from(final_acc.gamma), final_challenges.gamma);
         assert_eq(
-            final_acc.gamma_pow,
+            output.gamma_pow_acc,
             final_challenges.gamma.__pow(F::from(BLOBS_PER_BLOCK as Field)),
         );
 
@@ -287,28 +286,27 @@ mod tests {
         // C is a BLS point with value:
         // x: 0x0f2f5f62cc6c3ab4c1ac1abcb9da9677e12796a76064f68c0d4f659f25a046a6d42616100269935afcb1b98c85d5e93e,
         // y: 0x0af1e4abfa449daf65201c2b24507b1058d8ea9bf82ff948a1d01912615c4a8e507160da282e6c41bab917c868923254,
-        let expected_c = BLSPoint {
-            x: Q::from_limbs([
+        let expected_c = BatchingBlobCommitment::from_limbs(
+            [
                 0x2616100269935afcb1b98c85d5e93e,
                 0x96a76064f68c0d4f659f25a046a6d4,
                 0x62cc6c3ab4c1ac1abcb9da9677e127,
                 0x0f2f5f,
-            ]),
-            y: Q::from_limbs([
+            ],
+            [
                 0x7160da282e6c41bab917c868923254,
                 0xea9bf82ff948a1d01912615c4a8e50,
                 0xabfa449daf65201c2b24507b1058d8,
                 0x0af1e4,
-            ]),
-            is_infinity: false,
-        };
+            ],
+        );
 
         // blob_commitments_hash is a BN Fr field with value 0x00d2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1
         let expected_blob_commitments_hash =
             0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
 
         assert_eq(final_acc.y, expected_y);
-        assert_eq(final_acc.c, expected_c);
+        assert_eq(final_acc.c, expected_c.to_compressed_fields());
         assert_eq(final_acc.blob_commitments_hash, expected_blob_commitments_hash);
     }
 }
