@@ -8,6 +8,7 @@
 #include "relations/bc_hashing.hpp"
 #include "relations/bc_retrieval.hpp"
 #include "relations/bitwise.hpp"
+#include "relations/call_opcode.hpp"
 #include "relations/class_id_derivation.hpp"
 #include "relations/context.hpp"
 #include "relations/context_stack.hpp"
@@ -35,6 +36,7 @@
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
+#include "relations/lookups_call_opcode.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
 #include "relations/lookups_execution.hpp"
@@ -55,10 +57,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 73;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2159;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2168;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 154;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2386;
+    static constexpr size_t NUM_ALL_ENTITIES = 2395;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -70,6 +72,7 @@ struct AvmFlavorVariables {
         avm2::bc_hashing<FF_>,
         avm2::bc_retrieval<FF_>,
         avm2::bitwise<FF_>,
+        avm2::call_opcode<FF_>,
         avm2::class_id_derivation<FF_>,
         avm2::context<FF_>,
         avm2::context_stack<FF_>,
@@ -119,6 +122,8 @@ struct AvmFlavorVariables {
         lookup_bc_retrieval_update_check_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
+        lookup_call_opcode_call_allocated_left_da_range_relation<FF_>,
+        lookup_call_opcode_call_allocated_left_l2_range_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_context_ctx_stack_call_relation<FF_>,
