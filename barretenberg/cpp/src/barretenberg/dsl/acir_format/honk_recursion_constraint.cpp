@@ -54,6 +54,22 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     using NativeFlavor = typename Flavor::NativeFlavor;
     // Set vkey->circuit_size correctly based on the proof size
     BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    // a lambda that adds dummy commitments (libra and gemini)
+    auto add_dummy_commitment = [&](size_t& offset) {
+        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+        auto frs = field_conversion::convert_to_bn254_frs(comm);
+        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
+        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
+        offset += 4;
+    };
+
+    auto add_dummy_evaluation = [&](size_t& offset) {
+        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
+        offset++;
+    };
+
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
     auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
     size_t offset = 0;
@@ -80,21 +96,14 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     }
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(key_fields[offset].witness_index, frs[0]);
-        builder.set_variable(key_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(key_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(key_fields[offset + 3].witness_index, frs[3]);
-        offset += 4;
+        add_dummy_commitment(offset);
     }
 
     offset = 0; // Reset offset for parsing proof fields
 
     // the inner public inputs
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
+        add_dummy_evaluation(offset);
     }
 
     // Get some values for a valid aggregation object and use them here to avoid divide by 0 or other issues.
@@ -109,110 +118,67 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1392): Don't use random elements here.
     if constexpr (HasIPAAccumulator<Flavor>) {
         for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
-            builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-            offset++;
+            add_dummy_evaluation(offset);
         }
     }
 
     // first NUM_WITNESS_ENTITIES witness commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
-        offset += 4;
+        add_dummy_commitment(offset);
     }
 
     if constexpr (Flavor::HasZK) {
         // Libra concatenation commitment
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
-        offset += 4;
+        add_dummy_commitment(offset);
         // libra sum
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
+        add_dummy_evaluation(offset);
     }
 
     // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs, where 8 is the maximum relation
     // degree)
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
+        add_dummy_evaluation(offset);
     }
 
     // now the sumcheck evaluations, which is just 44 0s
     for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
+        add_dummy_evaluation(offset);
     }
 
     if constexpr (Flavor::HasZK) {
         // Libra claimed evaluation
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
+        add_dummy_evaluation(offset);
         // Libra grand sum commitment
-        auto set_random_commitment = [&](size_t& offset) {
-            auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-            auto frs = field_conversion::convert_to_bn254_frs(comm);
-            builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-            builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-            builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-            builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
-            offset += 4;
-        };
-        set_random_commitment(offset);
+
+        add_dummy_commitment(offset);
         // Libra quotient commitment
-        set_random_commitment(offset);
+        add_dummy_commitment(offset);
         // Gemini masking commitment
-        set_random_commitment(offset);
+        add_dummy_commitment(offset);
         // Gemini masking evaluation
-        auto set_random_evaluation = [&](size_t& offset) {
-            builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-            offset++;
-        };
-        set_random_evaluation(offset);
+        add_dummy_evaluation(offset);
     }
 
     // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
     for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
-        offset += 4;
+        add_dummy_commitment(offset);
     }
 
     // the gemini fold evaluations which are also CONST_PROOF_SIZE_LOG_N
     for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; i++) {
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
+        add_dummy_evaluation(offset);
     }
 
     if constexpr (Flavor::HasZK) {
         // NUM_SMALL_IPA_EVALUATIONS libra evals
         for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
-            builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-            offset++;
+            add_dummy_evaluation(offset);
         }
     }
 
     // lastly the shplonk batched quotient commitment and kzg quotient commitment
     for (size_t i = 0; i < 2; i++) {
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
-        offset += 4;
+        add_dummy_commitment(offset);
     }
     // IPA Proof
     if constexpr (HasIPAAccumulator<Flavor>) {
