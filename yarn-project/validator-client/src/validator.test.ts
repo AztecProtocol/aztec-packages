@@ -73,18 +73,14 @@ describe('ValidatorClient', () => {
     const header = makeHeader();
     const archive = Fr.random();
     const txs = await Promise.all([Tx.random(), Tx.random(), Tx.random(), Tx.random(), Tx.random()]);
-    epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-      currentProposer: EthAddress.fromString(validatorAccounts[0].address),
-      nextProposer: EthAddress.fromString(validatorAccounts[1].address),
-      currentSlot: header.globalVariables.slotNumber.toBigInt(),
-      nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
-    });
+
     const blockProposal = await validatorClient.createBlockProposal(
       header.globalVariables.blockNumber,
       header.toPropose(),
       archive,
       header.state,
       txs,
+      EthAddress.fromString(validatorAccounts[0].address),
       { publishFullTxs: true },
     );
 
@@ -101,18 +97,14 @@ describe('ValidatorClient', () => {
     const header = makeHeader();
     const archive = Fr.random();
     const txs = await Promise.all([Tx.random(), Tx.random(), Tx.random(), Tx.random(), Tx.random()]);
-    epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-      currentProposer: EthAddress.fromString(validatorAccounts[0].address),
-      nextProposer: EthAddress.fromString(validatorAccounts[1].address),
-      currentSlot: header.globalVariables.slotNumber.toBigInt(),
-      nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
-    });
+
     const blockProposal = await validatorClient.createBlockProposal(
       header.globalVariables.blockNumber,
       header.toPropose(),
       archive,
       header.state,
       txs,
+      EthAddress.fromString(validatorAccounts[0].address),
       { publishFullTxs: false },
     );
 
@@ -206,18 +198,14 @@ describe('ValidatorClient', () => {
       const header = makeHeader();
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: EthAddress.fromString(validatorAccounts[0].address),
-        nextProposer: EthAddress.fromString(validatorAccounts[1].address),
-        currentSlot: header.globalVariables.slotNumber.toBigInt(),
-        nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
-      });
+
       const blockProposal = await validatorClient.createBlockProposal(
         header.globalVariables.blockNumber,
         header.toPropose(),
         archive,
         header.state,
         txs,
+        EthAddress.fromString(validatorAccounts[0].address),
         { publishFullTxs: false },
       );
 
