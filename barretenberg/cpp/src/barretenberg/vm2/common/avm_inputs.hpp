@@ -31,6 +31,7 @@ struct PublicInputs {
     TreeSnapshots startTreeSnapshots;
     Gas startGasUsed;
     GasSettings gasSettings;
+    GasFees effectiveGasFees;
     AztecAddress feePayer;
     PublicCallRequestArrayLengths publicCallRequestArrayLengths;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
@@ -88,6 +89,7 @@ struct PublicInputs {
                    startTreeSnapshots,
                    startGasUsed,
                    gasSettings,
+                   effectiveGasFees,
                    feePayer,
                    publicCallRequestArrayLengths,
                    publicSetupCallRequests,
