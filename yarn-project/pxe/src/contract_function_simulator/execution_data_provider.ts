@@ -284,20 +284,8 @@ export interface ExecutionDataProvider {
   validateEnqueuedNotes(contractAddress: AztecAddress, notePendingValidationArrayBaseSlot: Fr): Promise<void>;
 
   /**
-<<<<<<< HEAD:yarn-project/simulator/src/private/execution_data_provider.ts
-   * Gets note hash in the note hash tree at the given leaf index.
-   * @param leafIndex - the leaf to look up.
-   * @returns - The note hash at that index. Undefined if leaf index is not found.
-   */
-  getNoteHash(leafIndex: bigint): Promise<Fr | undefined>;
-
-  /**
-   * Searches for a public log with the corresponding `tag` and returns it along with contextual transaction
-   * information.
-=======
    * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
    * Returns null if no such log exists, and throws if more than one exists.
->>>>>>> a999c8c64d (refactor: Aztec simulator into PXE (#14598)):yarn-project/pxe/src/contract_function_simulator/execution_data_provider.ts
    *
    * @param tag - The log tag to search for.
    * @param contractAddress - The contract address to search for the log in.
