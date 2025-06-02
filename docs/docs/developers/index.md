@@ -46,7 +46,7 @@ title: Build
 <Card shadow='tl' link='https://github.com/AztecProtocol/aztec-starter'>
   <a href="https://github.com/AztecProtocol/aztec-starter" target="_blank" rel="noopener noreferrer">
     <img
-      src="img/logos/github_light_mode.svg"
+      src="@site/static/img/logos/github_light_mode.svg"
       style={{
         width: '30px',
         height: '30px',
