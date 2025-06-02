@@ -7,7 +7,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret, PublicLogWithTxData } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, PrivateLogWithTxData, PublicLogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule, TxHash } from '@aztec/stdlib/tx';
@@ -291,6 +291,10 @@ export class UtilityExecutionOracle extends TypedOracle {
 
   public override getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
     return this.executionDataProvider.getPublicLogByTag(tag, contractAddress);
+  }
+
+  public override getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
+    return this.executionDataProvider.getPrivateLogByTag(siloedTag);
   }
 
   public override storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {

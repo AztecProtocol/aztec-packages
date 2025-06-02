@@ -99,10 +99,15 @@ describe('Orderbook', () => {
     it('fulfills an order', async () => {
       const nonceForAuthwits = Fr.random();
 
-      // Create authwit for taker to allow orderbook to transfer askAmount of token1 to itself
+      // Create authwit for taker to allow orderbook to transfer askAmount of token1 from taker to maker's partial note
       const takerAuthwit = await taker.createAuthWit({
         caller: orderbook.address,
-        action: token1.methods.transfer_to_public(taker.getAddress(), orderbook.address, askAmount, nonceForAuthwits),
+        action: token1.methods.finalize_transfer_to_private_from_private(
+          taker.getAddress(),
+          { commitment: orderId }, // makerPartialNote
+          askAmount,
+          nonceForAuthwits,
+        ),
       });
 
       // Fulfill order

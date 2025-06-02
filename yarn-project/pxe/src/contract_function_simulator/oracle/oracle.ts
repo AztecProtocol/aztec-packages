@@ -12,7 +12,12 @@ import {
 } from '@aztec/simulator/client';
 import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ContractClassLog, ContractClassLogFields, PublicLogWithTxData } from '@aztec/stdlib/logs';
+import {
+  ContractClassLog,
+  ContractClassLogFields,
+  PrivateLogWithTxData,
+  PublicLogWithTxData,
+} from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -419,6 +424,16 @@ export class Oracle {
 
     if (log == null) {
       return [toACVMField(0), ...PublicLogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
+    } else {
+      return [toACVMField(1), ...log.toNoirSerialization().map(toACVMFieldSingleOrArray)];
+    }
+  }
+
+  async getPrivateLogByTag([siloedTag]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
+    const log = await this.typedOracle.getPrivateLogByTag(Fr.fromString(siloedTag));
+
+    if (log == null) {
+      return [toACVMField(0), ...PrivateLogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
     } else {
       return [toACVMField(1), ...log.toNoirSerialization().map(toACVMFieldSingleOrArray)];
     }

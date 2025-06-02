@@ -10,7 +10,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret, PublicLogWithTxData } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, PrivateLogWithTxData, PublicLogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats, TxHash } from '@aztec/stdlib/tx';
@@ -296,6 +296,15 @@ export interface ExecutionDataProvider {
    * @throws If more than one log with that tag exists.
    */
   getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null>;
+
+  /**
+   * Searches for a private log with the corresponding `siloedTag` and returns it along with contextual transaction
+   * information.
+   *
+   * @param siloedTag - The siloed log tag to search for.
+   * @returns The private log with transaction data if found, null otherwise.
+   */
+  getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null>;
 
   /**
    * Removes all of a contract's notes that have been nullified from the note database.
