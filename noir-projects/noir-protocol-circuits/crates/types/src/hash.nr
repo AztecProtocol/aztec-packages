@@ -422,6 +422,27 @@ where
     sponge.squeeze()
 }
 
+// This function is  unconstrained because it is intended to be used in unconstrained context only as
+// in constrained contexts it would be too inefficient.
+pub unconstrained fn poseidon2_hash_with_separator_bounded_vec<let N: u32, T>(
+    inputs: BoundedVec<Field, N>,
+    separator: T,
+) -> Field
+where
+    T: ToField,
+{
+    let in_len = inputs.len() + 1;
+    let iv: Field = (in_len as Field) * TWO_POW_64;
+    let mut sponge = Poseidon2Sponge::new(iv);
+    sponge.absorb(separator.to_field());
+
+    for i in 0..inputs.len() {
+        sponge.absorb(inputs.get(i));
+    }
+
+    sponge.squeeze()
+}
+
 #[no_predicates]
 pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
     let mut fields = [0; (N + 30) / 31];
@@ -556,4 +577,19 @@ fn silo_l2_to_l1_message_matches_typescript() {
     let hash_from_typescript = 0x00c6155d69febb9d5039b374dd4f77bf57b7c881709aa524a18acaa0bd57476a;
 
     assert_eq(hash, hash_from_typescript);
+}
+
+#[test]
+unconstrained fn test_poseidon2_hash_with_separator_bounded_vec() {
+    let inputs = BoundedVec::<Field, 4>::from_array([1, 2, 3]);
+    let separator = 42;
+
+    // Hash using bounded vec version
+    let bounded_result = poseidon2_hash_with_separator_bounded_vec(inputs, separator);
+
+    // Hash using regular version
+    let regular_result = poseidon2_hash_with_separator([1, 2, 3], separator);
+
+    // Results should match
+    assert_eq(bounded_result, regular_result);
 }
