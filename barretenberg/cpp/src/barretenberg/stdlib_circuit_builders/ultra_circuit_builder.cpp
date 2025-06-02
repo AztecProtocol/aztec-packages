@@ -693,7 +693,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
 }
 
 /**
- * @brief Add a gate equating a particular witness to a constant, fixing it the value
+ * @brief Add a gate equating a particular witness to a constant, fixing its value
  *
  * @param witness_index The index of the witness we are fixing
  * @param witness_value The value we are fixing it to

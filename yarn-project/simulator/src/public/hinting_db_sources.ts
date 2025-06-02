@@ -318,6 +318,14 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     );
   }
 
+  public commitAllCheckpoints(): Promise<void> {
+    throw new Error('commitAllCheckpoints is not supported in HintingMerkleWriteOperations.');
+  }
+
+  public revertAllCheckpoints(): Promise<void> {
+    throw new Error('revertAllCheckpoints is not supported in HintingMerkleWriteOperations.');
+  }
+
   public async commitCheckpoint(): Promise<void> {
     const actionCounter = this.checkpointActionCounter++;
     const oldCheckpointId = this.getCurrentCheckpointId();
@@ -457,6 +465,13 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     values: MerkleTreeLeafType<ID>[],
   ): Promise<(bigint | undefined)[]> {
     return await this.db.findLeafIndices(treeId, values);
+  }
+
+  public async findSiblingPaths<ID extends MerkleTreeId, N extends number>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+  ): Promise<(SiblingPath<N> | undefined)[]> {
+    return await this.db.findSiblingPaths(treeId, values);
   }
 
   public async findLeafIndicesAfter<ID extends MerkleTreeId>(

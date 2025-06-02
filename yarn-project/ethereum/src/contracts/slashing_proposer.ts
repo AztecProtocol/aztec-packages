@@ -12,9 +12,9 @@ import {
 } from 'viem';
 
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
-import type { ViemClient } from '../types.js';
+import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
-import { type IEmpireBase, encodeVote } from './empire_base.js';
+import { type IEmpireBase, encodeVote, encodeVoteWithSignature, signVoteWithSig } from './empire_base.js';
 
 export class ProposalAlreadyExecutedError extends Error {
   constructor(round: bigint) {
@@ -69,6 +69,14 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     return {
       to: this.address.toString(),
       data: encodeVote(payload),
+    };
+  }
+
+  public async createVoteRequestWithSignature(payload: Hex, wallet: ExtendedViemWalletClient): Promise<L1TxRequest> {
+    const signature = await signVoteWithSig(wallet, payload, this.address.toString(), wallet.chain.id);
+    return {
+      to: this.address.toString(),
+      data: encodeVoteWithSignature(payload, signature),
     };
   }
 

@@ -371,10 +371,13 @@ class MockPXE implements PXE {
     const provingTime = skipProofGeneration ? 1 : undefined;
     return Promise.resolve(
       new TxProfileResult([], {
-        perFunction: [{ functionName: 'something', time: 1 }],
-        proving: provingTime,
-        unaccounted: 1,
-        total: 2,
+        nodeRPCCalls: { getBlockNumber: { times: [1] } },
+        timings: {
+          perFunction: [{ functionName: 'something', time: 1 }],
+          proving: provingTime,
+          unaccounted: 1,
+          total: 2,
+        },
       }),
     );
   }
@@ -443,6 +446,10 @@ class MockPXE implements PXE {
     expect(typeof blockNumber).toEqual('number');
     expect(l2Tol1Message).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random<number>(4)]);
+  }
+  getL2ToL1Messages(blockNumber: number): Promise<Fr[][] | undefined> {
+    expect(typeof blockNumber).toEqual('number');
+    return Promise.resolve([[Fr.random()], [Fr.random(), Fr.random()]]);
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));

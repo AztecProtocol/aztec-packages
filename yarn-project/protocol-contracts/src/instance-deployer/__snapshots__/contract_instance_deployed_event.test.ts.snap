@@ -1,0 +1,18 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ContractInstanceDeployedEvent parses an event as emitted by the ClassInstanceDeployer 1`] = `
+ContractInstanceDeployedEvent {
+  "address": "0x2b340e606093cce3fb3378ab30f0068d5b9e25a44030b2a831a6a7445ab028f7",
+  "contractClassId": "0x174515a1d42a4dd065fc4031e2b240a962987197e8bf55d8c7b927978ff9ce38",
+  "deployer": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "initializationHash": "0x129873d1e20601e6fc4a2df1f458bc0541e0a04bcfd35ebdae5f98893c36b930",
+  "publicKeys": PublicKeys {
+    "masterIncomingViewingPublicKey": "0x022104824c313ae3c071d752dba0ceab9f5c8c4b73ab3ebe9b1624a8405e16ca0f76402b0f09bc9097bfcb2589bea40089c54412d7bc5c464557fabb51aed6ed",
+    "masterNullifierPublicKey": "0x02418fd9e36b1e0df67ce0a53be35cd6dd87fd0a15595221fc82620c54d5996617c3d818bfb95e09b8cda8fad2044c5f27196ad4564a2a711da4691d98b70037",
+    "masterOutgoingViewingPublicKey": "0x02bbad84b1c58ac925f887d1ae08cc4cc273d5130b29eb6662aa162d5a28884c0c746eba643fbe25637632922f527d1d1236ff790378c97213cca35839dad76a",
+    "masterTaggingPublicKey": "0x16617bba076cdd3426e10263481a998c4c275b283aaf1f42539900e3a9efa2bf24b5e4341a949daa0bde1611263777e4aa468f6da73d2f884a499135428c201a",
+  },
+  "salt": "0x1c734816f7263dba6df121e001323d7b461a17b144b383f5d4add1ec7a65b5d5",
+  "version": 1,
+}
+`;

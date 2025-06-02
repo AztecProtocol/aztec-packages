@@ -95,37 +95,49 @@ TEST(ExecutionTraceGenTest, Call)
     ex_event.addressing_event = addressing_event;
     ex_event.after_context_event = context_event;
     ex_event.next_context_id = 2;
-    ex_event.inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(10),
-                        /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(11),
+    Gas allocated_gas = { .l2Gas = 100, .daGas = 200 };
+    ex_event.inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(allocated_gas.l2Gas),
+                        /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(allocated_gas.daGas),
                         /*contract_address=*/MemoryValue::from<uint32_t>(0xdeadbeef) };
     ex_event.resolved_operands = { MemoryValue::from<uint32_t>(0),
                                    MemoryValue::from<uint32_t>(0),
                                    MemoryValue::from<uint32_t>(0),
                                    MemoryValue::from<uint32_t>(10),
                                    MemoryValue::from<uint32_t>(20) };
+    Gas gas_limit = { .l2Gas = 1000, .daGas = 2000 };
+    Gas gas_used = { .l2Gas = 500, .daGas = 1900 };
+    Gas gas_left = gas_limit - gas_used;
+    ex_event.after_context_event.gas_limit = gas_limit;
+    ex_event.after_context_event.gas_used = gas_used;
 
     builder.process({ ex_event }, trace);
-    EXPECT_THAT(trace.as_rows(),
-                AllOf(Contains(Field(&R::execution_sel, 1)),
-                      Contains(Field(&R::execution_sel_call, 1)),
-                      Contains(Field(&R::execution_sel_enter_call, 1)),
-                      Contains(Field(&R::execution_rop4, 10)),
-                      Contains(Field(&R::execution_rop5, 20)),
-                      Contains(Field(&R::execution_reg1, 10)),
-                      Contains(Field(&R::execution_reg2, 11)),
-                      Contains(Field(&R::execution_reg3, 0xdeadbeef)),
-                      Contains(Field(&R::execution_mem_tag1, /*U32=*/4)),
-                      Contains(Field(&R::execution_mem_tag2, /*U32=*/4)),
-                      Contains(Field(&R::execution_mem_tag3, /*FF=*/0)),
-                      Contains(Field(&R::execution_mem_op1, 1)),
-                      Contains(Field(&R::execution_mem_op2, 1)),
-                      Contains(Field(&R::execution_mem_op3, 1)),
-                      Contains(Field(&R::execution_rw1, 0)),
-                      Contains(Field(&R::execution_rw2, 0)),
-                      Contains(Field(&R::execution_rw3, 0)),
-                      Contains(Field(&R::execution_is_static, 0)),
-                      Contains(Field(&R::execution_context_id, 1)),
-                      Contains(Field(&R::execution_next_context_id, 2))));
+    EXPECT_THAT(
+        trace.as_rows(),
+        AllOf(Contains(Field(&R::execution_sel, 1)),
+              Contains(Field(&R::execution_sel_call, 1)),
+              Contains(Field(&R::execution_sel_enter_call, 1)),
+              Contains(Field(&R::execution_rop4, 10)),
+              Contains(Field(&R::execution_rop5, 20)),
+              Contains(Field(&R::execution_reg1, allocated_gas.l2Gas)),
+              Contains(Field(&R::execution_reg2, allocated_gas.daGas)),
+              Contains(Field(&R::execution_reg3, 0xdeadbeef)),
+              Contains(Field(&R::execution_mem_tag1, /*U32=*/4)),
+              Contains(Field(&R::execution_mem_tag2, /*U32=*/4)),
+              Contains(Field(&R::execution_mem_tag3, /*FF=*/0)),
+              Contains(Field(&R::execution_mem_op1, 1)),
+              Contains(Field(&R::execution_mem_op2, 1)),
+              Contains(Field(&R::execution_mem_op3, 1)),
+              Contains(Field(&R::execution_rw1, 0)),
+              Contains(Field(&R::execution_rw2, 0)),
+              Contains(Field(&R::execution_rw3, 0)),
+              Contains(Field(&R::execution_is_static, 0)),
+              Contains(Field(&R::execution_context_id, 1)),
+              Contains(Field(&R::execution_next_context_id, 2)),
+              Contains(Field(&R::execution_constant_32, 32)),
+              Contains(Field(&R::execution_call_is_l2_gas_allocated_lt_left, true)),
+              Contains(Field(&R::execution_call_allocated_left_l2_cmp_diff, gas_left.l2Gas - allocated_gas.l2Gas - 1)),
+              Contains(Field(&R::execution_call_is_da_gas_allocated_lt_left, false)),
+              Contains(Field(&R::execution_call_allocated_left_da_cmp_diff, allocated_gas.daGas - gas_left.daGas))));
 }
 
 TEST(ExecutionTraceGenTest, Return)
@@ -204,18 +216,19 @@ TEST(ExecutionTraceGenTest, Gas)
     ex_event.gas_event.base_gas = base_gas;
     ex_event.gas_event.dynamic_gas = dynamic_gas;
     ex_event.gas_event.dynamic_gas_factor = { .l2Gas = 2, .daGas = 1 };
-    ex_event.gas_event.dynamic_gas_used = { .l2Gas = dynamic_gas.l2Gas * 2, .daGas = dynamic_gas.daGas * 1 };
     ex_event.gas_event.oog_base_l2 = false;
     ex_event.gas_event.oog_base_da = false;
     ex_event.gas_event.oog_dynamic_l2 = true;
     ex_event.gas_event.oog_dynamic_da = false;
+    ex_event.gas_event.limit_used_l2_comparison_witness = 0;
+    ex_event.gas_event.limit_used_da_comparison_witness =
+        gas_limit.daGas - prev_gas_used.daGas - base_gas.daGas - dynamic_gas.daGas * 1;
 
     builder.process({ ex_event }, trace);
 
     EXPECT_THAT(trace.as_rows(),
                 AllOf(Contains(Field(&R::execution_opcode_gas, 100)),
                       Contains(Field(&R::execution_addressing_gas, 50)),
-                      Contains(Field(&R::execution_base_l2_gas, 150)),
                       Contains(Field(&R::execution_base_da_gas, 5000)),
                       Contains(Field(&R::execution_out_of_gas_base_l2, false)),
                       Contains(Field(&R::execution_out_of_gas_base_da, false)),
@@ -227,38 +240,11 @@ TEST(ExecutionTraceGenTest, Gas)
                       Contains(Field(&R::execution_dynamic_da_gas_factor, 1)),
                       Contains(Field(&R::execution_dynamic_l2_gas, 5000)),
                       Contains(Field(&R::execution_dynamic_da_gas, 9000)),
-                      Contains(Field(&R::execution_dynamic_l2_gas_used, 10000)),
-                      Contains(Field(&R::execution_dynamic_da_gas_used, 9000)),
                       Contains(Field(&R::execution_out_of_gas_dynamic_l2, true)),
                       Contains(Field(&R::execution_out_of_gas_dynamic_da, false)),
-                      Contains(Field(&R::execution_out_of_gas_dynamic, true))));
-
-    // Test the comparisons
-    Gas gas_used_after_base = ex_event.before_context_event.gas_used + ex_event.gas_event.base_gas;
-
-    uint32_t limit_used_base_l2_cmp_diff = gas_limit.l2Gas - gas_used_after_base.l2Gas;
-    uint32_t limit_used_base_da_cmp_diff = gas_limit.daGas - gas_used_after_base.daGas;
-
-    Gas gas_used_after_dynamic = gas_used_after_base + ex_event.gas_event.dynamic_gas_used;
-    uint32_t limit_used_dynamic_da_cmp_diff = gas_limit.daGas - gas_used_after_dynamic.daGas;
-
-    EXPECT_THAT(trace.as_rows(),
-                AllOf(Contains(Field(&R::execution_limit_used_base_l2_cmp_diff, limit_used_base_l2_cmp_diff)),
-                      Contains(Field(&R::execution_limit_used_base_da_cmp_diff, limit_used_base_da_cmp_diff)),
-                      Contains(Field(&R::execution_limit_used_dynamic_l2_cmp_diff, 0)), // Exactly out of gas
-                      Contains(Field(&R::execution_limit_used_dynamic_da_cmp_diff, limit_used_dynamic_da_cmp_diff))));
-
-    // Test decompositions of the comparisons
-    EXPECT_THAT(
-        trace.as_rows(),
-        AllOf(Contains(Field(&R::execution_limit_used_base_l2_cmp_diff_lo, limit_used_base_l2_cmp_diff & 0xffff)),
-              Contains(Field(&R::execution_limit_used_base_l2_cmp_diff_hi, limit_used_base_l2_cmp_diff >> 16)),
-              Contains(Field(&R::execution_limit_used_base_da_cmp_diff_lo, limit_used_base_da_cmp_diff & 0xffff)),
-              Contains(Field(&R::execution_limit_used_base_da_cmp_diff_hi, limit_used_base_da_cmp_diff >> 16)),
-              Contains(Field(&R::execution_limit_used_dynamic_l2_cmp_diff_lo, 0)), // Exactly out of gas
-              Contains(Field(&R::execution_limit_used_dynamic_l2_cmp_diff_hi, 0)),
-              Contains(Field(&R::execution_limit_used_dynamic_da_cmp_diff_lo, limit_used_dynamic_da_cmp_diff & 0xffff)),
-              Contains(Field(&R::execution_limit_used_dynamic_da_cmp_diff_hi, limit_used_dynamic_da_cmp_diff >> 16))));
+                      Contains(Field(&R::execution_out_of_gas_dynamic, true)),
+                      Contains(Field(&R::execution_limit_used_l2_cmp_diff, 0)),
+                      Contains(Field(&R::execution_limit_used_da_cmp_diff, 16000))));
 }
 
 } // namespace

@@ -46,7 +46,6 @@ export class SequencerClient {
    * @param l2BlockSource - Provides information about the previously published blocks.
    * @param l1ToL2MessageSource - Provides access to L1 to L2 messages.
    * @param prover - An instance of a block prover
-   * @param simulationProvider - An instance of a simulation provider
    * @returns A new running instance.
    */
   public static async new(
@@ -94,12 +93,7 @@ export class SequencerClient {
             config.customForwarderContractAddress.toString(),
             config.l1Contracts.rollupAddress.toString(),
           )
-        : await ForwarderContract.create(
-            l1Client.account.address,
-            l1Client,
-            log,
-            config.l1Contracts.rollupAddress.toString(),
-          );
+        : await ForwarderContract.create(l1Client, log, config.l1Contracts.rollupAddress.toString());
 
     const governanceProposerContract = new GovernanceProposerContract(
       l1Client,
@@ -230,8 +224,8 @@ export class SequencerClient {
     return this.sequencer.getForwarderAddress();
   }
 
-  get validatorAddress(): EthAddress | undefined {
-    return this.sequencer.getValidatorAddress();
+  get validatorAddresses(): EthAddress[] | undefined {
+    return this.sequencer.getValidatorAddresses();
   }
 
   get maxL2BlockGas(): number | undefined {

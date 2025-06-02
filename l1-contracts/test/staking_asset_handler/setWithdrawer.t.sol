@@ -42,11 +42,10 @@ contract SetWithdrawerTest is StakingAssetHandlerBase {
     address rollup = stakingAssetHandler.getRollup();
 
     address attester = address(1);
-    address proposer = address(2);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ValidatorAdded(rollup, attester, proposer, _newWithdrawer);
-    stakingAssetHandler.addValidator(attester, proposer);
+    emit IStakingAssetHandler.ValidatorAdded(rollup, attester, _newWithdrawer);
+    stakingAssetHandler.addValidator(attester);
     assertEq(staking.getConfig(attester).withdrawer, _newWithdrawer);
   }
 }

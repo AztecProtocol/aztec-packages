@@ -27,9 +27,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
  */
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
-  event ValidatorAdded(
-    address indexed _rollup, address indexed _attester, address _proposer, address _withdrawer
-  );
+  event ValidatorAdded(address indexed _rollup, address indexed _attester, address _withdrawer);
   event IntervalUpdated(uint256 _interval);
   event DepositsPerMintUpdated(uint256 _depositsPerMint);
   event WithdrawerUpdated(address indexed _withdrawer);
@@ -40,7 +38,7 @@ interface IStakingAssetHandler {
   error CannotMintZeroAmount();
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
 
-  function addValidator(address _attester, address _proposer) external;
+  function addValidator(address _attester) external;
   function setMintInterval(uint256 _interval) external;
   function setDepositsPerMint(uint256 _depositsPerMint) external;
   function setWithdrawer(address _withdrawer) external;
@@ -93,10 +91,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit UnhingedAdded(_owner);
   }
 
-  function addValidator(address _attester, address _proposer)
-    external
-    override(IStakingAssetHandler)
-  {
+  function addValidator(address _attester) external override(IStakingAssetHandler) {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
     uint256 depositAmount = rollup.getMinimumStake();
 
@@ -122,8 +117,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
 
     STAKING_ASSET.approve(address(rollup), depositAmount);
-    rollup.deposit(_attester, _proposer, withdrawer, true);
-    emit ValidatorAdded(address(rollup), _attester, _proposer, withdrawer);
+    rollup.deposit(_attester, withdrawer, true);
+    emit ValidatorAdded(address(rollup), _attester, withdrawer);
   }
 
   function setMintInterval(uint256 _interval) external override(IStakingAssetHandler) onlyOwner {
