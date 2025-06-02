@@ -453,13 +453,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_t& exponent) const
 {
+    // Just return one immediately
     if (exponent == 0) {
         return field_t(bb::fr::one());
     }
 
-    if (exponent == 1) {
-        return *this;
-    }
     // Indicates the first occurrence of a bit == 1.
     bool result_initialized = false;
     field_t result;
