@@ -4,6 +4,7 @@ include "address_derivation.pil";
 include "bc_decomposition.pil";
 include "bc_hashing.pil";
 include "bc_retrieval.pil";
+include "call_opcode.pil";
 include "instr_fetching.pil";
 include "class_id_derivation.pil";
 include "range_check.pil";
@@ -110,3 +111,4 @@ precomputed.sel_exec_spec {
     precomputed.exec_opcode_dynamic_l2_gas,
     precomputed.exec_opcode_dynamic_da_gas
 };
+
