@@ -39,6 +39,7 @@ export class TxCollector {
       }
 
       let usedFromProposal = 0;
+      const txsToValidate = [];
 
       // Fill any holes with txs in the proposal, provided their hash matches the hash in the payload
       for (let i = 0; i < txsToUse.length; i++) {
@@ -48,6 +49,7 @@ export class TxCollector {
           if (hashOfTxInProposal.equals(hashesFromPayload[i])) {
             // Hash is equal, we can use the tx from the proposal
             txsToUse[i] = proposal.txs[i];
+            txsToValidate.push(proposal.txs[i]);
             usedFromProposal++;
           } else {
             this.log.warn(
@@ -67,7 +69,7 @@ export class TxCollector {
           `Successfully used ${usedFromProposal}/${hashesFromPayload.length} transactions from the proposal`,
         );
 
-        await this.p2pClient.validate(txsToUse as Tx[]);
+        await this.p2pClient.validate(txsToValidate);
         return { txs: txsToUse as Tx[] };
       }
     }
@@ -90,9 +92,6 @@ export class TxCollector {
     // This will request from the network any txs that are missing
     const retrievedTxs = await this.p2pClient.getTxsByHash(txHashes, peerWhoSentTheProposal);
     const missingTxs = compactArray(retrievedTxs.map((tx, index) => (tx === undefined ? txHashes[index] : undefined)));
-
-    await this.p2pClient.validate(retrievedTxs as Tx[]);
-
     return { txs: retrievedTxs as Tx[], missing: missingTxs };
   }
 }
