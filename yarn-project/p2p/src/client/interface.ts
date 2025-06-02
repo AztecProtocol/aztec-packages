@@ -1,6 +1,6 @@
 import type { L2BlockId } from '@aztec/stdlib/block';
 import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
-import { type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
+import type { BlockProposal, P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { ENR } from '@chainsafe/enr';

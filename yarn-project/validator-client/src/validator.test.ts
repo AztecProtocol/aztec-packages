@@ -11,7 +11,7 @@ import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@az
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
-import { describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
