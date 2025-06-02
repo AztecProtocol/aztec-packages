@@ -295,6 +295,16 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
     await this.instance.call(WorldStateMessageType.REVERT_CHECKPOINT, { forkId: this.revision.forkId });
   }
+
+  public async commitAllCheckpoints(): Promise<void> {
+    assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
+    await this.instance.call(WorldStateMessageType.COMMIT_ALL_CHECKPOINTS, { forkId: this.revision.forkId });
+  }
+
+  public async revertAllCheckpoints(): Promise<void> {
+    assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
+    await this.instance.call(WorldStateMessageType.REVERT_ALL_CHECKPOINTS, { forkId: this.revision.forkId });
+  }
 }
 
 function hydrateLeaf<ID extends MerkleTreeId>(treeId: ID, leaf: Fr | Buffer) {

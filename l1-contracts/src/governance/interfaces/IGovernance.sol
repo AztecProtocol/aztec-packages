@@ -7,6 +7,9 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 
 interface IGovernance {
+  event DepositorAdded(address depositor);
+  event FloodGatesOpened();
+
   event Proposed(uint256 indexed proposalId, address indexed proposal);
   event VoteCast(uint256 indexed proposalId, address indexed voter, bool support, uint256 amount);
   event ProposalExecuted(uint256 indexed proposalId);
@@ -16,6 +19,9 @@ interface IGovernance {
   event Deposit(address indexed depositor, address indexed onBehalfOf, uint256 amount);
   event WithdrawInitiated(uint256 indexed withdrawalId, address indexed recipient, uint256 amount);
   event WithdrawFinalised(uint256 indexed withdrawalId);
+
+  function addDepositor(address _depositor) external;
+  function openFloodgates() external;
 
   function updateGovernanceProposer(address _governanceProposer) external;
   function updateConfiguration(DataStructures.Configuration memory _configuration) external;
@@ -27,6 +33,9 @@ interface IGovernance {
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external returns (bool);
   function execute(uint256 _proposalId) external returns (bool);
   function dropProposal(uint256 _proposalId) external returns (bool);
+
+  function isAllowedToDeposit(address _caller) external view returns (bool);
+  function isAllDepositsAllowed() external view returns (bool);
 
   function powerAt(address _owner, Timestamp _ts) external view returns (uint256);
   function totalPowerAt(Timestamp _ts) external view returns (uint256);

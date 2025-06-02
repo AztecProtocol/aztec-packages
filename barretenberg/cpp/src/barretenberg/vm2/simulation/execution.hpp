@@ -75,6 +75,9 @@ class Execution : public ExecutionInterface {
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
 
+    void init_gas_tracker(ContextInterface& context);
+    GasEvent finish_gas_tracker();
+
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
     ExecutionResult get_execution_result() const { return exec_result; }
@@ -97,9 +100,7 @@ class Execution : public ExecutionInterface {
     const std::vector<TaggedValue>& get_inputs() const { return inputs; }
     const TaggedValue& get_output() const { return output; }
 
-    void init_gas_tracker(ContextInterface& context);
     GasTrackerInterface& get_gas_tracker();
-    GasEvent finish_gas_tracker();
 
     ExecutionComponentsProviderInterface& execution_components;
     const InstructionInfoDBInterface& instruction_info_db;
