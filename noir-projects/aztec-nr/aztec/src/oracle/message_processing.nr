@@ -65,6 +65,12 @@ pub unconstrained fn get_public_log_by_tag(
     get_public_log_by_tag_oracle(tag, contract_address)
 }
 
+#[oracle(getPublicLogByTag)]
+unconstrained fn get_public_log_by_tag_oracle(
+    tag: Field,
+    contract_address: AztecAddress,
+) -> Option<LogWithTxData<PUBLIC_LOG_PLAINTEXT_LEN>> {}
+
 /// Fetches a private log from the node that has the corresponding `tag`. Returns `Option::none` if no such log exists.
 /// Throws if more than one log with that tag exists.
 // TODO(#11627): handle multiple logs with the same tag.
@@ -77,6 +83,11 @@ pub unconstrained fn get_private_log_by_tag(
 
     get_private_log_by_tag_oracle(siloed_tag)
 }
+
+#[oracle(getPrivateLogByTag)]
+unconstrained fn get_private_log_by_tag_oracle(
+    siloed_tag: Field,
+) -> Option<LogWithTxData<PRIVATE_LOG_CIPHERTEXT_LEN>> {}
 
 /// Attempts to retrieve a log by its tag from both public and private sources.
 ///
@@ -130,17 +141,6 @@ pub(crate) unconstrained fn validate_enqueued_notes(
 ) {
     validate_enqueued_notes_oracle(contract_address, base_slot);
 }
-
-#[oracle(getPublicLogByTag)]
-unconstrained fn get_public_log_by_tag_oracle(
-    tag: Field,
-    contract_address: AztecAddress,
-) -> Option<LogWithTxData<PUBLIC_LOG_PLAINTEXT_LEN>> {}
-
-#[oracle(getPrivateLogByTag)]
-unconstrained fn get_private_log_by_tag_oracle(
-    siloed_tag: Field,
-) -> Option<LogWithTxData<PRIVATE_LOG_CIPHERTEXT_LEN>> {}
 
 #[oracle(validateEnqueuedNotes)]
 unconstrained fn validate_enqueued_notes_oracle(contract_address: AztecAddress, base_slot: Field) {}
