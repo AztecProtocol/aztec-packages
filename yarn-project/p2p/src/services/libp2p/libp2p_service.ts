@@ -511,6 +511,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
         return this.msgIdSeenValidators[TopicType.block_proposal];
       }
+      this.logger.error(`Received message on unknown topic: ${msg.topic}`);
     };
 
     const validator = getValidator();
