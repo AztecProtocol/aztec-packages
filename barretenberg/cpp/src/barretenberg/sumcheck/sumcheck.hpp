@@ -712,7 +712,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
                 // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the
                 // rows where all sumcheck relations are disabled
                 full_honk_purported_value *=
-                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, virtual_log_n);
+                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, padding_indicator_array);
             }
 
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");

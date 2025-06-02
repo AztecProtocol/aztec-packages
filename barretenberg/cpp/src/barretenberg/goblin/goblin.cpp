@@ -69,15 +69,15 @@ GoblinProof Goblin::prove(MergeProof merge_proof_in)
     goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
     {
         PROFILE_THIS_NAME("prove_eccvm");
-        vinfo("prove eccvm...");
+        info("prove eccvm...");
         prove_eccvm();
-        vinfo("finished eccvm proving.");
+        info("finished eccvm proving.");
     }
     {
         PROFILE_THIS_NAME("prove_translator");
-        vinfo("prove translator...");
+        info("prove translator...");
         prove_translator();
-        vinfo("finished translator proving.");
+        info("finished translator proving.");
     }
     return goblin_proof;
 }

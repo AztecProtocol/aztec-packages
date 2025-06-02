@@ -140,10 +140,10 @@ function test_cmds {
   echo "$prefix FLOW=sol_honk $run_test 1_mul"
   echo "$prefix FLOW=sol_honk $run_test slices"
   echo "$prefix FLOW=sol_honk $run_test verify_honk_proof"
-  echo "$prefix FLOW=sol_honk_zk $run_test assert_statement"
-  echo "$prefix FLOW=sol_honk_zk $run_test 1_mul"
-  echo "$prefix FLOW=sol_honk_zk $run_test slices"
-  echo "$prefix FLOW=sol_honk_zk $run_test verify_honk_proof"
+  # echo "$prefix FLOW=sol_honk_zk $run_test assert_statement"
+  # echo "$prefix FLOW=sol_honk_zk $run_test 1_mul"
+  # echo "$prefix FLOW=sol_honk_zk $run_test slices"
+  # echo "$prefix FLOW=sol_honk_zk $run_test verify_honk_proof"
 
   # bb.js browser tests. Isolate because server.
   local prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"

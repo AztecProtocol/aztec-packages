@@ -375,10 +375,10 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Verify the hiding circuit proof
     MegaZKVerifier verifer{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
-    vinfo("Mega verified: ", mega_verified);
+    info("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified = Goblin::verify(proof.goblin_proof, civc_verifier_transcript);
-    vinfo("Goblin verified: ", goblin_verified);
+    info("Goblin verified: ", goblin_verified);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
     return goblin_verified && mega_verified;
 }
