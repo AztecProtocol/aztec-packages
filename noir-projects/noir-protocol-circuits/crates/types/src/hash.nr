@@ -580,7 +580,7 @@ fn silo_l2_to_l1_message_matches_typescript() {
 }
 
 #[test]
-unconstrained fn test_poseidon2_hash_with_separator_bounded_vec() {
+unconstrained fn poseidon2_hash_with_separator_bounded_vec_matches_non_bounded_vec_version() {
     let inputs = BoundedVec::<Field, 4>::from_array([1, 2, 3]);
     let separator = 42;
 
