@@ -54,21 +54,21 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].value = 10;
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0].value = 15;
 
-    previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z =
+    previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z_acc =
         1;
-    previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.blob_commitments_hash =
+    previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.blob_commitments_hash_acc =
         2;
-    previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.gamma =
+    previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.gamma_acc =
         3;
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.start_blob_accumulator = previous_rollup_data[0]
         .block_root_or_block_merge_public_inputs
         .blob_public_inputs
         .end_blob_accumulator;
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z =
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z_acc =
         4;
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.blob_commitments_hash =
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.blob_commitments_hash_acc =
         5;
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.gamma =
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.gamma_acc =
         6;
 
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.final_blob_challenges.z =

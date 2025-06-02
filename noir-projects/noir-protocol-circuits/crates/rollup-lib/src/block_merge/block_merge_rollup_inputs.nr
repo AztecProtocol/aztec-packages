@@ -131,7 +131,7 @@ mod tests {
     #[test(should_fail_with = "input block blob accumulators do not follow on from each other")]
     fn previous_rollups_dont_follow_blob_accumulator() {
         let mut inputs = default_block_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z +=
+        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z_acc +=
             1;
         let _output = inputs.block_merge_rollup_circuit();
     }
