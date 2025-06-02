@@ -520,47 +520,62 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
 /**
  * @brief Returns (this + a + b)
  *
- * @details Use custom big_mul_gate to save gates.
+ * @details Use `big_mul_gate` to save gates when computing the sum of 3 witnesses.
  *
  * @tparam Builder
  * @param add_a
  * @param add_b
  * @return field_t<Builder>
  */
-template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const field_t& add_a, const field_t& add_b) const
+template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const field_t& add_b, const field_t& add_c) const
 {
-    Builder* ctx = first_non_null<Builder>(context, add_a.context, add_b.context);
-
-    if ((add_a.is_constant()) && (add_b.is_constant()) && (this->is_constant())) {
-        return (*this) + add_a + add_b;
+    if ((add_b.is_constant()) && (add_c.is_constant()) && (is_constant())) {
+        return (*this) + add_b + add_c;
     }
-    bb::fr q_1 = multiplicative_constant;
-    bb::fr q_2 = add_a.multiplicative_constant;
-    bb::fr q_3 = add_b.multiplicative_constant;
-    bb::fr q_c = additive_constant + add_a.additive_constant + add_b.additive_constant;
+    Builder* ctx = first_non_null<Builder>(context, add_b.context, add_c.context);
 
-    bb::fr a = this->is_constant() ? bb::fr(0) : ctx->get_variable(witness_index);
-    bb::fr b = add_a.is_constant() ? bb::fr(0) : ctx->get_variable(add_a.witness_index);
-    bb::fr c = add_b.is_constant() ? bb::fr(0) : ctx->get_variable(add_b.witness_index);
+    // Let  d := a + (b+c), where
+    //      a := *this;
+    //      b := add_b;
+    //      c := add_c;
+    // define selector values by
+    //      q_1 :=  a_mul;
+    //      q_2 :=  b_mul;
+    //      q_3 :=  c_mul;
+    //      q_4 :=  -1;
+    //      q_c := a_add + b_add + c_add;
+    // Create a `big_mul_gate` to constrain
+    //  	a * b * q_m + a * q_1 + b * q_2 + c * q_3 + d * q_4 + q_c = 0
+
+    bb::fr q_1 = multiplicative_constant;
+    bb::fr q_2 = add_b.multiplicative_constant;
+    bb::fr q_3 = add_c.multiplicative_constant;
+    bb::fr q_c = additive_constant + add_b.additive_constant + add_c.additive_constant;
+
+    // Compute the sum of values of all summands
+    bb::fr a = this->is_constant() ? bb::fr::zero() : ctx->get_variable(witness_index);
+    bb::fr b = add_b.is_constant() ? bb::fr::zero() : ctx->get_variable(add_b.witness_index);
+    bb::fr c = add_c.is_constant() ? bb::fr::zero() : ctx->get_variable(add_c.witness_index);
 
     bb::fr out = a * q_1 + b * q_2 + c * q_3 + q_c;
 
     field_t<Builder> result(ctx);
     result.witness_index = ctx->add_variable(out);
 
+    // Constrain the result
     ctx->create_big_mul_gate({
-        .a = this->is_constant() ? ctx->zero_idx : witness_index,
-        .b = add_a.is_constant() ? ctx->zero_idx : add_a.witness_index,
-        .c = add_b.is_constant() ? ctx->zero_idx : add_b.witness_index,
+        .a = is_constant() ? ctx->zero_idx : witness_index,
+        .b = add_b.is_constant() ? ctx->zero_idx : add_b.witness_index,
+        .c = add_c.is_constant() ? ctx->zero_idx : add_c.witness_index,
         .d = result.witness_index,
-        .mul_scaling = bb::fr(0),
+        .mul_scaling = bb::fr::zero(),
         .a_scaling = q_1,
         .b_scaling = q_2,
         .c_scaling = q_3,
-        .d_scaling = -bb::fr(1),
+        .d_scaling = bb::fr::neg_one(),
         .const_scaling = q_c,
     });
-    result.tag = OriginTag(tag, add_a.tag, add_b.tag);
+    result.tag = OriginTag(tag, add_b.tag, add_c.tag);
     return result;
 }
 
