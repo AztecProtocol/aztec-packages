@@ -501,22 +501,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   protected preValidateReceivedMessage(msg: Message, msgId: string, source: PeerId) {
-    const getValidator = () => {
-      if (msg.topic === this.topicStrings[TopicType.tx]) {
-        return this.msgIdSeenValidators[TopicType.tx];
-      }
-      if (msg.topic === this.topicStrings[TopicType.block_attestation]) {
-        return this.msgIdSeenValidators[TopicType.block_attestation];
-      }
-      if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
-        return this.msgIdSeenValidators[TopicType.block_proposal];
-      }
-      this.logger.error(`Received message on unknown topic: ${msg.topic}`);
-    };
-
-    const validator = getValidator();
+    const validator = this.msgIdSeenValidators[msg.topic as TopicType];
 
     if (!validator || !validator.addMessage(msgId)) {
+      if (!validator) {
+        this.logger.error(`Received message on unknown topic: ${msg.topic}`);
+      }
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
       return false;
     }

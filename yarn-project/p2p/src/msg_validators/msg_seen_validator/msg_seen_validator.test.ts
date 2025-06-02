@@ -55,6 +55,8 @@ describe('MsgSeenValidator', () => {
 
     // add 1000 messages
     for (let i = 0; i < 1000; i++) {
+      expect(validator.size()).toBeLessThanOrEqual(10);
+      // should always be able to add a message,
       expect(validator.addMessage(makeMsgId())).toBe(true);
     }
   });
