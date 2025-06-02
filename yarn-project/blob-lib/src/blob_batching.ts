@@ -12,7 +12,7 @@ import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from '.
 const { computeKzgProof, verifyKzgProof } = cKzg;
 
 /**
- * A class to create, manage, and prove EVM blobs.
+ * A class to create, manage, and prove batched EVM blobs.
  */
 export class BatchedBlob {
   constructor(
@@ -184,7 +184,7 @@ export class FinalBlobBatchingChallenges {
 }
 
 /**
- * See nr BlobAccumulatorPublicInputs for more info (TODO(MW): doc)
+ * See noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching_public_inputs.nr -> BlobAccumulatorPublicInputs
  */
 export class BatchedBlobAccumulator {
   constructor(
@@ -213,6 +213,15 @@ export class BatchedBlobAccumulator {
   /**
    * Init the first accumulation state of the epoch.
    * We assume the input blob has not been evaluated at z.
+   *
+   * First state of the accumulator:
+   * - v_acc := sha256(C_0)
+   * - z_acc := z_0
+   * - y_acc := gamma^0 * y_0 = y_0
+   * - c_acc := gamma^0 * c_0 = c_0
+   * - gamma_acc := poseidon2(y_0.limbs)
+   * - gamma^(i + 1) = gamma^1 = gamma // denoted gamma_pow_acc
+   *
    * TODO(MW): When moved to batching, we should ONLY evaluate individual blobs at z => won't need finalZ input.
    * @returns An initial blob accumulator.
    */
@@ -236,8 +245,8 @@ export class BatchedBlobAccumulator {
   }
 
   /**
-   * Init the empty accumulation state of the epoch.
-   * @returns An initial blob accumulator.
+   * Create the empty accumulation state of the epoch.
+   * @returns An empty blob accumulator with challenges.
    */
   static newWithChallenges(finalBlobChallenges: FinalBlobBatchingChallenges): BatchedBlobAccumulator {
     return new BatchedBlobAccumulator(
@@ -296,6 +305,14 @@ export class BatchedBlobAccumulator {
   /**
    * Finalize accumulation state of the epoch.
    * We assume ALL blobs in the epoch have been accumulated.
+   *
+   * Final accumulated values:
+   * - v := v_acc (hash of all commitments (C_i s) to be checked on L1)
+   * - z := z_acc (final challenge, at which all blobs are evaluated)
+   * - y := y_acc (final opening to be checked on L1)
+   * - c := c_acc (final commitment to be checked on L1)
+   * - gamma := poseidon2(gamma_acc, z) (challenge for linear combination of y and C, above)
+   *
    * @returns A batched blob.
    */
   async finalize(): Promise<BatchedBlob> {
