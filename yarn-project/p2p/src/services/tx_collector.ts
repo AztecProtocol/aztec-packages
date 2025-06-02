@@ -65,11 +65,10 @@ export class TxCollector {
       if (txsToUse.some(tx => tx === undefined)) {
         this.log.warn(`Failed to use transactions from proposal. Falling back to old proposal logic`);
       } else {
+        await this.p2pClient.validate(txsToValidate);
         this.log.info(
           `Successfully used ${usedFromProposal}/${hashesFromPayload.length} transactions from the proposal`,
         );
-
-        await this.p2pClient.validate(txsToValidate);
         return { txs: txsToUse as Tx[] };
       }
     }
