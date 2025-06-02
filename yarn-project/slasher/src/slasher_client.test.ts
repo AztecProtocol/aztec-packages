@@ -113,6 +113,7 @@ describe('SlasherClient', () => {
   afterAll(async () => {
     await slasherClient.stop();
     await sleep(500); // let the calls to uninstall the filters resolve
+    // await sleep(500000); // REMOVE
     await anvil.stop().catch(logger.error);
   });
 
@@ -132,6 +133,14 @@ describe('SlasherClient', () => {
     );
 
     const slashAmount = depositAmount - 1n;
+    expect(slashAmount).toBeLessThan(depositAmount);
+    // 100000000000000000000
+    // 100000000000000000000
+    logger.info('amounts', { depositAmount: depositAmount.toString(), slashAmount: slashAmount.toString() });
+    logger.info('amounts', { depositAmount: depositAmount.toString(), slashAmount: slashAmount.toString() });
+    logger.info('amounts', { depositAmount: depositAmount.toString(), slashAmount: slashAmount.toString() });
+    logger.info('amounts', { depositAmount: depositAmount.toString(), slashAmount: slashAmount.toString() });
+    logger.info('amounts', { depositAmount: depositAmount.toString(), slashAmount: slashAmount.toString() });
     const committee = await rollup.getCurrentEpochCommittee();
     const amounts = Array.from({ length: committee.length }, () => slashAmount);
     const offenses = Array.from({ length: committee.length }, () => Offence.UNKNOWN);
@@ -188,6 +197,29 @@ describe('SlasherClient', () => {
       30,
       0.5,
     );
+
+    // const rollupRaw = rollup.getContract();
+    // const slasherAddress = await rollup.getSlasher();
+
+    // const slasher = getContract({
+    //   abi: SlasherAbi,
+    //   address: slasherAddress,
+    //   client: l1TxUtils.client,
+    // });
+
+    // const slashFailed = await slasher.getEvents.SlashFailed();
+    // logger.info('Slash failed:', slashFailed);
+    // logger.info('Slash failed:', slashFailed);
+    // logger.info('Slash failed:', slashFailed);
+
+    // const slashEvents = await rollupRaw.getEvents.Slashed();
+    // logger.info('Slash events:', slashEvents);
+    // logger.info('asdf');
+    // logger.info('asdf');
+    // logger.info('asdf');
+    // logger.info('asdf');
+
+    // expect(slashEvents.length).toBe(1);
 
     const info = await rollup.getAttesterView(l1TxUtils.client.account.address);
 
