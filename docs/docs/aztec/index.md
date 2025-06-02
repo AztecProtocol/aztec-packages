@@ -31,7 +31,7 @@ Private functions are executed client side, on user devices to maintain maximum 
 
 Private functions are executed on the user's device in the Private Execution Environment (PXE, pronounced 'pixie'), then it generates proofs for onchain verification. It is a client-side library for execution and proof-generation of private operations. It holds keys, notes, and generates proofs. It is included in aztec.js, a TypeScript library, and can be run within Node or the browser.
 
-Note: It is easy for private functions to be written in a detrimentally unoptimised way, because many intuitions of regular program execution do not apply to proving. For more about writing performant private functions in Noir, see [this page](https://noir-lang.org/docs/explainers/explainer-writing-noir) of the Noir documentation.
+Note: It is easy for private functions to be written in a detrimentally unoptimized way, because many intuitions of regular program execution do not apply to proving. For more about writing performant private functions in Noir, see [this page](https://noir-lang.org/docs/explainers/explainer-writing-noir) of the Noir documentation.
 
 ### Aztec Virtual Machine (AVM)
 
