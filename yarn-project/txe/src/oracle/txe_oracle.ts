@@ -1176,9 +1176,9 @@ export class TXE implements TypedOracle {
 
   public async validateEnqueuedNotes(
     contractAddress: AztecAddress,
-    notePendingValidationArrayBaseSlot: Fr,
+    noteValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
-    await this.pxeOracleInterface.validateEnqueuedNotes(contractAddress, notePendingValidationArrayBaseSlot);
+    await this.pxeOracleInterface.validateEnqueuedNotes(contractAddress, noteValidationRequestsArrayBaseSlot);
   }
 
   async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {

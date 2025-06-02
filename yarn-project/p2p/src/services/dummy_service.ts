@@ -51,7 +51,13 @@ export class DummyP2PService implements P2PService {
   /**
    * Register a callback into the validator client for when a block proposal is received
    */
+<<<<<<< HEAD
   public registerBlockReceivedCallback(_: (block: BlockProposal) => Promise<BlockAttestation[]>) {}
+=======
+  public registerBlockReceivedCallback(
+    _callback: (block: BlockProposal, sender: PeerId) => Promise<BlockAttestation>,
+  ) {}
+>>>>>>> master
 
   /**
    * Sends a request to a peer.

@@ -218,7 +218,7 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('fetchTaggedLogs'));
   }
 
-  validateEnqueuedNotes(_contractAddress: AztecAddress, _notePendingValidationArrayBaseSlot: Fr): Promise<void> {
+  validateEnqueuedNotes(_contractAddress: AztecAddress, _noteValidationRequestsArrayBaseSlot: Fr): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('validateEnqueuedNotes'));
   }
 

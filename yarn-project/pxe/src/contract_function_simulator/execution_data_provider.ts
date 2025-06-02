@@ -279,19 +279,12 @@ export interface ExecutionDataProvider {
   ): Promise<void>;
 
   /**
-   * Delivers the preimage and metadata of a committed note so that it can be later requested via the `getNotes`
-   * oracle.
-   *
-   * @param contractAddress - The address of the contract that created the note (i.e. the siloing contract)
-   * @param storageSlot - The storage slot of the note - used for indexing in `getNotes`
-   * @param nonce - The nonce of the note used by the kernel to compute the unique note hash
-   * @param content - The note's content: this is the primary item to return in `getNotes`
-   * @param noteHash - The non-unique non-siloed note hash
-   * @param nullifier - The inner (non-siloed) note nullifier
-   * @param txHash - The transaction in which the note was added to the note hash tree
-   * @param recipient - The account that discovered the note
+   * Validates a capsule array of `NoteValidationRequests`, storing the notes in the database so that they can be later
+   * queried via `getNotes`.
+   * @param contractAddress - The contract that the notes belong to.
+   * @param noteValidationRequestArrayBaseSlot - The capsule array base slot.
    */
-  validateEnqueuedNotes(contractAddress: AztecAddress, notePendingValidationArrayBaseSlot: Fr): Promise<void>;
+  validateEnqueuedNotes(contractAddress: AztecAddress, noteValidationRequestArrayBaseSlot: Fr): Promise<void>;
 
   /**
    * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
