@@ -4,22 +4,23 @@ metadata:
     {{- include "chart.selectorLabels" . | nindent 4 }}
     app: node
 spec:
+  {{- if .Values.serviceAccount.create }}
   serviceAccountName: {{ include "chart.serviceAccountName" . }}
+  {{- end }}
+
   dnsPolicy: ClusterFirstWithHostNet
   hostNetwork: {{ .Values.hostNetwork }}
-  {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
+
+  {{- if .Values.podAffinity }}
   affinity:
-    podAntiAffinity:
-      requiredDuringSchedulingIgSoredDuringExecution:
-        - labelSelector:
-            matchExpressions:
-              - key: app
-                operator: In
-                values:
-                  - node
-          topologyKey: kubernetes.io/hostname
-          namespaceSelector: {}
+    {{- toYaml .Values.podAffinity | nindent 4 }}
   {{- end }}
+
+  {{- if .Values.podTolerations }}
+  tollerations:
+    {{- toYaml .Values.podATolerations | nindent 4 }}
+  {{- end }}
+
   initContainers:
   {{- if .Values.initContainers }}
     {{- tpl (toYaml .Values.initContainers | nindent 4) $ }}

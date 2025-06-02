@@ -10,12 +10,14 @@ global:
   l1ConsensusHostApiKeyHeaders: []
 
 node:
-  mnemonic:
-  mnemonicStartIndex:
+  mnemonic: "test test test test test test test test test test test junk"
+  mnemonicStartIndex: 1000
   privateKey:
 
-  persistence.enabled: false
-  statefulset.enabled: true
+  persistence:
+    enabled: false
+  statefulSet:
+    enabled: true
 
   replicaCount: 1
 
@@ -48,6 +50,11 @@ node:
 
 broker:
   replicaCount: 1
+  persistence:
+    enabled: false
+  statefulSet:
+    enabled: true
+
   node:
     startCmd:
       - --prover-broker
@@ -70,11 +77,18 @@ broker:
 
 agent:
   replicaCount: 1
+
+  persistence:
+    enabled: false
+
+  statefulSet:
+    enabled: false
+
+  configMapEnabled: true
+
   node:
     startCmd:
       - --prover-agent
-
-    configMapEnabled: true
 
   service:
     p2p:

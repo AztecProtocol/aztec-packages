@@ -7,14 +7,14 @@ appVersion: "1.0.0"
 
 dependencies:
   - name: aztec-node
-    alias: prover-node
+    alias: node
     version: 0.1.0
     repository: "file://../aztec-node"
   - name: aztec-node
-    alias: prover-broker
+    alias: broker
     version: 0.1.0
     repository: "file://../aztec-node"
   - name: aztec-node
-    alias: prover-agent
+    alias: agent
     version: 0.1.0
     repository: "file://../aztec-node"

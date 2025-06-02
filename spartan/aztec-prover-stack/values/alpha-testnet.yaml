@@ -13,12 +13,22 @@ global:
     pullPolicy: Always
 
 node:
-  mnemonic:
-  mnemonicStartIndex:
+  podAffinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - node
+          topologyKey: "kubernetes.io/hostname"
+          namespaceSelector: {}
 
-  env:
-    SPONSORED_FPC: true
-    TEST_ACCOUNTS: false
+  node:
+    env:
+      SPONSORED_FPC: true
+      TEST_ACCOUNTS: false
 
   persistence.enabled: true
   statefulSet:
@@ -29,7 +39,33 @@ node:
           accessModes: [ReadWriteOnce]
           resources:
             requests:
-              storage: 512Gi
+              storage: 5Gi
+
+broker:
+  persistence.enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 5Gi
 
 agent:
-  replicaCount: 16
+  replicaCount: 1
+
+  podAffinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: cloud.google.com/gke-spot
+            operator: Exists
+
+  tolerations:
+    - key: "cloud.google.com/gke-spot"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"

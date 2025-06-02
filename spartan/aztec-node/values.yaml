@@ -60,6 +60,9 @@ statefulSet:
   #         requests:
   #           storage: 10Gi
 
+podAffinity: null
+podTolerations: []
+
 # -- Aztec node configuration
 node:
   # -- Log level - info, verbose, debug, trace
@@ -85,18 +88,14 @@ node:
   storage:
     # -- Data directory
     dataDirectory: /data
-    # -- Data store map size (kB)
-    dataStoreMapSize:
-    # -- World state map size (kB)
-    worldStateMapSize:
-    # -- P2P storage map size (kB)
-    p2pStorageMapSize:
-    # -- Archive storage map size (kB)
-    archiveStorageMapSize:
+    # -- Data store map size in kB. (per database)
+    dataStoreMapSize: "134217728" # 128 GB
+    # -- World state map size in kB (per merkle tree)
+    worldStateMapSize: "134217728" # 128 GB
 
   nodeJsOptions:
-      - --no-warnings
-      - --max-old-space-size=4096
+    - --no-warnings
+    - --max-old-space-size=4096
 
   startupProbe:
     # -- Period seconds
