@@ -1,25 +1,43 @@
 import { Fr, Point } from '@aztec/foundation/fields';
+import {
+  type ACIRCallback,
+  type ACVMField,
+  arrayOfArraysToBoundedVecOfArrays,
+  bufferToBoundedVec,
+  fromBoundedVec,
+  fromUintArray,
+  fromUintBoundedVec,
+  toACVMField,
+  toACVMFieldSingleOrArray,
+} from '@aztec/simulator/client';
 import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ContractClassLog, ContractClassLogFields, PublicLogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import type { ACVMField } from '../acvm_types.js';
-import { fromBoundedVec, fromUintArray, fromUintBoundedVec } from '../deserialize.js';
-import {
-  arrayOfArraysToBoundedVecOfArrays,
-  bufferToBoundedVec,
-  toACVMField,
-  toACVMFieldSingleOrArray,
-} from '../serialize.js';
 import type { TypedOracle } from './typed_oracle.js';
 
 /**
  * A data source that has all the apis required by Aztec.nr.
  */
 export class Oracle {
-  constructor(private typedOracle: TypedOracle) {}
+  private typedOracle: TypedOracle;
+
+  constructor(typedOracle: TypedOracle) {
+    this.typedOracle = typedOracle;
+  }
+
+  toACIRCallback(): ACIRCallback {
+    return Object.getOwnPropertyNames(Oracle.prototype)
+      .filter(
+        name => name !== 'constructor' && name != 'toACIRCallback' && typeof this[name as keyof Oracle] === 'function',
+      )
+      .reduce((acc, name) => {
+        acc[name] = this[name as keyof Omit<Oracle, 'toACIRCallback' | 'typedOracle' | 'constructor'>].bind(this);
+        return acc;
+      }, {} as ACIRCallback);
+  }
 
   getRandomField(): Promise<ACVMField[]> {
     const val = this.typedOracle.getRandomField();

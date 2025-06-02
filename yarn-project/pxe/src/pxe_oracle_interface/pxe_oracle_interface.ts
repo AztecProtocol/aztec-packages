@@ -3,7 +3,6 @@ import { timesParallel } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
-import { type ExecutionDataProvider, MessageLoadOracleInputs } from '@aztec/simulator/client';
 import {
   EventSelector,
   type FunctionArtifactWithContractName,
@@ -31,6 +30,8 @@ import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
 
+import type { ExecutionDataProvider } from '../contract_function_simulator/execution_data_provider.js';
+import { MessageLoadOracleInputs } from '../contract_function_simulator/oracle/message_load_oracle_inputs.js';
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
@@ -150,16 +151,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
     return new MessageLoadOracleInputs(messageIndex, siblingPath);
-  }
-
-  // Only used in public.
-  public getL1ToL2MessageHash(_leafIndex: bigint): Promise<Fr | undefined> {
-    throw new Error('Unimplemented in private!');
-  }
-
-  // We need this in public as part of the EXISTS calls - but isn't used in private
-  public getNoteHash(_leafIndex: bigint): Promise<Fr | undefined> {
-    throw new Error('Unimplemented in private!');
   }
 
   async getNullifierIndex(nullifier: Fr) {

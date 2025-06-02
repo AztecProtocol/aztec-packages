@@ -4,14 +4,14 @@ import { promises as fs } from 'fs';
 
 import { NativeACVMSimulator } from './acvm_native.js';
 import { WASMSimulator } from './acvm_wasm.js';
-import type { SimulationProvider } from './simulation_provider.js';
+import type { CircuitSimulator } from './circuit_simulator.js';
 
-export type SimulationProviderConfig = {
+export type SimulatorConfig = {
   acvmBinaryPath?: string;
   acvmWorkingDirectory?: string;
 };
 
-export function getSimulationProviderConfigFromEnv() {
+export function getSimulatorConfigFromEnv() {
   const { ACVM_BINARY_PATH, ACVM_WORKING_DIRECTORY } = process.env;
   return {
     acvmWorkingDirectory: ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : undefined,
@@ -19,10 +19,10 @@ export function getSimulationProviderConfigFromEnv() {
   };
 }
 
-export async function createSimulationProvider(
-  config: SimulationProviderConfig,
+export async function createSimulator(
+  config: SimulatorConfig,
   logger: Logger = createLogger('simulator'),
-): Promise<SimulationProvider> {
+): Promise<CircuitSimulator> {
   if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
     try {
       await fs.access(config.acvmBinaryPath, fs.constants.R_OK);

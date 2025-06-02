@@ -5,12 +5,12 @@ import initAbi from '@aztec/noir-noirc_abi';
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
-import { type ACIRCallback, type ACIRExecutionResult, acvm } from '../acvm/acvm.js';
-import type { ACVMWitness } from '../acvm/acvm_types.js';
+import { type ACIRCallback, type ACIRExecutionResult, acvm } from './acvm/acvm.js';
+import type { ACVMWitness } from './acvm/acvm_types.js';
 import type { ACVMSuccess } from './acvm_native.js';
-import { type SimulationProvider, enrichNoirError } from './simulation_provider.js';
+import { type CircuitSimulator, enrichNoirError } from './circuit_simulator.js';
 
-export class WASMSimulator implements SimulationProvider {
+export class WASMSimulator implements CircuitSimulator {
   constructor(protected log = createLogger('wasm-simulator')) {}
 
   async init(): Promise<void> {

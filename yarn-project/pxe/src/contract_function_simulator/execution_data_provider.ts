@@ -15,8 +15,8 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
-import type { NoteData } from './acvm/index.js';
-import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
+import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
+import type { NoteData } from './oracle/typed_oracle.js';
 
 /**
  * Error thrown when a contract is not found in the database.
@@ -145,12 +145,6 @@ export interface ExecutionDataProvider {
     messageHash: Fr,
     secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
-
-  /**
-   * @param leafIndex the leaf to look up
-   * @returns The l1 to l2 leaf message hash or undefined if not found.
-   */
-  getL1ToL2MessageHash(leafIndex: bigint): Promise<Fr | undefined>;
 
   /**
    * Retrieve the databases view of the Block Header object.
@@ -290,15 +284,8 @@ export interface ExecutionDataProvider {
   validateEnqueuedNotes(contractAddress: AztecAddress, notePendingValidationArrayBaseSlot: Fr): Promise<void>;
 
   /**
-   * Gets note hash in the note hash tree at the given leaf index.
-   * @param leafIndex - the leaf to look up.
-   * @returns - The note hash at that index. Undefined if leaf index is not found.
-   */
-  getNoteHash(leafIndex: bigint): Promise<Fr | undefined>;
-
-  /**
-   * Searches for a public log with the corresponding `tag` and returns it along with contextual transaction
-   * information.
+   * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
+   * Returns null if no such log exists, and throws if more than one exists.
    *
    * @param tag - The log tag to search for.
    * @param contractAddress - The contract address to search for the log in.

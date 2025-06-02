@@ -9,7 +9,7 @@ import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
-import type { MessageLoadOracleInputs } from '../../message_load_oracle_inputs.js';
+import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 /**
  * Information about a note needed during execution.

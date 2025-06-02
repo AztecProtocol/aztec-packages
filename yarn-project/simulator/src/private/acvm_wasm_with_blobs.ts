@@ -4,19 +4,19 @@ import type { WitnessMap } from '@aztec/noir-types';
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
-import type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
-import type { ACVMWitness } from '../acvm/acvm_types.js';
+import type { ACIRCallback, ACIRExecutionResult } from './acvm/acvm.js';
+import type { ACVMWitness } from './acvm/acvm_types.js';
 import type { ACVMSuccess } from './acvm_native.js';
-import { type SimulationProvider, enrichNoirError } from './simulation_provider.js';
+import { type CircuitSimulator, enrichNoirError } from './circuit_simulator.js';
 
 /**
- * A simulation provider that uses the WASM simulator with the ability to handle blobs via the foreign call handler.
+ * A circuit simulator that uses the WASM simulator with the ability to handle blobs via the foreign call handler.
  * This class is temporary while brillig cannot handle the blob math, and it is kept separate
  * because the zkg commitment library used in the blob code is not browser compatible.
  *
  * It is only used in the context of server-side code executing simulated protocol circuits.
  */
-export class WASMSimulatorWithBlobs implements SimulationProvider {
+export class WASMSimulatorWithBlobs implements CircuitSimulator {
   async executeProtocolCircuit(
     input: WitnessMap,
     artifact: NoirCompiledCircuitWithName,
