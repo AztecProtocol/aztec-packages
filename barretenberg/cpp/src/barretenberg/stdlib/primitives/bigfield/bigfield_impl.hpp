@@ -498,29 +498,6 @@ bigfield<Builder, T> bigfield<Builder, T>::add_two(const bigfield& add_a, const 
     return result;
 }
 
-// to make sure we don't go to negative values, add p before subtracting other
-/**
- * Subtraction operator.
- *
- * Like operator+, we use lazy reduction techniques to save on field reductions.
- *
- * Instead of computing `*this - other`, we compute offset X and compute:
- * `*this + X - other`
- * This ensures we do not underflow!
- *
- * Offset `X` will be a multiple of our bigfield modulus `p`
- *
- * i.e `X = m * p`
- *
- * It is NOT enough to ensure that the integer value of `*this + X - other` does not underflow.
- * We must ALSO ensure that each LIMB of the result does not underflow
- *
- * We must compute the MINIMUM value of `m` that ensures that none of the bigfield limbs will underflow!
- *
- * i.e. We must compute the MINIMUM value of `m` such that, for each limb `i`, the following result is positive:
- *
- * *this.limb[i] + X.limb[i] - other.limb[i]
- **/
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) const
 {

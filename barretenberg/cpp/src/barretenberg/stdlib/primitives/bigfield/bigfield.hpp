@@ -410,9 +410,24 @@ template <typename Builder, typename T> class bigfield {
      * @param add_a
      * @param add_b
      * @return The sum of three terms
+     *
+     * @details Uses five gates (one for each limb) to add three bigfield elements.
      */
     bigfield add_two(const bigfield& add_a, const bigfield& add_b) const;
 
+    /**
+     * @brief Subtraction operator.
+     *
+     * @param other
+     * @return bigfield
+     *
+     * @details Uses lazy reduction techniques (similar to operator+) to save on field reductions. Instead of computing
+     * `*this - other`, we compute a constant `X = s * p` and compute: `*this + X - other` to ensure we do not
+     * underflow. Note that NOT enough to ensure that the integer value of `*this + X - other` does not underflow. We
+     * must ALSO ensure that each LIMB of the result does not underflow. Based on this condition, we compute the minimum
+     * value of `s` such that, for each limb `i`, the following result is positive:
+     * `*this.limb[i] + X.limb[i] - other.limb[i] ≥ 0`.
+     */
     bigfield operator-(const bigfield& other) const;
     bigfield operator*(const bigfield& other) const;
 
