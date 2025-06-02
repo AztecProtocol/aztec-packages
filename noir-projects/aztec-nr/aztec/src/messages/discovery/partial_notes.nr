@@ -5,7 +5,7 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         processing::enqueue_note_for_validation,
     },
-    oracle::message_processing::get_log_by_tag_from_contract,
+    oracle::message_processing::get_log_by_tag,
     utils::array,
 };
 
@@ -89,7 +89,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
     );
 
     pending_partial_notes.for_each(|i, pending_partial_note: DeliveredPendingPartialNote| {
-        let maybe_log = get_log_by_tag_from_contract::<MAX_PARTIAL_NOTE_COMPLETION_LOG_LEN>(
+        let maybe_log = get_log_by_tag::<MAX_PARTIAL_NOTE_COMPLETION_LOG_LEN>(
             pending_partial_note.note_completion_log_tag,
             contract_address,
         );

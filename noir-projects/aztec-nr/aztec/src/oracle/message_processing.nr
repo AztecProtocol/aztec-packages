@@ -92,7 +92,7 @@ pub unconstrained fn get_private_log_by_tag(
 ///
 /// # Panics
 /// If the found log's content exceeds MAX_LOG_PAYLOAD_LEN
-pub unconstrained fn get_log_by_tag_from_contract<let MAX_LOG_PAYLOAD_LEN: u32>(
+pub unconstrained fn get_log_by_tag<let MAX_LOG_PAYLOAD_LEN: u32>(
     tag: Field,
     contract_address: AztecAddress,
 ) -> Option<LogWithTxData<MAX_LOG_PAYLOAD_LEN>> {
