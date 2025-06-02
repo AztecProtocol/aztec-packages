@@ -102,6 +102,12 @@ describe('ValidatorClient', () => {
       const header = makeHeader();
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
+      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
+        currentProposer: EthAddress.fromString(validatorAccounts[0].address),
+        nextProposer: EthAddress.fromString(validatorAccounts[1].address),
+        currentSlot: header.globalVariables.slotNumber.toBigInt(),
+        nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
+      });
 
       const blockProposal = await validatorClient.createBlockProposal(
         header.globalVariables.blockNumber,
@@ -230,7 +236,7 @@ describe('ValidatorClient', () => {
 
     it('should request txs even if not attestor in this slot', async () => {
       p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
-      epochCache.isInCommittee.mockResolvedValue(false);
+      epochCache.filterInCommittee.mockResolvedValue([]);
 
       const attestation = await validatorClient.attestToProposal(proposal, sender);
       expect(attestation).toBeUndefined();

@@ -221,13 +221,6 @@ export class ValidatorClient extends WithTracer implements Validator {
     };
     this.log.verbose(`Received request to attest for slot ${slotNumber}`);
 
-    // Check that I have any address in current committee
-    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
-    if (inCommittee.length === 0) {
-      this.log.verbose(`No validator in the committee, skipping attestation`);
-      return undefined;
-    }
-
     // Check that the proposal is from the current proposer, or the next proposer.
     // Q: Should this be moved to the block proposal validator, so we disregard proposals from anyone?
     const invalidProposal = await this.blockProposalValidator.validate(proposal);
@@ -262,6 +255,13 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Collect txs from the proposal
     const { missing, txs } = await this.txCollector.collectForBlockProposal(proposal, proposalSender);
+
+    // Check that I have any address in current committee before attesting
+    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
+    if (inCommittee.length === 0) {
+      this.log.verbose(`No validator in the committee, skipping attestation`);
+      return undefined;
+    }
 
     // Check that all of the transactions in the proposal are available in the tx pool before attesting
     if (missing && missing.length > 0) {
