@@ -169,7 +169,7 @@ describe('ValidatorClient', () => {
     let proposal: BlockProposal;
     let sender: PeerId;
 
-    const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => Promise.resolve(txHash) } as Tx);
+    const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => Promise.resolve(txHash) }) as Tx;
 
     beforeEach(() => {
       proposal = makeBlockProposal();
