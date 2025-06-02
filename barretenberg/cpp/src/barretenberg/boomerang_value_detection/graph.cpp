@@ -16,7 +16,8 @@ namespace cdg {
  * @param block block to find
  * @return size_t index of the found block
  */
-template <typename FF> size_t Graph_<FF>::find_block_index(UltraCircuitBuilder& ultra_builder, const UltraBlock& block)
+template <typename FF>
+size_t StaticAnalyzer_<FF>::find_block_index(UltraCircuitBuilder& ultra_builder, const UltraBlock& block)
 {
     auto blocks_data = ultra_builder.blocks.get();
     size_t index = 0;
@@ -44,10 +45,9 @@ template <typename FF> size_t Graph_<FF>::find_block_index(UltraCircuitBuilder& 
  *          5) Increments the gate count for each processed variable
  */
 template <typename FF>
-inline void Graph_<FF>::process_gate_variables([[maybe_unused]] UltraCircuitBuilder& ultra_circuit_builder,
-                                               std::vector<uint32_t>& gate_variables,
-                                               size_t gate_index,
-                                               size_t block_idx)
+inline void StaticAnalyzer_<FF>::process_gate_variables(std::vector<uint32_t>& gate_variables,
+                                                        size_t gate_index,
+                                                        size_t block_idx)
 {
     auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
     gate_variables.erase(unique_variables, gate_variables.end());
@@ -75,7 +75,7 @@ inline void Graph_<FF>::process_gate_variables([[maybe_unused]] UltraCircuitBuil
  *          and different arithmetic operations based on selector values
  */
 template <typename FF>
-inline std::vector<std::vector<uint32_t>> Graph_<FF>::get_arithmetic_gate_connected_component(
+inline std::vector<std::vector<uint32_t>> StaticAnalyzer_<FF>::get_arithmetic_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t block_idx, UltraBlock& blk)
 {
     auto q_arith = blk.q_arith()[index];
@@ -99,7 +99,6 @@ inline std::vector<std::vector<uint32_t>> Graph_<FF>::get_arithmetic_gate_connec
         // this is fixed_witness gate. So, variable index contains in left wire. So, we have to take only it.
         fixed_variables.insert(this->to_real(ultra_circuit_builder, left_idx));
     } else if (!q_m.is_zero() || q_1 != FF::one() || !q_2.is_zero() || !q_3.is_zero() || !q_4.is_zero()) {
-        // gate_variables.reserve(8);
         //  this is not the gate for fix_witness, so we have to process this gate
         if (!q_m.is_zero()) {
             gate_variables.emplace_back(left_idx);
@@ -128,7 +127,6 @@ inline std::vector<std::vector<uint32_t>> Graph_<FF>::get_arithmetic_gate_connec
             }
         }
         if (q_arith == FF(3)) {
-            // minigate_variables.reserve(3);
             //  In this gate mini gate is enabled, we have 2 equations:
             //  q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + 2 * w_4_omega = 0
             //  w_1 + w_4 - w_1_omega + q_m = 0
@@ -142,8 +140,8 @@ inline std::vector<std::vector<uint32_t>> Graph_<FF>::get_arithmetic_gate_connec
     }
     gate_variables = this->to_real(ultra_circuit_builder, gate_variables);
     minigate_variables = this->to_real(ultra_circuit_builder, minigate_variables);
-    this->process_gate_variables(ultra_circuit_builder, gate_variables, index, block_idx);
-    this->process_gate_variables(ultra_circuit_builder, minigate_variables, index, block_idx);
+    this->process_gate_variables(gate_variables, index, block_idx);
+    this->process_gate_variables(minigate_variables, index, block_idx);
     all_gates_variables.emplace_back(gate_variables);
     if (!minigate_variables.empty()) {
         all_gates_variables.emplace_back(minigate_variables);
@@ -164,7 +162,7 @@ inline std::vector<std::vector<uint32_t>> Graph_<FF>::get_arithmetic_gate_connec
  *          collecting variables from current and next gates as needed
  */
 template <typename FF>
-inline std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(
+inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_elliptic_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t block_idx, UltraBlock& blk)
 {
     std::vector<uint32_t> gate_variables;
@@ -191,7 +189,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(
             }
         }
         gate_variables = this->to_real(ultra_circuit_builder, gate_variables);
-        this->process_gate_variables(ultra_circuit_builder, gate_variables, index, block_idx);
+        this->process_gate_variables(gate_variables, index, block_idx);
     }
     return gate_variables;
 }
@@ -208,7 +206,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(
  *          from the current gate
  */
 template <typename FF>
-inline std::vector<uint32_t> Graph_<FF>::get_sort_constraint_connected_component(
+inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_sort_constraint_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t blk_idx, UltraBlock& block)
 {
     std::vector<uint32_t> gate_variables = {};
@@ -220,7 +218,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_sort_constraint_connected_component
         gate_variables.emplace_back(block.w_4()[index]);
     }
     gate_variables = this->to_real(ultra_circuit_builder, gate_variables);
-    this->process_gate_variables(ultra_circuit_builder, gate_variables, index, blk_idx);
+    this->process_gate_variables(gate_variables, index, blk_idx);
     return gate_variables;
 }
 
@@ -236,7 +234,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_sort_constraint_connected_component
  *          including variables from the next gate when necessary
  */
 template <typename FF>
-inline std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(
+inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_plookup_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t blk_idx, UltraBlock& block)
 {
     std::vector<uint32_t> gate_variables;
@@ -261,7 +259,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(
             }
         }
         gate_variables = this->to_real(ultra_circuit_builder, gate_variables);
-        this->process_gate_variables(ultra_circuit_builder, gate_variables, index, blk_idx);
+        this->process_gate_variables(gate_variables, index, blk_idx);
     }
     return gate_variables;
 }
@@ -276,7 +274,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(
  * @return std::vector<uint32_t> vector of connected variables from the gate
  */
 template <typename FF>
-inline std::vector<uint32_t> Graph_<FF>::get_poseido2s_gate_connected_component(
+inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_poseido2s_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t blk_idx, UltraBlock& block)
 {
     std::vector<uint32_t> gate_variables;
@@ -295,7 +293,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_poseido2s_gate_connected_component(
             gate_variables.emplace_back(block.w_4()[index + 1]);
         }
         gate_variables = this->to_real(ultra_circuit_builder, gate_variables);
-        this->process_gate_variables(ultra_circuit_builder, gate_variables, index, blk_idx);
+        this->process_gate_variables(gate_variables, index, blk_idx);
     }
     return gate_variables;
 }
@@ -311,10 +309,8 @@ inline std::vector<uint32_t> Graph_<FF>::get_poseido2s_gate_connected_component(
  * @return std::vector<uint32_t> vector of connected variables from the gate
  */
 template <typename FF>
-inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(bb::UltraCircuitBuilder& ultra_builder,
-                                                                                size_t index,
-                                                                                size_t blk_idx,
-                                                                                UltraBlock& block)
+inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_component(
+    bb::UltraCircuitBuilder& ultra_builder, size_t index, size_t blk_idx, UltraBlock& block)
 {
     std::vector<uint32_t> gate_variables;
     if (!block.q_aux()[index].is_zero()) {
@@ -418,7 +414,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
         }
     }
     gate_variables = this->to_real(ultra_builder, gate_variables);
-    this->process_gate_variables(ultra_builder, gate_variables, index, blk_idx);
+    this->process_gate_variables(gate_variables, index, blk_idx);
     return gate_variables;
 }
 
@@ -430,7 +426,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
  * @return std::vector<uint32_t> vector of connected variables from ROM table gates
  */
 template <typename FF>
-inline std::vector<uint32_t> Graph_<FF>::get_rom_table_connected_component(
+inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_rom_table_connected_component(
     bb::UltraCircuitBuilder& ultra_builder, const UltraCircuitBuilder::RomTranscript& rom_array)
 {
     size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.aux);
@@ -473,7 +469,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_rom_table_connected_component(
             gate_variables.emplace_back(record_witness);
         }
         gate_variables = this->to_real(ultra_builder, gate_variables);
-        this->process_gate_variables(ultra_builder, gate_variables, gate_index, block_index);
+        this->process_gate_variables(gate_variables, gate_index, block_index);
         // after process_gate_variables function gate_variables constists of real variables indexes, so we can add all
         // this variables in the final vector to connect all of them
         if (!gate_variables.empty()) {
@@ -491,7 +487,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_rom_table_connected_component(
  * @return std::vector<uint32_t> vector of connected variables from RAM table gates
  */
 template <typename FF>
-inline std::vector<uint32_t> Graph_<FF>::get_ram_table_connected_component(
+inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_ram_table_connected_component(
     bb::UltraCircuitBuilder& ultra_builder, const UltraCircuitBuilder::RamTranscript& ram_array)
 {
     size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.aux);
@@ -528,7 +524,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_ram_table_connected_component(
             gate_variables.emplace_back(record_witness);
         }
         gate_variables = this->to_real(ultra_builder, gate_variables);
-        this->process_gate_variables(ultra_builder, gate_variables, gate_index, block_index);
+        this->process_gate_variables(gate_variables, gate_index, block_index);
         // after process_gate_variables function gate_variables constists of real variables indexes, so we can add all
         // these variables in the final vector to connect all of them
         ram_table_variables.insert(ram_table_variables.end(), gate_variables.begin(), gate_variables.end());
@@ -537,7 +533,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_ram_table_connected_component(
 }
 
 /**
- * @brief Construct a new Graph from Ultra Circuit Builder
+ * @brief Construct a new StaticAnalyzer from Ultra Circuit Builder
  * @tparam FF field type used in the circuit
  * @param ultra_circuit_constructor circuit builder containing all gates and variables
  * @details This constructor initializes the graph structure by:
@@ -555,7 +551,8 @@ inline std::vector<uint32_t> Graph_<FF>::get_ram_table_connected_component(
  *          3) Creating connections between variables that appear in the same gate
  *          4) Special handling for sorted constraints in delta range blocks
  */
-template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor, bool graph)
+template <typename FF>
+StaticAnalyzer_<FF>::StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_constructor, bool graph)
 {
     this->variables_gate_counts =
         std::unordered_map<uint32_t, size_t>(ultra_circuit_constructor.real_variable_index.size());
@@ -655,8 +652,8 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
  */
 
 template <typename FF>
-bool Graph_<FF>::check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                const uint32_t& variable_index)
+bool StaticAnalyzer_<FF>::check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                         const uint32_t& variable_index)
 {
     bool is_not_constant = true;
     const auto& constant_variable_indices = ultra_circuit_builder.constant_variable_indices;
@@ -681,8 +678,8 @@ bool Graph_<FF>::check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_c
  */
 
 template <typename FF>
-void Graph_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                 const std::vector<uint32_t>& variables_vector)
+void StaticAnalyzer_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                          const std::vector<uint32_t>& variables_vector)
 {
     if (variables_vector.empty()) {
         return;
@@ -716,7 +713,7 @@ void Graph_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_
  */
 
 template <typename FF>
-void Graph_<FF>::add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index)
+void StaticAnalyzer_<FF>::add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index)
 {
     variable_adjacency_lists[first_variable_index].emplace_back(second_variable_index);
     variable_adjacency_lists[second_variable_index].emplace_back(first_variable_index);
@@ -733,9 +730,9 @@ void Graph_<FF>::add_new_edge(const uint32_t& first_variable_index, const uint32
  */
 
 template <typename FF>
-void Graph_<FF>::depth_first_search(const uint32_t& variable_index,
-                                    std::unordered_set<uint32_t>& is_used,
-                                    std::vector<uint32_t>& connected_component)
+void StaticAnalyzer_<FF>::depth_first_search(const uint32_t& variable_index,
+                                             std::unordered_set<uint32_t>& is_used,
+                                             std::vector<uint32_t>& connected_component)
 {
     std::stack<uint32_t> variable_stack;
     variable_stack.push(variable_index);
@@ -759,7 +756,7 @@ void Graph_<FF>::depth_first_search(const uint32_t& variable_index,
  * indices
  */
 
-template <typename FF> std::vector<std::vector<uint32_t>> Graph_<FF>::find_connected_components()
+template <typename FF> std::vector<std::vector<uint32_t>> StaticAnalyzer_<FF>::find_connected_components()
 {
     std::unordered_set<uint32_t> is_used;
     std::vector<std::vector<uint32_t>> connected_components;
@@ -792,9 +789,9 @@ template <typename FF> std::vector<std::vector<uint32_t>> Graph_<FF>::find_conne
  */
 
 template <typename FF>
-inline size_t Graph_<FF>::process_current_decompose_chain(bb::UltraCircuitBuilder& ultra_circuit_constructor,
-                                                          std::unordered_set<uint32_t>& variables_in_one_gate,
-                                                          size_t index)
+inline size_t StaticAnalyzer_<FF>::process_current_decompose_chain(bb::UltraCircuitBuilder& ultra_circuit_constructor,
+                                                                   std::unordered_set<uint32_t>& variables_in_one_gate,
+                                                                   size_t index)
 {
     auto& arithmetic_block = ultra_circuit_constructor.blocks.arithmetic;
     auto zero_idx = ultra_circuit_constructor.zero_idx;
@@ -848,9 +845,10 @@ inline size_t Graph_<FF>::process_current_decompose_chain(bb::UltraCircuitBuilde
  */
 
 template <typename FF>
-inline void Graph_<FF>::remove_unnecessary_decompose_variables(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                               std::unordered_set<uint32_t>& variables_in_one_gate,
-                                                               const std::unordered_set<uint32_t>& decompose_variables)
+inline void StaticAnalyzer_<FF>::remove_unnecessary_decompose_variables(
+    bb::UltraCircuitBuilder& ultra_circuit_builder,
+    std::unordered_set<uint32_t>& variables_in_one_gate,
+    const std::unordered_set<uint32_t>& decompose_variables)
 {
     auto is_power_two = [&](const uint256_t& number) { return number > 0 && ((number & (number - 1)) == 0); };
     auto find_position = [&](uint32_t variable_index) {
@@ -899,7 +897,7 @@ inline void Graph_<FF>::remove_unnecessary_decompose_variables(bb::UltraCircuitB
  *          2) Variables from range_constraints created by range_constraint_into_two_limbs
  */
 template <typename FF>
-void Graph_<FF>::remove_unnecessary_range_constrains_variables(bb::UltraCircuitBuilder& ultra_builder)
+void StaticAnalyzer_<FF>::remove_unnecessary_range_constrains_variables(bb::UltraCircuitBuilder& ultra_builder)
 {
     std::map<uint64_t, UltraCircuitBuilder::RangeList> range_lists = ultra_builder.range_lists;
     std::unordered_set<uint32_t> range_lists_tau_tags;
@@ -938,10 +936,11 @@ void Graph_<FF>::remove_unnecessary_range_constrains_variables(bb::UltraCircuitB
  * @param gate_index
  */
 template <typename FF>
-inline void Graph_<FF>::remove_unnecessary_aes_plookup_variables(std::unordered_set<uint32_t>& variables_in_one_gate,
-                                                                 UltraCircuitBuilder& ultra_circuit_builder,
-                                                                 BasicTableId& table_id,
-                                                                 size_t gate_index)
+inline void StaticAnalyzer_<FF>::remove_unnecessary_aes_plookup_variables(
+    std::unordered_set<uint32_t>& variables_in_one_gate,
+    UltraCircuitBuilder& ultra_circuit_builder,
+    BasicTableId& table_id,
+    size_t gate_index)
 {
 
     auto find_position = [&](uint32_t real_variable_index) {
@@ -979,10 +978,11 @@ inline void Graph_<FF>::remove_unnecessary_aes_plookup_variables(std::unordered_
  */
 
 template <typename FF>
-inline void Graph_<FF>::remove_unnecessary_sha256_plookup_variables(std::unordered_set<uint32_t>& variables_in_one_gate,
-                                                                    UltraCircuitBuilder& ultra_circuit_builder,
-                                                                    BasicTableId& table_id,
-                                                                    size_t gate_index)
+inline void StaticAnalyzer_<FF>::remove_unnecessary_sha256_plookup_variables(
+    std::unordered_set<uint32_t>& variables_in_one_gate,
+    UltraCircuitBuilder& ultra_circuit_builder,
+    BasicTableId& table_id,
+    size_t gate_index)
 {
 
     auto find_position = [&](uint32_t real_variable_index) {
@@ -1034,7 +1034,8 @@ inline void Graph_<FF>::remove_unnecessary_sha256_plookup_variables(std::unorder
  */
 
 template <typename FF>
-inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ultra_circuit_builder, size_t gate_index)
+inline void StaticAnalyzer_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                              size_t gate_index)
 {
     auto find_position = [&](uint32_t real_variable_index) {
         return variables_in_one_gate.contains(real_variable_index);
@@ -1090,7 +1091,7 @@ inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ul
  */
 
 template <typename FF>
-inline void Graph_<FF>::remove_unnecessary_plookup_variables(bb::UltraCircuitBuilder& ultra_circuit_builder)
+inline void StaticAnalyzer_<FF>::remove_unnecessary_plookup_variables(bb::UltraCircuitBuilder& ultra_circuit_builder)
 {
     auto& lookup_block = ultra_circuit_builder.blocks.lookup;
     if (lookup_block.size() > 0) {
@@ -1108,7 +1109,8 @@ inline void Graph_<FF>::remove_unnecessary_plookup_variables(bb::UltraCircuitBui
  * @param ultra_builder
  */
 
-template <typename FF> inline void Graph_<FF>::remove_record_witness_variables(bb::UltraCircuitBuilder& ultra_builder)
+template <typename FF>
+inline void StaticAnalyzer_<FF>::remove_record_witness_variables(bb::UltraCircuitBuilder& ultra_builder)
 {
     auto block_data = ultra_builder.blocks.get();
     size_t blk_idx = find_block_index(ultra_builder, ultra_builder.blocks.aux);
@@ -1150,7 +1152,8 @@ template <typename FF> inline void Graph_<FF>::remove_record_witness_variables(b
  */
 
 template <typename FF>
-std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_circuit_builder)
+std::unordered_set<uint32_t> StaticAnalyzer_<FF>::show_variables_in_one_gate(
+    bb::UltraCircuitBuilder& ultra_circuit_builder)
 {
     for (const auto& pair : variables_gate_counts) {
         bool is_not_constant_variable = this->check_is_not_constant_variable(ultra_circuit_builder, pair.first);
@@ -1211,7 +1214,7 @@ std::pair<std::vector<uint32_t>, size_t> get_connected_component_with_index(
  * @tparam FF
  */
 
-template <typename FF> void Graph_<FF>::print_graph()
+template <typename FF> void StaticAnalyzer_<FF>::print_graph()
 {
     for (const auto& elem : variable_adjacency_lists) {
         info("variable with index ", elem.first);
@@ -1230,7 +1233,7 @@ template <typename FF> void Graph_<FF>::print_graph()
  * @tparam FF
  */
 
-template <typename FF> void Graph_<FF>::print_connected_components()
+template <typename FF> void StaticAnalyzer_<FF>::print_connected_components()
 {
     auto connected_components = find_connected_components();
     for (size_t i = 0; i < connected_components.size(); i++) {
@@ -1246,7 +1249,7 @@ template <typename FF> void Graph_<FF>::print_connected_components()
  * @tparam FF
  */
 
-template <typename FF> void Graph_<FF>::print_variables_gate_counts()
+template <typename FF> void StaticAnalyzer_<FF>::print_variables_gate_counts()
 {
     for (const auto& it : variables_gate_counts) {
         info("number of gates with variables ", it.first, " == ", it.second);
@@ -1261,7 +1264,7 @@ template <typename FF> void Graph_<FF>::print_variables_gate_counts()
  */
 
 template <typename FF>
-void Graph_<FF>::print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_builder, const uint32_t real_idx)
+void StaticAnalyzer_<FF>::print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_builder, const uint32_t real_idx)
 {
     const auto& block_data = ultra_builder.blocks.get();
     for (const auto& [key, gates] : variable_gates) {
@@ -1336,6 +1339,6 @@ void Graph_<FF>::print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_build
     }
 }
 
-template class Graph_<bb::fr>;
+template class StaticAnalyzer_<bb::fr>;
 
 } // namespace cdg
