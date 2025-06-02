@@ -208,16 +208,21 @@ export class SlasherClient {
    *
    * @param args - the arguments from the watcher, including the validators, amounts, and offenses
    */
-  private wantToSlash(args: WantToSlashArgs) {
+  private wantToSlash(args: WantToSlashArgs[]) {
     // TODO(#14489): need to sort the payloads by attester address
-    this.log.info('Wants to slash', args);
+    const sortedArgs = [...args].sort((a, b) => a.validator.toString().localeCompare(b.validator.toString()));
+    this.log.info('Wants to slash', sortedArgs);
     this.l1TxUtils
       .sendAndMonitorTransaction({
         to: this.slashFactoryContract.address,
         data: encodeFunctionData({
           abi: SlashFactoryAbi,
           functionName: 'createSlashPayload',
-          args: [args.validators, args.amounts, args.offenses.map(offense => BigInt(offense))],
+          args: [
+            sortedArgs.map(a => a.validator.toString()),
+            sortedArgs.map(a => a.amount),
+            sortedArgs.map(a => BigInt(a.offense)),
+          ],
         }),
       })
       // note, we don't need to monitor the logs here,
@@ -312,13 +317,7 @@ export class SlasherClient {
     // check each offense
     for (const offenseAndValidator of offensesAndValidators) {
       const watcherResponses = await Promise.all(
-        this.watchers.map(watcher =>
-          watcher.shouldSlash(
-            offenseAndValidator.validator.toString(),
-            offenseAndValidator.amount,
-            offenseAndValidator.offense,
-          ),
-        ),
+        this.watchers.map(watcher => watcher.shouldSlash(offenseAndValidator)),
       );
       // if no watcher agrees, return false
       if (watcherResponses.every(response => !response)) {

@@ -145,11 +145,13 @@ describe('SlasherClient', () => {
     const amounts = Array.from({ length: committee.length }, () => slashAmount);
     const offenses = Array.from({ length: committee.length }, () => Offence.UNKNOWN);
 
-    dummyWatcher.triggerSlash({
-      validators: committee,
-      amounts,
-      offenses,
-    });
+    const args = committee.map((validator, index) => ({
+      validator: EthAddress.fromString(validator),
+      amount: amounts[index],
+      offense: offenses[index],
+    }));
+
+    dummyWatcher.triggerSlash(args);
 
     // A monitored payload should be created automatically
     let payload: EthAddress | undefined = undefined;
@@ -209,42 +211,35 @@ describe('SlasherClient', () => {
       slashPayloadTtlSeconds: 1,
     };
     slasherClient.updateConfig(config);
-    dummyWatcher.triggerSlash({
-      validators: [privateKey.address],
-      amounts: [depositAmount],
-      offenses: [Offence.UNKNOWN],
-    });
+    dummyWatcher.triggerSlash([
+      {
+        validator: EthAddress.random(),
+        amount: depositAmount,
+        offense: Offence.UNKNOWN,
+      },
+    ]);
 
-    let payload: EthAddress | undefined = undefined;
-    await retryUntil(
-      () => slasherClient.getMonitoredPayloads().length > 0,
-      'has monitored payload',
-      ethereumSlotDuration * 3,
-      0.1,
-    );
+    await awaitNonEmptyMonitoredPayloads(slasherClient);
 
     await sleep(config.slashPayloadTtlSeconds * 1000 + 100);
 
     const slot = await rollup.getSlotNumber();
-    payload = await slasherClient.getSlashPayload(slot);
+    const payload = await slasherClient.getSlashPayload(slot);
 
     expect(payload).toBeUndefined();
   });
 
   it('clears monitored payloads', async () => {
     expect(slasherClient.getMonitoredPayloads()).toEqual([]);
-    dummyWatcher.triggerSlash({
-      validators: [EthAddress.random().toString()],
-      amounts: [depositAmount],
-      offenses: [Offence.UNKNOWN],
-    });
+    dummyWatcher.triggerSlash([
+      {
+        validator: EthAddress.random(),
+        amount: depositAmount,
+        offense: Offence.UNKNOWN,
+      },
+    ]);
 
-    await retryUntil(
-      () => slasherClient.getMonitoredPayloads().length > 0,
-      'has monitored payload',
-      ethereumSlotDuration * 5,
-      0.1,
-    );
+    await awaitNonEmptyMonitoredPayloads(slasherClient);
 
     slasherClient.clearMonitoredPayloads();
     expect(slasherClient.getMonitoredPayloads()).toEqual([]);
@@ -260,16 +255,61 @@ describe('SlasherClient', () => {
     const payload = await slasherClient.getSlashPayload(slot);
     expect(payload).toBe(config.slashOverridePayload);
 
-    dummyWatcher.triggerSlash({
-      validators: [EthAddress.random().toString()],
-      amounts: [depositAmount],
-      offenses: [Offence.UNKNOWN],
-    });
+    dummyWatcher.triggerSlash([
+      {
+        validator: EthAddress.random(),
+        amount: depositAmount,
+        offense: Offence.UNKNOWN,
+      },
+    ]);
+
+    await awaitNonEmptyMonitoredPayloads(slasherClient);
 
     const slot2 = BigInt(Math.floor(Math.random() * 1000000));
     const payload2 = await slasherClient.getSlashPayload(slot2);
     expect(payload2).toBe(config.slashOverridePayload);
   });
+
+  it('sorts offenses within payload by validator address', async () => {
+    dummyWatcher.triggerSlash([
+      {
+        validator: EthAddress.fromString('0x0000000000000000000000000000000000000003'),
+        amount: 100n,
+        offense: Offence.UNKNOWN,
+      },
+      {
+        validator: EthAddress.fromString('0x0000000000000000000000000000000000000001'),
+        amount: 200n,
+        offense: Offence.EPOCH_PRUNE,
+      },
+      {
+        validator: EthAddress.fromString('0x0000000000000000000000000000000000000002'),
+        amount: 300n,
+        offense: Offence.INACTIVITY,
+      },
+    ]);
+
+    await awaitNonEmptyMonitoredPayloads(slasherClient);
+
+    const payloadActions = slasherClient.getMonitoredPayloads();
+    expect(payloadActions.length).toBe(1);
+    expect(payloadActions[0].validators).toEqual([
+      EthAddress.fromString('0x0000000000000000000000000000000000000001'),
+      EthAddress.fromString('0x0000000000000000000000000000000000000002'),
+      EthAddress.fromString('0x0000000000000000000000000000000000000003'),
+    ]);
+    expect(payloadActions[0].offenses).toEqual([Offence.EPOCH_PRUNE, Offence.INACTIVITY, Offence.UNKNOWN]);
+    expect(payloadActions[0].amounts).toEqual([200n, 300n, 100n]);
+  });
+
+  function awaitNonEmptyMonitoredPayloads(slasherClient: SlasherClient) {
+    return retryUntil(
+      () => slasherClient.getMonitoredPayloads().length > 0,
+      'has monitored payload',
+      ethereumSlotDuration * 3,
+      0.1,
+    );
+  }
 });
 
 class DummyWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
@@ -277,11 +317,11 @@ class DummyWatcher extends (EventEmitter as new () => WatcherEmitter) implements
     super();
   }
 
-  public shouldSlash(_validator: `0x${string}`, _amount: bigint, _offense: Offence): Promise<boolean> {
+  public shouldSlash(_args: WantToSlashArgs): Promise<boolean> {
     return Promise.resolve(true);
   }
 
-  public triggerSlash(args: WantToSlashArgs) {
+  public triggerSlash(args: WantToSlashArgs[]) {
     this.emit(WANT_TO_SLASH_EVENT, args);
   }
 }

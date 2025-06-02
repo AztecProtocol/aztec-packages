@@ -158,9 +158,13 @@ describe('e2e_p2p_slashing', () => {
 
     t.logger.info(`Waiting for slash payload to be deployed`);
     const expectedSlashes = Array.from({ length: committee.length }, () => slashingAmount);
+    const sortedCommittee = [...committee].sort((a, b) => a.localeCompare(b));
     await retryUntil(
       async () => {
-        const [address, _, isDeployed] = await slashFactory.read.getAddressAndIsDeployed([committee, expectedSlashes]);
+        const [address, _, isDeployed] = await slashFactory.read.getAddressAndIsDeployed([
+          sortedCommittee,
+          expectedSlashes,
+        ]);
         return address && isDeployed;
       },
       'slash payload deployed',
