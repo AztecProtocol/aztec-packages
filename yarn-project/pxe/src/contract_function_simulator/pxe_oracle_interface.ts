@@ -603,12 +603,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   public async validateEnqueuedNotes(
     contractAddress: AztecAddress,
-    notePendingValidationArrayBaseSlot: Fr,
+    noteValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
     // We read all note validation requests and process them all concurrently. This makes the process much faster as we
     // don't need to wait for the network round-trip.
     const noteValidationRequests = (
-      await this.capsuleDataProvider.readCapsuleArray(contractAddress, notePendingValidationArrayBaseSlot)
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot)
     ).map(NoteValidationRequest.fromFields);
 
     await Promise.all(
@@ -627,7 +627,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
 
     // Requests are cleared once we're done.
-    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, notePendingValidationArrayBaseSlot, []);
+    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, []);
   }
 
   async deliverNote(
@@ -665,12 +665,13 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
     // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
-    // note existence in said tree.
-    const [uniqueNoteHashTreeIndexInBlock] = await this.aztecNode.findLeavesIndexes(
-      syncedBlockNumber,
-      MerkleTreeId.NOTE_HASH_TREE,
-      [uniqueNoteHash],
-    );
+    // note existence in said tree. We concurrently also check if the note's nullifier exists, performing all node
+    // queries in a single round-trip.
+    const [[uniqueNoteHashTreeIndexInBlock], [nullifierIndex]] = await Promise.all([
+      this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash]),
+      this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [siloedNullifier]),
+    ]);
+
     if (uniqueNoteHashTreeIndexInBlock === undefined) {
       throw new Error(
         `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${syncedBlockNumber} (from tx ${txHash})`,
@@ -700,9 +701,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       nullifier: noteDao.siloedNullifier.toString(),
     });
 
-    const [nullifierIndex] = await this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [
-      siloedNullifier,
-    ]);
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
       await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }], recipient);
