@@ -9,6 +9,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_call_opcode.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
@@ -304,8 +305,8 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_da_range_settings>>(),
         // Call opcode
-        std::make_unique<LookupIntoIndexedByClk<lookup_execution_call_allocated_left_l2_range_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_execution_call_allocated_left_da_range_settings>>());
+        std::make_unique<LookupIntoIndexedByClk<lookup_call_opcode_call_allocated_left_l2_range_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_call_opcode_call_allocated_left_da_range_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

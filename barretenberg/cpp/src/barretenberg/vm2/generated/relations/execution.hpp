@@ -13,7 +13,7 @@ template <typename FF_> class executionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 3, 3, 4, 4, 3, 4, 4 };
+    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -28,13 +28,6 @@ template <typename FF_> class executionImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
-
-        const auto execution_L2_GAS_LEFT = (in.get(C::execution_l2_gas_limit) - in.get(C::execution_l2_gas_used));
-        const auto execution_DA_GAS_LEFT = (in.get(C::execution_da_gas_limit) - in.get(C::execution_da_gas_used));
-        const auto execution_ALLOCATED_GTE_LEFT_L2 = (in.get(C::execution_reg1) - execution_L2_GAS_LEFT);
-        const auto execution_ALLOCATED_LT_LEFT_L2 = ((execution_L2_GAS_LEFT - in.get(C::execution_reg1)) - FF(1));
-        const auto execution_ALLOCATED_GTE_LEFT_DA = (in.get(C::execution_reg2) - execution_DA_GAS_LEFT);
-        const auto execution_ALLOCATED_LT_LEFT_DA = ((execution_DA_GAS_LEFT - in.get(C::execution_reg2)) - FF(1));
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -67,66 +60,6 @@ template <typename FF_> class executionImpl {
             auto tmp = in.get(C::execution_last) * in.get(C::execution_sel_shift);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_enter_call) * (FF(32) - in.get(C::execution_constant_32));
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_call_is_l2_gas_allocated_lt_left) *
-                       (FF(1) - in.get(C::execution_call_is_l2_gas_allocated_lt_left));
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_enter_call) *
-                       (((execution_ALLOCATED_LT_LEFT_L2 - execution_ALLOCATED_GTE_LEFT_L2) *
-                             in.get(C::execution_call_is_l2_gas_allocated_lt_left) +
-                         execution_ALLOCATED_GTE_LEFT_L2) -
-                        in.get(C::execution_call_allocated_left_l2_cmp_diff));
-            tmp *= scaling_factor;
-            std::get<7>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::execution_sel_enter_call) * (((in.get(C::execution_reg1) - execution_L2_GAS_LEFT) *
-                                                            in.get(C::execution_call_is_l2_gas_allocated_lt_left) +
-                                                        execution_L2_GAS_LEFT) -
-                                                       in.get(C::execution_l2_gas_limit_shift));
-            tmp *= scaling_factor;
-            std::get<8>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_call_is_da_gas_allocated_lt_left) *
-                       (FF(1) - in.get(C::execution_call_is_da_gas_allocated_lt_left));
-            tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_enter_call) *
-                       (((execution_ALLOCATED_LT_LEFT_DA - execution_ALLOCATED_GTE_LEFT_DA) *
-                             in.get(C::execution_call_is_da_gas_allocated_lt_left) +
-                         execution_ALLOCATED_GTE_LEFT_DA) -
-                        in.get(C::execution_call_allocated_left_da_cmp_diff));
-            tmp *= scaling_factor;
-            std::get<10>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::execution_sel_enter_call) * (((in.get(C::execution_reg2) - execution_DA_GAS_LEFT) *
-                                                            in.get(C::execution_call_is_da_gas_allocated_lt_left) +
-                                                        execution_DA_GAS_LEFT) -
-                                                       in.get(C::execution_da_gas_limit_shift));
-            tmp *= scaling_factor;
-            std::get<11>(evals) += typename Accumulator::View(tmp);
         }
     }
 };

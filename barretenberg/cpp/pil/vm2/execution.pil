@@ -4,6 +4,7 @@ include "address_derivation.pil";
 include "bc_decomposition.pil";
 include "bc_hashing.pil";
 include "bc_retrieval.pil";
+include "call_opcode.pil";
 include "instr_fetching.pil";
 include "class_id_derivation.pil";
 include "range_check.pil";
@@ -110,60 +111,4 @@ precomputed.sel_exec_spec {
     precomputed.exec_opcode_dynamic_l2_gas,
     precomputed.exec_opcode_dynamic_da_gas
 };
-
-// ========== CALL/STATICCALL SPECIFIC LOGIC ==========
-
-// Register 1 contains allocated l2 gas
-// Register 2 contains allocated da gas
-// Register 3 contains the address of the contract to call
-
-// TODO: Remove this as a column when we can lookup with constants
-pol commit constant_32;
-sel_enter_call * (32 - constant_32) = 0;
-
-// ==== GAS CLAMPING ====
-// Guaranteed not to wrap since we never put a gas used > gas limit
-pol L2_GAS_LEFT = l2_gas_limit - l2_gas_used;
-pol DA_GAS_LEFT = da_gas_limit - da_gas_used;
-
-// L2 gas clamping
-
-// Helper column containing whether the allocated gas is less than the left gas
-pol commit call_is_l2_gas_allocated_lt_left;
-call_is_l2_gas_allocated_lt_left * (1 - call_is_l2_gas_allocated_lt_left) = 0;
-
-
-pol ALLOCATED_GTE_LEFT_L2 = reg1 - L2_GAS_LEFT;
-pol ALLOCATED_LT_LEFT_L2 = L2_GAS_LEFT - reg1 - 1;
-pol commit call_allocated_left_l2_cmp_diff;
-sel_enter_call * ((ALLOCATED_LT_LEFT_L2 - ALLOCATED_GTE_LEFT_L2) * call_is_l2_gas_allocated_lt_left + ALLOCATED_GTE_LEFT_L2 - call_allocated_left_l2_cmp_diff) = 0;
-
-#[CALL_ALLOCATED_LEFT_L2_RANGE]
-sel_enter_call { call_allocated_left_l2_cmp_diff, constant_32 }
-in
-range_check.sel
-    { range_check.value, range_check.rng_chk_bits };
-
-// next row's l2_gas_limit = if call_is_l2_gas_allocated_lt_left { reg1 } else { L2_GAS_LEFT }
-sel_enter_call * ((reg1 - L2_GAS_LEFT) * call_is_l2_gas_allocated_lt_left + L2_GAS_LEFT - l2_gas_limit') = 0;
-
-// DA gas clamping
-
-// Helper column containing whether the allocated gas is less than the left gas
-pol commit call_is_da_gas_allocated_lt_left;
-call_is_da_gas_allocated_lt_left * (1 - call_is_da_gas_allocated_lt_left) = 0;
-
-pol ALLOCATED_GTE_LEFT_DA = reg2 - DA_GAS_LEFT;
-pol ALLOCATED_LT_LEFT_DA = DA_GAS_LEFT - reg2 - 1;
-pol commit call_allocated_left_da_cmp_diff;
-sel_enter_call * ((ALLOCATED_LT_LEFT_DA - ALLOCATED_GTE_LEFT_DA) * call_is_da_gas_allocated_lt_left + ALLOCATED_GTE_LEFT_DA - call_allocated_left_da_cmp_diff) = 0;
-
-#[CALL_ALLOCATED_LEFT_DA_RANGE]
-sel_enter_call { call_allocated_left_da_cmp_diff, constant_32 }
-in
-range_check.sel
-    { range_check.value, range_check.rng_chk_bits };
-
-// next row's da_gas_limit = if call_is_da_gas_allocated_lt_left { reg2 } else { DA_GAS_LEFT }
-sel_enter_call * ((reg2 - DA_GAS_LEFT) * call_is_da_gas_allocated_lt_left + DA_GAS_LEFT - da_gas_limit') = 0;
 

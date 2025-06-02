@@ -74,6 +74,8 @@ void GasTracker::consume_dynamic_gas(Gas dynamic_gas_factor)
     context.set_gas_used(actual_gas_used.to_gas());
 }
 
+// Gas limit for call is the minimum between the gas allocated to the call by the user, and the gas left.
+// This applies to both gas dimensions independently.
 Gas GasTracker::compute_gas_limit_for_call(Gas allocated_gas)
 {
     Gas gas_left = context.gas_left();
