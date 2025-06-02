@@ -145,3 +145,78 @@ resource "helm_release" "aztec-gke-cluster" {
   wait_for_jobs = true
 
 }
+
+resource "helm_release" "aztec-prover-stack" {
+  provider         = helm.gke-cluster
+  name             = var.RELEASE_NAME
+  repository       = "../../"
+  chart            = "aztec-prover-stack"
+  namespace        = var.RELEASE_NAME
+  create_namespace = true
+  upgrade_install  = true
+
+  values = [
+    file("../../aztec-prover-stack/values/${var.VALUES_FILE}")
+  ]
+
+  set {
+    name  = "global.aztecImage.repository"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[0] # e.g. aztecprotocol/aztec
+  }
+
+  set {
+    name  = "global.aztecImage.tag"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[1] # e.g. latest
+  }
+
+  set {
+    name  = "node.mnemonic"
+    value = var.L1_DEPLOYMENT_MNEMONIC
+  }
+
+  dynamic "set" {
+    for_each = var.EXTERNAL_ETHEREUM_HOSTS != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "global.l1ExecutionUrls"
+      value = replace(var.EXTERNAL_ETHEREUM_HOSTS, ",", "\\,")
+      type  = "string"
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "global.l1ConsensusUrls"
+      value = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "global.l1ConsensusApiKeys"
+      value = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "global.l1ConsensusApiKeyHeaders"
+      value = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER
+    }
+  }
+
+  set {
+    name  = "global.otelCollectorEndpoint"
+    value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
+  }
+
+  set {
+    name = "globa.useGcloudLogging"
+    value = "true"
+  }
+
+  timeout = 600
+  wait = true
+}

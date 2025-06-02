@@ -1,0 +1,35 @@
+global:
+  aztecRollupVersion: "canonical"
+  aztecNetwork: "alpha-testnet"
+
+  l1ExecutionUrls: []
+  l1ConsensusUrls: []
+  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeyHeaders: []
+
+  aztecImage:
+    repository: aztecprotocol/aztec
+    tag: alpha-testnet
+    pullPolicy: Always
+
+node:
+  mnemonic:
+  mnemonicStartIndex:
+
+  env:
+    SPONSORED_FPC: true
+    TEST_ACCOUNTS: false
+
+  persistence.enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 512Gi
+
+agent:
+  replicaCount: 16

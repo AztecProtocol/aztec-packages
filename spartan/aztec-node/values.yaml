@@ -3,15 +3,6 @@ nameOverride: ""
 # -- Overrides the chart computed fullname
 fullnameOverride: ""
 
-# -- Image to use for the container
-image:
-  # -- Image repository
-  repository: aztecprotocol/aztec
-  # -- Image tag
-  tag: alpha-testnet
-  # -- Container pull policy
-  pullPolicy: IfNotPresent
-
 # -- Pod management policy
 podManagementPolicy: Parallel
 
@@ -40,13 +31,37 @@ global:
   ## Example: "X-API-KEY"
   l1ConsensusHostApiKeyHeaders: []
 
+  aztecImage:
+    repository: aztecprotocol/aztec
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  # -- Collector endpoint - e.g. http://localhost:4318
+  otelCollectorEndpoint: ""
+  # -- Use GCP logging
+  useGcloudLogging: false
+
 # -- Use host network - this will disable nodePort service and use host networking instead
 hostNetwork: false
 
+# -- Number of replicas
+replicaCount: 1
+
+statefulSet:
+  enabled: false
+  volumeClaimTemplates: []
+  # Example:
+  # volumeClaimTemplates:
+  #   - metadata:
+  #       name: data
+  #     spec:
+  #       accessModes: ["ReadWriteOnce"]
+  #       resources:
+  #         requests:
+  #           storage: 10Gi
+
 # -- Aztec node configuration
 node:
-  # -- Number of replicas
-  replicas: 1
   # -- Log level - info, verbose, debug, trace
   logLevel: "info"
 
@@ -64,14 +79,8 @@ node:
   # the address that will receive block or proof rewards
   coinbase:
 
-  # -- Metrics configuration
-  metrics:
-    # -- Exclude metrics - comma separated list of metrics to exclude
-    otelExcludeMetrics: ""
-    # -- Collector endpoint - e.g. http://localhost:4318
-    otelCollectorEndpoint: ""
-    # -- Use GCP logging
-    useGcloudLogging: false
+  # -- Exclude metrics - comma separated list of metrics to exclude
+  otelExcludeMetrics: ""
 
   storage:
     # -- Data directory
@@ -101,17 +110,6 @@ persistence:
   enabled: false
   # -- Use an existing PVC
   existingClaim: null
-  # -- AccessModes
-  accessModes:
-  - ReadWriteOnce
-  # -- Requested size
-  size: 100Gi
-  # -- Use a specific storage class
-  storageClassName: null
-  # -- Annotations for volume claim template
-  annotations: {}
-  # -- Selector for volume claim template
-  selector: {}
 
 # -- Update strategy for the statefulset
 updateStrategy:

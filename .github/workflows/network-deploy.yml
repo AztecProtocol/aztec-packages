@@ -233,6 +233,7 @@ jobs:
               L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=$SECRET_NAME)
             fi
             terraform destroy -auto-approve \
+              --target "helm_release.aztec-gke-cluster" \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
               -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
@@ -247,6 +248,7 @@ jobs:
               -lock=${{ env.RESPECT_TF_LOCK }}
           else
             terraform destroy -auto-approve \
+              --target "helm_release.aztec-gke-cluster" \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
               -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
@@ -273,6 +275,7 @@ jobs:
               L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=$SECRET_NAME)
             fi
             terraform plan \
+              --target "helm_release.aztec-gke-cluster" \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
               -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
@@ -291,6 +294,7 @@ jobs:
               -lock=${{ env.RESPECT_TF_LOCK }}
           else
             terraform plan \
+              --target "helm_release.aztec-gke-cluster" \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
               -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
