@@ -8,7 +8,6 @@ import {
   BlockLog,
   BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
-import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -79,12 +78,16 @@ library ProposeLib {
    *
    * @param _args - The arguments to propose the block
    * @param _attestations - Signatures (or empty) from the validators
-   * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
+   * Input _blobsInput bytes:
+   * input[:1] - num blobs in block
+   * input[1:] - blob commitments (48 bytes * num blobs in block)
+   * @param _blobsInput - The above bytes to verify our input blob commitments match real blobs
+   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob), exists only to be overriden in tests.
    */
   function propose(
     ProposeArgs calldata _args,
     CommitteeAttestation[] memory _attestations,
-    bytes calldata _blobInput,
+    bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
@@ -96,7 +99,7 @@ library ProposeLib {
     // Since an invalid blob hash here would fail the consensus checks of
     // the header, the `blobInput` is implicitly accepted by consensus as well.
     (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) =
-      BlobLib.validateBlobs(_blobInput, _checkBlob);
+      BlobLib.validateBlobs(_blobsInput, _checkBlob);
 
     Header memory header = HeaderLib.decode(_args.header);
     v.headerHash = HeaderLib.hash(_args.header);
@@ -141,21 +144,12 @@ library ProposeLib {
       components.proverCost
     );
 
-    uint256 i = 0;
-    bytes32 currentblobCommitmentsHash = rollupStore.blobCommitmentsHash[blockNumber - 1];
-    // If we are at the first block of an epoch, we reinitialise the blobCommitmentsHash.
-    // Blob commitments are collected and proven per root rollup proof => per epoch.
+    // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
     bool isFirstBlockOfEpoch =
       currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
-    if (isFirstBlockOfEpoch) {
-      // Initialise the blobAccumulatorHash
-      currentblobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(v.blobCommitments[i++]));
-    }
-    for (i; i < v.blobCommitments.length; i++) {
-      currentblobCommitmentsHash =
-        Hash.sha256ToField(abi.encodePacked(currentblobCommitmentsHash, v.blobCommitments[i]));
-    }
-    rollupStore.blobCommitmentsHash[blockNumber] = currentblobCommitmentsHash;
+    rollupStore.blobCommitmentsHash[blockNumber] = BlobLib.calculateBlobCommitmentsHash(
+      rollupStore.blobCommitmentsHash[blockNumber - 1], v.blobCommitments, isFirstBlockOfEpoch
+    );
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
     v.inHash = rollupStore.config.inbox.consume(blockNumber);

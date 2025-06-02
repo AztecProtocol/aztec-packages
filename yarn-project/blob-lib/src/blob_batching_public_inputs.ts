@@ -12,12 +12,12 @@ import { BatchedBlob, BatchedBlobAccumulator, FinalBlobBatchingChallenges } from
  */
 export class BlobAccumulatorPublicInputs {
   constructor(
-    public blobCommitmentsHash: Fr,
-    public z: Fr,
-    public y: BLS12Fr,
-    public c: BLS12Point,
-    public gamma: Fr,
-    public gammaPow: BLS12Fr,
+    public blobCommitmentsHashAcc: Fr,
+    public zAcc: Fr,
+    public yAcc: BLS12Fr,
+    public cAcc: BLS12Point,
+    public gammaAcc: Fr,
+    public gammaPowAcc: BLS12Fr,
   ) {}
 
   static empty(): BlobAccumulatorPublicInputs {
@@ -26,18 +26,14 @@ export class BlobAccumulatorPublicInputs {
 
   equals(other: BlobAccumulatorPublicInputs) {
     return (
-      this.blobCommitmentsHash.equals(other.blobCommitmentsHash) &&
-      this.z.equals(other.z) &&
-      this.y.equals(other.y) &&
-      this.c.equals(other.c) &&
-      this.gamma.equals(other.gamma) &&
-      this.gammaPow.equals(other.gammaPow)
+      this.blobCommitmentsHashAcc.equals(other.blobCommitmentsHashAcc) &&
+      this.zAcc.equals(other.zAcc) &&
+      this.yAcc.equals(other.yAcc) &&
+      this.cAcc.equals(other.cAcc) &&
+      this.gammaAcc.equals(other.gammaAcc) &&
+      this.gammaPowAcc.equals(other.gammaPowAcc)
     );
   }
-
-  // isEmpty(): boolean {
-  //   return this.v.isZero() && this.z.isZero() && this.y.isZero() && this.c.isZero() && this.gamma.isZero() && this.gammaPow.isZero();
-  // }
 
   static fromBuffer(buffer: Buffer | BufferReader): BlobAccumulatorPublicInputs {
     const reader = BufferReader.asReader(buffer);
@@ -52,7 +48,14 @@ export class BlobAccumulatorPublicInputs {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.blobCommitmentsHash, this.z, this.y, this.c, this.gamma, this.gammaPow);
+    return serializeToBuffer(
+      this.blobCommitmentsHashAcc,
+      this.zAcc,
+      this.yAcc,
+      this.cAcc,
+      this.gammaAcc,
+      this.gammaPowAcc,
+    );
   }
 
   /**
@@ -64,13 +67,13 @@ export class BlobAccumulatorPublicInputs {
    */
   async accumulateBlobs(blobs: Blob[], finalBlobChallenges: FinalBlobBatchingChallenges) {
     let acc = new BatchedBlobAccumulator(
-      this.blobCommitmentsHash,
-      this.z,
-      this.y,
-      this.c,
+      this.blobCommitmentsHashAcc,
+      this.zAcc,
+      this.yAcc,
+      this.cAcc,
       BLS12Point.ZERO,
-      this.gamma,
-      this.gammaPow,
+      this.gammaAcc,
+      this.gammaPowAcc,
       finalBlobChallenges,
     );
     acc = await acc.accumulateBlobs(blobs);
@@ -86,14 +89,14 @@ export class BlobAccumulatorPublicInputs {
 
   toFields() {
     return [
-      this.blobCommitmentsHash,
-      this.z,
-      ...this.y.toNoirBigNum().limbs.map(Fr.fromString),
-      ...this.c.x.toNoirBigNum().limbs.map(Fr.fromString),
-      ...this.c.y.toNoirBigNum().limbs.map(Fr.fromString),
-      new Fr(this.c.isInfinite),
-      this.gamma,
-      ...this.gammaPow.toNoirBigNum().limbs.map(Fr.fromString),
+      this.blobCommitmentsHashAcc,
+      this.zAcc,
+      ...this.yAcc.toNoirBigNum().limbs.map(Fr.fromString),
+      ...this.cAcc.x.toNoirBigNum().limbs.map(Fr.fromString),
+      ...this.cAcc.y.toNoirBigNum().limbs.map(Fr.fromString),
+      new Fr(this.cAcc.isInfinite),
+      this.gammaAcc,
+      ...this.gammaPowAcc.toNoirBigNum().limbs.map(Fr.fromString),
     ];
   }
 

@@ -302,12 +302,12 @@ export function mapBlobAccumulatorPublicInputsToNoir(
   blobPublicInputs: BlobAccumulatorPublicInputs,
 ): BlobAccumulatorPublicInputsNoir {
   return {
-    blob_commitments_hash: mapFieldToNoir(blobPublicInputs.blobCommitmentsHash),
-    z: mapFieldToNoir(blobPublicInputs.z),
-    y: mapBLS12FrToNoir(blobPublicInputs.y),
-    c: mapBLS12PointToNoir(blobPublicInputs.c),
-    gamma: mapFieldToNoir(blobPublicInputs.gamma),
-    gamma_pow: mapBLS12FrToNoir(blobPublicInputs.gammaPow),
+    blob_commitments_hash_acc: mapFieldToNoir(blobPublicInputs.blobCommitmentsHashAcc),
+    z_acc: mapFieldToNoir(blobPublicInputs.zAcc),
+    y_acc: mapBLS12FrToNoir(blobPublicInputs.yAcc),
+    c_acc: mapBLS12PointToNoir(blobPublicInputs.cAcc),
+    gamma_acc: mapFieldToNoir(blobPublicInputs.gammaAcc),
+    gamma_pow_acc: mapBLS12FrToNoir(blobPublicInputs.gammaPowAcc),
   };
 }
 
@@ -320,12 +320,12 @@ export function mapBlobAccumulatorPublicInputsFromNoir(
   blobPublicInputs: BlobAccumulatorPublicInputsNoir,
 ): BlobAccumulatorPublicInputs {
   return new BlobAccumulatorPublicInputs(
-    mapFieldFromNoir(blobPublicInputs.blob_commitments_hash),
-    mapFieldFromNoir(blobPublicInputs.z),
-    mapBLS12FrFromNoir(blobPublicInputs.y),
-    mapBLS12PointFromNoir(blobPublicInputs.c),
-    mapFieldFromNoir(blobPublicInputs.gamma),
-    mapBLS12FrFromNoir(blobPublicInputs.gamma_pow),
+    mapFieldFromNoir(blobPublicInputs.blob_commitments_hash_acc),
+    mapFieldFromNoir(blobPublicInputs.z_acc),
+    mapBLS12FrFromNoir(blobPublicInputs.y_acc),
+    mapBLS12PointFromNoir(blobPublicInputs.c_acc),
+    mapFieldFromNoir(blobPublicInputs.gamma_acc),
+    mapBLS12FrFromNoir(blobPublicInputs.gamma_pow_acc),
   );
 }
 
