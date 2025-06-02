@@ -1,11 +1,6 @@
 import type { L2BlockId } from '@aztec/stdlib/block';
-<<<<<<< HEAD
 import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
-import { BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
-=======
-import type { P2PApi } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, P2PClientType } from '@aztec/stdlib/p2p';
->>>>>>> master
+import { type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { ENR } from '@chainsafe/enr';
@@ -57,11 +52,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
    */
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
-<<<<<<< HEAD
-  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>): void;
-=======
   registerBlockProposalHandler(callback: P2PBlockReceivedCallback): void;
->>>>>>> master
 
   /**
    * Request a list of transactions from another peer by their tx hashes.

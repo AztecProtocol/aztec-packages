@@ -29,13 +29,7 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "broadcastProposal"');
   }
 
-<<<<<<< HEAD
-  public registerBlockProposalHandler(
-    _handler: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>,
-  ): void {
-=======
   public registerBlockProposalHandler(_handler: P2PBlockReceivedCallback): void {
->>>>>>> master
     throw new Error('DummyP2P does not implement "registerBlockProposalHandler"');
   }
 

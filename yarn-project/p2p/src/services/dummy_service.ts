@@ -7,7 +7,12 @@ import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
 import type { ReqRespSubProtocol, SubProtocolMap } from './reqresp/interface.js';
-import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
+import {
+  type P2PBlockReceivedCallback,
+  type P2PService,
+  type PeerDiscoveryService,
+  PeerDiscoveryState,
+} from './service.js';
 
 /**
  * A dummy implementation of the P2P Service.
@@ -51,13 +56,7 @@ export class DummyP2PService implements P2PService {
   /**
    * Register a callback into the validator client for when a block proposal is received
    */
-<<<<<<< HEAD
-  public registerBlockReceivedCallback(_: (block: BlockProposal) => Promise<BlockAttestation[]>) {}
-=======
-  public registerBlockReceivedCallback(
-    _callback: (block: BlockProposal, sender: PeerId) => Promise<BlockAttestation>,
-  ) {}
->>>>>>> master
+  public registerBlockReceivedCallback(_callback: P2PBlockReceivedCallback) {}
 
   /**
    * Sends a request to a peer.

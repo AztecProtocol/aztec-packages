@@ -31,7 +31,7 @@ import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
-import type { P2PService } from '../services/service.js';
+import type { P2PBlockReceivedCallback, P2PService } from '../services/service.js';
 import { TxCollector } from '../services/tx_collector.js';
 import { type P2P, P2PClientState, type P2PSyncState } from './interface.js';
 
@@ -337,13 +337,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
-  public registerBlockProposalHandler(
-<<<<<<< HEAD
-    handler: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>,
-=======
-    handler: (block: BlockProposal, sender: any) => Promise<BlockAttestation | undefined>,
->>>>>>> master
-  ): void {
+  public registerBlockProposalHandler(handler: P2PBlockReceivedCallback): void {
     this.p2pService.registerBlockReceivedCallback(handler);
   }
 

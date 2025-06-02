@@ -61,11 +61,7 @@ export interface Validator {
     txs: Tx[],
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined>;
-<<<<<<< HEAD
-  attestToProposal(proposal: BlockProposal): Promise<BlockAttestation[] | undefined>;
-=======
-  attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation | undefined>;
->>>>>>> master
+  attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation[] | undefined>;
 
   broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
   collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
@@ -198,13 +194,8 @@ export class ValidatorClient extends WithTracer implements Validator {
   }
 
   public registerBlockProposalHandler() {
-<<<<<<< HEAD
-    const handler = (block: BlockProposal): Promise<BlockAttestation[] | undefined> => {
-      return this.attestToProposal(block);
-=======
-    const handler = (block: BlockProposal, proposalSender: any): Promise<BlockAttestation | undefined> => {
+    const handler = (block: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> => {
       return this.attestToProposal(block, proposalSender);
->>>>>>> master
     };
     this.p2pClient.registerBlockProposalHandler(handler);
   }
@@ -218,11 +209,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.blockBuilder = blockBuilder;
   }
 
-<<<<<<< HEAD
-  async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation[] | undefined> {
-=======
-  async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation | undefined> {
->>>>>>> master
+  async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> {
     const slotNumber = proposal.slotNumber.toNumber();
     const blockNumber = proposal.blockNumber.toNumber();
     const proposalInfo = {
@@ -234,7 +221,6 @@ export class ValidatorClient extends WithTracer implements Validator {
     };
     this.log.verbose(`Received request to attest for slot ${slotNumber}`);
 
-<<<<<<< HEAD
     // Check that I have any address in current committee
     const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
     if (inCommittee.length === 0) {
@@ -242,8 +228,6 @@ export class ValidatorClient extends WithTracer implements Validator {
       return undefined;
     }
 
-=======
->>>>>>> master
     // Check that the proposal is from the current proposer, or the next proposer.
     // Q: Should this be moved to the block proposal validator, so we disregard proposals from anyone?
     const invalidProposal = await this.blockProposalValidator.validate(proposal);
@@ -279,12 +263,6 @@ export class ValidatorClient extends WithTracer implements Validator {
     // Collect txs from the proposal
     const { missing, txs } = await this.txCollector.collectForBlockProposal(proposal, proposalSender);
 
-    // Check that I am in the committee before attesting
-    if (!(await this.epochCache.isInCommittee(this.keyStore.getAddress()))) {
-      this.log.verbose(`Not in the committee, skipping attestation`);
-      return undefined;
-    }
-
     // Check that all of the transactions in the proposal are available in the tx pool before attesting
     if (missing && missing.length > 0) {
       this.log.error(
@@ -292,7 +270,7 @@ export class ValidatorClient extends WithTracer implements Validator {
         undefined,
         { proposalInfo, missing },
       );
-      this.metrics.incFailedAttestations('TransactionsNotAvailableError');
+      this.metrics.incFailedAttestations(1, 'TransactionsNotAvailableError');
       return undefined;
     }
 
@@ -304,35 +282,17 @@ export class ValidatorClient extends WithTracer implements Validator {
         await this.reExecuteTransactions(proposal, txs);
       }
     } catch (error: any) {
-<<<<<<< HEAD
       this.metrics.incFailedAttestations(1, error instanceof Error ? error.name : 'unknown');
-
-      // If the transactions are not available, then we should not attempt to attest
-      if (error instanceof TransactionsNotAvailableError) {
-        this.log.error(`Transactions not available, skipping attestation`, error, proposalInfo);
-      } else {
-        // This branch most commonly be hit if the transactions are available, but the re-execution fails
-        // Catch all error handler
-        this.log.error(`Failed to attest to proposal`, error, proposalInfo);
-      }
-=======
-      this.metrics.incFailedAttestations(error instanceof Error ? error.name : 'unknown');
       this.log.error(`Failed to attest to proposal`, error, proposalInfo);
->>>>>>> master
       return undefined;
     }
 
     // Provided all of the above checks pass, we can attest to the proposal
     this.log.info(`Attesting to proposal for slot ${slotNumber}`, proposalInfo);
-<<<<<<< HEAD
     this.metrics.incAttestations(inCommittee.length);
 
     // If the above function does not throw an error, then we can attest to the proposal
     return this.doAttestToProposal(proposal, inCommittee);
-=======
-    this.metrics.incAttestations();
-    return this.doAttestToProposal(proposal);
->>>>>>> master
   }
 
   /**
