@@ -141,6 +141,29 @@ export class SlasherClient {
     this.log.info('Slasher client stopped.');
   }
 
+  public clearMonitoredPayloads() {
+    this.monitoredPayloads = [];
+  }
+
+  /**
+   * Update the config of the slasher client
+   *
+   * @param config - the new config. Can only update the following fields:
+   * - slashOverridePayload
+   * - slashPayloadTtlSeconds
+   * - slashProposerRoundPollingIntervalSeconds
+   */
+  public updateConfig(config: Partial<SlasherConfig>) {
+    const newConfig: SlasherConfig = {
+      ...this.config,
+      slashOverridePayload: config.slashOverridePayload ?? this.config.slashOverridePayload,
+      slashPayloadTtlSeconds: config.slashPayloadTtlSeconds ?? this.config.slashPayloadTtlSeconds,
+      slashProposerRoundPollingIntervalSeconds:
+        config.slashProposerRoundPollingIntervalSeconds ?? this.config.slashProposerRoundPollingIntervalSeconds,
+    };
+    this.config = newConfig;
+  }
+
   /**
    * Get the payload to slash
    *
@@ -350,17 +373,12 @@ export class SlasherClient {
       .executeRound(this.l1TxUtils, round)
       .then(({ receipt }) => {
         this.log.info('Round executed', { round, receipt });
-        this.log.info('Round executed', { round, receipt });
       })
       .catch(err => {
         if (err instanceof ProposalAlreadyExecutedError) {
           this.log.debug('Round already executed', { round });
           return;
         } else {
-          this.log.error('Error executing round', err);
-          this.log.error('Error executing round', err);
-          this.log.error('Error executing round', err);
-          this.log.error('Error executing round', err);
           this.log.error('Error executing round', err);
           throw err;
         }

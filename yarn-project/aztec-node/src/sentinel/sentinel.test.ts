@@ -55,7 +55,7 @@ describe('sentinel', () => {
     slashInactivityCreatePenalty: 100n,
     slashInactivityCreateTargetPercentage: 0.8,
     slashInactivitySignalTargetPercentage: 0.6,
-    slashInactivityMaxPenalty: 100n,
+    slashInactivityMaxPenalty: 200n,
     slashPayloadTtlSeconds: 60 * 60,
   };
 
@@ -344,10 +344,19 @@ describe('sentinel', () => {
         const expectedAgree = i >= 6;
         const actualAgree = await sentinel.shouldSlash(
           `0x000000000000000000000000000000000000000${i}`,
-          penalty,
+          config.slashInactivityMaxPenalty,
           Offence.INACTIVITY,
         );
         expect(actualAgree).toBe(expectedAgree);
+
+        // We never slash if the penalty is above the max penalty
+        await expect(
+          sentinel.shouldSlash(
+            `0x000000000000000000000000000000000000000${i}`,
+            config.slashInactivityMaxPenalty + 1n,
+            Offence.INACTIVITY,
+          ),
+        ).resolves.toBe(false);
       }
     });
   });

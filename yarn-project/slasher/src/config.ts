@@ -70,7 +70,7 @@ export interface SlasherConfig {
 export const DefaultSlasherConfig: SlasherConfig = {
   slashPayloadTtlSeconds: 60 * 60 * 24, // 1 day
   slashOverridePayload: undefined,
-  slashPruneEnabled: false,
+  slashPruneEnabled: true,
   slashPrunePenalty: 1n,
   slashPruneMaxPenalty: 100n,
   slashInactivityEnabled: true,
