@@ -449,42 +449,17 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
 }
 
 /**
- * @brief Given x = *this and a constant integer exponent n = exponent, compute x^n using square and multiply
- * algorithm.
+ * @brief raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
+ * implicitly range constrained.
  *
- * @param exponent
- * @return template <typename Builder>
+ * @returns this ** (exponent)
  */
-template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_t& exponent) const
+template <typename Builder> field_t<Builder> field_t<Builder>::pow(const size_t exponent) const
 {
-    // Just return one immediately
-    if (exponent == 0) {
-        return field_t(bb::fr::one());
-    }
-
-    // Indicates the first occurrence of a bit == 1.
-    bool result_initialized = false;
-    field_t result;
-    field_t running_power = *this;
-    uint32_t shifted_exponent = exponent;
-
-    // Square and multiply
-    while (shifted_exponent != 0) {
-        const bool current_lsb = (shifted_exponent & 1) != 0;
-        if (current_lsb) {
-            if (!result_initialized) {
-                result = running_power;
-                result_initialized = true;
-            } else {
-                result *= running_power;
-            }
-        }
-
-        running_power = running_power.sqr();
-        shifted_exponent >>= 1;
-    }
-    return result;
-};
+    auto* ctx = get_context();
+    auto exponent_field_elt = field_t::from_witness(ctx, exponent);
+    return pow(exponent_field_elt);
+}
 
 /**
  * @returns `this * to_mul + to_add`

@@ -328,7 +328,7 @@ template <typename Builder, typename T> class bigfield {
 
     bigfield sqr() const;
     bigfield sqradd(const std::vector<bigfield>& to_add) const;
-    bigfield pow(const uint32_t& exponent) const;
+    bigfield pow(const size_t exponent) const;
     bigfield madd(const bigfield& to_mul, const std::vector<bigfield>& to_add) const;
 
     static void perform_reductions_for_mult_madd(std::vector<bigfield>& mul_left,
