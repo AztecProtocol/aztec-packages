@@ -702,7 +702,7 @@ export class TXEService {
 
   public async validateEnqueuedNotes(
     contractAddress: ForeignCallSingle,
-    notePendingValidationArrayBaseSlot: ForeignCallSingle,
+    noteValidationRequestsArrayBaseSlot: ForeignCallSingle,
   ) {
     if (!this.oraclesEnabled) {
       throw new Error(
@@ -712,7 +712,7 @@ export class TXEService {
 
     await this.typedOracle.validateEnqueuedNotes(
       AztecAddress.fromField(fromSingle(contractAddress)),
-      fromSingle(notePendingValidationArrayBaseSlot),
+      fromSingle(noteValidationRequestsArrayBaseSlot),
     );
 
     return toForeignCallResult([]);
