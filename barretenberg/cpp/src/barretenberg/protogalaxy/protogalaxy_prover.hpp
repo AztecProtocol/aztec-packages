@@ -31,6 +31,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     using DeciderProvingKeys = DeciderProvingKeys_;
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1239): clean out broken support for multi-folding
+    static_assert(DeciderProvingKeys::NUM == 2, "Protogalaxy currently only supports folding one instance at a time.");
+
     static constexpr size_t NUM_SUBRELATIONS = DeciderProvingKeys_::NUM_SUBRELATIONS;
 
     DeciderProvingKeys_ keys_to_fold;

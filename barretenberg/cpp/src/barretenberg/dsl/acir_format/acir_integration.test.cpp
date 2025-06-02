@@ -499,8 +499,9 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
     //      export  AZTEC_CACHE_COMMIT=origin/master~3
     //      export DOWNLOAD_ONLY=1
     //      yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
-    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
-                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+    std::string input_path = "../../../GregoFailure/ivc-inputs.msgpack";
+    // std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+    //                          "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
@@ -517,8 +518,9 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
  */
 TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
 {
-    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
-                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+    std::string input_path = "../../../GregoFailure/ivc-inputs.msgpack";
+    // std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+    //                          "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
@@ -559,6 +561,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
         }
 
         EXPECT_EQ(recomputed_vk_hash, computed_vk_hash);
+        EXPECT_EQ(computed_vk_hash, precomputed_vk->hash());
     }
 }
 #endif
