@@ -71,7 +71,7 @@ void test_poseidon2s_circuit(size_t num_inputs = 5)
         elem.fix_witness();
     }
     [[maybe_unused]] auto result = stdlib::poseidon2<Builder>::hash(builder, inputs);
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -102,7 +102,7 @@ void test_poseidon2s_hash_byte_array(size_t num_inputs = 5)
 
     byte_array_ct circuit_input(&builder, input);
     auto result = stdlib::poseidon2<Builder>::hash_buffer(builder, circuit_input);
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -142,7 +142,7 @@ void test_poseidon2s_hash_repeated_pairs(size_t num_inputs = 5)
     }
     left.fix_witness();
 
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -173,7 +173,7 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_one_permutation)
         elem.fix_witness();
     }
 
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -209,7 +209,7 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_two_permutations)
     for (auto& elem : state2) {
         elem.fix_witness();
     }
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 2);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
