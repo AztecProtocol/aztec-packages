@@ -4,6 +4,14 @@ import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
+  type ACVMWitness,
+  type CircuitSimulator,
+  ExecutionError,
+  extractCallStack,
+  resolveAssertionMessageFromError,
+  witnessMapToFields,
+} from '@aztec/simulator/client';
+import {
   type FunctionArtifact,
   type FunctionArtifactWithContractName,
   type FunctionSelector,
@@ -17,18 +25,15 @@ import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 
-import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
-import { witnessMapToFields } from './acvm/deserialize.js';
-import { type ACVMWitness, Oracle, extractCallStack } from './acvm/index.js';
-import type { ExecutionDataProvider } from './execution_data_provider.js';
+import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import { Oracle } from './oracle.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
-import type { SimulationProvider } from './providers/simulation_provider.js';
 
 /**
  * Execute a private function and return the execution result.
  */
 export async function executePrivateFunction(
-  simulator: SimulationProvider,
+  simulator: CircuitSimulator,
   privateExecutionOracle: PrivateExecutionOracle,
   artifact: FunctionArtifactWithContractName,
   contractAddress: AztecAddress,
@@ -41,7 +46,7 @@ export async function executePrivateFunction(
   const acvmCallback = new Oracle(privateExecutionOracle);
   const timer = new Timer();
   const acirExecutionResult = await simulator
-    .executeUserCircuit(initialWitness, artifact, acvmCallback)
+    .executeUserCircuit(initialWitness, artifact, acvmCallback.toACIRCallback())
     .catch((err: Error) => {
       err.message = resolveAssertionMessageFromError(err, artifact);
       throw new ExecutionError(
@@ -78,6 +83,15 @@ export async function executePrivateFunction(
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const nestedExecutions = privateExecutionOracle.getNestedExecutions();
 
+  let timerSubtractionList = nestedExecutions;
+  let witgenTime = duration;
+
+  // Due to the recursive nature of execution, we have to subtract the time taken by nested calls
+  while (timerSubtractionList.length > 0) {
+    witgenTime -= timerSubtractionList.reduce((acc, nested) => acc + (nested.profileResult?.timings.witgen ?? 0), 0);
+    timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutions ?? []);
+  }
+
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
   return new PrivateCallExecutionResult(
@@ -93,10 +107,7 @@ export async function executePrivateFunction(
     contractClassLogs,
     {
       timings: {
-        witgen:
-          // Due to the recursive nature of execution, we have to subtract the time taken by the first level of
-          // child executions
-          duration - nestedExecutions.reduce((acc, nested) => acc + (nested.profileResult?.timings.witgen ?? 0), 0),
+        witgen: witgenTime,
         oracles: acirExecutionResult.oracles,
       },
     },

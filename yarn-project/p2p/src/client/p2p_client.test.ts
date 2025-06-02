@@ -1,5 +1,4 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -15,9 +14,10 @@ import { InMemoryAttestationPool, type P2PService } from '../index.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
+import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
 import { P2PClient } from './p2p_client.js';
 
-describe('In-Memory P2P Client', () => {
+describe('P2P Client', () => {
   let txPool: MockProxy<TxPool>;
   let attestationPool: AttestationPool;
   let mempools: MemPools;
@@ -129,25 +129,36 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('request transactions handles missing items', async () => {
-    // Mock a batch response that returns undefined items
     const mockTx1 = await mockTx();
     const mockTx2 = await mockTx();
-    txPool.hasTxs.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => true)));
-    p2pService.sendBatchRequest.mockResolvedValue([mockTx1, undefined, mockTx2]);
+    const mockTx3 = await mockTx();
+
+    // P2P service will not return tx2
+    p2pService.sendBatchRequest.mockResolvedValue([mockTx1, undefined, mockTx3]);
 
     // Spy on the tx pool addTxs method, it should not be called for the missing tx
     const addTxsSpy = jest.spyOn(txPool, 'addTxs');
 
-    await client.start();
+    // We query for all 3 txs
+    const query = await Promise.all([mockTx1.getTxHash(), mockTx2.getTxHash(), mockTx3.getTxHash()]);
+    const results = await client.requestTxsByHash(query, undefined);
 
-    const missingTxHash = (await mockTx()).getTxHash();
-    const query = await Promise.all([mockTx1.getTxHash(), missingTxHash, mockTx2.getTxHash()]);
-    const results = await client.requestTxsByHash(query);
+    // We should receive the found transactions
+    expect(results).toEqual([mockTx1, undefined, mockTx3]);
 
-    expect(results).toEqual([mockTx1, undefined, mockTx2]);
+    // P2P should have been called with the 3 tx hashes
+    expect(p2pService.sendBatchRequest).toHaveBeenCalledWith(
+      ReqRespSubProtocol.TX,
+      query,
+      undefined,
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+    );
 
+    // Retrieved txs should have been added to the pool
     expect(addTxsSpy).toHaveBeenCalledTimes(1);
-    expect(addTxsSpy).toHaveBeenCalledWith([mockTx1, mockTx2]);
+    expect(addTxsSpy).toHaveBeenCalledWith([mockTx1, mockTx3]);
   });
 
   it('getTxsByHash handles missing items', async () => {
@@ -173,14 +184,17 @@ describe('In-Memory P2P Client', () => {
     await client.start();
 
     const query = await Promise.all([txInMempool.getTxHash(), txToBeRequested.getTxHash(), txToNotBeFound.getTxHash()]);
-    const results = await client.getTxsByHash(query);
+    const results = await client.getTxsByHash(query, undefined);
 
     // We should return the resolved transactions
     expect(results).toEqual([txInMempool, txToBeRequested]);
     // We should add the found requested transactions to the pool
     expect(addTxsSpy).toHaveBeenCalledWith([txToBeRequested]);
     // We should request the missing transactions from the network, but only find one of them
-    expect(requestTxsSpy).toHaveBeenCalledWith([await txToBeRequested.getTxHash(), await txToNotBeFound.getTxHash()]);
+    expect(requestTxsSpy).toHaveBeenCalledWith(
+      [await txToBeRequested.getTxHash(), await txToNotBeFound.getTxHash()],
+      undefined,
+    );
   });
 
   describe('Chain prunes', () => {

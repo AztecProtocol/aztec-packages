@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-import type { ACVMWitness } from '../../acvm/acvm_types.js';
+import type { ACVMWitness } from '../acvm/acvm_types.js';
 import { CircuitRecorder, type CircuitRecording } from './circuit_recorder.js';
 
 export class FileCircuitRecorder extends CircuitRecorder {

@@ -4,7 +4,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { enrichPublicSimulationError } from '@aztec/pxe/server';
-import type { TypedOracle } from '@aztec/simulator/client';
+import type { TypedOracle } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
