@@ -658,7 +658,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const slot = block.slotNumber.toBigInt();
     const previousSlot = slot - 1n;
     const epoch = slot / 32n;
-    this.logger.verbose(
+    this.logger.info(
       `Received block ${block.blockNumber.toNumber()} for slot ${slot}, epoch ${epoch} from external peer.`,
       {
         p2pMessageIdentifier: await block.p2pMessageIdentifier(),
@@ -669,7 +669,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     );
     const attestationsForPreviousSlot = await this.mempools.attestationPool?.getAttestationsForSlot(previousSlot);
     if (attestationsForPreviousSlot !== undefined) {
-      this.logger.verbose(`Received ${attestationsForPreviousSlot.length} attestations for slot ${previousSlot}`);
+      this.logger.info(`Received ${attestationsForPreviousSlot.length} attestations for slot ${previousSlot}`);
     }
 
     // Mark the txs in this proposal as non-evictable
