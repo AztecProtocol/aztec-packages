@@ -13,7 +13,7 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, NodeStats, TxHash } from '@aztec/stdlib/tx';
 
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 import type { NoteData } from './oracle/typed_oracle.js';
@@ -35,6 +35,16 @@ export class ContractClassNotFoundError extends Error {
     super(`DB has no contract class with id ${contractClassId}`);
   }
 }
+
+/*
+ * Collected stats during the execution of a transaction.
+ */
+export type ExecutionStats = {
+  /**
+   * Contains an entry for each RPC call performed during the execution
+   */
+  nodeRPCCalls: NodeStats;
+};
 
 /**
  * The interface for the data layer required to perform private and utility execution.
@@ -372,4 +382,10 @@ export interface ExecutionDataProvider {
     logIndexInTx: number,
     txIndexInBlock: number,
   ): Promise<void>;
+
+  /**
+   * Returns the execution statistics collected during the simulator run.
+   * @returns The execution statistics.
+   */
+  getStats(): ExecutionStats;
 }

@@ -1,6 +1,6 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { ProvingTimings, Tx } from '@aztec/stdlib/tx';
+import type { ProvingStats, Tx } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import type { Contract } from './contract.js';
@@ -16,9 +16,9 @@ export class DeployProvenTx<TContract extends Contract = Contract> extends Prove
     tx: Tx,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private instanceGetter: () => Promise<ContractInstanceWithAddress>,
-    timings?: ProvingTimings,
+    stats?: ProvingStats,
   ) {
-    super(wallet, tx, timings);
+    super(wallet, tx, stats);
   }
 
   /**

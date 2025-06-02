@@ -202,6 +202,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    * If the pool is full, it will still accept a few more txs until it reached maxTxPoolOverspillFactor * maxTxPoolSize. Then it will evict
    */
   txPoolOverflowFactor: number;
+
+  /**
+   * The node's seen message ID cache size
+   */
+  seenMessageCacheSize: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -403,6 +408,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_TX_POOL_OVERFLOW_FACTOR',
     description: 'How much the tx pool can overflow before it starts evicting txs. Must be greater than 1',
     ...floatConfigHelper(1.1), // 10% overflow
+  },
+  seenMessageCacheSize: {
+    env: 'P2P_SEEN_MSG_CACHE_SIZE',
+    description: 'The number of messages to keep in the seen message cache',
+    ...numberConfigHelper(100_000), // 100K
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
