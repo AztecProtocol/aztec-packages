@@ -209,6 +209,7 @@ template <typename Builder, typename T> class bigfield {
 
         return result;
     };
+
     /**
      * @brief Construct a bigfield element from binary limbs and a prime basis limb that are already reduced
      *
@@ -251,7 +252,10 @@ template <typename Builder, typename T> class bigfield {
      */
     bigfield(const byte_array<Builder>& bytes);
 
+    // Copy constructor
     bigfield(const bigfield& other);
+
+    // Move constructor
     bigfield(bigfield&& other);
 
     /**
@@ -329,6 +333,15 @@ template <typename Builder, typename T> class bigfield {
         bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
     };
 
+    /**
+     * @brief Convert the bigfield element to a byte array. Concatenates byte arrays of the high (2L bits) and low (2L
+     * bits) parts of the bigfield element.
+     *
+     * @details Assumes that 2L is divisible by 8, i.e. (NUM_LIMB_BITS * 2) % 8 == 0. Also we check that the bigfield
+     * element is in the target field.
+     *
+     * @return byte_array<Builder>
+     */
     byte_array<Builder> to_byte_array() const
     {
         byte_array<Builder> result(get_context());
@@ -349,7 +362,10 @@ template <typename Builder, typename T> class bigfield {
         return result;
     }
 
+    // Gets the integer (uint512_t) value of the bigfield element by combining the binary basis limbs.
     uint512_t get_value() const;
+
+    // Gets the maximum value of the bigfield element by combining the maximum values of the binary basis limbs.
     uint512_t get_maximum_value() const;
 
     /**
@@ -387,8 +403,7 @@ template <typename Builder, typename T> class bigfield {
     bigfield operator+(const bigfield& other) const;
 
     /**
-     * @brief Create constraints for summing three
-     * bigfield elements efficiently
+     * @brief Create constraints for summing three bigfield elements efficiently
      *
      * @tparam Builder
      * @tparam T
