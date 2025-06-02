@@ -9,7 +9,12 @@ export class TxCollector {
   constructor(
     private p2pClient: Pick<
       P2PClient,
-      'getTxsByHashFromPool' | 'hasTxsInPool' | 'getTxsByHash' | 'validate' | 'requestTxsByHash'
+      | 'getTxsByHashFromPool'
+      | 'hasTxsInPool'
+      | 'getTxsByHash'
+      | 'validate'
+      | 'requestTxsByHash'
+      | 'markTxsAsNonEvictable'
     >,
     private log: Logger = createLogger('p2p:tx-collector'),
   ) {}
@@ -29,6 +34,9 @@ export class TxCollector {
 
       // Request from the pool based on the signed hashes in the payload
       const hashesFromPayload = proposal.payload.txHashes;
+
+      await this.p2pClient.markTxsAsNonEvictable(hashesFromPayload);
+
       const txsToUse = await this.p2pClient.getTxsByHashFromPool(hashesFromPayload);
 
       const missingTxs = txsToUse.filter(tx => tx === undefined).length;
