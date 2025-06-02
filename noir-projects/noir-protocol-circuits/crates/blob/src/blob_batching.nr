@@ -70,10 +70,12 @@ pub fn evaluate_blobs_and_batch(
         let is_empty_blob = sponge_blob.fields <= i * FIELDS_PER_BLOB;
         if (!y_i.is_zero()) & (!is_empty_blob) {
             // Only accumulate if the blob is non empty
-            if is_empty(end_accumulator) {
+            if (is_empty(end_accumulator)) & (i == 0) {
                 // Init only if accumulator is empty:
                 //  - This will be checked in root, where the left input's start acc will be constrained to be zero
                 //  - No other accs can be zero since each block_merge checks left's end acc == right's start acc
+                // This can only happen at blob i = 0 for the first block of the epoch. Note: i == 0 was only added above in the hope
+                // that noir would be able to optimise out init gates for i > 0!
                 end_accumulator = BlobAccumulatorPublicInputs::init(
                     BlobAccumulationInputs { z_i, y_i, c_i },
                     challenge_gamma,
