@@ -50,6 +50,7 @@ describe('e2e_p2p_slashing', () => {
         slashingQuorum,
         slashingRoundSize,
         slashPrunePenalty: slashingAmount,
+        slashPruneMaxPenalty: slashingAmount,
       },
     });
 

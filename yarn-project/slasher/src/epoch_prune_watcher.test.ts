@@ -16,11 +16,12 @@ describe('EpochPruneWatcher', () => {
   let l2BlockSource: L2BlockSourceEventEmitter;
   let epochCache: MockProxy<EpochCache>;
   const penalty = BigInt(1000000000000000000n);
+  const maxPenalty = penalty * 2n;
 
   beforeEach(async () => {
     l2BlockSource = new EventEmitter() as unknown as L2BlockSourceEventEmitter;
     epochCache = mock<EpochCache>();
-    watcher = new EpochPruneWatcher(l2BlockSource, epochCache, penalty, penalty);
+    watcher = new EpochPruneWatcher(l2BlockSource, epochCache, penalty, maxPenalty);
     await watcher.start();
   });
 
@@ -62,5 +63,10 @@ describe('EpochPruneWatcher', () => {
     await expect(
       watcher.shouldSlash('0x0000000000000000000000000000000000000000', penalty, Offence.EPOCH_PRUNE),
     ).resolves.toBe(false);
+
+    // Should slash if the penalty is within the max penalty
+    await expect(watcher.shouldSlash(committee[0], maxPenalty, Offence.EPOCH_PRUNE)).resolves.toBe(true);
+    // Should not slash if the penalty is above the max penalty
+    await expect(watcher.shouldSlash(committee[0], maxPenalty + 1n, Offence.EPOCH_PRUNE)).resolves.toBe(false);
   });
 });

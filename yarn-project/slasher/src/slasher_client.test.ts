@@ -32,6 +32,7 @@ import { SlasherClient } from './slasher_client.js';
 
 const originalVersionSalt = 42;
 const aztecSlotDuration = 4;
+const ethereumSlotDuration = 2;
 
 describe('SlasherClient', () => {
   let anvil: Anvil;
@@ -68,7 +69,7 @@ describe('SlasherClient', () => {
       genesisArchiveRoot: Fr.random(),
       slashingQuorum: 6,
       slashingRoundSize: 10,
-      ethereumSlotDuration: 2,
+      ethereumSlotDuration,
       aztecSlotDuration,
       aztecEpochDuration: 4,
       initialValidators: [
@@ -113,13 +114,19 @@ describe('SlasherClient', () => {
   afterAll(async () => {
     await slasherClient.stop();
     await sleep(500); // let the calls to uninstall the filters resolve
-    // await sleep(500000); // REMOVE
     await anvil.stop().catch(logger.error);
   });
 
-  it('creates payloads when the watcher signals', async () => {
-    // const cheatCodes = new EthCheatCodes([rpcUrl]);
+  beforeEach(() => {
+    slasherClient.updateConfig({
+      slashOverridePayload: undefined,
+      slashPayloadTtlSeconds: 100,
+      slashProposerRoundPollingIntervalSeconds: 0.25,
+    });
+    slasherClient.clearMonitoredPayloads();
+  });
 
+  it('creates payloads when the watcher signals', async () => {
     await retryUntil(
       async () => {
         await rollup.setupEpoch(l1TxUtils);
@@ -134,13 +141,6 @@ describe('SlasherClient', () => {
 
     const slashAmount = depositAmount - 1n;
     expect(slashAmount).toBeLessThan(depositAmount);
-    // 100000000000000000000
-    // 100000000000000000000
-    logger.info('amounts', { depositAmount: depositAmount.toString(), slashAmount: slashAmount.toString() });
-    logger.info('amounts', { depositAmount: depositAmount.toString(), slashAmount: slashAmount.toString() });
-    logger.info('amounts', { depositAmount: depositAmount.toString(), slashAmount: slashAmount.toString() });
-    logger.info('amounts', { depositAmount: depositAmount.toString(), slashAmount: slashAmount.toString() });
-    logger.info('amounts', { depositAmount: depositAmount.toString(), slashAmount: slashAmount.toString() });
     const committee = await rollup.getCurrentEpochCommittee();
     const amounts = Array.from({ length: committee.length }, () => slashAmount);
     const offenses = Array.from({ length: committee.length }, () => Offence.UNKNOWN);
@@ -198,33 +198,77 @@ describe('SlasherClient', () => {
       0.5,
     );
 
-    // const rollupRaw = rollup.getContract();
-    // const slasherAddress = await rollup.getSlasher();
-
-    // const slasher = getContract({
-    //   abi: SlasherAbi,
-    //   address: slasherAddress,
-    //   client: l1TxUtils.client,
-    // });
-
-    // const slashFailed = await slasher.getEvents.SlashFailed();
-    // logger.info('Slash failed:', slashFailed);
-    // logger.info('Slash failed:', slashFailed);
-    // logger.info('Slash failed:', slashFailed);
-
-    // const slashEvents = await rollupRaw.getEvents.Slashed();
-    // logger.info('Slash events:', slashEvents);
-    // logger.info('asdf');
-    // logger.info('asdf');
-    // logger.info('asdf');
-    // logger.info('asdf');
-
-    // expect(slashEvents.length).toBe(1);
-
     const info = await rollup.getAttesterView(l1TxUtils.client.account.address);
 
     expect(info.effectiveBalance).toBe(0n);
     expect(info.exit.amount).toBe(depositAmount - slashAmount);
+  });
+
+  it('drops payloads beyond TTL', async () => {
+    const config = {
+      slashPayloadTtlSeconds: 1,
+    };
+    slasherClient.updateConfig(config);
+    dummyWatcher.triggerSlash({
+      validators: [privateKey.address],
+      amounts: [depositAmount],
+      offenses: [Offence.UNKNOWN],
+    });
+
+    let payload: EthAddress | undefined = undefined;
+    await retryUntil(
+      () => slasherClient.getMonitoredPayloads().length > 0,
+      'has monitored payload',
+      ethereumSlotDuration * 3,
+      0.1,
+    );
+
+    await sleep(config.slashPayloadTtlSeconds * 1000 + 100);
+
+    const slot = await rollup.getSlotNumber();
+    payload = await slasherClient.getSlashPayload(slot);
+
+    expect(payload).toBeUndefined();
+  });
+
+  it('clears monitored payloads', async () => {
+    expect(slasherClient.getMonitoredPayloads()).toEqual([]);
+    dummyWatcher.triggerSlash({
+      validators: [EthAddress.random().toString()],
+      amounts: [depositAmount],
+      offenses: [Offence.UNKNOWN],
+    });
+
+    await retryUntil(
+      () => slasherClient.getMonitoredPayloads().length > 0,
+      'has monitored payload',
+      ethereumSlotDuration * 5,
+      0.1,
+    );
+
+    slasherClient.clearMonitoredPayloads();
+    expect(slasherClient.getMonitoredPayloads()).toEqual([]);
+  });
+
+  it('only signals for override payload if present', async () => {
+    const config = {
+      slashOverridePayload: EthAddress.random(),
+    };
+    slasherClient.updateConfig(config);
+
+    const slot = BigInt(Math.floor(Math.random() * 1000000));
+    const payload = await slasherClient.getSlashPayload(slot);
+    expect(payload).toBe(config.slashOverridePayload);
+
+    dummyWatcher.triggerSlash({
+      validators: [EthAddress.random().toString()],
+      amounts: [depositAmount],
+      offenses: [Offence.UNKNOWN],
+    });
+
+    const slot2 = BigInt(Math.floor(Math.random() * 1000000));
+    const payload2 = await slasherClient.getSlashPayload(slot2);
+    expect(payload2).toBe(config.slashOverridePayload);
   });
 });
 
