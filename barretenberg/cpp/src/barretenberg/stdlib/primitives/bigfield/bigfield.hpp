@@ -59,17 +59,51 @@ template <typename Builder, typename T> class bigfield {
         field_t<Builder> element;
         uint256_t maximum_value;
     };
+
+    // Number of limbs used to represent a bigfield element in the binary basis
     static constexpr size_t NUM_LIMBS = 4;
 
     Builder* context;
+
+    /**
+     * @brief Represents a bigfield element in the binary basis. A bigfield element is represented as a combination of 4
+     * binary basis limbs: a = a[0] + a[1] * 2^L + a[2] * 2^2L + a[3] * 2^3L.
+     */
     mutable std::array<Limb, NUM_LIMBS> binary_basis_limbs;
+
+    /**
+     * @brief Represents a bigfield element in the prime basis: (a mod n) where n is the native modulus.
+     */
     mutable field_t<Builder> prime_basis_limb;
 
+    /**
+     * @brief Constructs a new bigfield object from two field elements representing the low and high bits.
+     *
+     * @param low_bits The field element representing the low 2L bits of the bigfield.
+     * @param high_bits The field element representing the high 2L bits of the bigfield.
+     * @param can_overflow Whether the bigfield can overflow the modulus.
+     * @param maximum_bitlength The maximum bitlength of the bigfield. If 0, it defaults to |p| (target modulus
+     * bitlength).
+     */
     bigfield(const field_t<Builder>& low_bits,
              const field_t<Builder>& high_bits,
              const bool can_overflow = false,
              const size_t maximum_bitlength = 0);
+
+    /**
+     * @brief Constructs a zero bigfield object: all limbs are set to zero.
+     *
+     * @details This constructor is used to create a bigfield element without any context. It is useful for creating
+     * bigfield elements that will be later assigned to a context.
+     */
     bigfield(Builder* parent_context = nullptr);
+
+    /**
+     * @brief Constructs a new bigfield object from a uint256_t value.
+     *
+     * @param parent_context The circuit context in which the bigfield element will be created.
+     * @param value The uint256_t value to be converted to a bigfield element.
+     */
     bigfield(Builder* parent_context, const uint256_t& value);
 
     explicit bigfield(const uint256_t& value)
