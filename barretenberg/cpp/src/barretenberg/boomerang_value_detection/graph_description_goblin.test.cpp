@@ -82,7 +82,6 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
         ASSERT(verified);
     }
     auto translator_pairing_points = output.points_accumulator;
-    // verifier.verification_keys.eccvm_verification_key->pub_inputs_offset.fix_witness();
     translator_pairing_points.P0.x.fix_witness();
     translator_pairing_points.P0.y.fix_witness();
     translator_pairing_points.P1.x.fix_witness();
@@ -91,8 +90,6 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 2);
-    // auto connected_components = graph.find_connected_components();
-    // info("number of connected components == ", connected_components.size());
 }
 
 } // namespace bb::stdlib::recursion::honk
