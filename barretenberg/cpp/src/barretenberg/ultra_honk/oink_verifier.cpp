@@ -49,16 +49,9 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_
         transcript->add_to_hash_buffer(domain_separator + "vkey_field", vkey_field);
     }
     auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
-    info("vkey_hash in rec ver: ", vkey_hash);
-    const uint64_t circuit_size = verification_key->verification_key->circuit_size;
-    const uint64_t public_input_size = verification_key->verification_key->num_public_inputs;
-    const uint64_t pub_inputs_offset = verification_key->verification_key->pub_inputs_offset;
+    info("vkey_hash in verifier: ", vkey_hash);
 
-    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
-    transcript->add_to_hash_buffer(domain_separator + "public_input_size", public_input_size);
-    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
-
-    for (size_t i = 0; i < public_input_size; ++i) {
+    for (size_t i = 0; i < verification_key->verification_key->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);

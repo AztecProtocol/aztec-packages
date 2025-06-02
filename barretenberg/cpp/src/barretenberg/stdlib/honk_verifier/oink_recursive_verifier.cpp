@@ -55,16 +55,10 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     }
     auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
     info("vkey_hash in rec ver: ", vkey_hash);
-    FF circuit_size = verification_key->verification_key->circuit_size;
-    FF public_input_size = verification_key->verification_key->num_public_inputs;
-    FF pub_inputs_offset = verification_key->verification_key->pub_inputs_offset;
-
-    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
-    transcript->add_to_hash_buffer(domain_separator + "public_input_size", public_input_size);
-    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
 
     std::vector<FF> public_inputs;
-    for (size_t i = 0; i < static_cast<size_t>(static_cast<uint32_t>(public_input_size.get_value())); ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(verification_key->verification_key->num_public_inputs.get_value());
+         ++i) {
         public_inputs.emplace_back(
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i)));
     }

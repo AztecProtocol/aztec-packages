@@ -179,6 +179,52 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         }
 
         /**
+         * @brief Serialize verification key to field elements.
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const
+        {
+            using namespace bb::stdlib::field_conversion;
+
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
+                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<FF> elements;
+
+            CircuitBuilder* builder = this->circuit_size.context;
+            serialize_to_field_buffer(this->circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+
+            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
+            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
+            serialize_to_field_buffer(pairing_points_start_idx, elements);
+
+            FF app_return_data_commitment_start_idx(
+                this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
+            app_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
+            serialize_to_field_buffer(app_return_data_commitment_start_idx, elements);
+
+            FF kernel_return_data_commitment_start_idx(
+                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
+            kernel_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
+            serialize_to_field_buffer(kernel_return_data_commitment_start_idx, elements);
+
+            FF databus_is_kernel_start_idx(this->databus_propagation_data.is_kernel);
+            databus_is_kernel_start_idx.convert_constant_to_fixed_witness(builder);
+            serialize_to_field_buffer(databus_is_kernel_start_idx, elements);
+
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+
+        /**
          * @brief Construct a VerificationKey from a set of corresponding witness indices
          *
          * @param builder
