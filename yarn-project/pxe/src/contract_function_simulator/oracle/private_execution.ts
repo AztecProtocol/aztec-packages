@@ -83,6 +83,15 @@ export async function executePrivateFunction(
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const nestedExecutions = privateExecutionOracle.getNestedExecutions();
 
+  let timerSubtractionList = nestedExecutions;
+  let witgenTime = duration;
+
+  // Due to the recursive nature of execution, we have to subtract the time taken by nested calls
+  while (timerSubtractionList.length > 0) {
+    witgenTime -= timerSubtractionList.reduce((acc, nested) => acc + (nested.profileResult?.timings.witgen ?? 0), 0);
+    timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutions ?? []);
+  }
+
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
   return new PrivateCallExecutionResult(
@@ -98,10 +107,7 @@ export async function executePrivateFunction(
     contractClassLogs,
     {
       timings: {
-        witgen:
-          // Due to the recursive nature of execution, we have to subtract the time taken by the first level of
-          // child executions
-          duration - nestedExecutions.reduce((acc, nested) => acc + (nested.profileResult?.timings.witgen ?? 0), 0),
+        witgen: witgenTime,
         oracles: acirExecutionResult.oracles,
       },
     },

@@ -30,7 +30,7 @@ import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import type { ExecutionDataProvider } from '../contract_function_simulator/execution_data_provider.js';
+import type { ExecutionDataProvider, ExecutionStats } from '../contract_function_simulator/execution_data_provider.js';
 import { MessageLoadOracleInputs } from '../contract_function_simulator/oracle/message_load_oracle_inputs.js';
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
@@ -40,7 +40,8 @@ import type { NoteDataProvider } from '../storage/note_data_provider/note_data_p
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
-import { NoteValidationRequest } from './message_processing/note_validation_request.js';
+import { NoteValidationRequest } from './note_validation_request.js';
+import type { ProxiedNode } from './proxied_node.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
@@ -48,7 +49,7 @@ import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndex
  */
 export class PXEOracleInterface implements ExecutionDataProvider {
   constructor(
-    private aztecNode: AztecNode,
+    private aztecNode: AztecNode | ProxiedNode,
     private keyStore: KeyStore,
     private contractDataProvider: ContractDataProvider,
     private noteDataProvider: NoteDataProvider,
@@ -864,5 +865,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return allPublicLogs.map(logs =>
       logs.filter(log => (log.log as PublicLog).contractAddress.equals(contractAddress)),
     );
+  }
+
+  getStats(): ExecutionStats {
+    const nodeRPCCalls =
+      typeof (this.aztecNode as ProxiedNode).getStats === 'function' ? (this.aztecNode as ProxiedNode).getStats() : {};
+
+    return { nodeRPCCalls };
   }
 }
