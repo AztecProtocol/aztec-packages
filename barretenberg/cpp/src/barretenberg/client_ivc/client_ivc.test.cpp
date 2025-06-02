@@ -541,7 +541,7 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
 };
 
 /**
- * @brief Test the structure trace overflow mechanism in a variety of different scenarios
+ * @brief Test the structured trace overflow mechanism in a variety of different scenarios
  *
  */
 TEST_F(ClientIVCTests, DynamicTraceOverflow)

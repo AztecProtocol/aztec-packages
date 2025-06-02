@@ -142,6 +142,7 @@ void ProtogalaxyProver_<DeciderProvingKeys>::update_target_sum_and_fold(
     // the accumulator polynomials will not be sufficient to contain the contribution from the incoming polynomials. The
     // solution is to simply reverse the order or the terms in the linear combination by swapping the polynomials and
     // the lagrange coefficients between the accumulator and the incoming key.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1417): make this swapping logic more robust.
     if (incoming->overflow_size > accumulator->overflow_size) {
         std::swap(accumulator->proving_key.polynomials, incoming->proving_key.polynomials);   // swap the polys
         std::swap(accumulator->proving_key.circuit_size, incoming->proving_key.circuit_size); // swap circuit size
