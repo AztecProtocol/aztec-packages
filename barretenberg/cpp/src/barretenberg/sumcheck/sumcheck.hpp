@@ -293,11 +293,11 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
         // compute_univariate also takes into account the contribution required to hide the round univariates.
         auto hiding_univariate = round.compute_hiding_univariate(full_polynomials,
-                                                                 row_disabling_polynomial,
                                                                  relation_parameters,
                                                                  gate_separators,
                                                                  alpha,
                                                                  zk_sumcheck_data,
+                                                                 row_disabling_polynomial,
                                                                  round_idx);
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alpha);
         round_univariate += hiding_univariate;
@@ -336,12 +336,16 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
 
             PROFILE_THIS_NAME("sumcheck loop");
 
+            // Computes the round univariate in two parts: first the contribution necessary to hide the polynomial and
+            // account for having randomness at the end of the trace and then the contribution from the full
+            // relation. Note: we compute the hiding univariate first as the `compute_univariate` method prepares
+            // relevant data structures for the next round
             hiding_univariate = round.compute_hiding_univariate(partially_evaluated_polynomials,
-                                                                row_disabling_polynomial,
                                                                 relation_parameters,
                                                                 gate_separators,
                                                                 alpha,
                                                                 zk_sumcheck_data,
+                                                                row_disabling_polynomial,
                                                                 round_idx);
             round_univariate =
                 round.compute_univariate(partially_evaluated_polynomials, relation_parameters, gate_separators, alpha);
@@ -705,10 +709,11 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         FF full_honk_purported_value = round.compute_full_relation_purported_value(
             purported_evaluations, relation_parameters, gate_separators, alpha);
 
-        // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
+        // For ZK Flavors: compute the evaluation of the Row Disabling Polynomial at the sumcheck challenge and of the
+        // libra univariate used to hide the contribution from the actual Honk relation
         if constexpr (Flavor::HasZK) {
 
-            if constexpr (DisablesLastRows<Flavor>) {
+            if constexpr (UseRowDisablingPolynomial<Flavor>) {
                 // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the
                 // rows where all sumcheck relations are disabled
                 full_honk_purported_value *=
