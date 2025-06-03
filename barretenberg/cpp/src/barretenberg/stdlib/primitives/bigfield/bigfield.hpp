@@ -487,8 +487,38 @@ template <typename Builder, typename T> class bigfield {
      * @details Costs the same as operator* as it just sets a = b.
      */
     bigfield sqr() const;
+
+    /**
+     * @brief Square and add operator, computes a * a + ...to_add = c mod p.
+     *
+     * @param to_add The bigfield element to add to the square.
+     * @return bigfield
+     *
+     * @details We can chain multiple additions to a square/multiply with a single quotient/remainder. Chaining the
+     * additions here is cheaper than calling operator+ because we can combine some gates in `evaluate_multiply_add`
+     */
     bigfield sqradd(const std::vector<bigfield>& to_add) const;
+
+    /**
+     * @brief Raise the bigfield element to the power of (out-of-circuit) exponent.
+     *
+     * @param exponent The exponent to raise the bigfield element to.
+     * @return this ** (exponent)
+     *
+     * @details Uses the square-and-multiply algorithm to compute a^exponent mod p.
+     *
+     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
+     */
     bigfield pow(const size_t exponent) const;
+
+    /**
+     * @brief Compute a * b + ...to_add = c mod p
+     *
+     * @param to_mul Bigfield element to multiply by
+     * @param to_add Vector of elements to add
+     *
+     * @return New bigfield element c
+     **/
     bigfield madd(const bigfield& to_mul, const std::vector<bigfield>& to_add) const;
 
     static void perform_reductions_for_mult_madd(std::vector<bigfield>& mul_left,

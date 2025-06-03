@@ -926,14 +926,6 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
     return remainder;
 }
 
-/**
- * Compute a * a + ...to_add = b mod p
- *
- * We can chain multiple additions to a square/multiply with a single quotient/remainder.
- *
- * Chaining the additions here is cheaper than calling operator+ because we can combine some gates in
- *`evaluate_multiply_add`
- **/
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& to_add) const
 {
@@ -1006,15 +998,6 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
     return remainder;
 }
 
-/**
- * @brief Raise a bigfield to a power of an exponent. Note that the exponent must not exceed 32 bits and is
- * implicitly range constrained.
- *
- * @returns this ** (exponent)
- *
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
- */
-
 template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const size_t exponent) const
 {
     // Just return one immediately
@@ -1046,14 +1029,6 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
     return accumulator;
 }
 
-/**
- * Compute a * b + ...to_add = c mod p
- *
- * @param to_mul Bigfield element to multiply by
- * @param to_add Vector of elements to add
- *
- * @return New bigfield elment c
- **/
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::madd(const bigfield& to_mul, const std::vector<bigfield>& to_add) const
 {
