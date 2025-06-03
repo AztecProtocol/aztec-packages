@@ -20,6 +20,7 @@ class TranslatorProvingKey {
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentKey = typename Flavor::CommitmentKey;
+    using Range = std::pair<size_t, size_t>;
 
     static constexpr size_t mini_circuit_dyadic_size = Flavor::MINI_CIRCUIT_SIZE;
     // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
@@ -64,6 +65,7 @@ class TranslatorProvingKey {
 
         // First and last lagrange polynomials (in the full circuit size)
         proving_key->polynomials.lagrange_first.at(0) = 1;
+        proving_key->polynomials.lagrange_real_first.at(0) = 1;
         proving_key->polynomials.lagrange_real_last.at(dyadic_circuit_size - 1) = 1;
         proving_key->polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
 
@@ -86,10 +88,78 @@ class TranslatorProvingKey {
 
     void compute_lagrange_polynomials();
 
-    void compute_extra_range_constraint_numerator();
+    void compute_extra_range_constraint_numerator(bool masking = false);
 
     void compute_translator_range_constraint_ordered_polynomials(bool masking = false);
 
     void compute_interleaved_polynomials();
+
+    static std::vector<size_t> get_sorted_steps()
+    {
+        std::vector<size_t> sorted_elements(Flavor::SORTED_STEPS_COUNT);
+        const size_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+        size_t i = 0;
+        for (auto& value : sorted_elements) {
+            value = max_value - Flavor::SORT_STEP * i;
+            i++;
+        }
+        return sorted_elements;
+    }
+
+    // The masking will go away because everything is going to be masked by default
+    static Range get_range_of_real_values_in_mini_polynomial(Polynomial& polynomial, bool masking = false)
+    {
+        size_t start_index = (masking ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0);
+        size_t end_index = masking ? polynomial.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK : polynomial.end_index();
+        return { start_index, end_index };
+    }
+
+    // static Range get_range_of_random_values_in_mini_polynomial(Polynomial& polynomial)
+    // {
+    //     return { polynomial.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK, polynomial.end_index() };
+    // }
+
+    static Range get_range_of_real_values_in_full_polynomial(Polynomial& polynomial, bool masking = false)
+    {
+        size_t is_masking = masking ? 1 : 0;
+        size_t start =
+            masking ? NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE : polynomial.start_index();
+        return {
+            start, polynomial.end_index() - is_masking * NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE
+        };
+    }
+
+    static size_t get_real_circuit_size(bool masking = false)
+    {
+        return dyadic_circuit_size -
+               //    (static_cast<size_t>(masking) * NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE);
+               static_cast<size_t>(2) * static_cast<size_t>(masking) * NUM_DISABLED_ROWS_IN_SUMCHECK *
+                   Flavor::INTERLEAVING_GROUP_SIZE;
+    }
+
+    // not sure i need this
+    static void add_random_values_to_polynomial(Polynomial& polynomial)
+    {
+        auto [start, end] =
+            get_range_of_real_values_in_full_polynomial(polynomial, true); // TODO: masking is not supported yet
+        for (size_t i = polynomial.start_index(); i < start; i++) {
+            polynomial.at(i) = FF::random_element();
+        }
+
+        for (size_t i = end; i < polynomial.end_index(); i++) {
+            polynomial.at(i) = FF::random_element();
+        }
+    }
+
+    static void populate_polynomial_with_real_values(Polynomial& polynomial,
+                                                     std::vector<uint32_t> values,
+                                                     [[maybe_unused]] bool masking = false)
+    {
+        // auto [start, end] = get_range_of_real_values_in_full_polynomial(polynomial, masking);
+        // BB_ASSERT_LTE(values.size() + start, polynomial.end_index());
+        for (size_t i = polynomial.start_index(); i < values.size(); i++) {
+            polynomial.at(i) = values[i];
+        }
+    }
 };
 } // namespace bb
