@@ -45,7 +45,7 @@ mod test {
             2, // event_type_id
             3, // serialized_event[0]
             4, // serialized_event[1]
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // serialized_event padding
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // serialized_event padding
             2, // bounded_vec_len
             5, // event_hash
             6, // tx_hash

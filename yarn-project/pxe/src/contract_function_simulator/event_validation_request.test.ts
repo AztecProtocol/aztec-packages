@@ -21,6 +21,7 @@ describe('EventValidationRequest', () => {
       0,
       0,
       0,
+      0,
       0, // serialized_event padding end
       2, // bounded_vec_len
       5, // event_hash
@@ -38,7 +39,7 @@ describe('EventValidationRequest', () => {
     expect(request.eventHash).toEqual(new Fr(5));
     expect(request.txHash).toEqual(TxHash.fromBigInt(6n));
     expect(request.recipient).toEqual(AztecAddress.fromBigInt(7n));
-    expect(request.logIndexInTx).toEqual(new Fr(8));
-    expect(request.txIndexInBlock).toEqual(new Fr(9));
+    expect(request.logIndexInTx).toEqual(8);
+    expect(request.txIndexInBlock).toEqual(9);
   });
 });

@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { TxHash } from '@aztec/stdlib/tx';
 
 // TODO(#14617): should we compute this from constants? This value is aztec-nr specific.
-const MAX_EVENT_SERIALIZED_LEN = 12;
+const MAX_EVENT_SERIALIZED_LEN = 13;
 
 /**
  * Intermediate struct used to perform batch event validation by PXE. The `validateEnqueuedEvents` oracle expects for
