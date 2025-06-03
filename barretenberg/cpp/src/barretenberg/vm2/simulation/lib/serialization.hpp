@@ -41,6 +41,9 @@ struct Instruction {
     // no error will be thrown neither.
     std::vector<uint8_t> serialize() const;
 
+    size_t size_in_bytes() const;
+    ExecutionOpCode get_exec_opcode() const;
+
     bool operator==(const Instruction& other) const = default;
 };
 
@@ -49,6 +52,9 @@ enum class InstrDeserializationError : uint8_t {
     OPCODE_OUT_OF_RANGE,
     INSTRUCTION_OUT_OF_RANGE,
     TAG_OUT_OF_RANGE,
+    // FIXME: remove this once all execution opcodes are supported.
+    // Also uncomment proper constraining of error in instr_fetching.pil.
+    INVALID_EXECUTION_OPCODE,
 };
 
 /**
