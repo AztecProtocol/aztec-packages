@@ -2300,28 +2300,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
     }
 }
-/**
- * Evaluate a quadratic relation involving multiple multiplications
- *
- * i.e. evalaute:
- *
- * (left_0 * right_0) + ... + (left_n-1 * right_n-1) + ...to_add - (input_quotient * q + ...input_remainders) = 0
- *
- * This method supports multiple "remainders" because, when evaluating divisions, some of these remainders are terms
- * We're subtracting from our product (see msub_div for more details)
- *
- * The above quadratic relation can be evaluated using only a single quotient/remainder term.
- *
- * Params:
- *
- * `input_left`: left multiplication operands
- * `input_right` : right multiplication operands
- * `to_add` : vector of elements to add to the product
- * `input_quotient` : quotient
- * `input_remainders` : vector of remainders
- *
- * THIS METHOD IS UNSAFE TO USE IN CIRCUITS DIRECTLY AS IT LACKS OVERFLOW CHECKS.
- **/
+
 template <typename Builder, typename T>
 void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vector<bigfield>& input_left,
                                                                  const std::vector<bigfield>& input_right,
