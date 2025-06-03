@@ -2,6 +2,7 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -106,6 +107,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private blockReceivedCallback: P2PBlockReceivedCallback;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
+
+  private instrumentation: P2PInstrumentation;
 
   constructor(
     private clientType: T,
@@ -559,12 +562,18 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     validationFunc: () => Promise<{ result: boolean; obj: T }>,
     msgId: string,
     source: PeerId,
+    topicType: TopicType,
   ): Promise<{ result: boolean; obj: T | undefined }> {
     let resultAndObj: { result: boolean; obj: T | undefined } = { result: false, obj: undefined };
+    const timer = new Timer();
     try {
       resultAndObj = await validationFunc();
     } catch (err) {
       this.logger.error(`Error deserialising and validating message `, err);
+    }
+
+    if (resultAndObj.result) {
+      this.instrumentation.recordMessageValidation(topicType, timer);
     }
 
     this.node.services.pubsub.reportMessageValidationResult(
@@ -582,7 +591,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return { result, obj: tx };
     };
 
-    const { result, obj: tx } = await this.validateReceivedMessage<Tx>(validationFunc, msgId, source);
+    const { result, obj: tx } = await this.validateReceivedMessage<Tx>(validationFunc, msgId, source, TopicType.tx);
     if (!result || !tx) {
       return;
     }
@@ -613,6 +622,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       validationFunc,
       msgId,
       source,
+      TopicType.block_attestation,
     );
     if (!result || !attestation) {
       return;
@@ -640,7 +650,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return { result, obj: block };
     };
 
-    const { result, obj: block } = await this.validateReceivedMessage<BlockProposal>(validationFunc, msgId, source);
+    const { result, obj: block } = await this.validateReceivedMessage<BlockProposal>(
+      validationFunc,
+      msgId,
+      source,
+      TopicType.block_proposal,
+    );
     if (!result || !block) {
       return;
     }
