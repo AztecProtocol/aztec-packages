@@ -31,6 +31,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     using DeciderProvingKeys = DeciderProvingKeys_;
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1239): clean out broken support for multi-folding
+    static_assert(DeciderProvingKeys::NUM == 2, "Protogalaxy currently only supports folding one instance at a time.");
+
     static constexpr size_t NUM_SUBRELATIONS = DeciderProvingKeys_::NUM_SUBRELATIONS;
 
     DeciderProvingKeys_ keys_to_fold;
@@ -97,11 +100,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
      * multiplication of matrices whose columns are polynomials, as well as taking similar linear combinations of the
      * relation parameters.
      */
-    FoldingResult<Flavor> update_target_sum_and_fold(const DeciderProvingKeys_& keys,
-                                                     const CombinerQuotient& combiner_quotient,
-                                                     const UnivariateRelationSeparator& alphas,
-                                                     const UnivariateRelationParameters& univariate_relation_parameters,
-                                                     const FF& perturbator_evaluation);
+    void update_target_sum_and_fold(const DeciderProvingKeys_& keys,
+                                    const CombinerQuotient& combiner_quotient,
+                                    const UnivariateRelationSeparator& alphas,
+                                    const UnivariateRelationParameters& univariate_relation_parameters,
+                                    const FF& perturbator_evaluation);
 
     /**
      * @brief Execute the folding prover.

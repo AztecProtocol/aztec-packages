@@ -19,7 +19,9 @@ contract MoveTest is StakingBase {
     gse = staking.getGSE();
 
     RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset)
-      .setRegistry(registry).setMakeCanonical(false).deploy();
+      .setRegistry(registry).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(
+      false
+    ).deploy();
 
     IInstance oldRollup = IInstance(address(staking));
     IInstance newRollup = IInstance(address(builder.getConfig().rollup));
@@ -37,7 +39,6 @@ contract MoveTest is StakingBase {
 
       oldRollup.deposit({
         _attester: address(uint160(i + 1000)),
-        _proposer: PROPOSER,
         _withdrawer: WITHDRAWER,
         _onCanonical: onCanonical
       });
@@ -57,6 +58,7 @@ contract MoveTest is StakingBase {
 
     // Jump to epoch and add the rollup.
     vm.warp(Timestamp.unwrap(ts));
+    vm.prank(gse.owner());
     gse.addRollup(address(newRollup));
 
     // Look at the data "right now", see that half have been moved

@@ -1,6 +1,6 @@
 import type { LogFn } from '@aztec/foundation/log';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
-import type { ProvingTimings, SimulationTimings } from '@aztec/stdlib/tx';
+import type { ProvingStats, ProvingTimings, SimulationStats, SimulationTimings } from '@aztec/stdlib/tx';
 
 import { format } from 'util';
 
@@ -11,7 +11,7 @@ const COLUMN_MAX_WIDTH = 15;
 const ORACLE_NAME_PADDING = 50;
 
 export function printProfileResult(
-  timings: ProvingTimings | SimulationTimings,
+  stats: ProvingStats | SimulationStats,
   log: LogFn,
   executionSteps?: PrivateExecutionStep[],
 ) {
@@ -39,6 +39,7 @@ export function printProfileResult(
   let acc = 0;
   let biggest: PrivateExecutionStep | undefined = executionSteps?.[0];
 
+  const timings = stats.timings;
   timings.perFunction.forEach((fn, i) => {
     const currentExecutionStep = executionSteps?.[i];
     if (currentExecutionStep && biggest && currentExecutionStep.gateCount! > biggest.gateCount!) {
@@ -89,6 +90,27 @@ export function printProfileResult(
         `(Biggest circuit: ${biggest.functionName} -> ${biggest.gateCount!.toLocaleString()})`,
       ),
     );
+  }
+
+  if (stats.nodeRPCCalls) {
+    log(format('\nRPC calls:\n'));
+    for (const [method, { times }] of Object.entries(stats.nodeRPCCalls)) {
+      const calls = times.length;
+      const total = times.reduce((acc, time) => acc + time, 0);
+      const avg = total / calls;
+      const min = Math.min(...times);
+      const max = Math.max(...times);
+      log(
+        format(
+          method.padEnd(ORACLE_NAME_PADDING),
+          `${calls} calls`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+          `${total.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+          `min: ${min.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+          `avg: ${avg.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+          `max: ${max.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+        ),
+      );
+    }
   }
 
   log(format('\nSync time:'.padEnd(25), `${timings.sync?.toFixed(2)}ms`.padStart(16)));
