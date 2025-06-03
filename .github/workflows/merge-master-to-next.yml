@@ -2,35 +2,36 @@ name: Merge master into next
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: merge-master-into-next
 
 jobs:
   merge-to-next:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-
-      - name: Merge master into next
-        id: merge
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN || github.token }}
+      - id: merge
         run: |
-          set -eu
+          set -euo pipefail
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
-
           git fetch origin master
           git fetch origin next
           git checkout next
           if ! git merge origin/master -m "chore: Merge master into next"; then
             exit 1
           fi
-          git push origin next
-
-      - name: Send Notification
-        if: failure()
+          if [ "${{ github.event_name }}" == "push" ]; then
+            git push origin next
+          fi
+      - if: failure() && github.event_name == 'push'
         uses: slackapi/slack-github-action@v1.25.0
         with:
           payload: |
