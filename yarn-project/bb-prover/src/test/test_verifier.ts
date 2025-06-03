@@ -5,4 +5,8 @@ export class TestCircuitVerifier implements ClientProtocolCircuitVerifier {
   verifyProof(_tx: Tx): Promise<boolean> {
     return Promise.resolve(true);
   }
+
+  public stop(): Promise<void> {
+    return Promise.resolve();
+  }
 }
