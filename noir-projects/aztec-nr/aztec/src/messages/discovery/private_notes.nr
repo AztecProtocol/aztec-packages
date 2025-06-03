@@ -10,8 +10,8 @@ use protocol_types::{
     address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, debug_log::debug_log_format,
 };
 
-/// The number of fields in a private note message content that are not the note's packed representation (corresponds
-/// to storage slot).
+/// The number of fields in a private note message content that are not the note's packed representation (1 field for
+/// storage slot).
 global PRIVATE_NOTE_MSG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 1;
 
 /// The maximum length of the packed representation of a note's contents. This is limited by private log size,

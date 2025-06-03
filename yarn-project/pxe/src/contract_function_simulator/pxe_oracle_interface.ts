@@ -608,8 +608,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
-    // We read all note validation requests and process them all concurrently. This makes the process much faster as we
-    // don't need to wait for the network round-trip.
+    // We read all note and event validation requests and process them all concurrently. This makes the process much
+    // faster as we don't need to wait for the network round-trip.
     const noteValidationRequests = (
       await this.capsuleDataProvider.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot)
     ).map(NoteValidationRequest.fromFields);
@@ -648,6 +648,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     // Requests are cleared once we're done.
     await this.capsuleDataProvider.resetCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, []);
+    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, []);
   }
 
   async deliverNote(

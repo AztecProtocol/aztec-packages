@@ -53,8 +53,8 @@ where
     // usage is requested. If `constraints` were a runtime value then performance would suffer.
     assert_constant(constraints);
 
-    // In private events, we inject randomness to prevent event commitment preimage attacks and to prevent event
-    // commitment collisions (event commitments are included in the nullifier tree and duplicate nullifiers are by
+    // In private events, we automatically inject randomness to prevent event commitment preimage attacks and event
+    // commitment collisions (the commitments are included in the nullifier tree and duplicate nullifiers are by
     // definition not allowed).
     // Safety: We use the randomness to preserve the privacy of the event recipient by preventing brute-forcing,
     // so a malicious sender could use non-random values to make the event less private. But they already know
@@ -75,10 +75,10 @@ where
     );
     let log_content = prefix_with_tag(ciphertext, sender, recipient);
 
-    // We commit to the event such that we can later on verify that the event is legitimate (this is necessary for
-    // out-of-band event delivery). We use nullifier tree as that is easier to work with than note hash tree since
-    // nullifiers don't include a nonce and unlike for notes we don't care about the nonce (since there is no concept
-    // of event being spendable we don't need to ensure that we can compute a "spending" nullifier for the event).
+    // We generate a cryptographic commitment to the event to ensure its authenticity during out-of-band delivery.
+    // The nullifier tree is chosen over the note hash tree for this purpose since it provides a simpler mechanism
+    // - nullifiers require no nonce, and events, being non-spendable, don't need the guarantee that a "spending"
+    // nullifier can be computed.
     let event_commitment = poseidon2_hash_with_separator(
         serialized_event_with_randomness,
         GENERATOR_INDEX__EVENT_COMMITMENT,

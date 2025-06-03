@@ -1,15 +1,18 @@
-use crate::{messages::encoding::MAX_MESSAGE_CONTENT_LEN, prelude::AztecAddress, utils::array};
-use crate::messages::processing::enqueue_event_for_validation;
+use crate::{
+    messages::{encoding::MAX_MESSAGE_CONTENT_LEN, processing::enqueue_event_for_validation},
+    prelude::AztecAddress,
+    utils::array,
+};
 use protocol_types::{
     abis::event_selector::EventSelector, constants::GENERATOR_INDEX__EVENT_COMMITMENT,
     hash::poseidon2_hash_with_separator_bounded_vec, traits::FromField,
 };
 
 /// The number of fields in a private event message content that are not the event's serialized representation
-/// (corresponds to randomness).
+/// (1 field for randomness).
 global PRIVATE_EVENT_MSG_CONTENT_NON_EVENT_FIELDS_LEN: u32 = 1;
 
-/// The maximum length of the packed representation of a event's contents. This is limited by private log size,
+/// The maximum length of the packed representation of an event's contents. This is limited by private log size,
 /// encryption overhead and extra fields in the message (e.g. message type id, randomness, etc.).
 pub global MAX_EVENT_SERIALIZED_LEN: u32 =
     MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_CONTENT_NON_EVENT_FIELDS_LEN;

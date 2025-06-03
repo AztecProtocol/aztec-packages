@@ -85,6 +85,6 @@ pub unconstrained fn discover_new_messages<Env>(
     );
 
     // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
-    // being added to PXE's database and retrievable via oracles.
+    // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).
     validate_enqueued_notes_and_events(contract_address);
 }
