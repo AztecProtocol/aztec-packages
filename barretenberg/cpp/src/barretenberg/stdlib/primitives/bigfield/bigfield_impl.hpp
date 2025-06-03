@@ -701,14 +701,6 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     return result;
 }
 
-/**
- * Evaluate a non-native field multiplication: (a * b = c mod p) where p == target_basis.modulus
- *
- * We compute quotient term `q` and remainder `c` and evaluate that:
- *
- * a * b - q * p - c = 0 mod modulus_u512 (binary basis modulus, currently 2**272)
- * a * b - q * p - c = 0 mod circuit modulus
- **/
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::operator*(const bigfield& other) const
 {
