@@ -201,5 +201,197 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       );
       expect(result.revertCode.isOK()).toBe(true);
     });
+
+    it('muldiv_small_values', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/muldiv_small_values',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'muldiv_small_values',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('muldiv_exact_division', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/muldiv_exact_division',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'muldiv_exact_division',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('muldiv_large_values', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/muldiv_large_values',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'muldiv_large_values',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('muldiv_rounding_down', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/muldiv_rounding_down',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'muldiv_rounding_down',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('muldiv_division_by_one', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/muldiv_division_by_one',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'muldiv_division_by_one',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('muldiv_large_10_times', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/muldiv_large_10_times',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'muldiv_large_10_times',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('add_with_carry_no_overflow', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/add_with_carry_no_overflow',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'add_with_carry_no_overflow',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('add_with_carry_with_overflow', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/add_with_carry_with_overflow',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'add_with_carry_with_overflow',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('div_256_by_128_exact', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/div_256_by_128_exact',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'div_256_by_128_exact',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('div_256_by_128_large_hi', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/div_256_by_128_large_hi',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'div_256_by_128_large_hi',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('div_256_by_128_non_exact', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/div_256_by_128_non_exact',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'div_256_by_128_non_exact',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('div_256_by_128_exact_10_times', async () => {
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'AvmGadgetsTest/div_256_by_128_exact_10_times',
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'div_256_by_128_exact_10_times',
+            args: [],
+          },
+        ],
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
   });
 });
