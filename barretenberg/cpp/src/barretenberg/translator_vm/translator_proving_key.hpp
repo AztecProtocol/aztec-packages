@@ -84,6 +84,19 @@ class TranslatorProvingKey {
         compute_translator_range_constraint_ordered_polynomials();
     };
 
+    static std::vector<size_t> get_sorted_steps()
+    {
+        std::vector<size_t> sorted_elements(Flavor::SORTED_STEPS_COUNT);
+        // The value we have to end polynomials with, 2¹⁴ - 1
+        const size_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+        size_t i = 0;
+        for (auto& value : sorted_elements) {
+            value = max_value - Flavor::SORT_STEP * i;
+            i++;
+        }
+        return sorted_elements;
+    }
+
     void compute_lagrange_polynomials();
 
     void compute_extra_range_constraint_numerator();
