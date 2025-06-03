@@ -4,29 +4,14 @@
 #include "tracy/Tracy.hpp"
 #include "wasm_export.hpp"
 #include <cstdlib>
-#include <iostream>
 #include <memory>
-#include <sys/resource.h>
 
 // This can be altered to capture stack traces, though more expensive
 // so wrap TracyAlloc or TracyAllocS. We disable these if gates are being tracked
 // Gates are hackishly tracked as if they were memory, for the sweet sweet memory
 // stack tree that doesn't seem to be available for other metric types.
 #ifndef TRACY_HACK_GATES_AS_MEMORY
-
-inline void tracy_alloc()
-{
-    static long int peak = 0;
-    struct rusage usage;
-    if (getrusage(RUSAGE_SELF, &usage) == 0) {
-        // ru_maxrss is in kilobytes on Linux
-        if (usage.ru_maxrss > peak) {
-            peak = usage.ru_maxrss;
-            std::cerr << "FUN " << (usage.ru_maxrss / 1024) << " MB)"; // NOLINT
-        }
-    }
-}
-#define TRACY_ALLOC(t, size) tracy_alloc()
+#define TRACY_ALLOC(t, size) TracyAllocS(t, size, /*stack depth*/ 10)
 #define TRACY_FREE(t) TracyFreeS(t, /*stack depth*/ 10)
 #define TRACY_GATE_ALLOC(t)
 #define TRACY_GATE_FREE(t)

@@ -115,10 +115,8 @@ template <class Curve> class CommitmentKey {
         // with our polynomial span.
 
         std::span<G1> point_table = srs->get_monomial_points().subspan(actual_start_index * 2);
-        DEBUG_LOG_ALL(polynomial.span);
         Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
             { relative_start_index, polynomial.span }, point_table, pippenger_runtime_state);
-        DEBUG_LOG(point);
         return point;
     };
 
