@@ -73,7 +73,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, realProof);
 
@@ -100,12 +100,12 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it deposits into the rollup
     // it emits a {ValidatorAdded} event
 
-    vm.assume(_attester != address(0));
+    vm.assume(_attester != address(0) && _attester != unhinged);
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, realProof);
 
@@ -149,12 +149,15 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it deposits into the rollup
     // it emits a {ValidatorAdded} event
 
-    vm.assume(_attester != address(0) && _caller != address(this) && _attester != address(this));
+    vm.assume(
+      _attester != address(0) && _caller != address(this) && _attester != address(this)
+        && _caller != unhinged
+    );
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, proof);
 
@@ -180,14 +183,16 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     givenPassportProofIsValid
   {
     // it reverts
-
-    vm.assume(_attester != address(0) && _caller != address(this) && _attester != address(this));
+    vm.assume(
+      _attester != address(0) && _caller != address(this) && _attester != address(this)
+        && _caller != unhinged
+    );
 
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, proof);
 
@@ -198,7 +203,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
       )
     );
     // Call from somebody else
-    vm.prank(_attester);
+    vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, proof);
   }
 
@@ -211,7 +216,10 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it reverts
     proof.devMode = true;
 
-    vm.assume(_attester != address(0) && _caller != address(this) && _attester != address(this));
+    vm.assume(
+      _attester != address(0) && _caller != address(this) && _attester != address(this)
+        && _attester != unhinged
+    );
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
@@ -229,7 +237,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it reverts
 
     vm.assume(_daysInFuture > 8);
-    vm.assume(_caller != address(this));
+    vm.assume(_caller != address(this) && _caller != unhinged);
 
     address attester = address(uint160(42));
 
@@ -260,6 +268,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
       _attester != _secondAttester && _attester != _thirdAttester
         && _secondAttester != _thirdAttester
     );
+    vm.assume(_caller != address(this) && _caller != unhinged);
 
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval + mintInterval;
     vm.warp(revertTimestamp);
@@ -269,7 +278,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     stakingAssetHandler.setDepositsPerMint(_depositsPerMint);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, realProof);
 
@@ -278,14 +287,14 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     // later we will mock that this deposit call fails, with a swapped attester
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_secondAttester);
+    emit IStakingAssetHandler.AddedToQueue(_secondAttester, 2);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_secondAttester, realProof);
 
     mockZKPassportVerifier.incrementUniqueIdentifier();
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_thirdAttester);
+    emit IStakingAssetHandler.AddedToQueue(_thirdAttester, 3);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_thirdAttester, realProof);
 
