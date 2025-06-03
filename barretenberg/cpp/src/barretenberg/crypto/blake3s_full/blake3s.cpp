@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "barretenberg/common/assert.hpp"
 #include "blake3-impl.hpp"
 
 namespace blake3_full {
@@ -865,6 +866,7 @@ std::vector<uint8_t> blake3s(std::vector<uint8_t> const& input,
     // Initialize the hasher.
     blake3_hasher hasher;
     blake3_hasher_init(&hasher);
+    ASSERT(input.size() <= 1024, "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
 
     switch (mode_id) {
     case HASH_MODE:
