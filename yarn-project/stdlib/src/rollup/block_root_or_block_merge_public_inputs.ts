@@ -17,7 +17,7 @@ import { EpochConstantData } from './epoch_constant_data.js';
 export class BlockRootOrBlockMergePublicInputs {
   constructor(
     /**
-     * Constants of the entire epoch.
+     * Constants for the entire epoch.
      */
     public constants: EpochConstantData,
     /**

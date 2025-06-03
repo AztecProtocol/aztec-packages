@@ -16,7 +16,7 @@ export class EpochConstantData {
      */
     public protocolContractTreeRoot: Fr,
     /**
-     * Id of the prover of the epoch.
+     * Identifier of the prover of the epoch.
      */
     public proverId: Fr,
   ) {}

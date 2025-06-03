@@ -71,13 +71,15 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
     span: Span,
     tx: ProcessedTx,
     globalVariables: GlobalVariables,
+    // Passing in the snapshot instead of getting it from the db because it might've been updated in the orchestrator
+    // when base parity proof is being generated.
     l1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     db: MerkleTreeWriteOperations,
     startSpongeBlob: SpongeBlob,
   ) => {
     span.setAttribute(Attributes.TX_HASH, tx.hash.toString());
     // Get trees info before any changes hit
-    const constants = await getBlockConstantData(globalVariables, l1ToL2MessageTreeSnapshot, db);
+    const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     const start = new PartialStateReference(
       await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
       await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
@@ -155,7 +157,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
 
       return PublicBaseRollupHints.from({
         startSpongeBlob: inputSpongeBlob,
-        lastArchive: constants.lastArchive,
+        lastArchive,
         archiveRootMembershipWitness,
         contractClassLogsFields,
       });
@@ -204,6 +206,14 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
         ARCHIVE_HEIGHT,
         db,
       );
+
+      const constants = BlockConstantData.from({
+        lastArchive,
+        lastL1ToL2: l1ToL2MessageTreeSnapshot,
+        vkTreeRoot: getVKTreeRoot(),
+        protocolContractTreeRoot,
+        globalVariables,
+      });
 
       return PrivateBaseRollupHints.from({
         start,
@@ -403,27 +413,6 @@ export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: T
   const path = await db.getSiblingPath(treeId, size);
   return padArrayEnd(path.toFields(), Fr.ZERO, getTreeHeight(treeId));
 }
-
-const getBlockConstantData = runInSpan(
-  'BlockBuilderHelpers',
-  'getBlockConstantData',
-  async (
-    _span,
-    globalVariables: GlobalVariables,
-    // Passing in the snapshot instead of getting it from the db because it might've been updated in the orchestrator
-    // when base parity proof is being generated.
-    l1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    db: MerkleTreeReadOperations,
-  ): Promise<BlockConstantData> => {
-    return BlockConstantData.from({
-      lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
-      lastL1ToL2: l1ToL2MessageTreeSnapshot,
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractTreeRoot,
-      globalVariables,
-    });
-  },
-);
 
 export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeReadOperations): Promise<AppendOnlyTreeSnapshot> {
   const treeInfo = await db.getTreeInfo(id);

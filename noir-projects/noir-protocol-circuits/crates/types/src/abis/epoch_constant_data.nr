@@ -8,7 +8,7 @@ pub struct EpochConstantData {
     // TODO: Move chain_id and version to here.
     pub vk_tree_root: Field,
     pub protocol_contract_tree_root: Field,
-    pub prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+    pub prover_id: Field,
 }
 
 impl Eq for EpochConstantData {
