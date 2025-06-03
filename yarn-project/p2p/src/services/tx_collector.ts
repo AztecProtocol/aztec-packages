@@ -15,7 +15,7 @@ export class TxCollector {
   ) {}
 
   // Checks the proposal for transactions we don't already have, validates them and adds them to our pool
-  async collectFromProposal(proposal: BlockProposal): Promise<void> {
+  private async collectFromProposal(proposal: BlockProposal): Promise<void> {
     // Does this proposal have any transactions?
     if (!proposal.txs || proposal.txs.length === 0) {
       return;
@@ -78,9 +78,12 @@ export class TxCollector {
     // This will request from the network any txs that are missing
     // NOTE: this could still return missing txs so we need to (1) be careful to handle undefined and (2) keep the txs in the correct order for re-execution
     const maybeRetrievedTxs = await this.p2pClient.getTxsByHash(txHashes, peerWhoSentTheProposal);
+
+    // Get the txs that we didn't get from the network, if any. This will be empty if we got them al
     const missingTxs = compactArray(
       maybeRetrievedTxs.map((tx, index) => (tx === undefined ? txHashes[index] : undefined)),
     );
+
     // if we found all txs, this is a noop. If we didn't find all txs then tell the validator to skip attestations because missingTxs.length > 0
     const retrievedTxs = compactArray(maybeRetrievedTxs);
     return { txs: retrievedTxs, missing: missingTxs };

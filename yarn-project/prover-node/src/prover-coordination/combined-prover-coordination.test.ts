@@ -50,14 +50,14 @@ describe('combined prover coordination', () => {
       const hashes = await Promise.all(additionalP2PTxs.map(tx => tx.getTxHash()));
       additionalP2PTxs.forEach((tx, index) => txPool.set(hashes[index].toString(), tx));
       const txs = txHashes.map(txHash => txPool.get(txHash.toString()));
-      return Promise.resolve(txs.filter(tx => tx !== undefined) as Tx[]);
+      return Promise.resolve(txs);
     });
     p2p.hasTxsInPool.mockImplementation(txHashes => {
       return Promise.resolve(txHashes.map(txHash => txPool.has(txHash.toString())));
     });
     p2p.getTxsByHashFromPool.mockImplementation(txHashes => {
       const txs = txHashes.map(txHash => txPool.get(txHash.toString()));
-      return Promise.resolve(txs.filter(tx => tx !== undefined) as Tx[]);
+      return Promise.resolve(txs);
     });
     p2p.addTxsToPool.mockImplementation(async txs => {
       const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
