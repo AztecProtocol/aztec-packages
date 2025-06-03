@@ -76,6 +76,7 @@ import {
   AvmSequentialInsertHintPublicDataTree,
   AvmTxHint,
   RevertCode,
+  clampGasSettingsForAVM,
 } from '../avm/index.js';
 import { PublicDataHint } from '../avm/public_data_hint.js';
 import { PublicDataRead } from '../avm/public_data_read.js';
@@ -1107,11 +1108,7 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const contractClassLogsPreimages = makeTuple(
-    MAX_CONTRACT_CLASS_LOGS_PER_TX,
-    makeContractClassLogFields,
-    seed + 0x800,
-  );
+  const contractClassLogsFields = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x800);
 
   const constants = makeConstantRollupData(0x100);
 
@@ -1123,7 +1120,7 @@ function makePrivateBaseRollupHints(seed = 1) {
     stateDiffHints,
     feePayerFeeJuiceBalanceReadHint,
     archiveRootMembershipWitness,
-    contractClassLogsPreimages,
+    contractClassLogsFields,
     constants,
   });
 }
@@ -1133,18 +1130,14 @@ function makePublicBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const contractClassLogsPreimages = makeTuple(
-    MAX_CONTRACT_CLASS_LOGS_PER_TX,
-    makeContractClassLogFields,
-    seed + 0x800,
-  );
+  const contractClassLogsFields = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x800);
 
   const constants = makeConstantRollupData(0x100);
 
   return PublicBaseRollupHints.from({
     startSpongeBlob,
     archiveRootMembershipWitness,
-    contractClassLogsPreimages,
+    contractClassLogsFields,
     constants,
   });
 }
@@ -1661,27 +1654,55 @@ export async function makeBloatedProcessedTx({
 
   if (privateOnly) {
     const data = makePrivateToRollupAccumulatedData(seed + 0x1000);
+    clearContractClassLogs(data);
 
     const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
     feePaymentPublicDataWrite ??= new PublicDataWrite(Fr.random(), Fr.random());
-
-    clearLogs(data);
 
     tx.data.forRollup!.end = data;
 
     return makeProcessedTxFromPrivateOnlyTx(tx, transactionFee, feePaymentPublicDataWrite, globalVariables);
   } else {
-    const nonRevertibleData = tx.data.forPublic!.nonRevertibleAccumulatedData;
+    const dataFromPrivate = tx.data.forPublic!;
+
+    const nonRevertibleData = dataFromPrivate.nonRevertibleAccumulatedData;
+
+    // Create revertible data.
     const revertibleData = makePrivateToPublicAccumulatedData(seed + 0x1000);
-
+    clearContractClassLogs(revertibleData);
     revertibleData.nullifiers[MAX_NULLIFIERS_PER_TX - 1] = Fr.ZERO; // Leave one space for the tx hash nullifier in nonRevertibleAccumulatedData.
+    dataFromPrivate.revertibleAccumulatedData = revertibleData;
 
-    clearLogs(revertibleData);
-
-    tx.data.forPublic!.revertibleAccumulatedData = revertibleData;
-
+    // Create avm output.
     const avmOutput = AvmCircuitPublicInputs.empty();
+    // Assign data from private.
     avmOutput.globalVariables = globalVariables;
+    avmOutput.startGasUsed = tx.data.gasUsed;
+    avmOutput.gasSettings = gasSettings;
+    avmOutput.feePayer = feePayer;
+    avmOutput.publicCallRequestArrayLengths = new PublicCallRequestArrayLengths(
+      tx.data.numberOfNonRevertiblePublicCallRequests(),
+      tx.data.numberOfRevertiblePublicCallRequests(),
+      tx.data.hasTeardownPublicCallRequest(),
+    );
+    avmOutput.publicSetupCallRequests = dataFromPrivate.nonRevertibleAccumulatedData.publicCallRequests;
+    avmOutput.publicAppLogicCallRequests = dataFromPrivate.revertibleAccumulatedData.publicCallRequests;
+    avmOutput.publicTeardownCallRequest = dataFromPrivate.publicTeardownCallRequest;
+    avmOutput.previousNonRevertibleAccumulatedData = new PrivateToAvmAccumulatedData(
+      dataFromPrivate.nonRevertibleAccumulatedData.noteHashes,
+      dataFromPrivate.nonRevertibleAccumulatedData.nullifiers,
+      dataFromPrivate.nonRevertibleAccumulatedData.l2ToL1Msgs,
+    );
+    avmOutput.previousNonRevertibleAccumulatedDataArrayLengths =
+      avmOutput.previousNonRevertibleAccumulatedData.getArrayLengths();
+    avmOutput.previousRevertibleAccumulatedData = new PrivateToAvmAccumulatedData(
+      dataFromPrivate.revertibleAccumulatedData.noteHashes,
+      dataFromPrivate.revertibleAccumulatedData.nullifiers,
+      dataFromPrivate.revertibleAccumulatedData.l2ToL1Msgs,
+    );
+    avmOutput.previousRevertibleAccumulatedDataArrayLengths =
+      avmOutput.previousRevertibleAccumulatedData.getArrayLengths();
+    // Assign final data emitted from avm.
     avmOutput.accumulatedData.noteHashes = revertibleData.noteHashes;
     avmOutput.accumulatedData.nullifiers = mergeAccumulatedData(
       nonRevertibleData.nullifiers,
@@ -1694,8 +1715,10 @@ export async function makeBloatedProcessedTx({
       i => new PublicDataWrite(new Fr(i), new Fr(i + 10)),
       seed + 0x2000,
     );
+    avmOutput.gasSettings = clampGasSettingsForAVM(gasSettings, tx.data.gasUsed);
 
     const avmCircuitInputs = await makeAvmCircuitInputs(seed + 0x3000, { publicInputs: avmOutput });
+
     const gasUsed = {
       totalGas: Gas.empty(),
       teardownGas: Gas.empty(),
@@ -1716,8 +1739,8 @@ export async function makeBloatedProcessedTx({
   }
 }
 
-// Remove all logs as it's ugly to mock them at the moment and we are going to change it to have the preimages be part of the public inputs soon.
-function clearLogs(data: { publicLogs?: PublicLog[]; contractClassLogsHashes: ScopedLogHash[] }) {
-  data.publicLogs?.forEach((_, i) => (data.publicLogs![i] = PublicLog.empty()));
+// Remove all contract class log hashes from the data as they are not required for the current tests.
+// If they are needed one day, change this to create the random fields first and update the data with real hashes of those fields.
+function clearContractClassLogs(data: { contractClassLogsHashes: ScopedLogHash[] }) {
   data.contractClassLogsHashes.forEach((_, i) => (data.contractClassLogsHashes[i] = ScopedLogHash.empty()));
 }

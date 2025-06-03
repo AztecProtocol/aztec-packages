@@ -61,6 +61,13 @@ impl BlockMergeRollupInputs {
             final_blob_challenges: left.blob_public_inputs.final_blob_challenges,
         };
 
+        // TODO(MW): Batching here will consist of checks:
+        // - left.end_blob_accumulator == right.start_blob_accumulator
+        // - left.challenge_z == right.challenge_z
+        // - left.challenge_gamma == right.challenge_gamma
+        // (^should probably exist in assert_prev_block_rollups_follow_on_from_each_other())
+        // then assigning this.start_blob_accumulator = left.start_blob_accumulator & this.end_blob_accumulator = right.end_blob_accumulator
+
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.previous_archive,
             new_archive: right.new_archive,

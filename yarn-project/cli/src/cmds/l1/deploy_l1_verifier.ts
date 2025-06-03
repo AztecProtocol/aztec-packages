@@ -5,6 +5,7 @@ import { HonkVerifierAbi, HonkVerifierBytecode } from '@aztec/l1-artifacts';
 
 import { InvalidOptionArgumentError } from 'commander';
 import { type Hex, getContract } from 'viem';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 export async function deployUltraHonkVerifier(
   rollupAddress: Hex | undefined,
@@ -12,13 +13,17 @@ export async function deployUltraHonkVerifier(
   l1ChainId: string,
   privateKey: string | undefined,
   mnemonic: string,
+  mnemonicIndex: number,
   pxeRpcUrl: string,
   log: LogFn,
   debugLogger: Logger,
 ) {
+  const account = !privateKey
+    ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
+    : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const extendedClient = createExtendedL1Client(
     ethRpcUrls,
-    privateKey ?? mnemonic,
+    account,
     createEthereumChain(ethRpcUrls, l1ChainId).chainInfo,
   );
 

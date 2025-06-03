@@ -20,7 +20,7 @@ impl Serialize<BOOL_SERIALIZED_LEN> for bool {
 
 impl Deserialize<BOOL_SERIALIZED_LEN> for bool {
     fn deserialize(fields: [Field; BOOL_SERIALIZED_LEN]) -> bool {
-        fields[0] as bool
+        fields[0] != 0
     }
 }
 

@@ -2,9 +2,9 @@ use crate::tests::tail_to_public_output_composer_builder::TailToPublicOutputComp
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS,
-        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        AVM_L2_GAS_PER_NOTE_HASH_WRITE, AVM_L2_GAS_PER_NULLIFIER_WRITE, DA_BYTES_PER_FIELD,
+        DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG,
+        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_PRIVATE_LOG,
     },
     tests::utils::{assert_array_eq, swap_items},
 };
@@ -40,7 +40,8 @@ fn tail_to_public_output_composer_succeeds() {
     let num_public_calls_non_revertible = 2;
     builder.previous_kernel.append_public_call_requests(num_public_calls_non_revertible);
 
-    builder.previous_kernel.end_setup();
+    // Get the current counter to set it as the min_revertible_side_effect_counter later.
+    let min_revertible_side_effect_counter = builder.previous_kernel.counter;
 
     // Revertible.
     builder.previous_kernel.set_public_teardown_call_request();
@@ -63,7 +64,12 @@ fn tail_to_public_output_composer_succeeds() {
     builder.previous_kernel.append_public_call_requests(num_public_calls_revertible);
 
     // Get ordered items before shuffling for verifying with the output later.
-    let data = builder.previous_kernel.to_private_to_public_accumulated_data();
+    // The min_revertible_side_effect_counter is not set yet, so everything is included in the non-revertible accumulated data.
+    let data =
+        builder.previous_kernel.to_private_to_public_accumulated_data(false /* revertible */);
+
+    // Set the min_revertible_side_effect_counter.
+    builder.previous_kernel.min_revertible_side_effect_counter = min_revertible_side_effect_counter;
 
     // Shuffle ordered items.
     swap_items(&mut builder.previous_kernel.l2_to_l1_msgs, 0, 1);
@@ -157,8 +163,8 @@ fn tail_to_public_output_composer_succeeds() {
     ;
     let computed_da_gas = num_da_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 
-    let computed_l2_gas = num_note_hashes * L2_GAS_PER_NOTE_HASH
-        + num_nullifiers * L2_GAS_PER_NULLIFIER
+    let computed_l2_gas = num_note_hashes * AVM_L2_GAS_PER_NOTE_HASH_WRITE
+        + num_nullifiers * AVM_L2_GAS_PER_NULLIFIER_WRITE
         + num_l2_to_l1_msgs * L2_GAS_PER_L2_TO_L1_MSG
         + num_private_logs * L2_GAS_PER_PRIVATE_LOG
         + num_contract_class_logs * L2_GAS_PER_CONTRACT_CLASS_LOG

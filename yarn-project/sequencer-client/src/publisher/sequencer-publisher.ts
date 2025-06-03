@@ -264,6 +264,7 @@ export class SequencerPublisher {
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
   public canProposeAtNextEthBlock(tipArchive: Buffer) {
+    // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
     return this.rollupContract
@@ -341,14 +342,8 @@ export class SequencerPublisher {
       return false;
     }
     const round = await base.computeRound(slotNumber);
-    const [proposer, roundInfo] = await Promise.all([
-      this.rollupContract.getProposerAt(timestamp),
-      base.getRoundInfo(this.rollupContract.address, round),
-    ]);
+    const roundInfo = await base.getRoundInfo(this.rollupContract.address, round);
 
-    if (proposer.toLowerCase() !== this.getForwarderAddress().toString().toLowerCase()) {
-      return false;
-    }
     if (roundInfo.lastVote >= slotNumber) {
       return false;
     }
@@ -358,9 +353,15 @@ export class SequencerPublisher {
 
     const action = voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote';
 
+    const request = await base.createVoteRequestWithSignature(payload.toString(), this.l1TxUtils.client);
+    this.log.debug(`Created ${action} request with signature`, {
+      request,
+      signer: this.l1TxUtils.client.account?.address,
+    });
+
     this.addRequest({
       action,
-      request: base.createVoteRequest(payload.toString()),
+      request,
       lastValidL2Slot: slotNumber,
       onResult: (_request, result) => {
         if (!result || result.receipt.status !== 'success') {
@@ -387,6 +388,7 @@ export class SequencerPublisher {
       if (!slashPayload) {
         return undefined;
       }
+      this.log.info(`Slash payload: ${slashPayload}`);
       return { payload: slashPayload, base: this.slashingProposerContract };
     }
     throw new Error('Unreachable: Invalid vote type');

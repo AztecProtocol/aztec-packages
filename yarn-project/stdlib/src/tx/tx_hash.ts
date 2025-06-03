@@ -29,6 +29,10 @@ export class TxHash {
     return new TxHash(new Fr(value));
   }
 
+  static fromField(value: Fr) {
+    return new TxHash(value);
+  }
+
   public toBuffer() {
     return this.hash.toBuffer();
   }

@@ -9,19 +9,17 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 interface IStakingCore {
   event SlasherUpdated(address indexed oldSlasher, address indexed newSlasher);
-  event Deposit(
-    address indexed attester, address indexed proposer, address indexed withdrawer, uint256 amount
-  );
+  event Deposit(address indexed attester, address indexed withdrawer, uint256 amount);
   event WithdrawInitiated(address indexed attester, address indexed recipient, uint256 amount);
   event WithdrawFinalised(address indexed attester, address indexed recipient, uint256 amount);
   event Slashed(address indexed attester, uint256 amount);
 
   function setSlasher(address _slasher) external;
-  function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
-    external;
+  function deposit(address _attester, address _withdrawer, bool _onCanonical) external;
   function initiateWithdraw(address _attester, address _recipient) external returns (bool);
   function finaliseWithdraw(address _attester) external;
   function slash(address _attester, uint256 _amount) external;
+  function vote(uint256 _proposalId) external;
 }
 
 interface IStaking is IStakingCore {
@@ -29,8 +27,6 @@ interface IStaking is IStakingCore {
   function getExit(address _attester) external view returns (Exit memory);
   function getActiveAttesterCount() external view returns (uint256);
   function getAttesterAtIndex(uint256 _index) external view returns (address);
-  function getProposerAtIndex(uint256 _index) external view returns (address);
-  function getProposerForAttester(address _attester) external view returns (address);
   function getSlasher() external view returns (address);
   function getStakingAsset() external view returns (IERC20);
   function getMinimumStake() external view returns (uint256);

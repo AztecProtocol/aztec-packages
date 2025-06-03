@@ -123,8 +123,8 @@ export class Sequencer {
     return this.metrics.tracer;
   }
 
-  public getValidatorAddress() {
-    return this.validatorClient?.getValidatorAddress();
+  public getValidatorAddresses() {
+    return this.validatorClient?.getValidatorAddresses();
   }
 
   /**
@@ -273,13 +273,14 @@ export class Sequencer {
     const { slot } = this.publisher.epochCache.getEpochAndSlotInNextSlot();
     this.metrics.observeSlotChange(slot, this.publisher.getSenderAddress().toString());
 
-    const proposerInNextSlot = await this.publisher.epochCache.getProposerInNextSlot();
+    const proposerInNextSlot = await this.publisher.epochCache.getProposerAttesterAddressInNextSlot();
+    const validatorAddresses = this.validatorClient!.getValidatorAddresses();
 
     // If get proposer in next slot is undefined, then there is no proposer set, and it is in free for all (sandbox) so we continue
     // If we calculate a proposer in the next slot, and it is not us, then stop
-    if (proposerInNextSlot !== undefined && !proposerInNextSlot.equals(this.validatorClient!.getValidatorAddress())) {
+    if (proposerInNextSlot !== undefined && !validatorAddresses.some(addr => addr.equals(proposerInNextSlot))) {
       this.log.debug(`Cannot propose block ${newBlockNumber}`, {
-        us: this.validatorClient!.getValidatorAddress(),
+        us: validatorAddresses,
         proposer: proposerInNextSlot,
       });
       return;
@@ -452,6 +453,7 @@ export class Sequencer {
 
     try {
       const processor = this.publicProcessorFactory.create(publicProcessorDBFork, newGlobalVariables, true);
+
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(publicProcessorDBFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages, previousBlockHeader);

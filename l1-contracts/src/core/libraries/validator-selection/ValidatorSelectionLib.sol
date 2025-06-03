@@ -101,34 +101,29 @@ library ValidatorSelectionLib {
       return;
     }
 
+    if (_flags.ignoreSignatures) {
+      return;
+    }
+
     require(
       _attestations.length == committeeSize,
       Errors.ValidatorSelection__InvalidAttestationsLength(committeeSize, _attestations.length)
     );
 
+    // We determine who the proposer from indexing into the provided attestations array, we then recover their proposer
+    // address from storage
     uint256 proposerIndex =
       computeProposerIndex(_epochNumber, _slot, getSampleSeed(_epochNumber), committeeSize);
 
-    // We determine who the proposer from indexing into the provided attestations array, we then recover their proposer
-    // address from storage
     // The user controls this value, however, if a false value is provided, the recalculated committee commitment will
     // be incorrect, and we will revert.
-    address attester = _attestations[proposerIndex].addr;
-    address proposer = StakingLib.getProposerForAttester(attester);
-
-    require(
-      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
-    );
-
-    if (_flags.ignoreSignatures) {
-      return;
-    }
 
     // Validate the attestations
     uint256 needed = committeeSize * 2 / 3 + 1;
     uint256 validAttestations = 0;
 
     address[] memory reconstructedCommittee = new address[](committeeSize);
+    bool proposerVerified = false;
 
     bytes32 digest = _digest.toEthSignedMessageHash();
     for (uint256 i = 0; i < _attestations.length; i++) {
@@ -141,10 +136,20 @@ library ValidatorSelectionLib {
         );
         reconstructedCommittee[i] = recovered;
         validAttestations++;
+        if (i == proposerIndex) {
+          proposerVerified = true;
+        }
       } else {
         reconstructedCommittee[i] = attestation.addr;
       }
     }
+
+    address proposer = reconstructedCommittee[proposerIndex];
+
+    require(
+      proposerVerified || proposer == msg.sender,
+      Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
+    );
 
     require(
       validAttestations >= needed,
@@ -171,10 +176,7 @@ library ValidatorSelectionLib {
       return address(0);
     }
 
-    address attester =
-      committee[computeProposerIndex(_epochNumber, _slot, sampleSeed, committee.length)];
-
-    return StakingLib.getProposerForAttester(attester);
+    return committee[computeProposerIndex(_epochNumber, _slot, sampleSeed, committee.length)];
   }
 
   /**
