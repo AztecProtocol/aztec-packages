@@ -80,12 +80,12 @@ export class NoteDataProvider implements DataProvider {
     return true;
   }
 
-  async addNotes(notes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
-    if (!(await this.#scopes.hasAsync(scope.toString()))) {
-      await this.addScope(scope);
-    }
-
+  addNotes(notes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
     return this.#store.transactionAsync(async () => {
+      if (!(await this.#scopes.hasAsync(scope.toString()))) {
+        await this.addScope(scope);
+      }
+
       for (const dao of notes) {
         // store notes by their index in the notes hash tree
         // this provides the uniqueness we need to store individual notes
@@ -127,24 +127,24 @@ export class NoteDataProvider implements DataProvider {
   }
 
   public async unnullifyNotesAfter(blockNumber: number, synchedBlockNumber?: number): Promise<void> {
-    const nullifiersToUndo: string[] = [];
-    const currentBlockNumber = blockNumber + 1;
-    const maxBlockNumber = synchedBlockNumber ?? currentBlockNumber;
-    for (let i = currentBlockNumber; i <= maxBlockNumber; i++) {
-      nullifiersToUndo.push(...(await toArray(this.#nullifiersByBlockNumber.getValuesAsync(i))));
-    }
-    const notesIndexesToReinsert = await Promise.all(
-      nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.getAsync(nullifier)),
-    );
-    const notNullNoteIndexes = notesIndexesToReinsert.filter(noteIndex => noteIndex != undefined);
-    const nullifiedNoteBuffers = await Promise.all(
-      notNullNoteIndexes.map(noteIndex => this.#nullifiedNotes.getAsync(noteIndex!)),
-    );
-    const noteDaos = nullifiedNoteBuffers
-      .filter(buffer => buffer != undefined)
-      .map(buffer => NoteDao.fromBuffer(buffer!));
-
     await this.#store.transactionAsync(async () => {
+      const nullifiersToUndo: string[] = [];
+      const currentBlockNumber = blockNumber + 1;
+      const maxBlockNumber = synchedBlockNumber ?? currentBlockNumber;
+      for (let i = currentBlockNumber; i <= maxBlockNumber; i++) {
+        nullifiersToUndo.push(...(await toArray(this.#nullifiersByBlockNumber.getValuesAsync(i))));
+      }
+      const notesIndexesToReinsert = await Promise.all(
+        nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.getAsync(nullifier)),
+      );
+      const notNullNoteIndexes = notesIndexesToReinsert.filter(noteIndex => noteIndex != undefined);
+      const nullifiedNoteBuffers = await Promise.all(
+        notNullNoteIndexes.map(noteIndex => this.#nullifiedNotes.getAsync(noteIndex!)),
+      );
+      const noteDaos = nullifiedNoteBuffers
+        .filter(buffer => buffer != undefined)
+        .map(buffer => NoteDao.fromBuffer(buffer!));
+
       for (const dao of noteDaos) {
         const noteIndex = toBufferBE(dao.index, 32).toString('hex');
         await this.#notes.set(noteIndex, dao.toBuffer());

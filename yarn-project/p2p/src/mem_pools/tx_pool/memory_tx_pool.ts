@@ -5,7 +5,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
-import type { TxPool } from './tx_pool.js';
+import type { TxPool, TxPoolOptions } from './tx_pool.js';
 
 /**
  * In-memory implementation of the Transaction Pool.
@@ -190,9 +190,7 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve(Array.from(this.txs.keys()).map(x => TxHash.fromBigInt(x)));
   }
 
-  setMaxTxPoolSize(_maxSizeBytes: number | undefined): Promise<void> {
-    return Promise.resolve();
-  }
+  updateConfig(_config: TxPoolOptions): void {}
 
   markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
     return Promise.resolve();

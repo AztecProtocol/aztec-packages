@@ -11,10 +11,10 @@ The registry is a contract deployed on L1, that contains addresses for the `Roll
 
 Retrieves the number of versions that have been deployed.
 
-```solidity title="registry_number_of_versions" showLineNumbers
+```solidity title="registry_number_of_versions" showLineNumbers 
 function numberOfVersions() external view returns (uint256);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/src/governance/interfaces/IRegistry.sol#L22-L24" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L22-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/governance/interfaces/IRegistry.sol#L22-L24" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L22-L24</a></sub></sup>
 
 
 | Name        | Description                                    |
@@ -25,10 +25,10 @@ function numberOfVersions() external view returns (uint256);
 
 Retrieves the current rollup contract.
 
-```solidity title="registry_get_canonical_rollup" showLineNumbers
+```solidity title="registry_get_canonical_rollup" showLineNumbers 
 function getCanonicalRollup() external view returns (IRollup);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/src/governance/interfaces/IRegistry.sol#L14-L16" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L14-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/governance/interfaces/IRegistry.sol#L14-L16" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L14-L16</a></sub></sup>
 
 
 | Name        | Description        |
@@ -39,10 +39,10 @@ function getCanonicalRollup() external view returns (IRollup);
 
 Retrieves the rollup contract for a specfic version.
 
-```solidity title="registry_get_rollup" showLineNumbers
+```solidity title="registry_get_rollup" showLineNumbers 
 function getRollup(uint256 _chainId) external view returns (IRollup);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/src/governance/interfaces/IRegistry.sol#L18-L20" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L18-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/governance/interfaces/IRegistry.sol#L18-L20" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L18-L20</a></sub></sup>
 
 
 | Name        | Description        |

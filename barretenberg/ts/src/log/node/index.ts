@@ -7,7 +7,7 @@ const defaultOptions = {
   customLevels: { verbose: 25 },
 };
 
-const defaultLevel = (process.env.LOG_LEVEL || 'info') as LogLevels;
+const defaultLevel = parseLogLevel(process.env.LOG_LEVEL);
 
 // Options must be exposed so they can be provided to threads upon creation
 // This way we ensure all loggers are spawned with the same options
@@ -38,4 +38,15 @@ export function createDebugLogger(name: string) {
   return (msg: string) => {
     sublogger.debug(msg);
   };
+}
+
+function parseLogLevel(logLevel?: string): LogLevels {
+  if (!logLevel) {
+    return 'info';
+  }
+
+  const knownLogLevels: LogLevels[] = ['info', 'debug', 'warn', 'error', 'trace', 'silent', 'verbose'];
+  const [defaultLogLevel] = logLevel.split(';');
+
+  return knownLogLevels.indexOf(defaultLogLevel as LogLevels) !== -1 ? (defaultLogLevel as LogLevels) : 'info';
 }

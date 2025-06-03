@@ -148,9 +148,9 @@ export function findPrivateKernelResetDimensions(
     ? isEnough
     : // If isInner is true, it's a reset to prevent overflow. The following must be zero because siloing can't be done at the moment.
       (dimensions: PrivateKernelResetDimensions) =>
-        dimensions.NOTE_HASH_SILOING_AMOUNT === 0 &&
-        dimensions.NULLIFIER_SILOING_AMOUNT === 0 &&
-        dimensions.PRIVATE_LOG_SILOING_AMOUNT === 0 &&
+        dimensions.NOTE_HASH_SILOING === 0 &&
+        dimensions.NULLIFIER_SILOING === 0 &&
+        dimensions.PRIVATE_LOG_SILOING === 0 &&
         isEnough(dimensions);
 
   const options = [

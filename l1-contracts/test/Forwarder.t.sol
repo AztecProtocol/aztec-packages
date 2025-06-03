@@ -20,8 +20,7 @@ contract ForwarderTest is Test {
     owner = makeAddr("owner");
     user = makeAddr("user");
 
-    vm.prank(owner);
-    forwarder = new Forwarder(owner);
+    forwarder = new Forwarder();
 
     token1 = new TestERC20("Token1", "TK1", address(forwarder));
     token2 = new TestERC20("Token2", "TK2", address(forwarder));
@@ -46,21 +45,10 @@ contract ForwarderTest is Test {
     assertEq(token2.balanceOf(address(this)), 200);
   }
 
-  function testRevertWhenNotOwner(address _user) public {
-    address[] memory targets = new address[](1);
-    bytes[] memory data = new bytes[](1);
-
-    vm.assume(_user != owner);
-    vm.prank(_user);
-    vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, _user));
-    forwarder.forward(targets, data);
-  }
-
   function testRevertWhenLengthMismatch() public {
     address[] memory targets = new address[](2);
     bytes[] memory data = new bytes[](1);
 
-    vm.prank(owner);
     vm.expectRevert(abi.encodeWithSelector(IForwarder.ForwarderLengthMismatch.selector, 2, 1));
     forwarder.forward(targets, data);
   }
@@ -75,7 +63,6 @@ contract ForwarderTest is Test {
     bytes[] memory data = new bytes[](1);
     data[0] = hex"12345678";
 
-    vm.prank(owner);
     vm.expectRevert();
     forwarder.forward(targets, data);
   }

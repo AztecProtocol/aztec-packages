@@ -250,7 +250,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       txProvingResult.toTx(),
       this.postDeployCtor,
       () => this.getInstance(options),
-      txProvingResult.timings,
+      txProvingResult.stats,
     );
   }
 
