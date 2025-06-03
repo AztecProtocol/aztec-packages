@@ -59,6 +59,7 @@ export interface Validator {
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
+    proposerAddress: EthAddress,
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation[] | undefined>;
@@ -346,6 +347,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
+    proposerAddress: EthAddress,
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
@@ -353,17 +355,13 @@ export class ValidatorClient extends WithTracer implements Validator {
       return Promise.resolve(undefined);
     }
 
-    // const { currentProposer: proposerAttesterAddress } =
-    const result = await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
-    const proposerAttesterAddress = result.currentProposer;
-
     const newProposal = await this.validationService.createBlockProposal(
       blockNumber,
       header,
       archive,
       stateReference,
       txs,
-      proposerAttesterAddress,
+      proposerAddress,
       options,
     );
     this.previousProposal = newProposal;

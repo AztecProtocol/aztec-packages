@@ -110,3 +110,5 @@ export const GAS_DIMENSION = 'aztec.gas_dimension';
 export const WORLD_STATE_REQUEST_TYPE = 'aztec.world_state_request';
 
 export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';
+
+export const TOPIC_NAME = 'aztec.gossip.topic_name';
