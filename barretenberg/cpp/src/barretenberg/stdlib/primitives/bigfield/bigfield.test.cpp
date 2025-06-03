@@ -1051,22 +1051,11 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             fq_ct result_constant_base = base_constant.pow(current_exponent_val);
             EXPECT_EQ(fq(result_constant_base.get_value()), expected);
 
-            // Check for witness exponent with constant base
-            fr_ct witness_exponent = witness_ct(&builder, current_exponent_val);
-            auto result_witness_exponent = base_constant.pow(witness_exponent);
-            EXPECT_EQ(fq(result_witness_exponent.get_value()), expected);
-
             // Check for witness base with constant exponent
             fq_ct result_witness_base = base_witness.pow(current_exponent_val);
             EXPECT_EQ(fq(result_witness_base.get_value()), expected);
 
-            // Check for all witness
             base_witness.set_origin_tag(submitted_value_origin_tag);
-            witness_exponent.set_origin_tag(challenge_origin_tag);
-
-            fq_ct result_all_witness = base_witness.pow(witness_exponent);
-            EXPECT_EQ(fq(result_all_witness.get_value()), expected);
-            EXPECT_EQ(result_all_witness.get_origin_tag(), first_two_merged_tag);
         }
 
         bool check_result = CircuitChecker::check(builder);
@@ -1088,18 +1077,9 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         fq_ct result_constant_base = base_constant.pow(current_exponent_val);
         EXPECT_EQ(fq(result_constant_base.get_value()), expected);
 
-        // Check for witness exponent with constant base
-        fr_ct witness_exponent = witness_ct(&builder, current_exponent_val);
-        auto result_witness_exponent = base_constant.pow(witness_exponent);
-        EXPECT_EQ(fq(result_witness_exponent.get_value()), expected);
-
         // Check for witness base with constant exponent
         fq_ct result_witness_base = base_witness.pow(current_exponent_val);
         EXPECT_EQ(fq(result_witness_base.get_value()), expected);
-
-        // Check for all witness
-        fq_ct result_all_witness = base_witness.pow(witness_exponent);
-        EXPECT_EQ(fq(result_all_witness.get_value()), expected);
 
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);

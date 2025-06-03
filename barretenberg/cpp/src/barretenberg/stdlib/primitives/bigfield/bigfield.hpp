@@ -159,23 +159,20 @@ template <typename Builder, typename T> class bigfield {
                                       .add_two(result.binary_basis_limbs[2].element * shift_2,
                                                result.binary_basis_limbs[1].element * shift_1);
         result.prime_basis_limb += (result.binary_basis_limbs[0].element);
-        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : static_cast<size_t>(NUM_LAST_LIMB_BITS);
-        if constexpr (HasPlookup<Builder>) {
-            ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
-                                           result.binary_basis_limbs[1].element.get_normalized_witness_index(),
-                                           static_cast<size_t>(NUM_LIMB_BITS),
-                                           static_cast<size_t>(NUM_LIMB_BITS));
-            ctx->range_constrain_two_limbs(result.binary_basis_limbs[2].element.get_normalized_witness_index(),
-                                           result.binary_basis_limbs[3].element.get_normalized_witness_index(),
-                                           static_cast<size_t>(NUM_LIMB_BITS),
-                                           static_cast<size_t>(num_last_limb_bits));
 
-        } else {
-            a.create_range_constraint(NUM_LIMB_BITS);
-            b.create_range_constraint(NUM_LIMB_BITS);
-            c.create_range_constraint(NUM_LIMB_BITS);
-            d.create_range_constraint(num_last_limb_bits);
-        }
+        // Range contrain the first two limbs each to NUM_LIMB_BITS
+        ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
+                                       result.binary_basis_limbs[1].element.get_normalized_witness_index(),
+                                       static_cast<size_t>(NUM_LIMB_BITS),
+                                       static_cast<size_t>(NUM_LIMB_BITS));
+
+        // Range constrain the last two limbs to NUM_LIMB_BITS and NUM_LAST_LIMB_BITS
+        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
+        ctx->range_constrain_two_limbs(result.binary_basis_limbs[2].element.get_normalized_witness_index(),
+                                       result.binary_basis_limbs[3].element.get_normalized_witness_index(),
+                                       static_cast<size_t>(NUM_LIMB_BITS),
+                                       static_cast<size_t>(num_last_limb_bits));
+
         return result;
     };
     /**
@@ -331,14 +328,6 @@ template <typename Builder, typename T> class bigfield {
 
     bigfield sqr() const;
     bigfield sqradd(const std::vector<bigfield>& to_add) const;
-    /**
-     * @brief compute 'this ** exponent'
-     * @details The exponent is implicity range constrained to 32 bits.
-     *
-     * @param exponent A 32-bit witness
-     * @return bigfield
-     */
-    bigfield pow(const field_t<Builder>& exponent) const;
     bigfield pow(const size_t exponent) const;
     bigfield madd(const bigfield& to_mul, const std::vector<bigfield>& to_add) const;
 
@@ -530,11 +519,28 @@ template <typename Builder, typename T> class bigfield {
     static constexpr uint512_t get_maximum_unreduced_value()
     {
         // This = `T * n = 2^272 * |BN(Fr)|` So this equals n*2^t
-
         uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
-        // TODO: compute square root (the following is a lower bound, so good for the CRT use)
-        // We use -1 to stay safer, because it provides additional space to avoid the overflow, but get_msb() by itself
-        // should be enough
+
+        // In multiplying two bigfield elements a and b, we must check that:
+        //
+        // a * b = q * p + r
+        //
+        // where p is the quotient, r is the remainder, and p is the size of the non-native field.
+        // The CRT requires that we check that the equation:
+        // (a) holds modulo the size of the native field n,
+        // (b) holds modulo the size of the bigger ring 2^t,
+        // (c) both sides of the equation are less than the max product M = 2^t * n.
+        // Thus, the max value of an unreduced bigfield element is √M. In this case, we use
+        // an even stricter bound. Let n = 2^m + l (where 1 < l < 2^m). Thus, we have:
+        //
+        //     M = 2^t * n = 2^t * (2^m + l) = 2^(t + m) + (2^t * l)
+        // =>  M > 2^(t + m)
+        // => √M > 2^((t + m) / 2)
+        //
+        // We set the maximum unreduced value of a bigfield element to be: 2^((t + m) / 2) < √M.
+        //
+        // Note: We use a further safer bound of 2^((t + m - 1) / 2). We use -1 to stay safer,
+        // because it provides additional space to avoid the overflow, but get_msb() by itself should be enough.
         uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
         return (uint512_t(1) << (maximum_product_bits >> 1));
     }

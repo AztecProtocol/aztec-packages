@@ -7,6 +7,7 @@ use crate::{
         msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
+    utils::remove_constraints::remove_constraints,
 };
 use protocol_types::{
     abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -86,18 +87,6 @@ where
     log
 }
 
-pub unconstrained fn compute_note_log_unconstrained<Note, let N: u32>(
-    note: Note,
-    storage_slot: Field,
-    recipient: AztecAddress,
-    sender: AztecAddress,
-) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
-where
-    Note: NoteType + Packable<N>,
-{
-    compute_note_log(note, storage_slot, recipient, sender)
-}
-
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
 /// private logs.
 pub fn encode_and_encrypt_note<Note, let N: u32>(
@@ -145,8 +134,9 @@ where
         assert_note_exists(*context, note_hash_counter);
 
         // Safety: this function does not constrain the encryption of the log, as explained on its description.
-        let encrypted_log =
-            unsafe { compute_note_log_unconstrained(note, storage_slot, recipient, sender) };
+        let encrypted_log = unsafe {
+            remove_constraints(|| compute_note_log(note, storage_slot, recipient, sender))
+        };
         // Regardless of the original note size `N`, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();

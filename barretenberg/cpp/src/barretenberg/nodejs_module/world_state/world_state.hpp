@@ -69,6 +69,8 @@ class WorldStateWrapper : public Napi::ObjectWrap<WorldStateWrapper> {
     bool checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer);
     bool commit_checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer);
     bool revert_checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer);
+    bool commit_all_checkpoints(msgpack::object& obj, msgpack::sbuffer& buffer);
+    bool revert_all_checkpoints(msgpack::object& obj, msgpack::sbuffer& buffer);
 
     bool copy_stores(msgpack::object& obj, msgpack::sbuffer& buffer);
 };

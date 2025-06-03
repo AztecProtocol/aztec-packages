@@ -32,7 +32,6 @@ describe('e2e_gov_proposal', () => {
     const initialValidators = [
       {
         attester: EthAddress.fromString(account.address),
-        proposerEOA: EthAddress.fromString(account.address),
         withdrawer: EthAddress.fromString(account.address),
         privateKey,
       },

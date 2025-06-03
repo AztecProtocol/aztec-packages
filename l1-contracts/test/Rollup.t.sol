@@ -43,6 +43,7 @@ import {FeeLib, L1_GAS_PER_EPOCH_VERIFIED} from "@aztec/core/libraries/rollup/Fe
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -337,9 +338,11 @@ contract RollupTest is RollupBase {
     // We need to mint some fee asset to the portal to cover the 2M mana spent.
     deal(address(testERC20), address(feeJuicePortal), 2e6 * 1e18);
 
+    vm.prank(Ownable(address(rollup)).owner());
     rollup.setProvingCostPerMana(EthValue.wrap(1000));
     _proposeBlock("mixed_block_1", 1, 1e6);
 
+    vm.prank(Ownable(address(rollup)).owner());
     rollup.setProvingCostPerMana(EthValue.wrap(2000));
     _proposeBlock("mixed_block_2", 2, 1e6);
 
