@@ -26,9 +26,9 @@ export type SendMethodOptions = RequestMethodOptions & {
    * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
    * but higher fee. The nullifier ensures only one transaction can succeed.
    */
-  cancellationNonce?: Fr;
+  txNonce?: Fr;
   /**
-   * Whether the transaction can be cancelled by submitting a new transaction with the same cancellationNonce but
+   * Whether the transaction can be cancelled by submitting a new transaction with the same txNonce but
    * higher fee.
    */
   cancellable?: boolean;
@@ -41,7 +41,7 @@ export type SendMethodOptions = RequestMethodOptions & {
  */
 export type SimulateMethodOptions = Pick<
   SendMethodOptions,
-  'authWitnesses' | 'capsules' | 'fee' | 'cancellationNonce' | 'cancellable'
+  'authWitnesses' | 'capsules' | 'fee' | 'txNonce' | 'cancellable'
 > & {
   /** The sender's Aztec address. */
   from?: AztecAddress;

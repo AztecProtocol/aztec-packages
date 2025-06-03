@@ -128,17 +128,17 @@ export class WalletDB {
   async storeTx(
     {
       txHash,
-      cancellationNonce,
+      txNonce,
       cancellable,
       gasSettings,
-    }: { txHash: TxHash; cancellationNonce: Fr; cancellable: boolean; gasSettings: GasSettings },
+    }: { txHash: TxHash; txNonce: Fr; cancellable: boolean; gasSettings: GasSettings },
     log: LogFn,
     alias?: string,
   ) {
     if (alias) {
       await this.#aliases.set(`transactions:${alias}`, Buffer.from(txHash.toString()));
     }
-    await this.#transactions.set(`${txHash.toString()}:cancellationNonce`, cancellationNonce.toBuffer());
+    await this.#transactions.set(`${txHash.toString()}:txNonce`, txNonce.toBuffer());
     await this.#transactions.set(`${txHash.toString()}:cancellable`, Buffer.from(cancellable ? 'true' : 'false'));
     await this.#transactions.set(`${txHash.toString()}:gasSettings`, gasSettings.toBuffer());
     await this.#aliases.set(`transactions:last`, Buffer.from(txHash.toString()));
@@ -148,16 +148,16 @@ export class WalletDB {
   }
 
   async retrieveTxData(txHash: TxHash) {
-    const cancellationNonceBuffer = await this.#transactions.getAsync(`${txHash.toString()}:cancellationNonce`);
-    if (!cancellationNonceBuffer) {
+    const txNonceBuffer = await this.#transactions.getAsync(`${txHash.toString()}:txNonce`);
+    if (!txNonceBuffer) {
       throw new Error(
-        `Could not find ${txHash.toString()}:cancellationNonce. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`,
+        `Could not find ${txHash.toString()}:txNonce. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`,
       );
     }
-    const cancellationNonce = Fr.fromBuffer(cancellationNonceBuffer);
+    const txNonce = Fr.fromBuffer(txNonceBuffer);
     const cancellable = (await this.#transactions.getAsync(`${txHash.toString()}:cancellable`))!.toString() === 'true';
     const gasBuffer = (await this.#transactions.getAsync(`${txHash.toString()}:gasSettings`))!;
-    return { txHash, cancellationNonce, cancellable, gasSettings: GasSettings.fromBuffer(gasBuffer) };
+    return { txHash, txNonce, cancellable, gasSettings: GasSettings.fromBuffer(gasBuffer) };
   }
 
   tryRetrieveAlias(arg: string) {

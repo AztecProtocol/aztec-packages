@@ -18,7 +18,7 @@ export type TxExecutionOptions = {
    * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
    * but higher fee. The nullifier ensures only one transaction can succeed.
    */
-  cancellationNonce?: Fr;
+  txNonce?: Fr;
 };
 
 /**

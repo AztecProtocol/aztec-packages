@@ -53,7 +53,7 @@ export abstract class EncodedCallsForEntrypoint implements EncodedCalls {
      * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
      * but higher fee. The nullifier ensures only one transaction can succeed.
      */
-    public cancellationNonce: Fr,
+    public txNonce: Fr,
   ) {}
 
   /* eslint-disable camelcase */
@@ -104,12 +104,12 @@ export abstract class EncodedCallsForEntrypoint implements EncodedCalls {
   /**
    * Encodes the functions for the app-portion of a transaction from a set of function calls and a nonce
    * @param functionCalls - The function calls to execute
-   * @param cancellationNonce - The nonce for the payload, used to emit a nullifier identifying the call
+   * @param txNonce - The nonce for the payload, used to emit a nullifier identifying the call
    * @returns The encoded calls
    */
   static async fromAppExecution(
     functionCalls: FunctionCall[] | Tuple<FunctionCall, typeof APP_MAX_CALLS>,
-    cancellationNonce = Fr.random(),
+    txNonce = Fr.random(),
   ) {
     if (functionCalls.length > APP_MAX_CALLS) {
       throw new Error(`Expected at most ${APP_MAX_CALLS} function calls, got ${functionCalls.length}`);
@@ -120,7 +120,7 @@ export abstract class EncodedCallsForEntrypoint implements EncodedCalls {
       encoded.encodedFunctionCalls,
       encoded.hashedArguments,
       GeneratorIndex.SIGNATURE_PAYLOAD,
-      cancellationNonce,
+      txNonce,
     );
   }
 
@@ -152,13 +152,13 @@ export class EncodedAppEntrypointCalls extends EncodedCallsForEntrypoint {
     encodedFunctionCalls: EncodedFunctionCall[],
     hashedArguments: HashedValues[],
     generatorIndex: number,
-    cancellationNonce: Fr,
+    txNonce: Fr,
   ) {
-    super(encodedFunctionCalls, hashedArguments, generatorIndex, cancellationNonce);
+    super(encodedFunctionCalls, hashedArguments, generatorIndex, txNonce);
   }
 
   override toFields(): Fr[] {
-    return [...this.functionCallsToFields(), this.cancellationNonce];
+    return [...this.functionCallsToFields(), this.txNonce];
   }
 }
 
@@ -170,15 +170,15 @@ export class EncodedFeeEntrypointCalls extends EncodedCallsForEntrypoint {
     encodedFunctionCalls: EncodedFunctionCall[],
     hashedArguments: HashedValues[],
     generatorIndex: number,
-    cancellationNonce: Fr,
+    txNonce: Fr,
     isFeePayer: boolean,
   ) {
-    super(encodedFunctionCalls, hashedArguments, generatorIndex, cancellationNonce);
+    super(encodedFunctionCalls, hashedArguments, generatorIndex, txNonce);
     this.#isFeePayer = isFeePayer;
   }
 
   override toFields(): Fr[] {
-    return [...this.functionCallsToFields(), this.cancellationNonce, new Fr(this.#isFeePayer)];
+    return [...this.functionCallsToFields(), this.txNonce, new Fr(this.#isFeePayer)];
   }
 
   /* eslint-disable camelcase */

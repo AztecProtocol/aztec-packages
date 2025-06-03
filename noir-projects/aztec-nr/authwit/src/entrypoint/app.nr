@@ -23,7 +23,7 @@ pub struct AppPayload {
     // A nonce that enables transaction cancellation. When the cancellable flag is enabled, this nonce is used to
     // compute a nullifier that is then emitted. This guarantees that we can cancel the transaction by using the same
     // nonce.
-    pub cancellation_nonce: Field,
+    pub tx_nonce: Field,
 }
 // docs:end:app-payload-struct
 
@@ -41,7 +41,7 @@ impl AppPayload {
         for i in 0..ACCOUNT_MAX_CALLS {
             bytes.extend_from_array(self.function_calls[i].to_be_bytes());
         }
-        bytes.extend_from_array(self.cancellation_nonce.to_be_bytes::<32>());
+        bytes.extend_from_array(self.tx_nonce.to_be_bytes::<32>());
 
         bytes.storage()
     }
