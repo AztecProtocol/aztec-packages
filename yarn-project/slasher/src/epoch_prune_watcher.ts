@@ -86,7 +86,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }));
   }
 
-  private wantToSlashForEpoch(validator: `0x${string}`, amount: bigint, epochNumber: bigint): boolean {
+  private wantToSlashForEpoch(validator: `0x${string}`, _amount: bigint, epochNumber: bigint): boolean {
     return this.prunedEpochs.get(epochNumber)?.includes(validator) ?? false;
   }
 
