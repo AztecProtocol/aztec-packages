@@ -51,7 +51,7 @@ Of the L2 costs, the public/private data being updated is most significant. Like
 While most zk rollups don't leverage the zero-knowledge property like Aztec, they do leverage the succinctness property.
 That is, what is stored in an L1 contract is simply a hash.
 
-For data availability, blobs are utilised since data storage is often cheaper here than in contracts. Like other L2s such costs are factored into the L2 fee mechanisms. These limits can be seen and iterated on when a transaction is simulated/estimated.
+For data availability, blobs are utilized since data storage is often cheaper here than in contracts. Like other L2s such costs are factored into the L2 fee mechanisms. These limits can be seen and iterated on when a transaction is simulated/estimated.
 
 ## Example using unconstrained to reduce L2 reads
 
