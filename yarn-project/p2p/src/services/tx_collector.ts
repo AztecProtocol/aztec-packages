@@ -20,6 +20,8 @@ export class TxCollector {
     if (!proposal.txs || proposal.txs.length === 0) {
       return;
     }
+
+    // Get the transactions from the proposal and their hashes
     const txsFromProposal = compactArray(
       await Promise.all(
         proposal.txs.map(tx =>
@@ -32,10 +34,13 @@ export class TxCollector {
         ),
       ),
     );
+
+    // Of the transactions from the proposal, retrieve those that we have in the pool already
     const txsToValidate = [];
     const txsWeAlreadyHave = await this.p2pClient.getTxsByHashFromPool(txsFromProposal.map(tx => tx.txHash));
 
-    // Txs we already have will have holes where there transactions not present in our pool
+    // Txs we already have will have holes where we did not find them
+    // Where that is the case we need to validate the tx in the proposal
     for (let i = 0; i < txsWeAlreadyHave.length; i++) {
       if (txsWeAlreadyHave[i] === undefined) {
         txsToValidate.push(txsFromProposal[i].tx);
