@@ -3,6 +3,8 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
+import type { PeerId } from '@libp2p/interface';
+
 import type { P2PClient } from '../client/p2p_client.js';
 
 export class TxCollector {
@@ -67,7 +69,7 @@ export class TxCollector {
 
   async collectForBlockProposal(
     proposal: BlockProposal,
-    peerWhoSentTheProposal: any,
+    peerWhoSentTheProposal: PeerId | undefined,
   ): Promise<{ txs: Tx[]; missing?: TxHash[] }> {
     if (proposal.payload.txHashes.length === 0) {
       this.log.verbose(`Received block proposal with no transactions, skipping transaction availability check`);
