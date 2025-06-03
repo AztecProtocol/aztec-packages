@@ -37,7 +37,7 @@ export class AztecKVTxPool implements TxPool {
   /** Index from tx hash to the block number in which they were mined, filtered by mined txs. */
   #minedTxHashToBlock: AztecAsyncMap<string, number>;
 
-  /** Index from tx hash to the block number in which they were mined, filtered by mined txs. */
+  /** Count of total mined txs. */
   #minedTxCount: AztecAsyncSingleton<number>;
 
   /** Index from tx priority (stored as hex) to its tx hash, filtered by pending txs. */
