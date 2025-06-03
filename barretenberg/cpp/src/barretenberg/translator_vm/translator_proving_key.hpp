@@ -84,9 +84,18 @@ class TranslatorProvingKey {
         compute_translator_range_constraint_ordered_polynomials();
     };
 
-    static std::vector<size_t> get_sorted_steps()
+    /**
+     * @brief Create the array of steps inserted in each ordered range constraint to ensure they respect the
+     * appropriate structure for applying the DeltaRangeConstraint relation
+     * @details The delta range relation enforces values of a polynomial are within a certain range ([0, 2¹⁴ - 1] for
+     * translator). It achieves this efficiently  by sorting the polynomial and checking that the difference between two
+     * adjacent values is no more than 3. In the event that the distribution of a polynomial is not uniform across the
+     * range (e.g. p_1(x) = {0, 2^14 - 1, 2^14 - 1, 2^14 - 1}), to ensure the relation is still satisfied, we
+     * concatenate the set of coefficients to a set of steps that span across the desired range.
+     */
+    static std::array<size_t, Flavor::SORTED_STEPS_COUNT> get_sorted_steps()
     {
-        std::vector<size_t> sorted_elements(Flavor::SORTED_STEPS_COUNT);
+        std::array<size_t, Flavor::SORTED_STEPS_COUNT> sorted_elements;
         // The value we have to end polynomials with, 2¹⁴ - 1
         const size_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
         size_t i = 0;

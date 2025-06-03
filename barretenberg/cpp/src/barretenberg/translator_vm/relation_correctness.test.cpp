@@ -82,7 +82,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
 
     // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
     auto sorted_steps = TranslatorProvingKey::get_sorted_steps();
-    std::vector<uint64_t> vector_for_sorting(sorted_steps);
+    std::vector<uint64_t> vector_for_sorting(sorted_steps.begin(), sorted_steps.end());
 
     // Add random values to fill the leftover space
     for (size_t i = sorted_steps.size(); i < vector_for_sorting.size(); i++) {
@@ -734,9 +734,8 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     }
 
     // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
-    // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
     auto sorted_steps = TranslatorProvingKey::get_sorted_steps();
-    std::vector<uint64_t> vector_for_sorting(sorted_steps);
+    std::vector<uint64_t> vector_for_sorting(sorted_steps.begin(), sorted_steps.end());
 
     // Add random values in the appropriate range to fill the leftover space
     for (size_t i = sorted_steps.size(); i < real_circuit_size; i++) {
