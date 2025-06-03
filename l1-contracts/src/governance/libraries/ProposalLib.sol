@@ -126,4 +126,12 @@ library ProposalLib {
   {
     return ProposalLib.queuedThrough(_self) + _self.config.gracePeriod;
   }
+
+  function pendingThroughMemory(DataStructures.Proposal memory _self)
+    internal
+    pure
+    returns (Timestamp)
+  {
+    return _self.creation + _self.config.votingDelay;
+  }
 }

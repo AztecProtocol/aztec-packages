@@ -25,10 +25,10 @@ export async function simulate(
   const simulationResult = await call.simulate({
     ...(await feeOpts.toSendOpts(wallet)),
     authWitnesses,
-    includeMetadata: true,
+    includeStats: true,
   });
   if (verbose) {
-    printProfileResult(simulationResult.meta.timings!, log);
+    printProfileResult(simulationResult.stats!, log);
   }
   log(format('\nSimulation result: ', simulationResult.result, '\n'));
 }

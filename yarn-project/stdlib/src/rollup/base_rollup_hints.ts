@@ -39,7 +39,7 @@ export class PrivateBaseRollupHints {
     /**
      * Preimages to the kernel's contractClassLogsHashes.
      */
-    public contractClassLogsPreimages: Tuple<ContractClassLogFields, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    public contractClassLogsFields: Tuple<ContractClassLogFields, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     /**
      * Data which is not modified by the base rollup circuit.
      */
@@ -57,7 +57,7 @@ export class PrivateBaseRollupHints {
       fields.stateDiffHints,
       fields.feePayerFeeJuiceBalanceReadHint,
       fields.archiveRootMembershipWitness,
-      fields.contractClassLogsPreimages,
+      fields.contractClassLogsFields,
       fields.constants,
     ] as const;
   }
@@ -121,7 +121,7 @@ export class PublicBaseRollupHints {
     /**
      * Preimages to the kernel's contractClassLogsHashes.
      */
-    public contractClassLogsPreimages: Tuple<ContractClassLogFields, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    public contractClassLogsFields: Tuple<ContractClassLogFields, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     /**
      * Data which is not modified by the base rollup circuit.
      */
@@ -136,7 +136,7 @@ export class PublicBaseRollupHints {
     return [
       fields.startSpongeBlob,
       fields.archiveRootMembershipWitness,
-      fields.contractClassLogsPreimages,
+      fields.contractClassLogsFields,
       fields.constants,
     ] as const;
   }

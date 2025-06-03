@@ -29,10 +29,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct a(public_witness_ct(&builder, fr::one())); // a is a legit wire value in our circuit
         field_ct b(&builder,
                    (fr::one())); // b is just a constant, and should not turn up as a wire value in our circuit
+        const size_t num_gates = builder.get_estimated_num_finalized_gates();
 
-        // this shouldn't create a constraint - we just need to scale the addition/multiplication gates that `a` is
-        // involved in c should point to the same wire value as a
+        // This shouldn't create a constraint - we just need to scale the addition/multiplication gates that `a` is
+        // involved in, `c` should have the same witness index as `a`, i.e. point to the same wire value
         field_ct c = a + b;
+        EXPECT_TRUE(c.witness_index == a.witness_index);
+        EXPECT_TRUE(builder.get_estimated_num_finalized_gates() == num_gates);
         field_ct d(&builder, fr::coset_generator(0)); // like b, d is just a constant and not a wire value
 
         // by this point, we shouldn't have added any constraints in our circuit
@@ -81,7 +84,39 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // Ensure that the context is not missing
         EXPECT_FALSE(elt.is_constant());
     }
+    static void test_add()
+    {
+        Builder builder = Builder();
+        // Case 1: both summands are witnesses
+        field_ct a(witness_ct(&builder, fr::random_element()));
+        field_ct b(witness_ct(&builder, fr::random_element()));
+        field_ct sum = a + b;
+        EXPECT_TRUE(sum.get_value() == a.get_value() + b.get_value());
+        EXPECT_FALSE(sum.is_constant());
 
+        // Case 2: second summand is a constant
+        field_ct c(fr::random_element());
+        field_ct sum_with_constant = sum + c;
+        EXPECT_TRUE(sum_with_constant.get_value() == sum.get_value() + c.get_value());
+        EXPECT_TRUE(sum.witness_index == sum_with_constant.witness_index);
+
+        // Case 3: first summand is a constant
+        sum_with_constant = c + sum;
+        EXPECT_TRUE(sum_with_constant.get_value() == sum.get_value() + c.get_value());
+        EXPECT_TRUE(sum.witness_index == sum_with_constant.witness_index);
+
+        // Case 4: both summands are witnesses with matching indices
+        field_ct sum_with_same_witness_index = sum_with_constant + sum;
+        EXPECT_TRUE(sum_with_same_witness_index.get_value() == sum.get_value() + sum_with_constant.get_value());
+        EXPECT_TRUE((sum_with_same_witness_index.witness_index == sum_with_constant.witness_index) &&
+                    (sum_with_same_witness_index.witness_index == sum.witness_index));
+
+        // Case 5: both summands are constant
+        field_ct d(fr::random_element());
+        field_ct constant_sum = c + d;
+        EXPECT_TRUE(constant_sum.is_constant());
+        EXPECT_TRUE(constant_sum.get_value() == d.get_value() + c.get_value());
+    }
     static void create_range_constraint()
     {
         auto run_test = [&](fr elt, size_t num_bits, bool expect_verified) {
@@ -110,6 +145,38 @@ template <typename Builder> class stdlib_field : public testing::Test {
         run_test(-1, fr::modulus.get_msb() + 1, true);
     }
 
+    static void test_bool_conversion()
+    {
+        // Test the conversion from field_t to bool_t.
+
+        std::array<bb::fr, 5> input_array{ 0, 1, 0, 1, bb::fr::random_element() };
+        // Cases 0,1: Constant  0, 1
+        // Cases 2,3: Witnesses 0, 1
+        for (size_t idx = 0; idx < 4; idx++) {
+            bool expected_to_be_constant = (idx < 2);
+            Builder builder = Builder();
+            field_ct field_elt = (expected_to_be_constant) ? field_ct(input_array[idx])
+                                                           : field_ct(witness_ct(&builder, input_array[idx]));
+            bool_ct converted(field_elt);
+            EXPECT_TRUE(converted.is_constant() == expected_to_be_constant);
+            EXPECT_TRUE(field_elt.get_value() == converted.get_value());
+
+            if (!expected_to_be_constant) {
+                EXPECT_TRUE(CircuitChecker::check(builder));
+                EXPECT_TRUE(converted.witness_index == field_elt.witness_index);
+            }
+        }
+
+        // Check that the conversion aborts in the case of random field elements.
+        bool_ct invalid_bool;
+        // Case 4: Invalid constant conversion
+        EXPECT_DEATH(invalid_bool = bool_ct(field_ct(input_array.back())),
+                     "Assertion failed: (additive_constant == bb::fr::one() || additive_constant == bb::fr::zero())");
+        // Case 5: Invalid witness conversion
+        Builder builder = Builder();
+        EXPECT_DEATH(invalid_bool = bool_ct(field_ct(witness_ct(&builder, input_array.back()))),
+                     "Assertion failed: ((witness == bb::fr::zero()) || (witness == bb::fr::one()) == true)");
+    }
     /**
      * @brief Test that bool is converted correctly
      *
@@ -259,18 +326,23 @@ template <typename Builder> class stdlib_field : public testing::Test {
         b *= fr::random_element();
         b += fr::random_element();
 
-        // numerator constant
+        // Case 0: Numerator = const, denominator != const
         field_ct out = field_ct(&builder, b.get_value()) / a;
         EXPECT_EQ(out.get_value(), b.get_value() / a.get_value());
+        EXPECT_FALSE(out.is_constant());
+        // Check that the result is normalized in this case
+        EXPECT_TRUE(out.multiplicative_constant == 1 && out.additive_constant == 0);
 
+        // Case 1: Numerator and denominator != const
         out = b / a;
         EXPECT_EQ(out.get_value(), b.get_value() / a.get_value());
 
-        // denominator constant
+        // Case 2: Numerator != const, denominator = const,
         out = a / b.get_value();
         EXPECT_EQ(out.get_value(), a.get_value() / b.get_value());
+        EXPECT_EQ(out.witness_index, a.witness_index);
 
-        // numerator 0
+        // Case 3: Numerator = const 0.
         out = field_ct(0) / b;
         EXPECT_EQ(out.get_value(), 0);
         EXPECT_EQ(out.is_constant(), true);
@@ -279,6 +351,60 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    static void test_div_edge_cases()
+    {
+        // Case 0. Numerator = const, denominator = const. Check the correctness of the value and that the result is
+        // constant.
+        field_ct a(bb::fr::random_element());
+        field_ct b(bb::fr::random_element());
+        field_ct q = a / b;
+        EXPECT_TRUE(q.is_constant());
+        EXPECT_EQ(a.get_value() / b.get_value(), q.get_value());
+
+        { // Case 1. Numerator = const, denominator = const 0. Check that the division is aborted
+            b = 0;
+            EXPECT_DEATH(a / b, ".*");
+        }
+        { // Case 2. Numerator != const, denominator = const 0. Check that the division is aborted
+            Builder builder = Builder();
+            field_ct a = witness_ct(&builder, bb::fr::random_element());
+            b = 0;
+            EXPECT_DEATH(a / b, ".*");
+        }
+        {
+            // Case 3. Numerator != const, denominator = witness 0 . Check that the circuit fails.
+            Builder builder = Builder();
+            field_ct a = witness_ct(&builder, bb::fr::random_element());
+            b = witness_ct(&builder, bb::fr::zero());
+            q = a / b;
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
+        {
+            // Case 4. Numerator = const, denominator = witness 0 . Check that the circuit fails.
+            Builder builder = Builder();
+            field_ct a(bb::fr::random_element());
+            b = witness_ct(&builder, bb::fr::zero());
+            q = a / b;
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
+    }
+    static void test_invert()
+    {
+        // Test constant case
+        field_ct a(bb::fr::random_element());
+        field_ct b = a.invert();
+        // Check that the result is constant and correct
+        EXPECT_TRUE(a.is_constant() && (b.get_value() * a.get_value() == 1));
+
+        // Test non-constant case
+        Builder builder = Builder();
+        a = witness_ct(&builder, a.get_value());
+        b = a.invert();
+        // Check that the result is normalized
+        EXPECT_TRUE((b.multiplicative_constant == 1) && (b.additive_constant == 0));
+        // Check that the result is correct
+        EXPECT_TRUE(a.get_value() * b.get_value() == 1);
+    }
     static void test_postfix_increment()
     {
         Builder builder = Builder();
@@ -366,7 +492,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(x, fr(1));
 
         // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
+        // This gate is implemented in standard by creating 2 actual gates, while in ultra there are 2
         if (std::same_as<Builder, UltraCircuitBuilder>) {
             EXPECT_EQ(gates_after - gates_before, 3UL);
         }
@@ -392,7 +518,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(x, fr(0));
 
         // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
+        // This gate is implemented in standard by creating 2 actual gates, while in ultra there are 2
         if (std::same_as<Builder, UltraCircuitBuilder>) {
             EXPECT_EQ(gates_after - gates_before, 3UL);
         }
@@ -415,11 +541,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         auto gates_after = builder.get_estimated_num_finalized_gates();
 
-        fr x = r.get_value();
-        EXPECT_EQ(x, fr(1));
-
         // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
+        // This gate is implemented in standard by creating 2 actual gates, while in ultra there are 2
         if (std::same_as<Builder, UltraCircuitBuilder>) {
             EXPECT_EQ(gates_after - gates_before, 5UL);
         }
@@ -1125,6 +1248,11 @@ TYPED_TEST(stdlib_field, test_constructor_from_witness)
 {
     TestFixture::test_constructor_from_witness();
 }
+
+TYPED_TEST(stdlib_field, test_add)
+{
+    TestFixture::test_add();
+}
 TYPED_TEST(stdlib_field, test_create_range_constraint)
 {
     TestFixture::create_range_constraint();
@@ -1141,15 +1269,26 @@ TYPED_TEST(stdlib_field, test_assert_equal)
 {
     TestFixture::test_assert_equal();
 }
+TYPED_TEST(stdlib_field, test_bool_conversion)
+{
+    TestFixture::test_bool_conversion();
+}
 
 TYPED_TEST(stdlib_field, test_bool_conversion_regression)
 {
     TestFixture::test_bool_conversion_regression();
 }
-
 TYPED_TEST(stdlib_field, test_div)
 {
     TestFixture::test_div();
+}
+TYPED_TEST(stdlib_field, test_div_edge_cases)
+{
+    TestFixture::test_div_edge_cases();
+}
+TYPED_TEST(stdlib_field, test_invert)
+{
+    TestFixture::test_invert();
 }
 TYPED_TEST(stdlib_field, test_postfix_increment)
 {
@@ -1268,4 +1407,9 @@ TYPED_TEST(stdlib_field, test_origin_tag_consistency)
 TYPED_TEST(stdlib_field, test_add_two)
 {
     TestFixture::test_add_two();
+}
+
+TYPED_TEST(stdlib_field, test_add_mul_with_constants)
+{
+    TestFixture::test_add_mul_with_constants();
 }

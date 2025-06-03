@@ -34,7 +34,7 @@ The following section will cover both contexts.
 ## The Private Context
 
 The code snippet below shows what is contained within the private context.
-```rust title="private-context" showLineNumbers
+```rust title="private-context" showLineNumbers 
 pub inputs: PrivateContextInputs,
 pub side_effect_counter: u32,
 
@@ -58,7 +58,7 @@ pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CA
 pub public_teardown_call_request: PublicCallRequest,
 pub l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L52-L75" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L52-L75</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L52-L75" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L52-L75</a></sub></sup>
 
 
 ### Private Context Broken Down
@@ -67,7 +67,7 @@ pub l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
 
 The context inputs includes all of the information that is passed from the kernel circuit into the application circuit. It contains the following values.
 
-```rust title="private-context-inputs" showLineNumbers
+```rust title="private-context-inputs" showLineNumbers 
 pub struct PrivateContextInputs {
     pub call_context: CallContext,
     pub historical_header: BlockHeader,
@@ -75,14 +75,14 @@ pub struct PrivateContextInputs {
     pub start_side_effect_counter: u32,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L14</a></sub></sup>
 
 
 As shown in the snippet, the application context is made up of 4 main structures. The call context, the block header, and the private global variables.
 
 First of all, the call context.
 
-```rust title="call-context" showLineNumbers
+```rust title="call-context" showLineNumbers 
 pub struct CallContext {
     pub msg_sender: AztecAddress,
     pub contract_address: AztecAddress,
@@ -90,7 +90,7 @@ pub struct CallContext {
     pub is_static_call: bool,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr#L9-L16</a></sub></sup>
 
 
 The call context contains information about the current call being made:
@@ -115,7 +115,7 @@ The call context contains information about the current call being made:
 
 Another structure that is contained within the context is the `BlockHeader` object, which is the header of the block used to generate proofs against.
 
-```rust title="block-header" showLineNumbers
+```rust title="block-header" showLineNumbers 
 pub struct BlockHeader {
     pub last_archive: AppendOnlyTreeSnapshot,
     pub content_commitment: ContentCommitment,
@@ -125,21 +125,21 @@ pub struct BlockHeader {
     pub total_mana_used: Field,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr#L11-L20</a></sub></sup>
 
 
 ### Transaction Context
 
 The private context provides access to the transaction context as well, which are user-defined values for the transaction in general that stay constant throughout its execution.
 
-```rust title="tx-context" showLineNumbers
+```rust title="tx-context" showLineNumbers 
 pub struct TxContext {
     pub chain_id: Field,
     pub version: Field,
     pub gas_settings: GasSettings,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14</a></sub></sup>
 
 
 ### Args Hash
@@ -159,10 +159,10 @@ return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
 
 Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_tx_max_block_number` function can be used to set this property:
 
-```rust title="max-block-number" showLineNumbers
+```rust title="max-block-number" showLineNumbers 
 pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L228-L230</a></sub></sup>
 
 
 A transaction that requests a maximum block number will never be included in a block with a block number larger than the requested value, since it would be considered invalid. This can also be used to make transactions automatically expire after some time if not included.
@@ -205,7 +205,7 @@ The Public Context includes all of the information passed from the `Public VM` i
 
 The public global variables are provided by the rollup sequencer and consequently contain some more values than the private global variables.
 
-```rust title="global-variables" showLineNumbers
+```rust title="global-variables" showLineNumbers 
 pub struct GlobalVariables {
     pub chain_id: Field,
     pub version: Field,
@@ -217,5 +217,5 @@ pub struct GlobalVariables {
     pub gas_fees: GasFees,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20</a></sub></sup>
 

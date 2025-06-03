@@ -49,7 +49,7 @@ function mockTxPool(): TxPool {
     getTxStatus: () => Promise.resolve(TxStatus.PENDING),
     getTxsByHash: () => Promise.resolve([]),
     hasTxs: () => Promise.resolve([]),
-    setMaxTxPoolSize: () => Promise.resolve(),
+    updateConfig: () => {},
     markTxsAsNonEvictable: () => Promise.resolve(),
   };
 }
@@ -73,7 +73,7 @@ function mockEpochCache(): EpochCacheInterface {
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
     getEpochAndSlotNow: () => ({ epoch: 0n, slot: 0n, ts: 0n }),
     computeProposerIndex: () => 0n,
-    getProposerInCurrentOrNextSlot: () =>
+    getProposerAttesterAddressInCurrentOrNextSlot: () =>
       Promise.resolve({
         currentProposer: EthAddress.ZERO,
         nextProposer: EthAddress.ZERO,

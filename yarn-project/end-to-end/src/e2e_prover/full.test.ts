@@ -327,7 +327,7 @@ describe('full_prover', () => {
               data.forRollup,
             ),
             ClientIvcProof.random(),
-            provenTx.contractClassLogs,
+            provenTx.contractClassLogFields,
             provenTx.publicFunctionCalldata,
           ),
         );

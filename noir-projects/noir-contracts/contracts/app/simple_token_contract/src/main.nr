@@ -8,24 +8,20 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract SimpleToken {
-    use std::{meta::derive, ops::{Add, Sub}};
+    use std::ops::{Add, Sub};
 
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
         context::{PrivateCallInterface, PrivateContext},
-        event::event_interface::EventInterface,
+        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility, view},
             storage::storage,
         },
-        messages::logs::{
-            event::encode_and_encrypt_event_unconstrained,
-            note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
-        },
+        messages::logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
-        protocol_types::traits::Serialize,
     };
 
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};
@@ -40,7 +36,6 @@ pub contract SimpleToken {
     global INITIAL_TRANSFER_CALL_MAX_NOTES: u32 = 2;
     global RECURSIVE_TRANSFER_CALL_MAX_NOTES: u32 = 8;
 
-    #[derive(Serialize)]
     #[event]
     struct Transfer {
         from: AztecAddress,
@@ -180,11 +175,13 @@ pub contract SimpleToken {
             from,
         ));
 
-        Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
+        emit_event_in_private_log(
+            Transfer { from, to, amount },
             &mut context,
-            to,
             from,
-        ));
+            to,
+            PrivateLogContent.NO_CONSTRAINTS,
+        );
     }
 
     #[private]
