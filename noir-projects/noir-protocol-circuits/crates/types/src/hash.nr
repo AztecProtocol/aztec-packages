@@ -14,7 +14,7 @@ use crate::{
         GENERATOR_INDEX__UNIQUE_NOTE_HASH, TWO_POW_64,
     },
     merkle_tree::root::root_from_sibling_path,
-    messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
+    messaging::l2_to_l1_message::L2ToL1Message,
     poseidon2::Poseidon2Sponge,
     traits::{FromField, Hash, ToField},
     utils::{arrays::array_concat, field::{field_from_bytes, field_from_bytes_32_trunc}},
@@ -167,7 +167,7 @@ pub fn compute_l2_to_l1_hash(
 }
 
 pub fn silo_l2_to_l1_message(
-    msg: ScopedL2ToL1Message,
+    msg: Scoped<L2ToL1Message>,
     rollup_version_id: Field,
     chain_id: Field,
 ) -> Field {
@@ -176,8 +176,8 @@ pub fn silo_l2_to_l1_message(
     } else {
         compute_l2_to_l1_hash(
             msg.contract_address,
-            msg.message.recipient,
-            msg.message.content,
+            msg.inner.recipient,
+            msg.inner.content,
             rollup_version_id,
             chain_id,
         )
@@ -565,10 +565,9 @@ fn silo_l2_to_l1_message_matches_typescript() {
     let chainId = 5;
 
     let hash = silo_l2_to_l1_message(
-        ScopedL2ToL1Message {
-            message: L2ToL1Message { recipient: EthAddress::from_field(1), content: 2, counter: 0 },
-            contract_address: AztecAddress::from_field(3),
-        },
+        L2ToL1Message { recipient: EthAddress::from_field(1), content: 2 }.scope(
+            AztecAddress::from_field(3),
+        ),
         version,
         chainId,
     );

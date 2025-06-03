@@ -100,7 +100,7 @@ describe('hash', () => {
     const chainId = new Fr(5);
 
     const nonEmpty = new ScopedL2ToL1Message(
-      new L2ToL1Message(EthAddress.fromField(new Fr(1)), new Fr(2), 0),
+      new L2ToL1Message(EthAddress.fromField(new Fr(1)), new Fr(2)),
       AztecAddress.fromField(new Fr(3)),
     );
 
