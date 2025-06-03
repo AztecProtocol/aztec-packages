@@ -11,7 +11,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import { PublicLogWithTxData } from '@aztec/stdlib/logs';
+import { PrivateLogWithTxData, PublicLogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -702,7 +702,7 @@ export class TXEService {
 
   public async validateEnqueuedNotes(
     contractAddress: ForeignCallSingle,
-    notePendingValidationArrayBaseSlot: ForeignCallSingle,
+    noteValidationRequestsArrayBaseSlot: ForeignCallSingle,
   ) {
     if (!this.oraclesEnabled) {
       throw new Error(
@@ -712,7 +712,7 @@ export class TXEService {
 
     await this.typedOracle.validateEnqueuedNotes(
       AztecAddress.fromField(fromSingle(contractAddress)),
-      fromSingle(notePendingValidationArrayBaseSlot),
+      fromSingle(noteValidationRequestsArrayBaseSlot),
     );
 
     return toForeignCallResult([]);
@@ -734,6 +734,24 @@ export class TXEService {
       return toForeignCallResult([
         toSingle(Fr.ZERO),
         ...PublicLogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray),
+      ]);
+    } else {
+      return toForeignCallResult([toSingle(Fr.ONE), ...log.toNoirSerialization().map(toSingleOrArray)]);
+    }
+  }
+
+  async getPrivateLogByTag(siloedTag: ForeignCallSingle) {
+    if (!this.oraclesEnabled) {
+      throw new Error(
+        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+      );
+    }
+
+    const log = await this.typedOracle.getPrivateLogByTag(fromSingle(siloedTag));
+    if (log == null) {
+      return toForeignCallResult([
+        toSingle(Fr.ZERO),
+        ...PrivateLogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray),
       ]);
     } else {
       return toForeignCallResult([toSingle(Fr.ONE), ...log.toNoirSerialization().map(toSingleOrArray)]);

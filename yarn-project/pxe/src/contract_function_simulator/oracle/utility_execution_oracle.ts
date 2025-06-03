@@ -7,7 +7,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret, PublicLogWithTxData } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, PrivateLogWithTxData, PublicLogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule, TxHash } from '@aztec/stdlib/tx';
@@ -280,17 +280,21 @@ export class UtilityExecutionOracle extends TypedOracle {
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }
 
-  public override async validateEnqueuedNotes(contractAddress: AztecAddress, notePendingValidationArrayBaseSlot: Fr) {
+  public override async validateEnqueuedNotes(contractAddress: AztecAddress, noteValidationRequestsArrayBaseSlot: Fr) {
     // TODO(#10727): allow other contracts to deliver notes
     if (!this.contractAddress.equals(contractAddress)) {
       throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    await this.executionDataProvider.validateEnqueuedNotes(contractAddress, notePendingValidationArrayBaseSlot);
+    await this.executionDataProvider.validateEnqueuedNotes(contractAddress, noteValidationRequestsArrayBaseSlot);
   }
 
   public override getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
     return this.executionDataProvider.getPublicLogByTag(tag, contractAddress);
+  }
+
+  public override getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
+    return this.executionDataProvider.getPrivateLogByTag(siloedTag);
   }
 
   public override storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
