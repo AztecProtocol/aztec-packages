@@ -445,6 +445,16 @@ template <typename Builder, typename T> class bigfield {
      */
     bigfield operator*(const bigfield& other) const;
 
+    /**
+     * Division operator: a / b. Creates constraints for division in the circuit and checks b != 0.
+     * If you need a variant without the zero check, use `div_without_denominator_check`.
+     *
+     * @param other The denominator.
+     * @return The result of the division c = (a / b) mod p.
+     *
+     * @details To evaluate (a / b = c mod p), we instead evaluate (c * b = a mod p), where p is the target modulus.
+     * We also check that b != 0.
+     */
     bigfield operator/(const bigfield& other) const;
     bigfield operator-() const { return bigfield(get_context(), uint256_t(0)) - *this; }
 
