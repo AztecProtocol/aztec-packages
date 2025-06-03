@@ -877,6 +877,14 @@ template <typename Builder, typename T> class bigfield {
     static_assert(PROHIBITED_LIMB_BITS < MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW);
 
   private:
+    /**
+     * @brief Compute the quotient and remainder values for dividing (a * b + (to_add[0] + ... + to_add[-1])) with p
+     *
+     * @param a Left multiplicand
+     * @param b Right multiplier
+     * @param to_add Vector of elements to add
+     * @return std::pair<uint512_t, uint512_t> Quotient and remainder values
+     */
     static std::pair<uint512_t, uint512_t> compute_quotient_remainder_values(const bigfield& a,
                                                                              const bigfield& b,
                                                                              const std::vector<bigfield>& to_add);
