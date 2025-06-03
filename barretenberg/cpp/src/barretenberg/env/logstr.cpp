@@ -14,6 +14,7 @@ void logstr(char const* str)
     if (getrusage(RUSAGE_SELF, &usage) == 0) {
         // ru_maxrss is in kilobytes on Linux
         // match the format in barretenberg/ts/src/barretenberg_wasm/index.ts
+        // TODO(AD): do this on non-linux platforms
         std::cerr << " (mem: " << (usage.ru_maxrss / 1024) << " MiB)"; // NOLINT
     }
 #endif
