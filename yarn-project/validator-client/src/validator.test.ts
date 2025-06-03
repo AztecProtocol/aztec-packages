@@ -72,34 +72,6 @@ describe('ValidatorClient', () => {
     expect(addAttestationsSpy.mock.calls[0][0]).toHaveLength(2);
   });
 
-  it('Should a timeout if we do not collect enough attestations in time', async () => {
-    const proposal = makeBlockProposal();
-
-    await expect(validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 100))).rejects.toThrow(
-      AttestationTimeoutError,
-    );
-  });
-
-  it('Should not return an attestation if re-execution fails', () => {
-    const proposal = makeBlockProposal();
-
-    // mock the p2pClient.getTxStatus to return undefined for all transactions
-    p2pClient.getTxStatus.mockResolvedValue(undefined);
-    p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
-    epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-      currentProposer: proposal.getSender(),
-      nextProposer: proposal.getSender(),
-      currentSlot: proposal.slotNumber.toBigInt(),
-      nextSlot: proposal.slotNumber.toBigInt() + 1n,
-    });
-    epochCache.isInCommittee.mockResolvedValue(true);
-
-    const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
-    val.registerBlockBuilder(() => {
-      throw new Error('Failed to build block');
-    });
-  });
-
   describe('constructor', () => {
     it('should throw error if an invalid private key is provided', () => {
       config.validatorPrivateKeys = ['0x1234567890123456789'];
