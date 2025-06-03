@@ -4,7 +4,7 @@ import { sha256 } from '@aztec/foundation/crypto';
 import type { RPC } from '@chainsafe/libp2p-gossipsub/message';
 import type { DataTransform } from '@chainsafe/libp2p-gossipsub/types';
 import type { Message } from '@libp2p/interface';
-import { compressSync, uncompressSync } from 'snappy';
+import { compress, compressSync, uncompress, uncompressSync } from 'snappy';
 import xxhashFactory from 'xxhash-wasm';
 
 // Load WASM
@@ -75,5 +75,13 @@ export class SnappyTransform implements DataTransform {
       return data;
     }
     return Buffer.from(compressSync(data));
+  }
+
+  public outboundTransformAsync(data: Buffer): Promise<Buffer> {
+    return compress(data);
+  }
+
+  public inboundTransformAsync(data: Buffer): Promise<Buffer> {
+    return uncompress(data, { asBuffer: true }) as Promise<Buffer>;
   }
 }

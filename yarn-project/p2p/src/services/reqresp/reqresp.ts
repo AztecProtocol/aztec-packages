@@ -573,7 +573,7 @@ export class ReqResp {
       }
 
       const messageData = Buffer.concat(chunks);
-      const message: Buffer = this.snappyTransform.inboundTransformNoTopic(messageData);
+      const message = await this.snappyTransform.inboundTransformAsync(messageData);
 
       return {
         status: statusBuffer ?? ReqRespStatus.UNKNOWN,
@@ -651,7 +651,7 @@ export class ReqResp {
             const successChunk = Buffer.from([ReqRespStatus.SUCCESS]);
             yield new Uint8Array(successChunk);
 
-            yield new Uint8Array(transform.outboundTransformNoTopic(response));
+            yield new Uint8Array(await transform.outboundTransformAsync(response));
           }
         },
         stream,
