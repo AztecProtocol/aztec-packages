@@ -13,6 +13,7 @@ import os from 'os';
 import path from 'path';
 import { getContract } from 'viem';
 
+import { dripQueue } from '../../../cli/src/cmds/l1/update_l1_validators.js';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
@@ -119,6 +120,17 @@ describe('e2e_p2p_network', () => {
         debugLogger: t.logger,
       });
     }
+
+    // Drip the deposit queue to add validators to the rollup
+    await dripQueue({
+      rpcUrls: t.ctx.aztecNodeConfig.l1RpcUrls,
+      chainId: t.ctx.aztecNodeConfig.l1ChainId,
+      privateKey: t.baseAccountPrivateKey,
+      mnemonic: undefined,
+      stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
+      log: t.logger.info,
+      debugLogger: t.logger,
+    });
 
     const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
     expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
