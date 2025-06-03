@@ -429,6 +429,20 @@ template <typename Builder, typename T> class bigfield {
      * `*this.limb[i] + X.limb[i] - other.limb[i] ≥ 0`.
      */
     bigfield operator-(const bigfield& other) const;
+
+    /**
+     * @brief Evaluate a non-native field multiplication: (a * b = c mod p) where p == target_basis.modulus
+     *
+     * @param other
+     * @return bigfield
+     *
+     * @details We compute quotient term `q` and remainder `c` and evaluate that:
+     * a * b - q * p - c = 0 mod modulus_u512 (binary basis modulus, currently 2**272)
+     * a * b - q * p - c = 0 mod circuit modulus
+     * We also check that:
+     * a * b < M  and  q * p - c < M, where M = (2^t * n) is CRT modulus.
+     *
+     */
     bigfield operator*(const bigfield& other) const;
 
     bigfield operator/(const bigfield& other) const;
