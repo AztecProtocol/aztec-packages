@@ -184,7 +184,7 @@ describe('tx collector', () => {
       missingTxs: originalHashes.slice(8),
     };
     await checkResults({ retrievedTxs: results.txs, missingTxs: results.missing ?? [] }, expected);
-    // all retrieved txs should be in the pool
+    // all txs should be in the pool
     expect(txPool.size).toEqual(8);
   });
 
