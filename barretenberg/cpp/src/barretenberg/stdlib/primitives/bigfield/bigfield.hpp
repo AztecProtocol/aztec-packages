@@ -728,7 +728,7 @@ template <typename Builder, typename T> class bigfield {
     static constexpr uint512_t get_maximum_unreduced_value()
     {
         // This = `T * n = 2^272 * |BN(Fr)|` So this equals n*2^t
-        uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
+        uint1024_t maximum_product = get_maximum_crt_product();
 
         // In multiplying two bigfield elements a and b, we must check that:
         //
@@ -757,7 +757,7 @@ template <typename Builder, typename T> class bigfield {
     // If we encounter this maximum value of a bigfield we stop execution
     static constexpr uint512_t get_prohibited_maximum_value()
     {
-        uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
+        uint1024_t maximum_product = get_maximum_crt_product();
         uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
         const size_t arbitrary_secure_margin = 20;
         return (uint512_t(1) << ((maximum_product_bits >> 1) + arbitrary_secure_margin)) - uint512_t(1);
