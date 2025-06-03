@@ -30,8 +30,8 @@ Pass the `execution-steps` to `serializePrivateExecutionSteps` from the `@aztec/
 For example:
 
 ```ts
-const profileTx = await contractInstance.methods
-            .claim(jwt as any, emailRegistryAddress)
+const profileTx = await tokenInstance.methods
+            .transfer_private_to_private(sender, recipient, amount, nonce)
             .profile({ profileMode: "execution-steps" });
 
 const ivcMessagePack = serializePrivateExecutionSteps(profileTx.executionSteps)
