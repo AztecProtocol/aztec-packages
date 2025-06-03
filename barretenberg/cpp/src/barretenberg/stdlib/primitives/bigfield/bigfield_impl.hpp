@@ -745,12 +745,6 @@ bigfield<Builder, T> bigfield<Builder, T>::operator*(const bigfield& other) cons
     return remainder;
 }
 
-/**
- * Division operator. Create constraints for b!=0 by default. If you need a variant
- *without the zero check,  use div_without_denominator_check.
- *
- * To evaluate (a / b = c mod p), we instead evaluate (c * b = a mod p).
- **/
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::operator/(const bigfield& other) const
 {
