@@ -6,6 +6,8 @@ use crate::{
 use dep::protocol_types::{
     abis::event_selector::EventSelector,
     address::AztecAddress,
+    constants::GENERATOR_INDEX__EVENT_NULLIFIER,
+    hash::poseidon2_hash_with_separator,
     traits::{Serialize, ToField},
 };
 
@@ -54,6 +56,13 @@ where
         || to_encrypted_private_event_message(event, recipient),
     );
     let log_content = prefix_with_tag(ciphertext, sender, recipient);
+
+    // We commit to the event such that we can later on verify that the event is legitimate (this is necessary for
+    // out-of-band event delivery). We use nullifier tree as that is easier to work with than note hash tree since
+    // nullifiers don't include a nonce and unlike for notes we don't care about the nonce.
+    let event_hash =
+        poseidon2_hash_with_separator(event.serialize(), GENERATOR_INDEX__EVENT_NULLIFIER);
+    context.push_nullifier(event_hash);
 
     context.emit_private_log(log_content, log_content.len());
 }

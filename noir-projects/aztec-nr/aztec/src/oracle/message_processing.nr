@@ -135,12 +135,17 @@ pub unconstrained fn get_log_by_tag<let MAX_LOG_PAYLOAD_LEN: u32>(
     }
 }
 
-pub(crate) unconstrained fn validate_enqueued_notes(
+pub(crate) unconstrained fn validate_enqueued_notes_and_events(
     contract_address: AztecAddress,
-    base_slot: Field,
+    note_base_slot: Field,
+    event_base_slot: Field,
 ) {
-    validate_enqueued_notes_oracle(contract_address, base_slot);
+    validate_enqueued_notes_and_events_oracle(contract_address, note_base_slot, event_base_slot);
 }
 
-#[oracle(validateEnqueuedNotes)]
-unconstrained fn validate_enqueued_notes_oracle(contract_address: AztecAddress, base_slot: Field) {}
+#[oracle(validateEnqueuedNotesAndEvents)]
+unconstrained fn validate_enqueued_notes_and_events_oracle(
+    contract_address: AztecAddress,
+    note_base_slot: Field,
+    event_base_slot: Field,
+) {}
