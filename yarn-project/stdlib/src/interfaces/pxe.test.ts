@@ -371,10 +371,13 @@ class MockPXE implements PXE {
     const provingTime = skipProofGeneration ? 1 : undefined;
     return Promise.resolve(
       new TxProfileResult([], {
-        perFunction: [{ functionName: 'something', time: 1 }],
-        proving: provingTime,
-        unaccounted: 1,
-        total: 2,
+        nodeRPCCalls: { getBlockNumber: { times: [1] } },
+        timings: {
+          perFunction: [{ functionName: 'something', time: 1 }],
+          proving: provingTime,
+          unaccounted: 1,
+          total: 2,
+        },
       }),
     );
   }
