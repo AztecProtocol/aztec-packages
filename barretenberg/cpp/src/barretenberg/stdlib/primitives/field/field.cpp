@@ -69,6 +69,7 @@ field_t<Builder> field_t<Builder>::from_witness_index(Builder* ctx, const uint32
  */
 template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
 {
+    info("bool conversion");
     // If `this` is a constant field_t element, the resulting bool is also constant.
     // In this case, `additive_constant` uniquely determines the value of `this`.
     // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
@@ -464,7 +465,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
 {
     Builder* ctx = first_non_null<Builder>(context, to_mul.context, to_add.context);
 
-    if (to_mul.is_constant() && to_add.is_constant() && this->is_constant()) {
+    if (to_mul.is_constant() && to_add.is_constant() && is_constant()) {
         return ((*this) * to_mul + to_add);
     }
 
@@ -493,24 +494,24 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
     // Note: the value of a constant field_t is wholly tracked by the field_t's `additive_constant` member, which is
     // accounted for in the above-calculated selectors (`q_`'s). Therefore no witness (`variables[witness_index]`)
     // exists for constants, and so the field_t's corresponding wire value is set to `0` in the gate equation.
-    bb::fr a = witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(witness_index);
-    bb::fr b = to_mul.witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(to_mul.witness_index);
-    bb::fr c = to_add.witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(to_add.witness_index);
+    bb::fr a = is_constant() ? bb::fr::zero() : ctx->get_variable(witness_index);
+    bb::fr b = to_mul.is_constant() ? bb::fr::zero() : ctx->get_variable(to_mul.witness_index);
+    bb::fr c = to_add.is_constant() ? bb::fr::zero() : ctx->get_variable(to_add.witness_index);
 
     bb::fr out = a * b * q_m + a * q_1 + b * q_2 + c * q_3 + q_c;
 
     field_t<Builder> result(ctx);
     result.witness_index = ctx->add_variable(out);
     ctx->create_big_mul_gate({
-        .a = witness_index == IS_CONSTANT ? ctx->zero_idx : witness_index,
-        .b = to_mul.witness_index == IS_CONSTANT ? ctx->zero_idx : to_mul.witness_index,
-        .c = to_add.witness_index == IS_CONSTANT ? ctx->zero_idx : to_add.witness_index,
+        .a = is_constant() ? ctx->zero_idx : witness_index,
+        .b = to_mul.is_constant() ? ctx->zero_idx : to_mul.witness_index,
+        .c = to_add.is_constant() ? ctx->zero_idx : to_add.witness_index,
         .d = result.witness_index,
         .mul_scaling = q_m,
         .a_scaling = q_1,
         .b_scaling = q_2,
         .c_scaling = q_3,
-        .d_scaling = -bb::fr(1),
+        .d_scaling = bb::fr::neg_one(),
         .const_scaling = q_c,
     });
     result.tag = OriginTag(tag, to_mul.tag, to_add.tag);
@@ -586,15 +587,14 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
  * @details If the element is a constant or it is already normalized, just return the element itself
  *
  * @todo We need to add a mechanism into the circuit builders for caching normalized variants for fields and bigfields.
- *It should make the circuits smaller. https://github.com/AztecProtocol/barretenberg/issues/1052
+ * It should make the circuits smaller. https://github.com/AztecProtocol/barretenberg/issues/1052
  *
  * @tparam Builder
  * @return field_t<Builder>
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 {
-    if (witness_index == IS_CONSTANT ||
-        ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero()))) {
+    if (is_constant() || ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero()))) {
         return *this;
     }
 
@@ -604,11 +604,8 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 
     field_t<Builder> result(context);
     bb::fr value = context->get_variable(witness_index);
-    bb::fr out;
-    out = value * multiplicative_constant;
-    out += additive_constant;
 
-    result.witness_index = context->add_variable(out);
+    result.witness_index = context->add_variable(get_value());
     result.additive_constant = bb::fr::zero();
     result.multiplicative_constant = bb::fr::one();
 
@@ -621,7 +618,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
                                .b = witness_index,
                                .c = result.witness_index,
                                .a_scaling = multiplicative_constant,
-                               .b_scaling = 0,
+                               .b_scaling = bb::fr::zero(),
                                .c_scaling = bb::fr::neg_one(),
                                .const_scaling = additive_constant });
     result.tag = tag;
@@ -765,11 +762,11 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 
 template <typename Builder> bb::fr field_t<Builder>::get_value() const
 {
-    if (witness_index != IS_CONSTANT) {
-        ASSERT(context != nullptr);
+    if (!is_constant()) {
+        ASSERT(context);
         return (multiplicative_constant * context->get_variable(witness_index)) + additive_constant;
     }
-    ASSERT(this->multiplicative_constant == bb::fr::one());
+    ASSERT(multiplicative_constant == bb::fr::one());
     // A constant field_t's value is tracked wholly by its additive_constant member.
     return additive_constant;
 }

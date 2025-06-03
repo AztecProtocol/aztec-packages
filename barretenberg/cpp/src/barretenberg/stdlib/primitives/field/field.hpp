@@ -265,7 +265,7 @@ template <typename Builder> class field_t {
     field_t madd(const field_t& to_mul, const field_t& to_add) const;
 
     // add_two costs 1 constraint in Ultra arithmetization
-    field_t add_two(const field_t& add_a, const field_t& add_b) const;
+    field_t add_two(const field_t& add_b, const field_t& add_c) const;
     bool_t<Builder> operator==(const field_t& other) const;
     bool_t<Builder> operator!=(const field_t& other) const;
 
