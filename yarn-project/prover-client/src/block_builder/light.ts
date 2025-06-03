@@ -107,8 +107,9 @@ export async function buildBlockWithCleanDB(
   telemetry: TelemetryClient = getTelemetryClient(),
 ) {
   const spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
+  const l1ToL2MessageTree = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
   for (const tx of txs) {
-    await insertSideEffectsAndBuildBaseRollupHints(tx, globalVariables, db, spongeBlobState);
+    await insertSideEffectsAndBuildBaseRollupHints(tx, globalVariables, l1ToL2MessageTree, db, spongeBlobState);
   }
   const builder = new LightweightBlockBuilder(db, telemetry);
   await builder.startNewBlock(globalVariables, l1ToL2Messages);

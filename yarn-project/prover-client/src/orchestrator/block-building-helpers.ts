@@ -28,8 +28,8 @@ import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
+  BlockConstantData,
   type BlockRootOrBlockMergePublicInputs,
-  ConstantRollupData,
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
@@ -71,12 +71,13 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
     span: Span,
     tx: ProcessedTx,
     globalVariables: GlobalVariables,
+    l1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     db: MerkleTreeWriteOperations,
     startSpongeBlob: SpongeBlob,
   ) => {
     span.setAttribute(Attributes.TX_HASH, tx.hash.toString());
     // Get trees info before any changes hit
-    const constants = await getConstantRollupData(globalVariables, db);
+    const constants = await getBlockConstantData(globalVariables, l1ToL2MessageTreeSnapshot, db);
     const start = new PartialStateReference(
       await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
       await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
@@ -144,7 +145,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
     );
 
     if (tx.avmProvingRequest) {
-      const blockHash = await tx.constants.historicalHeader.hash();
+      const blockHash = await tx.data.constants.historicalHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
         blockHash,
         MerkleTreeId.ARCHIVE,
@@ -154,9 +155,9 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
 
       return PublicBaseRollupHints.from({
         startSpongeBlob: inputSpongeBlob,
+        lastArchive: constants.lastArchive,
         archiveRootMembershipWitness,
         contractClassLogsFields,
-        constants,
       });
     } else {
       if (
@@ -196,7 +197,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
         feeWriteSiblingPath,
       });
 
-      const blockHash = await tx.constants.historicalHeader.hash();
+      const blockHash = await tx.data.constants.historicalHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
         blockHash,
         MerkleTreeId.ARCHIVE,
@@ -403,14 +404,22 @@ export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: T
   return padArrayEnd(path.toFields(), Fr.ZERO, getTreeHeight(treeId));
 }
 
-export const getConstantRollupData = runInSpan(
+const getBlockConstantData = runInSpan(
   'BlockBuilderHelpers',
-  'getConstantRollupData',
-  async (_span, globalVariables: GlobalVariables, db: MerkleTreeReadOperations): Promise<ConstantRollupData> => {
-    return ConstantRollupData.from({
+  'getBlockConstantData',
+  async (
+    _span,
+    globalVariables: GlobalVariables,
+    // Passing in the snapshot instead of getting it from the db because it might've been updated in the orchestrator
+    // when base parity proof is being generated.
+    l1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    db: MerkleTreeReadOperations,
+  ): Promise<BlockConstantData> => {
+    return BlockConstantData.from({
+      lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
+      lastL1ToL2: l1ToL2MessageTreeSnapshot,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
-      lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
       globalVariables,
     });
   },
@@ -536,17 +545,17 @@ function validateSimulatedTree(
 }
 
 export function validateTx(tx: ProcessedTx) {
-  const txHeader = tx.constants.historicalHeader;
-  if (txHeader.state.l1ToL2MessageTree.isZero()) {
+  const txHeader = tx.data.constants.historicalHeader;
+  if (txHeader.state.l1ToL2MessageTree.isEmpty()) {
     throw new Error(`Empty L1 to L2 messages tree in tx: ${toFriendlyJSON(tx)}`);
   }
-  if (txHeader.state.partial.noteHashTree.isZero()) {
+  if (txHeader.state.partial.noteHashTree.isEmpty()) {
     throw new Error(`Empty note hash tree in tx: ${toFriendlyJSON(tx)}`);
   }
-  if (txHeader.state.partial.nullifierTree.isZero()) {
+  if (txHeader.state.partial.nullifierTree.isEmpty()) {
     throw new Error(`Empty nullifier tree in tx: ${toFriendlyJSON(tx)}`);
   }
-  if (txHeader.state.partial.publicDataTree.isZero()) {
+  if (txHeader.state.partial.publicDataTree.isEmpty()) {
     throw new Error(`Empty public data tree in tx: ${toFriendlyJSON(tx)}`);
   }
 }

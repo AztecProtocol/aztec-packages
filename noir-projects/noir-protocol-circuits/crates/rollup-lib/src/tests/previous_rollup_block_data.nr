@@ -12,8 +12,10 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
     let vk_path = vk_tree.get_sibling_path(vk_index);
     let vk_tree_root = vk_tree.get_root();
 
-    previous_rollup_data[0].block_root_or_block_merge_public_inputs.vk_tree_root = vk_tree_root;
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.vk_tree_root = vk_tree_root;
+    previous_rollup_data[0].block_root_or_block_merge_public_inputs.constants.vk_tree_root =
+        vk_tree_root;
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.constants.vk_tree_root =
+        vk_tree_root;
 
     let vk_data = VkData {
         vk: fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index),
