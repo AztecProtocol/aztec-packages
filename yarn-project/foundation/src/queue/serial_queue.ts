@@ -41,7 +41,7 @@ export class SerialQueue {
    */
   public cancel() {
     this.queue.cancel();
-    return Promise.all(this.runningPromises).then(() => {}); // Return a resolved promise if there are no running promises, otherwise return the first one in the array. This is a no-op if the array is empty,
+    return Promise.all(this.runningPromises).then(() => {});
   }
 
   /**
