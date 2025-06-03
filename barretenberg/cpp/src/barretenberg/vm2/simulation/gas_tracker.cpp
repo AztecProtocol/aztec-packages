@@ -74,6 +74,29 @@ void GasTracker::consume_dynamic_gas(Gas dynamic_gas_factor)
     context.set_gas_used(actual_gas_used.to_gas());
 }
 
+// Gas limit for call is the minimum between the gas allocated to the call by the user, and the gas left.
+// This applies to both gas dimensions independently.
+Gas GasTracker::compute_gas_limit_for_call(Gas allocated_gas)
+{
+    Gas gas_left = context.gas_left();
+
+    bool is_l2_gas_allocated_lt_left = allocated_gas.l2Gas < gas_left.l2Gas;
+    uint32_t l2_gas_comparison_witness =
+        is_l2_gas_allocated_lt_left ? gas_left.l2Gas - allocated_gas.l2Gas - 1 : allocated_gas.l2Gas - gas_left.l2Gas;
+
+    bool is_da_gas_allocated_lt_left = allocated_gas.daGas < gas_left.daGas;
+    uint32_t da_gas_comparison_witness =
+        is_da_gas_allocated_lt_left ? gas_left.daGas - allocated_gas.daGas - 1 : allocated_gas.daGas - gas_left.daGas;
+
+    range_check.assert_range(l2_gas_comparison_witness, 32);
+    range_check.assert_range(da_gas_comparison_witness, 32);
+
+    return Gas{
+        is_l2_gas_allocated_lt_left ? allocated_gas.l2Gas : gas_left.l2Gas,
+        is_da_gas_allocated_lt_left ? allocated_gas.daGas : gas_left.daGas,
+    };
+}
+
 GasEvent GasTracker::finish()
 {
     // This is a bit of an abstraction leak from the circuit. We have optimized the circuit so gas is

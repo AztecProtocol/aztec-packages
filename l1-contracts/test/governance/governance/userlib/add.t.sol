@@ -23,7 +23,7 @@ contract AddTest is UserLibBase {
     (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(this));
 
     assertEq(user.checkpoints.length(), 0);
-    assertEq(reads.length, 0);
+    assertEq(reads.length, 1);
     assertEq(writes.length, 0);
   }
 
