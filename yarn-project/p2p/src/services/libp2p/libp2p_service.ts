@@ -66,6 +66,7 @@ import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PBlockReceivedCallback, P2PService, PeerDiscoveryService } from '../service.js';
+import { P2PInstrumentation } from './instrumentation.js';
 
 interface ValidationResult {
   name: string;
@@ -124,6 +125,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     protected logger = createLogger('p2p:libp2p_service'),
   ) {
     super(telemetry, 'LibP2PService');
+
+    this.instrumentation = new P2PInstrumentation(telemetry, 'LibP2PService');
 
     this.msgIdSeenValidators[TopicType.tx] = new MessageSeenValidator(config.seenMessageCacheSize);
     this.msgIdSeenValidators[TopicType.block_proposal] = new MessageSeenValidator(config.seenMessageCacheSize);
@@ -504,25 +507,33 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   protected preValidateReceivedMessage(msg: Message, msgId: string, source: PeerId) {
-    const getValidator = () => {
-      if (msg.topic === this.topicStrings[TopicType.tx]) {
-        return this.msgIdSeenValidators[TopicType.tx];
-      }
-      if (msg.topic === this.topicStrings[TopicType.block_attestation]) {
-        return this.msgIdSeenValidators[TopicType.block_attestation];
-      }
-      if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
-        return this.msgIdSeenValidators[TopicType.block_proposal];
-      }
-      this.logger.error(`Received message on unknown topic: ${msg.topic}`);
-    };
+    let topicType: TopicType | undefined;
 
-    const validator = getValidator();
+    switch (msg.topic) {
+      case this.topicStrings[TopicType.tx]:
+        topicType = TopicType.tx;
+        break;
+      case this.topicStrings[TopicType.block_attestation]:
+        topicType = TopicType.block_attestation;
+        break;
+      case this.topicStrings[TopicType.block_proposal]:
+        topicType = TopicType.block_proposal;
+        break;
+      default:
+        this.logger.error(`Received message on unknown topic: ${msg.topic}`);
+        break;
+    }
+
+    const validator = topicType ? this.msgIdSeenValidators[topicType] : undefined;
 
     if (!validator || !validator.addMessage(msgId)) {
+      this.instrumentation.incMessagePrevalidationStatus(false, topicType);
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
       return false;
     }
+
+    this.instrumentation.incMessagePrevalidationStatus(true, topicType);
+
     return true;
   }
 
