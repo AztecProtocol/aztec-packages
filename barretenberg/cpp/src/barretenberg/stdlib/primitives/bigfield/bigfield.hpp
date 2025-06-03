@@ -958,6 +958,20 @@ template <typename Builder, typename T> class bigfield {
                                                       const bigfield& input_quotient,
                                                       const std::vector<bigfield>& input_remainders);
 
+    /**
+     * @brief Evaluate a square with several additions.
+     *
+     * @param left Left multiplicand
+     * @param to_add Vector of elements to add
+     * @param quotient Quotient term
+     * @param remainder Remainder term
+     *
+     * @details This function evaluates the relationship:
+     * (a * a) + (to_add[0] + .. + to_add[-1]) - q * p - r = 0 mod 2^t (binary basis modulus)
+     * (a * a) + (to_add[0] + .. + to_add[-1]) - q * p - r = 0 mod n (circuit modulus)
+     *
+     * @warning THIS FUNCTION IS UNSAFE TO USE IN CIRCUITS AS IT DOES NOT PROTECT AGAINST CRT OVERFLOWS.
+     */
     static void unsafe_evaluate_square_add(const bigfield& left,
                                            const std::vector<bigfield>& to_add,
                                            const bigfield& quotient,
