@@ -479,6 +479,13 @@ template <typename Builder, typename T> class bigfield {
         return *this;
     }
 
+    /**
+     * @brief Square operator, computes a * a = c mod p.
+     *
+     * @return bigfield
+     *
+     * @details Costs the same as operator* as it just sets a = b.
+     */
     bigfield sqr() const;
     bigfield sqradd(const std::vector<bigfield>& to_add) const;
     bigfield pow(const size_t exponent) const;
