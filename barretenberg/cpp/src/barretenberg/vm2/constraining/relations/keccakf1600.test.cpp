@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/generated/relations/keccak_memory.hpp"
 #include "barretenberg/vm2/generated/relations/keccakf1600.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/bitwise.hpp"
@@ -49,6 +50,8 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 
 using keccakf1600_relation = bb::avm2::keccakf1600<FF>;
+using keccak_memory_relation = bb::avm2::keccak_memory<FF>;
+
 // Theta XOR values
 using lookup_theta_xor_01 = lookup_keccakf1600_theta_xor_01_relation<FF>;
 using lookup_theta_xor_02 = lookup_keccakf1600_theta_xor_02_relation<FF>;
@@ -203,7 +206,10 @@ void generate_trace(TestTraceContainer& trace,
         keccak_simulator.permutation(context, dst_addresses.at(i), src_addresses.at(i));
     }
 
-    keccak_builder.process(keccak_event_emitter.dump_events(), trace);
+    const auto keccak_events = keccak_event_emitter.dump_events();
+
+    keccak_builder.process_permutation(keccak_events, trace);
+    keccak_builder.process_memory_slices(keccak_events, trace);
     bitwise_builder.process(bitwise_event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
     precomputed_builder.process_keccak_round_constants(trace);
@@ -378,6 +384,7 @@ TEST(KeccakF1600ConstrainingTest, SinglewithSimulationAndTraceGenInteractions)
 
     check_all_interactions(trace);
     check_relation<keccakf1600_relation>(trace);
+    check_relation<keccak_memory_relation>(trace);
 }
 
 // Positive test for multiple permutation calls with simulation and trace generation.
@@ -413,6 +420,7 @@ TEST(KeccakF1600ConstrainingTest, MultipleWithSimulationAndTraceGenInteractions)
 
     check_all_interactions(trace);
     check_relation<keccakf1600_relation>(trace);
+    check_relation<keccak_memory_relation>(trace);
 }
 
 } // namespace
