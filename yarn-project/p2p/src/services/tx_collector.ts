@@ -23,7 +23,10 @@ export class TxCollector {
       return;
     }
 
+    const proposalHashes = new Set<string>((proposal.payload.txHashes ?? []).map(txHash => txHash.toString()));
+
     // Get the transactions from the proposal and their hashes
+    // also, we are only interested in txs that are part of the proposal
     const txsFromProposal = compactArray(
       await Promise.all(
         proposal.txs.map(tx =>
@@ -35,7 +38,7 @@ export class TxCollector {
               })),
         ),
       ),
-    );
+    ).filter(tx => proposalHashes.has(tx.txHash.toString()));
 
     // Of the transactions from the proposal, retrieve those that we have in the pool already
     const txsToValidate = [];
@@ -63,7 +66,7 @@ export class TxCollector {
     await this.p2pClient.addTxsToPool(txsToValidate);
 
     this.log.info(
-      `Received proposal with ${proposal.txs.length} transactions, ${txsToValidate.length} of which were new to us`,
+      `Received proposal with ${proposal.txs.length} transactions, ${txsToValidate.length} of which were new`,
     );
   }
 
