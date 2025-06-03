@@ -1,7 +1,7 @@
 use crate::{messages::encoding::MAX_MESSAGE_CONTENT_LEN, prelude::AztecAddress, utils::array};
 use crate::messages::processing::enqueue_event_for_validation;
 use protocol_types::{
-    abis::event_selector::EventSelector, constants::GENERATOR_INDEX__EVENT_NULLIFIER,
+    abis::event_selector::EventSelector, constants::GENERATOR_INDEX__EVENT_COMMITMENT,
     hash::poseidon2_hash_with_separator_bounded_vec, traits::FromField,
 };
 
@@ -27,14 +27,13 @@ pub unconstrained fn process_private_event_msg(
     let event_type_id = EventSelector::from_field(msg_metadata as Field);
     let serialized_event_with_randomness = msg_content;
 
-    // Compute the event hash.
-    let event_hash = poseidon2_hash_with_separator_bounded_vec(
+    let event_commitment = poseidon2_hash_with_separator_bounded_vec(
         serialized_event_with_randomness,
-        GENERATOR_INDEX__EVENT_NULLIFIER,
+        GENERATOR_INDEX__EVENT_COMMITMENT,
     );
 
     // Randomness was injected into the event payload in `emit_event_in_private_log` but we have already used it
-    // to compute the event hash, so we can safely discard it now.
+    // to compute the event commitment, so we can safely discard it now.
     let serialized_event = array::subbvec(
         serialized_event_with_randomness,
         PRIVATE_EVENT_MSG_CONTENT_NON_EVENT_FIELDS_LEN,
@@ -44,7 +43,7 @@ pub unconstrained fn process_private_event_msg(
         contract_address,
         event_type_id,
         serialized_event,
-        event_hash,
+        event_commitment,
         tx_hash,
         recipient,
         log_index_in_tx,

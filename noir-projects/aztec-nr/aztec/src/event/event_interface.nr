@@ -7,7 +7,7 @@ use crate::{
 use dep::protocol_types::{
     abis::event_selector::EventSelector,
     address::AztecAddress,
-    constants::GENERATOR_INDEX__EVENT_NULLIFIER,
+    constants::GENERATOR_INDEX__EVENT_COMMITMENT,
     hash::poseidon2_hash_with_separator,
     traits::{Serialize, ToField},
     utils::arrays::array_concat,
@@ -53,9 +53,9 @@ where
     // usage is requested. If `constraints` were a runtime value then performance would suffer.
     assert_constant(constraints);
 
-    // In private events, we inject randomness to prevent event hash preimage attacks and to prevent event hash
-    // collisions (event hashes are included in the nullifier tree and duplicate nullifiers are by definition not
-    // allowed).
+    // In private events, we inject randomness to prevent event commitment preimage attacks and to prevent event
+    // commitment collisions (event commitments are included in the nullifier tree and duplicate nullifiers are by
+    // definition not allowed).
     // Safety: We use the randomness to preserve the privacy of the event recipient by preventing brute-forcing,
     // so a malicious sender could use non-random values to make the event less private. But they already know
     // the full event pre-image anyway, and so the recipient already trusts them to not disclose this information.
@@ -77,12 +77,13 @@ where
 
     // We commit to the event such that we can later on verify that the event is legitimate (this is necessary for
     // out-of-band event delivery). We use nullifier tree as that is easier to work with than note hash tree since
-    // nullifiers don't include a nonce and unlike for notes we don't care about the nonce.
-    let event_hash = poseidon2_hash_with_separator(
+    // nullifiers don't include a nonce and unlike for notes we don't care about the nonce (since there is no concept
+    // of event being spendable we don't need to ensure that we can compute a "spending" nullifier for the event).
+    let event_commitment = poseidon2_hash_with_separator(
         serialized_event_with_randomness,
-        GENERATOR_INDEX__EVENT_NULLIFIER,
+        GENERATOR_INDEX__EVENT_COMMITMENT,
     );
-    context.push_nullifier(event_hash);
+    context.push_nullifier(event_commitment);
 
     context.emit_private_log(log_content, log_content.len());
 }

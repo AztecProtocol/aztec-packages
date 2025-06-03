@@ -16,7 +16,7 @@ export class EventValidationRequest {
     public contractAddress: AztecAddress,
     public eventTypeId: EventSelector,
     public serializedEvent: Fr[],
-    public eventHash: Fr,
+    public eventCommitment: Fr,
     public txHash: TxHash,
     public recipient: AztecAddress,
     public logIndexInTx: number,
@@ -33,7 +33,7 @@ export class EventValidationRequest {
     const eventLen = reader.readField().toNumber();
     const serializedEvent = eventStorage.slice(0, eventLen);
 
-    const eventHash = reader.readField();
+    const eventCommitment = reader.readField();
     const txHash = TxHash.fromField(reader.readField());
     const recipient = AztecAddress.fromField(reader.readField());
     const logIndexInTx = reader.readField().toNumber();
@@ -43,7 +43,7 @@ export class EventValidationRequest {
       contractAddress,
       eventTypeId,
       serializedEvent,
-      eventHash,
+      eventCommitment,
       txHash,
       recipient,
       logIndexInTx,

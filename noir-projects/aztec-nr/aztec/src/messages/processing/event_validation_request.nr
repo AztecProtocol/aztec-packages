@@ -8,7 +8,7 @@ pub(crate) struct EventValidationRequest {
     pub contract_address: AztecAddress,
     pub event_type_id: EventSelector,
     pub serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>,
-    pub event_hash: Field,
+    pub event_commitment: Field,
     pub tx_hash: Field,
     pub recipient: AztecAddress,
     pub log_index_in_tx: Field,
@@ -29,7 +29,7 @@ mod test {
             contract_address: AztecAddress::from_field(1),
             event_type_id: EventSelector::from_field(2),
             serialized_event: BoundedVec::from_array([3, 4]),
-            event_hash: 5,
+            event_commitment: 5,
             tx_hash: 6,
             recipient: AztecAddress::from_field(7),
             log_index_in_tx: 8,
@@ -47,7 +47,7 @@ mod test {
             4, // serialized_event[1]
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // serialized_event padding
             2, // bounded_vec_len
-            5, // event_hash
+            5, // event_commitment
             6, // tx_hash
             7, // recipient
             8, // log_index_in_tx

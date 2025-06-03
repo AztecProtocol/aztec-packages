@@ -636,7 +636,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         request.contractAddress,
         request.eventTypeId,
         request.serializedEvent,
-        request.eventHash,
+        request.eventCommitment,
         request.txHash,
         request.logIndexInTx,
         request.txIndexInBlock,
@@ -739,7 +739,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     contractAddress: AztecAddress,
     eventTypeId: EventSelector,
     serializedEvent: Fr[],
-    eventHash: Fr,
+    eventCommitment: Fr,
     txHash: TxHash,
     logIndexInTx: number,
     txIndexInBlock: number,
@@ -754,15 +754,15 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`Block number is undefined for tx ${txHash} in deliverEvent`);
     }
 
-    const siloedEventHash = await siloNullifier(contractAddress, eventHash);
+    const siloedEventCommitment = await siloNullifier(contractAddress, eventCommitment);
 
     const [nullifierIndex] = await this.aztecNode.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
-      siloedEventHash,
+      siloedEventCommitment,
     ]);
 
     if (nullifierIndex === undefined) {
       throw new Error(
-        `Event hash ${eventHash} (siloed as ${siloedEventHash}) is not present on the nullifier tree at the latest block (from tx ${txHash})`,
+        `Event hash ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present on the nullifier tree at the latest block (from tx ${txHash})`,
       );
     }
 
