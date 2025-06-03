@@ -78,7 +78,7 @@ TEST(boomerang_stdlib_aes, test_graph_for_aes_64_bytes)
     auto result = stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
     fix_vector_witness(result);
 
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -132,7 +132,7 @@ TEST(boomerang_stdlib_aes, test_variable_gates_count_for_aes128cbc)
     auto result = stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
     fix_vector_witness(result);
 
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(builder);

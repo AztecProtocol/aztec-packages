@@ -452,9 +452,32 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const size_t exponent) const
 {
-    auto* ctx = get_context();
-    auto exponent_field_elt = field_t::from_witness(ctx, exponent);
-    return pow(exponent_field_elt);
+    if (exponent == 0) {
+        return field_t<Builder>(uint256_t(1));
+    }
+    bool accumulator_initialized = false;
+    field_t<Builder> accumulator;
+    field_t<Builder> running_power = *this;
+    auto shifted_exponent = exponent;
+
+    // Square and multiply
+    while (shifted_exponent != 0) {
+        if (shifted_exponent & 1) {
+            if (!accumulator_initialized) {
+                accumulator = running_power;
+                accumulator_initialized = true;
+            } else {
+                accumulator *= running_power;
+            }
+        }
+        if (shifted_exponent >= 2) {
+            // there's no need to do the last square if shifted_exponent = 1 or 0, because after this
+            // shifted_exponent shifts 1 bit right and equals 0 => while cycle stops
+            running_power = running_power.sqr();
+        }
+        shifted_exponent >>= 1;
+    }
+    return accumulator;
 }
 
 /**

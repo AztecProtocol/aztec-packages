@@ -41,7 +41,7 @@ TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_method_resi
     }
 
     array.resize(next_size, 7);
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(connected_components.size(), 1);
@@ -80,7 +80,7 @@ TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_consistency
     array.conditional_push(true, 100);
     array.conditional_pop(false);
     array.conditional_pop(true);
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
