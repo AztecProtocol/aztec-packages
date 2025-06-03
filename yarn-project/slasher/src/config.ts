@@ -31,19 +31,19 @@ export function bigIntToOffence(offense: bigint): Offence {
 export const WANT_TO_SLASH_EVENT = 'wantToSlash' as const;
 
 export interface WantToSlashArgs {
-  validators: `0x${string}`[] | readonly `0x${string}`[];
-  amounts: bigint[];
-  offenses: Offence[];
+  validator: EthAddress;
+  amount: bigint;
+  offense: Offence;
 }
 
 // Event map for specific, known events of a watcher
 export interface WatcherEventMap {
-  [WANT_TO_SLASH_EVENT]: (args: WantToSlashArgs) => void;
+  [WANT_TO_SLASH_EVENT]: (args: WantToSlashArgs[]) => void;
 }
 
 export type WatcherEmitter = TypedEventEmitter<WatcherEventMap>;
 
-export type CheckSlashFn = (validator: `0x${string}`, amount: bigint, offense: Offence) => Promise<boolean>;
+export type CheckSlashFn = (args: WantToSlashArgs) => Promise<boolean>;
 
 export type Watcher = WatcherEmitter & {
   shouldSlash: CheckSlashFn;

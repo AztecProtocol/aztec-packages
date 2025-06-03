@@ -310,11 +310,13 @@ describe('sentinel', () => {
         fromSlot: headerSlots[0],
         toSlot: headerSlots[headerSlots.length - 1],
       });
-      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, {
-        validators: [validator2.toString()],
-        amounts: [config.slashInactivityCreatePenalty],
-        offenses: [Offence.INACTIVITY],
-      });
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+        {
+          validator: validator2,
+          amount: config.slashInactivityCreatePenalty,
+          offense: Offence.INACTIVITY,
+        },
+      ]);
     });
 
     it('should agree with slash', async () => {
@@ -334,28 +336,35 @@ describe('sentinel', () => {
       sentinel.handleProvenPerformance(performance);
       const penalty = config.slashInactivityCreatePenalty;
 
-      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, {
-        validators: [`0x0000000000000000000000000000000000000008`, `0x0000000000000000000000000000000000000009`],
-        amounts: [penalty, penalty],
-        offenses: [Offence.INACTIVITY, Offence.INACTIVITY],
-      });
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+        {
+          validator: EthAddress.fromString(`0x0000000000000000000000000000000000000008`),
+          amount: penalty,
+          offense: Offence.INACTIVITY,
+        },
+        {
+          validator: EthAddress.fromString(`0x0000000000000000000000000000000000000009`),
+          amount: penalty,
+          offense: Offence.INACTIVITY,
+        },
+      ]);
 
       for (let i = 0; i < 10; i++) {
         const expectedAgree = i >= 6;
-        const actualAgree = await sentinel.shouldSlash(
-          `0x000000000000000000000000000000000000000${i}`,
-          config.slashInactivityMaxPenalty,
-          Offence.INACTIVITY,
-        );
+        const actualAgree = await sentinel.shouldSlash({
+          validator: EthAddress.fromString(`0x000000000000000000000000000000000000000${i}`),
+          amount: config.slashInactivityMaxPenalty,
+          offense: Offence.INACTIVITY,
+        });
         expect(actualAgree).toBe(expectedAgree);
 
         // We never slash if the penalty is above the max penalty
         await expect(
-          sentinel.shouldSlash(
-            `0x000000000000000000000000000000000000000${i}`,
-            config.slashInactivityMaxPenalty + 1n,
-            Offence.INACTIVITY,
-          ),
+          sentinel.shouldSlash({
+            validator: EthAddress.fromString(`0x000000000000000000000000000000000000000${i}`),
+            amount: config.slashInactivityMaxPenalty + 1n,
+            offense: Offence.INACTIVITY,
+          }),
         ).resolves.toBe(false);
       }
     });
