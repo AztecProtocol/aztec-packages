@@ -35,8 +35,7 @@ export default defineConfig({
 
   webServer: {
     command: 'PORT=3000 yarn serve',
-    url: 'http://127.0.0.1:3000',
-    reuseExistingServer: !process.env.CI,
+    port: 3000,
     timeout: 30_000,
   },
 });

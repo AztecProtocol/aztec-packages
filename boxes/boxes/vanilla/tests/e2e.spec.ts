@@ -2,19 +2,12 @@ import { test, expect } from '@playwright/test';
 
 const proofTimeout = 150_000;
 
-test.beforeAll(async ({ }, { config }) => {
+test.beforeAll(async () => {
   // Make sure the node is running
   const nodeUrl = process.env.AZTEC_NODE_URL || 'http://localhost:8080';
   const nodeResp = await fetch(nodeUrl + "/status");
   if (!nodeResp.ok) {
     throw new Error(`Failed to connect to node. This test assumes you have a Sandbox running at ${nodeUrl}.`);
-  }
-
-  // Make sure the dev server is running
-  const devServerUrl = config.webServer.url;
-  const serverResp = await fetch(devServerUrl);
-  if (!serverResp.ok) {
-    throw new Error(`Failed to connect to app server at ${devServerUrl}.`);
   }
 });
 
