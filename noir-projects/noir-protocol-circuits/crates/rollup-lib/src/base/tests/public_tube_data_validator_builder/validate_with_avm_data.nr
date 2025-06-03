@@ -152,6 +152,9 @@ fn public_tube_validate_with_avm_data_mismatch_effective_gas_fees_fails(
     if !builder.equal_default_avm_effective_gas_fees(effective_gas_fees) {
         builder.avm_data.effective_gas_fees = effective_gas_fees;
         builder.validate_with_avm_data();
+    } else {
+        // Fail with the expected error message if we are not testing the input.
+        assert(false, "unexpected effective gas fees used in the AVM");
     }
 }
 
