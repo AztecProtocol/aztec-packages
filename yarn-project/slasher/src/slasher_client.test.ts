@@ -117,12 +117,15 @@ describe('SlasherClient', () => {
     await anvil.stop().catch(logger.error);
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     slasherClient.updateConfig({
       slashOverridePayload: undefined,
       slashPayloadTtlSeconds: 100,
       slashProposerRoundPollingIntervalSeconds: 0.25,
     });
+    // sleep 3 slots to ensure that async events coming in from L1 are processed...
+    await sleep(ethereumSlotDuration * 3 * 1000);
+    // so that we can clear them.
     slasherClient.clearMonitoredPayloads();
   });
 
@@ -184,7 +187,8 @@ describe('SlasherClient', () => {
         logger.info(`Leader votes: ${leaderVotes}`);
 
         await l1TxUtils.client.sendTransaction(slashingProposer.createVoteRequest(payload!.toString())).catch(err => {
-          if (err.message.includes('GovernanceProposer__OnlyProposerCanVote')) {
+          // sometimes the custom error is not decoded properly
+          if (err.message.includes('GovernanceProposer__OnlyProposerCanVote') || err.message.includes('0xea36d1ac')) {
             return;
           }
           throw err;
@@ -300,6 +304,62 @@ describe('SlasherClient', () => {
     ]);
     expect(payloadActions[0].offenses).toEqual([Offence.EPOCH_PRUNE, Offence.INACTIVITY, Offence.UNKNOWN]);
     expect(payloadActions[0].amounts).toEqual([200n, 300n, 100n]);
+  });
+
+  it('handles replaying the same payload', async () => {
+    // trigger a payload
+    // observe it in monitored
+    // clear monitored
+    // trigger the same payload again
+    // observe it in monitored
+    // trigger the same payload again (without clearing)
+    // should only be one payload in monitored
+
+    const validator = EthAddress.random();
+    expect(slasherClient.getMonitoredPayloads()).toEqual([]);
+    dummyWatcher.triggerSlash([
+      {
+        validator,
+        amount: depositAmount,
+        offense: Offence.UNKNOWN,
+      },
+    ]);
+
+    await awaitNonEmptyMonitoredPayloads(slasherClient);
+    slasherClient.clearMonitoredPayloads();
+
+    dummyWatcher.triggerSlash([
+      {
+        validator,
+        amount: depositAmount,
+        offense: Offence.UNKNOWN,
+      },
+    ]);
+
+    await awaitNonEmptyMonitoredPayloads(slasherClient);
+
+    expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
+    expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
+    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offence.UNKNOWN]);
+
+    dummyWatcher.triggerSlash([
+      {
+        validator,
+        amount: depositAmount,
+        offense: Offence.UNKNOWN,
+      },
+    ]);
+
+    // manually sleep for 3 slots
+    await sleep(ethereumSlotDuration * 3 * 1000);
+
+    // now ensure that we only have one payload in monitored
+    await awaitNonEmptyMonitoredPayloads(slasherClient);
+    expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
+    expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
+    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offence.UNKNOWN]);
   });
 
   function awaitNonEmptyMonitoredPayloads(slasherClient: SlasherClient) {
