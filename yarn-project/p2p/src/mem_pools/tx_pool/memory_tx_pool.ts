@@ -3,7 +3,7 @@ import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation, PoolName } from '../instrumentation.js';
+import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
 import type { TxPool, TxPoolOptions } from './tx_pool.js';
 
@@ -31,8 +31,17 @@ export class InMemoryTxPool implements TxPool {
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();
-    this.metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL);
+    this.metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, this.countTx);
   }
+
+  private countTx: PoolStatsCallback = () => {
+    return Promise.resolve({
+      itemCount: {
+        mined: this.minedTxs.size,
+        pending: this.pendingTxs.size,
+      },
+    });
+  };
 
   public isEmpty(): Promise<boolean> {
     return Promise.resolve(this.txs.size === 0);
@@ -44,8 +53,6 @@ export class InMemoryTxPool implements TxPool {
       this.minedTxs.set(key, blockNumber);
       this.pendingTxs.delete(key);
     }
-    this.metrics.recordRemovedObjects(txHashes.length, 'pending');
-    this.metrics.recordAddedObjects(txHashes.length, 'mined');
     return Promise.resolve();
   }
 
@@ -68,9 +75,6 @@ export class InMemoryTxPool implements TxPool {
         this.pendingTxs.add(key);
       }
     }
-
-    this.metrics.recordRemovedObjects(deleted, 'mined');
-    this.metrics.recordAddedObjects(added, 'pending');
 
     return Promise.resolve();
   }
@@ -147,8 +151,6 @@ export class InMemoryTxPool implements TxPool {
         this.pendingTxs.add(key);
       }
     }
-
-    this.metrics.recordAddedObjects(pending, 'pending');
     return pending;
   }
 
@@ -167,9 +169,6 @@ export class InMemoryTxPool implements TxPool {
       deletedPending += this.pendingTxs.delete(key) ? 1 : 0;
       deletedMined += this.minedTxs.delete(key) ? 1 : 0;
     }
-
-    this.metrics.recordRemovedObjects(deletedPending, 'pending');
-    this.metrics.recordRemovedObjects(deletedMined, 'mined');
 
     return Promise.resolve();
   }
