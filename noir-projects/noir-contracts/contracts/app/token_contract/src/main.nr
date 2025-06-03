@@ -512,6 +512,37 @@ pub contract Token {
     }
     // docs:end:finalize_transfer_to_private
 
+    /// Finalizes a transfer of token `amount` from private balance of `from` to a private balance of `to`.
+    /// The transfer must be prepared by calling `prepare_private_balance_increase` from `from` account and
+    /// the resulting `partial_note` must be passed as an argument to this function.
+    ///
+    /// Note that this contract does not protect against a `partial_note` being used multiple times and it is up to
+    /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
+    /// times, the token `amount` would most likely get lost (the partial note log processing functionality would fail
+    /// to find the pending partial note when trying to complete it).
+    #[private]
+    fn finalize_transfer_to_private_from_private(
+        from: AztecAddress,
+        partial_note: PartialUintNote,
+        amount: u128,
+        nonce: Field,
+    ) {
+        if (!from.eq(context.msg_sender())) {
+            assert_current_call_valid_authwit(&mut context, from);
+        } else {
+            assert(nonce == 0, "invalid nonce");
+        }
+
+        // First we subtract the `amount` from the private balance of `from`
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+            &mut context,
+            from,
+            from,
+        ));
+
+        partial_note.complete_from_private(&mut context, context.msg_sender(), amount);
+    }
+
     // docs:start:finalize_transfer_to_private_unsafe
     /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
     /// to `_finalize_transfer_to_private` can be enqueued. Called unsafe as it does not check `from_and_completer`
