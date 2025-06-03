@@ -280,13 +280,13 @@ export interface ExecutionDataProvider {
    *
    * This automatically clears both validation request queues, so no further work needs to be done by the caller.
    * @param contractAddress - The address of the contract that the logs are tagged for.
-   * @param noteValidationRequestArrayBaseSlot - The base slot of capsule array containing note validation requests.
-   * @param eventValidationRequestArrayBaseSlot - The base slot of capsule array containing event validation requests.
+   * @param noteValidationRequestsArrayBaseSlot - The base slot of capsule array containing note validation requests.
+   * @param eventValidationRequestsArrayBaseSlot - The base slot of capsule array containing event validation requests.
    */
   validateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
-    noteValidationRequestArrayBaseSlot: Fr,
-    eventValidationRequestArrayBaseSlot: Fr,
+    noteValidationRequestsArrayBaseSlot: Fr,
+    eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void>;
 
   /**

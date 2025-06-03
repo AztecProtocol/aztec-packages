@@ -281,8 +281,8 @@ export class UtilityExecutionOracle extends TypedOracle {
 
   public override async validateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
-    noteValidationRequestArrayBaseSlot: Fr,
-    eventValidationRequestArrayBaseSlot: Fr,
+    noteValidationRequestsArrayBaseSlot: Fr,
+    eventValidationRequestsArrayBaseSlot: Fr,
   ) {
     // TODO(#10727): allow other contracts to deliver notes
     if (!this.contractAddress.equals(contractAddress)) {
@@ -291,8 +291,8 @@ export class UtilityExecutionOracle extends TypedOracle {
 
     await this.executionDataProvider.validateEnqueuedNotesAndEvents(
       contractAddress,
-      noteValidationRequestArrayBaseSlot,
-      eventValidationRequestArrayBaseSlot,
+      noteValidationRequestsArrayBaseSlot,
+      eventValidationRequestsArrayBaseSlot,
     );
   }
 

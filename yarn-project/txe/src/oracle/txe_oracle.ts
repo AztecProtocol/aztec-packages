@@ -1176,13 +1176,13 @@ export class TXE implements TypedOracle {
 
   public async validateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
-    noteValidationRequestArrayBaseSlot: Fr,
-    eventValidationRequestArrayBaseSlot: Fr,
+    noteValidationRequestsArrayBaseSlot: Fr,
+    eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
     await this.pxeOracleInterface.validateEnqueuedNotesAndEvents(
       contractAddress,
-      noteValidationRequestArrayBaseSlot,
-      eventValidationRequestArrayBaseSlot,
+      noteValidationRequestsArrayBaseSlot,
+      eventValidationRequestsArrayBaseSlot,
     );
   }
 

@@ -605,17 +605,17 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   public async validateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
-    noteValidationRequestArrayBaseSlot: Fr,
-    eventValidationRequestArrayBaseSlot: Fr,
+    noteValidationRequestsArrayBaseSlot: Fr,
+    eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
     // We read all note validation requests and process them all concurrently. This makes the process much faster as we
     // don't need to wait for the network round-trip.
     const noteValidationRequests = (
-      await this.capsuleDataProvider.readCapsuleArray(contractAddress, noteValidationRequestArrayBaseSlot)
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot)
     ).map(NoteValidationRequest.fromFields);
 
     const eventValidationRequests = (
-      await this.capsuleDataProvider.readCapsuleArray(contractAddress, eventValidationRequestArrayBaseSlot)
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot)
     ).map(EventValidationRequest.fromFields);
 
     const noteDeliveries = noteValidationRequests.map(request =>
@@ -647,7 +647,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     await Promise.all([...noteDeliveries, ...eventDeliveries]);
 
     // Requests are cleared once we're done.
-    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, noteValidationRequestArrayBaseSlot, []);
+    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, []);
   }
 
   async deliverNote(

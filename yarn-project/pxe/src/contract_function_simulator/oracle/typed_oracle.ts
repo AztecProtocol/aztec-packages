@@ -225,8 +225,8 @@ export abstract class TypedOracle {
 
   validateEnqueuedNotesAndEvents(
     _contractAddress: AztecAddress,
-    _noteValidationRequestArrayBaseSlot: Fr,
-    _eventValidationRequestArrayBaseSlot: Fr,
+    _noteValidationRequestsArrayBaseSlot: Fr,
+    _eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('validateEnqueuedNotesAndEvents'));
   }

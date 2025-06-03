@@ -407,13 +407,13 @@ export class Oracle {
 
   async validateEnqueuedNotesAndEvents(
     [contractAddress]: ACVMField[],
-    [noteValidationRequestArrayBaseSlot]: ACVMField[],
-    [eventValidationRequestArrayBaseSlot]: ACVMField[],
+    [noteValidationRequestsArrayBaseSlot]: ACVMField[],
+    [eventValidationRequestsArrayBaseSlot]: ACVMField[],
   ): Promise<ACVMField[]> {
     await this.typedOracle.validateEnqueuedNotesAndEvents(
       AztecAddress.fromString(contractAddress),
-      Fr.fromString(noteValidationRequestArrayBaseSlot),
-      Fr.fromString(eventValidationRequestArrayBaseSlot),
+      Fr.fromString(noteValidationRequestsArrayBaseSlot),
+      Fr.fromString(eventValidationRequestsArrayBaseSlot),
     );
 
     return [];
