@@ -18,8 +18,8 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     outputs:
-      release-pr: ${{ steps.release.outputs.pr }}
-      release-version: ${{ steps.release.outputs.tag_name }}
+      release-pr: ${{ steps.run_release_please.outputs.pr }}
+      release-version: ${{ steps.run_release_please.outputs.tag_name }}
     steps:
       - name: Run Release Please
         uses: googleapis/release-please-action@v4
@@ -33,6 +33,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
     needs: [release-please]
+    if: ${{ needs.release-please.outputs.release-pr }}
     runs-on: ubuntu-latest
 
     steps:
