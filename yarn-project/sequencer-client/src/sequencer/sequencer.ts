@@ -329,14 +329,16 @@ export class Sequencer {
       // and also we may need to fetch more if we don't have enough valid txs.
       const pendingTxs = this.p2pClient.iteratePendingTxs();
 
-      await this.buildBlockAndEnqueuePublish(pendingTxs, proposalHeader, newGlobalVariables).catch(err => {
-        if (err instanceof FormattedViemError) {
-          this.log.verbose(`Unable to build/enqueue block ${err.message}`);
-          return;
-        } else {
-          this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
-        }
-      });
+      await this.buildBlockAndEnqueuePublish(pendingTxs, proposalHeader, newGlobalVariables, proposerInNextSlot).catch(
+        err => {
+          if (err instanceof FormattedViemError) {
+            this.log.verbose(`Unable to build/enqueue block ${err.message}`);
+            return;
+          } else {
+            this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
+          }
+        },
+      );
       finishedFlushing = true;
     } else {
       this.log.verbose(
@@ -584,6 +586,8 @@ export class Sequencer {
    *
    * @param pendingTxs - Iterable of pending transactions to construct the block from
    * @param proposalHeader - The partial header constructed for the proposal
+   * @param newGlobalVariables - The global variables for the new block
+   * @param proposerAddress - The address of the proposer
    */
   @trackSpan('Sequencer.buildBlockAndEnqueuePublish', (_validTxs, _proposalHeader, newGlobalVariables) => ({
     [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber.toNumber(),
@@ -592,6 +596,7 @@ export class Sequencer {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     proposalHeader: ProposedBlockHeader,
     newGlobalVariables: GlobalVariables,
+    proposerAddress: EthAddress,
   ): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
@@ -636,7 +641,7 @@ export class Sequencer {
 
       this.log.debug('Collecting attestations');
       const stopCollectingAttestationsTimer = this.metrics.startCollectingAttestationsTimer();
-      const attestations = await this.collectAttestations(block, usedTxs);
+      const attestations = await this.collectAttestations(block, usedTxs, proposerAddress);
       if (attestations !== undefined) {
         this.log.verbose(`Collected ${attestations.length} attestations`, { blockHash, blockNumber });
       }
@@ -654,7 +659,11 @@ export class Sequencer {
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.BLOCK_TXS_COUNT]: txHashes.length,
   }))
-  protected async collectAttestations(block: L2Block, txs: Tx[]): Promise<CommitteeAttestation[] | undefined> {
+  protected async collectAttestations(
+    block: L2Block,
+    txs: Tx[],
+    proposerAddress: EthAddress,
+  ): Promise<CommitteeAttestation[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
 
@@ -683,6 +692,7 @@ export class Sequencer {
       block.archive.root,
       block.header.state,
       txs,
+      proposerAddress,
       blockProposalOptions,
     );
     if (!proposal) {

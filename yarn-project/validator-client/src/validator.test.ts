@@ -11,7 +11,7 @@ import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@az
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
@@ -51,6 +51,48 @@ describe('ValidatorClient', () => {
     validatorClient = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
   });
 
+  it('Should collect attestations from its own validators', async () => {
+    epochCache.filterInCommittee.mockResolvedValueOnce(
+      validatorAccounts.map(account => EthAddress.fromString(account.address)),
+    );
+    const addAttestationsSpy = jest.spyOn(p2pClient, 'addAttestations');
+    const proposal = makeBlockProposal();
+    // collectAttestations still throws as we don't have a real p2pClient
+    await expect(validatorClient.collectAttestations(proposal, 3, new Date(dateProvider.now() + 100))).rejects.toThrow(
+      AttestationTimeoutError,
+    );
+    expect(addAttestationsSpy).toHaveBeenCalled();
+    expect(addAttestationsSpy.mock.calls[0][0]).toHaveLength(2);
+  });
+
+  it('Should a timeout if we do not collect enough attestations in time', async () => {
+    const proposal = makeBlockProposal();
+
+    await expect(validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 100))).rejects.toThrow(
+      AttestationTimeoutError,
+    );
+  });
+
+  it('Should not return an attestation if re-execution fails', () => {
+    const proposal = makeBlockProposal();
+
+    // mock the p2pClient.getTxStatus to return undefined for all transactions
+    p2pClient.getTxStatus.mockResolvedValue(undefined);
+    p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
+    epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
+      currentProposer: proposal.getSender(),
+      nextProposer: proposal.getSender(),
+      currentSlot: proposal.slotNumber.toBigInt(),
+      nextSlot: proposal.slotNumber.toBigInt() + 1n,
+    });
+    epochCache.isInCommittee.mockResolvedValue(true);
+
+    const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
+    val.registerBlockBuilder(() => {
+      throw new Error('Failed to build block');
+    });
+  });
+
   describe('constructor', () => {
     it('should throw error if an invalid private key is provided', () => {
       config.validatorPrivateKeys = ['0x1234567890123456789'];
@@ -76,18 +118,14 @@ describe('ValidatorClient', () => {
       const header = makeHeader();
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: EthAddress.fromString(validatorAccounts[0].address),
-        nextProposer: EthAddress.fromString(validatorAccounts[1].address),
-        currentSlot: header.globalVariables.slotNumber.toBigInt(),
-        nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
-      });
+
       const blockProposal = await validatorClient.createBlockProposal(
         header.globalVariables.blockNumber,
         header.toPropose(),
         archive,
         header.state,
         txs,
+        EthAddress.fromString(validatorAccounts[0].address),
         { publishFullTxs: false },
       );
 
@@ -96,34 +134,6 @@ describe('ValidatorClient', () => {
       const validatorAddress = EthAddress.fromString(validatorAccounts[0].address);
       expect(blockProposal?.getSender()).toEqual(validatorAddress);
       expect(blockProposal!.txs).toBeUndefined();
-    });
-
-    it('should create a valid block proposal with txs', async () => {
-      const header = makeHeader();
-      const archive = Fr.random();
-      const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: EthAddress.fromString(validatorAccounts[0].address),
-        nextProposer: EthAddress.fromString(validatorAccounts[1].address),
-        currentSlot: header.globalVariables.slotNumber.toBigInt(),
-        nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
-      });
-
-      const blockProposal = await validatorClient.createBlockProposal(
-        header.globalVariables.blockNumber,
-        header.toPropose(),
-        archive,
-        header.state,
-        txs,
-        { publishFullTxs: true },
-      );
-
-      expect(blockProposal).toBeDefined();
-
-      const validatorAddress = EthAddress.fromString(validatorAccounts[0].address);
-      expect(blockProposal?.getSender()).toEqual(validatorAddress);
-      expect(blockProposal!.txs).toBeDefined();
-      expect(blockProposal!.txs).toBe(txs);
     });
   });
 
@@ -237,6 +247,23 @@ describe('ValidatorClient', () => {
     it('should request txs even if not attestor in this slot', async () => {
       p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
       epochCache.filterInCommittee.mockResolvedValue([]);
+
+      const attestation = await validatorClient.attestToProposal(proposal, sender);
+      expect(attestation).toBeUndefined();
+      expect(p2pClient.getTxsByHash).toHaveBeenCalledWith(proposal.payload.txHashes, sender);
+    });
+
+    it('should request txs if missing for attesting', async () => {
+      p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, i => i === 0)));
+
+      const attestation = await validatorClient.attestToProposal(proposal, sender);
+      expect(attestation).toBeDefined();
+      expect(p2pClient.getTxsByHash).toHaveBeenCalledWith(proposal.payload.txHashes, sender);
+    });
+
+    it('should request txs even if not attestor in this slot', async () => {
+      p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
+      epochCache.isInCommittee.mockResolvedValue(false);
 
       const attestation = await validatorClient.attestToProposal(proposal, sender);
       expect(attestation).toBeUndefined();
