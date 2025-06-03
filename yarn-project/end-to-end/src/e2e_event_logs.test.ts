@@ -78,6 +78,7 @@ describe('Logs', () => {
       const expectedEvent0s = [...preimages, ...preimages].map(preimage => ({
         value0: preimage[0].toBigInt(),
         value1: preimage[1].toBigInt(),
+        randomness: expect.any(BigInt), // Ignore the random value
       }));
       expect(collectedEvent0s.sort(exampleEvent0Sort)).toStrictEqual(expectedEvent0s.sort(exampleEvent0Sort));
 
@@ -88,6 +89,7 @@ describe('Logs', () => {
             value2: new AztecAddress(preimage[2]),
             // We get the last byte here because value3 is of type u8
             value3: BigInt(preimage[3].toBuffer().subarray(31).readUint8()),
+            randomness: expect.any(BigInt), // Ignore the random value
           }))
           .sort(exampleEvent1Sort),
       );
@@ -119,7 +121,11 @@ describe('Logs', () => {
       const exampleEvent0Sort = (a: ExampleEvent0, b: ExampleEvent0) => (a.value0 > b.value0 ? 1 : -1);
       expect(collectedEvent0s.sort(exampleEvent0Sort)).toStrictEqual(
         preimage
-          .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
+          .map(preimage => ({
+            value0: preimage[0].toBigInt(),
+            value1: preimage[1].toBigInt(),
+            randomness: expect.any(BigInt), // Ignore the random value
+          }))
           .sort(exampleEvent0Sort),
       );
 
@@ -130,6 +136,7 @@ describe('Logs', () => {
             value2: new AztecAddress(preimage[2]),
             // We get the last byte here because value3 is of type u8
             value3: BigInt(preimage[3].toBuffer().subarray(31).readUint8()),
+            randomness: expect.any(BigInt), // Ignore the random value
           }))
           .sort(exampleEvent1Sort),
       );
