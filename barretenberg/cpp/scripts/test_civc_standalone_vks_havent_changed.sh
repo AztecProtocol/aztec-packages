@@ -6,8 +6,10 @@ cd ..
 # NOTE: We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
 # This allows us to compare the generated VKs here with ones we compute freshly, detecting breaking protocol changes.
 # IF A VK CHANGE IS EXPECTED - we need to redo this:
-# - Generate inputs: $root/yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
-# - Upload the compressed results: aws s3 cp bb-civc-inputs-[version].tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[version].tar.gz
+# - Generate inputs: $root/yarn-project/end-to-end/bootstrap.sh build_bench
+# - Compress the results: tar -czf bb-civc-inputs.tar.gz -C example-app-ivc-inputs-out .
+# - Generate a hash for versioning: sha256sum bb-civc-inputs.tar.gz
+# - Upload the compressed results: aws s3 cp bb-civc-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[hash(0:8)].tar.gz
 pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-ea572d03.tar.gz"
 
 export inputs_tmp_dir=$(mktemp -d)

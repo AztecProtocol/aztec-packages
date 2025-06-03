@@ -45,7 +45,10 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
 
         size_t round = 0;
-        manifest_expected.add_entry(round, "vkey_hash", frs_per_Fr);
+        for (size_t i = 0; i < Flavor::VerificationKey::VERIFICATION_KEY_LENGTH; i++) {
+            manifest_expected.add_entry(round, "vkey_field", frs_per_Fr);
+        }
+        manifest_expected.add_challenge(round, "vkey_hash");
         round++;
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
         for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {

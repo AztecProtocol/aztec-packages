@@ -56,9 +56,10 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
     info("vkey_hash in rec ver: ", vkey_hash);
 
+    size_t num_public_inputs =
+        static_cast<size_t>(static_cast<uint32_t>(verification_key->verification_key->num_public_inputs.get_value()));
     std::vector<FF> public_inputs;
-    for (size_t i = 0; i < static_cast<size_t>(verification_key->verification_key->num_public_inputs.get_value());
-         ++i) {
+    for (size_t i = 0; i < num_public_inputs; ++i) {
         public_inputs.emplace_back(
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i)));
     }
@@ -110,7 +111,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         public_inputs,
         beta,
         gamma,
-        circuit_size,
+        verification_key->verification_key->circuit_size,
         static_cast<uint32_t>(verification_key->verification_key->pub_inputs_offset.get_value()));
 
     // Get commitment to permutation and lookup grand products
