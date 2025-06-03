@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_keccakf1600.hpp"
@@ -412,126 +413,131 @@ void KeccakF1600TraceBuilder::process(
 
     uint32_t row = 1;
     for (const auto& event : events) {
-        // Setting the selector, xor operation id, and operation id, round, round cst
-        trace.set(C::keccakf1600_sel, row, 1);
-        trace.set(C::keccakf1600_bitwise_xor_op_id, row, static_cast<uint8_t>(BitwiseOperation::XOR));
-        trace.set(C::keccakf1600_bitwise_and_op_id, row, static_cast<uint8_t>(BitwiseOperation::AND));
-        trace.set(C::keccakf1600_round, row, event.round);
-        trace.set(C::keccakf1600_round_cst, row, simulation::keccak_round_constants[event.round - 1]);
 
-        // Selectors start and last.
-        if (event.round == 1) {
-            trace.set(C::keccakf1600_start, row, 1);
-        } else if (event.round == AVM_KECCAKF1600_NUM_ROUNDS) {
-            trace.set(C::keccakf1600_last, row, 1);
-        };
+        for (size_t round_idx = 0; round_idx < AVM_KECCAKF1600_NUM_ROUNDS; round_idx++) {
+            const auto& round_data = event.rounds[round_idx];
+            // Setting the selector, xor operation id, and operation id, round, round cst
+            trace.set(C::keccakf1600_sel, row, 1);
+            trace.set(C::keccakf1600_bitwise_xor_op_id, row, static_cast<uint8_t>(BitwiseOperation::XOR));
+            trace.set(C::keccakf1600_bitwise_and_op_id, row, static_cast<uint8_t>(BitwiseOperation::AND));
+            trace.set(C::keccakf1600_round, row, round_data.round);
+            trace.set(C::keccakf1600_round_cst, row, simulation::keccak_round_constants[round_idx]);
 
-        // Helper "inverse" columns for sel and last.
-        trace.set(C::keccakf1600_round_inv, row, FF(event.round).invert());
-        trace.set(C::keccakf1600_round_min_num_rounds_inv,
-                  row,
-                  event.round == AVM_KECCAKF1600_NUM_ROUNDS ? 1
-                                                            : FF(event.round - AVM_KECCAKF1600_NUM_ROUNDS).invert());
+            // Selectors start and last.
+            if (round_data.round == 1) {
+                trace.set(C::keccakf1600_start, row, 1);
+            } else if (round_data.round == AVM_KECCAKF1600_NUM_ROUNDS) {
+                trace.set(C::keccakf1600_last, row, 1);
+            };
 
-        // Setting state inputs in their corresponding colums
-        for (size_t i = 0; i < 5; i++) {
-            for (size_t j = 0; j < 5; j++) {
-                trace.set(state_in_cols[i][j], row, event.state[i][j]);
-            }
-        }
+            // Helper "inverse" columns for sel and last.
+            trace.set(C::keccakf1600_round_inv, row, FF(round_data.round).invert());
+            trace.set(C::keccakf1600_round_min_num_rounds_inv,
+                      row,
+                      round_data.round == AVM_KECCAKF1600_NUM_ROUNDS
+                          ? 1
+                          : FF(round_data.round - AVM_KECCAKF1600_NUM_ROUNDS).invert());
 
-        // Setting theta xor values to their corresponding columns
-        for (size_t i = 0; i < 5; i++) {
-            for (size_t j = 0; j < 4; j++) {
-                trace.set(theta_xor_cols[i][j], row, event.theta_xor[i][j]);
-            }
-        }
-
-        // Setting theta xor final values left rotated by 1
-        // and the msb and low 63 bits values.
-        for (size_t i = 0; i < 5; i++) {
-            const auto theta_xor_row_rotl1 = event.theta_xor_row_rotl1[i];
-            const auto theta_xor_row_msb = theta_xor_row_rotl1 & 1;    // lsb of of the rotated value
-            const auto theta_xor_row_low63 = theta_xor_row_rotl1 >> 1; // 63 high bits of the rotated value
-
-            trace.set(theta_xor_row_rotl1_cols[i], row, theta_xor_row_rotl1);
-            trace.set(theta_xor_row_msb_cols[i], row, theta_xor_row_msb);
-            trace.set(theta_xor_row_low63_cols[i], row, theta_xor_row_low63);
-        }
-
-        // Setting theta_combined_xor values
-        for (size_t i = 0; i < 5; i++) {
-            trace.set(theta_combined_xor_cols[i], row, event.theta_combined_xor[i]);
-        }
-
-        // Setting state_theta values
-        for (size_t i = 0; i < 5; i++) {
-            for (size_t j = 0; j < 5; j++) {
-                trace.set(state_theta_cols[i][j], row, event.state_theta[i][j]);
-            }
-        }
-
-        // Setting state_theta_hi and state_theta_low values.
-        // We loop the flatten index k from 1 to 25 and compute
-        // 2-dimensional indices i = k/5 and j = k%5
-        for (size_t k = 1; k < 25; k++) {
-            const size_t i = k / 5;
-            const size_t j = k % 5;
-            const size_t low_num_bits = 64 - simulation::keccak_rotation_len[i][j];
-            const auto state_theta_val = event.state_theta[i][j];
-            const auto state_theta_hi = state_theta_val >> low_num_bits;
-            const auto state_theta_low = state_theta_val & ((1ULL << low_num_bits) - 1);
-
-            trace.set(state_theta_hi_cols[k - 1], row, state_theta_hi);
-            trace.set(state_theta_low_cols[k - 1], row, state_theta_low);
-        }
-
-        // Setting the rotation length constants
-        // If the constant is <= 32, we set it in the column.
-        // Otherwise, we set 64 - constant.
-        for (size_t k = 1; k < 25; k++) {
-            const size_t i = k / 5;
-            const size_t j = k % 5;
-            const auto rotation_len = simulation::keccak_rotation_len[i][j];
-            const auto value = rotation_len <= 32 ? rotation_len : 64 - rotation_len;
-            trace.set(rho_rotation_len_cols[k - 1], row, value);
-        }
-
-        // Setting state_rho values
-        for (size_t k = 1; k < 25; k++) {
-            const size_t i = k / 5;
-            const size_t j = k % 5;
-            trace.set(state_rho_cols[k - 1], row, event.state_rho[i][j]);
-        }
-
-        // Setting "pi not" values
-        // Setting "pi and" values
-        // Setting chi values
-        for (size_t i = 0; i < 5; i++) {
-            for (size_t j = 0; j < 5; j++) {
-                trace.set(state_pi_not_cols[i][j], row, event.state_pi_not[i][j]);
-                trace.set(state_pi_and_cols[i][j], row, event.state_pi_and[i][j]);
-                trace.set(state_chi_cols[i][j], row, event.state_chi[i][j]);
-            }
-        }
-
-        // Setting iota_00
-        trace.set(C::keccakf1600_state_iota_00, row, event.state_iota_00);
-
-        // Setting output
-        if (event.round == AVM_KECCAKF1600_NUM_ROUNDS) {
+            // Setting state inputs in their corresponding colums
             for (size_t i = 0; i < 5; i++) {
                 for (size_t j = 0; j < 5; j++) {
-                    if (i != 0 || j != 0) {
-                        trace.set(state_out_cols[i][j], row, event.state_chi[i][j]);
+                    trace.set(state_in_cols[i][j], row, round_data.state[i][j]);
+                }
+            }
+
+            // Setting theta xor values to their corresponding columns
+            for (size_t i = 0; i < 5; i++) {
+                for (size_t j = 0; j < 4; j++) {
+                    trace.set(theta_xor_cols[i][j], row, round_data.theta_xor[i][j]);
+                }
+            }
+
+            // Setting theta xor final values left rotated by 1
+            // and the msb and low 63 bits values.
+            for (size_t i = 0; i < 5; i++) {
+                const auto theta_xor_row_rotl1 = round_data.theta_xor_row_rotl1[i];
+                const auto theta_xor_row_msb = theta_xor_row_rotl1 & 1;    // lsb of of the rotated value
+                const auto theta_xor_row_low63 = theta_xor_row_rotl1 >> 1; // 63 high bits of the rotated value
+
+                trace.set(theta_xor_row_rotl1_cols[i], row, theta_xor_row_rotl1);
+                trace.set(theta_xor_row_msb_cols[i], row, theta_xor_row_msb);
+                trace.set(theta_xor_row_low63_cols[i], row, theta_xor_row_low63);
+            }
+
+            // Setting theta_combined_xor values
+            for (size_t i = 0; i < 5; i++) {
+                trace.set(theta_combined_xor_cols[i], row, round_data.theta_combined_xor[i]);
+            }
+
+            // Setting state_theta values
+            for (size_t i = 0; i < 5; i++) {
+                for (size_t j = 0; j < 5; j++) {
+                    trace.set(state_theta_cols[i][j], row, round_data.state_theta[i][j]);
+                }
+            }
+
+            // Setting state_theta_hi and state_theta_low values.
+            // We loop the flatten index k from 1 to 25 and compute
+            // 2-dimensional indices i = k/5 and j = k%5
+            for (size_t k = 1; k < 25; k++) {
+                const size_t i = k / 5;
+                const size_t j = k % 5;
+                const size_t low_num_bits = 64 - simulation::keccak_rotation_len[i][j];
+                const auto state_theta_val = round_data.state_theta[i][j];
+                const auto state_theta_hi = state_theta_val >> low_num_bits;
+                const auto state_theta_low = state_theta_val & ((1ULL << low_num_bits) - 1);
+
+                trace.set(state_theta_hi_cols[k - 1], row, state_theta_hi);
+                trace.set(state_theta_low_cols[k - 1], row, state_theta_low);
+            }
+
+            // Setting the rotation length constants
+            // If the constant is <= 32, we set it in the column.
+            // Otherwise, we set 64 - constant.
+            for (size_t k = 1; k < 25; k++) {
+                const size_t i = k / 5;
+                const size_t j = k % 5;
+                const auto rotation_len = simulation::keccak_rotation_len[i][j];
+                const auto value = rotation_len <= 32 ? rotation_len : 64 - rotation_len;
+                trace.set(rho_rotation_len_cols[k - 1], row, value);
+            }
+
+            // Setting state_rho values
+            for (size_t k = 1; k < 25; k++) {
+                const size_t i = k / 5;
+                const size_t j = k % 5;
+                trace.set(state_rho_cols[k - 1], row, round_data.state_rho[i][j]);
+            }
+
+            // Setting "pi not" values
+            // Setting "pi and" values
+            // Setting chi values
+            for (size_t i = 0; i < 5; i++) {
+                for (size_t j = 0; j < 5; j++) {
+                    trace.set(state_pi_not_cols[i][j], row, round_data.state_pi_not[i][j]);
+                    trace.set(state_pi_and_cols[i][j], row, round_data.state_pi_and[i][j]);
+                    trace.set(state_chi_cols[i][j], row, round_data.state_chi[i][j]);
+                }
+            }
+
+            // Setting iota_00
+            trace.set(C::keccakf1600_state_iota_00, row, round_data.state_iota_00);
+
+            // Setting output
+            if (round_data.round == AVM_KECCAKF1600_NUM_ROUNDS) {
+                for (size_t i = 0; i < 5; i++) {
+                    for (size_t j = 0; j < 5; j++) {
+                        if (i != 0 || j != 0) {
+                            trace.set(state_out_cols[i][j], row, round_data.state_chi[i][j]);
+                        }
                     }
                 }
             }
+
+            trace.set(state_out_cols[0][0], row, round_data.state_iota_00);
+
+            row++;
         }
-
-        trace.set(state_out_cols[0][0], row, event.state_iota_00);
-
-        row++;
     }
 }
 

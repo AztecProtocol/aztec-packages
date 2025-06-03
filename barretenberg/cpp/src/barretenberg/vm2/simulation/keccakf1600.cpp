@@ -21,7 +21,7 @@ MemoryValue unconstrained_rotate_left(MemoryValue x, uint8_t len)
     return MemoryValue::from(out_uint64_t);
 }
 
-// A function which transforms any two dimensional arrays of MemoryValue into a two dimensional array of uint64_t.
+// A function which transforms any two-dimensional array of MemoryValue's into a two-dimensional array of uint64_t.
 template <size_t N, size_t M>
 std::array<std::array<uint64_t, M>, N> two_dim_array_to_uint64(const std::array<std::array<MemoryValue, M>, N>& input)
 {
@@ -34,7 +34,7 @@ std::array<std::array<uint64_t, M>, N> two_dim_array_to_uint64(const std::array<
     return output;
 }
 
-// A function which transforms any one dimensional arrays of MemoryValue into a one dimensional array of uint64_t
+// A function which transforms any array of MemoryValue's into an array of uint64_t.
 template <size_t N> std::array<uint64_t, N> array_to_uint64(const std::array<MemoryValue, N>& input)
 {
     std::array<uint64_t, N> output;
@@ -60,7 +60,7 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
     using KeccakF1600StateMemValues = std::array<std::array<MemoryValue, 5>, 5>;
 
     // We convert input into Memory values as this type is required for bitwise operations handled
-    // by the bitwise sub-trace simulator. We continue by operating over Memor values and convert
+    // by the bitwise sub-trace simulator. We continue by operating over Memory values and convert
     // them back only at the end.
     // TODO(JEAMON): Making this gadget memory aware might anyway get rid of this transformation.
     KeccakF1600StateMemValues state_input_values;
@@ -69,6 +69,8 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
             state_input_values[i][j] = MemoryValue::from(input[i][j]);
         }
     }
+
+    std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds_data;
 
     for (uint8_t round = 1; round <= AVM_KECCAKF1600_NUM_ROUNDS; round++) {
         std::array<std::array<MemoryValue, 4>, 5> theta_xor_values;
@@ -157,7 +159,8 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
         MemoryValue iota_00_value =
             bitwise.xor_op(state_chi_values[0][0], MemoryValue::from(keccak_round_constants[round - 1]));
 
-        perm_events.emit({
+        rounds_data[round - 1] = {
+            .round = round,
             .state = two_dim_array_to_uint64(state_input_values),
             .theta_xor = two_dim_array_to_uint64(theta_xor_values),
             .theta_xor_row_rotl1 = array_to_uint64(theta_xor_row_rotl1_values),
@@ -168,12 +171,15 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
             .state_pi_and = two_dim_array_to_uint64(state_pi_and_values),
             .state_chi = two_dim_array_to_uint64(state_chi_values),
             .state_iota_00 = iota_00_value.as<uint64_t>(),
-            .round = round,
-        });
+        };
 
         state_input_values = state_chi_values;
         state_input_values[0][0] = iota_00_value;
     }
+
+    perm_events.emit({
+        .rounds = rounds_data,
+    });
 
     return two_dim_array_to_uint64(state_input_values);
 }
