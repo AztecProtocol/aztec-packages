@@ -55,3 +55,20 @@ pub fn verify_rolluphonk_proof<let N: u32>(
         PROOF_TYPE_ROLLUP_HONK,
     );
 }
+
+
+
+pub fn verify_ultrahonkzk_proof<let N: u32>(
+    verification_key: UltraHonkZKVerificationKey,
+    proof: UltraHonkZKProof,
+    public_inputs: [Field; N],
+    key_hash: Field,
+) {
+    std::verify_proof_with_type(
+        verification_key,
+        proof,
+        public_inputs,
+        key_hash,
+        PROOF_TYPE_HONK_ZK,
+    );
+}

@@ -416,15 +416,14 @@ process_honk_recursion_constraints(Builder& builder,
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
         if (constraint.proof_type == HONK_ZK) {
             auto [pairing_points, _ipa_claim, _ipa_proof] =
-                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(builder, constraint);
+                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(
+                    builder, constraint, has_valid_witness_assignments);
 
             if (output.points_accumulator.has_data) {
                 output.points_accumulator.aggregate(pairing_points);
             } else {
                 output.points_accumulator = pairing_points;
             }
-
-            info("WARNING: supporting honk_zk_recursion_constraints is a work in progress!");
 
         } else if (constraint.proof_type == HONK) {
             auto [pairing_points, _ipa_claim, _ipa_proof] =
