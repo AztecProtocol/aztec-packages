@@ -366,12 +366,14 @@ export class TXEService {
     }
 
     // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
-    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note]
+    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note].
 
     const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, nonce, index, note }) => {
       // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
       const noteIsTransient = index === undefined;
       const nonzeroNoteHashCounter = noteIsTransient ? true : false;
+      // If you change the array on the next line you have to change the `unpack_retrieved_note` function in
+      // `aztec/src/note/retrieved_note.nr`
       return [contractAddress, nonce, nonzeroNoteHashCounter, ...note.items];
     });
 
@@ -687,14 +689,14 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  async syncNotes(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
+  async syncPrivateState(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    await this.typedOracle.syncNotes(fromSingle(pendingTaggedLogArrayBaseSlot));
+    await this.typedOracle.syncPrivateState(fromSingle(pendingTaggedLogArrayBaseSlot));
     return toForeignCallResult([]);
   }
 
