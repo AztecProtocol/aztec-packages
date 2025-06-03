@@ -2,7 +2,7 @@ import { poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
+// Importing directly from 'c-kzg' does not work:
 import cKzg from 'c-kzg';
 import type { Blob as BlobBuffer } from 'c-kzg';
 
@@ -310,6 +310,8 @@ export class Blob {
 
   // Returns as many blobs as we require to broadcast the given fields
   // Assumes we share the fields hash between all blobs
+  // TODO(MW): Rename to more accurate getBlobsPerBlock() - the items here share a fields hash,
+  // which can only be done for one block because the hash is calculated in block root.
   static async getBlobs(fields: Fr[]): Promise<Blob[]> {
     const numBlobs = Math.max(Math.ceil(fields.length / FIELD_ELEMENTS_PER_BLOB), 1);
     const multiBlobFieldsHash = await poseidon2Hash(fields);

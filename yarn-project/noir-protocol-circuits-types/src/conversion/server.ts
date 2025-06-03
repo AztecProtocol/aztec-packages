@@ -165,6 +165,7 @@ export function mapBLS12BigNumFromNoir(bignum: BigNum): bigint {
   return BigInt(paddedLimbs[0].concat(paddedLimbs[1], paddedLimbs[2]));
 }
 
+// TODO(MW): Use BLS12Field's .toNoirBigNum()
 export function mapBLS12BigNumToNoir(number: bigint): BigNum {
   const hex = toHex(number, true);
   return {
