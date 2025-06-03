@@ -34,6 +34,12 @@ template <typename Builder, typename T> class bigfield {
         size_t num_bits;
     };
 
+    /**
+     * @brief Represents a single limb of a bigfield element, with its value and maximum value.
+
+     * @details The default maximum value of a new limb is set to 2^L - 1.
+     *
+     */
     struct Limb {
         Limb() {}
         Limb(const field_t<Builder>& input, const uint256_t& max = DEFAULT_MAXIMUM_LIMB)
