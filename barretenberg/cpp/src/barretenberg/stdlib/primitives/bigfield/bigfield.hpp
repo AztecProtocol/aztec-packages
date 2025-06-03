@@ -462,6 +462,12 @@ template <typename Builder, typename T> class bigfield {
      * We also check that b != 0.
      */
     bigfield operator/(const bigfield& other) const;
+
+    /**
+     * @brief Negation operator, works by subtracting `this` from zero.
+     *
+     * @return bigfield
+     */
     bigfield operator-() const { return bigfield(get_context(), uint256_t(0)) - *this; }
 
     bigfield operator+=(const bigfield& other)
