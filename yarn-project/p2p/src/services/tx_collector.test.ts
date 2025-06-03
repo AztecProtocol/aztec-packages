@@ -57,7 +57,10 @@ describe('tx collector', () => {
   };
 
   const shuffleTxs = (original: Tx[]) => {
-    return original.sort(() => Math.random() - 0.5);
+    return original
+      .map(value => ({ value, sort: Math.random() }))
+      .sort((a, b) => a.sort - b.sort)
+      .map(({ value }) => value);
   };
 
   beforeEach(() => {
