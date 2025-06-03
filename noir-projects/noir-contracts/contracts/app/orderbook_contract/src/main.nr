@@ -172,9 +172,6 @@ pub contract Orderbook {
             &mut context,
         );
 
-        // TODO: This would make sense to emit in `fulfill_order` as then we would not have to pass it to this function
-        // and we would do less args hashing. But as far as I know emitting of unencrypted events in private is not
-        // supported.
         emit_event_in_public_log(OrderFulfilled { order_id }, &mut context);
     }
 
