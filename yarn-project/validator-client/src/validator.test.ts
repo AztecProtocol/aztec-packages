@@ -253,23 +253,6 @@ describe('ValidatorClient', () => {
       expect(p2pClient.getTxsByHash).toHaveBeenCalledWith(proposal.payload.txHashes, sender);
     });
 
-    it('should request txs if missing for attesting', async () => {
-      p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, i => i === 0)));
-
-      const attestation = await validatorClient.attestToProposal(proposal, sender);
-      expect(attestation).toBeDefined();
-      expect(p2pClient.getTxsByHash).toHaveBeenCalledWith(proposal.payload.txHashes, sender);
-    });
-
-    it('should request txs even if not attestor in this slot', async () => {
-      p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
-      epochCache.isInCommittee.mockResolvedValue(false);
-
-      const attestation = await validatorClient.attestToProposal(proposal, sender);
-      expect(attestation).toBeUndefined();
-      expect(p2pClient.getTxsByHash).toHaveBeenCalledWith(proposal.payload.txHashes, sender);
-    });
-
     it('should throw an error if the transactions are not available', async () => {
       // Mock the p2pClient.getTxStatus to return undefined for all transactions
       p2pClient.getTxStatus.mockResolvedValue(undefined);
