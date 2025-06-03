@@ -72,7 +72,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_next_context_id, 2 },
                                    { C::execution_rop_3_, /*cd offset=*/10 },
                                    { C::execution_rop_4_, /*cd size=*/1 },
-                                   { C::execution_reg3, /*contract address=*/0xdeadbeef },
+                                   { C::execution_register_2_, /*contract address=*/0xdeadbeef },
                                    { C::execution_parent_l2_gas_limit, 2000 },
                                    { C::execution_parent_da_gas_limit, 4000 },
                                    { C::execution_parent_l2_gas_used, 500 },
@@ -98,9 +98,9 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_pc, 20 },
                                    { C::execution_next_pc, 30 },
                                    { C::execution_sel_return, 1 },
-                                   { C::execution_rop_0_, 500 }, // Return data size offset
-                                   { C::execution_rop_1_, 600 }, // Return data offset
-                                   { C::execution_reg1, 200 },   // Return data size
+                                   { C::execution_rop_0_, 500 },      // Return data size offset
+                                   { C::execution_rop_1_, 600 },      // Return data offset
+                                   { C::execution_register_0_, 200 }, // Return data size
                                    { C::execution_sel_exit_call, 1 },
                                    { C::execution_nested_exit_call, 1 },
                                    { C::execution_nested_return, 1 },
