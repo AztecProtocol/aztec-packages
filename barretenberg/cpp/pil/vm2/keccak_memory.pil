@@ -102,7 +102,7 @@ last * (tag_error - single_tag_error) = 0;
 // No need to enforce a boolean constraint for tag_error as it follows from the above constraints.
 
 #[MEM_ADDR_INCREMENT]
-(1 - last) * (addr + 1 - addr') = 0;
+sel * (1 - last) * (addr + 1 - addr') = 0;
 
 #[SPACEID_PROPAGATION]
 (1 - last) * (space_id - space_id') = 0;

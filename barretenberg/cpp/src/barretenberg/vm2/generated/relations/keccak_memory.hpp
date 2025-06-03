@@ -13,7 +13,7 @@ template <typename FF_> class keccak_memoryImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 41> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4, 4, 3, 5, 3, 3, 3, 3, 4, 3, 3,
+    static constexpr std::array<size_t, 41> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4, 4, 3, 5, 3, 3, 3, 3, 4, 4, 3,
                                                                             5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                                                                             3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
@@ -121,7 +121,7 @@ template <typename FF_> class keccak_memoryImpl {
         }
         { // MEM_ADDR_INCREMENT
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::keccak_memory_last)) *
+            auto tmp = in.get(C::keccak_memory_sel) * (FF(1) - in.get(C::keccak_memory_last)) *
                        ((in.get(C::keccak_memory_addr) + FF(1)) - in.get(C::keccak_memory_addr_shift));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);

@@ -9,8 +9,10 @@ namespace bb::avm2::tracegen {
 
 class KeccakF1600TraceBuilder final {
   public:
-    void process(const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events,
-                 TraceContainer& trace);
+    void process_permutation(const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events,
+                             TraceContainer& trace);
+    void process_memory_slices(const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events,
+                               TraceContainer& trace);
 
     static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs();
 };
