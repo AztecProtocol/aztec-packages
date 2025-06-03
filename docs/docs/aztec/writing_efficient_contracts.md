@@ -27,9 +27,14 @@ On Aztec (like other L2s) there are several costs/limit to consider...
 
 ### Local Proof generation
 
-Since the proof generation is a significant local burden, being mindful of the gate-count of private functions is important. The gate-count is a proportionate indicator of the memory and time required to prove locally, so should not be ignored.
+Since proof generation is a significant local burden, being mindful of the gate-count of private functions is important. The gate-count is a proportionate indicator of the memory and time required to prove locally, so should not be ignored.
 
-If private functions are written contrary to the advice in [this section](https://noir-lang.org/docs/explainers/explainer-writing-noir#writing-efficient-noir-for-performant-products), then a program risks hitting local limits.
+From [here](https://noir-lang.org/docs/explainers/explainer-writing-noir#writing-efficient-noir-for-performant-products), a summary of details to consider (where possible) to avoid hitting local limits:
+- Use fields and avoid casting between types
+- Use Arithmetic over non-arithmetic operations
+- Use static over dynamic values
+- Reduce what is inside loops and conditional logic
+- Leverage unconstrained execution
 
 Profiling the gate count of a private function can be seen [here](../developers/tutorials/codealong/contract_tutorials/counter_contract#investigate-the-increment-function).
 
