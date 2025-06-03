@@ -22,7 +22,7 @@ function build {
 
   if ! cache_download boxes-$hash.tar.gz; then
     denoise 'yarn build'
-    cache_upload boxes-$hash.tar.gz boxes/*/{artifacts,dist,src/contracts/target}
+    cache_upload boxes-$hash.tar.gz boxes/*/{artifacts,dist,src/contracts/target,contracts/target}
   fi
 }
 

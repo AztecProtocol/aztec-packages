@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 
+// Time take to generate a proof.
 const proofTimeout = 150_000;
 
 test.beforeAll(async () => {

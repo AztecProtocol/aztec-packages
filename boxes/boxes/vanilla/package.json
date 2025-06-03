@@ -10,7 +10,7 @@
     "clean": "rm -rf app/dist contracts/target contracts/codegenCache.json",
     "compile-contracts": "cd contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
     "codegen-contracts": "cd contracts && ${AZTEC_BUILDER:-aztec} codegen ./target -o ./target",
-    "copy-artifacts": "mkdir -p app/artifacts && cp contracts/target/*.json contracts/target/*.ts app/artifacts",
+    "copy-artifacts": "mkdir -p artifacts && cp contracts/target/*.json contracts/target/*.ts ./artifacts",
     "build-contracts": "yarn clean && yarn compile-contracts && yarn codegen-contracts && yarn copy-artifacts",
     "deploy-contracts": "node --experimental-transform-types scripts/deploy.ts",
     "dev": "webpack serve --mode development",

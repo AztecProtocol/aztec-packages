@@ -6,7 +6,7 @@ import {
   type AccountWallet,
 } from '@aztec/aztec.js';
 import { EmbeddedWallet } from './embedded-wallet';
-import { EasyPrivateVotingContract } from './artifacts/EasyPrivateVoting';
+import { EasyPrivateVotingContract } from '../artifacts/EasyPrivateVoting';
 
 // DOM Elements
 const createAccountButton =
