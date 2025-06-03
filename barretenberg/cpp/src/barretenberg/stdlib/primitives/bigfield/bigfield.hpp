@@ -908,6 +908,25 @@ template <typename Builder, typename T> class bigfield {
                                                                const std::vector<uint1024_t>& remainders_max = {
                                                                    DEFAULT_MAXIMUM_REMAINDER });
 
+    /**
+     * @brief Evaluate a multiply add identity with several added elements and several remainders
+     *
+     * @param left Left multiplicand
+     * @param right Right multiplicand
+     * @param to_add Vector of elements to add
+     * @param quotient Quotient term
+     * @param remainders Vector of remainders
+     *
+     * @details This function evaluates the relationship:
+     * a * b + (to_add[0] + .. + to_add[-1]) - q * p - (r[0] + .. + r[-1]) = 0 mod 2^t (binary basis modulus)
+     * a * b + (to_add[0] + .. + to_add[-1]) - q * p - (r[0] + .. + r[-1]) = 0 mod n (circuit modulus)
+     *
+     * @note This method supports multiple "remainders" because, when evaluating division of the form:
+     * (n[0] * n[1] + ... + n[-1]) / d, the numerator (which becomes the remainder term) can be a sum of multiple
+     * elements.
+     *
+     * @warning THIS FUNCTION IS UNSAFE TO USE IN CIRCUITS AS IT DOES NOT PROTECT AGAINST CRT OVERFLOWS.
+     */
     static void unsafe_evaluate_multiply_add(const bigfield& left,
                                              const bigfield& right_mul,
                                              const std::vector<bigfield>& to_add,
