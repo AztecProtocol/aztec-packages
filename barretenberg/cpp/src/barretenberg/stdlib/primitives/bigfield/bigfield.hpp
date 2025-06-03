@@ -327,10 +327,10 @@ template <typename Builder, typename T> class bigfield {
     static constexpr bb::fr negative_prime_modulus_mod_binary_basis = -bb::fr(uint256_t(modulus_u512));
     static constexpr uint512_t negative_prime_modulus = binary_basis.modulus - target_basis.modulus;
     static constexpr uint256_t neg_modulus_limbs_u256[NUM_LIMBS]{
-        uint256_t(negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo),
-        uint256_t(negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
-        uint256_t(negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
-        uint256_t(negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
+        negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo,
+        negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo,
+        negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo,
+        negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo,
     };
     static constexpr bb::fr neg_modulus_limbs[NUM_LIMBS]{
         bb::fr(negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo),
