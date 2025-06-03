@@ -678,7 +678,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // in time of the locally synced state.
     // Note that while this technically results in historical queries, we perform it at the latest locally synced block
     // number which *should* be recent enough to be available, even for non-archive nodes.
-    // TODO(benesjan): doesn't this lead to loss of notes?
+    // Also note that the note should never be ahead of the synced block here since `fetchTaggedLogs` only processes
+    // logs up to the synced block making this only an additional safety check.
     const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
@@ -746,7 +747,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     txIndexInBlock: number,
     recipient: AztecAddress,
   ): Promise<void> {
-    // TODO(benesjan): should we prevent syncing from block larger than syncedBlockNumber?
+    // While using 'latest' block number would be fine for private events since they cannot be accessed from Aztec.nr
+    // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
+    // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
+    // since `fetchTaggedLogs` only processes logs up to the synced block.
+    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
 
     const txReceipt = await this.aztecNode.getTxReceipt(txHash);
     const blockNumber = txReceipt.blockNumber;
@@ -757,13 +762,13 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     const siloedEventCommitment = await siloNullifier(contractAddress, eventCommitment);
 
-    const [nullifierIndex] = await this.aztecNode.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
+    const [nullifierIndex] = await this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [
       siloedEventCommitment,
     ]);
 
     if (nullifierIndex === undefined) {
       throw new Error(
-        `Event hash ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present on the nullifier tree at the latest block (from tx ${txHash})`,
+        `Event hash ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present on the nullifier tree at block ${syncedBlockNumber} (from tx ${txHash})`,
       );
     }
 
