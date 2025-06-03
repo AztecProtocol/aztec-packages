@@ -18,10 +18,11 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     outputs:
-      release-pr: ${{ steps.run_release_please.outputs.pr }}
-      release-version: ${{ steps.run_release_please.outputs.tag_name }}
+      release-pr: ${{ steps.release.outputs.pr }}
+      release-version: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Run Release Please
+        id: release
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
