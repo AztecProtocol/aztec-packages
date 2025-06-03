@@ -933,6 +933,25 @@ template <typename Builder, typename T> class bigfield {
                                              const bigfield& quotient,
                                              const std::vector<bigfield>& remainders);
 
+    /**
+     * @brief Evaluate a relation involving multiple multiplications and additions.
+     *
+     * @param input_left Vector of left multiplication operands.
+     * @param input_right Vector of right multiplication operands.
+     * @param to_add Vector of elements to add to the product.
+     * @param input_quotient Quotient term.
+     * @param input_remainders Vector of remainders.
+     *
+     * @details This function evaluates the relationship:
+     * (a[0] * b[0] + ... + (a[-1] * b[-1])) + (to_add[0] + .. + to_add[-1]) - q * p - (r[0] + .. + r[-1]) = 0 mod 2^t
+     * (a[0] * b[0] + ... + (a[-1] * b[-1])) + (to_add[0] + .. + to_add[-1]) - q * p - (r[0] + .. + r[-1]) = 0 mod n
+     *
+     * @note This method supports multiple "remainders" because, when evaluating division of the form:
+     * (n[0] * n[1] + ... + n[-1]) / d, the numerator (which becomes the remainder term) can be a sum of multiple
+     * elements. See `msub_div` for more details on how this is used.
+     *
+     * @warning THIS FUNCTION IS UNSAFE TO USE IN CIRCUITS AS IT DOES NOT PROTECT AGAINST CRT OVERFLOWS.
+     */
     static void unsafe_evaluate_multiple_multiply_add(const std::vector<bigfield>& input_left,
                                                       const std::vector<bigfield>& input_right,
                                                       const std::vector<bigfield>& to_add,
