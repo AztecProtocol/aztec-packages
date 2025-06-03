@@ -24,6 +24,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 import {RollupBase, IInstance, IRollup} from "./base/RollupBase.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -147,6 +148,7 @@ contract MultiProofTest is RollupBase {
       vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__RewardsNotClaimable.selector));
       rollup.claimProverRewards(alice, new Epoch[](1));
 
+      vm.prank(Ownable(address(rollup)).owner());
       rollup.setRewardsClaimable(true);
     }
 

@@ -76,6 +76,10 @@ export class RollupContract {
     this.rollup = getContract({ address, abi: RollupAbi, client });
   }
 
+  getGSE() {
+    return this.rollup.read.getGSE();
+  }
+
   public get address() {
     return this.rollup.address;
   }
@@ -460,13 +464,6 @@ export class RollupContract {
     return this.rollup.read.getStakingAsset();
   }
 
-  getProposerForAttester(attester: Hex | EthAddress) {
-    if (attester instanceof EthAddress) {
-      attester = attester.toString();
-    }
-    return this.rollup.read.getProposerForAttester([attester]);
-  }
-
   setupEpoch(l1TxUtils: L1TxUtils) {
     return l1TxUtils.sendAndMonitorTransaction({
       to: this.address,
@@ -474,6 +471,17 @@ export class RollupContract {
         abi: RollupAbi,
         functionName: 'setupEpoch',
         args: [],
+      }),
+    });
+  }
+
+  vote(l1TxUtils: L1TxUtils, proposalId: bigint) {
+    return l1TxUtils.sendAndMonitorTransaction({
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'vote',
+        args: [proposalId],
       }),
     });
   }

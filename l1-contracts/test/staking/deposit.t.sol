@@ -5,7 +5,7 @@ import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE, IGSECore} from "@aztec/core/staking/GSE.sol";
 
 contract DepositTest is StakingBase {
   function test_GivenCallerHasInsufficientAllowance() external {
@@ -17,12 +17,7 @@ contract DepositTest is StakingBase {
       )
     );
 
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _onCanonical: true
-    });
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
   }
 
   modifier givenCallerHasSufficientAllowance() {
@@ -39,12 +34,7 @@ contract DepositTest is StakingBase {
       )
     );
 
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _onCanonical: true
-    });
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
   }
 
   modifier givenCallerHasSufficientFunds() {
@@ -59,42 +49,29 @@ contract DepositTest is StakingBase {
   {
     // it reverts
 
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _onCanonical: true
-    });
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyActive.selector, ATTESTER));
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _onCanonical: true
-    });
+    stakingAsset.mint(address(this), MINIMUM_STAKE);
+    stakingAsset.approve(address(staking), type(uint256).max);
+
+    address magicAddress = address(staking.getGSE().CANONICAL_MAGIC_ADDRESS());
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, magicAddress, ATTESTER)
+    );
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
     vm.prank(SLASHER);
     staking.slash(ATTESTER, MINIMUM_STAKE / 2);
     assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.LIVING));
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, ATTESTER));
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _onCanonical: true
-    });
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, WITHDRAWER);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, ATTESTER));
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _onCanonical: true
-    });
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
   }
 
   modifier givenAttesterIsNotRegistered() {
@@ -127,23 +104,15 @@ contract DepositTest is StakingBase {
     assertEq(stakingAsset.balanceOf(address(staking)), 0);
 
     vm.expectEmit(true, true, true, true, address(staking.getGSE()));
-    emit IGSE.Deposit(
-      address(staking.getGSE().CANONICAL_MAGIC_ADDRESS()), ATTESTER, PROPOSER, WITHDRAWER
-    );
+    emit IGSECore.Deposit(address(staking.getGSE().CANONICAL_MAGIC_ADDRESS()), ATTESTER, WITHDRAWER);
 
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _onCanonical: true
-    });
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
-    assertEq(stakingAsset.balanceOf(address(staking.getGSE())), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(address(staking.getGSE().getGovernance())), MINIMUM_STAKE);
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
     assertEq(attesterView.effectiveBalance, MINIMUM_STAKE, "effective balance");
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.config.proposer, PROPOSER);
     assertTrue(attesterView.status == Status.VALIDATING);
   }
 }

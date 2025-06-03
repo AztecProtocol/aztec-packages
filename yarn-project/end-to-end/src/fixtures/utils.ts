@@ -55,12 +55,12 @@ import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec
 import {
   type PXEService,
   type PXEServiceConfig,
-  createPXEServiceWithSimulationProvider,
+  createPXEServiceWithSimulator,
   getPXEServiceConfig,
 } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { MemoryCircuitRecorder, SimulationProviderRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
+import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
 import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -171,17 +171,14 @@ export async function setupPXEService(
     pxeServiceConfig.dataDirectory = path.join(tmpdir(), randomBytes(8).toString('hex'));
   }
 
-  const simulationProvider = new WASMSimulator();
+  const simulator = new WASMSimulator();
   const recorder = process.env.CIRCUIT_RECORD_DIR
     ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
     : new MemoryCircuitRecorder();
-  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider, recorder);
-  const pxe = await createPXEServiceWithSimulationProvider(
-    aztecNode,
-    simulationProviderWithRecorder,
-    pxeServiceConfig,
-    { useLogSuffix },
-  );
+  const simulatorWithRecorder = new SimulatorRecorderWrapper(simulator, recorder);
+  const pxe = await createPXEServiceWithSimulator(aztecNode, simulatorWithRecorder, pxeServiceConfig, {
+    useLogSuffix,
+  });
 
   const teardown = async () => {
     if (!configuredDataDirectory) {
@@ -845,11 +842,6 @@ export async function createForwarderContract(
   rollupAddress: Hex,
 ) {
   const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
-  const forwarderContract = await ForwarderContract.create(
-    l1Client.account.address,
-    l1Client,
-    createLogger('forwarder'),
-    rollupAddress,
-  );
+  const forwarderContract = await ForwarderContract.create(l1Client, createLogger('forwarder'), rollupAddress);
   return forwarderContract;
 }
