@@ -19,6 +19,7 @@ import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/key
 import {
   IndexedTaggingSecret,
   PendingTaggedLog,
+  PrivateLogWithTxData,
   PublicLog,
   PublicLogWithTxData,
   TxScopedL2Log,
@@ -718,7 +719,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const logs = await this.#getPublicLogsByTagsFromContract([tag], contractAddress);
     const logsForTag = logs[0];
 
-    this.log.debug(`Got ${logsForTag.length} logs for tag ${tag}`);
+    this.log.debug(`Got ${logsForTag.length} public logs for tag ${tag}`);
 
     if (logsForTag.length == 0) {
       return null;
@@ -740,6 +741,39 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
 
     return new PublicLogWithTxData(
+      scopedLog.log.getEmittedFieldsWithoutTag(),
+      scopedLog.txHash,
+      txEffect.data.noteHashes,
+      txEffect.data.nullifiers[0],
+    );
+  }
+
+  public async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
+    const logs = await this.#getPrivateLogsByTags([siloedTag]);
+    const logsForTag = logs[0];
+
+    this.log.debug(`Got ${logsForTag.length} private logs for tag ${siloedTag}`);
+
+    if (logsForTag.length == 0) {
+      return null;
+    } else if (logsForTag.length > 1) {
+      // TODO(#11627): handle this case
+      throw new Error(
+        `Got ${logsForTag.length} logs for tag ${siloedTag}. getPrivateLogByTag currently only supports a single log per tag`,
+      );
+    }
+
+    const scopedLog = logsForTag[0];
+
+    // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
+    // we need to make a second call to the node for `getTxEffect`.
+    // TODO(#9789): bundle this information in the `getLogsByTag` call.
+    const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
+    if (txEffect == undefined) {
+      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${scopedLog.txHash} which is known to exist`);
+    }
+
+    return new PrivateLogWithTxData(
       scopedLog.log.getEmittedFieldsWithoutTag(),
       scopedLog.txHash,
       txEffect.data.noteHashes,

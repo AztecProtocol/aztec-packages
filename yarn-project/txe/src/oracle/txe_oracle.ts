@@ -102,6 +102,7 @@ import {
   ContractClassLog,
   IndexedTaggingSecret,
   PrivateLog,
+  PrivateLogWithTxData,
   type PublicLog,
   PublicLogWithTxData,
 } from '@aztec/stdlib/logs';
@@ -1183,6 +1184,10 @@ export class TXE implements TypedOracle {
 
   async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
     return await this.pxeOracleInterface.getPublicLogByTag(tag, contractAddress);
+  }
+
+  async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
+    return await this.pxeOracleInterface.getPrivateLogByTag(siloedTag);
   }
 
   // AVM oracles
