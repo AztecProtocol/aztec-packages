@@ -1817,13 +1817,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::reduction_che
     }
 }
 
-/**
- * SANITY CHECK on a value that is about to interact with another value
- *
- * @details ASSERTs that the value of all limbs is less than or equal to the prohibited maximum value. Checks that the
- *maximum value of the whole element is also less than a prohibited maximum value
- *
- **/
 template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check() const
 {
 
