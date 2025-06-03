@@ -3,7 +3,9 @@
 #include <array>
 #include <cstdint>
 
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/bitwise.hpp"
+#include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
@@ -44,7 +46,7 @@ constexpr std::array<uint64_t, 24> keccak_round_constants = { {
 class KeccakF1600Interface {
   public:
     virtual ~KeccakF1600Interface() = default;
-    virtual KeccakF1600State permutation(const KeccakF1600State& input) = 0;
+    virtual void permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr) = 0;
 };
 
 class KeccakF1600 : public KeccakF1600Interface {
@@ -57,7 +59,7 @@ class KeccakF1600 : public KeccakF1600Interface {
         , range_check(range_check)
     {}
 
-    KeccakF1600State permutation(const KeccakF1600State& input) override;
+    void permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr) override;
 
   private:
     EventEmitterInterface<KeccakF1600Event>& perm_events;
