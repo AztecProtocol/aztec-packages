@@ -895,11 +895,7 @@ bigfield<Builder, T> bigfield<Builder, T>::div_check_denominator_nonzero(const s
 {
     return internal_div(numerators, denominator, true);
 }
-/**
- * Compute a * a = c mod p
- *
- * Slightly cheaper than operator* for Standard
- **/
+
 template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::sqr() const
 {
     reduction_check();
