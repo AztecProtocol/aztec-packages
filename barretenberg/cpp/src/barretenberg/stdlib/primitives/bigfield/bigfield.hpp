@@ -977,11 +977,6 @@ template <typename Builder, typename T> class bigfield {
                                            const bigfield& quotient,
                                            const bigfield& remainder);
 
-    static void evaluate_product(const bigfield& left,
-                                 const bigfield& right,
-                                 const bigfield& quotient,
-                                 const bigfield& remainder);
-
     /**
      * @brief Check if the bigfield element needs to be reduced.
      *
