@@ -92,10 +92,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       status,
       scopes,
     });
-    return noteDaos.map(({ contractAddress, storageSlot, nonce, note, noteHash, siloedNullifier, index }) => ({
+    return noteDaos.map(({ contractAddress, storageSlot, noteNonce, note, noteHash, siloedNullifier, index }) => ({
       contractAddress,
       storageSlot,
-      nonce,
+      noteNonce,
       note,
       noteHash,
       siloedNullifier,
@@ -617,7 +617,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         this.deliverNote(
           request.contractAddress,
           request.storageSlot,
-          request.nonce,
+          request.noteNonce,
           request.content,
           request.noteHash,
           request.nullifier,
@@ -634,7 +634,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   async deliverNote(
     contractAddress: AztecAddress,
     storageSlot: Fr,
-    nonce: Fr,
+    noteNonce: Fr,
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
@@ -662,7 +662,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
-    const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+    const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
     // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
@@ -683,7 +683,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       new Note(content),
       contractAddress,
       storageSlot,
-      nonce,
+      noteNonce,
       noteHash,
       siloedNullifier,
       txHash,

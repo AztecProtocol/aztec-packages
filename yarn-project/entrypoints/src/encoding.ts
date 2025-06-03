@@ -104,7 +104,8 @@ export abstract class EncodedCallsForEntrypoint implements EncodedCalls {
   /**
    * Encodes the functions for the app-portion of a transaction from a set of function calls and a nonce
    * @param functionCalls - The function calls to execute
-   * @param txNonce - The nonce for the payload, used to emit a nullifier identifying the call
+   * @param txNonce - A nonce used to enable transaction cancellation when cancellable=true. Transactions with the same
+   * nonce can be replaced by submitting a new one with a higher fee.
    * @returns The encoded calls
    */
   static async fromAppExecution(

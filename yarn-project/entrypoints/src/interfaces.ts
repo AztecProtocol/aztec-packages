@@ -30,7 +30,7 @@ export interface EntrypointInterface {
    * Generates an execution request out of set of function calls.
    * @param exec - The execution intents to be run.
    * @param fee - The fee options for the transaction.
-   * @param options - Cancellation nonce and whether the transaction is cancellable.
+   * @param options - Transaction nonce and whether the transaction is cancellable.
    * @returns The authenticated transaction execution request.
    */
   createTxExecutionRequest(
