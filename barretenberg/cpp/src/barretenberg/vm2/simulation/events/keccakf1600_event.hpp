@@ -8,6 +8,7 @@
 namespace bb::avm2::simulation {
 
 using KeccakF1600State = std::array<std::array<uint64_t, 5>, 5>;
+using KeccakF1600StateMemValues = std::array<std::array<MemoryValue, 5>, 5>;
 
 struct KeccakF1600RoundData {
     uint8_t round;
@@ -24,9 +25,10 @@ struct KeccakF1600RoundData {
 };
 
 struct KeccakF1600Event {
-    MemoryAddress dst_offset;
-    MemoryAddress src_offset;
+    MemoryAddress dst_addr;
+    MemoryAddress src_addr;
     uint32_t space_id;
+    KeccakF1600StateMemValues src_mem_values;
     std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds;
 };
 

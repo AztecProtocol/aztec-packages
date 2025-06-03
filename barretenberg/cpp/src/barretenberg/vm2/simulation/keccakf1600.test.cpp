@@ -1,19 +1,24 @@
-#include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 
 #include "barretenberg/crypto/keccak/keccak.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
+#include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
+
+using ::testing::ReturnRef;
+using ::testing::StrictMock;
 
 void flatten_state(KeccakF1600State state, uint64_t* flattened)
 {
@@ -26,6 +31,10 @@ void flatten_state(KeccakF1600State state, uint64_t* flattened)
 
 TEST(KeccakSimulationTest, matchesReferenceImplementation)
 {
+    MemoryStore memory;
+    StrictMock<MockContext> context;
+    EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(memory));
+
     NoopEventEmitter<KeccakF1600Event> keccak_event_emitter;
     NoopEventEmitter<BitwiseEvent> bitwise_event_emitter;
     NoopEventEmitter<RangeCheckEvent> range_check_event_emitter;
@@ -38,19 +47,34 @@ TEST(KeccakSimulationTest, matchesReferenceImplementation)
         { { 0, 1, 2, 3, 4 }, { 5, 6, 7, 8, 9 }, { 10, 11, 12, 13, 14 }, { 15, 16, 17, 18, 19 }, { 20, 21, 22, 23, 24 } }
     };
 
-    uint64_t flat_input[25];
-    uint64_t flat_output[25];
-    flatten_state(input, flat_input);
+    const MemoryAddress src_addr = 1979;
+    const MemoryAddress dst_addr = 3030;
 
-    const auto output = keccak.permutation(input);
+    uint64_t reference_input[25];
+    uint64_t flat_output[25];
+    flatten_state(input, reference_input);
+
+    for (size_t i = 0; i < 5; i++) {
+        for (size_t j = 0; j < 5; j++) {
+            memory.set(src_addr + static_cast<MemoryAddress>((i * 5) + j), MemoryValue::from<uint64_t>(input[i][j]));
+        }
+    }
+
+    keccak.permutation(context, dst_addr, src_addr);
+    KeccakF1600State output;
+
+    for (size_t i = 0; i < 5; i++) {
+        for (size_t j = 0; j < 5; j++) {
+            MemoryValue val = memory.get(dst_addr + static_cast<MemoryAddress>((i * 5) + j));
+            EXPECT_EQ(val.get_tag(), MemoryTag::U64);
+            output[i][j] = val.as<uint64_t>();
+        }
+    }
+
     flatten_state(output, flat_output);
 
-    uint64_t reference_output[25];
-    std::copy(flat_input, flat_input + 25, reference_output);
-
-    ethash_keccakf1600(reference_output); // Mutate input
-
-    EXPECT_THAT(reference_output, testing::ElementsAreArray(flat_output));
+    ethash_keccakf1600(reference_input); // Mutate input
+    EXPECT_THAT(reference_input, testing::ElementsAreArray(flat_output));
 }
 
 } // namespace

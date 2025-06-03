@@ -52,21 +52,25 @@ template <size_t N> std::array<uint64_t, N> array_to_uint64(const std::array<Mem
  * @brief Permutation Keccak-f[1600] consisting in AVM_KECCAKF1600_NUM_ROUNDS (24) rounds and a state of 25 64-bit
  * values (aliased as KeccakF1600State).
  *
- * @param input of KeccakF1600State type
- * @return KeccakF1600State
+ * @param context
+ * @param dst_addr Base slice address pointing to output of KeccakF1600 permutation.
+ * @param src_addr Address pointing to a contiguous memory slice containing KeccakF1600State input.
  */
-KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
+void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
 {
-    using KeccakF1600StateMemValues = std::array<std::array<MemoryValue, 5>, 5>;
-
-    // We convert input into Memory values as this type is required for bitwise operations handled
+    // We work with MemoryValue as this type is required for bitwise operations handled
     // by the bitwise sub-trace simulator. We continue by operating over Memory values and convert
-    // them back only at the end.
-    // TODO(JEAMON): Making this gadget memory aware might anyway get rid of this transformation.
+    // them back only at the end (event emission).
+    auto& memory = context.get_memory();
+
+    // Slice read
     KeccakF1600StateMemValues state_input_values;
+    KeccakF1600StateMemValues src_mem_values;
     for (size_t i = 0; i < 5; i++) {
         for (size_t j = 0; j < 5; j++) {
-            state_input_values[i][j] = MemoryValue::from(input[i][j]);
+            src_mem_values[i][j] = memory.get(src_addr + static_cast<MemoryAddress>((i * 5) + j));
+            const bool tag_valid = src_mem_values[i][j].get_tag() == MemoryTag::U64;
+            state_input_values[i][j] = tag_valid ? src_mem_values[i][j] : MemoryValue::from<uint64_t>(0);
         }
     }
 
@@ -177,11 +181,20 @@ KeccakF1600State KeccakF1600::permutation(const KeccakF1600State& input)
         state_input_values[0][0] = iota_00_value;
     }
 
+    // Slice write
+    for (size_t i = 0; i < 5; i++) {
+        for (size_t j = 0; j < 5; j++) {
+            memory.set(dst_addr + static_cast<MemoryAddress>((i * 5) + j), state_input_values[i][j]);
+        }
+    }
+
     perm_events.emit({
+        .dst_addr = dst_addr,
+        .src_addr = src_addr,
+        .space_id = memory.get_space_id(),
+        .src_mem_values = src_mem_values,
         .rounds = rounds_data,
     });
-
-    return two_dim_array_to_uint64(state_input_values);
 }
 
 } // namespace bb::avm2::simulation

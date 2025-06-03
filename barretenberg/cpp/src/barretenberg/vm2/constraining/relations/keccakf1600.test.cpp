@@ -1,7 +1,14 @@
-#include "barretenberg/vm2/generated/relations/keccakf1600.hpp"
+#include <cstddef>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include <cstdint>
+
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/generated/relations/keccakf1600.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/bitwise.hpp"
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
@@ -9,6 +16,8 @@
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
@@ -19,11 +28,13 @@
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
-#include <cstdint>
-#include <gtest/gtest.h>
-
 namespace bb::avm2::constraining {
 namespace {
+
+using simulation::MemoryStore;
+using simulation::MockContext;
+using ::testing::ReturnRef;
+using ::testing::StrictMock;
 
 using KeccakSimulator = simulation::KeccakF1600;
 using BitwiseSimulator = simulation::Bitwise;
@@ -171,7 +182,10 @@ using lookup_iota_00 = lookup_keccakf1600_state_iota_00_relation<FF>;
 using lookup_round_constants = lookup_keccakf1600_round_cst_relation<FF>;
 
 // Helper function to simulate and generate a trace of a list of Keccakf1600 permutations.
-void generate_trace(const std::vector<simulation::KeccakF1600State>& inputs, TestTraceContainer& trace)
+void generate_trace(TestTraceContainer& trace,
+                    StrictMock<MockContext>& context,
+                    const std::vector<MemoryAddress>& dst_addresses,
+                    const std::vector<MemoryAddress>& src_addresses)
 {
     KeccakF1600TraceBuilder keccak_builder;
     BitwiseTraceBuilder bitwise_builder;
@@ -185,15 +199,15 @@ void generate_trace(const std::vector<simulation::KeccakF1600State>& inputs, Tes
     BitwiseSimulator bitwise_simulator(bitwise_event_emitter);
     KeccakSimulator keccak_simulator(keccak_event_emitter, bitwise_simulator, range_check_simulator);
 
-    for (const auto& input_state : inputs) {
-        keccak_simulator.permutation(input_state);
+    for (size_t i = 0; i < src_addresses.size(); ++i) {
+        keccak_simulator.permutation(context, dst_addresses.at(i), src_addresses.at(i));
     }
 
     keccak_builder.process(keccak_event_emitter.dump_events(), trace);
     bitwise_builder.process(bitwise_event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
     precomputed_builder.process_keccak_round_constants(trace);
-    precomputed_builder.process_misc(trace, 25 * static_cast<uint32_t>(inputs.size()));
+    precomputed_builder.process_misc(trace, 25 * static_cast<uint32_t>(src_addresses.size()));
 }
 
 // Helper function to check all interactions.
@@ -343,17 +357,24 @@ TEST(KeccakF1600ConstrainingTest, EmptyRow)
 // Positive test of a single permutation with simulation and trace generation and checking interactions.
 TEST(KeccakF1600ConstrainingTest, SinglewithSimulationAndTraceGenInteractions)
 {
+    MemoryStore memory;
+    StrictMock<MockContext> context;
+    EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(memory));
+
     TestTraceContainer trace;
-    simulation::KeccakF1600State input_state;
+
+    const MemoryAddress src_addr = 0;
+    const MemoryAddress dst_addr = 200;
 
     // Fill input_state with arbitrarily chosen test vector: state[i][j] = 2^32 * i + j
     for (size_t i = 0; i < 5; ++i) {
         for (size_t j = 0; j < 5; ++j) {
-            input_state[i][j] = (static_cast<uint64_t>(i) << 32) + j;
+            memory.set(src_addr + static_cast<MemoryAddress>((5 * i) + j),
+                       MemoryValue::from<uint64_t>((static_cast<uint64_t>(i) << 32) + j));
         }
     }
 
-    generate_trace({ input_state }, trace);
+    generate_trace(trace, context, { dst_addr }, { src_addr });
 
     check_all_interactions(trace);
     check_relation<keccakf1600_relation>(trace);
@@ -363,22 +384,32 @@ TEST(KeccakF1600ConstrainingTest, SinglewithSimulationAndTraceGenInteractions)
 // We also check all interactions.
 TEST(KeccakF1600ConstrainingTest, MultipleWithSimulationAndTraceGenInteractions)
 {
-    using simulation::KeccakF1600State;
+    MemoryStore memory;
+    StrictMock<MockContext> context;
+    EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(memory));
+
     TestTraceContainer trace;
 
     constexpr size_t NUM_PERMUTATIONS = 3;
 
-    std::vector<KeccakF1600State> inputs(NUM_PERMUTATIONS);
+    std::vector<MemoryAddress> src_addresses(NUM_PERMUTATIONS);
+    std::vector<MemoryAddress> dst_addresses(NUM_PERMUTATIONS);
 
     for (size_t k = 0; k < NUM_PERMUTATIONS; ++k) {
+        MemoryAddress src_addr = static_cast<MemoryAddress>(k * 200);
+        MemoryAddress dst_addr = static_cast<MemoryAddress>((k * 200) + 1000);
+        src_addresses.at(k) = src_addr;
+        dst_addresses.at(k) = dst_addr;
+
         for (size_t i = 0; i < 5; ++i) {
             for (size_t j = 0; j < 5; ++j) {
-                inputs.at(k)[i][j] = (static_cast<uint64_t>(i) << 32) + j + 100 * k;
+                memory.set(src_addr + static_cast<MemoryAddress>((5 * i) + j),
+                           MemoryValue::from<uint64_t>((static_cast<uint64_t>(i) << 32) + j + (100 * k)));
             }
         }
     }
 
-    generate_trace(inputs, trace);
+    generate_trace(trace, context, dst_addresses, src_addresses);
 
     check_all_interactions(trace);
     check_relation<keccakf1600_relation>(trace);
