@@ -999,6 +999,12 @@ template <typename Builder, typename T> class bigfield {
      */
     void reduction_check() const;
 
+    /**
+     * @brief Perform a sanity check on a value that is about to interact with another value.
+     *
+     * @details ASSERTs that the value of all limbs is less than or equal to the prohibited maximum value. Checks that
+     *the maximum value of the whole element is also less than a prohibited maximum value.
+     */
     void sanity_check() const;
 
 }; // namespace stdlib
