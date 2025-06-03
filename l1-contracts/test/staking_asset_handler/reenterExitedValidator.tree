@@ -1,0 +1,8 @@
+ReenterExitedValidatorTest
+├── when attester has NOT provided a valid deposit
+│   └── it reverts
+├── when attester has provided a valid deposit
+│   └── it succeeds
+│   └── it emits a {ValidatorAdded} event
+└── when in Entry Queue
+    └── it reverts

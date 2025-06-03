@@ -3,7 +3,7 @@ pragma solidity >=0.8.27;
 
 struct Queue {
   mapping(uint256 index => address addr) attester;
-  mapping(address attester => bool) seen;
+  mapping(address attester => bool) inQueue;
   uint256 first;
   uint256 last;
 }
@@ -18,10 +18,10 @@ library QueueLib {
   }
 
   function enqueue(Queue storage self, address _attester) internal {
-    require(!self.seen[_attester], AlreadySeen(_attester));
+    require(!self.inQueue[_attester], AlreadySeen(_attester));
 
     self.attester[self.last] = _attester;
-    self.seen[_attester] = true;
+    self.inQueue[_attester] = true;
     self.last += 1;
   }
 
@@ -30,12 +30,16 @@ library QueueLib {
 
     attester = self.attester[self.first];
 
-    delete self.seen[attester];
+    delete self.inQueue[attester];
 
     self.first += 1;
   }
 
   function length(Queue storage self) internal view returns (uint256 len) {
     len = self.last - self.first;
+  }
+
+  function isInQueue(Queue storage self, address _attester) internal view returns (bool) {
+    return self.inQueue[_attester];
   }
 }

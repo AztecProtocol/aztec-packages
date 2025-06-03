@@ -48,8 +48,16 @@ interface IStakingAssetHandler {
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
   error InvalidProof();
   error SybilDetected(bytes32 _nullifier);
+  error InDepositQueue();
+  error AttesterDoesNotExist(address _attester);
+  error NoNullifier();
 
+  // Add validator methods
   function addValidatorToQueue(address _attester, ProofVerificationParams memory _params) external;
+  function reenterExitedValidator(address _attester) external;
+  function dripQueue() external;
+
+  // Admin methods
   function setMintInterval(uint256 _interval) external;
   function setDepositsPerMint(uint256 _depositsPerMint) external;
   function setWithdrawer(address _withdrawer) external;
@@ -58,9 +66,9 @@ interface IStakingAssetHandler {
   function setZKPassportVerifier(address _address) external;
   function setScope(string memory _scope) external;
   function setSubscope(string memory _subscope) external;
-  function getQueueLength() external returns (uint256);
-  function dripQueue() external;
 
+  // View
+  function getQueueLength() external view returns (uint256);
   function getRollup() external view returns (address);
 }
 
@@ -73,7 +81,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   ZKPassportVerifier public zkPassportVerifier;
 
   mapping(address => bool) public isUnhinged;
-  mapping(bytes32 => bool) public nullifiers;
+  mapping(bytes32 nullifier => bool exists) public nullifiers;
+  mapping(address attester => bytes32 nullifier) public attesterToNullifier;
 
   uint256 public lastMintTimestamp;
   uint256 public mintInterval;
@@ -147,6 +156,27 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     } else {
       _validatePassportProof(_attester, _params);
     }
+  }
+
+  /**
+   * Re add a validator that has already supplied a passport proof.
+   * Used to re-enter a validator that has been exited during testnet.
+   *
+   * @param _attester - the validator's attester address
+   */
+  function reenterExitedValidator(address _attester) external override(IStakingAssetHandler) {
+    IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
+    uint256 depositAmount = rollup.getMinimumStake();
+
+    // Validator must not be in the queue
+    require(!entryQueue.isInQueue(_attester), InDepositQueue());
+
+    // Check that the validator has an associated nullifier
+    bytes32 nullifier = attesterToNullifier[_attester];
+    require(nullifier != bytes32(0), AttesterDoesNotExist(_attester));
+    require(nullifiers[nullifier] != false, NoNullifier());
+
+    _triggerDeposit(rollup, depositAmount, _attester);
   }
 
   function dripQueue() external override(IStakingAssetHandler) {
@@ -255,6 +285,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
     // Set nullifier to consumed
     nullifiers[nullifier] = true;
+    attesterToNullifier[_attester] = nullifier;
 
     // Add validator into the entry queue
     entryQueue.enqueue(_attester);
