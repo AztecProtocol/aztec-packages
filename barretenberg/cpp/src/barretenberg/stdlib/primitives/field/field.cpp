@@ -726,9 +726,9 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 
     field_t inverse = witness_t(context, inverse_native);
 
-    // Create a `poly_gate` for the first constraint (note that `k` and `k_inverse` are normalized!), it is given by the
+    // Create a `poly_gate` for the first constraint (note that `a` and `I` are normalized!), it is given by the
     // equation:
-    //          a.v * I.v * q_m + k.v * q_l + I.v * q_r + is_zero.v * q_o  - q_c = 0
+    //          a.v * I.v * q_m + a.v * q_l + I.v * q_r + is_zero.v * q_o  - q_c = 0
     context->create_poly_gate({ .a = normalized.witness_index,
                                 .b = inverse.witness_index,
                                 .c = is_zero.witness_index,
@@ -738,7 +738,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
                                 .q_o = bb::fr::one(),
                                 .q_c = bb::fr::neg_one() });
 
-    // Create a `poly_gate` (note that `k` and `k_inverse` are normalized) for the second constraint
+    // Create a `poly_gate` (note that `a` and `I` are normalized) for the second constraint
     //          is_zero.v * I.v * q_m + is_zero.v * q_l + I.v * q_r + is_zero.v * q_o  - q_c = 0
     context->create_poly_gate({ .a = is_zero.witness_index,
                                 .b = inverse.witness_index,
