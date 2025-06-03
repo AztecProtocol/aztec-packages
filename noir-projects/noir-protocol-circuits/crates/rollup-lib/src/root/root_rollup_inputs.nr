@@ -72,6 +72,18 @@ impl RootRollupInputs {
         // let blob_public_inputs = left.blob_public_inputs.accumulate(right.blob_public_inputs);
         let blob_public_inputs = components::accumulate_blob_public_inputs(left, right);
 
+        // TODO(MW): Batching here will consist of checks:
+        // - left.end_blob_accumulator == right.start_blob_accumulator
+        // - left.challenge_z == right.challenge_z
+        // - left.challenge_gamma == right.challenge_gamma
+        // (^should probably exist in assert_prev_block_rollups_follow_on_from_each_other())
+        // Then:
+        // - Validate first (left.start_blob_accumulator) acc is empty
+        // - final_acc := right.end_blob_accumulator.finalize()
+        // - Validate final_acc.z = challenge_z
+        // - Validate final_acc.gamma = challenge_gamma
+        // => Validated public inputs from acc are: { v, z, y, C } (gamma is not required)
+
         RootRollupPublicInputs {
             previous_archive_root: left.previous_archive.root,
             end_archive_root: right.new_archive.root,
