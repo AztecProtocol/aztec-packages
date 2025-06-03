@@ -28,9 +28,9 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     // Initial request with calls, authWitnesses and capsules
     const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
     // Global tx options
-    const { cancellable, nonce } = options;
+    const { cancellable, cancellationNonce } = options;
     // Encode the calls for the app
-    const appEncodedCalls = await EncodedCallsForEntrypoint.fromAppExecution(calls, nonce);
+    const appEncodedCalls = await EncodedCallsForEntrypoint.fromAppExecution(calls, cancellationNonce);
     // Get the execution payload for the fee, it includes the calls and potentially authWitnesses
     const { calls: feeCalls, authWitnesses: feeAuthwitnesses } = await fee.paymentMethod.getExecutionPayload(
       fee.gasSettings,
@@ -117,7 +117,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
                   },
                 },
               },
-              { name: 'nonce', type: { kind: 'field' } },
+              { name: 'cancellation_nonce', type: { kind: 'field' } },
             ],
           },
           visibility: 'public',

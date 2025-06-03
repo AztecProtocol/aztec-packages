@@ -32,13 +32,13 @@ export async function send(
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const call = contract.methods[functionName](...functionArgs);
 
-  const nonce = Fr.random();
+  const cancellationNonce = Fr.random();
 
   const sendOptions: SendMethodOptions = {
     ...(await feeOpts.toSendOpts(wallet)),
     authWitnesses,
     cancellable,
-    nonce,
+    cancellationNonce,
   };
 
   const gasLimits = await call.estimateGas(sendOptions);
@@ -79,7 +79,7 @@ export async function send(
   });
   return {
     txHash,
-    nonce,
+    cancellationNonce,
     cancellable,
     gasSettings,
   };

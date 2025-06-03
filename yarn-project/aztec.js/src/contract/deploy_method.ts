@@ -81,9 +81,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async create(options: DeployOptions = {}): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
-    const { fee: userFee, nonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
-    return this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
+    const { fee: userFee, cancellationNonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { cancellationNonce, cancellable });
+    return this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { cancellationNonce, cancellable });
   }
 
   // REFACTOR: Having a `request` method with different semantics than the ones in the other

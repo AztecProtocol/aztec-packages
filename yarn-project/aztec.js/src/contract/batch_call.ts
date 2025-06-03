@@ -24,10 +24,10 @@ export class BatchCall extends BaseContractInteraction {
   public async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
 
-    const { fee: userFee, nonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
+    const { fee: userFee, cancellationNonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { cancellationNonce, cancellable });
 
-    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
+    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { cancellationNonce, cancellable });
   }
 
   /**
@@ -90,9 +90,12 @@ export class BatchCall extends BaseContractInteraction {
       combinedPayload.capsules.concat(options.capsules ?? []),
       combinedPayload.extraHashedArgs,
     );
-    const { fee: userFee, nonce, cancellable } = options;
+    const { fee: userFee, cancellationNonce, cancellable } = options;
     const fee = await this.getFeeOptions(requestWithoutFee, userFee, {});
-    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
+    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, {
+      cancellationNonce,
+      cancellable,
+    });
 
     const utilityCalls = utility.map(
       async ([call, index]) =>
