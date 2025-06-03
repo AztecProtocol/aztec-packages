@@ -33,9 +33,10 @@
       },
       "nonRevertibleAccumulatedData": {
         "noteHashes": [],
-        "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"]
+        "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"],
+        "l2ToL1Messages": []
       },
-      "revertibleAccumulatedData": { "noteHashes": [], "nullifiers": [] },
+      "revertibleAccumulatedData": { "noteHashes": [], "nullifiers": [], "l2ToL1Messages": [] },
       "setupEnqueuedCalls": [],
       "appLogicEnqueuedCalls": [
         {
