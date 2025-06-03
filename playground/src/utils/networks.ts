@@ -22,10 +22,10 @@ export const NETWORKS: Network[] = [
     description: 'Public testnet',
     hasTestAccounts: false,
     hasSponsoredFPC: true,
-    version: '0.85.0-alpha-testnet.4',
+    version: '0.87.2',
     sponsoredFPC: {
-      version: '0.85.0-alpha-testnet.2',
-      address: AztecAddress.fromString('0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5'),
+      version: '0.87.2',
+      address: AztecAddress.fromString('0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047'),
     },
     transactionCongestionThreshold: 40,
   },

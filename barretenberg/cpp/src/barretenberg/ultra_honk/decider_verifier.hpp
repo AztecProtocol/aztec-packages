@@ -27,14 +27,7 @@ template <typename Flavor> class DeciderVerifier_ {
         bool libra_evals_verified;
         PairingPoints pairing_points;
 
-        bool check()
-        {
-            bool pairing_check_verified = pairing_points.check();
-            vinfo("sumcheck_verified: ", sumcheck_verified);
-            vinfo("libra_evals_verified: ", libra_evals_verified);
-            vinfo("pairing_check_verified: ", pairing_check_verified);
-            return sumcheck_verified && libra_evals_verified && pairing_check_verified;
-        }
+        bool check() { return sumcheck_verified && libra_evals_verified && pairing_points.check(); }
     };
 
   public:

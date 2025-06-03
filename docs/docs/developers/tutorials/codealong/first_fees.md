@@ -52,8 +52,9 @@ Start the sandbox (L1, L2, but not the PXE) via: `NO_PXE=true aztec start --sand
 
 :::note Sandbox + aztec.js?
 If you are specifically wanting to test aztec.js with the sandbox, then you will need to use the default command which includes the PXE:
+
 - `aztec start --sandbox`
-:::
+  :::
 
 ### Specifying the network URL for your PXE
 
@@ -181,7 +182,7 @@ To bootstrap first use, a sponsored fee paying contract (the canonical sponsored
 In the case of the canonical sponsored FPC, the only criteria is an upper bound on how much it sponsors an account's transactions. This will be enough to at least deploy an account.
 
 The PXE can be queried for the canonical sponsored FPC address, and then specified as the payment method.
-For testnet this is `0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5`, which can be verified with the command: `aztec get-canonical-sponsored-fpc-address`
+For testnet this is `0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047`, which can be verified with the command: `aztec get-canonical-sponsored-fpc-address`
 
 Via the CLI:
 
@@ -278,7 +279,9 @@ import { FeeJuicePaymentMethod } from "@aztec/aztec.js";
 // Below we'll deploy the new account (eg schnorrAccount2) with fee juice from test wallet
 
 const useFeeJuice = new FeeJuicePaymentMethod(testWallets[0].getAddress());
-await schnorrAccount2.deploy({ fee: { deployWallet: testWallets[0], paymentMethod: useFeeJuice } }).wait();
+await schnorrAccount2
+  .deploy({ fee: { deployWallet: testWallets[0], paymentMethod: useFeeJuice } })
+  .wait();
 ```
 
 :::note Payment: Fee Juice
@@ -345,11 +348,12 @@ import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
 // Below we'll deploy the new account (eg schnorrAccount3) via a claim to bridged fee juice
 
 const { l1ChainId } = await pxe.getNodeInfo(); // foundry chainid 31337 for sandbox use
-const l1RpcUrls = ['http://localhost:8545]'] // for sandbox use, or see https://chainlist.org/chain/11155111> eg ['https://rpc.sepolia.ethpandaops.io']
+const l1RpcUrls = ["http://localhost:8545]"]; // for sandbox use, or see https://chainlist.org/chain/11155111> eg ['https://rpc.sepolia.ethpandaops.io']
 const chain = createEthereumChain(l1RpcUrls, l1ChainId);
 
 // eg l1 private key, or for sandbox...
-const mnemonicOrPrivateKey = 'test test test test test test test test test test test junk';
+const mnemonicOrPrivateKey =
+  "test test test test test test test test test test test junk";
 
 const { publicClient, walletClient } = createL1Clients(
   chain.rpcUrls,
