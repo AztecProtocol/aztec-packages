@@ -11,7 +11,7 @@ use crate::{
 
 use protocol_types::{
     address::AztecAddress,
-    constants::PUBLIC_LOG_PLAINTEXT_LEN,
+    constants::{PRIVATE_LOG_CIPHERTEXT_LEN, PUBLIC_LOG_PLAINTEXT_LEN},
     debug_log::debug_log_format,
     hash::sha256_to_field,
     traits::{Deserialize, Serialize},
@@ -29,11 +29,11 @@ pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sh
     "AZTEC_NR::DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT".as_bytes(),
 );
 
-/// A partial note completion log's maximum length matches that of a public log plaintext. While these logs can be
-/// transmitted through either the public or private log stream, we standardize their length to the shorter public
-/// format. This ensures consistent behavior regardless of the delivery mechanism, with public logs being the limiting
-/// factor due to their smaller size.
-global MAX_PARTIAL_NOTE_COMPLETION_LOG_LEN: u32 = PUBLIC_LOG_PLAINTEXT_LEN;
+/// A partial note completion log's maximum length is the minimum of the public log plaintext length and private log
+/// ciphertext length. While these logs can be transmitted through either the public or private log stream, we standardize
+/// their length to whichever format is shorter. This ensures consistent behavior regardless of the delivery mechanism.
+global MAX_PARTIAL_NOTE_COMPLETION_LOG_LEN: u32 =
+    std::cmp::min(PUBLIC_LOG_PLAINTEXT_LEN, PRIVATE_LOG_CIPHERTEXT_LEN);
 
 /// A partial note that was delivered but is still pending completion. Contains the information necessary to find the
 /// log that will complete it and lead to a note being discovered and delivered.
