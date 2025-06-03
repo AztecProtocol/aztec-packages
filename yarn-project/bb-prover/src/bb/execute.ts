@@ -72,6 +72,7 @@ export function executeBB(
   logger: LogFn,
   timeout?: number,
   resultParser = (code: number) => code === 0,
+  signal?: AbortSignal,
 ): Promise<BBExecResult> {
   return new Promise<BBExecResult>(resolve => {
     // spawn the bb process
@@ -80,6 +81,7 @@ export function executeBB(
     logger(`Executing BB with: ${pathToBB} ${command} ${args.join(' ')}`);
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,
+      signal,
     });
 
     let timeoutId: NodeJS.Timeout | undefined;
@@ -495,6 +497,7 @@ export async function verifyClientIvcProof(
   proofPath: string,
   keyPath: string,
   log: LogFn,
+  signal?: AbortSignal,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
     .access(pathToBB, fs.constants.R_OK)
@@ -508,7 +511,7 @@ export async function verifyClientIvcProof(
     const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath, '-v'];
     const timer = new Timer();
     const command = 'verify';
-    const result = await executeBB(pathToBB, command, args, log);
+    const result = await executeBB(pathToBB, command, args, log, undefined, undefined, signal);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, durationMs: duration };

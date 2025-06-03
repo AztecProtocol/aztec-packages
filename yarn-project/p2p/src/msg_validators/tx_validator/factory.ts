@@ -1,4 +1,6 @@
+import { AbortError } from '@aztec/foundation/error';
 import { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -21,9 +23,11 @@ import { MetadataTxValidator } from './metadata_validator.js';
 import { PhasesTxValidator } from './phases_validator.js';
 import { TxProofValidator } from './tx_proof_validator.js';
 
+export type TxValidateFn = (tx: Tx, signal?: AbortSignal) => Promise<TxValidationResult>;
+
 export interface MessageValidator {
   validator: {
-    validateTx(tx: Tx): Promise<TxValidationResult>;
+    validateTx: TxValidateFn;
   };
   severity: PeerErrorSeverity;
 }
@@ -91,4 +95,65 @@ export function createTxMessageValidators(
       },
     },
   ];
+}
+
+export interface ValidationResult {
+  name: string;
+  isValid: TxValidationResult;
+  severity: PeerErrorSeverity;
+}
+export type ValidationOutcome = { allPassed: true } | { allPassed: false; failure: ValidationResult };
+
+export async function validateInParallel(
+  tx: Tx,
+  validators: Record<string, MessageValidator>,
+  log?: Logger,
+): Promise<ValidationOutcome> {
+  const abortController = new AbortController();
+  const txHash = await tx.getTxHash();
+
+  const asyncTasks = Object.fromEntries(
+    Object.entries(validators).map(([name, { validator, severity }]): [string, Promise<ValidationResult>] => {
+      const asyncTask = async () => {
+        try {
+          const isValid = await validator.validateTx(tx, abortController.signal);
+          return { name, isValid, severity };
+        } catch (err) {
+          if (err instanceof AbortError) {
+            log?.trace(`Validation task ${name} was aborted for tx ${txHash}`, { name, txHash });
+            return { name, isValid: { result: 'skipped' as const, reason: ['Operation aborted'] }, severity };
+          }
+
+          log?.warn(`Unexpected error running validator ${name} on ${txHash}`, { err, name, txHash });
+          return { name, isValid: { result: 'invalid' as const, reason: [String(err)] }, severity };
+        }
+      };
+
+      return [name, asyncTask()];
+    }),
+  );
+
+  const allValidations: Array<ValidationResult> = [];
+  while (Object.keys(asyncTasks).length > 0) {
+    const nextTaskFinished = await Promise.race(Object.values(asyncTasks));
+    allValidations.push(nextTaskFinished);
+    delete asyncTasks[nextTaskFinished.name];
+
+    if (nextTaskFinished.isValid.result !== 'valid') {
+      abortController.abort();
+    }
+  }
+
+  // this will select the first 'real' failure (i.e. before any timeouts)
+  const failure = allValidations.find(x => x.isValid.result !== 'valid');
+  if (failure) {
+    return {
+      allPassed: false,
+      failure,
+    };
+  } else {
+    return {
+      allPassed: true,
+    };
+  }
 }

@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { AbortError } from '@aztec/foundation/error';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -51,7 +52,11 @@ import type { MemPools } from '../../mem_pools/interface.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
 import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
 import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
-import { type MessageValidator, createTxMessageValidators } from '../../msg_validators/tx_validator/factory.js';
+import {
+  type MessageValidator,
+  createTxMessageValidators,
+  validateInParallel,
+} from '../../msg_validators/tx_validator/factory.js';
 import { DoubleSpendTxValidator, TxProofValidator } from '../../msg_validators/tx_validator/index.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
@@ -891,28 +896,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     tx: Tx,
     messageValidators: Record<string, MessageValidator>,
   ): Promise<ValidationOutcome> {
-    const validationPromises = Object.entries(messageValidators).map(async ([name, { validator, severity }]) => {
-      const { result } = await validator.validateTx(tx);
-      return { name, isValid: result !== 'invalid', severity };
-    });
-
-    // A promise that resolves when all validations have been run
-    const allValidations = await Promise.all(validationPromises);
-    const failed = allValidations.find(x => !x.isValid);
-    if (failed) {
-      return {
-        allPassed: false,
-        failure: {
-          isValid: { result: 'invalid' as const, reason: ['Failed validation'] },
-          name: failed.name,
-          severity: failed.severity,
-        },
-      };
-    } else {
-      return {
-        allPassed: true,
-      };
-    }
+    return validateInParallel(tx, messageValidators, this.logger);
   }
 
   /**

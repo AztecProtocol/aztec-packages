@@ -162,7 +162,8 @@ export interface ClientProtocolCircuitVerifier {
   /**
    * Verifies the private protocol circuit's proof.
    * @param tx - The tx to verify the proof of
+   * @param signal - Optional abort signal
    * @returns True if the proof is valid, false otherwise
    */
-  verifyProof(tx: Tx): Promise<boolean>;
+  verifyProof(tx: Tx, signal?: AbortSignal): Promise<boolean>;
 }
