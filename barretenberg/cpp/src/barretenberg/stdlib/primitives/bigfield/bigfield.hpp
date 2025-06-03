@@ -315,7 +315,7 @@ template <typename Builder, typename T> class bigfield {
     static constexpr size_t MAXIMUM_SUMMAND_COUNT = 1 << MAXIMUM_SUMMAND_COUNT_LOG;
 
     static constexpr uint256_t prime_basis_maximum_limb =
-        uint256_t(modulus_u512.slice(NUM_LIMB_BITS * (NUM_LIMBS - 1), NUM_LIMB_BITS* NUM_LIMBS));
+        modulus_u512.slice(NUM_LIMB_BITS * (NUM_LIMBS - 1), NUM_LIMB_BITS* NUM_LIMBS).lo;
     static constexpr Basis prime_basis{ uint512_t(bb::fr::modulus), bb::fr::modulus.get_msb() + 1 };
     static constexpr Basis binary_basis{ uint512_t(1) << LOG2_BINARY_MODULUS, LOG2_BINARY_MODULUS };
     static constexpr Basis target_basis{ modulus_u512, static_cast<size_t>(modulus_u512.get_msb() + 1) };
