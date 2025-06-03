@@ -1,7 +1,7 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, Fr, sleep } from '@aztec/aztec.js';
-import { addL1Validator } from '@aztec/cli/l1';
+import { addL1Validator, dripQueue } from '@aztec/cli/l1';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StakingAssetHandlerAbi } from '@aztec/l1-artifacts/StakingAssetHandlerAbi';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -13,7 +13,6 @@ import os from 'os';
 import path from 'path';
 import { getContract } from 'viem';
 
-import { dripQueue } from '../../../cli/src/cmds/l1/update_l1_validators.js';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
