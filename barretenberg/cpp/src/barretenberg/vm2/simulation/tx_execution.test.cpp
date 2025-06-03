@@ -1,12 +1,9 @@
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
-#include "barretenberg/vm2/generated/relations/execution.hpp"
-#include "barretenberg/vm2/simulation/alu.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_cd_hasher.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
 #include <gmock/gmock.h>
@@ -15,12 +12,8 @@
 namespace bb::avm2::simulation {
 namespace {
 
-using ::testing::_;
-using ::testing::InvokeWithoutArgs;
 using ::testing::NiceMock;
 using ::testing::Return;
-using ::testing::ReturnRef;
-using ::testing::StrictMock;
 
 class TxExecutionTest : public ::testing::Test {
   protected:
@@ -30,7 +23,8 @@ class TxExecutionTest : public ::testing::Test {
     EventEmitter<TxEvent> tx_event_emitter;
     NiceMock<MockHighLevelMerkleDB> merkle_db;
     NiceMock<MockExecution> execution;
-    TxExecution tx_execution = TxExecution(execution, context_provider, merkle_db, tx_event_emitter);
+    NiceMock<MockCalldataHasher> cd_hasher;
+    TxExecution tx_execution = TxExecution(execution, context_provider, merkle_db, cd_hasher, tx_event_emitter);
 };
 
 TEST_F(TxExecutionTest, simulateTx)

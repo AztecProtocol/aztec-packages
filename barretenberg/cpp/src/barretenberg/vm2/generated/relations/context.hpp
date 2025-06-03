@@ -183,45 +183,43 @@ template <typename FF_> class contextImpl {
         { // CD_OFFSET_NEXT_ROW
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_CTX_ROW *
-                       (in.get(C::execution_parent_calldata_offset_addr_shift) -
-                        in.get(C::execution_parent_calldata_offset_addr));
+                       (in.get(C::execution_parent_calldata_addr_shift) - in.get(C::execution_parent_calldata_addr));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
-                       (in.get(C::execution_parent_calldata_offset_addr_shift) - in.get(C::execution_rop_3_));
+                       (in.get(C::execution_parent_calldata_addr_shift) - in.get(C::execution_rop_3_));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
         { // CD_SIZE_NEXT_ROW
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp =
-                execution_NOT_LAST_EXEC * execution_DEFAULT_CTX_ROW *
-                (in.get(C::execution_parent_calldata_size_addr_shift) - in.get(C::execution_parent_calldata_size_addr));
+            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_CTX_ROW *
+                       (in.get(C::execution_parent_calldata_size_shift) - in.get(C::execution_parent_calldata_size));
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
-                       (in.get(C::execution_parent_calldata_size_addr_shift) - in.get(C::execution_rop_4_));
+                       (in.get(C::execution_parent_calldata_size_shift) - in.get(C::execution_rop_4_));
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
         { // RD_OFFSET_NEXT_ROW
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_CTX_ROW *
-                       (in.get(C::execution_last_child_returndata_offset_addr_shift) -
-                        in.get(C::execution_last_child_returndata_offset_addr));
+                       (in.get(C::execution_last_child_returndata_addr_shift) -
+                        in.get(C::execution_last_child_returndata_addr));
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * execution_NESTED_RET_REV_ONLY *
-                       (in.get(C::execution_last_child_returndata_offset_addr_shift) - in.get(C::execution_rop_1_));
+                       (in.get(C::execution_last_child_returndata_addr_shift) - in.get(C::execution_rop_1_));
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
@@ -229,7 +227,7 @@ template <typename FF_> class contextImpl {
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC *
                        (in.get(C::execution_sel_enter_call) + in.get(C::execution_sel_error)) *
-                       in.get(C::execution_last_child_returndata_offset_addr_shift);
+                       in.get(C::execution_last_child_returndata_addr_shift);
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }
