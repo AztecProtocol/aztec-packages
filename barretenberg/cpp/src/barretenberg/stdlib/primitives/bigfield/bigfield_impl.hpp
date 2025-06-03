@@ -2055,18 +2055,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
     set_origin_tag(new_tag);
 } // namespace stdlib
 
-/**
- * Evaluate a multiply add identity with several added elements and several remainders
- *
- * i.e:
- *
- * input_left*input_to_mul + (to_add[0]..to_add[-1]) - input_quotient*modulus -
- * (input_remainders[0]+..+input_remainders[-1]) = 0 (mod CRT)
- *
- * See detailed explanation at https://hackmd.io/LoEG5nRHQe-PvstVaD51Yw?view
- *
- * THIS FUNCTION IS UNSAFE TO USE IN CIRCUITS AS IT DOES NOT PROTECT AGAINST CRT OVERFLOWS.
- * */
 template <typename Builder, typename T>
 void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_left,
                                                         const bigfield& input_to_mul,
