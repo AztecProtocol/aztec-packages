@@ -1,6 +1,7 @@
 use crate::{
     context::{PrivateContext, PublicContext},
     messages::logs::{event::to_encrypted_private_event_message, utils::prefix_with_tag},
+    oracle::random::random,
     utils::remove_constraints::remove_constraints_if,
 };
 use dep::protocol_types::{
@@ -9,6 +10,7 @@ use dep::protocol_types::{
     constants::GENERATOR_INDEX__EVENT_NULLIFIER,
     hash::poseidon2_hash_with_separator,
     traits::{Serialize, ToField},
+    utils::arrays::array_concat,
 };
 
 pub struct PrivateLogContentConstraintsEnum {
@@ -51,17 +53,35 @@ where
     // usage is requested. If `constraints` were a runtime value then performance would suffer.
     assert_constant(constraints);
 
+    // In private events, we inject randomness to prevent event hash preimage attacks and to prevent event hash
+    // collisions (event hashes are included in the nullifier tree and duplicate nullifiers are by definition not
+    // allowed).
+    // Safety: We use the randomness to preserve the privacy of the event recipient by preventing brute-forcing,
+    // so a malicious sender could use non-random values to make the event less private. But they already know
+    // the full event pre-image anyway, and so the recipient already trusts them to not disclose this information.
+    // We can therefore assume that the sender will cooperate in the random value generation.
+    let randomness = unsafe { random() };
+
+    // TODO(#11571): with decryption happening in Noir we can now use the Packable trait instead.
+    let serialized_event_with_randomness = array_concat([randomness], event.serialize());
+
     let ciphertext = remove_constraints_if(
         constraints == PrivateLogContent.NO_CONSTRAINTS,
-        || to_encrypted_private_event_message(event, recipient),
+        || to_encrypted_private_event_message(
+            Event::get_event_type_id().to_field() as u64,
+            serialized_event_with_randomness,
+            recipient,
+        ),
     );
     let log_content = prefix_with_tag(ciphertext, sender, recipient);
 
     // We commit to the event such that we can later on verify that the event is legitimate (this is necessary for
     // out-of-band event delivery). We use nullifier tree as that is easier to work with than note hash tree since
     // nullifiers don't include a nonce and unlike for notes we don't care about the nonce.
-    let event_hash =
-        poseidon2_hash_with_separator(event.serialize(), GENERATOR_INDEX__EVENT_NULLIFIER);
+    let event_hash = poseidon2_hash_with_separator(
+        serialized_event_with_randomness,
+        GENERATOR_INDEX__EVENT_NULLIFIER,
+    );
     context.push_nullifier(event_hash);
 
     context.emit_private_log(log_content, log_content.len());

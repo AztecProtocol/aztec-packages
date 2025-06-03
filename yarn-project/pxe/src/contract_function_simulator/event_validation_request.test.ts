@@ -21,7 +21,6 @@ describe('EventValidationRequest', () => {
       0,
       0,
       0,
-      0,
       0, // serialized_event padding end
       2, // bounded_vec_len
       5, // event_hash
