@@ -329,13 +329,11 @@ __metadata:
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.15.17"
-    "@types/pidusage": "npm:^2.0.5"
     "@types/source-map-support": "npm:^0.5.10"
     commander: "npm:^12.1.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.3"
     pako: "npm:^2.1.0"
-    pidusage: "npm:^4.0.1"
     source-map-support: "npm:^0.5.21"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -6372,13 +6370,6 @@ __metadata:
   version: 6.0.3
   resolution: "@types/parse5@npm:6.0.3"
   checksum: 10/834d40c9b1a8a99a9574b0b3f6629cf48adcff2eda01a35d701f1de5dcf46ce24223684647890aba9f985d6c801b233f878168683de0ae425940403c383fba8f
-  languageName: node
-  linkType: hard
-
-"@types/pidusage@npm:^2.0.5":
-  version: 2.0.5
-  resolution: "@types/pidusage@npm:2.0.5"
-  checksum: 10/24188bf108b9b5a2ccb16155a492ff1cca7d7bf07aa4e2649cce421e0940dd5b0cd06baa48da9b8bde46343463fc500a7070c0788a0ed3f3f57d3e3bcf4ac64d
   languageName: node
   linkType: hard
 
@@ -18402,15 +18393,6 @@ __metadata:
   version: 4.0.2
   resolution: "picomatch@npm:4.0.2"
   checksum: 10/ce617b8da36797d09c0baacb96ca8a44460452c89362d7cb8f70ca46b4158ba8bc3606912de7c818eb4a939f7f9015cef3c766ec8a0c6bfc725fdc078e39c717
-  languageName: node
-  linkType: hard
-
-"pidusage@npm:^4.0.1":
-  version: 4.0.1
-  resolution: "pidusage@npm:4.0.1"
-  dependencies:
-    safe-buffer: "npm:^5.2.1"
-  checksum: 10/ce791293a32c3c9a89ffe1033d0fd132606278adc68cbfd24c201562edec1b8fdc6df86e89fda1e0f9be7906449cc6173aaade7853c6dec22080258bc694e548
   languageName: node
   linkType: hard
 
