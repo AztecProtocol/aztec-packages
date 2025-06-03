@@ -145,7 +145,7 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "hasTxsInPool"');
   }
 
-  public addTxs(_txs: Tx[]): Promise<void> {
+  public addTxsToPool(_txs: Tx[]): Promise<void> {
     throw new Error('DummyP2P does not implement "addTxs"');
   }
 

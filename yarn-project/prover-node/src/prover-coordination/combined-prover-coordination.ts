@@ -34,7 +34,7 @@ class P2PCoordinationPool implements CoordinationPool {
     return this.p2p.getTxsByHashFromPool(txHashes);
   }
   addTxs(txs: Tx[]): Promise<void> {
-    return this.p2p.addTxs(txs);
+    return this.p2p.addTxsToPool(txs);
   }
 }
 
