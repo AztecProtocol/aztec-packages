@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.87.7](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.6...v0.87.7) (2025-06-02)
+
+
+### Features
+
+* **docs:** nits ([#14212](https://github.com/AztecProtocol/aztec-packages/issues/14212)) ([281d4a8](https://github.com/AztecProtocol/aztec-packages/commit/281d4a8fb487cc88c7287da116d6fbfb4f3cd5be))
+
+
+### Bug Fixes
+
+* filter undefined out ([#14702](https://github.com/AztecProtocol/aztec-packages/issues/14702)) ([220070a](https://github.com/AztecProtocol/aztec-packages/commit/220070a286bb4212d4dbdf2426c0eceb0171fc10))
+* nightlies ([#14675](https://github.com/AztecProtocol/aztec-packages/issues/14675)) ([bb2a0c7](https://github.com/AztecProtocol/aztec-packages/commit/bb2a0c7d946660fa94dca9731ed6eaf9e7793824))
+
+
+### Miscellaneous
+
+* bump version ([#14691](https://github.com/AztecProtocol/aztec-packages/issues/14691)) ([d9232e9](https://github.com/AztecProtocol/aztec-packages/commit/d9232e90533ca613082c575dedd6bf752ff28c96))
+
+
+### Documentation
+
+* link to performant noir doc ([#14620](https://github.com/AztecProtocol/aztec-packages/issues/14620)) ([0ef97ee](https://github.com/AztecProtocol/aztec-packages/commit/0ef97ee7b93af4ae1be1c266aaab45290c2bfe4a))
+
 ## [0.87.6](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.5...v0.87.6) (2025-06-02)
 
 

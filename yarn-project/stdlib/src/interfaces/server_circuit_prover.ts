@@ -164,4 +164,9 @@ export interface ClientProtocolCircuitVerifier {
    * @returns True if the proof is valid, false otherwise
    */
   verifyProof(tx: Tx): Promise<boolean>;
+
+  /**
+   * Stop the verifier.
+   */
+  stop(): Promise<void>;
 }

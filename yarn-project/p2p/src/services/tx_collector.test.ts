@@ -187,4 +187,33 @@ describe('tx collector', () => {
     // all txs should be in the pool
     expect(txPool.size).toEqual(8);
   });
+
+  it("does not add txs from the proposal if their hash isn't in the payload", async () => {
+    const collector = new TxCollector(p2p);
+    const original = await generateTransactions(10);
+    const additional = await generateTransactions(2);
+    await setupTxPools(0, 4, original);
+    const originalHashes = await Promise.all(original.map(tx => tx.getTxHash()));
+
+    // Random shuffle the txs so we test that the collection handles gaps in where txs are found
+    const txs = original;
+    const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+
+    // Add additional txs and these should not be added to the pool and not in the results
+    const proposal = buildProposal(txs.slice(4, 8).concat(additional), hashes);
+    const results = await collector.collectForBlockProposal(proposal, undefined);
+    const expected: TxResults = {
+      retrievedTxs: txs.slice(0, 8),
+      missingTxs: originalHashes.slice(8),
+    };
+    await checkResults({ retrievedTxs: results.txs, missingTxs: results.missing ?? [] }, expected);
+    // all txs should be in the pool
+    expect(txPool.size).toEqual(8);
+
+    // additional txs should not be in the pool
+    const additionalHashes = await Promise.all(additional.map(tx => tx.getTxHash()));
+    for (const hash of additionalHashes) {
+      expect(txPool.has(hash.toString())).toBeFalsy();
+    }
+  });
 });
