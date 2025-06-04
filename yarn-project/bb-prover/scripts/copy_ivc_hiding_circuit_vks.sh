@@ -11,6 +11,6 @@ if [ -f "$private_tail_vk" ] && [ -f "$private_to_public_tail_vk" ]; then
   cp "$private_tail_vk" artifacts/private-civc-vk
   cp "$private_to_public_tail_vk" artifacts/public-civc-vk
 else
-  echo_stderr "You may need to run ./bootstrap.sh in the noir-projects folder. Could not find the tail kernel VKs at $private_tail_vk and $private_to_public_tail_vk."
+  echo_stderr "You may need to run ./bootstrap.sh in the noir-projects folder. Could not find the IVC VKs at $private_tail_vk and $private_to_public_tail_vk."
   exit 1
 fi
