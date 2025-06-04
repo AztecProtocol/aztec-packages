@@ -123,7 +123,6 @@ function compile {
       SECONDS=0
       local ivc_vk_path="$key_dir/${name}.ivc.vk"
       echo_stderr "Generating ivc vk for function: $name..."
-      # We use the same write_vk command, but with the ivc inputs.
       jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type ivc -b - -o $outdir
       mv $outdir/vk $ivc_vk_path
       echo_stderr "IVC tail key output at: $ivc_vk_path (${SECONDS}s)"
