@@ -120,12 +120,13 @@ std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
     }
     // Accumulate the entire program stack into the IVC
     for (auto [program, precomputed_vk, function_name] : zip_view(folding_stack, precomputed_vks, function_names)) {
+        PROFILE_THIS_NAME("PrivateExecutionSteps::ivc->accumulate");
+        // Create a tracy zone with the std::string function name.
+        ZoneText(function_name.c_str(), function_name.size());
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-
-        info("ClientIVC: accumulating " + function_name);
-        // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
-        // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
+        MegaCircuitBuilder circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+        info("ClientIVC: accumulating ", function_name, " gates: ", circuit.get_estimated_num_finalized_gates());
+        // Do one step of ivc accumulator
         ivc->accumulate(circuit, precomputed_vk);
     }
 

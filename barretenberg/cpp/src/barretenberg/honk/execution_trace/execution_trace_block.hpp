@@ -9,6 +9,7 @@
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include <cstddef>
+#include <deque>
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
 #include <backward.hpp>
@@ -45,8 +46,9 @@ template <typename FF, size_t NUM_WIRES_, size_t NUM_SELECTORS_> class Execution
     static constexpr size_t NUM_WIRES = NUM_WIRES_;
     static constexpr size_t NUM_SELECTORS = NUM_SELECTORS_;
 
-    using SelectorType = SlabVector<FF>;
-    using WireType = SlabVector<uint32_t>;
+    // Use std::deque to avoid fragmentation with unpredictable sizes
+    using SelectorType = std::deque<FF>;
+    using WireType = std::deque<uint32_t>;
     using Selectors = std::array<SelectorType, NUM_SELECTORS>;
     using Wires = std::array<WireType, NUM_WIRES>;
 

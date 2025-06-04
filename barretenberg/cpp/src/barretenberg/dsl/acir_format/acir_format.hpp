@@ -106,18 +106,19 @@ struct AcirFormat {
     std::vector<BigIntOperation> bigint_operations;
     std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>> assert_equalities;
 
-    // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
+    // A standard plonkish arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
-    bb::SlabVector<PolyTripleConstraint> poly_triple_constraints;
+    // Note we use std::deque and here and below as it avoids large fragmenting reallocations during parsing.
+    std::deque<PolyTripleConstraint> poly_triple_constraints;
     // A standard ultra plonk arithmetic constraint, of width 4: q_Ma*b+q_A*a+q_B*b+q_C*c+q_d*d+q_const = 0
-    bb::SlabVector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
+    std::deque<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
     // A vector of vector of mul_quad gates (i.e arithmetic constraints of width 4)
     // Each vector of gates represente a 'big' expression (a polynomial of degree 1 or 2 which does not fit inside one
     // mul_gate) that has been splitted into multiple mul_gates, using w4_omega (the 4th wire of the next gate), to
     // reduce the number of intermediate variables.
-    bb::SlabVector<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
-    std::vector<BlockConstraint> block_constraints;
+    std::deque<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
+    std::deque<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
     // Has length equal to num_acir_opcodes.
@@ -161,7 +162,9 @@ struct AcirFormat {
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };
 
-using WitnessVector = bb::SlabVector<bb::fr>;
+// WitnessVector: Use deque for lower fragmentation over vector for dynamic size
+using WitnessVector = std::deque<bb::fr>;
+// WitnessVectorStack: Vector is better with known size
 using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
 struct AcirProgram {
