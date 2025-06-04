@@ -1,6 +1,6 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr, Point } from '@aztec/foundation/fields';
-import type { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
@@ -12,7 +12,7 @@ import type {
 } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -223,8 +223,12 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('fetchTaggedLogs'));
   }
 
-  validateEnqueuedNotes(_contractAddress: AztecAddress, _noteValidationRequestsArrayBaseSlot: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('validateEnqueuedNotes'));
+  validateEnqueuedNotesAndEvents(
+    _contractAddress: AztecAddress,
+    _noteValidationRequestsArrayBaseSlot: Fr,
+    _eventValidationRequestsArrayBaseSlot: Fr,
+  ): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('validateEnqueuedNotesAndEvents'));
   }
 
   getPublicLogByTag(_tag: Fr, _contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
@@ -257,17 +261,5 @@ export abstract class TypedOracle {
 
   getSharedSecret(_address: AztecAddress, _ephPk: Point): Promise<Point> {
     return Promise.reject(new OracleMethodNotAvailableError('getSharedSecret'));
-  }
-
-  storePrivateEventLog(
-    _contractAddress: AztecAddress,
-    _recipient: AztecAddress,
-    _eventSelector: EventSelector,
-    _logContent: Fr[],
-    _txHash: TxHash,
-    _logIndexInTx: number,
-    _txIndexInBlock: number,
-  ): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('storePrivateEventLog'));
   }
 }
