@@ -280,7 +280,6 @@ class AvmFlavor {
 
         ProverPolynomials(ProvingKey& proving_key);
 
-        size_t get_polynomial_size() const { return execution_input.size(); }
         // Only const-access is allowed here. That's all that the logderivative library requires.
         // https://github.com/AztecProtocol/aztec-packages/blob/e50d8e0/barretenberg/cpp/src/barretenberg/honk/proof_system/logderivative_library.hpp#L44.
         PolynomialEntitiesAtFixedRow<ProverPolynomials> get_row(size_t row_idx) const { return { row_idx, *this }; }
