@@ -28,6 +28,19 @@ pub unconstrained fn process_private_event_msg(
 ) {
     // In the case of events, the msg metadata is the event selector.
     let event_type_id = EventSelector::from_field(msg_metadata as Field);
+
+    assert(
+        msg_content.len() > PRIVATE_EVENT_MSG_CONTENT_NON_EVENT_FIELDS_LEN,
+        f"Invalid private event message: all private event messages must have at least {PRIVATE_EVENT_MSG_CONTENT_NON_EVENT_FIELDS_LEN} fields",
+    );
+
+    // If PRIVATE_EVENT_MSG_CONTENT_NON_EVENT_FIELDS_LEN is changed, causing the assertion below to fail, then the
+    // destructuring of the private event message encoding below must be updated as well.
+    std::static_assert(
+        PRIVATE_EVENT_MSG_CONTENT_NON_EVENT_FIELDS_LEN == 1,
+        "unexpected value for PRIVATE_EVENT_MSG_CONTENT_NON_EVENT_FIELDS_LEN",
+    );
+
     let serialized_event_with_randomness = msg_content;
 
     let event_commitment = poseidon2_hash_with_separator_bounded_vec(
