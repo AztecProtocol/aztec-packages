@@ -655,7 +655,37 @@ template <typename Builder> class stdlib_field : public testing::Test {
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
+    static void test_conditional_negate()
+    {
+        Builder builder = Builder();
+        std::array<bool_ct, 4> predicates{
+            bool_ct(true), bool_ct(false), bool_ct(&builder, true), bool_ct(&builder, false)
+        };
+        field_ct constant_summand(bb::fr::random_element());
+        field_ct witness_summand(witness_ct(&builder, bb::fr::random_element()));
+        for (auto& predicate : predicates) {
+            size_t num_gates_before = builder.get_estimated_num_finalized_gates();
 
+            auto result = constant_summand.conditional_negate(predicate);
+            auto expected_result = predicate.get_value() ? -constant_summand.get_value() : constant_summand.get_value();
+            EXPECT_TRUE(result.get_value() == expected_result);
+            // Check that result is constant only if both the predicate and (*this) are constant.
+            EXPECT_TRUE(result.is_constant() == predicate.is_constant());
+
+            result = witness_summand.conditional_negate(predicate);
+            expected_result = predicate.get_value() ? -witness_summand.get_value() : witness_summand.get_value();
+            EXPECT_TRUE(result.get_value() == expected_result);
+            // Check that result is constant only if both the predicate and (*this) are constant.
+            EXPECT_FALSE(result.is_constant());
+
+            if (predicate.is_constant()) {
+                EXPECT_TRUE(builder.get_estimated_num_finalized_gates() == num_gates_before);
+            } else {
+                // Each conditional_negate calls `madd` that creates a single gate.
+                EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == 2);
+            }
+        }
+    }
     static void two_bit_table()
     {
         Builder builder = Builder();
@@ -1440,6 +1470,11 @@ TYPED_TEST(stdlib_field, test_is_zero)
 TYPED_TEST(stdlib_field, test_fix_witness)
 {
     TestFixture::test_fix_witness();
+}
+
+TYPED_TEST(stdlib_field, test_conditional_negate)
+{
+    TestFixture::test_conditional_negate();
 }
 TYPED_TEST(stdlib_field, madd)
 {

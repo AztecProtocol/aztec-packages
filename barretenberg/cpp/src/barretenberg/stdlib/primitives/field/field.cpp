@@ -788,13 +788,14 @@ template <typename Builder>
 field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& predicate) const
 {
     if (predicate.is_constant()) {
-        auto result = field_t(predicate.get_value() ? -(*this) : *this);
+        field_t result = predicate.get_value() ? -(*this) : *this;
         result.set_origin_tag(OriginTag(get_origin_tag(), predicate.get_origin_tag()));
         return result;
     }
-    field_t<Builder> predicate_field(predicate);
-    field_t<Builder> multiplicand = -(predicate_field + predicate_field);
-    return multiplicand.madd(*this, *this);
+    // Compute
+    //  `predicate` * (-a) + a.
+    // If predicate's value == true, then the output is `-a`, else it's `a`
+    return field_t(predicate).madd(-*this, *this);
 }
 
 /**
