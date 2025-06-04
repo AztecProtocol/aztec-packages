@@ -198,9 +198,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Overwrite the passed in vars.
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
 
-    const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
-    const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
-
     const rollup = getContract({
       address: l1ContractsAddresses.rollupAddress.toString(),
       abi: RollupAbi,
@@ -263,9 +260,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const epochPruneWatcher = new EpochPruneWatcher(archiver, epochCache, config.slashPrunePenalty);
     watchers.push(epochPruneWatcher);
 
-    const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
-    await slasherClient.start();
-
+    // undefined if validator is disabled
     const validatorClient = createValidatorClient(config, {
       p2pClient,
       telemetry,
@@ -276,26 +271,34 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     log.verbose(`All Aztec Node subsystems synced`);
 
-    // now create the sequencer
-    const sequencer = config.disableValidator
-      ? undefined
-      : await SequencerClient.new(config, {
-          // if deps were provided, they should override the defaults,
-          // or things that we created in this function
-          ...deps,
-          epochCache,
-          l1TxUtils,
-          validatorClient,
-          p2pClient,
-          worldStateSynchronizer,
-          slasherClient,
-          contractDataSource: archiver,
-          l2BlockSource: archiver,
-          l1ToL2MessageSource: archiver,
-          telemetry,
-          dateProvider,
-          blobSinkClient,
-        });
+    let sequencer: SequencerClient | undefined;
+
+    // Validator enabled, create/start relevant service
+    if (!config.disableValidator) {
+      const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
+      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
+
+      const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
+      await slasherClient.start();
+
+      sequencer = await SequencerClient.new(config, {
+        // if deps were provided, they should override the defaults,
+        // or things that we created in this function
+        ...deps,
+        epochCache,
+        l1TxUtils,
+        validatorClient,
+        p2pClient,
+        worldStateSynchronizer,
+        slasherClient,
+        contractDataSource: archiver,
+        l2BlockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        telemetry,
+        dateProvider,
+        blobSinkClient,
+      });
+    }
 
     return new AztecNodeService(
       config,
