@@ -753,13 +753,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // since `fetchTaggedLogs` only processes logs up to the synced block.
     const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
 
-    const txReceipt = await this.aztecNode.getTxReceipt(txHash);
-    const blockNumber = txReceipt.blockNumber;
-
-    if (blockNumber === undefined) {
-      throw new Error(`Block number is undefined for tx ${txHash} in deliverEvent`);
-    }
-
     const siloedEventCommitment = await siloNullifier(contractAddress, eventCommitment);
 
     const [nullifierIndex] = await this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [
@@ -780,7 +773,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       txHash,
       logIndexInTx,
       txIndexInBlock,
-      blockNumber,
+      nullifierIndex.l2BlockNumber, // Block in which the event was emitted
     );
   }
 
