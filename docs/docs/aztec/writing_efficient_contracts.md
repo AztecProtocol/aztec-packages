@@ -31,15 +31,14 @@ Since proof generation is a significant local burden, being mindful of the gate-
 
 #### Noir for circuits
 
-An explanation of more optimised use of Noir for circuits should be considered for each subsection under [writing efficient Noir](https://noir-lang.org/docs/explainers/explainer-writing-noir#writing-efficient-noir-for-performant-products) to avoid hitting local limits. To give an idea of actions (not to be applied blindly) the items below are a summary of the things to consider *where possible/practical*:
-- Use fields and avoid casting between types
-- Use Arithmetic over non-arithmetic operations
-- Use static over dynamic values
-- Reduce what is inside loops and conditional logic
-- Leverage unconstrained execution
+An explanation of efficient use of Noir for circuits should be considered for each subsection under [writing efficient Noir](https://noir-lang.org/docs/explainers/explainer-writing-noir#writing-efficient-noir-for-performant-products) to avoid hitting local limits. The general theme is to use language features that favour the underlying primitives and representation of a circuit from code.
+
+A couple of examples:
+- Since the underlying cryptography uses an equation made of additions and multiplications, these are more efficient (wrt gate count) in Noir than say bit-shifting.
+- Unconstrained functions by definition do not constrain their operations/output, so do not contribute to gate count. Using them carefully can bring in some savings, but the results must then be constrained so that proofs are meaningful for your application.
 
 :::warning Tradeoffs and caveats
-Each action in the list has its own tradeoffs and caveats so should be carefully considered with the full details in the linked [section](https://noir-lang.org/docs/explainers/explainer-writing-noir#writing-efficient-noir-for-performant-products).
+Each optimisation technique has its own tradeoffs and caveats so should be carefully considered with the full details in the linked [section](https://noir-lang.org/docs/explainers/explainer-writing-noir#writing-efficient-noir-for-performant-products).
 :::
 
 #### Overhead of nested Private Calls
