@@ -26,10 +26,8 @@ class ClientIVCAPI : public API {
                                  const std::filesystem::path& output_path,
                                  const std::filesystem::path& vk_path) override;
 
-    // write a vk for verifying a folding stack based on the number of public inputs of the final circuit
-    void write_ivc_vk(const std::filesystem::path& input_path, const std::filesystem::path& output_path);
-
-    // write a vk for a circuit
+    // write a vk for a standalone circuit, or the last circuit of a stack (e.g. a static kernel tail in the aztec
+    // protocol)
     void write_vk(const Flags& flags,
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override;
