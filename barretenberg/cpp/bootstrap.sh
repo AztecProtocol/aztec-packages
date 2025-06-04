@@ -7,6 +7,11 @@ cmd=${1:-}
 export native_preset=${NATIVE_PRESET:-clang16-assert}
 export pic_preset=${PIC_PRESET:-clang16-pic-assert}
 export hash=$(cache_content_hash .rebuild_patterns)
+export DISABLE_AZTEC_VM=${DISABLE_AZTEC_VM:-0}
+
+if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
+  export DISABLE_AZTEC_VM=1
+fi
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
