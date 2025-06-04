@@ -13,7 +13,7 @@ This highlights a key difference with how public vs private functions are writte
 :::info Writing efficiently
 
 - **Public functions** can be written intuitively - optimising for execution/gas as one would for EVM L2s
-- **Private functions** are optimised differently, as they are compiled to a circuit to be proven (see [Thinking in Circuits](https://noir-lang.org/docs/explainers/explainer-writing-noir))
+- **Private functions** are optimised differently, as they are compiled to a circuit to be proven locally (see [Thinking in Circuits](https://noir-lang.org/docs/explainers/explainer-writing-noir))
 
 :::
 
@@ -23,7 +23,7 @@ On Aztec (like other L2s) there are several costs/limit to consider...
 
 - L1 costs - execution, blobs, events
 - L2 costs - public execution, data, logs
-- Local limits - proof generation, execution
+- Local limits - proof generation time, execution
 
 ### Local Proof generation
 
