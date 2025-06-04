@@ -70,6 +70,9 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
         for (size_t j = 0; j < 5; j++) {
             src_mem_values[i][j] = memory.get(src_addr + static_cast<MemoryAddress>((i * 5) + j));
             const bool tag_valid = src_mem_values[i][j].get_tag() == MemoryTag::U64;
+            // If there is a tag mismatch, we continue the whole simulation as we nevertheless
+            // build a full keccak permutation trace to satisfy constraints. We just replace
+            // the values with the wrong tag by zero.
             state_input_values[i][j] = tag_valid ? src_mem_values[i][j] : MemoryValue::from<uint64_t>(0);
         }
     }

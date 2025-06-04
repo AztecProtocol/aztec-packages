@@ -13,11 +13,11 @@ template <typename FF_> class keccakf1600Impl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 146> SUBRELATION_PARTIAL_LENGTHS = {
+    static constexpr std::array<size_t, 147> SUBRELATION_PARTIAL_LENGTHS = {
         3, 3, 3, 4, 4, 3, 5, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
         2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -1035,205 +1035,187 @@ template <typename FF_> class keccakf1600Impl {
             tmp *= scaling_factor;
             std::get<120>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_00
+        { // NEXT_STATE_IN_00
             using Accumulator = typename std::tuple_element_t<121, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_00_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_00)) -
-                        in.get(C::keccakf1600_state_iota_00));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_00_shift) - in.get(C::keccakf1600_state_iota_00));
             tmp *= scaling_factor;
             std::get<121>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_01
+        { // NEXT_STATE_IN_01
             using Accumulator = typename std::tuple_element_t<122, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_01_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_01)) -
-                        in.get(C::keccakf1600_state_chi_01));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_01_shift) - in.get(C::keccakf1600_state_chi_01));
             tmp *= scaling_factor;
             std::get<122>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_02
+        { // NEXT_STATE_IN_02
             using Accumulator = typename std::tuple_element_t<123, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_02_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_02)) -
-                        in.get(C::keccakf1600_state_chi_02));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_02_shift) - in.get(C::keccakf1600_state_chi_02));
             tmp *= scaling_factor;
             std::get<123>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_03
+        { // NEXT_STATE_IN_03
             using Accumulator = typename std::tuple_element_t<124, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_03_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_03)) -
-                        in.get(C::keccakf1600_state_chi_03));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_03_shift) - in.get(C::keccakf1600_state_chi_03));
             tmp *= scaling_factor;
             std::get<124>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_04
+        { // NEXT_STATE_IN_04
             using Accumulator = typename std::tuple_element_t<125, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_04_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_04)) -
-                        in.get(C::keccakf1600_state_chi_04));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_04_shift) - in.get(C::keccakf1600_state_chi_04));
             tmp *= scaling_factor;
             std::get<125>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_10
+        { // NEXT_STATE_IN_10
             using Accumulator = typename std::tuple_element_t<126, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_10_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_10)) -
-                        in.get(C::keccakf1600_state_chi_10));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_10_shift) - in.get(C::keccakf1600_state_chi_10));
             tmp *= scaling_factor;
             std::get<126>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_11
+        { // NEXT_STATE_IN_11
             using Accumulator = typename std::tuple_element_t<127, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_11_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_11)) -
-                        in.get(C::keccakf1600_state_chi_11));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_11_shift) - in.get(C::keccakf1600_state_chi_11));
             tmp *= scaling_factor;
             std::get<127>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_12
+        { // NEXT_STATE_IN_12
             using Accumulator = typename std::tuple_element_t<128, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_12_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_12)) -
-                        in.get(C::keccakf1600_state_chi_12));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_12_shift) - in.get(C::keccakf1600_state_chi_12));
             tmp *= scaling_factor;
             std::get<128>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_13
+        { // NEXT_STATE_IN_13
             using Accumulator = typename std::tuple_element_t<129, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_13_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_13)) -
-                        in.get(C::keccakf1600_state_chi_13));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_13_shift) - in.get(C::keccakf1600_state_chi_13));
             tmp *= scaling_factor;
             std::get<129>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_14
+        { // NEXT_STATE_IN_14
             using Accumulator = typename std::tuple_element_t<130, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_14_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_14)) -
-                        in.get(C::keccakf1600_state_chi_14));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_14_shift) - in.get(C::keccakf1600_state_chi_14));
             tmp *= scaling_factor;
             std::get<130>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_20
+        { // NEXT_STATE_IN_20
             using Accumulator = typename std::tuple_element_t<131, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_20_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_20)) -
-                        in.get(C::keccakf1600_state_chi_20));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_20_shift) - in.get(C::keccakf1600_state_chi_20));
             tmp *= scaling_factor;
             std::get<131>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_21
+        { // NEXT_STATE_IN_21
             using Accumulator = typename std::tuple_element_t<132, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_21_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_21)) -
-                        in.get(C::keccakf1600_state_chi_21));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_21_shift) - in.get(C::keccakf1600_state_chi_21));
             tmp *= scaling_factor;
             std::get<132>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_22
+        { // NEXT_STATE_IN_22
             using Accumulator = typename std::tuple_element_t<133, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_22_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_22)) -
-                        in.get(C::keccakf1600_state_chi_22));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_22_shift) - in.get(C::keccakf1600_state_chi_22));
             tmp *= scaling_factor;
             std::get<133>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_23
+        { // NEXT_STATE_IN_23
             using Accumulator = typename std::tuple_element_t<134, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_23_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_23)) -
-                        in.get(C::keccakf1600_state_chi_23));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_23_shift) - in.get(C::keccakf1600_state_chi_23));
             tmp *= scaling_factor;
             std::get<134>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_24
+        { // NEXT_STATE_IN_24
             using Accumulator = typename std::tuple_element_t<135, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_24_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_24)) -
-                        in.get(C::keccakf1600_state_chi_24));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_24_shift) - in.get(C::keccakf1600_state_chi_24));
             tmp *= scaling_factor;
             std::get<135>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_30
+        { // NEXT_STATE_IN_30
             using Accumulator = typename std::tuple_element_t<136, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_30_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_30)) -
-                        in.get(C::keccakf1600_state_chi_30));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_30_shift) - in.get(C::keccakf1600_state_chi_30));
             tmp *= scaling_factor;
             std::get<136>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_31
+        { // NEXT_STATE_IN_31
             using Accumulator = typename std::tuple_element_t<137, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_31_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_31)) -
-                        in.get(C::keccakf1600_state_chi_31));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_31_shift) - in.get(C::keccakf1600_state_chi_31));
             tmp *= scaling_factor;
             std::get<137>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_32
+        { // NEXT_STATE_IN_32
             using Accumulator = typename std::tuple_element_t<138, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_32_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_32)) -
-                        in.get(C::keccakf1600_state_chi_32));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_32_shift) - in.get(C::keccakf1600_state_chi_32));
             tmp *= scaling_factor;
             std::get<138>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_33
+        { // NEXT_STATE_IN_33
             using Accumulator = typename std::tuple_element_t<139, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_33_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_33)) -
-                        in.get(C::keccakf1600_state_chi_33));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_33_shift) - in.get(C::keccakf1600_state_chi_33));
             tmp *= scaling_factor;
             std::get<139>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_34
+        { // NEXT_STATE_IN_34
             using Accumulator = typename std::tuple_element_t<140, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_34_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_34)) -
-                        in.get(C::keccakf1600_state_chi_34));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_34_shift) - in.get(C::keccakf1600_state_chi_34));
             tmp *= scaling_factor;
             std::get<140>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_40
+        { // NEXT_STATE_IN_40
             using Accumulator = typename std::tuple_element_t<141, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_40_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_40)) -
-                        in.get(C::keccakf1600_state_chi_40));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_40_shift) - in.get(C::keccakf1600_state_chi_40));
             tmp *= scaling_factor;
             std::get<141>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_41
+        { // NEXT_STATE_IN_41
             using Accumulator = typename std::tuple_element_t<142, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_41_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_41)) -
-                        in.get(C::keccakf1600_state_chi_41));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_41_shift) - in.get(C::keccakf1600_state_chi_41));
             tmp *= scaling_factor;
             std::get<142>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_42
+        { // NEXT_STATE_IN_42
             using Accumulator = typename std::tuple_element_t<143, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_42_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_42)) -
-                        in.get(C::keccakf1600_state_chi_42));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_42_shift) - in.get(C::keccakf1600_state_chi_42));
             tmp *= scaling_factor;
             std::get<143>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_43
+        { // NEXT_STATE_IN_43
             using Accumulator = typename std::tuple_element_t<144, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_43_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_43)) -
-                        in.get(C::keccakf1600_state_chi_43));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_43_shift) - in.get(C::keccakf1600_state_chi_43));
             tmp *= scaling_factor;
             std::get<144>(evals) += typename Accumulator::View(tmp);
         }
-        { // NEXT_STATE_IN_OR_OUT_44
+        { // NEXT_STATE_IN_44
             using Accumulator = typename std::tuple_element_t<145, ContainerOverSubrelations>;
-            auto tmp = (((FF(1) - in.get(C::keccakf1600_last)) * in.get(C::keccakf1600_state_in_44_shift) +
-                         in.get(C::keccakf1600_last) * in.get(C::keccakf1600_state_out_44)) -
-                        in.get(C::keccakf1600_state_chi_44));
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_state_in_44_shift) - in.get(C::keccakf1600_state_chi_44));
             tmp *= scaling_factor;
             std::get<145>(evals) += typename Accumulator::View(tmp);
+        }
+        { // DST_ADDR_PROPAGATION
+            using Accumulator = typename std::tuple_element_t<146, ContainerOverSubrelations>;
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_dst_addr_shift) - in.get(C::keccakf1600_dst_addr));
+            tmp *= scaling_factor;
+            std::get<146>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -1428,55 +1410,57 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
         case 120:
             return "STATE_PI_NOT_44";
         case 121:
-            return "NEXT_STATE_IN_OR_OUT_00";
+            return "NEXT_STATE_IN_00";
         case 122:
-            return "NEXT_STATE_IN_OR_OUT_01";
+            return "NEXT_STATE_IN_01";
         case 123:
-            return "NEXT_STATE_IN_OR_OUT_02";
+            return "NEXT_STATE_IN_02";
         case 124:
-            return "NEXT_STATE_IN_OR_OUT_03";
+            return "NEXT_STATE_IN_03";
         case 125:
-            return "NEXT_STATE_IN_OR_OUT_04";
+            return "NEXT_STATE_IN_04";
         case 126:
-            return "NEXT_STATE_IN_OR_OUT_10";
+            return "NEXT_STATE_IN_10";
         case 127:
-            return "NEXT_STATE_IN_OR_OUT_11";
+            return "NEXT_STATE_IN_11";
         case 128:
-            return "NEXT_STATE_IN_OR_OUT_12";
+            return "NEXT_STATE_IN_12";
         case 129:
-            return "NEXT_STATE_IN_OR_OUT_13";
+            return "NEXT_STATE_IN_13";
         case 130:
-            return "NEXT_STATE_IN_OR_OUT_14";
+            return "NEXT_STATE_IN_14";
         case 131:
-            return "NEXT_STATE_IN_OR_OUT_20";
+            return "NEXT_STATE_IN_20";
         case 132:
-            return "NEXT_STATE_IN_OR_OUT_21";
+            return "NEXT_STATE_IN_21";
         case 133:
-            return "NEXT_STATE_IN_OR_OUT_22";
+            return "NEXT_STATE_IN_22";
         case 134:
-            return "NEXT_STATE_IN_OR_OUT_23";
+            return "NEXT_STATE_IN_23";
         case 135:
-            return "NEXT_STATE_IN_OR_OUT_24";
+            return "NEXT_STATE_IN_24";
         case 136:
-            return "NEXT_STATE_IN_OR_OUT_30";
+            return "NEXT_STATE_IN_30";
         case 137:
-            return "NEXT_STATE_IN_OR_OUT_31";
+            return "NEXT_STATE_IN_31";
         case 138:
-            return "NEXT_STATE_IN_OR_OUT_32";
+            return "NEXT_STATE_IN_32";
         case 139:
-            return "NEXT_STATE_IN_OR_OUT_33";
+            return "NEXT_STATE_IN_33";
         case 140:
-            return "NEXT_STATE_IN_OR_OUT_34";
+            return "NEXT_STATE_IN_34";
         case 141:
-            return "NEXT_STATE_IN_OR_OUT_40";
+            return "NEXT_STATE_IN_40";
         case 142:
-            return "NEXT_STATE_IN_OR_OUT_41";
+            return "NEXT_STATE_IN_41";
         case 143:
-            return "NEXT_STATE_IN_OR_OUT_42";
+            return "NEXT_STATE_IN_42";
         case 144:
-            return "NEXT_STATE_IN_OR_OUT_43";
+            return "NEXT_STATE_IN_43";
         case 145:
-            return "NEXT_STATE_IN_OR_OUT_44";
+            return "NEXT_STATE_IN_44";
+        case 146:
+            return "DST_ADDR_PROPAGATION";
         }
         return std::to_string(index);
     }
@@ -1573,31 +1557,32 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
     static constexpr size_t SR_STATE_PI_NOT_42 = 118;
     static constexpr size_t SR_STATE_PI_NOT_43 = 119;
     static constexpr size_t SR_STATE_PI_NOT_44 = 120;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_00 = 121;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_01 = 122;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_02 = 123;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_03 = 124;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_04 = 125;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_10 = 126;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_11 = 127;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_12 = 128;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_13 = 129;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_14 = 130;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_20 = 131;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_21 = 132;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_22 = 133;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_23 = 134;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_24 = 135;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_30 = 136;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_31 = 137;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_32 = 138;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_33 = 139;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_34 = 140;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_40 = 141;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_41 = 142;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_42 = 143;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_43 = 144;
-    static constexpr size_t SR_NEXT_STATE_IN_OR_OUT_44 = 145;
+    static constexpr size_t SR_NEXT_STATE_IN_00 = 121;
+    static constexpr size_t SR_NEXT_STATE_IN_01 = 122;
+    static constexpr size_t SR_NEXT_STATE_IN_02 = 123;
+    static constexpr size_t SR_NEXT_STATE_IN_03 = 124;
+    static constexpr size_t SR_NEXT_STATE_IN_04 = 125;
+    static constexpr size_t SR_NEXT_STATE_IN_10 = 126;
+    static constexpr size_t SR_NEXT_STATE_IN_11 = 127;
+    static constexpr size_t SR_NEXT_STATE_IN_12 = 128;
+    static constexpr size_t SR_NEXT_STATE_IN_13 = 129;
+    static constexpr size_t SR_NEXT_STATE_IN_14 = 130;
+    static constexpr size_t SR_NEXT_STATE_IN_20 = 131;
+    static constexpr size_t SR_NEXT_STATE_IN_21 = 132;
+    static constexpr size_t SR_NEXT_STATE_IN_22 = 133;
+    static constexpr size_t SR_NEXT_STATE_IN_23 = 134;
+    static constexpr size_t SR_NEXT_STATE_IN_24 = 135;
+    static constexpr size_t SR_NEXT_STATE_IN_30 = 136;
+    static constexpr size_t SR_NEXT_STATE_IN_31 = 137;
+    static constexpr size_t SR_NEXT_STATE_IN_32 = 138;
+    static constexpr size_t SR_NEXT_STATE_IN_33 = 139;
+    static constexpr size_t SR_NEXT_STATE_IN_34 = 140;
+    static constexpr size_t SR_NEXT_STATE_IN_40 = 141;
+    static constexpr size_t SR_NEXT_STATE_IN_41 = 142;
+    static constexpr size_t SR_NEXT_STATE_IN_42 = 143;
+    static constexpr size_t SR_NEXT_STATE_IN_43 = 144;
+    static constexpr size_t SR_NEXT_STATE_IN_44 = 145;
+    static constexpr size_t SR_DST_ADDR_PROPAGATION = 146;
 };
 
 } // namespace bb::avm2

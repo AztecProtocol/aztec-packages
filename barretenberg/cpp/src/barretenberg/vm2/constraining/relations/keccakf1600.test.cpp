@@ -25,6 +25,7 @@
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
@@ -185,6 +186,9 @@ using lookup_state_chi_44 = lookup_keccakf1600_state_chi_44_relation<FF>;
 using lookup_iota_00 = lookup_keccakf1600_state_iota_00_relation<FF>;
 // round constants lookup
 using lookup_round_constants = lookup_keccakf1600_round_cst_relation<FF>;
+// Memory slices permutations
+using perm_read_to_slice = perm_keccakf1600_read_to_slice_relation<FF>;
+using perm_write_to_slice = perm_keccakf1600_write_to_slice_relation<FF>;
 // Keccak slice memory to memory sub-trace
 using lookup_slice_to_mem = lookup_keccak_memory_slice_to_mem_relation<FF>;
 // Helper function to simulate and generate a trace of a list of Keccakf1600 permutations.
@@ -239,6 +243,7 @@ void check_all_interactions(TestTraceContainer& trace)
 {
     using tracegen::LookupIntoDynamicTableSequential;
     using tracegen::LookupIntoIndexedByClk;
+    using tracegen::PermutationBuilder;
 
     // Theta XOR values
     LookupIntoDynamicTableSequential<lookup_theta_xor_01::Settings>().process(trace);
@@ -371,6 +376,9 @@ void check_all_interactions(TestTraceContainer& trace)
     LookupIntoDynamicTableSequential<lookup_iota_00::Settings>().process(trace);
     // round constants lookup
     LookupIntoIndexedByClk<lookup_round_constants::Settings>().process(trace);
+    // Memory slices permutations
+    PermutationBuilder<perm_read_to_slice::Settings>().process(trace);
+    PermutationBuilder<perm_write_to_slice::Settings>().process(trace);
     // Keccak slice memory to memory sub-trace
     LookupIntoDynamicTableSequential<lookup_slice_to_mem::Settings>().process(trace);
 }
