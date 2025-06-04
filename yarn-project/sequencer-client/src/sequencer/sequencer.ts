@@ -287,7 +287,7 @@ export class Sequencer {
     }
 
     this.log.debug(
-      `${proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()}` : ''} Can propose block ${newBlockNumber} at slot ${slot}`,
+      `${proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} ` : ''}Can propose block ${newBlockNumber} at slot ${slot}`,
     );
 
     const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
