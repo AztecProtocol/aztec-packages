@@ -423,7 +423,7 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
     single_token
 }
 
-pub(crate) comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
+pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, false);
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -435,8 +435,10 @@ pub(crate) comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
 
     let field_serializations = fields.join(quote {,});
     let serialized_len = fields.len();
+    let serialize_trait: TraitConstraint =
+        quote { Serialize<$serialized_len> }.as_trait_constraint();
     quote {
-        impl Serialize<$serialized_len> for $typ {
+        impl $serialize_trait for $typ {
             #[inline_always]
             fn serialize(self) -> [Field; $serialized_len] {
                 $aux_vars_for_serialization

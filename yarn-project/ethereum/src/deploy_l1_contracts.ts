@@ -10,8 +10,6 @@ import {
   FeeAssetHandlerBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
-  ForwarderAbi,
-  ForwarderBytecode,
   GSEAbi,
   GSEBytecode,
   GovernanceAbi,
@@ -76,6 +74,11 @@ import {
 import type { ExtendedViemWalletClient } from './types.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
+
+export type Operator = {
+  attester: EthAddress;
+  withdrawer: EthAddress;
+};
 
 /**
  * Return type of the deployL1Contract function.
@@ -262,6 +265,7 @@ export const deploySharedContracts = async (
 
   const governanceProposerAddress = await deployer.deploy(l1Artifacts.governanceProposer, [
     registryAddress.toString(),
+    gseAddress.toString(),
     args.governanceProposerQuorum,
     args.governanceProposerRoundSize,
   ]);
@@ -272,8 +276,41 @@ export const deploySharedContracts = async (
   const governanceAddress = await deployer.deploy(l1Artifacts.governance, [
     stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
+    gseAddress.toString(),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);
+
+  let needToSetGovernance = false;
+
+  const existingCode = await l1Client.getCode({ address: gseAddress.toString() });
+  if (!existingCode || existingCode === '0x') {
+    needToSetGovernance = true;
+  } else {
+    const gseContract = getContract({
+      address: getAddress(gseAddress.toString()),
+      abi: l1Artifacts.gse.contractAbi,
+      client: l1Client,
+    });
+    const existingGovernance = await gseContract.read.getGovernance();
+    if (EthAddress.fromString(existingGovernance).equals(EthAddress.ZERO)) {
+      needToSetGovernance = true;
+    }
+  }
+
+  if (needToSetGovernance) {
+    const { txHash } = await deployer.sendTransaction({
+      to: gseAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.gse.contractAbi,
+        functionName: 'setGovernance',
+        args: [governanceAddress.toString()],
+      }),
+      ...(args.acceleratedTestDeployments ? { gasLimit: 1_000_000n } : {}),
+    });
+
+    logger.verbose(`Set governance on GSE in ${txHash}`);
+    txHashes.push(txHash);
+  }
 
   const coinIssuerAddress = await deployer.deploy(l1Artifacts.coinIssuer, [
     feeAssetAddress.toString(),
@@ -691,12 +728,6 @@ export const handoverToGovernance = async (
   await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
 };
 
-export type Operator = {
-  attester: Hex | EthAddress;
-  proposerEOA: Hex | EthAddress;
-  withdrawer: Hex | EthAddress;
-};
-
 /*
  * Adds multiple validators to the rollup
  *
@@ -748,12 +779,6 @@ export const addMultipleValidators = async (
 
       const validatorsTuples = validators.map(v => ({
         attester: getAddress(v.attester.toString()),
-        proposer: getExpectedAddress(
-          ForwarderAbi,
-          ForwarderBytecode,
-          [getAddress(v.proposerEOA.toString())],
-          getAddress(v.proposerEOA.toString()),
-        ).address,
         withdrawer: getAddress(v.withdrawer.toString()),
       }));
 
@@ -772,16 +797,16 @@ export const addMultipleValidators = async (
         ].map(tx => extendedClient.waitForTransactionReceipt({ hash: tx.txHash })),
       );
 
-      const initiateValidatorSetTxHash = await deployer.client.writeContract({
+      const addValidatorsTxHash = await deployer.client.writeContract({
         address: multiAdder.toString(),
         abi: l1Artifacts.multiAdder.contractAbi,
         functionName: 'addValidators',
         args: [validatorsTuples],
       });
-      await extendedClient.waitForTransactionReceipt({ hash: initiateValidatorSetTxHash });
+      await extendedClient.waitForTransactionReceipt({ hash: addValidatorsTxHash });
       logger.info(`Initialized validator set`, {
         validators,
-        txHash: initiateValidatorSetTxHash,
+        txHash: addValidatorsTxHash,
       });
     }
   }

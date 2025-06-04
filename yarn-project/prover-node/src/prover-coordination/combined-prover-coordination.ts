@@ -25,7 +25,7 @@ export interface TxSource {
 class P2PCoordinationPool implements CoordinationPool {
   constructor(private readonly p2p: P2P) {}
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return this.p2p.getTxsByHash(txHashes);
+    return this.p2p.getTxsByHash(txHashes, undefined);
   }
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
     return this.p2p.hasTxsInPool(txHashes);
@@ -34,7 +34,7 @@ class P2PCoordinationPool implements CoordinationPool {
     return this.p2p.getTxsByHashFromPool(txHashes);
   }
   addTxs(txs: Tx[]): Promise<void> {
-    return this.p2p.addTxs(txs);
+    return this.p2p.addTxsToPool(txs);
   }
 }
 

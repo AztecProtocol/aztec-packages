@@ -12,7 +12,6 @@ contract StakingBase is TestBase {
   Registry internal registry;
   TestERC20 internal stakingAsset;
 
-  address internal constant PROPOSER = address(bytes20("PROPOSER"));
   address internal constant ATTESTER = address(bytes20("ATTESTER"));
   address internal constant WITHDRAWER = address(bytes20("WITHDRAWER"));
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));

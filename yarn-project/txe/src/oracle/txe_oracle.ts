@@ -38,23 +38,21 @@ import {
 import {
   ExecutionNoteCache,
   HashedValuesCache,
-  type MessageLoadOracleInputs,
+  MessageLoadOracleInputs,
   type NoteData,
   Oracle,
   PrivateExecutionOracle,
   type TypedOracle,
   UtilityExecutionOracle,
-  WASMSimulator,
   executePrivateFunction,
-  extractCallStack,
   extractPrivateCircuitPublicInputs,
   pickNotes,
-  toACVMWitness,
-  witnessMapToFields,
-} from '@aztec/simulator/client';
+} from '@aztec/pxe/simulator';
+import { WASMSimulator, extractCallStack, toACVMWitness, witnessMapToFields } from '@aztec/simulator/client';
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
+  GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
   type PublicTxResult,
@@ -104,6 +102,7 @@ import {
   ContractClassLog,
   IndexedTaggingSecret,
   PrivateLog,
+  PrivateLogWithTxData,
   type PublicLog,
   PublicLogWithTxData,
 } from '@aztec/stdlib/logs';
@@ -171,7 +170,7 @@ export class TXE implements TypedOracle {
 
   private node: AztecNode;
 
-  private simulationProvider = new WASMSimulator();
+  private simulator = new WASMSimulator();
 
   public noteCache: ExecutionNoteCache;
 
@@ -871,8 +870,8 @@ export class TXE implements TypedOracle {
 
       const args = await this.loadFromExecutionCache(argsHash);
       const initialWitness = toACVMWitness(0, args);
-      const acirExecutionResult = await this.simulationProvider
-        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle))
+      const acirExecutionResult = await this.simulator
+        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
           throw new ExecutionError(
@@ -928,8 +927,8 @@ export class TXE implements TypedOracle {
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
-    const acirExecutionResult = await this.simulationProvider
-      .executeUserCircuit(initialWitness, artifact, acvmCallback)
+    const acirExecutionResult = await this.simulator
+      .executeUserCircuit(initialWitness, artifact, acvmCallback.toACIRCallback())
       .catch((err: Error) => {
         err.message = resolveAssertionMessageFromError(err, artifact);
 
@@ -1178,13 +1177,17 @@ export class TXE implements TypedOracle {
 
   public async validateEnqueuedNotes(
     contractAddress: AztecAddress,
-    notePendingValidationArrayBaseSlot: Fr,
+    noteValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
-    await this.pxeOracleInterface.validateEnqueuedNotes(contractAddress, notePendingValidationArrayBaseSlot);
+    await this.pxeOracleInterface.validateEnqueuedNotes(contractAddress, noteValidationRequestsArrayBaseSlot);
   }
 
   async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
     return await this.pxeOracleInterface.getPublicLogByTag(tag, contractAddress);
+  }
+
+  async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
+    return await this.pxeOracleInterface.getPrivateLogByTag(siloedTag);
   }
 
   // AVM oracles
@@ -1389,7 +1392,7 @@ export class TXE implements TypedOracle {
       HashedValuesCache.create(),
       noteCache,
       this.pxeOracleInterface,
-      this.simulationProvider,
+      this.simulator,
       0,
       1,
     );
@@ -1400,7 +1403,7 @@ export class TXE implements TypedOracle {
     let result;
     try {
       const executionResult = await executePrivateFunction(
-        this.simulationProvider,
+        this.simulator,
         context,
         artifact,
         targetContractAddress,
@@ -1500,8 +1503,9 @@ export class TXE implements TypedOracle {
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
-    const simulator = new PublicTxSimulator(this.baseFork, contractsDB, globals, true, true);
-    const processor = new PublicProcessor(globals, this.baseFork, contractsDB, simulator, new TestDateProvider());
+    const guardedMerkleTrees = new GuardedMerkleTreeOperations(this.baseFork);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true);
+    const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
 
     const constantData = new TxConstantData(blockHeader, txContext, Fr.zero(), Fr.zero());
 
@@ -1654,8 +1658,9 @@ export class TXE implements TypedOracle {
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
-    const simulator = new PublicTxSimulator(this.baseFork, contractsDB, globals, true, true);
-    const processor = new PublicProcessor(globals, this.baseFork, contractsDB, simulator, new TestDateProvider());
+    const guardedMerkleTrees = new GuardedMerkleTreeOperations(this.baseFork);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true);
+    const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
 
     const constantData = new TxConstantData(blockHeader, txContext, Fr.zero(), Fr.zero());
 

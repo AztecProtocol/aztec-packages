@@ -68,6 +68,7 @@ template <typename Builder> class field_t {
         multiplicative_constant = bb::fr::one();
     }
 
+    // Construct a constant circuit element from a native field element
     field_t(const bb::fr& value)
         : context(nullptr)
         , additive_constant(value)
@@ -75,6 +76,7 @@ template <typename Builder> class field_t {
         , witness_index(IS_CONSTANT)
     {}
 
+    // Construct a constant circuit element from a uint256t, that is implicitly converted to a native field element
     field_t(const uint256_t& value)
         : context(nullptr)
         , additive_constant(value)
@@ -84,6 +86,7 @@ template <typename Builder> class field_t {
 
     field_t(const witness_t<Builder>& value);
 
+    // field_t copy constructor
     field_t(const field_t& other)
         : context(other.context)
         , additive_constant(other.additive_constant)
@@ -92,6 +95,7 @@ template <typename Builder> class field_t {
         , tag(other.tag)
     {}
 
+    // field_t move constructor
     field_t(field_t&& other) noexcept
         : context(other.context)
         , additive_constant(other.additive_constant)
@@ -100,6 +104,7 @@ template <typename Builder> class field_t {
         , tag(other.tag)
     {}
 
+    // Copy constructor from a bool_t
     field_t(const bool_t<Builder>& other);
 
     ~field_t() = default;
@@ -107,7 +112,7 @@ template <typename Builder> class field_t {
     static constexpr bool is_composite = false;
     static constexpr uint256_t modulus = bb::fr::modulus;
 
-    static field_t from_witness_index(Builder* parent_context, uint32_t witness_index);
+    static field_t from_witness_index(Builder* ctx, uint32_t witness_index);
 
     explicit operator bool_t<Builder>() const;
 
@@ -119,7 +124,7 @@ template <typename Builder> class field_t {
         additive_constant = other.additive_constant;
         multiplicative_constant = other.multiplicative_constant;
         witness_index = other.witness_index;
-        context = (other.context == nullptr ? nullptr : other.context);
+        context = other.context;
         tag = other.tag;
         return *this;
     }
@@ -129,7 +134,7 @@ template <typename Builder> class field_t {
         additive_constant = other.additive_constant;
         multiplicative_constant = other.multiplicative_constant;
         witness_index = other.witness_index;
-        context = (other.context == nullptr ? nullptr : other.context);
+        context = other.context;
         tag = other.tag;
         return *this;
     }
@@ -193,7 +198,7 @@ template <typename Builder> class field_t {
         return this_before_operation;
     };
 
-    field_t invert() const { return (field_t(1) / field_t(*this)).normalize(); }
+    field_t invert() const { return field_t(fr::one()) / *this; }
 
     field_t operator-() const
     {
@@ -469,7 +474,7 @@ template <typename Builder> class field_t {
      *
      * A Plonk gate is a mix of witness values and selector values. e.g. the regular PLONK arithmetic gate checks that:
      *
-     *      w_1 * w_2 * q_m + w_1 * q_1 + w_2 * w_2 + w_3 * q_3 + q_c = 0
+     *      w_1 * w_2 * q_m + w_1 * q_1 + w_2 * q_2 + w_3 * q_3 + q_c = 0
      *
      * The `w` value are wires, the `q` values are selector constants. If a field object contains a `witness_index`, it
      * will be assigned to `w` values when constraints are applied. If it's a circuit constant, it will be assigned to
