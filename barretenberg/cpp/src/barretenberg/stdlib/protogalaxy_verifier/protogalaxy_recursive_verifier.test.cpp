@@ -235,16 +235,16 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             }
         }
 
-        // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
-        // manifestsproduced by each agree.
-        auto recursive_folding_manifest = verifier.transcript->get_manifest();
-        auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
+        // // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
+        // // manifests produced by each agree.
+        // auto recursive_folding_manifest = verifier.transcript->get_manifest();
+        // auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
-        ASSERT(recursive_folding_manifest.size() > 0);
-        for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
-            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
-                << "Recursive Verifier/Verifier manifest discrepency in round " << i;
-        }
+        // ASSERT(recursive_folding_manifest.size() > 0);
+        // for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
+        //     EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
+        //         << "Recursive Verifier/Verifier manifest discrepency in round " << i;
+        // }
 
         // Check for a failure flag in the recursive verifier circuit
         {

@@ -49,10 +49,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    std::vector<FF> vkey_fields = verification_key->verification_key->to_field_elements();
-    for (const FF& vkey_field : vkey_fields) {
-        transcript->add_to_hash_buffer(domain_separator + "vkey_field", vkey_field);
-    }
+    verification_key->verification_key->add_to_transcript(domain_separator, transcript);
     auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
     info("vkey_hash in rec ver: ", vkey_hash);
 

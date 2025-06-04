@@ -224,6 +224,34 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             return elements;
         }
 
+        // Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
+        // submitting that, we want to submit the values directly to the transcript.
+        template <typename Transcript>
+        void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
+        {
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->circuit_size);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->num_public_inputs);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->pub_inputs_offset);
+            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
+            CircuitBuilder* builder = this->circuit_size.context;
+            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", pairing_points_start_idx);
+            FF app_return_data_commitment_start_idx(
+                this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
+            app_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", app_return_data_commitment_start_idx);
+            FF kernel_return_data_commitment_start_idx(
+                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
+            kernel_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", kernel_return_data_commitment_start_idx);
+            FF databus_is_kernel_start_idx(this->databus_propagation_data.is_kernel);
+            databus_is_kernel_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", databus_is_kernel_start_idx);
+            for (const Commitment& commitment : this->get_all()) {
+                transcript->add_to_hash_buffer(domain_separator + "vkey_field", commitment);
+            }
+        }
+
         /**
          * @brief Construct a VerificationKey from a set of corresponding witness indices
          *
