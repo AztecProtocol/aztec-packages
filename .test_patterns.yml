@@ -222,18 +222,10 @@ tests:
     owners:
       - *sean
   # http://ci.aztec-labs.com/dbd1f6d89d783fe6
-  - regex: "p2p/src/client/p2p_client.integration.test.ts"
-    error_regex: "CodeError: writable end state is .writing. not .ready."
-    owners:
-      - *palla
+  # http://ci.aztec-labs.com/2edd22a1ffa9edea
   # http://ci.aztec-labs.com/ef728e7bedb2710b
-  - regex: "p2p/src/client/p2p_client.integration.test.ts"
-    error_regex: "Expected number of calls: 0"
-    owners:
-      - *palla
   # http://ci.aztec-labs.com/2edd22a1ffa9edea
   - regex: "p2p/src/client/p2p_client.integration.test.ts"
-    error_regex: "expect.received..toBeDefined"
     owners:
       - *palla
   - regex: "yarn-project/kv-store"
