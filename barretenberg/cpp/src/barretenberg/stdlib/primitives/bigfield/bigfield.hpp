@@ -755,7 +755,7 @@ template <typename Builder, typename T> class bigfield {
     }
 
     // If we encounter this maximum value of a bigfield we stop execution
-    static constexpr uint512_t get_prohibited_maximum_value()
+    static constexpr uint512_t get_prohibited_value()
     {
         uint1024_t maximum_product = get_maximum_crt_product();
         uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
@@ -884,7 +884,7 @@ template <typename Builder, typename T> class bigfield {
     static constexpr uint256_t get_maximum_unreduced_limb_value() { return uint256_t(1) << MAX_UNREDUCED_LIMB_BITS; }
 
     // If we encounter this maximum value of a limb we stop execution
-    static constexpr uint256_t get_prohibited_maximum_limb_value() { return uint256_t(1) << PROHIBITED_LIMB_BITS; }
+    static constexpr uint256_t get_prohibited_limb_value() { return uint256_t(1) << PROHIBITED_LIMB_BITS; }
 
     static_assert(PROHIBITED_LIMB_BITS < MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW);
 

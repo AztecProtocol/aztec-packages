@@ -1806,11 +1806,11 @@ template <typename Builder, typename T> void bigfield<Builder, T>::reduction_che
         return;
     }
 
-    uint256_t maximum_limb_value = get_maximum_unreduced_limb_value();
-    bool limb_overflow_test_0 = binary_basis_limbs[0].maximum_value > maximum_limb_value;
-    bool limb_overflow_test_1 = binary_basis_limbs[1].maximum_value > maximum_limb_value;
-    bool limb_overflow_test_2 = binary_basis_limbs[2].maximum_value > maximum_limb_value;
-    bool limb_overflow_test_3 = binary_basis_limbs[3].maximum_value > maximum_limb_value;
+    uint256_t maximum_unreduced_limb_value = get_maximum_unreduced_limb_value();
+    bool limb_overflow_test_0 = binary_basis_limbs[0].maximum_value > maximum_unreduced_limb_value;
+    bool limb_overflow_test_1 = binary_basis_limbs[1].maximum_value > maximum_unreduced_limb_value;
+    bool limb_overflow_test_2 = binary_basis_limbs[2].maximum_value > maximum_unreduced_limb_value;
+    bool limb_overflow_test_3 = binary_basis_limbs[3].maximum_value > maximum_unreduced_limb_value;
     if (get_maximum_value() > get_maximum_unreduced_value() || limb_overflow_test_0 || limb_overflow_test_1 ||
         limb_overflow_test_2 || limb_overflow_test_3) {
         self_reduce();
@@ -1820,12 +1820,14 @@ template <typename Builder, typename T> void bigfield<Builder, T>::reduction_che
 template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check() const
 {
 
-    uint256_t maximum_limb_value = get_prohibited_maximum_limb_value();
-    bool limb_overflow_test_0 = binary_basis_limbs[0].maximum_value > maximum_limb_value;
-    bool limb_overflow_test_1 = binary_basis_limbs[1].maximum_value > maximum_limb_value;
-    bool limb_overflow_test_2 = binary_basis_limbs[2].maximum_value > maximum_limb_value;
-    bool limb_overflow_test_3 = binary_basis_limbs[3].maximum_value > maximum_limb_value;
-    ASSERT(!(get_maximum_value() > get_prohibited_maximum_value() || limb_overflow_test_0 || limb_overflow_test_1 ||
+    uint256_t prohibited_limb_value = get_prohibited_limb_value();
+    bool limb_overflow_test_0 = binary_basis_limbs[0].maximum_value > prohibited_limb_value;
+    bool limb_overflow_test_1 = binary_basis_limbs[1].maximum_value > prohibited_limb_value;
+    bool limb_overflow_test_2 = binary_basis_limbs[2].maximum_value > prohibited_limb_value;
+    bool limb_overflow_test_3 = binary_basis_limbs[3].maximum_value > prohibited_limb_value;
+    // max_val < sqrt(2^T * n)
+    // Note this is a static assertion, so it is not checked at runtime
+    ASSERT(!(get_maximum_value() > get_prohibited_value() || limb_overflow_test_0 || limb_overflow_test_1 ||
              limb_overflow_test_2 || limb_overflow_test_3));
 }
 
