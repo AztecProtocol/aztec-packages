@@ -2,7 +2,7 @@ use crate::{
     messages::{
         discovery::{
             ComputeNoteHashAndNullifier, partial_notes::process_partial_note_private_msg,
-            private_notes::process_private_note_msg,
+            private_events::process_private_event_msg, private_notes::process_private_note_msg,
         },
         encoding::decode_message,
         encryption::{aes128::AES128, log_encryption::LogEncryption},
@@ -11,16 +11,10 @@ use crate::{
         },
         processing::pending_tagged_log::PendingTaggedLog,
     },
-    oracle::logs::store_private_event_log,
     utils::array,
 };
 
-use protocol_types::{
-    abis::event_selector::EventSelector,
-    address::AztecAddress,
-    debug_log::{debug_log, debug_log_format},
-    traits::FromField,
-};
+use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
 
 /// Processes a private log's ciphertext by decrypting it and then searching the plaintext for private notes or partial
 /// notes.
@@ -77,13 +71,10 @@ pub(crate) unconstrained fn process_private_log<Env>(
     } else if msg_type_id == PRIVATE_EVENT_MSG_TYPE_ID {
         debug_log("Processing private event msg");
 
-        // In the case of events, the msg metadata is the event selector.
-        let event_selector = EventSelector::from_field(msg_metadata as Field);
-
-        store_private_event_log(
+        process_private_event_msg(
             contract_address,
             pending_tagged_log.recipient,
-            event_selector,
+            msg_metadata,
             msg_content,
             pending_tagged_log.tx_hash,
             pending_tagged_log.log_index_in_tx,

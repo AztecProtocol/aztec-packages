@@ -1,11 +1,11 @@
-import { type ContractInstanceWithAddress, Fr, Point, TxHash } from '@aztec/aztec.js';
+import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { enrichPublicSimulationError } from '@aztec/pxe/server';
 import type { TypedOracle } from '@aztec/pxe/simulator';
-import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
@@ -700,9 +700,10 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  public async validateEnqueuedNotes(
+  public async validateEnqueuedNotesAndEvents(
     contractAddress: ForeignCallSingle,
     noteValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    eventValidationRequestsArrayBaseSlot: ForeignCallSingle,
   ) {
     if (!this.oraclesEnabled) {
       throw new Error(
@@ -710,9 +711,10 @@ export class TXEService {
       );
     }
 
-    await this.typedOracle.validateEnqueuedNotes(
+    await this.typedOracle.validateEnqueuedNotesAndEvents(
       AztecAddress.fromField(fromSingle(contractAddress)),
       fromSingle(noteValidationRequestsArrayBaseSlot),
+      fromSingle(eventValidationRequestsArrayBaseSlot),
     );
 
     return toForeignCallResult([]);
@@ -870,33 +872,6 @@ export class TXEService {
       Point.fromFields([fromSingle(ephPKField0), fromSingle(ephPKField1), fromSingle(ephPKField2)]),
     );
     return toForeignCallResult(secret.toFields().map(toSingle));
-  }
-
-  async storePrivateEventLog(
-    contractAddress: ForeignCallSingle,
-    recipient: ForeignCallSingle,
-    eventSelector: ForeignCallSingle,
-    logContent: ForeignCallArray,
-    txHash: ForeignCallSingle,
-    logIndexInTx: ForeignCallSingle,
-    txIndexInBlock: ForeignCallSingle,
-  ) {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
-    }
-
-    await this.typedOracle.storePrivateEventLog(
-      AztecAddress.fromField(fromSingle(contractAddress)),
-      AztecAddress.fromField(fromSingle(recipient)),
-      EventSelector.fromField(fromSingle(eventSelector)),
-      fromArray(logContent),
-      new TxHash(fromSingle(txHash)),
-      fromSingle(logIndexInTx).toNumber(),
-      fromSingle(txIndexInBlock).toNumber(),
-    );
-    return toForeignCallResult([]);
   }
 
   // AVM opcodes
