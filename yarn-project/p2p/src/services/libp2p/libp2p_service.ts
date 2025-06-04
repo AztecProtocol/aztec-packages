@@ -459,8 +459,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     protocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
     pinnedPeerId: PeerId | undefined,
+    timeoutMs?: number,
+    maxPeers?: number,
+    maxRetry?: number,
   ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
-    return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId);
+    return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId, timeoutMs, maxPeers, maxRetry);
   }
 
   /**

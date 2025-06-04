@@ -196,7 +196,7 @@ export class ReqResp {
 
         attemptedPeers.set(peer.toString(), true);
 
-        this.logger.trace(`Sending request to peer: ${peer.toString()}`);
+        this.logger.debug(`Sending request to peer: ${peer.toString()}`);
         const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);
 
         if (response.status !== ReqRespStatus.SUCCESS) {
@@ -342,7 +342,7 @@ export class ReqResp {
               const peerResults: { index: number; response: InstanceType<SubProtocolMap[SubProtocol]['response']> }[] =
                 [];
               for (const index of indices) {
-                this.logger.trace(`Sending request ${index} to peer ${peerAsString}`);
+                this.logger.debug(`Sending request ${index} to peer ${peerAsString}`);
                 const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffers[index]);
 
                 // Check the status of the response buffer

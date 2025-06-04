@@ -370,7 +370,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    */
   public async requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]> {
     const timeoutMs = 8000; // Longer timeout for now
-    const maxPeers = Math.min(Math.ceil(txHashes.length / 3), 10);
+    const maxPeers = Math.max(Math.ceil(txHashes.length / 3), 10);
     const maxRetryAttempts = 10; // Keep retrying within the timeout
 
     const txs = await this.p2pService.sendBatchRequest(

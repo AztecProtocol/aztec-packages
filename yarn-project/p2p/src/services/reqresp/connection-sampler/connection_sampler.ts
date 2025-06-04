@@ -169,7 +169,7 @@ export class ConnectionSampler {
       batch.push(peer);
     }
 
-    this.logger.trace('Batch sampled peers', {
+    this.logger.debug('Batch sampled peers', {
       length: batch.length,
       peers: batch,
       withoutConnections: lengthWithoutConnections,
