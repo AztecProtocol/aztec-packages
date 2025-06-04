@@ -114,7 +114,7 @@ export async function deployNewRollupContracts(
   if (!initialValidators || initialValidators.length === 0) {
     // initialize the new rollup with Amin's validator address.
     const amin = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
-    initialValidators = [{ attester: amin, proposerEOA: amin, withdrawer: amin }];
+    initialValidators = [{ attester: amin, withdrawer: amin }];
     logger.info('Initializing new rollup with old attesters', { initialValidators });
   }
 

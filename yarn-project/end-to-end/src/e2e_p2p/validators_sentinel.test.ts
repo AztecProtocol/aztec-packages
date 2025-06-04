@@ -51,6 +51,7 @@ describe('e2e_p2p_validators_sentinel', () => {
         slashingQuorum: SLASHING_QUORUM,
         slashingRoundSize: SLASHING_ROUND_SIZE,
         slashInactivityCreatePenalty: SLASH_AMOUNT,
+        slashInactivityMaxPenalty: SLASH_AMOUNT,
         slashInactivityCreateTargetPercentage: 0.5,
         slashInactivitySignalTargetPercentage: 0.1,
         slashProposerRoundPollingIntervalSeconds: 1,
@@ -118,7 +119,7 @@ describe('e2e_p2p_validators_sentinel', () => {
     });
 
     it('collects stats on offline validator', () => {
-      const offlineValidator = t.validators.at(-1)!.attester.toLowerCase();
+      const offlineValidator = t.validators.at(-1)!.attester.toString().toLowerCase();
       t.logger.info(`Asserting stats for offline validator ${offlineValidator}`);
       const offlineStats = stats.stats[offlineValidator];
       const historyLength = offlineStats.history.length;
@@ -135,7 +136,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       )!;
       t.logger.info(`Asserting stats for proposer validator ${proposerValidator}`);
       expect(proposerStats).toBeDefined();
-      expect(t.validators.map(v => v.attester.toLowerCase())).toContain(proposerValidator);
+      expect(t.validators.map(v => v.attester.toString().toLowerCase())).toContain(proposerValidator);
       expect(proposerStats.history.length).toBeGreaterThanOrEqual(1);
       expect(proposerStats.missedProposals.rate).toBeLessThan(1);
     });
@@ -146,7 +147,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       )!;
       t.logger.info(`Asserting stats for attestor validator ${attestorValidator}`);
       expect(attestorStats).toBeDefined();
-      expect(t.validators.map(v => v.attester.toLowerCase())).toContain(attestorValidator);
+      expect(t.validators.map(v => v.attester.toString().toLowerCase())).toContain(attestorValidator);
       expect(attestorStats.history.length).toBeGreaterThanOrEqual(1);
       expect(attestorStats.missedAttestations.rate).toBeLessThan(1);
     });
@@ -183,7 +184,7 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       const stats = await newNode.getValidatorsStats();
       t.logger.info(`Collected validator stats from new node at block ${t.monitor.l2BlockNumber}`, { stats });
-      const newNodeValidator = t.validators.at(-1)!.attester.toLowerCase();
+      const newNodeValidator = t.validators.at(-1)!.attester.toString().toLowerCase();
       expect(stats.stats[newNodeValidator]).toBeDefined();
       expect(stats.stats[newNodeValidator].history.length).toBeGreaterThanOrEqual(1);
       expect(Object.keys(stats.stats).length).toBeGreaterThan(1);
@@ -238,7 +239,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       const slashEvents = await rollupRaw.getEvents.Slashed();
       const { attester, amount } = slashEvents[0].args;
       expect(slashEvents.length).toBe(1);
-      expect(attester?.toLowerCase()).toBe(t.validators.at(-1)!.attester.toLowerCase());
+      expect(attester?.toLowerCase()).toBe(t.validators.at(-1)!.attester.toString().toLowerCase());
       expect(amount).toBe(SLASH_AMOUNT);
     });
   });

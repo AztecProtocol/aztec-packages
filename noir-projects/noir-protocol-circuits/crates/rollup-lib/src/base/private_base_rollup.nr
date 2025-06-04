@@ -6,16 +6,16 @@ use crate::{
     base::{
         components::{
             archive::perform_archive_membership_check,
-            fees::compute_fee_payer_fee_juice_balance_leaf_slot,
+            constants::validate_tx_constant_data,
+            fees::{compute_fee_payer_fee_juice_balance_leaf_slot, compute_transaction_fee},
             nullifier_tree::nullifier_tree_batch_insert,
-            private_base_rollup_output_composer::compute_transaction_fee, PrivateTubeDataValidator,
+            PrivateTubeDataValidator,
             public_data_tree::public_data_tree_insert,
         },
         state_diff_hints::PrivateBaseStateDiffHints,
     },
     components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
-use super::components::constants::validate_tx_constant_data;
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
@@ -237,7 +237,7 @@ mod tests {
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
             side_effect::OrderedValue, sponge_blob::SpongeBlob,
         },
-        address::{AztecAddress, EthAddress},
+        address::AztecAddress,
         constants::{
             ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
             L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
@@ -1048,14 +1048,10 @@ mod tests {
     unconstrained fn nonempty_block_out_hash() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
 
-        for i in 0..MAX_L2_TO_L1_MSGS_PER_TX {
-            builder.tube_data.add_exposed_l2_to_l1_message(
-                i as Field,
-                EthAddress::from_field(1 + i as Field),
-            );
-        }
+        builder.tube_data.append_l2_to_l1_msgs(MAX_L2_TO_L1_MSGS_PER_TX);
 
         let out_hash = builder.execute().out_hash;
+
         let siloed_l2_to_l1_msgs = builder
             .tube_data
             .l2_to_l1_msgs

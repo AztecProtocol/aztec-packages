@@ -154,9 +154,9 @@ export function buildServerCircuitProver(
     return BBNativeRollupProver.new(config, telemetry);
   }
 
-  const simulationProvider = config.acvmBinaryPath
+  const simulator = config.acvmBinaryPath
     ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath)
     : undefined;
 
-  return Promise.resolve(new TestCircuitProver(simulationProvider, config, telemetry));
+  return Promise.resolve(new TestCircuitProver(simulator, config, telemetry));
 }

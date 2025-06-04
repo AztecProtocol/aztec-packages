@@ -17,7 +17,7 @@ import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs'
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { L2Block } from '@aztec/stdlib/block';
+import { L2Block, Signature } from '@aztec/stdlib/block';
 
 import express, { json } from 'express';
 import type { Server } from 'http';
@@ -201,15 +201,20 @@ describe('SequencerPublisher', () => {
 
     expect(await publisher.enqueueProposeL2Block(l2Block)).toEqual(true);
     const govPayload = EthAddress.random();
+    const voteSig = Signature.random();
     publisher.setGovernancePayload(govPayload);
     governanceProposerContract.getRoundInfo.mockResolvedValue({
       lastVote: 1n,
       leader: govPayload.toString(),
       executed: false,
     });
-    governanceProposerContract.createVoteRequest.mockReturnValue({
+    governanceProposerContract.createVoteRequestWithSignature.mockResolvedValue({
       to: mockGovernanceProposerAddress,
-      data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [govPayload.toString()] }),
+      data: encodeFunctionData({
+        abi: EmpireBaseAbi,
+        functionName: 'voteWithSig',
+        args: [govPayload.toString(), voteSig.toViemSignature()],
+      }),
     });
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
     expect(await publisher.enqueueCastVote(2n, 1n, VoteType.GOVERNANCE)).toEqual(true);
@@ -241,7 +246,11 @@ describe('SequencerPublisher', () => {
         },
         {
           to: mockGovernanceProposerAddress,
-          data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [govPayload.toString()] }),
+          data: encodeFunctionData({
+            abi: EmpireBaseAbi,
+            functionName: 'voteWithSig',
+            args: [govPayload.toString(), voteSig.toViemSignature()],
+          }),
         },
       ],
       l1TxUtils,

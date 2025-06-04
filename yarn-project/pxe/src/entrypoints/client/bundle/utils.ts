@@ -45,12 +45,12 @@ export async function createPXEService(
 
   const store = options.store ?? (await createStore('pxe_data', configWithContracts, storeLogger));
 
-  const simulationProvider = new WASMSimulator();
+  const simulator = new WASMSimulator();
   const proverLogger = loggers.prover
     ? loggers.prover
     : createLogger('pxe:bb:wasm:bundle' + (logSuffix ? `:${logSuffix}` : ''));
 
-  const prover = options.prover ?? new BBWASMBundlePrivateKernelProver(simulationProvider, 16, proverLogger);
+  const prover = options.prover ?? new BBWASMBundlePrivateKernelProver(simulator, 16, proverLogger);
   const protocolContractsProvider = new BundledProtocolContractsProvider();
 
   const pxeLogger = loggers.pxe ? loggers.pxe : createLogger('pxe:service' + (logSuffix ? `:${logSuffix}` : ''));
@@ -58,7 +58,7 @@ export async function createPXEService(
     aztecNode,
     store,
     prover,
-    simulationProvider,
+    simulator,
     protocolContractsProvider,
     config,
     pxeLogger,

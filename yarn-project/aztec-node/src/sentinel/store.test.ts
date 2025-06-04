@@ -21,7 +21,7 @@ describe('sentinel-store', () => {
 
   it('inserts new validators with all statuses', async () => {
     const slot = 1n;
-    const validators: `0x${string}`[] = times(5, i => `0x${i}` as `0x${string}`);
+    const validators: `0x${string}`[] = times(5, () => EthAddress.random().toString());
     const statuses: ValidatorStatusInSlot[] = [
       'block-mined',
       'block-proposed',
@@ -46,8 +46,8 @@ describe('sentinel-store', () => {
   });
 
   it('updates existing validators with new slots and inserts new ones', async () => {
-    const existingValidators: `0x${string}`[] = times(2, i => `0x${i}` as `0x${string}`);
-    const newValidators: `0x${string}`[] = times(2, i => `0x${i + 2}` as `0x${string}`);
+    const existingValidators: `0x${string}`[] = times(2, () => EthAddress.random().toString());
+    const newValidators: `0x${string}`[] = times(2, () => EthAddress.random().toString());
 
     // Insert existing validators with initial statuses
     await store.updateValidators(1n, Object.fromEntries(existingValidators.map(v => [v, 'block-mined'] as const)));
@@ -80,7 +80,7 @@ describe('sentinel-store', () => {
 
   it('trims history to the specified length', async () => {
     const slot = 1n;
-    const validator: `0x${string}` = '0x1' as `0x${string}`;
+    const validator = EthAddress.random().toString();
 
     for (let i = 0; i < 10; i++) {
       await store.updateValidators(slot + BigInt(i), { [validator]: 'block-mined' });
@@ -97,20 +97,26 @@ describe('sentinel-store', () => {
   });
 
   it('updates proven performance', async () => {
-    const validator = EthAddress.random().toString();
-    await store.updateProvenPerformance(1n, { [validator]: { missed: 2, total: 10 } });
+    const validator = EthAddress.random();
+    await store.updateProvenPerformance(1n, { [validator.toString()]: { missed: 2, total: 10 } });
     const provenPerformance = await store.getProvenPerformance(validator);
     expect(provenPerformance).toEqual([{ epoch: 1n, missed: 2, total: 10 }]);
 
-    await store.updateProvenPerformance(1n, { [validator]: { missed: 3, total: 10 } });
+    await store.updateProvenPerformance(1n, { [validator.toString()]: { missed: 3, total: 10 } });
     const provenPerformance2 = await store.getProvenPerformance(validator);
     expect(provenPerformance2).toEqual([{ epoch: 1n, missed: 3, total: 10 }]);
 
-    await store.updateProvenPerformance(2n, { [validator]: { missed: 4, total: 10 } });
+    await store.updateProvenPerformance(2n, { [validator.toString()]: { missed: 4, total: 10 } });
     const provenPerformance3 = await store.getProvenPerformance(validator);
     expect(provenPerformance3).toEqual([
       { epoch: 1n, missed: 3, total: 10 },
       { epoch: 2n, missed: 4, total: 10 },
     ]);
+  });
+
+  it('does not allow insertion of invalid validator addresses', async () => {
+    const validator = '0x123';
+    await expect(store.updateProvenPerformance(1n, { [validator]: { missed: 2, total: 10 } })).rejects.toThrow();
+    await expect(store.updateValidators(1n, { [validator]: 'block-mined' })).rejects.toThrow();
   });
 });

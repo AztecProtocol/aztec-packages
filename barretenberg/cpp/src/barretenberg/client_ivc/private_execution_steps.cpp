@@ -94,14 +94,17 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
     precomputed_vks.resize(steps.size());
     function_names.resize(steps.size());
 
+    size_t i = 0;
     // https://github.com/AztecProtocol/barretenberg/issues/1395 multithread this once bincode is thread-safe
-    for (size_t i = 0; i < steps.size(); i++) {
-        PrivateExecutionStepRaw step = std::move(steps[i]);
-
+    for (PrivateExecutionStepRaw& step : steps) {
         // TODO(#7371) there is a lot of copying going on in bincode. We need the generated bincode code to
         // use spans instead of vectors.
-        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(step.bytecode));
-        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(std::move(step.witness));
+        // NODE: it is better for fragmentation to do this copy - but bincode really should not require the copy
+        // for performance.
+        acir_format::AcirFormat constraints =
+            acir_format::circuit_buf_to_acir_format(std::vector<uint8_t>{ step.bytecode });
+        acir_format::WitnessVector witness =
+            acir_format::witness_buf_to_witness_data(std::vector<uint8_t>{ step.witness });
 
         folding_stack[i] = { std::move(constraints), std::move(witness) };
         if (step.vk.empty()) {
@@ -112,6 +115,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
             precomputed_vks[i] = vk;
         }
         function_names[i] = step.function_name;
+        i++;
     }
 }
 

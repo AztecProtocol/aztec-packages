@@ -50,7 +50,7 @@ export async function send(
 
   const provenTx = await call.prove(sendOptions);
   if (verbose) {
-    printProfileResult(provenTx.timings!, log);
+    printProfileResult(provenTx.stats!, log);
   }
 
   const tx = provenTx.send();

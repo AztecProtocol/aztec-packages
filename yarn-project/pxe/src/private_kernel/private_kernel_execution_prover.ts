@@ -114,8 +114,8 @@ export class PrivateKernelExecutionProver {
           validationRequestsSplitCounter,
         );
         while (resetBuilder.needsReset()) {
-          const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
           const witgenTimer = new Timer();
+          const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
           output = generateWitnesses
             ? await this.proofCreator.generateResetOutput(privateInputs)
             : await this.proofCreator.simulateReset(privateInputs);
@@ -160,6 +160,8 @@ export class PrivateKernelExecutionProver {
       const privateCallData = await this.createPrivateCallData(currentExecution);
 
       if (firstIteration) {
+        const witgenTimer = new Timer();
+
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
           txRequest,
           getVKTreeRoot(),
@@ -174,7 +176,6 @@ export class PrivateKernelExecutionProver {
 
         pushTestData('private-kernel-inputs-init', proofInput);
 
-        const witgenTimer = new Timer();
         output = generateWitnesses
           ? await this.proofCreator.generateInitOutput(proofInput)
           : await this.proofCreator.simulateInit(proofInput);
@@ -189,6 +190,7 @@ export class PrivateKernelExecutionProver {
           },
         });
       } else {
+        const witgenTimer = new Timer();
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(
           output.verificationKey.keyAsFields,
         );
@@ -201,7 +203,6 @@ export class PrivateKernelExecutionProver {
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
 
         pushTestData('private-kernel-inputs-inner', proofInput);
-        const witgenTimer = new Timer();
         output = generateWitnesses
           ? await this.proofCreator.generateInnerOutput(proofInput)
           : await this.proofCreator.simulateInner(proofInput);
@@ -227,8 +228,8 @@ export class PrivateKernelExecutionProver {
       validationRequestsSplitCounter,
     );
     while (resetBuilder.needsReset()) {
-      const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
       const witgenTimer = new Timer();
+      const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
       output = generateWitnesses
         ? await this.proofCreator.generateResetOutput(privateInputs)
         : await this.proofCreator.simulateReset(privateInputs);

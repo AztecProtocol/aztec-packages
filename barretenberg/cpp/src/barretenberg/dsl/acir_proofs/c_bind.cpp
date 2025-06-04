@@ -84,6 +84,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
     auto start = std::chrono::steady_clock::now();
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::parse_uncompressed(ivc_inputs_vec));
+    ivc_inputs_vec.clear();
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

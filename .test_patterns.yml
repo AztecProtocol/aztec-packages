@@ -91,6 +91,18 @@ tests:
     skip: true
     owners:
       - *lasse
+  - regex: "src/slasher_client"
+    skip: true
+    owners:
+      - *mitch
+  - regex: "src/e2e_p2p/validators_sentinel"
+    skip: true
+    owners:
+      - *mitch
+  - regex: "testbench/port_change.test.ts"
+    skip: true
+    owners:
+      - *sean
   # e2e tests flakes
   - regex: "src/e2e_p2p"
     error_regex: "could not listen on any available address"
@@ -104,6 +116,11 @@ tests:
     error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
     owners:
       - *sean
+  # http://ci.aztec-labs.com/5a291189b35a1b38
+  - regex: "src/e2e_p2p/rediscovery.test.ts"
+    error_regex: 'CodeError: writable end state is "writing" not "ready"'
+    owners:
+      - *palla
   - regex: "src/e2e_p2p/reqresp"
     error_regex: 'CodeError: writable end state is "writing" not "ready"'
     owners:
@@ -127,6 +144,10 @@ tests:
   - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
+  - regex: "src/e2e_token_contract/access_control"
+    error_regex: "HttpRequestError: HTTP request failed."
+    owners:
+      - *charlie
   # http://ci.aztec-labs.com/7a5104e136578d64
   # The "loop that wastes 5m" thing.
   - regex: "src/e2e_fees/failures"
@@ -177,6 +198,11 @@ tests:
     error_regex: "Anvil failed to stop in time"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/2322cdddbb351b34
+  - regex: "src/e2e_fees/public_payments.test.ts"
+    error_regex: "Exceeded timeout"
+    owners:
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -195,10 +221,16 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
-  - regex: "p2p/src/testbench/port_change.test.ts"
-    error_regex: "Timeout waiting for worker"
+  # http://ci.aztec-labs.com/dbd1f6d89d783fe6
+  - regex: "p2p/src/client/p2p_client.integration.test.ts"
+    error_regex: "CodeError: writable end state is .writing. not .ready."
     owners:
-      - *sean
+      - *palla
+  # http://ci.aztec-labs.com/ef728e7bedb2710b
+  - regex: "p2p/src/client/p2p_client.integration.test.ts"
+    error_regex: "Expected number of calls: 0"
+    owners:
+      - *palla
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -213,6 +245,10 @@ tests:
       - *alex
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
     error_regex: "BlockOutOfRangeError"
+    owners:
+      - *palla
+  - regex: "ethereum/src/deploy_l1_contracts.test.ts"
+    error_regex: "Expected: > 0"
     owners:
       - *palla
   - regex: "ethereum/src/l1_tx_utils.test.ts"

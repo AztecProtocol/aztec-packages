@@ -12,9 +12,9 @@ import {
 } from 'viem';
 
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
-import type { ViemClient } from '../types.js';
+import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
-import { type IEmpireBase, encodeVote } from './empire_base.js';
+import { type IEmpireBase, encodeVote, encodeVoteWithSignature, signVoteWithSig } from './empire_base.js';
 
 export class ProposalAlreadyExecutedError extends Error {
   constructor(round: bigint) {
@@ -72,6 +72,14 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     };
   }
 
+  public async createVoteRequestWithSignature(payload: Hex, wallet: ExtendedViemWalletClient): Promise<L1TxRequest> {
+    const signature = await signVoteWithSig(wallet, payload, this.address.toString(), wallet.chain.id);
+    return {
+      to: this.address.toString(),
+      data: encodeVoteWithSignature(payload, signature),
+    };
+  }
+
   public listenToExecutableProposals(callback: (args: { proposal: `0x${string}`; round: bigint }) => unknown) {
     return this.proposer.watchEvent.ProposalExecutable(
       {},
@@ -117,7 +125,10 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     );
   }
 
-  public async executeRound(txUtils: L1TxUtils, round: bigint | number): Promise<void> {
+  public async executeRound(
+    txUtils: L1TxUtils,
+    round: bigint | number,
+  ): ReturnType<typeof txUtils.sendAndMonitorTransaction> {
     if (typeof round === 'number') {
       round = BigInt(round);
     }
@@ -134,8 +145,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
           data,
         },
         {
-          // Gas estimation is more than 20% off for this tx.
-          gasLimitBufferPercentage: 100,
+          // Gas estimation is way off for this, likely because we are creating the contract/selector to call
+          // for the actual slashing dynamically.
+          gasLimitBufferPercentage: 1000,
         },
       )
       .catch(err => {
@@ -158,7 +170,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
       if (error?.includes('ProposalAlreadyExecuted')) {
         throw new ProposalAlreadyExecutedError(round);
       }
-      throw new Error(error ?? 'Unknown error');
+      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${error ?? 'Unknown error'}`;
+      throw new Error(errorMessage);
     }
+    return response;
   }
 }
