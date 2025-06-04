@@ -77,6 +77,7 @@
 #include "relations/lookups_to_radix.hpp"
 #include "relations/lookups_tx.hpp"
 #include "relations/lookups_update_check.hpp"
+#include "relations/perms_keccakf1600.hpp"
 
 namespace bb::avm2 {
 
@@ -115,9 +116,10 @@ struct AvmFlavorVariables {
 =======
 >>>>>>> 209278ea42 (Remove dummy columns in keccak)
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 75;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 1748;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 208;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 1728;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 209;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2986;
@@ -144,10 +146,25 @@ struct AvmFlavorVariables {
 =======
     static constexpr size_t NUM_ALL_ENTITIES = 2031;
 >>>>>>> 2e4ec74c56 (Pil relations for keccak slice memory gadget)
+<<<<<<< HEAD
 >>>>>>> 5379c9c43f (Pil relations for keccak slice memory gadget)
+<<<<<<< HEAD
 >>>>>>> ef547dbfa7 (Pil relations for keccak slice memory gadget)
+<<<<<<< HEAD
 >>>>>>> 256df6ccb4 (Pil relations for keccak slice memory gadget)
+<<<<<<< HEAD
 >>>>>>> cd68b98ec7 (Pil relations for keccak slice memory gadget)
+=======
+=======
+=======
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2012;
+>>>>>>> 2df79011ef (Add permutations between keccak permutation and slice gadget)
+>>>>>>> 2f900345fa (Add permutations between keccak permutation and slice gadget)
+>>>>>>> c39ba6e655 (Add permutations between keccak permutation and slice gadget)
+>>>>>>> c7041eda54 (Add permutations between keccak permutation and slice gadget)
+>>>>>>> 922a8fb91a (Add permutations between keccak permutation and slice gadget)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -455,7 +472,9 @@ struct AvmFlavorVariables {
         lookup_update_check_update_hash_poseidon2_relation<FF_>,
         lookup_update_check_update_hash_public_data_read_relation<FF_>,
         lookup_update_check_update_hi_metadata_range_relation<FF_>,
-        lookup_update_check_update_lo_metadata_range_relation<FF_>>;
+        lookup_update_check_update_lo_metadata_range_relation<FF_>,
+        perm_keccakf1600_read_to_slice_relation<FF_>,
+        perm_keccakf1600_write_to_slice_relation<FF_>>;
 };
 
 } // namespace bb::avm2

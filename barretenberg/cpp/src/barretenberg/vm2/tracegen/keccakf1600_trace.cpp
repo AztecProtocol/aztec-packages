@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_keccak_memory.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_keccakf1600.hpp"
+#include "barretenberg/vm2/generated/relations/perms_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
@@ -18,6 +19,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 
 namespace bb::avm2::tracegen {
 using C = Column;
@@ -369,47 +371,6 @@ constexpr std::array<std::array<C, 5>, 5> state_chi_cols = {
     },
 };
 
-// Mapping 2-dimensional array indices of state outputs to columns.
-constexpr std::array<std::array<C, 5>, 5> state_out_cols = {
-    {
-        {
-            C::keccakf1600_state_out_00,
-            C::keccakf1600_state_out_01,
-            C::keccakf1600_state_out_02,
-            C::keccakf1600_state_out_03,
-            C::keccakf1600_state_out_04,
-        },
-        {
-            C::keccakf1600_state_out_10,
-            C::keccakf1600_state_out_11,
-            C::keccakf1600_state_out_12,
-            C::keccakf1600_state_out_13,
-            C::keccakf1600_state_out_14,
-        },
-        {
-            C::keccakf1600_state_out_20,
-            C::keccakf1600_state_out_21,
-            C::keccakf1600_state_out_22,
-            C::keccakf1600_state_out_23,
-            C::keccakf1600_state_out_24,
-        },
-        {
-            C::keccakf1600_state_out_30,
-            C::keccakf1600_state_out_31,
-            C::keccakf1600_state_out_32,
-            C::keccakf1600_state_out_33,
-            C::keccakf1600_state_out_34,
-        },
-        {
-            C::keccakf1600_state_out_40,
-            C::keccakf1600_state_out_41,
-            C::keccakf1600_state_out_42,
-            C::keccakf1600_state_out_43,
-            C::keccakf1600_state_out_44,
-        },
-    },
-};
-
 // Mapping 1-dimensional array indices of read/write memory slice values to columns.
 constexpr std::array<C, 25> mem_val_cols = {
     {
@@ -462,7 +423,7 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
         }
     }
 
-    std::array<bool, 25> tag_errors = { false };
+    std::array<bool, 25> tag_errors;
     tag_errors[24] = single_tag_errors[24];
 
     for (size_t i = 1; i < 25; i++) {
@@ -521,11 +482,16 @@ void KeccakF1600TraceBuilder::process_permutation(
             trace.set(C::keccakf1600_round_cst, row, simulation::keccak_round_constants[round_idx]);
 
             // Selectors start and last.
+            // src_address required on first row
             if (round_data.round == 1) {
                 trace.set(C::keccakf1600_start, row, 1);
+                trace.set(C::keccakf1600_src_addr, row, event.src_addr);
             } else if (round_data.round == AVM_KECCAKF1600_NUM_ROUNDS) {
                 trace.set(C::keccakf1600_last, row, 1);
             };
+
+            // dst_address required at every row as we propagate
+            trace.set(C::keccakf1600_dst_addr, row, event.dst_addr);
 
             // Helper "inverse" columns for sel and last.
             trace.set(C::keccakf1600_round_inv, row, FF(round_data.round).invert());
@@ -619,20 +585,6 @@ void KeccakF1600TraceBuilder::process_permutation(
 
             // Setting iota_00
             trace.set(C::keccakf1600_state_iota_00, row, round_data.state_iota_00);
-
-            // Setting output
-            if (round_data.round == AVM_KECCAKF1600_NUM_ROUNDS) {
-                for (size_t i = 0; i < 5; i++) {
-                    for (size_t j = 0; j < 5; j++) {
-                        if (i != 0 || j != 0) {
-                            trace.set(state_out_cols[i][j], row, round_data.state_chi[i][j]);
-                        }
-                    }
-                }
-            }
-
-            trace.set(state_out_cols[0][0], row, round_data.state_iota_00);
-
             row++;
         }
     }
@@ -789,6 +741,10 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> KeccakF1600TraceBuilde
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_iota_00_settings>>(),
         // round constants lookup
         std::make_unique<LookupIntoIndexedByClk<lookup_keccakf1600_round_cst_settings>>(),
+        // Memory slices permutations
+        std::make_unique<PermutationBuilder<perm_keccakf1600_read_to_slice_settings>>(),
+        std::make_unique<PermutationBuilder<perm_keccakf1600_write_to_slice_settings>>(),
+
         // Keccak slice memory to memory sub-trace
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccak_memory_slice_to_mem_settings>>());
 };

@@ -259,6 +259,14 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.sha256_compression);
                 },
                 [&]() {
+                    KeccakF1600TraceBuilder keccakf1600_builder;
+                    AVM_TRACK_TIME("tracegen/keccak_f1600_permutation",
+                                   keccakf1600_builder.process_permutation(events.keccakf1600, trace));
+                    AVM_TRACK_TIME("tracegen/keccak_f1600_memory_slices",
+                                   keccakf1600_builder.process_memory_slices(events.keccakf1600, trace));
+                    clear_events(events.keccakf1600);
+                },
+                [&]() {
                     EccTraceBuilder ecc_builder;
                     AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process_add(events.ecc_add, trace));
                     clear_events(events.ecc_add);
