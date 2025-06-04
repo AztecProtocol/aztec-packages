@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_keccak_memory.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
@@ -787,7 +788,9 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> KeccakF1600TraceBuilde
         // iota_00 value
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_iota_00_settings>>(),
         // round constants lookup
-        std::make_unique<LookupIntoIndexedByClk<lookup_keccakf1600_round_cst_settings>>());
+        std::make_unique<LookupIntoIndexedByClk<lookup_keccakf1600_round_cst_settings>>(),
+        // Keccak slice memory to memory sub-trace
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccak_memory_slice_to_mem_settings>>());
 };
 
 } // namespace bb::avm2::tracegen
