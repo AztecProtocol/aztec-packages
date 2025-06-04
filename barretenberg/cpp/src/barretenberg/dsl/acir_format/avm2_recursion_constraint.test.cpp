@@ -73,7 +73,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
         AcirProgram program;
 
-        SlabVector<fr>& witness = program.witness;
+        std::deque<fr>& witness = program.witness;
 
         for (const auto& inner_circuit_data : inner_circuits) {
             const std::vector<fr> key_witnesses = inner_circuit_data.verification_key->to_field_elements();

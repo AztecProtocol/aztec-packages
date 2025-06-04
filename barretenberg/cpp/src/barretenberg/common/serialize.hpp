@@ -488,6 +488,7 @@ template <typename T, bool include_size = false> std::vector<uint8_t> to_buffer(
     if (include_size) {
         write(buf, value.size());
     }
+
     for (auto e : value) {
         write(buf, e);
     }

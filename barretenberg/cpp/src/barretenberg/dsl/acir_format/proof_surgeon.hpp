@@ -154,7 +154,7 @@ class ProofSurgeon {
      * @param num_public_inputs
      * @return RecursionWitnessData
      */
-    static RecursionWitnessData populate_recursion_witness_data(bb::SlabVector<bb::fr>& witness,
+    static RecursionWitnessData populate_recursion_witness_data(std::deque<bb::fr>& witness,
                                                                 std::vector<bb::fr>& proof_witnesses,
                                                                 const std::vector<bb::fr>& key_witnesses,
                                                                 const size_t num_public_inputs_to_extract)
@@ -164,7 +164,7 @@ class ProofSurgeon {
             cut_public_inputs_from_proof(proof_witnesses, num_public_inputs_to_extract);
 
         // Helper to append some values to the witness vector and return their corresponding indices
-        auto add_to_witness_and_track_indices = [](bb::SlabVector<bb::fr>& witness,
+        auto add_to_witness_and_track_indices = [](std::deque<bb::fr>& witness,
                                                    const std::vector<bb::fr>& input) -> std::vector<uint32_t> {
             std::vector<uint32_t> indices;
             indices.reserve(input.size());

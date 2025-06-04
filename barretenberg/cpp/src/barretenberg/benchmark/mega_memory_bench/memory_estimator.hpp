@@ -43,10 +43,10 @@ class MegaMemoryEstimator {
         for (auto [block, label] : zip_view(builder.blocks.get(), builder.blocks.get_labels())) {
             uint64_t size{ 0 };
             for (const auto& wire : block.wires) {
-                size += wire.capacity() * sizeof(uint32_t);
+                size += wire.size() * sizeof(uint32_t);
             }
             for (const auto& selector : block.selectors) {
-                size += selector.capacity() * sizeof(FF);
+                size += selector.size() * sizeof(FF);
             }
             vinfo(label, " size ", size >> 10, " KiB");
             result += size;
