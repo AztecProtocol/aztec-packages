@@ -27,7 +27,7 @@ struct SubmitEpochRootProofArgs {
   uint256 end; // inclusive
   PublicInputArgs args;
   bytes32[] fees;
-  bytes blobPublicInputs;
+  bytes blobInputs;
   bytes proof;
 }
 
@@ -93,18 +93,18 @@ struct RollupConfig {
   uint256 version;
 }
 
-// The below blobPublicInputsHashes are filled when proposing a block, then used to verify an epoch proof.
-// TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
 struct RollupStore {
   ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => BlockLog log) blocks;
-  mapping(uint256 blockNumber => bytes32) blobPublicInputsHashes;
   mapping(address => uint256) sequencerRewards;
   mapping(Epoch => EpochRewards) epochRewards;
   // @todo Below can be optimised with a bitmap as we can benefit from provers likely proving for epochs close
   // to one another.
   mapping(address prover => mapping(Epoch epoch => bool claimed)) proverClaimed;
   RollupConfig config;
+  // TODO(#14646): We only ever need to store AZTEC_MAX_EPOCH_DURATION values below => make fixed length and overwrite once we start a new epoch
+  // Requires us to clear values on successful proven epoch and check when a block starts a new epoch.
+  mapping(uint256 blockNumber => bytes32) blobCommitmentsHash; // = H(...H(H(commitment_0), commitment_1).... commitment_n) - used to validate we are using the same blob commitments on L1 and in the rollup circuit
 }
 
 interface ITestRollup {
@@ -184,7 +184,7 @@ interface IRollup is IRollupCore {
   function validateBlobs(bytes calldata _blobsInputs)
     external
     view
-    returns (bytes32[] memory, bytes32, bytes32);
+    returns (bytes32[] memory, bytes32, bytes[] memory);
 
   function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     external
@@ -203,7 +203,8 @@ interface IRollup is IRollupCore {
   function getPendingBlockNumber() external view returns (uint256);
   function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
   function getFeeHeader(uint256 _blockNumber) external view returns (FeeHeader memory);
-  function getBlobPublicInputsHash(uint256 _blockNumber) external view returns (bytes32);
+  function getBlobCommitmentsHash(uint256 _blockNumber) external view returns (bytes32);
+  function getCurrentBlobCommitmentsHash() external view returns (bytes32);
 
   function getSequencerRewards(address _sequencer) external view returns (uint256);
   function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view returns (uint256);

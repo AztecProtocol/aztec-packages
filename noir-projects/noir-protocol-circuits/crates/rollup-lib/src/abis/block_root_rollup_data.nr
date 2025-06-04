@@ -46,8 +46,8 @@ pub struct BlockRootRollupBlobData {
     pub blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
     // see blob/src/blob.nr -> evaluate_blob() -  these are used for creating each blob's challenge z_i
     pub blob_commitments: [BLSPoint; BLOBS_PER_BLOCK],
-    // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract checks its validity vs the blob_public_inputs
+    // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract checks its validity
+    // Only exists so we have a link between EVM blob hashes and the block header for users to check
     // NB: to fit it into a field, we truncate to 31 bytes
-    // TODO(MW): Replace with v?
     pub blobs_hash: Field,
 }

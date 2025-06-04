@@ -211,7 +211,9 @@ pub(crate) mod tests {
     // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob_batching.test.ts -> 'should construct and verify a batch of 3 full blobs'
     // These values are also used in blob_batching.nr -> test_full_blobs_batched(), but the below ensures inputs are propagated properly throughout block_root
     #[test]
-    unconstrained fn correct_blobs_with_non_empty_fields() {
+    fn correct_blobs_with_non_empty_fields() {
+        // Note: this test will not run in unconstrained, because it reaches the foreign call
+        // TODO(#10323): remove the oracle and switch this test to unconstrained
         // Fill three blobs completely with different values (to avoid a constant polynomial)
         let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
             [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];

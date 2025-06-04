@@ -429,7 +429,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, attestations, full.block.blobInputs);
+      rollup.propose(args, attestations, full.block.blobCommitments);
 
       if (ree.shouldRevert) {
         return;
@@ -446,7 +446,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         );
         ree.shouldRevert = true;
       }
-      rollup.propose(args, attestations, full.block.blobInputs);
+      rollup.propose(args, attestations, full.block.blobCommitments);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");

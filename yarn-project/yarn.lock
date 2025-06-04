@@ -1191,6 +1191,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"

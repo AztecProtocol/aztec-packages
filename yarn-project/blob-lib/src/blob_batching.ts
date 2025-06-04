@@ -7,6 +7,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import cKzg from 'c-kzg';
 
 import { Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
+import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from './blob_batching_public_inputs.js';
 
 const { computeKzgProof, verifyKzgProof } = cKzg;
 
@@ -333,6 +334,30 @@ export class BatchedBlobAccumulator {
     }
 
     return new BatchedBlob(this.blobCommitmentsHashAcc, this.zAcc, this.yAcc, this.cAcc, this.qAcc);
+  }
+
+  /**
+   * Converts to a struct for the public inputs of our rollup circuits.
+   * @returns A BlobAccumulatorPublicInputs instance.
+   */
+  toBlobAccumulatorPublicInputs() {
+    return new BlobAccumulatorPublicInputs(
+      this.blobCommitmentsHashAcc,
+      this.zAcc,
+      this.yAcc,
+      this.cAcc,
+      this.gammaAcc,
+      this.gammaPow,
+    );
+  }
+
+  /**
+   * Converts to a struct for the public inputs of our root rollup circuit.
+   * Warning: MUST be final accumulator state.
+   * @returns A FinalBlobAccumulatorPublicInputs instance.
+   */
+  toFinalBlobAccumulatorPublicInputs() {
+    return new FinalBlobAccumulatorPublicInputs(this.blobCommitmentsHashAcc, this.zAcc, this.yAcc, this.cAcc);
   }
 
   isEmptyState() {

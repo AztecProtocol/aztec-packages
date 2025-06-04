@@ -227,10 +227,10 @@ pub global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
 pub global SPONGE_BLOB_LENGTH: u32 = 11;
-pub global BLS12_FR_LIMBS: u32 = 3; // TODO(MW): get this from bignum
-pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(MW): get this from bignum
-pub global BLS12_POINT: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(MW): reduce num fields needed here but avoid breaking recursion
-pub global BLS12_POINT_COMPRESSED_BYTES: u32 = 48; // TODO(MW): get this from bignum
+pub global BLS12_FR_LIMBS: u32 = 3; // TODO(#14646): get this from bignum
+pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
+pub global BLS12_POINT: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
+pub global BLS12_POINT_COMPRESSED_BYTES: u32 = 48; // TODO(#14646): get this from bignum
 pub global BLOB_ACCUMULATOR_PUBLIC_INPUTS: u32 = 3 /* v_acc, z_acc, and gamma_acc */
     + 2 * BLS12_FR_LIMBS /* y_acc and gamma^i */
     + BLS12_POINT /* c_acc */;
@@ -242,7 +242,6 @@ pub global BLOCK_BLOB_PUBLIC_INPUTS: u32 = 2 * BLOB_ACCUMULATOR_PUBLIC_INPUTS /*
     + 1 /* z */
     + BLS12_FR_LIMBS /* gamma */;
 pub global BLOB_PUBLIC_INPUTS: u32 = 6;
-pub global BLOB_PUBLIC_INPUTS_BYTES: u32 = 112; // = commitment (48) + z (32) + y (32)
 pub global L1_TO_L2_MESSAGE_LENGTH: u32 = 6;
 pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 3;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
