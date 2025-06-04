@@ -16,6 +16,7 @@ use crate::{
         call_context::CallContext,
         function_data::FunctionData,
         gas::Gas,
+        gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{
@@ -127,6 +128,7 @@ pub struct FixtureBuilder {
     pub fee_payer: AztecAddress,
     pub public_teardown_call_request: PublicCallRequest,
     pub transaction_fee: Field,
+    pub effective_gas_fees: GasFees,
 
     // Constant data.
     pub historical_header: BlockHeader,
@@ -768,6 +770,7 @@ impl FixtureBuilder {
             start_tree_snapshots: self.start_snapshots,
             start_gas_used: self.start_gas_used,
             gas_settings: self.tx_context.gas_settings,
+            effective_gas_fees: self.effective_gas_fees,
             fee_payer: self.fee_payer,
             public_call_request_array_lengths,
             public_setup_call_requests,
@@ -1456,6 +1459,7 @@ impl Empty for FixtureBuilder {
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
             public_teardown_call_request: PublicCallRequest::empty(),
+            effective_gas_fees: GasFees::empty(),
             historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),

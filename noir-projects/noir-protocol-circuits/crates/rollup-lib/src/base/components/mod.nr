@@ -4,7 +4,6 @@ pub(crate) mod fees;
 pub(crate) mod gas;
 pub(crate) mod nullifier_tree;
 pub(crate) mod public_data_tree;
-pub(crate) mod private_base_rollup_output_composer;
 pub(crate) mod validation_requests;
 
 mod private_tube_data_validator;

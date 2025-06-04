@@ -742,4 +742,44 @@ mod tests {
         builder.fails();
     }
 
+    #[test]
+    unconstrained fn avm_effective_gas_fees() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        builder.avm_data.global_variables.gas_fees = GasFees::new(100, 100);
+
+        let gas_settings = GasSettings {
+            gas_limits: Gas::new(1000, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
+            teardown_gas_limits: Gas::new(1000, 1000),
+            max_fees_per_gas: GasFees::new(150, 150),
+            max_priority_fees_per_gas: GasFees::new(100, 100),
+        };
+        builder.tube_data.tx_context.gas_settings = gas_settings;
+        builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        // Effective should be 150 taking 50 as priority fees.
+        builder.avm_data.effective_gas_fees = GasFees::new(150, 150);
+
+        builder.succeeds();
+    }
+
+    #[test(should_fail_with = "unexpected effective gas fees used in the AVM")]
+    unconstrained fn wrong_avm_effective_gas_fees() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        builder.avm_data.global_variables.gas_fees = GasFees::new(100, 100);
+
+        let gas_settings = GasSettings {
+            gas_limits: Gas::new(1000, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
+            teardown_gas_limits: Gas::new(1000, 1000),
+            max_fees_per_gas: GasFees::new(150, 150),
+            max_priority_fees_per_gas: GasFees::new(25, 25),
+        };
+        builder.tube_data.tx_context.gas_settings = gas_settings;
+        builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        // Effective should be 125 taking all priority fees.
+        builder.avm_data.effective_gas_fees = GasFees::new(150, 150);
+
+        builder.fails();
+    }
+
 }

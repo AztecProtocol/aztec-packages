@@ -5,9 +5,9 @@ use crate::{
     },
     base::{
         components::{
-            fees::compute_fee_payer_fee_juice_balance_leaf_slot,
+            fees::{compute_fee_payer_fee_juice_balance_leaf_slot, compute_transaction_fee},
             nullifier_tree::nullifier_tree_batch_insert,
-            private_base_rollup_output_composer::compute_transaction_fee, PrivateTubeDataValidator,
+            PrivateTubeDataValidator,
             public_data_tree::public_data_tree_insert,
         },
         state_diff_hints::PrivateBaseStateDiffHints,
