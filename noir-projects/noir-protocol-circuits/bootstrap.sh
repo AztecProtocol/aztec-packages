@@ -68,7 +68,10 @@ function compile {
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
-  if echo "$name" | grep -qE "${ivc_regex}"; then
+  if echo "$name" | grep -qE "${ivc_tail_regex}"; then
+    local proto="client_ivc_tail"
+    local write_vk_cmd="write_vk --scheme client_ivc --verifier_type standalone"
+  elif echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"
     local write_vk_cmd="write_vk --scheme client_ivc --verifier_type standalone"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
@@ -84,11 +87,6 @@ function compile {
     local proto="ultra_honk"
     local write_vk_cmd="write_vk --scheme ultra_honk --init_kzg_accumulator --honk_recursion 1"
   fi
-  if echo "$name" | grep -qE "${ivc_tail_regex}"; then
-    # For caching purposes, mark as different proto. We still want the same vk generation command.
-    local proto="client_ivc_tail"
-  fi
-
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
 

@@ -26,8 +26,10 @@ class ClientIVCAPI : public API {
                                  const std::filesystem::path& output_path,
                                  const std::filesystem::path& vk_path) override;
 
-    // write a vk for a standalone circuit, or the last circuit of a stack (e.g. a static kernel tail in the aztec
-    // protocol)
+    // Two modes:
+    // - write a vk for a standalone circuit
+    // - write the vk of the hiding circuit which requires the last circuit input (e.g. a private-tail in Aztec) to be
+    // passed. This is used just to parameterize the hiding circuit with the last circuit public inputs amount.
     void write_vk(const Flags& flags,
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override;
