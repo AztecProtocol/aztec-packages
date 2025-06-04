@@ -5,10 +5,10 @@ import type { Proof } from '../proofs/proof.js';
 import type { RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { Tx } from '../tx/tx.js';
-import type { BlockBuilder } from './block-builder.js';
+import type { IBlockFactory } from './block-builder.js';
 
 /** Coordinates the proving of an entire epoch. */
-export interface EpochProver extends Omit<BlockBuilder, 'setBlockCompleted'> {
+export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted'> {
   /**
    * Starts a new epoch. Must be the first method to be called.
    * @param epochNumber - The epoch number.
