@@ -86,9 +86,11 @@ class TranslatorFlavor {
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
 
+    // The number of "steps" inserted in ordered range constraint polynomials to ensure that the
+    // DeltaRangeConstraintRelation can always be satisfied if the polynomial is within the appropriate range.
     static constexpr size_t SORTED_STEPS_COUNT = (1 << MICRO_LIMB_BITS) / SORT_STEP + 1;
     static_assert(SORTED_STEPS_COUNT * (NUM_INTERLEAVED_WIRES + 1) < MINI_CIRCUIT_SIZE * INTERLEAVING_GROUP_SIZE,
-                  "Translator circuit is too small for defined range constraint relation "
+                  "Translator circuit is too small for defined number of steps "
                   "(TranslatorDeltaRangeConstraintRelation). ");
 
     // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one

@@ -85,7 +85,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     std::vector<uint64_t> vector_for_sorting(sorted_steps.begin(), sorted_steps.end());
 
     // Add random values to fill the leftover space
-    for (size_t i = sorted_steps.size(); i < vector_for_sorting.size(); i++) {
+    for (size_t i = sorted_steps.size(); i < prover_polynomials.ordered_range_constraints_0.size(); i++) {
         vector_for_sorting.emplace_back(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
     }
 
@@ -738,7 +738,9 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     std::vector<uint64_t> vector_for_sorting(sorted_steps.begin(), sorted_steps.end());
 
     // Add random values in the appropriate range to fill the leftover space
-    for (size_t i = sorted_steps.size(); i < real_circuit_size; i++) {
+    for (size_t i = sorted_steps.size();
+         i < prover_polynomials.ordered_range_constraints_0.size() - full_masking_offset;
+         i++) {
         vector_for_sorting.emplace_back(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
     }
 
