@@ -240,7 +240,7 @@ export class EpochCache implements EpochCacheInterface {
     };
   }
 
-  getProposerAttesterAddressInNextSlot(): Promise<EthAddress> {
+  getProposerAttesterAddressInNextSlot(): Promise<EthAddress | undefined> {
     const epochAndSlot = this.getEpochAndSlotInNextSlot();
 
     return this.getProposerAttesterAddressAt(epochAndSlot);
