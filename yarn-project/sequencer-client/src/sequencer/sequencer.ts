@@ -360,11 +360,10 @@ export class Sequencer {
       const proposedBlock = resp.validActions.find(a => a === 'propose');
       if (proposedBlock) {
         this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString());
+        if (finishedFlushing) {
+          this.isFlushing = false;
+        }
       }
-    }
-
-    if (finishedFlushing) {
-      this.isFlushing = false;
     }
 
     this.setState(SequencerState.IDLE, 0n);
