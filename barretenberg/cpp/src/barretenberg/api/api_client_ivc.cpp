@@ -80,7 +80,7 @@ void write_vk_for_ivc(const std::string& output_format,
                       const std::string& bytecode_path,
                       const std::filesystem::path& output_dir)
 {
-    if (output_format != "bytes" && output_format != "msgpack") {
+    if (output_format != "bytes") {
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
     }
     const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_circuit(bytecode_path);
