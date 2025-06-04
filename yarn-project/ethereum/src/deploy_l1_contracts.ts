@@ -643,20 +643,53 @@ export const deployRollup = async (
     logger.verbose(`Not the owner of the gse, skipping rollup addition`);
   }
 
-  if (args.initialValidators && (await gseContract.read.isRollupRegistered([rollupContract.address]))) {
-    await addMultipleValidators(
-      extendedClient,
-      deployer,
-      rollupAddress.toString(),
-      addresses.stakingAssetAddress.toString(),
-      args.initialValidators,
-      args.acceleratedTestDeployments,
-      logger,
-    );
+  // Add extensive logging for validator setup debugging
+  logger.info(`=== VALIDATOR SETUP DEBUG INFO ===`);
+  logger.info(`args.initialValidators exists: ${!!args.initialValidators}`);
+  logger.info(`args.initialValidators length: ${args.initialValidators?.length || 0}`);
+
+  if (args.initialValidators) {
+    logger.info(`Initial validators: ${args.initialValidators.map(v => v.attester.toString()).join(', ')}`);
   }
 
+  const isRollupRegistered = await gseContract.read.isRollupRegistered([rollupContract.address]);
+  logger.info(`Rollup registered in GSE: ${isRollupRegistered}`);
+  logger.info(`GSE contract address: ${addresses.gseAddress}`);
+  logger.info(`Rollup contract address: ${rollupContract.address}`);
+
+  // Wait for any pending transactions before checking registration
   await deployer.waitForDeployments();
   await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
+
+  // Re-check registration after transactions are mined
+  const isRollupRegisteredAfterTx = await gseContract.read.isRollupRegistered([rollupContract.address]);
+  logger.info(`Rollup registered in GSE after tx: ${isRollupRegisteredAfterTx}`);
+
+  if (args.initialValidators && isRollupRegisteredAfterTx) {
+    logger.info(`✅ CONDITIONS MET - Adding initial validators to rollup ${rollupContract.address}`);
+    try {
+      await addMultipleValidators(
+        extendedClient,
+        deployer,
+        rollupAddress.toString(),
+        addresses.stakingAssetAddress.toString(),
+        args.initialValidators,
+        args.acceleratedTestDeployments,
+        logger,
+      );
+      logger.info(`✅ Successfully added initial validators`);
+    } catch (error) {
+      logger.error(`❌ Failed to add initial validators: ${error}`);
+      throw error;
+    }
+  } else {
+    logger.warn(`❌ CONDITIONS NOT MET for adding validators:`);
+    logger.warn(`  - Has initial validators: ${!!args.initialValidators}`);
+    logger.warn(`  - Rollup registered: ${isRollupRegisteredAfterTx}`);
+  }
+  logger.info(`=== END VALIDATOR SETUP DEBUG ===`);
+
+  // Don't wait again since we already waited above
   logger.verbose(`Rollup deployed`);
 
   return { rollup: rollupContract, slashFactoryAddress };
@@ -748,17 +781,27 @@ export const addMultipleValidators = async (
   acceleratedTestDeployments: boolean | undefined,
   logger: Logger,
 ) => {
+  logger.info(`=== ADD MULTIPLE VALIDATORS DEBUG ===`);
+  logger.info(`Rollup address: ${rollupAddress}`);
+  logger.info(`Staking asset address: ${stakingAssetAddress}`);
+  logger.info(`Number of validators to add: ${validators?.length || 0}`);
+  logger.info(`Accelerated test deployments: ${acceleratedTestDeployments}`);
+
   const rollup = new RollupContract(extendedClient, rollupAddress);
   const minimumStake = await rollup.getMinimumStake();
+  logger.info(`Minimum stake per validator: ${minimumStake.toString()}`);
+
   if (validators && validators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
     if (!acceleratedTestDeployments) {
+      logger.info(`Checking existing validator statuses...`);
       const enrichedValidators = await Promise.all(
         validators.map(async operator => ({
           operator,
           status: await rollup.getStatus(operator.attester),
         })),
       );
+
       const existingValidators = enrichedValidators.filter(v => v.status !== 0);
       if (existingValidators.length > 0) {
         logger.warn(
@@ -769,22 +812,29 @@ export const addMultipleValidators = async (
       }
 
       validators = enrichedValidators.filter(v => v.status === 0).map(v => v.operator);
+      logger.info(`Validators after filtering existing ones: ${validators.length}`);
     }
 
     if (validators.length > 0) {
+      logger.info(`Deploying MultiAdder contract...`);
       const multiAdder = await deployer.deploy(l1Artifacts.multiAdder, [
         rollupAddress,
         deployer.client.account.address,
       ]);
+      logger.info(`MultiAdder deployed at: ${multiAdder.toString()}`);
 
       const validatorsTuples = validators.map(v => ({
         attester: getAddress(v.attester.toString()),
         withdrawer: getAddress(v.withdrawer.toString()),
       }));
+      logger.info(`Validator tuples created: ${validatorsTuples.length}`);
 
       // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
       const stakeNeeded = minimumStake * BigInt(validators.length);
-      await Promise.all(
+      logger.info(`Total stake needed: ${stakeNeeded.toString()}`);
+
+      logger.info(`Minting ${stakeNeeded.toString()} tokens to MultiAdder...`);
+      const mintResults = await Promise.all(
         [
           await deployer.sendTransaction({
             to: stakingAssetAddress,
@@ -794,22 +844,52 @@ export const addMultipleValidators = async (
               args: [multiAdder.toString(), stakeNeeded],
             }),
           }),
-        ].map(tx => extendedClient.waitForTransactionReceipt({ hash: tx.txHash })),
+        ].map(tx => {
+          logger.info(`Waiting for mint transaction: ${tx.txHash}`);
+          return extendedClient.waitForTransactionReceipt({ hash: tx.txHash });
+        }),
       );
 
+      logger.info(`Mint transactions completed: ${mintResults.length}`);
+      mintResults.forEach((receipt, i) => {
+        logger.verbose(`Mint receipt ${i}: block ${receipt.blockNumber}, status ${receipt.status}`);
+      });
+
+      logger.info(`Calling addValidators on MultiAdder...`);
       const addValidatorsTxHash = await deployer.client.writeContract({
         address: multiAdder.toString(),
         abi: l1Artifacts.multiAdder.contractAbi,
         functionName: 'addValidators',
         args: [validatorsTuples],
       });
-      await extendedClient.waitForTransactionReceipt({ hash: addValidatorsTxHash });
+      logger.info(`addValidators transaction hash: ${addValidatorsTxHash}`);
+
+      logger.info(`Waiting for addValidators transaction to be mined...`);
+      const addValidatorsReceipt = await extendedClient.waitForTransactionReceipt({ hash: addValidatorsTxHash });
+      logger.info(
+        `addValidators transaction mined in block ${addValidatorsReceipt.blockNumber}, status: ${addValidatorsReceipt.status}`,
+      );
+
+      if (addValidatorsReceipt.status === 'success') {
+        logger.info(`✅ Successfully initialized validator set with ${validators.length} validators`);
+      } else {
+        logger.error(`❌ addValidators transaction failed!`);
+      }
+
       logger.info(`Initialized validator set`, {
-        validators,
+        validatorCount: validators.length,
         txHash: addValidatorsTxHash,
+        multiAdderAddress: multiAdder.toString(),
+        stakePerValidator: minimumStake.toString(),
+        totalStake: stakeNeeded.toString(),
       });
+    } else {
+      logger.warn(`No validators to add after filtering`);
     }
+  } else {
+    logger.warn(`No validators provided or empty validator list`);
   }
+  logger.info(`=== END ADD MULTIPLE VALIDATORS DEBUG ===`);
 };
 
 /**
