@@ -440,9 +440,6 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     &mut unresolved_jumps,
                 );
             }
-            BrilligOpcode::JumpIfNot { .. } => panic!(
-                "Transpiler doesn't know how to process `BrilligOpcode::JumpIfNot` brillig instruction",
-            ),
         }
 
         // Increment the AVM program counter.
