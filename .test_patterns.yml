@@ -194,6 +194,11 @@ tests:
     error_regex: "Anvil failed to stop in time"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/2322cdddbb351b34
+  - regex: "src/e2e_fees/public_payments.test.ts"
+    error_regex: "Exceeded timeout"
+    owners:
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
