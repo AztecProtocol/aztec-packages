@@ -8,6 +8,7 @@
 namespace bb::avm2 {
 
 namespace {
+
 // This structure is code-generated (but manually set) by the test: DecompositionSelectors.CodeGen
 const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> WireOpCode_DC_SELECTORS = {
     { WireOpCode::ADD_8, { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 } },
@@ -80,7 +81,7 @@ const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> W
     { WireOpCode::TORADIXBE, { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
 };
 
-} // anonymous namespace
+} // namespace
 
 const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC = {
     { WireOpCode::ADD_8,
@@ -379,24 +380,6 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
       { .exec_opcode = ExecutionOpCode::TORADIXBE,
         .size_in_bytes = 13,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::TORADIXBE) } },
-};
-
-const std::unordered_map<WireOpCode, ExecutionOpCode> OPCODE_MAP = {
-    { WireOpCode::ADD_8, ExecutionOpCode::ADD },
-    { WireOpCode::ADD_16, ExecutionOpCode::ADD },
-    { WireOpCode::CALL, ExecutionOpCode::CALL },
-    { WireOpCode::RETURN, ExecutionOpCode::RETURN },
-    { WireOpCode::JUMP_32, ExecutionOpCode::JUMP },
-    { WireOpCode::JUMPI_32, ExecutionOpCode::JUMPI },
-    { WireOpCode::SET_8, ExecutionOpCode::SET },
-    { WireOpCode::SET_16, ExecutionOpCode::SET },
-    { WireOpCode::SET_32, ExecutionOpCode::SET },
-    { WireOpCode::SET_64, ExecutionOpCode::SET },
-    { WireOpCode::SET_128, ExecutionOpCode::SET },
-    { WireOpCode::SET_FF, ExecutionOpCode::SET },
-    { WireOpCode::MOV_8, ExecutionOpCode::MOV },
-    { WireOpCode::MOV_16, ExecutionOpCode::MOV },
-    { WireOpCode::CALLDATACOPY, ExecutionOpCode::CALLDATACOPY },
 };
 
 const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_SPEC = {

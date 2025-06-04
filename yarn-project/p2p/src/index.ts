@@ -1,3 +1,5 @@
+export type { PeerId } from '@libp2p/interface';
+
 export * from './bootstrap/bootstrap.js';
 export * from './client/index.js';
 export * from './enr/index.js';

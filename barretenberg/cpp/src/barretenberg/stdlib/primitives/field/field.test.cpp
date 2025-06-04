@@ -166,7 +166,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 EXPECT_TRUE(converted.witness_index == field_elt.witness_index);
             }
         }
-
+#ifndef NDEBUG
         // Check that the conversion aborts in the case of random field elements.
         bool_ct invalid_bool;
         // Case 4: Invalid constant conversion
@@ -176,6 +176,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         Builder builder = Builder();
         EXPECT_DEATH(invalid_bool = bool_ct(field_ct(witness_ct(&builder, input_array.back()))),
                      "Assertion failed: ((witness == bb::fr::zero()) || (witness == bb::fr::one()) == true)");
+#endif
     }
     /**
      * @brief Test that bool is converted correctly
@@ -361,7 +362,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_TRUE(q.is_constant());
         EXPECT_EQ(a.get_value() / b.get_value(), q.get_value());
 
-        { // Case 1. Numerator = const, denominator = const 0. Check that the division is aborted
+#ifndef NDEBUG
+        {
+            // Case 1. Numerator = const, denominator = const 0. Check that the division is aborted
             b = 0;
             EXPECT_DEATH(a / b, ".*");
         }
@@ -371,6 +374,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             b = 0;
             EXPECT_DEATH(a / b, ".*");
         }
+#endif
         {
             // Case 3. Numerator != const, denominator = witness 0 . Check that the circuit fails.
             Builder builder = Builder();
@@ -490,12 +494,12 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         fr x = r.get_value();
         EXPECT_EQ(x, fr(1));
-
-        // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by creating 2 actual gates, while in ultra there are 2
-        if (std::same_as<Builder, UltraCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 3UL);
-        }
+        // Using a == b, when both a and b are witnesses, adds 4 constraints:
+        // 1) compute a - b;
+        // 2) ensure r is bool;
+        // 3) (a - b) * I + r - 1 = 0;
+        // 4) -I * r + r = 0.
+        EXPECT_EQ(gates_after - gates_before, 4UL);
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -509,46 +513,40 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct a(witness_ct(&builder, 4));
         field_ct b(witness_ct(&builder, 3));
         bool_ct r = a == b;
-
-        EXPECT_EQ(r.get_value(), false);
-
         auto gates_after = builder.get_estimated_num_finalized_gates();
 
-        fr x = r.get_value();
-        EXPECT_EQ(x, fr(0));
+        EXPECT_FALSE(r.get_value());
 
-        // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by creating 2 actual gates, while in ultra there are 2
-        if (std::same_as<Builder, UltraCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 3UL);
-        }
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        // Using a == b, when both a and b are witnesses, adds 4 constraints:
+        // 1) compute a - b;
+        // 2) ensure r is bool;
+        // 3) (a - b) * I + r - 1 = 0;
+        // 4) -I * r + r = 0
+        EXPECT_EQ(gates_after - gates_before, 4UL);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     static void test_equality_with_constants()
     {
         Builder builder = Builder();
+        field_ct a(witness_ct(&builder, 4));
 
         auto gates_before = builder.get_estimated_num_finalized_gates();
-        field_ct a(witness_ct(&builder, 4));
         field_ct b = 3;
         field_ct c = 7;
-        bool_ct r = a * c == b * c + c && b + 1 == a;
-
-        EXPECT_EQ(r.get_value(), true);
-
+        // Note that the lhs is constant, hence (rhs - lhs) can be computed without adding new gates, using == in this
+        // case requires 3 constraints
+        // 1) ensure r is bool;
+        // 2) (a - b) * I + r - 1 = 0;
+        // 3) -I * r + r = 0
+        bool_ct r = (a * c) == (b * c + c);
         auto gates_after = builder.get_estimated_num_finalized_gates();
-
-        // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by creating 2 actual gates, while in ultra there are 2
-        if (std::same_as<Builder, UltraCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 5UL);
-        }
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_EQ(gates_after - gates_before, 3UL);
+        r = r && (b + 1 == a);
+        EXPECT_EQ(r.get_value(), true);
+        // The situation is as above, but we also applied && to bool_t witnesses, which adds an extra gate.
+        EXPECT_EQ(builder.get_estimated_num_finalized_gates() - gates_after, 4UL);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     static void test_larger_circuit()
@@ -1056,9 +1054,12 @@ template <typename Builder> class stdlib_field : public testing::Test {
         elt.assert_is_zero();
         // If we apply `assert_is_zero()` to a non-zero constant, we hit an ASSERT failure
         elt = bb::fr::random_element();
+#ifndef NDEBUG
+
         if (elt.get_value() != 0) {
             EXPECT_DEATH(elt.assert_is_zero(), "field_t::assert_is_zero");
         }
+#endif
         // Create a witness 0
         Builder builder = Builder();
         elt = witness_ct(&builder, bb::fr::zero());
@@ -1125,7 +1126,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // 1. Accumulating an empty vector should not be possible
         std::vector<field_ct> empty_input;
         field_ct result;
+#ifndef NDEBUG
         EXPECT_DEATH(result = field_ct::accumulate(empty_input), "Trying to accumulate the entries of an empty vector");
+#endif
         // 2. Check that the result of accumulating a single witness summand is correct and normalized.
         Builder builder = Builder();
         field_ct single_summand = witness_ct(&builder, bb::fr::random_element());

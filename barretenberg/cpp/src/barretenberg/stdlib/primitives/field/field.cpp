@@ -694,68 +694,71 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
     });
 }
 
+/**
+ * @brief Validate whether a field_t element is zero.
+ * @details
+ * Let     a   := (*this).normalize()
+ *         is_zero := (a == 0)
+ *
+ * To check whether `a = 0`, we use the fact that, if `a != 0`, it has a modular inverse `I`, such that
+ *  	   a * I =  1.
+ *
+ * We reduce the check to the following algebraic constraints
+ * 1)      a * I - 1 + is_zero   = 0
+ * 2)      -is_zero * I + is_zero = 0
+ *
+ * If the value of `is_zero` is `false`, the first equation reduces to
+ *  	   a * I = 1
+ * then `I` must be the modular inverse of `a`, therefore `a != 0`. This explains the first constraint.
+ *
+ * If `is_zero = true`, then either `a` or `I` is zero (or both). To ensure that
+ *         a = 0 && I != 0
+ * we use the second constraint, it validates that
+ *         (is_zero.v = true) ==>  (I = 1)
+ * This way, if `a * I = 0`, we know that a = 0.
+ */
 template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 {
+    bb::fr native_value = get_value();
+    const bool is_zero_raw = native_value.is_zero();
+
     if (is_constant()) {
         // Create a constant bool_t
-        auto result = bool_t(context, (get_value() == bb::fr::zero()));
-        result.set_origin_tag(get_origin_tag());
-        return result;
+        bool_t is_zero(context, is_zero_raw);
+        is_zero.set_origin_tag(get_origin_tag());
+        return is_zero;
     }
 
-    // To check whether a field element, k, is zero, we use the fact that, if k > 0,
-    // there exists a modular inverse k', such that k * k' = 1
+    bool_t is_zero = witness_t(context, is_zero_raw);
 
-    // To verify whether k = 0, we must do 2 checks
-    // First is that (k * k') - 1 + is_zero = 0
+    // This can be done out of circuit, as `is_zero = true` implies `I = 1`.
+    bb::fr inverse_native = (is_zero_raw) ? bb::fr::one() : native_value.invert();
 
-    // If is_zero = false, then k' must be the modular inverse of k, therefore k is not 0
+    field_t inverse = witness_t(context, inverse_native);
 
-    // If is_zero = true, then either k or k' is zero (or both)
-    // To ensure that it is k that is zero, and not k', we must apply
-    // an additional check: that if is_zero = true, k' = 1
-    // This way, if (k * k') = 0, we know that k = 0.
-    // The second check is: (is_zero * k') - is_zero = 0
-    field_t k = normalize();
-    bool_t is_zero = witness_t(context, (k.get_value() == bb::fr::zero()));
-    field_t k_inverse;
-    if (is_zero.get_value()) {
-        k_inverse = witness_t(context, bb::fr::one());
-    } else {
-        bb::fr k_inverse_value = k.get_value().invert();
-        k_inverse = witness_t(context, k_inverse_value);
-    }
+    // Create a `big_mul_gate` for the first constraint, it is given by the
+    // equation:
+    //      a.v * I.v * q_m + a.v * q_1 + I.v * q_2 + is_zero.v * q_3 + (-1) * q_4 + q_c = 0
+    // where
+    //      q_m := a.mul * I.mul;
+    //      q_1 := a.mul * I.add;
+    //      q_2 := I.mul * a.add;
+    //      q_3 := 1;
+    //      q_4 := 0;
+    //      q_c := a.add * I.add + is_zero.add - 1;
+    field_t::evaluate_polynomial_identity(*this, inverse, is_zero, bb::fr::neg_one());
 
-    // Create a `poly_gate` to constrain k * k_inverse + is_zero - 1 = 0 (note that `k` and `k_inverse` are normalized)
-    //      k.v * k_inverse.v * q_m + k.v * q_l + k_inverse.v * q_r + is_zero.v * q_o  - q_c = 0
-    bb::fr q_m = bb::fr::one();
-    bb::fr q_l = bb::fr::zero();
-    bb::fr q_r = bb::fr::zero();
-    bb::fr q_o = bb::fr::one();
-    bb::fr q_c = bb::fr::neg_one();
-
-    context->create_poly_gate({ .a = k.witness_index,
-                                .b = k_inverse.witness_index,
-                                .c = is_zero.witness_index,
-                                .q_m = q_m,
-                                .q_l = q_l,
-                                .q_r = q_r,
-                                .q_o = q_o,
-                                .q_c = q_c });
-
-    // is_zero * k_inverse - is_zero = 0
-    q_o = bb::fr::neg_one();
-    q_c = bb::fr::zero();
-    // Create a `poly_gate` (note that `k` and `k_inverse` are normalized)
-    //      is_zero.v * k_inverse.v * q_m + is_zero.v * q_l + k_inverse.v * q_r + is_zero.v * q_o  - q_c = 0
-    context->create_poly_gate({ .a = is_zero.witness_index,
-                                .b = k_inverse.witness_index,
-                                .c = is_zero.witness_index,
-                                .q_m = q_m,
-                                .q_l = q_l,
-                                .q_r = q_r,
-                                .q_o = q_o,
-                                .q_c = q_c });
+    // Create a `big_mul_gate` for the second constraint, it is given by the
+    // equation:
+    //      is_zero.v * (-I).v * q_m + is_zero.v * q_1 + (-I).v * q_2 + is_zero.v * q_3 + 0 * q_4 + q_c = 0
+    // where
+    //      q_m := is_zero.mul * (-I).mul;
+    //      q_1 := is_zero.mul * (-I).add;
+    //      q_2 := (-I).mul * is_zero.add;
+    //      q_3 := is_zero.mul;
+    //      q_4 := 0;
+    //      q_c := is_zero.add * (-I).add + is_zero.add;
+    field_t::evaluate_polynomial_identity(is_zero, -inverse, is_zero, bb::fr::zero());
     is_zero.set_origin_tag(tag);
     return is_zero;
 }
@@ -773,37 +776,7 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
 
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const field_t& other) const
 {
-    Builder* ctx = (context == nullptr) ? other.context : context;
-    if (is_constant() && other.is_constant()) {
-        auto result = bool_t<Builder>((get_value() == other.get_value()));
-        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-        return result;
-    }
-
-    bb::fr fa = get_value();
-    bb::fr fb = other.get_value();
-    bb::fr fd = fa - fb;
-    bool is_equal = (fa == fb);
-    bb::fr fc = is_equal ? bb::fr::one() : fd.invert();
-    bool_t result(ctx, is_equal);
-    result.witness_index = ctx->add_variable(is_equal);
-    result.witness_bool = is_equal;
-
-    field_t x(witness_t(ctx, fc));
-    // element x is auxiliary variable to create constraints
-    // for operator == and it won't be used anymore
-    if constexpr (IsUltraBuilder<Builder>) {
-        ctx->update_used_witnesses(x.witness_index);
-    }
-    const field_t& a = *this;
-    const field_t& b = other;
-    const field_t diff = a - b;
-    // these constraints ensure that result is a boolean
-    field_t::evaluate_polynomial_identity(diff, x, result, -field_t(bb::fr::one()));
-    field_t::evaluate_polynomial_identity(diff, result, field_t(bb::fr::zero()), field_t(bb::fr::zero()));
-
-    result.set_origin_tag(OriginTag(tag, other.tag));
-    return result;
+    return ((*this) - other).is_zero();
 }
 
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator!=(const field_t& other) const

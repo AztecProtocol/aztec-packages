@@ -343,7 +343,6 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
     // Create a transcript to be shared by final merge prover, ECCVM, Translator, and Hiding Circuit provers.
     goblin.transcript = std::make_shared<Goblin::Transcript>();
-    goblin.transcript->enable_manifest();
     auto decider_pk = construct_hiding_circuit_key();
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(decider_pk, goblin.transcript);

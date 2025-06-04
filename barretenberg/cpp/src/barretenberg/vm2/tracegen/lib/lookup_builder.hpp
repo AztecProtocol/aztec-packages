@@ -137,6 +137,14 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
             }
 
             if (!found) {
+                info(
+                    "Failed computing counts for ",
+                    std::string(LookupSettings::NAME),
+                    " with src tuple: {",
+                    [&src_values]<size_t... Is>(std::index_sequence<Is...>) {
+                        return ((field_to_string(src_values[Is]) + ", ") + ...);
+                    }(std::make_index_sequence<LookupSettings::LOOKUP_TUPLE_SIZE>()),
+                    "}");
                 throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
                                          ". Could not find tuple in destination.");
             }
