@@ -181,7 +181,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const ttlEpochs = BigInt(Math.ceil(ttlL2Slots / l1Constants.epochDuration));
 
     const currentEpoch = this.epochCache.getEpochAndSlotNow().epoch;
-    const performance = await this.store.getProvenPerformance(validator);
+    const performance = await this.store.getProvenPerformance(EthAddress.fromString(validator));
     return (
       performance
         .filter(p => p.epoch >= currentEpoch - ttlEpochs)
