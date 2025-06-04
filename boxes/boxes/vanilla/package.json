@@ -1,37 +1,55 @@
 {
-  "name": "@aztec/vanilla",
-  "description": "Vanilla HTML/JS App",
+  "name": "aztec-example-vanilla",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
-    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile --silence-warnings",
-    "codegen": "${AZTEC_BUILDER:-aztec} codegen src/contracts/target -o artifacts",
-    "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./src/contracts/target",
-    "prep": "yarn clean && yarn compile && yarn codegen && tsc -b",
-    "dev": "yarn prep && webpack serve --mode development",
-    "build": "yarn prep && webpack",
-    "serve": "webpack serve --no-open --mode development --watch-files ./src/*",
-    "test": "npx playwright test",
-    "formatting": "prettier --check ./src && eslint ./src",
-    "formatting:fix": "prettier -w ./src"
+    "clean": "rm -rf app/dist contracts/target contracts/codegenCache.json",
+    "compile-contracts": "cd contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
+    "codegen-contracts": "cd contracts && ${AZTEC_BUILDER:-aztec} codegen ./target -o ./target",
+    "copy-artifacts": "mkdir -p artifacts && cp contracts/target/*.json contracts/target/*.ts ./artifacts",
+    "build-contracts": "yarn clean && yarn compile-contracts && yarn codegen-contracts && yarn copy-artifacts",
+    "deploy-contracts": "node --experimental-transform-types scripts/deploy.ts",
+    "dev": "webpack serve --mode development",
+    "build-app": "webpack --mode production",
+    "build": "yarn build-contracts && yarn build-app",
+    "serve": "webpack serve --mode production --port ${PORT:-3000}",
+    "prep-test": "PROVER_ENABLED=false yarn deploy-contracts && yarn build-app",
+    "test": "yarn prep-test && yarn playwright test",
+    "lint": "prettier --check ./src"
   },
   "dependencies": {
     "@aztec/accounts": "latest",
-    "@aztec/aztec.js": "latest"
+    "@aztec/aztec.js": "latest",
+    "@aztec/constants": "latest",
+    "@aztec/foundation": "latest",
+    "@aztec/kv-store": "latest",
+    "@aztec/noir-contracts.js": "latest",
+    "@aztec/pxe": "latest",
+    "@aztec/stdlib": "latest"
   },
   "devDependencies": {
     "@playwright/test": "1.49.0",
     "@types/node": "^22.15.17",
-    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
+    "css-loader": "^6.10.0",
+    "dotenv-webpack": "^8.0.1",
     "html-webpack-plugin": "^5.6.0",
-    "stream-browserify": "^3.0.0",
+    "prettier": "^3.5.3",
+    "style-loader": "^3.3.4",
     "ts-loader": "^9.5.1",
     "typescript": "^5.3.3",
-    "util": "^0.12.5",
     "webpack": "^5.99.6",
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "^5.2.1"
   },
-  "packageManager": "yarn@4.5.2"
+  "prettier": {
+    "semi": true,
+    "tabWidth": 2,
+    "singleQuote": true,
+    "trailingComma": "es5"
+  }
 }
