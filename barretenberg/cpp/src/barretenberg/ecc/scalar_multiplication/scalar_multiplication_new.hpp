@@ -1109,8 +1109,8 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
         // }
         std::vector<std::vector<std::pair<AffineElement, size_t>>> thread_msm_results(num_cpus);
 
-        //   parallel_for(num_cpus, [&](size_t thread_idx) {
-        for (size_t thread_idx = 0; thread_idx < num_cpus; ++thread_idx) {
+        parallel_for(num_cpus, [&](size_t thread_idx) {
+            // for (size_t thread_idx = 0; thread_idx < num_cpus; ++thread_idx) {
             // std::cout << "start pipp " << thread_idx << std::endl;
 
             if (thread_idx < thread_work_units.size()) {
@@ -1126,8 +1126,8 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
                 }
             }
             // std::cout << "done pipp low memory " << thread_idx << std::endl;
-        }
-        // });
+            //}
+        });
 
         ASSERT(points.size() == scalars.size());
         std::vector<Element> results(points.size());
