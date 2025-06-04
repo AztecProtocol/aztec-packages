@@ -4,7 +4,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { L2Block } from '@aztec/stdlib/block';
-import type { BlockBuilder, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { IBlockFactory, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type GlobalVariables, type ProcessedTx, toNumBlobFields } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -27,7 +27,7 @@ import {
  * If you haven't already inserted the side effects, e.g. because you are in a testing context, you can use the helper
  * function `buildBlockWithCleanDB`, which calls `insertSideEffectsAndBuildBaseRollupHints` for you.
  */
-export class LightweightBlockBuilder implements BlockBuilder {
+export class LightweightBlockFactory implements IBlockFactory {
   private globalVariables?: GlobalVariables;
   private l1ToL2Messages?: Fr[];
 
@@ -87,14 +87,6 @@ export class LightweightBlockBuilder implements BlockBuilder {
   }
 }
 
-export class LightweightBlockBuilderFactory {
-  constructor(private telemetry: TelemetryClient = getTelemetryClient()) {}
-
-  create(db: MerkleTreeWriteOperations): BlockBuilder {
-    return new LightweightBlockBuilder(db, this.telemetry);
-  }
-}
-
 /**
  * Inserts the processed transactions into the DB, then creates a block.
  * @param db - A db fork to use for block building which WILL BE MODIFIED.
@@ -110,7 +102,7 @@ export async function buildBlockWithCleanDB(
   for (const tx of txs) {
     await insertSideEffectsAndBuildBaseRollupHints(tx, globalVariables, db, spongeBlobState);
   }
-  const builder = new LightweightBlockBuilder(db, telemetry);
+  const builder = new LightweightBlockFactory(db, telemetry);
   await builder.startNewBlock(globalVariables, l1ToL2Messages);
   await builder.addTxs(txs);
   return await builder.setBlockCompleted();
