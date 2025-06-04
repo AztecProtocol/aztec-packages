@@ -59,6 +59,13 @@ export class BatchConnectionSampler {
     return this.batch[peerIndex];
   }
 
+  getPeer(index: number): PeerId | undefined {
+    if (this.batch.length === 0) {
+      return undefined;
+    }
+    return this.batch[index];
+  }
+
   /**
    * Removes a peer and replaces it with a new one, maintaining the same position
    * in the batch array to keep request distribution consistent

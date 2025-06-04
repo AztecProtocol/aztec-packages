@@ -304,12 +304,17 @@ export class ReqResp {
         type BatchEntry = { peerId: PeerId; indices: number[] };
         const requestBatches = new Map<string, BatchEntry>();
 
+        // 0, 2, 3, 10
+        const requestsToGo = [...pendingRequestIndices];
         // Group requests by peer
-        for (const requestIndex of pendingRequestIndices) {
-          const peer = batchSampler.getPeerForRequest(requestIndex);
+        for (let i = 0; i < batchSampler.activePeerCount; i++) {
+          const peer = batchSampler.getPeer(i);
           if (!peer) {
             break;
           }
+
+          const requestIndex = requestsToGo[i % requestsToGo.length]; // 0, 2, 3, 10
+
           const peerAsString = peer.toString();
           if (!requestBatches.has(peerAsString)) {
             requestBatches.set(peerAsString, { peerId: peer, indices: [] });
