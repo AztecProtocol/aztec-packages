@@ -106,7 +106,7 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
 
 pub fn validate_contract_class_log(
     log_hash: Scoped<LogHash>,
-    log_preimage: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS],
+    log_fields: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS],
 ) {
     // Validate length.
     // Ensure that all fields after the actual length are zero.
@@ -115,7 +115,7 @@ pub fn validate_contract_class_log(
     // This mismatch would make it impossible to verify the contract class later,
     // because the correct hash could no longer be recomputed from the emitted data.
     assert(
-        array_padded_with(log_preimage, log_hash.inner.length, 0),
+        array_padded_with(log_fields, log_hash.inner.length, 0),
         "incorrect contract class log length",
     );
 
@@ -123,7 +123,7 @@ pub fn validate_contract_class_log(
     let expected_hash = if log_hash.inner.length == 0 {
         0
     } else {
-        compute_contract_class_log_hash(log_preimage)
+        compute_contract_class_log_hash(log_fields)
     };
     assert_eq(log_hash.inner.value, expected_hash, "mismatched contract class log hash");
 }

@@ -202,8 +202,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
-    Epoch epochNumber = slot.epochFromSlot();
-    address proposer = ValidatorSelectionLib.getProposerAt(slot, epochNumber);
+    address proposer = ValidatorSelectionLib.getProposerAt(slot, slot.epochFromSlot());
     require(
       proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
     );
@@ -370,10 +369,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   function getCurrentBlobCommitmentsHash() external view override(IRollup) returns (bytes32) {
     RollupStore storage rollupStore = STFLib.getStorage();
     return rollupStore.blobCommitmentsHash[rollupStore.tips.pendingBlockNumber];
-  }
-
-  function getProposerAtIndex(uint256 _index) external view override(IStaking) returns (address) {
-    return getProposerForAttester(getAttesterAtIndex(_index));
   }
 
   function getConfig(address _attester)
@@ -648,22 +643,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     Slot slot = _ts.slotFromTimestamp();
     Epoch epochNumber = slot.epochFromSlot();
     return ValidatorSelectionLib.getProposerAt(slot, epochNumber);
-  }
-
-  /**
-   * @notice  Get the proposer for an attester
-   *
-   * @param _attester - The attester to get the proposer for
-   *
-   * @return The proposer for the attester
-   */
-  function getProposerForAttester(address _attester)
-    public
-    view
-    override(IStaking)
-    returns (address)
-  {
-    return StakingLib.getProposerForAttester(_attester);
   }
 
   /**

@@ -202,6 +202,7 @@ library EpochProofLib {
     // FinalBlobAccumulatorPublicInputs:
     // The blob public inputs do not require the versioned hash of the batched commitment, which is stored in _blobPublicInputs[0:32]
     // or the KZG opening 'proof' (commitment Q) stored in _blobPublicInputs[144:]. They are used in validateBatchedBlob().
+    // See BlobLib.sol -> validateBatchedBlob() and calculateBlobCommitmentsHash() for documentation on the below blob related inputs.
 
     // blobCommitmentsHash
     publicInputs[offset] = rollupStore.blobCommitmentsHash[_end];
@@ -326,9 +327,9 @@ library EpochProofLib {
     bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.provenBlockNumber;
     require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
 
-    bool isWithinEpochDuration = _end - _start <= Constants.AZTEC_MAX_EPOCH_DURATION;
+    bool claimedNumBlocksInEpoch = _end - _start + 1 <= Constants.AZTEC_MAX_EPOCH_DURATION;
     require(
-      isWithinEpochDuration,
+      claimedNumBlocksInEpoch,
       Errors.Rollup__TooManyBlocksInEpoch(Constants.AZTEC_MAX_EPOCH_DURATION, _end - _start)
     );
 

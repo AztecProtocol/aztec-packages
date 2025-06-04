@@ -66,6 +66,17 @@ impl RootRollupInputs {
 
         let fees = components::accumulate_blocks_fees(left, right);
 
+        // Note: for blob batching, in assert_prev_block_rollups_follow_on_from_each_other we have checked:
+        // - left.end_blob_accumulator == right.start_blob_accumulator
+        // - left.challenge_z == right.challenge_z
+        // - left.challenge_gamma == right.challenge_gamma
+        // Below we check:
+        // - first (left.start_blob_accumulator) acc is empty
+        // Finally, we call finalize_and_validate() on the end_blob_accumulator which calculates final_gamma and checks:
+        // - end_blob_accumulator.z == injected.challenge_z
+        // - final_gamma == injected.challenge_gamma
+        // => Validated public inputs from acc are: FinalBlobAccumulatorPublicInputs { blob_commitments_hash, z, y, C } (gamma is not required)
+
         assert(
             is_empty(left.blob_public_inputs.start_blob_accumulator),
             "Epoch did not start with empty blob state.",

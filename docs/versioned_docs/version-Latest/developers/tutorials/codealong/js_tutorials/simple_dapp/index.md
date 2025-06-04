@@ -11,7 +11,7 @@ This tutorial is for the sandbox and will need adjustments if deploying to testn
 
 This tutorial will focus on environment setup, including creating accounts and deployments, as well as interacting with your contracts. It will not cover [how to write contracts in Noir](../../../../../aztec/smart_contracts_overview.md).
 
-The full code for this tutorial is [available on the `aztec-packages` repository](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/sample-dapp).
+The full code for this tutorial is [available on the `aztec-packages` repository](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/sample-dapp).
 
 ## Dependencies
 

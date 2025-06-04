@@ -1,7 +1,6 @@
 use crate::{
     abis::{
         contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
-        contract_class_log::ContractClassLog,
         function_selector::FunctionSelector,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
@@ -20,6 +19,7 @@ use crate::{
     traits::{FromField, Hash, ToField},
     utils::{arrays::array_concat, field::{field_from_bytes, field_from_bytes_32_trunc}},
 };
+use std::embedded_curve_ops::EmbeddedCurveScalar;
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256::digest(bytes_to_hash);
@@ -125,28 +125,19 @@ pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
     }
 }
 
-pub fn compute_siloed_contract_class_log_field(
-    contract_address: AztecAddress,
-    first_field: Field,
-) -> Field {
-    poseidon2_hash([contract_address.to_field(), first_field])
-}
-
-pub fn silo_contract_class_log(contract_class_log: ContractClassLog) -> ContractClassLog {
-    if contract_class_log.contract_address.is_zero() {
-        contract_class_log
-    } else {
-        let mut log = contract_class_log;
-        log.log.fields[0] = compute_siloed_contract_class_log_field(
-            contract_class_log.contract_address,
-            log.log.fields[0],
-        );
-        log
-    }
-}
-
 pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]) -> Field {
     poseidon2_hash(log)
+}
+
+pub fn compute_app_secret_key(
+    master_secret_key: EmbeddedCurveScalar,
+    app_address: AztecAddress,
+    app_secret_generator: Field,
+) -> Field {
+    poseidon2_hash_with_separator(
+        [master_secret_key.hi, master_secret_key.lo, app_address.to_field()],
+        app_secret_generator,
+    )
 }
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {
@@ -431,6 +422,27 @@ where
     sponge.squeeze()
 }
 
+// This function is  unconstrained because it is intended to be used in unconstrained context only as
+// in constrained contexts it would be too inefficient.
+pub unconstrained fn poseidon2_hash_with_separator_bounded_vec<let N: u32, T>(
+    inputs: BoundedVec<Field, N>,
+    separator: T,
+) -> Field
+where
+    T: ToField,
+{
+    let in_len = inputs.len() + 1;
+    let iv: Field = (in_len as Field) * TWO_POW_64;
+    let mut sponge = Poseidon2Sponge::new(iv);
+    sponge.absorb(separator.to_field());
+
+    for i in 0..inputs.len() {
+        sponge.absorb(inputs.get(i));
+    }
+
+    sponge.squeeze()
+}
+
 #[no_predicates]
 pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
     let mut fields = [0; (N + 30) / 31];
@@ -565,4 +577,19 @@ fn silo_l2_to_l1_message_matches_typescript() {
     let hash_from_typescript = 0x00c6155d69febb9d5039b374dd4f77bf57b7c881709aa524a18acaa0bd57476a;
 
     assert_eq(hash, hash_from_typescript);
+}
+
+#[test]
+unconstrained fn poseidon2_hash_with_separator_bounded_vec_matches_non_bounded_vec_version() {
+    let inputs = BoundedVec::<Field, 4>::from_array([1, 2, 3]);
+    let separator = 42;
+
+    // Hash using bounded vec version
+    let bounded_result = poseidon2_hash_with_separator_bounded_vec(inputs, separator);
+
+    // Hash using regular version
+    let regular_result = poseidon2_hash_with_separator([1, 2, 3], separator);
+
+    // Results should match
+    assert_eq(bounded_result, regular_result);
 }

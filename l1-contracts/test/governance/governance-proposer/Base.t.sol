@@ -8,6 +8,7 @@ import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
+import {IGSE} from "@aztec/core/staking/GSE.sol";
 
 contract FakeGovernance {
   address immutable GOVERNANCE_PROPOSER;
@@ -33,7 +34,7 @@ contract GovernanceProposerBase is Test {
     TestERC20 asset = new TestERC20("test", "TEST", address(this));
     registry = new Registry(address(this), asset);
 
-    governanceProposer = new GovernanceProposer(registry, 667, 1000);
+    governanceProposer = new GovernanceProposer(registry, IGSE(address(0x03)), 667, 1000);
     governance = new FakeGovernance(address(governanceProposer));
 
     registry.updateGovernance(address(governance));

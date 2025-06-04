@@ -27,6 +27,7 @@ import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 
+import {GSE} from "@aztec/core/staking/GSE.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
@@ -76,7 +77,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // The proposer is not necessarily an attester, we have to map it back. We can do this here
     // because we created a 1:1 link. In practice, there could be multiple attesters for the same proposer
     address proposer = rollup.getCurrentProposer();
-    assertTrue(_seenCommittee[proposerToAttester[proposer]]);
+    assertTrue(_seenCommittee[proposer]);
   }
 
   function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpochs(2) {
@@ -93,7 +94,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // Add a validator which will also setup the epoch
     testERC20.mint(address(this), rollup.getMinimumStake());
     testERC20.approve(address(rollup), rollup.getMinimumStake());
-    rollup.deposit(address(0xdead), address(0xdead), address(0xdead), true);
+    rollup.deposit(address(0xdead), address(0xdead), true);
 
     address actualProposer = rollup.getCurrentProposer();
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
@@ -140,7 +141,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // add a new validator
     testERC20.mint(address(this), rollup.getMinimumStake());
     testERC20.approve(address(rollup), rollup.getMinimumStake());
-    rollup.deposit(address(0xdead), address(0xdead), address(0xdead), true);
+    rollup.deposit(address(0xdead), address(0xdead), true);
 
     assertEq(rollup.getCurrentEpoch(), epoch);
     address[] memory committee = rollup.getCurrentEpochCommittee();
@@ -226,14 +227,15 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function testInvalidProposer() public setup(4) progressEpochs(2) {
+  function testRelayedForProposer() public setup(4) progressEpochs(2) {
+    // Having someone that is not the proposer submit it, but with all signatures (so there is signature from proposer)
     _testBlock(
       "mixed_block_1",
-      true,
-      3,
+      false,
+      4,
       TestFlags({
         invalidProposer: true,
-        provideEmptyAttestations: true,
+        provideEmptyAttestations: false,
         proposerNotProvided: false,
         invalidCommitteeCommitment: false
       })
@@ -269,7 +271,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testInsufficientSigsMove() public setup(4) progressEpochs(2) {
-    rollup.getGSE().addRollup(address(0xdead));
+    GSE gse = rollup.getGSE();
+    address caller = gse.owner();
+    vm.prank(caller);
+    gse.addRollup(address(0xdead));
     assertEq(rollup.getCurrentEpochCommittee().length, 4);
     _testBlock(
       "mixed_block_1",
@@ -379,13 +384,22 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       // Set all attestations, including the propser's addr to 0
       if (_flags.proposerNotProvided) {
+        bytes32 correctCommitteeCommitment = keccak256(abi.encode(validators));
+        address[] memory incorrectCommittee = new address[](validators.length);
+        uint256 invalidAttesterKey = uint256(keccak256(abi.encode("invalid", block.timestamp)));
+        address invalidAttester = vm.addr(invalidAttesterKey);
+        attesterPrivateKeys[invalidAttester] = invalidAttesterKey;
         for (uint256 i = 0; i < attestations.length; ++i) {
-          attestations[i].addr = address(0);
+          attestations[i] = createAttestation(invalidAttester, digest);
+          incorrectCommittee[i] = attestations[i].addr;
         }
+        bytes32 incorrectCommitteeCommitment = keccak256(abi.encode(incorrectCommittee));
 
         vm.expectRevert(
           abi.encodeWithSelector(
-            Errors.ValidatorSelection__InvalidProposer.selector, address(0), ree.proposer
+            Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
+            incorrectCommitteeCommitment,
+            correctCommitteeCommitment
           )
         );
       }

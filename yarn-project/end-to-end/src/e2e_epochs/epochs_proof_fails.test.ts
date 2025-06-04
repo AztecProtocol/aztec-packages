@@ -101,7 +101,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
           ourPublicInputs.blobPublicInputs.z,
           ourPublicInputs.blobPublicInputs.y,
           ourPublicInputs.blobPublicInputs.c,
-          ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value
+          ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value for Q
         );
         return { publicInputs: ourPublicInputs, proof: Proof.empty(), batchedBlobInputs: ourBatchedBlob };
       });

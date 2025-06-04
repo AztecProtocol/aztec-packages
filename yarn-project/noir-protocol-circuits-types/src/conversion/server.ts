@@ -302,12 +302,12 @@ export function mapBlobAccumulatorPublicInputsToNoir(
   blobPublicInputs: BlobAccumulatorPublicInputs,
 ): BlobAccumulatorPublicInputsNoir {
   return {
-    blob_commitments_hash: mapFieldToNoir(blobPublicInputs.blobCommitmentsHash),
-    z: mapFieldToNoir(blobPublicInputs.z),
-    y: mapBLS12FrToNoir(blobPublicInputs.y),
-    c: mapBLS12PointToNoir(blobPublicInputs.c),
-    gamma: mapFieldToNoir(blobPublicInputs.gamma),
-    gamma_pow: mapBLS12FrToNoir(blobPublicInputs.gammaPow),
+    blob_commitments_hash_acc: mapFieldToNoir(blobPublicInputs.blobCommitmentsHashAcc),
+    z_acc: mapFieldToNoir(blobPublicInputs.zAcc),
+    y_acc: mapBLS12FrToNoir(blobPublicInputs.yAcc),
+    c_acc: mapBLS12PointToNoir(blobPublicInputs.cAcc),
+    gamma_acc: mapFieldToNoir(blobPublicInputs.gammaAcc),
+    gamma_pow_acc: mapBLS12FrToNoir(blobPublicInputs.gammaPowAcc),
   };
 }
 
@@ -320,12 +320,12 @@ export function mapBlobAccumulatorPublicInputsFromNoir(
   blobPublicInputs: BlobAccumulatorPublicInputsNoir,
 ): BlobAccumulatorPublicInputs {
   return new BlobAccumulatorPublicInputs(
-    mapFieldFromNoir(blobPublicInputs.blob_commitments_hash),
-    mapFieldFromNoir(blobPublicInputs.z),
-    mapBLS12FrFromNoir(blobPublicInputs.y),
-    mapBLS12PointFromNoir(blobPublicInputs.c),
-    mapFieldFromNoir(blobPublicInputs.gamma),
-    mapBLS12FrFromNoir(blobPublicInputs.gamma_pow),
+    mapFieldFromNoir(blobPublicInputs.blob_commitments_hash_acc),
+    mapFieldFromNoir(blobPublicInputs.z_acc),
+    mapBLS12FrFromNoir(blobPublicInputs.y_acc),
+    mapBLS12PointFromNoir(blobPublicInputs.c_acc),
+    mapFieldFromNoir(blobPublicInputs.gamma_acc),
+    mapBLS12FrFromNoir(blobPublicInputs.gamma_pow_acc),
   );
 }
 
@@ -894,7 +894,7 @@ export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs
     state_diff_hints: mapPrivateBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
     fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
-    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, p =>
+    contract_class_log_fields: mapTuple(inputs.hints.contractClassLogsFields, p =>
       mapFieldArrayToNoir(p.fields, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
     ),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
@@ -923,7 +923,7 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
     avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
-    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, p =>
+    contract_class_log_fields: mapTuple(inputs.hints.contractClassLogsFields, p =>
       mapFieldArrayToNoir(p.fields, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
     ),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),

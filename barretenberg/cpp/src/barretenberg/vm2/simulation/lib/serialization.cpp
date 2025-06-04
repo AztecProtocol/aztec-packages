@@ -328,6 +328,18 @@ std::string Instruction::to_string() const
     return oss.str();
 }
 
+size_t Instruction::size_in_bytes() const
+{
+    assert(WIRE_INSTRUCTION_SPEC.contains(opcode));
+    return WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes;
+}
+
+ExecutionOpCode Instruction::get_exec_opcode() const
+{
+    assert(WIRE_INSTRUCTION_SPEC.contains(opcode));
+    return WIRE_INSTRUCTION_SPEC.at(opcode).exec_opcode;
+}
+
 std::vector<uint8_t> Instruction::serialize() const
 {
     std::vector<uint8_t> output;

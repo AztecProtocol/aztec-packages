@@ -29,8 +29,10 @@ fi
 # Get values from the values file
 value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
 
-# Get the number of replicas for each service
-num_validators=$(./read_value.sh "validator.replicas" $value_yamls)
+num_validator_nodes=$(./read_value.sh "validator.replicas" $value_yamls)
+validators_per_node=$(./read_value.sh "validator.keysPerNode" $value_yamls)
+num_validators=$((num_validator_nodes * validators_per_node))
+
 num_provers=$(./read_value.sh "proverNode.replicas" $value_yamls)
 
 # Get the key index start values
@@ -67,6 +69,7 @@ if [ "$bot_enabled" = "true" ]; then
 fi
 
 echo "Checking balances for ${#indices_to_check[@]} accounts..."
+echo "Total validators: $num_validators ($num_validator_nodes nodes with $validators_per_node validators each)"
 
 # For each index in our list
 for i in "${indices_to_check[@]}"; do

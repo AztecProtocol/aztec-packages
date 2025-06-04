@@ -125,12 +125,15 @@ mod tests {
         ]);
 
         assert_eq(computed_z, EMPTY_EFFECT_BLOB_CHALLENGE_Z);
-        assert_eq(output.blob_public_inputs.end_blob_accumulator.z, EMPTY_EFFECT_BLOB_CHALLENGE_Z);
         assert_eq(
-            output.blob_public_inputs.end_blob_accumulator.c,
+            output.blob_public_inputs.end_blob_accumulator.z_acc,
+            EMPTY_EFFECT_BLOB_CHALLENGE_Z,
+        );
+        assert_eq(
+            output.blob_public_inputs.end_blob_accumulator.c_acc,
             EMPTY_EFFECT_BLOB_COMMITMENT.point,
         );
-        assert_eq(output.blob_public_inputs.end_blob_accumulator.y.get_limbs(), [0, 0, 0]);
+        assert_eq(output.blob_public_inputs.end_blob_accumulator.y_acc.get_limbs(), [0, 0, 0]);
     }
 
     #[test]

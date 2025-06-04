@@ -250,9 +250,14 @@ contract RollupBase is DecoderBase {
     uint256 blobInputStart = 1;
     for (uint256 i = 0; i < numBlobs; i++) {
       // blobInputs = [numBlobs, ...blobCommitments], numBlobs is one byte, each commitment is 48
-      bytes32[1] memory blobHash =
-        [sha256(abi.encodePacked(_blobCommitments[blobInputStart:blobInputStart + 48]))];
-      blobInputStart += 48;
+      bytes32[1] memory blobHash = [
+        sha256(
+          abi.encodePacked(
+            _blobCommitments[blobInputStart:blobInputStart + Constants.BLS12_POINT_COMPRESSED_BYTES]
+          )
+        )
+      ];
+      blobInputStart += Constants.BLS12_POINT_COMPRESSED_BYTES;
       // EVM blobHash = VERSIONED_HASH_VERSION_KZG + sha256(blobCommitment)[1:] => hash the commitment and replace first byte with version
       assembly {
         mstore8(blobHash, 0x01)

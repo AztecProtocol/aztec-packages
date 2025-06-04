@@ -138,9 +138,9 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
     const inputSpongeBlob = startSpongeBlob.clone();
     await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
-    const contractClassLogsPreimages = makeTuple(
+    const contractClassLogsFields = makeTuple(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
-      i => tx.txEffect.contractClassLogs[i]?.toUnsiloed().fields || ContractClassLogFields.empty(),
+      i => tx.txEffect.contractClassLogs[i]?.fields || ContractClassLogFields.empty(),
     );
 
     if (tx.avmProvingRequest) {
@@ -155,7 +155,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
       return PublicBaseRollupHints.from({
         startSpongeBlob: inputSpongeBlob,
         archiveRootMembershipWitness,
-        contractClassLogsPreimages,
+        contractClassLogsFields,
         constants,
       });
     } else {
@@ -210,7 +210,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
         stateDiffHints,
         feePayerFeeJuiceBalanceReadHint,
         archiveRootMembershipWitness,
-        contractClassLogsPreimages,
+        contractClassLogsFields,
         constants,
       });
     }
@@ -243,6 +243,11 @@ export const buildBlobHints = runInSpan(
   async (_span: Span, txEffects: TxEffect[]) => {
     const blobFields = txEffects.flatMap(tx => tx.toBlobFields());
     const blobs = await Blob.getBlobs(blobFields);
+    // TODO(#13430): The blobsHash is confusingly similar to blobCommitmentsHash, calculated from below blobCommitments:
+    // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs inserted into the header, exists so a user can cross check blobs.
+    // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
+    //   exists so we can validate injected commitments to the rollup circuits correspond to the correct real blobs.
+    // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0), blobshash_1) ... blobshash_l) for an epoch with l+1 blocks.
     const blobCommitments = blobs.map(b => BLS12Point.decompress(b.commitment));
     const blobsHash = new Fr(getBlobsHashFromBlobs(blobs));
     return { blobFields, blobCommitments, blobs, blobsHash };
@@ -275,8 +280,6 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
       throw new Error(`There can't be more than 2 previous rollups. Received ${previousRollupData.length}.`);
     }
 
-    // TODO(MW): Possibly replace blobshash with v and rename
-    // const blobsHash = rootRollupOutputs.blobPublicInputs.endBlobAccumulator.v.toBuffer();
     const numTxs = previousRollupData.reduce((sum, d) => sum + d.numTxs, 0);
     const outHash =
       previousRollupData.length === 0
@@ -372,7 +375,7 @@ export function getBlobsHashFromBlobs(inputs: Blob[]): Buffer {
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation
-// TODO(MW): does this get called?
+// TODO: does this get called?
 export async function validateBlockRootOutput(
   blockRootOutput: BlockRootOrBlockMergePublicInputs,
   blockHeader: BlockHeader,

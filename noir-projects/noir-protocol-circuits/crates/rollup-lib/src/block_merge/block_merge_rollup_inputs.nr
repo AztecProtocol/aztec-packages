@@ -55,6 +55,11 @@ impl BlockMergeRollupInputs {
 
         let fees = components::accumulate_blocks_fees(left, right);
 
+        // Note: for blob batching, in assert_prev_block_rollups_follow_on_from_each_other we have checked:
+        // - left.end_blob_accumulator == right.start_blob_accumulator
+        // - left.challenge_z == right.challenge_z
+        // - left.challenge_gamma == right.challenge_gamma
+
         let blob_public_inputs = BlockBlobPublicInputs {
             start_blob_accumulator: left.blob_public_inputs.start_blob_accumulator,
             end_blob_accumulator: right.blob_public_inputs.end_blob_accumulator,
@@ -131,7 +136,7 @@ mod tests {
     #[test(should_fail_with = "input block blob accumulators do not follow on from each other")]
     fn previous_rollups_dont_follow_blob_accumulator() {
         let mut inputs = default_block_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z +=
+        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z_acc +=
             1;
         let _output = inputs.block_merge_rollup_circuit();
     }
