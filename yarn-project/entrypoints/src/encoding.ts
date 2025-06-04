@@ -53,7 +53,8 @@ export abstract class EncodedCallsForEntrypoint implements EncodedCalls {
      * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
      * but higher fee. The nullifier ensures only one transaction can succeed.
      */
-    public txNonce: Fr,
+    // eslint-disable-next-line camelcase
+    public tx_nonce: Fr,
   ) {}
 
   /* eslint-disable camelcase */
@@ -159,7 +160,7 @@ export class EncodedAppEntrypointCalls extends EncodedCallsForEntrypoint {
   }
 
   override toFields(): Fr[] {
-    return [...this.functionCallsToFields(), this.txNonce];
+    return [...this.functionCallsToFields(), this.tx_nonce];
   }
 }
 
@@ -179,7 +180,7 @@ export class EncodedFeeEntrypointCalls extends EncodedCallsForEntrypoint {
   }
 
   override toFields(): Fr[] {
-    return [...this.functionCallsToFields(), this.txNonce, new Fr(this.#isFeePayer)];
+    return [...this.functionCallsToFields(), this.tx_nonce, new Fr(this.#isFeePayer)];
   }
 
   /* eslint-disable camelcase */
