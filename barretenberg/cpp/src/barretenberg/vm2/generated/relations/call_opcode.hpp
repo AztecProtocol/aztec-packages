@@ -25,10 +25,12 @@ template <typename FF_> class call_opcodeImpl {
 
         const auto execution_L2_GAS_LEFT = (in.get(C::execution_l2_gas_limit) - in.get(C::execution_l2_gas_used));
         const auto execution_DA_GAS_LEFT = (in.get(C::execution_da_gas_limit) - in.get(C::execution_da_gas_used));
-        const auto execution_ALLOCATED_GTE_LEFT_L2 = (in.get(C::execution_reg1) - execution_L2_GAS_LEFT);
-        const auto execution_ALLOCATED_LT_LEFT_L2 = ((execution_L2_GAS_LEFT - in.get(C::execution_reg1)) - FF(1));
-        const auto execution_ALLOCATED_GTE_LEFT_DA = (in.get(C::execution_reg2) - execution_DA_GAS_LEFT);
-        const auto execution_ALLOCATED_LT_LEFT_DA = ((execution_DA_GAS_LEFT - in.get(C::execution_reg2)) - FF(1));
+        const auto execution_ALLOCATED_GTE_LEFT_L2 = (in.get(C::execution_register_0_) - execution_L2_GAS_LEFT);
+        const auto execution_ALLOCATED_LT_LEFT_L2 =
+            ((execution_L2_GAS_LEFT - in.get(C::execution_register_0_)) - FF(1));
+        const auto execution_ALLOCATED_GTE_LEFT_DA = (in.get(C::execution_register_1_) - execution_DA_GAS_LEFT);
+        const auto execution_ALLOCATED_LT_LEFT_DA =
+            ((execution_DA_GAS_LEFT - in.get(C::execution_register_1_)) - FF(1));
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -56,7 +58,7 @@ template <typename FF_> class call_opcodeImpl {
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::execution_sel_enter_call) * (((in.get(C::execution_reg1) - execution_L2_GAS_LEFT) *
+                in.get(C::execution_sel_enter_call) * (((in.get(C::execution_register_0_) - execution_L2_GAS_LEFT) *
                                                             in.get(C::execution_call_is_l2_gas_allocated_lt_left) +
                                                         execution_L2_GAS_LEFT) -
                                                        in.get(C::execution_l2_gas_limit_shift));
@@ -83,7 +85,7 @@ template <typename FF_> class call_opcodeImpl {
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::execution_sel_enter_call) * (((in.get(C::execution_reg2) - execution_DA_GAS_LEFT) *
+                in.get(C::execution_sel_enter_call) * (((in.get(C::execution_register_1_) - execution_DA_GAS_LEFT) *
                                                             in.get(C::execution_call_is_da_gas_allocated_lt_left) +
                                                         execution_DA_GAS_LEFT) -
                                                        in.get(C::execution_da_gas_limit_shift));
