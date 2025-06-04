@@ -47,9 +47,3 @@ export class ReExTimeoutError extends ValidatorError {
     super('Re-execution timed out or failed to process all txs in the proposal');
   }
 }
-
-export class BlockBuilderNotProvidedError extends ValidatorError {
-  constructor() {
-    super('Block builder not provided');
-  }
-}
