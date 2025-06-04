@@ -12,7 +12,7 @@ import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import type { SlasherClient } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestation, L2BlockSource } from '@aztec/stdlib/block';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
   type AllowedElement,
@@ -276,9 +276,14 @@ export class Sequencer {
     // Check that the archiver and dependencies have synced to the previous L1 slot at least
     // TODO(#14766): Archiver reports L1 timestamp based on L1 blocks seen, which means that a missed L1 block will
     // cause the archiver L1 timestamp to fall behind, and cause this sequencer to start processing one L1 slot later.
-    const l1SlotDuration = BigInt(this.l1Constants.ethereumSlotDuration);
-    const syncLogData = { syncedToL1Ts: syncedTo.l1Timestamp, nextSlotTs: ts, l1SlotDuration };
-    if (syncedTo.l1Timestamp + l1SlotDuration < ts) {
+    const syncLogData = {
+      syncedToL1Ts: syncedTo.l1Timestamp,
+      syncedToL2Slot: getSlotAtTimestamp(syncedTo.l1Timestamp, this.l1Constants),
+      nextSlot: slot,
+      nextSlotTs: ts,
+      l1SlotDuration: this.l1Constants.ethereumSlotDuration,
+    };
+    if (syncedTo.l1Timestamp + BigInt(this.l1Constants.ethereumSlotDuration) < ts) {
       this.log.verbose(
         `Cannot propose block ${newBlockNumber} at next L2 slot ${slot} due to pending sync from L1`,
         syncLogData,
@@ -304,14 +309,21 @@ export class Sequencer {
 
     // Double check we are good for proposing at the next block before we start operations.
     // We should never fail this check assuming the logic above is good.
-    const proposerAddress = proposerInNextSlot === undefined ? EthAddress.ZERO : this.publisher.getForwarderAddress();
+    const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
     const slotAndBlock = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
     if (slotAndBlock === undefined) {
       this.log.warn(`Cannot propose block ${newBlockNumber} at slot ${slot} due to failed rollup contract check`);
       return;
-    } else if (slotAndBlock[0] !== slot || slotAndBlock[1] !== BigInt(newBlockNumber)) {
+    } else if (slotAndBlock[0] !== slot) {
       this.log.warn(
-        `Cannot propose block due to mismatch with rollup contract. Expected ${newBlockNumber} at slot ${slot} but got ${slotAndBlock[1]} at slot ${slotAndBlock[0]}.`,
+        `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot} but got ${slotAndBlock[0]}.`,
+        { rollup: slotAndBlock, newBlockNumber, expectedSlot: slot },
+      );
+      return;
+    } else if (slotAndBlock[1] !== BigInt(newBlockNumber)) {
+      this.log.warn(
+        `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${slotAndBlock[1]}.`,
+        { rollup: slotAndBlock, newBlockNumber, expectedSlot: slot },
       );
       return;
     }

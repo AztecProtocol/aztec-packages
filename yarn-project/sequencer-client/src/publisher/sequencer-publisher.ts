@@ -271,7 +271,9 @@ export class SequencerPublisher {
       .canProposeAtNextEthBlock(tipArchive, msgSender.toString(), this.ethereumSlotDuration)
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
-          this.log.debug(err.message);
+          this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
+            error: err.message,
+          });
         } else {
           this.log.error(err.name, err);
         }
