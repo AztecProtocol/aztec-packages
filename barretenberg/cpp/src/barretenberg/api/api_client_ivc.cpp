@@ -77,15 +77,12 @@ size_t get_num_public_inputs_in_circuit(const std::filesystem::path& bytecode_pa
 }
 
 void write_vk_for_ivc(const std::string& output_format,
-                      const std::string& bytecode_path,
+                      size_t num_public_inputs_in_final_circuit,
                       const std::filesystem::path& output_dir)
 {
     if (output_format != "bytes") {
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
     }
-    const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_circuit(bytecode_path);
-    info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
-
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     ClientIVCMockCircuitProducer circuit_producer;
 
@@ -111,6 +108,15 @@ void write_vk_for_ivc(const std::string& output_format,
     } else {
         write_file(output_dir / "vk", buf);
     }
+}
+
+void write_vk_for_ivc(const std::string& output_data_type,
+                      const std::string& bytecode_path,
+                      const std::filesystem::path& output_dir)
+{
+    const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_circuit(bytecode_path);
+    info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
+    write_vk_for_ivc(output_data_type, num_public_inputs_in_final_circuit, output_dir)
 }
 
 void ClientIVCAPI::prove(const Flags& flags,
@@ -150,7 +156,8 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        write_vk_for_ivc("bytes", input_path, output_dir);
+        const size_t num_public_inputs_in_final_circuit = steps.folding_stack.back().constraints.public_inputs.size();
+        write_vk_for_ivc("bytes", num_public_inputs_in_final_circuit, output_dir);
     }
 }
 
