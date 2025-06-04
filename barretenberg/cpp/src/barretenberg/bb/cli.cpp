@@ -483,7 +483,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_recursive_flag(OLD_API_prove_and_verify);
     add_bytecode_path_option(OLD_API_prove_and_verify);
 
-#ifndef DISABLE_AZTEC_VM
     std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
     const auto add_avm_inputs_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--avm-inputs", avm_inputs_path, "");
@@ -526,7 +525,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_avm_public_inputs_option(avm_verify_command);
     add_proof_path_option(avm_verify_command);
     add_vk_path_option(avm_verify_command);
-#endif
 
     /***************************************************************************************************************
      * Subcommand: prove_tube
@@ -626,6 +624,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
             avm_check_circuit(avm_inputs_path);
         } else if (avm_verify_command->parsed()) {
             return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
+        }
+#else
+        else if (avm_prove_command->parsed()) {
+            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
+        } else if (avm_check_circuit_command->parsed()) {
+            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
+        } else if (avm_verify_command->parsed()) {
+            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
         }
 #endif
         // CLIENT IVC EXTRA COMMAND
