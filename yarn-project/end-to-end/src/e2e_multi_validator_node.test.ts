@@ -100,6 +100,15 @@ describe('e2e_multi_validator_node', () => {
     // We jump to the next epoch such that the committee can be setup.
     const timeToJump = (await rollup.getEpochDuration()) * 2n;
     await progressTimeBySlot(timeToJump);
+    await retryUntil(
+      async () => {
+        const view = await rollup.getAttesterView(validatorAddresses[0]);
+        return view.effectiveBalance > 0;
+      },
+      'attester is attesting',
+      config.ethereumSlotDuration * 3,
+      1,
+    );
   });
 
   afterEach(async () => {
@@ -137,16 +146,6 @@ describe('e2e_multi_validator_node', () => {
     expect(signers).toEqual(expect.arrayContaining(validatorAddresses));
   });
   it('should attest ONLY with the correct validator keys', async () => {
-    await retryUntil(
-      async () => {
-        const view = await rollup.getAttesterView(validatorAddresses[0]);
-        return view.effectiveBalance > 0;
-      },
-      'attester is attesting',
-      config.ethereumSlotDuration * 3,
-      1,
-    );
-
     const rollupContract1 = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
