@@ -7,8 +7,10 @@ namespace bb {
 
 std::vector<uint8_t> decompress(const void* compressed, std::size_t comp_size)
 {
-    // header(10) + footer(8)
-    if (comp_size < 18) {
+    const int gz_header_size = 10;
+    const int gz_footer_size = 8;
+
+    if (comp_size < gz_header_size + gz_footer_size) {
         throw std::invalid_argument("truncated gzip");
     }
 
