@@ -268,9 +268,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         if constexpr (HasIPAAccumulator<Flavor>) {
             total_num_public_inputs += bb::IPA_CLAIM_SIZE;
         }
-        if constexpr (Flavor::HasZK) {
-            // some stuff here
-        }
+
         create_dummy_vkey_and_proof<Flavor>(
             builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
     }

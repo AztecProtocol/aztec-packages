@@ -18,10 +18,9 @@ pub type RollupHonkVerificationKey = [Field; ROLLUP_HONK_VERIFICATION_KEY_LENGTH
 
 pub global PROOF_TYPE_HONK_ZK: u32 = 2; // identifier for UltraHonk ZK verfier
 pub global RECURSIVE_ZK_PROOF_LENGTH: u32 = 491 + 16;
-pub global ZK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 112;
 
 pub type UltraHonkZKProof = [Field; RECURSIVE_ZK_PROOF_LENGTH];
-pub type UltraHonkZKVerificationKey = [Field; ZK_VERIFICATION_KEY_LENGTH_IN_FIELDS];
+
 
 
 
@@ -59,7 +58,7 @@ pub fn verify_rolluphonk_proof<let N: u32>(
 
 
 pub fn verify_ultrahonkzk_proof<let N: u32>(
-    verification_key: UltraHonkZKVerificationKey,
+    verification_key: UltraHonkVerificationKey,
     proof: UltraHonkZKProof,
     public_inputs: [Field; N],
     key_hash: Field,
