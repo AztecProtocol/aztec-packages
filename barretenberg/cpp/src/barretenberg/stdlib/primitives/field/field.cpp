@@ -693,7 +693,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
  *
  * We reduce the check to the following algebraic constraints
  * 1)      a * I - 1 + is_zero   = 0
- * 2)      is_zero * I - is_zero = 0
+ * 2)      -is_zero * I + is_zero = 0
  *
  * If the value of `is_zero` is `false`, the first equation reduces to
  *  	   a * I = 1
@@ -717,8 +717,6 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
         return is_zero;
     }
 
-    field_t normalized = normalize();
-
     bool_t is_zero = witness_t(context, is_zero_raw);
 
     // This can be done out of circuit, as `is_zero = true` implies `I = 1`.
@@ -726,28 +724,29 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 
     field_t inverse = witness_t(context, inverse_native);
 
-    // Create a `poly_gate` for the first constraint (note that `a` and `I` are normalized!), it is given by the
+    // Create a `big_mul_gate` for the first constraint, it is given by the
     // equation:
-    //          a.v * I.v * q_m + a.v * q_l + I.v * q_r + is_zero.v * q_o  - q_c = 0
-    context->create_poly_gate({ .a = normalized.witness_index,
-                                .b = inverse.witness_index,
-                                .c = is_zero.witness_index,
-                                .q_m = bb::fr::one(),
-                                .q_l = bb::fr::zero(),
-                                .q_r = bb::fr::zero(),
-                                .q_o = bb::fr::one(),
-                                .q_c = bb::fr::neg_one() });
+    //      a.v * I.v * q_m + a.v * q_1 + I.v * q_2 + is_zero.v * q_3 + (-1) * q_4 + q_c = 0
+    // where
+    //      q_m := a.mul * I.mul;
+    //      q_1 := a.mul * I.add;
+    //      q_2 := I.mul * a.add;
+    //      q_3 := 1;
+    //      q_4 := 0;
+    //      q_c := a.add * I.add + is_zero.add - 1;
+    field_t::evaluate_polynomial_identity(*this, inverse, is_zero, bb::fr::neg_one());
 
-    // Create a `poly_gate` (note that `a` and `I` are normalized) for the second constraint
-    //          is_zero.v * I.v * q_m + is_zero.v * q_l + I.v * q_r + is_zero.v * q_o  - q_c = 0
-    context->create_poly_gate({ .a = is_zero.witness_index,
-                                .b = inverse.witness_index,
-                                .c = is_zero.witness_index,
-                                .q_m = bb::fr::one(),
-                                .q_l = bb::fr::zero(),
-                                .q_r = bb::fr::zero(),
-                                .q_o = bb::fr::neg_one(),
-                                .q_c = bb::fr::zero() });
+    // Create a `big_mul_gate` for the second constraint, it is given by the
+    // equation:
+    //      is_zero.v * (-I).v * q_m + is_zero.v * q_1 + (-I).v * q_2 + is_zero.v * q_3 + 0 * q_4 + q_c = 0
+    // where
+    //      q_m := is_zero.mul * (-I).mul;
+    //      q_1 := is_zero.mul * (-I).add;
+    //      q_2 := (-I).mul * is_zero.add;
+    //      q_3 := is_zero.mul;
+    //      q_4 := 0;
+    //      q_c := is_zero.add * (-I).add + is_zero.add;
+    field_t::evaluate_polynomial_identity(is_zero, -inverse, is_zero, bb::fr::zero());
     is_zero.set_origin_tag(tag);
     return is_zero;
 }

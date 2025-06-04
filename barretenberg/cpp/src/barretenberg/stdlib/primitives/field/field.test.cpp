@@ -494,11 +494,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         fr x = r.get_value();
         EXPECT_EQ(x, fr(1));
-        // Using a == b adds 4 constraints:
-        // 1) a - b is normalized;
-        // 2) r is bool;
-        // 3) (a - b) * I - 1 + r = 0;
-        // 4) I * r - r = 0
+        // Using a == b, when both a and b are witnesses, adds 4 constraints:
+        // 1) compute a - b;
+        // 2) ensure r is bool;
+        // 3) (a - b) * I + r - 1 = 0;
+        // 4) -I * r + r = 0.
         EXPECT_EQ(gates_after - gates_before, 4UL);
 
         bool result = CircuitChecker::check(builder);
@@ -513,46 +513,40 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct a(witness_ct(&builder, 4));
         field_ct b(witness_ct(&builder, 3));
         bool_ct r = a == b;
-
-        EXPECT_EQ(r.get_value(), false);
-
         auto gates_after = builder.get_estimated_num_finalized_gates();
 
-        fr x = r.get_value();
-        EXPECT_EQ(x, fr(0));
+        EXPECT_FALSE(r.get_value());
 
-        // Using a == b adds 4 constraints:
-        // 1) a - b is normalized;
-        // 2) r is bool;
-        // 3) (a - b) * I - 1 + r = 0;
-        // 4) I * r - r = 0
+        // Using a == b, when both a and b are witnesses, adds 4 constraints:
+        // 1) compute a - b;
+        // 2) ensure r is bool;
+        // 3) (a - b) * I + r - 1 = 0;
+        // 4) -I * r + r = 0
         EXPECT_EQ(gates_after - gates_before, 4UL);
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     static void test_equality_with_constants()
     {
         Builder builder = Builder();
+        field_ct a(witness_ct(&builder, 4));
 
         auto gates_before = builder.get_estimated_num_finalized_gates();
-        field_ct a(witness_ct(&builder, 4));
         field_ct b = 3;
         field_ct c = 7;
-        // + 4 gates, since we are applying ==
+        // Note that the lhs is constant, hence (rhs - lhs) can be computed without adding new gates, using == in this
+        // case requires 3 constraints
+        // 1) ensure r is bool;
+        // 2) (a - b) * I + r - 1 = 0;
+        // 3) -I * r + r = 0
         bool_ct r = (a * c) == (b * c + c);
         auto gates_after = builder.get_estimated_num_finalized_gates();
-        EXPECT_EQ(gates_after - gates_before, 4UL);
-        // + 5 gates, since we are applying == and computing && of two boolean witnesses.
+        EXPECT_EQ(gates_after - gates_before, 3UL);
         r = r && (b + 1 == a);
-
         EXPECT_EQ(r.get_value(), true);
-
-        EXPECT_EQ(builder.get_estimated_num_finalized_gates() - gates_after, 5UL);
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        // The situation is as above, but we also applied && to bool_t witnesses, which adds an extra gate.
+        EXPECT_EQ(builder.get_estimated_num_finalized_gates() - gates_after, 4UL);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     static void test_larger_circuit()
