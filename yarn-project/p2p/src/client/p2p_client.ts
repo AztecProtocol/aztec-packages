@@ -442,7 +442,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /**
    * Returns transactions in the transaction pool by hash.
    * @param txHashes - Hashes of the transactions to look for.
-   * @returns The txs found, not necessarily on the same order as the hashes.
+   * @returns The txs found, in the same order as the requested hashes. If a tx is not found, it will be undefined.
    */
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return this.txPool.getTxsByHash(txHashes);
@@ -525,7 +525,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
-    const addedCount = await this.addTxs([tx]);
+    const addedCount = await this.addTxsToPool([tx]);
     const txAddedSuccessfully = addedCount === 1;
     if (txAddedSuccessfully) {
       await this.p2pService.propagate(tx);
@@ -536,7 +536,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * Adds transactions to the pool. Does not send to peers or validate the txs.
    * @param txs - The transactions.
    **/
-  public async addTxs(txs: Tx[]): Promise<number> {
+  public async addTxsToPool(txs: Tx[]): Promise<number> {
     this.#assertIsReady();
     return await this.txPool.addTxs(txs);
   }
