@@ -363,12 +363,12 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (bytes32)
   {
-    return STFLib.getStorage().blobCommitmentsHash[_blockNumber];
+    return STFLib.getStorage().blocks[_blockNumber].blobCommitmentsHash;
   }
 
   function getCurrentBlobCommitmentsHash() external view override(IRollup) returns (bytes32) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    return rollupStore.blobCommitmentsHash[rollupStore.tips.pendingBlockNumber];
+    return rollupStore.blocks[rollupStore.tips.pendingBlockNumber].blobCommitmentsHash;
   }
 
   function getConfig(address _attester)

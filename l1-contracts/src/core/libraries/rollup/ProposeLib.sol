@@ -134,8 +134,21 @@ library ProposeLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
 
-    rollupStore.blocks[blockNumber] =
-      BlockLog({archive: _args.archive, headerHash: v.headerHash, slotNumber: header.slotNumber});
+    // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
+    bool isFirstBlockOfEpoch =
+      currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
+    bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
+      rollupStore.blocks[blockNumber - 1].blobCommitmentsHash,
+      v.blobCommitments,
+      isFirstBlockOfEpoch
+    );
+
+    rollupStore.blocks[blockNumber] = BlockLog({
+      archive: _args.archive,
+      headerHash: v.headerHash,
+      blobCommitmentsHash: blobCommitmentsHash,
+      slotNumber: header.slotNumber
+    });
 
     FeeLib.writeFeeHeader(
       blockNumber,
@@ -143,13 +156,6 @@ library ProposeLib {
       header.totalManaUsed,
       components.congestionCost,
       components.proverCost
-    );
-
-    // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
-    bool isFirstBlockOfEpoch =
-      currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
-    rollupStore.blobCommitmentsHash[blockNumber] = BlobLib.calculateBlobCommitmentsHash(
-      rollupStore.blobCommitmentsHash[blockNumber - 1], v.blobCommitments, isFirstBlockOfEpoch
     );
 
     // @note  The block number here will always be >=1 as the genesis block is at 0

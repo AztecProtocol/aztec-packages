@@ -31,9 +31,17 @@ struct SubmitEpochRootProofArgs {
   bytes proof;
 }
 
+/**
+ * @notice Struct for storing block data, set in proposal.
+ * @param archive - Archive tree root of the block
+ * @param headerHash - Hash of the proposed block header
+ * @param blobCommitmentsHash - H(...H(H(commitment_0), commitment_1).... commitment_n) - used to validate we are using the same blob commitments on L1 and in the rollup circuit
+ * @param slotNumber - This block's slot
+ */
 struct BlockLog {
   bytes32 archive;
-  bytes32 headerHash; // hash of the proposed block header
+  bytes32 headerHash;
+  bytes32 blobCommitmentsHash; // TODO(#14646): Keep a running hash we iteratively overwrite per epoch, instead of per block.
   Slot slotNumber;
 }
 
@@ -102,9 +110,6 @@ struct RollupStore {
   // to one another.
   mapping(address prover => mapping(Epoch epoch => bool claimed)) proverClaimed;
   RollupConfig config;
-  // TODO(#14646): We only ever need to store AZTEC_MAX_EPOCH_DURATION values below => make fixed length and overwrite once we start a new epoch
-  // Requires us to clear values on successful proven epoch and check when a block starts a new epoch.
-  mapping(uint256 blockNumber => bytes32) blobCommitmentsHash; // = H(...H(H(commitment_0), commitment_1).... commitment_n) - used to validate we are using the same blob commitments on L1 and in the rollup circuit
 }
 
 interface ITestRollup {

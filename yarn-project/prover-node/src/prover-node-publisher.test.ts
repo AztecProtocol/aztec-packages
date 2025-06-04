@@ -138,6 +138,7 @@ describe('prover-node-publisher', () => {
         Promise.resolve({
           archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
           headerHash: '0x', // unused,
+          blobCommitmentsHash: '0x', // unused,
           slotNumber: 0n, // unused,
         }),
       );

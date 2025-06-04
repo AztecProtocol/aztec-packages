@@ -205,7 +205,7 @@ library EpochProofLib {
     // See BlobLib.sol -> validateBatchedBlob() and calculateBlobCommitmentsHash() for documentation on the below blob related inputs.
 
     // blobCommitmentsHash
-    publicInputs[offset] = rollupStore.blobCommitmentsHash[_end];
+    publicInputs[offset] = rollupStore.blocks[_end].blobCommitmentsHash;
     offset += 1;
 
     // z
