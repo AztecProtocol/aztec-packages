@@ -2,6 +2,7 @@ import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
@@ -76,8 +77,15 @@ describe('deploy_l1_contracts', () => {
     const deployed = await deploy({ initialValidators });
     const rollup = getRollup(deployed);
     for (const validator of initialValidators) {
-      const { status } = await rollup.getAttesterView(validator.attester);
-      expect(status).toBeGreaterThan(0);
+      await retryUntil(
+        async () => {
+          const view = await rollup.getAttesterView(validator.attester);
+          return view.status > 0;
+        },
+        'attester is attesting',
+        DefaultL1ContractsConfig.ethereumSlotDuration * 3,
+        1,
+      );
     }
   });
 
@@ -103,8 +111,15 @@ describe('deploy_l1_contracts', () => {
 
     const rollup = getRollup(first);
     for (const validator of initialValidators) {
-      const { status } = await rollup.getAttesterView(validator.attester);
-      expect(status).toBeGreaterThan(0);
+      await retryUntil(
+        async () => {
+          const view = await rollup.getAttesterView(validator.attester);
+          return view.status > 0;
+        },
+        'attester is attesting',
+        DefaultL1ContractsConfig.ethereumSlotDuration * 3,
+        1,
+      );
     }
   });
 });
