@@ -775,8 +775,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return this.privateEventDataProvider.storePrivateEventLog(
       contractAddress,
       recipient,
-      eventTypeId,
-      serializedEvent,
+      selector,
+      content,
       txHash,
       logIndexInTx,
       txIndexInBlock,
