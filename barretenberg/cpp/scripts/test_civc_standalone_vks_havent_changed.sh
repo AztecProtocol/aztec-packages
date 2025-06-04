@@ -12,7 +12,7 @@ cd ..
 # - Upload the compressed results: aws s3 cp bb-civc-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[hash(0:8)].tar.gz
 pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-0548aaa9.tar.gz"
 
-# add a flag here that will run the above steps to update the inputs
+# For easily rerunning the inputs generation
 if [[ "${1:-}" == "--update-inputs" ]]; then
     set -eu
     echo "Updating pinned IVC inputs..."
