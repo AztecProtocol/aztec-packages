@@ -84,21 +84,6 @@ function mockEpochCache(): EpochCacheInterface {
   };
 }
 
-function mockWorldStateSynchronizer(): WorldStateSynchronizer {
-  return {
-    status: () =>
-      Promise.resolve({
-        syncSummary: {
-          latestBlockNumber: 0,
-          latestBlockHash: '',
-          finalisedBlockNumber: 0,
-          treesAreSynched: false,
-          oldestHistoricBlockNumber: 0,
-        },
-      }),
-  } as WorldStateSynchronizer;
-}
-
 class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends LibP2PService<T> {
   private disableTxValidation: boolean;
   private gossipMessageCount: number = 0;
@@ -169,12 +154,13 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 process.on('message', async msg => {
   const { type, config, clientIndex } = msg as { type: string; config: P2PConfig; clientIndex: number };
+
   try {
     if (type === 'START') {
       const txPool = mockTxPool();
       const attestationPool = mockAttestationPool();
       const epochCache = mockEpochCache();
-      const worldState = mockWorldStateSynchronizer();
+      const worldState = {} as WorldStateSynchronizer;
       const l2BlockSource = new MockL2BlockSource();
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();

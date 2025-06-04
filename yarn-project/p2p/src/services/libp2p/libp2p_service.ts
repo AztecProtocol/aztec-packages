@@ -63,12 +63,7 @@ import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMap } from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
-import {
-  pingHandler,
-  reqRespBlockHandler,
-  reqRespStatusHandler,
-  reqRespTxHandler,
-} from '../reqresp/protocols/index.js';
+import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PBlockReceivedCallback, P2PService, PeerDiscoveryService } from '../service.js';
 import { P2PInstrumentation } from './instrumentation.js';
@@ -159,8 +154,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       createLogger(`${logger.module}:peer_manager`),
       peerScoring,
       this.reqresp,
-      this.worldStateSynchronizer,
-      this.protocolVersion,
     );
 
     // Update gossipsub score params
@@ -362,11 +355,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const txHandler = reqRespTxHandler(this.mempools);
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
     const blockHandler = reqRespBlockHandler(this.archiver);
-    const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer);
 
     const requestResponseHandlers = {
       [ReqRespSubProtocol.PING]: pingHandler,
-      [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
+      [ReqRespSubProtocol.STATUS]: statusHandler,
       [ReqRespSubProtocol.TX]: txHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
       [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),

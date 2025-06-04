@@ -37,7 +37,7 @@ import {
   type ReqRespSubProtocolValidators,
   noopValidator,
 } from '../services/reqresp/interface.js';
-import { pingHandler } from '../services/reqresp/protocols/index.js';
+import { pingHandler, statusHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
 import { type PubSubLibp2p, convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 
@@ -153,7 +153,7 @@ export type ReqRespNode = {
 // Mock sub protocol handlers
 export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.PING]: pingHandler,
-  [ReqRespSubProtocol.STATUS]: (_msg: any) => Promise.resolve(Buffer.from('status')),
+  [ReqRespSubProtocol.STATUS]: statusHandler,
   [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
   [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
   [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(Buffer.from('block')),
