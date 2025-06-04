@@ -4,7 +4,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
-import { AvmProvingTester, describeUnlessAvmDisabled } from './avm_proving_tester.js';
+import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
