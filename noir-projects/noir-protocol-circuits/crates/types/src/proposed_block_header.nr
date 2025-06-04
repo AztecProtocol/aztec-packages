@@ -96,8 +96,10 @@ impl ProposedBlockHeader {
         let slot_number_bytes: [u8; 32] = self.slot_number.to_be_bytes();
         let coinbase_bytes: [u8; 20] = self.coinbase.to_be_bytes();
         let fee_recipient_bytes: [u8; 32] = self.fee_recipient.to_field().to_be_bytes();
-        let gas_fees_per_da_gas_bytes: [u8; 32] = self.gas_fees.fee_per_da_gas.to_be_bytes();
-        let gas_fees_per_l2_gas_bytes: [u8; 32] = self.gas_fees.fee_per_l2_gas.to_be_bytes();
+        let gas_fees_per_da_gas_bytes: [u8; 32] =
+            (self.gas_fees.fee_per_da_gas as Field).to_be_bytes();
+        let gas_fees_per_l2_gas_bytes: [u8; 32] =
+            (self.gas_fees.fee_per_l2_gas as Field).to_be_bytes();
         let total_mana_used_bytes: [u8; 32] = self.total_mana_used.to_be_bytes();
 
         for i in 0..32 {

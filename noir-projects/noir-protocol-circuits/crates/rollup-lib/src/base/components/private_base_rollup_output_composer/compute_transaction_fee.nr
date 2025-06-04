@@ -1,3 +1,4 @@
+use std::cmp::min;
 use types::abis::{gas::Gas, gas_fees::GasFees, gas_settings::GasSettings};
 
 pub fn compute_transaction_fee(
@@ -9,11 +10,11 @@ pub fn compute_transaction_fee(
     let max_fees = gas_settings.max_fees_per_gas;
     // max_fees are guaranteed to be greater than or equal to gas_fees, which is checked in tube_data_validator.
     let priority_fees = GasFees::new(
-        dep::types::utils::field::min(
+        min(
             max_priority_fees.fee_per_da_gas,
             max_fees.fee_per_da_gas - gas_fees.fee_per_da_gas,
         ),
-        dep::types::utils::field::min(
+        min(
             max_priority_fees.fee_per_l2_gas,
             max_fees.fee_per_l2_gas - gas_fees.fee_per_l2_gas,
         ),
