@@ -18,6 +18,7 @@ import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
@@ -250,19 +251,12 @@ contract RollupBase is DecoderBase {
     uint256 blobInputStart = 1;
     for (uint256 i = 0; i < numBlobs; i++) {
       // blobInputs = [numBlobs, ...blobCommitments], numBlobs is one byte, each commitment is 48
-      bytes32[1] memory blobHash = [
-        sha256(
-          abi.encodePacked(
-            _blobCommitments[blobInputStart:blobInputStart + Constants.BLS12_POINT_COMPRESSED_BYTES]
-          )
+      blobHashes[i] = BlobLib.calculateBlobHash(
+        abi.encodePacked(
+          _blobCommitments[blobInputStart:blobInputStart + Constants.BLS12_POINT_COMPRESSED_BYTES]
         )
-      ];
+      );
       blobInputStart += Constants.BLS12_POINT_COMPRESSED_BYTES;
-      // EVM blobHash = VERSIONED_HASH_VERSION_KZG + sha256(blobCommitment)[1:] => hash the commitment and replace first byte with version
-      assembly {
-        mstore8(blobHash, 0x01)
-      }
-      blobHashes[i] = blobHash[0];
     }
   }
 }

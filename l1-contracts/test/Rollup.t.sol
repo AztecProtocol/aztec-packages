@@ -215,6 +215,33 @@ contract RollupTest is RollupBase {
     rollup.propose(args, attestations, data.blobCommitments);
   }
 
+  function testTooManyBlobs() public setUpFor("mixed_block_1") {
+    DecoderBase.Data memory data = load("mixed_block_1").block;
+    bytes memory header = data.header;
+
+    bytes32[] memory realBlobHashes = this.getBlobHashes(data.blobCommitments);
+    bytes32[] memory blobHashes = new bytes32[](realBlobHashes.length + 1);
+    for (uint256 i = 0; i < realBlobHashes.length; i++) {
+      blobHashes[i] = realBlobHashes[i];
+    }
+    // Add an extra blob which shouldn't exist
+    blobHashes[realBlobHashes.length] = bytes32(uint256(1));
+    vm.blobhashes(blobHashes);
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: data.archive,
+      stateReference: new bytes(0),
+      oracleInput: OracleInput(0),
+      txHashes: new bytes32[](0)
+    });
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__InvalidBlobHash.selector, blobHashes[realBlobHashes.length], 0
+      )
+    );
+    rollup.propose(args, attestations, data.blobCommitments);
+  }
+
   function testRevertPrune() public setUpFor("mixed_block_1") {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
     rollup.prune();

@@ -9,6 +9,9 @@ import {Vm} from "forge-std/Vm.sol";
 
 library BlobLib {
   address public constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
+  uint256 internal constant VERSIONED_HASH_VERSION_KZG =
+    0x0100000000000000000000000000000000000000000000000000000000000000; // 0x01 << 248 to be used in blobHashCheck
+  uint256 internal constant MAX_BLOBS_PER_BLOCK = 6; // Increasing to 9 with Pectra
 
   /**
    * @notice  Get the blob base fee
@@ -26,18 +29,22 @@ library BlobLib {
   }
 
   /**
-   * @notice  Validate an L2 block's blobs and return the hashed blobHashes and public inputs.
+   * @notice  Validate an L2 block's blobs and return the blobHashes, the hashed blobHashes, and blob commitments.
+   * @notice  We assume that this propose transaction contains only Aztec blobs
    * Input bytes:
    * input[:1] - num blobs in block
    * input[1:] - blob commitments (48 bytes * num blobs in block)
    * @param _blobsInput - The above bytes to verify our input blob commitments match real blobs
    * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob), exists only to be overriden in tests.
+   * Returns for proposal:
+   * @return blobHashes - All of the blob hashes included in this block, to be emitted in L2BlockProposed event.
+   * @return blobsHashesCommitment - A hash of all blob hashes in this block, to be included in the block header. See comment at the end of this fn for more info.
+   * @return blobCommitments - All of the blob commitments included in this block, to be stored then validated against those used in the rollup in epoch proof verification.
    */
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
     internal
     view
     returns (
-      // All of the blob hashes included in this block
       bytes32[] memory blobHashes,
       bytes32 blobsHashesCommitment,
       bytes[] memory blobCommitments
@@ -58,28 +65,25 @@ library BlobLib {
       );
       blobInputStart += Constants.BLS12_POINT_COMPRESSED_BYTES;
 
-      // TODO(#14646): Use kzg_to_versioned_hash & VERSIONED_HASH_VERSION_KZG
-      // Using bytes32 array to force bytes into memory
-      bytes32[1] memory blobHashCheck = [sha256(blobCommitments[i])];
-      // Until we use an external kzg_to_versioned_hash(), calculating it here:
-      // EIP-4844 spec blobhash is 32 bytes: [version, ...sha256(commitment)[1:32]]
-      // The version = VERSIONED_HASH_VERSION_KZG, currently 0x01.
-      assembly {
-        mstore8(blobHashCheck, 0x01)
-      }
+      bytes32 blobHashCheck = calculateBlobHash(blobCommitments[i]);
       if (_checkBlob) {
         assembly {
           blobHash := blobhash(i)
         }
         // The below check ensures that our injected blobCommitments indeed match the real
         // blobs submitted with this block. They are then used in the blobCommitmentsHash (see below).
-        require(
-          blobHash == blobHashCheck[0], Errors.Rollup__InvalidBlobHash(blobHash, blobHashCheck[0])
-        );
+        require(blobHash == blobHashCheck, Errors.Rollup__InvalidBlobHash(blobHash, blobHashCheck));
       } else {
-        blobHash = blobHashCheck[0];
+        blobHash = blobHashCheck;
       }
       blobHashes[i] = blobHash;
+    }
+    // Ensure no non-Aztec blobs have been emitted in this tx:
+    for (uint256 i = numBlobs; i < MAX_BLOBS_PER_BLOCK; i++) {
+      assembly {
+        blobHash := blobhash(i)
+      }
+      require(blobHash == 0, Errors.Rollup__InvalidBlobHash(blobHash, 0));
     }
     // Hash the EVM blob hashes for the block header
     // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name blobsHashesCommitment is confusingly similar to blobCommitmentsHash
@@ -158,5 +162,23 @@ library BlobLib {
       currentblobCommitmentsHash =
         Hash.sha256ToField(abi.encodePacked(currentblobCommitmentsHash, _blobCommitments[i]));
     }
+  }
+
+  /**
+   * @notice  Calculate the expected blob hash given a blob commitment
+   * @dev TODO(#14646): Use kzg_to_versioned_hash & VERSIONED_HASH_VERSION_KZG
+   * Until we use an external kzg_to_versioned_hash(), calculating it here:
+   * EIP-4844 spec blobhash is 32 bytes: [version, ...sha256(commitment)[1:32]]
+   * The version = VERSIONED_HASH_VERSION_KZG, currently 0x01.
+   * @param _blobCommitment - The 48 byte blob commitment
+   * @return bytes32 - The blob hash
+   */
+  function calculateBlobHash(bytes memory _blobCommitment) internal pure returns (bytes32) {
+    return bytes32(
+      (
+        uint256(sha256(_blobCommitment))
+          & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      ) | VERSIONED_HASH_VERSION_KZG
+    );
   }
 }
