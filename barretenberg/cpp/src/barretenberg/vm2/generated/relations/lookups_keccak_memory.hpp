@@ -11,16 +11,16 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_keccak_memory_keccak_mem_to_mem ///////////////////
+/////////////////// lookup_keccak_memory_slice_to_mem ///////////////////
 
-struct lookup_keccak_memory_keccak_mem_to_mem_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_KECCAK_MEMORY_KECCAK_MEM_TO_MEM";
+struct lookup_keccak_memory_slice_to_mem_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAK_MEMORY_SLICE_TO_MEM";
     static constexpr std::string_view RELATION_NAME = "keccak_memory";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::keccak_memory_sel;
     static constexpr Column DST_SELECTOR = Column::memory_sel;
-    static constexpr Column COUNTS = Column::lookup_keccak_memory_keccak_mem_to_mem_counts;
-    static constexpr Column INVERSES = Column::lookup_keccak_memory_keccak_mem_to_mem_inv;
+    static constexpr Column COUNTS = Column::lookup_keccak_memory_slice_to_mem_counts;
+    static constexpr Column INVERSES = Column::lookup_keccak_memory_slice_to_mem_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::keccak_memory_addr,
         ColumnAndShifts::keccak_memory_val,
@@ -35,10 +35,9 @@ struct lookup_keccak_memory_keccak_mem_to_mem_settings_ {
                                                                                     ColumnAndShifts::memory_space_id };
 };
 
-using lookup_keccak_memory_keccak_mem_to_mem_settings =
-    lookup_settings<lookup_keccak_memory_keccak_mem_to_mem_settings_>;
+using lookup_keccak_memory_slice_to_mem_settings = lookup_settings<lookup_keccak_memory_slice_to_mem_settings_>;
 template <typename FF_>
-using lookup_keccak_memory_keccak_mem_to_mem_relation =
-    lookup_relation_base<FF_, lookup_keccak_memory_keccak_mem_to_mem_settings>;
+using lookup_keccak_memory_slice_to_mem_relation =
+    lookup_relation_base<FF_, lookup_keccak_memory_slice_to_mem_settings>;
 
 } // namespace bb::avm2

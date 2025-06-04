@@ -140,7 +140,7 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
-        lookup_keccak_memory_keccak_mem_to_mem_relation<FF_>,
+        lookup_keccak_memory_slice_to_mem_relation<FF_>,
         lookup_keccakf1600_round_cst_relation<FF_>,
         lookup_keccakf1600_state_chi_00_relation<FF_>,
         lookup_keccakf1600_state_chi_01_relation<FF_>,
