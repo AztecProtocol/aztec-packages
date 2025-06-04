@@ -24,7 +24,9 @@ The .md files in the `docs/` directory are the docs. See the [Docusaurus website
 
 Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not, it allows you to hot-fix previous versions.
 
-When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `alpha-testnet`, and the latest sandbox release e.g. `v0.86.0`. Updating the files in the `docs` folder will update the `Next` version, updating the files in `versioned_docs/version-alpha-testnet` folder will update the `alpha-testnet` version, and updating the files in the `versioned_docs/version-v0.86.0` folder will update the `versioned_docs/v0.86.0` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
+When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `Latest`, and older versions e.g. `v0.86.0`. Updating the files in the `docs` folder will update the `Next` version, updating the files in `versioned_docs/version-latest` folder will update the `latest` version, and updating the files in the `versioned_docs/version-v0.86.0` folder will update the `versioned_docs/v0.86.0` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
+
+Note: `Latest` version dropdown is a special case since it will initially be created as any other version (eg `v0.87.2`), but the directory and label will need to be renamed to display as `Latest` by docusaurus.
 
 The way docs builds work is the following:
 
@@ -32,17 +34,58 @@ The way docs builds work is the following:
 - [This Github Action](../.github/workflows/docs-preview.yml) runs on pull requests if they have any docs change, and quite similarly builds the dependencies and the docs, then gives you a nice preview so you can check that everything is alright
 - [This Github Action](../.github/workflows/release-please.yml) is Release-Please, a framework made to organize different commits into releases. When it merges to master, it runs. When it runs, it builds the dependencies and cuts a new version of the docs, with the same tag that is being released
 
-The `#include_aztec_version` and `#include_code` macros look for the version tag in an environment variable `COMMIT_TAG`, so you can build the docs specifying a version with the following command (e.g. for v0.84.0). Remove the versions listed in `versions.json` before running:
+The `#include_aztec_version` and `#include_code` macros look for the version tag in an environment variable `COMMIT_TAG`, so you can build the docs specifying a version with the following command (e.g. for v0.86.0). Remove the versions listed in `versions.json` before running:
 
 ```bash
-COMMIT_TAG=v0.84.0 yarn build
+COMMIT_TAG=v0.86.0 yarn build
 ```
 
-You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v0.85.0` will render as `0.85.0`.
+You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v0.86.0` will render as `0.86.0`.
 
 ### How do I change the versions that show in the website
 
 When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
+
+## Adding A Version
+
+Versions of docs can be created automatically via a github action, or manually.
+
+From earlier, the release github workflow is triggered on pushes to `master` or `next` branches and does two things:
+1. using google's `Release-Please` action to create a new PR and version tag
+2. creates a build artifact for the new version of the docs (a folder in `versioned_docs`)
+
+To manually perform step two locally:
+- Checkout the branch/tag of the version of docs you'd like to create
+- From the desired branch/tag, perform the "cut version" step of the github action ([Release-Please.yml](https://github.com/AztecProtocol/aztec-packages/blob/next/.github%2Fworkflows%2Frelease-please.yml#L72-L78)). Note: you will have to set COMMIT_TAG to "v0.xx.x"
+- Then the newly created version of docs under `docs/versioned_docs` can be stashed, to later pop on your branch that you want to commit the new versioned docs to.
+- Since the new version is likely taking the place of latest:
+  - Go to `versioned_docs` and rename `version-latest` to it's version (eg `version-v0.xx.x`)
+  - Rename the newly created version as `version-latest`
+- If desired, delete any past versions we no longer want to display
+- Update `versions.json`
+
+For more details, see [Docusaurus Versioning](https://docusaurus.io/docs/versioning#configuring-versioning-behavior)
+
+### A special note about branches
+
+**Adding docs**
+- All docs changes, especially changes to `versioned_docs`, should only go to the `master` branch
+
+That means, docs can only refer to a proposed protocol change once its release tag is on `master`. Unless otherwise patched/cherry-picked from other commits and applied to its own versioned docs label.
+
+**Generating docs**
+- Most of the time we want the label `Next` to contain upcoming changes, excluding documentation of upcoming protocol changes. For this we release docs straight from `master`.
+  - This can be removed by setting `includeCurrentVersion: false` in `docs/docusaurus.config.js`
+- Before a protocol release, we want the docs label `Next` to contain upcoming changes AND documentation of upcoming protocol changes, then:
+  1. Apply protocol docs to `next` branch in `docs/docs` (we can do this with an ongoing protocol docs branch, periodically merging into `next`)
+  2. cherrypick these commits (or patch/rebase the protocol docs branch) into `master` to apply to `docs/docs`
+  3. releasing from `master` now will show the `Next` label to have all upcoming changes including the protocol changes
+
+### Summary
+- The only place to refer to the latest protocol changes is in the `next` branch under `docs/docs`, shown as the `next` docs version
+- All other docs updates should go to `master` (auto applied to `next`), and when releases are made this will be the `latest` docs tag
+- When a new release is made, the current `latest` version of the docs must be recreated at it's specific version number, and the previous `latest` folder (in `versioned_docs`) be removed to make way for the actual latest
+
 
 ## Releases
 
