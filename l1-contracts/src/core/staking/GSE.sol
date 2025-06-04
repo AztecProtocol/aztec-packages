@@ -7,7 +7,11 @@ import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+import {DelegationLib, DelegationData} from "@aztec/core/libraries/staking/DelegationLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
+import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -20,26 +24,48 @@ struct AttesterConfig {
 struct InstanceStaking {
   SnapshottedAddressSet attesters;
   mapping(address attester => AttesterConfig) configOf;
-  mapping(address attester => uint256) balanceOf;
-  uint256 supply;
   bool exists;
 }
 
-interface IGSE {
+interface IGSECore {
   event Deposit(address indexed instance, address indexed attester, address withdrawer);
 
+  function setGovernance(Governance _governance) external;
   function addRollup(address _rollup) external;
   function deposit(address _attester, address _withdrawer, bool _onCanonical) external;
-  function withdraw(address _attester, uint256 _amount) external returns (uint256, bool);
+  function withdraw(address _attester, uint256 _amount) external returns (uint256, bool, uint256);
+  function delegate(address _instance, address _attester, address _delegatee) external;
+  function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
+  function voteWithCanonical(uint256 _proposalId, uint256 _amount, bool _support) external;
+  function finaliseHelper(uint256 _withdrawalId) external;
 
   function isRegistered(address _instance, address _attester) external view returns (bool);
   function isRollupRegistered(address _instance) external view returns (bool);
+  function getCanonical() external view returns (address);
+  function getCanonicalAt(Timestamp _timestamp) external view returns (address);
+  function getGovernance() external view returns (Governance);
+}
+
+interface IGSE is IGSECore {
+  function getDelegatee(address _instance, address _attester) external view returns (address);
+  function getVotingPower(address _attester) external view returns (uint256);
+  function getVotingPowerAt(address _attester, Timestamp _timestamp)
+    external
+    view
+    returns (uint256);
+  function getEffectiveVotingPowerAt(address _attester, Timestamp _timestamp)
+    external
+    view
+    returns (uint256);
+
   function getWithdrawer(address _instance, address _attester)
     external
     view
-    returns (address, bool, bool);
+    returns (address, bool, address);
   function balanceOf(address _instance, address _attester) external view returns (uint256);
+  function effectiveBalanceOf(address _instance, address _attester) external view returns (uint256);
   function supplyOf(address _instance) external view returns (uint256);
+  function effectiveSupplyOfAt(address _instance, Timestamp _ts) external view returns (uint256);
   function totalSupply() external view returns (uint256);
   function getConfig(address _instance, address _attester)
     external
@@ -49,10 +75,7 @@ interface IGSE {
     external
     view
     returns (uint256);
-  function getProposer(address _instance, address _attester)
-    external
-    view
-    returns (address, bool, bool);
+
   function getAttestersFromIndicesAtTime(
     address _instance,
     Timestamp _timestamp,
@@ -66,17 +89,16 @@ interface IGSE {
     external
     view
     returns (address);
-
-  function getCanonical() external view returns (address);
-
-  function getCanonicalAt(Timestamp _timestamp) external view returns (address);
+  function getPowerUsed(address _delegatee, uint256 _proposalId) external view returns (uint256);
 }
 
-contract GSE is IGSE, Ownable {
+contract GSECore is IGSECore, Ownable {
   using AddressSnapshotLib for SnapshottedAddressSet;
   using SafeCast for uint256;
   using SafeCast for uint224;
   using Checkpoints for Checkpoints.Trace224;
+  using DelegationLib for DelegationData;
+  using ProposalLib for DataStructures.Proposal;
 
   uint256 public constant MINIMUM_DEPOSIT = 100e18;
   // @todo https://github.com/AztecProtocol/aztec-packages/issues/14304
@@ -87,12 +109,13 @@ contract GSE is IGSE, Ownable {
 
   IERC20 public immutable STAKING_ASSET;
 
-  uint256 public totalSupply;
   Checkpoints.Trace224 internal canonical;
   mapping(address instance => InstanceStaking) internal instances;
+  DelegationData internal delegation;
+  Governance internal governance;
 
   modifier onlyRollup() {
-    require(instances[msg.sender].exists, Errors.Staking__NotRollup(msg.sender));
+    require(isRollupRegistered(msg.sender), Errors.Staking__NotRollup(msg.sender));
     _;
   }
 
@@ -101,7 +124,19 @@ contract GSE is IGSE, Ownable {
     instances[CANONICAL_MAGIC_ADDRESS].exists = true;
   }
 
-  function addRollup(address _rollup) external override(IGSE) onlyOwner {
+  function setGovernance(Governance _governance) external override(IGSECore) onlyOwner {
+    // Once again desparate times calls for desparate measures.
+    require(address(governance) == address(0), Errors.Staking__GovernanceAlreadySet());
+    governance = _governance;
+  }
+
+  /**
+   * @notice  Adds another rollup to the instances
+   *          Only callable by the owner (governance) and only when not already in the set
+   *
+   * @param _rollup - The address of the rollup to add
+   */
+  function addRollup(address _rollup) external override(IGSECore) onlyOwner {
     require(_rollup != address(0), Errors.Staking__InvalidRollupAddress(_rollup));
     require(!instances[_rollup].exists, Errors.Staking__RollupAlreadyRegistered(_rollup));
     instances[_rollup].exists = true;
@@ -120,32 +155,55 @@ contract GSE is IGSE, Ownable {
    *
    * @dev     Deposits only allowed to and by listed rollups.
    *
-   * @param _attester - The attester address of the validator
-   * @param _withdrawer - The withdrawer address of the validator
-   * @param _onCanonical - Whether to deposit into the specific instance, or canonical
+   * @param _attester     - The attester address of the validator
+   * @param _withdrawer   - The withdrawer address of the validator
+   * @param _onCanonical  - Whether to deposit into the specific instance, or canonical
    *  @dev Must be the current canonical for `_onCanonical = true` to be valid.
    */
   function deposit(address _attester, address _withdrawer, bool _onCanonical)
     external
-    override(IGSE)
+    override(IGSECore)
     onlyRollup
   {
-    require(!_onCanonical || getCanonical() == msg.sender, Errors.Staking__NotCanonical(msg.sender));
+    address instanceAddress = msg.sender;
+    bool isCanonical = getCanonical() == instanceAddress;
+    require(!_onCanonical || isCanonical, Errors.Staking__NotCanonical(instanceAddress));
 
-    (, bool attesterExists,) = _getInstanceStoreWithAttester(msg.sender, _attester);
-    require(!attesterExists, Errors.Staking__AlreadyRegistered(_attester));
+    // Ensure that we are not already attesting on the specific
+    require(
+      !isRegistered(instanceAddress, _attester),
+      Errors.Staking__AlreadyRegistered(instanceAddress, _attester)
+    );
+    // Ensure that if we are canonical, we are not already attesting on the canonical
+    require(
+      !isCanonical || !isRegistered(CANONICAL_MAGIC_ADDRESS, _attester),
+      Errors.Staking__AlreadyRegistered(CANONICAL_MAGIC_ADDRESS, _attester)
+    );
 
-    InstanceStaking storage instanceStaking =
-      instances[_onCanonical ? CANONICAL_MAGIC_ADDRESS : msg.sender];
-    require(instanceStaking.attesters.add(_attester), Errors.Staking__AlreadyRegistered(_attester));
-    instanceStaking.configOf[_attester] = AttesterConfig({withdrawer: _withdrawer});
-    instanceStaking.balanceOf[_attester] += MINIMUM_DEPOSIT;
-    instanceStaking.supply += MINIMUM_DEPOSIT;
-    totalSupply += MINIMUM_DEPOSIT;
+    if (_onCanonical) {
+      instanceAddress = CANONICAL_MAGIC_ADDRESS;
+    }
+
+    require(
+      instances[instanceAddress].attesters.add(_attester),
+      Errors.Staking__AlreadyRegistered(instanceAddress, _attester)
+    );
+
+    instances[instanceAddress].configOf[_attester] = AttesterConfig({withdrawer: _withdrawer});
+
+    if (delegation.getDelegatee(instanceAddress, _attester) == address(0)) {
+      delegation.delegate(instanceAddress, _attester, instanceAddress);
+    }
+
+    delegation.increaseBalance(instanceAddress, _attester, MINIMUM_DEPOSIT);
 
     STAKING_ASSET.transferFrom(msg.sender, address(this), MINIMUM_DEPOSIT);
 
-    emit Deposit(_onCanonical ? CANONICAL_MAGIC_ADDRESS : msg.sender, _attester, _withdrawer);
+    Governance gov = getGovernance();
+    STAKING_ASSET.approve(address(gov), MINIMUM_DEPOSIT);
+    gov.deposit(address(this), MINIMUM_DEPOSIT);
+
+    emit Deposit(instanceAddress, _attester, _withdrawer);
   }
 
   /**
@@ -160,23 +218,38 @@ contract GSE is IGSE, Ownable {
    *          address the problem of "what to do" with the funds. And it must look at the returned amount
    *          withdrawn and the bool.
    *
-   * @param _attester The attester to withdraw from.
+   * @param _attester - The attester to withdraw from.
+   * @param _amount   - The amount to withdraw
    *
    * @return The actual amount withdrawn.
    * @return True if attester is removed from set, false otherwise
+   * @return The id of the withdrawal at the governance
    */
   function withdraw(address _attester, uint256 _amount)
     external
-    override(IGSE)
+    override(IGSECore)
     onlyRollup
-    returns (uint256, bool)
+    returns (uint256, bool, uint256)
   {
-    (InstanceStaking storage instanceStaking, bool attesterExists,) =
-      _getInstanceStoreWithAttester(msg.sender, _attester);
+    address instanceAddress = msg.sender;
+    InstanceStaking storage instanceStaking = instances[instanceAddress];
+    bool isAttester = instanceStaking.attesters.contains(_attester);
 
-    require(attesterExists, Errors.Staking__NothingToExit(_attester));
+    // If we are canonical, and have not already found the attester we need to look
+    // within the canonical accounting as well - it might be there.
+    // We are figuring out where the attester is effectively located
+    if (
+      !isAttester && getCanonical() == instanceAddress
+        && instances[CANONICAL_MAGIC_ADDRESS].attesters.contains(_attester)
+    ) {
+      instanceAddress = CANONICAL_MAGIC_ADDRESS;
+      instanceStaking = instances[instanceAddress];
+      isAttester = true;
+    }
 
-    uint256 balance = instanceStaking.balanceOf[_attester];
+    require(isAttester, Errors.Staking__NothingToExit(_attester));
+
+    uint256 balance = delegation.getBalanceOf(instanceAddress, _attester);
     require(balance >= _amount, Errors.Staking__InsufficientStake(balance, _amount));
 
     uint256 amountWithdrawn = _amount;
@@ -189,30 +262,163 @@ contract GSE is IGSE, Ownable {
       );
       delete instanceStaking.configOf[_attester];
       amountWithdrawn = balance;
+
+      // Update the delegate to address(0) when removing.
+      delegation.delegate(instanceAddress, _attester, address(0));
     }
 
-    instanceStaking.balanceOf[_attester] -= amountWithdrawn;
-    instanceStaking.supply -= amountWithdrawn;
-    totalSupply -= amountWithdrawn;
+    delegation.decreaseBalance(instanceAddress, _attester, amountWithdrawn);
 
-    STAKING_ASSET.transfer(msg.sender, amountWithdrawn);
+    // The withdrawal id is a pending amount that is to be claimed when a delay have walled
+    uint256 withdrawalId = getGovernance().initiateWithdraw(msg.sender, amountWithdrawn);
 
-    return (amountWithdrawn, isRemoved);
+    return (amountWithdrawn, isRemoved, withdrawalId);
   }
 
-  function isRollupRegistered(address _instance) external view override(IGSE) returns (bool) {
+  /**
+   * @notice  A helper function to make it easy for users of the GSE to finalise
+   *          a pending exit in the governance.
+   *
+   *          Kept in here since it is already connected, and we don't want the
+   *          rollup to have to deal with links to gov etc.
+   *
+   * @dev     Will be a no operation if the withdrawal is already collected.
+   *
+   * @param _withdrawalId - The id of the withdrawal
+   */
+  function finaliseHelper(uint256 _withdrawalId) external override(IGSECore) {
+    Governance gov = getGovernance();
+    if (!gov.getWithdrawal(_withdrawalId).claimed) {
+      gov.finaliseWithdraw(_withdrawalId);
+    }
+  }
+
+  /**
+   * @notice  Delegates the voting power of `_attester` at `_instance` to `_delegatee`
+   *
+   *          Only callable by the `withdrawer` for the given `_attester` at the given
+   *          `_instance`.
+   *
+   * @param _instance   - The address of the rollup instance (or canonical magic address)
+   *                    - to which the `_attester` stake is pledged.
+   * @param _attester   - The address of the attester to delegate on behalf of
+   * @param _delegatee  - The degelegatee that should receive the power
+   */
+  function delegate(address _instance, address _attester, address _delegatee)
+    external
+    override(IGSECore)
+  {
+    require(isRollupRegistered(_instance), Errors.Staking__InstanceDoesNotExist(_instance));
+    address withdrawer = instances[_instance].configOf[_attester].withdrawer;
+    require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
+    delegation.delegate(_instance, _attester, _delegatee);
+  }
+
+  /**
+   * @notice  Votes at the governance using the power delegated to `msg.sender`
+   *
+   * @param _proposalId - The id of the proposal in the governance to vote on
+   * @param _amount     - The amount of voting power to use in the vote
+   *                      In the gov, it is possible to do a vote with partial power
+   * @param _support    - True if supporting the proposal, false otherwise.
+   */
+  function vote(uint256 _proposalId, uint256 _amount, bool _support) external override(IGSECore) {
+    _vote(msg.sender, _proposalId, _amount, _support);
+  }
+
+  /**
+   * @notice  Votes at the governance using the power delegated the canonical instance
+   *          Only callable by the instance that was canonical at the time of the proposal.
+   *
+   * @param _proposalId - The id of the proposal in the governance to vote on
+   * @param _amount     - The amount of voting power to use in the vote
+   *                      In the gov, it is possible to do a vote with partial power
+   */
+  function voteWithCanonical(uint256 _proposalId, uint256 _amount, bool _support)
+    external
+    override(IGSECore)
+  {
+    Timestamp ts = _pendingThrough(_proposalId);
+    require(msg.sender == getCanonicalAt(ts), Errors.Staking__NotCanonical(msg.sender));
+    _vote(CANONICAL_MAGIC_ADDRESS, _proposalId, _amount, _support);
+  }
+
+  function isRollupRegistered(address _instance) public view override(IGSECore) returns (bool) {
     return instances[_instance].exists;
   }
 
+  /**
+   * @notice  Lookup if the `_attester` is in the `_instance` attester set
+   *
+   * @param _instance   - The instance to look at
+   * @param _attester   - The attester to lookup
+   *
+   * @return  True if the `_attester` is in the set of `_instance`, false otherwise
+   */
   function isRegistered(address _instance, address _attester)
-    external
+    public
     view
-    override(IGSE)
+    override(IGSECore)
     returns (bool)
   {
-    (, bool attesterExists,) = _getInstanceStoreWithAttester(_instance, _attester);
-    return attesterExists;
+    return instances[_instance].attesters.contains(_attester);
   }
+
+  /**
+   * @notice  Get the address of CURRENT canonical instance
+   *
+   * @return  The address of the current canonical instance
+   */
+  function getCanonical() public view override(IGSECore) returns (address) {
+    return address(canonical.latest().toUint160());
+  }
+
+  /**
+   * @notice  Get the address of the instance that was canonical at time `_timestamp`
+   *
+   * @param _timestamp  - The timestamp to lookup
+   *
+   * @return  The address of the canonical instance at the time of lookup
+   */
+  function getCanonicalAt(Timestamp _timestamp) public view override(IGSECore) returns (address) {
+    return address(canonical.upperLookup(Timestamp.unwrap(_timestamp).toUint32()).toUint160());
+  }
+
+  function getGovernance() public view override(IGSECore) returns (Governance) {
+    return governance;
+  }
+
+  /**
+   * @notice  Inner logic for the vote
+   *
+   * @dev     Fetches the timestamp where proposal becomes active, and use it for the voting power
+   *          of the `_voter`
+   *
+   * @param _voter      - The voter
+   * @param _proposalId - The proposal to vote on
+   * @param _amount     - The amount of power to use
+   * @param _support    - True to support the proposal, false otherwise
+   */
+  function _vote(address _voter, uint256 _proposalId, uint256 _amount, bool _support) internal {
+    require(_voter != address(0), Errors.GSE__EmptyVoter());
+    Timestamp ts = _pendingThrough(_proposalId);
+    delegation.usePower(_voter, _proposalId, ts, _amount);
+    getGovernance().vote(_proposalId, _amount, _support);
+  }
+
+  function _pendingThrough(uint256 _proposalId) internal view returns (Timestamp) {
+    return getGovernance().getProposal(_proposalId).pendingThroughMemory();
+  }
+}
+
+contract GSE is IGSE, GSECore {
+  using AddressSnapshotLib for SnapshottedAddressSet;
+  using SafeCast for uint256;
+  using SafeCast for uint224;
+  using Checkpoints for Checkpoints.Trace224;
+  using DelegationLib for DelegationData;
+
+  constructor(address __owner, IERC20 _stakingAsset) GSECore(__owner, _stakingAsset) {}
 
   function getConfig(address _instance, address _attester)
     external
@@ -234,34 +440,17 @@ contract GSE is IGSE, Ownable {
     external
     view
     override(IGSE)
-    returns (address withdrawer, bool attesterExists, bool isCanonical)
+    returns (address withdrawer, bool attesterExists, address instanceAddress)
   {
     InstanceStaking storage instanceStaking;
-    (instanceStaking, attesterExists, isCanonical) =
+    (instanceStaking, attesterExists, instanceAddress) =
       _getInstanceStoreWithAttester(_instance, _attester);
 
     if (!attesterExists) {
-      return (address(0), false, false);
+      return (address(0), false, address(0));
     }
 
-    return (instanceStaking.configOf[_attester].withdrawer, true, isCanonical);
-  }
-
-  function getProposer(address _instance, address _attester)
-    external
-    view
-    override(IGSE)
-    returns (address proposer, bool attesterExists, bool isCanonical)
-  {
-    InstanceStaking storage instanceStaking;
-    (instanceStaking, attesterExists, isCanonical) =
-      _getInstanceStoreWithAttester(_instance, _attester);
-
-    if (!attesterExists) {
-      return (address(0), false, false);
-    }
-
-    return (_attester, true, isCanonical);
+    return (instanceStaking.configOf[_attester].withdrawer, true, instanceAddress);
   }
 
   function balanceOf(address _instance, address _attester)
@@ -270,28 +459,123 @@ contract GSE is IGSE, Ownable {
     override(IGSE)
     returns (uint256)
   {
-    (InstanceStaking storage store, bool attesterExists,) =
-      _getInstanceStoreWithAttester(_instance, _attester);
-    return attesterExists ? store.balanceOf[_attester] : 0;
+    return delegation.getBalanceOf(_instance, _attester);
   }
 
-  function supplyOf(address _instance) external view override(IGSE) returns (uint256) {
-    InstanceStaking storage store = instances[_instance];
-
-    uint256 supply = store.supply;
+  function effectiveBalanceOf(address _instance, address _attester)
+    external
+    view
+    override(IGSE)
+    returns (uint256)
+  {
+    uint256 balance = delegation.getBalanceOf(_instance, _attester);
     if (getCanonical() == _instance) {
-      supply += instances[CANONICAL_MAGIC_ADDRESS].supply;
+      balance += delegation.getBalanceOf(CANONICAL_MAGIC_ADDRESS, _attester);
     }
+    return balance;
+  }
 
+  function effectiveSupplyOfAt(address _instance, Timestamp _ts)
+    external
+    view
+    override(IGSE)
+    returns (uint256)
+  {
+    uint256 supply = delegation.getSupplyOf(_instance);
+    if (getCanonicalAt(_ts) == _instance) {
+      supply += delegation.getSupplyOf(CANONICAL_MAGIC_ADDRESS);
+    }
     return supply;
   }
 
-  function getCanonical() public view override(IGSE) returns (address) {
-    return address(canonical.latest().toUint160());
+  function supplyOf(address _instance) external view override(IGSE) returns (uint256) {
+    return delegation.getSupplyOf(_instance);
   }
 
-  function getCanonicalAt(Timestamp _timestamp) public view override(IGSE) returns (address) {
-    return address(canonical.upperLookup(Timestamp.unwrap(_timestamp).toUint32()).toUint160());
+  function totalSupply() external view override(IGSE) returns (uint256) {
+    return delegation.getSupply();
+  }
+
+  function getDelegatee(address _instance, address _attester)
+    external
+    view
+    override(IGSE)
+    returns (address)
+  {
+    return delegation.getDelegatee(_instance, _attester);
+  }
+
+  /**
+   * @notice  The effective power includes the power delegated to the canonical
+   */
+  function getEffectiveVotingPowerAt(address _delegatee, Timestamp _timestamp)
+    external
+    view
+    override(IGSE)
+    returns (uint256)
+  {
+    uint256 power = delegation.getVotingPowerAt(_delegatee, _timestamp);
+    if (getCanonicalAt(_timestamp) == _delegatee) {
+      power += delegation.getVotingPowerAt(CANONICAL_MAGIC_ADDRESS, _timestamp);
+    }
+    return power;
+  }
+
+  function getVotingPower(address _delegatee) external view override(IGSE) returns (uint256) {
+    return delegation.getVotingPower(_delegatee);
+  }
+
+  function getAttestersAtTime(address _instance, Timestamp _timestamp)
+    external
+    view
+    override(IGSE)
+    returns (address[] memory)
+  {
+    // @todo Throw me in jail for this crime against humanity
+    uint256 count = getAttesterCountAtTime(_instance, _timestamp);
+    uint256[] memory indices = new uint256[](count);
+    for (uint256 i = 0; i < count; i++) {
+      indices[i] = i;
+    }
+
+    return _getAddressFromIndicesAtTimestamp(_instance, indices, _timestamp);
+  }
+
+  function getAttestersFromIndicesAtTime(
+    address _instance,
+    Timestamp _timestamp,
+    uint256[] memory _indices
+  ) external view override(IGSE) returns (address[] memory) {
+    return _getAddressFromIndicesAtTimestamp(_instance, _indices, _timestamp);
+  }
+
+  function getAttesterFromIndexAtTime(address _instance, uint256 _index, Timestamp _timestamp)
+    external
+    view
+    override(IGSE)
+    returns (address)
+  {
+    uint256[] memory indices = new uint256[](1);
+    indices[0] = _index;
+    return _getAddressFromIndicesAtTimestamp(_instance, indices, _timestamp)[0];
+  }
+
+  function getPowerUsed(address _delegatee, uint256 _proposalId)
+    external
+    view
+    override(IGSE)
+    returns (uint256)
+  {
+    return delegation.getPowerUsed(_delegatee, _proposalId);
+  }
+
+  function getVotingPowerAt(address _delegatee, Timestamp _timestamp)
+    public
+    view
+    override(IGSE)
+    returns (uint256)
+  {
+    return delegation.getVotingPowerAt(_delegatee, _timestamp);
   }
 
   function getAttesterCountAtTime(address _instance, Timestamp _timestamp)
@@ -309,41 +593,6 @@ contract GSE is IGSE, Ownable {
     }
 
     return count;
-  }
-
-  function getAttestersAtTime(address _instance, Timestamp _timestamp)
-    public
-    view
-    override(IGSE)
-    returns (address[] memory)
-  {
-    // @todo Throw me in jail for this crime against humanity
-    uint256 count = getAttesterCountAtTime(_instance, _timestamp);
-    uint256[] memory indices = new uint256[](count);
-    for (uint256 i = 0; i < count; i++) {
-      indices[i] = i;
-    }
-
-    return _getAddressFromIndicesAtTimestamp(_instance, indices, _timestamp);
-  }
-
-  function getAttesterFromIndexAtTime(address _instance, uint256 _index, Timestamp _timestamp)
-    public
-    view
-    override(IGSE)
-    returns (address)
-  {
-    uint256[] memory indices = new uint256[](1);
-    indices[0] = _index;
-    return _getAddressFromIndicesAtTimestamp(_instance, indices, _timestamp)[0];
-  }
-
-  function getAttestersFromIndicesAtTime(
-    address _instance,
-    Timestamp _timestamp,
-    uint256[] memory _indices
-  ) public view override(IGSE) returns (address[] memory) {
-    return _getAddressFromIndicesAtTimestamp(_instance, _indices, _timestamp);
   }
 
   // We are using this only to get a simpler setup and logic to improve velocity of coding.
@@ -371,23 +620,26 @@ contract GSE is IGSE, Ownable {
 
       if (index < storeSize) {
         attesters[i] = store.attesters.getAddressFromIndexAtTimestamp(index, ts);
-      } else {
+      } else if (isCanonical) {
         attesters[i] =
           canonicalStore.attesters.getAddressFromIndexAtTimestamp(index - storeSize, ts);
+      } else {
+        revert Errors.Staking__FatalError("SHOULD NEVER HAPPEN");
       }
     }
 
     return attesters;
   }
 
+  // @todo I think we can clean this up more, don't think we need the instances being passed around nearly as much now.
   function _getInstanceStoreWithAttester(address _instance, address _attester)
     internal
     view
-    returns (InstanceStaking storage store, bool attesterExists, bool isCanonical)
+    returns (InstanceStaking storage store, bool attesterExists, address instanceAddress)
   {
     store = instances[_instance];
     attesterExists = store.attesters.contains(_attester);
-    isCanonical = false;
+    instanceAddress = _instance;
 
     if (
       !attesterExists && getCanonical() == _instance
@@ -395,9 +647,9 @@ contract GSE is IGSE, Ownable {
     ) {
       store = instances[CANONICAL_MAGIC_ADDRESS];
       attesterExists = true;
-      isCanonical = true;
+      instanceAddress = CANONICAL_MAGIC_ADDRESS;
     }
 
-    return (store, attesterExists, isCanonical);
+    return (store, attesterExists, instanceAddress);
   }
 }

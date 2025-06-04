@@ -92,7 +92,7 @@ To generate the environment, the simulator gets the block header from the [PXE d
 
 Once the execution environment is created, `runUtility` function is invoked on the simulator:
 
-#include_code execute_utility_function yarn-project/simulator/src/private/simulator.ts typescript
+#include_code execute_utility_function yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts typescript
 
 This:
 

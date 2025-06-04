@@ -84,7 +84,9 @@ contract InitiateWithdrawTest is StakingBase {
     // it updates the operator status to exiting
     // it emits a {WithdrawInitiated} event
 
-    assertEq(stakingAsset.balanceOf(address(staking.getGSE())), MINIMUM_STAKE);
+    address lookup = address(staking.getGSE().getGovernance());
+
+    assertEq(stakingAsset.balanceOf(lookup), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
     assertTrue(attesterView.status == Status.VALIDATING);
@@ -102,7 +104,9 @@ contract InitiateWithdrawTest is StakingBase {
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
 
-    assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
+    // @todo We should look at updating these, the location of balance depends on time
+    // and whether the governance.finaliseWithdraw have been called now.
+    assertEq(stakingAsset.balanceOf(lookup), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
     attesterView = staking.getAttesterView(ATTESTER);
@@ -120,13 +124,16 @@ contract InitiateWithdrawTest is StakingBase {
     // it updates the operator status to exiting
     // it emits a {WithdrawInitiated} event
 
-    assertEq(stakingAsset.balanceOf(address(staking.getGSE())), MINIMUM_STAKE);
+    address lookup = address(staking.getGSE().getGovernance());
+
+    assertEq(stakingAsset.balanceOf(lookup), MINIMUM_STAKE);
 
     vm.prank(SLASHER);
     staking.slash(ATTESTER, MINIMUM_STAKE / 2);
 
-    assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
-    assertEq(stakingAsset.balanceOf(address(staking.getGSE())), 0);
+    // @todo Again, need to cover more cases because funds could be many places now.
+    // But if not called, the funds should still be in the governance
+    assertEq(stakingAsset.balanceOf(lookup), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
@@ -145,7 +152,7 @@ contract InitiateWithdrawTest is StakingBase {
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
 
-    assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(lookup), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
     attesterView = staking.getAttesterView(ATTESTER);
     assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());

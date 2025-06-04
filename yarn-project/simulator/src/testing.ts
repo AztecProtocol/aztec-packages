@@ -1,1 +1,1 @@
-export { FileCircuitRecorder } from './private/providers/circuit_recording/file_circuit_recorder.js';
+export { FileCircuitRecorder } from './private/circuit_recording/file_circuit_recorder.js';

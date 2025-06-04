@@ -290,6 +290,8 @@ class WorldState {
     void checkpoint(const uint64_t& forkId);
     void commit_checkpoint(const uint64_t& forkId);
     void revert_checkpoint(const uint64_t& forkId);
+    void commit_all_checkpoints(const uint64_t& forkId);
+    void revert_all_checkpoints(const uint64_t& forkId);
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
