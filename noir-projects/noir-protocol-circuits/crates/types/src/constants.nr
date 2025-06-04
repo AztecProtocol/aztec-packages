@@ -315,7 +315,7 @@ pub global PROPOSED_BLOCK_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* fee_recipient */
     + GAS_FEES_LENGTH
     + TOTAL_MANA_USED_LENGTH;
-pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENGTH - 2) * 32
+pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENGTH - 3) * 32
     + 8 /* timestamp */
     + 20 /* coinbase */;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH

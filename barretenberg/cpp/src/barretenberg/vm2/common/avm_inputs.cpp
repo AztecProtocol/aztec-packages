@@ -26,8 +26,8 @@ void set_gas_in_cols(const Gas& gas, std::vector<std::vector<FF>>& cols, size_t 
 
 void set_gas_fees_in_cols(const GasFees& gas_fees, std::vector<std::vector<FF>>& cols, size_t row_idx)
 {
-    cols[0][row_idx] = gas_fees.feePerDaGas;
-    cols[1][row_idx] = gas_fees.feePerL2Gas;
+    cols[0][row_idx] = FF(uint256_t::from_uint128(gas_fees.feePerDaGas));
+    cols[1][row_idx] = FF(uint256_t::from_uint128(gas_fees.feePerL2Gas));
 }
 
 void set_public_call_request_in_cols(const PublicCallRequest& request,

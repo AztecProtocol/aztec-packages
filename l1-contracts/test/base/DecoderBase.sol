@@ -52,8 +52,8 @@ contract DecoderBase is TestBase {
   }
 
   struct GasFees {
-    uint256 feePerDaGas;
-    uint256 feePerL2Gas;
+    uint128 feePerDaGas;
+    uint128 feePerL2Gas;
   }
 
   struct ContentCommitment {
