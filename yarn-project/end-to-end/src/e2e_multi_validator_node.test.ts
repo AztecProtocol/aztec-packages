@@ -7,6 +7,7 @@ import {
   Fr,
   type Logger,
   type Wallet,
+  retryUntil,
   waitForProven,
 } from '@aztec/aztec.js';
 import {
@@ -136,6 +137,16 @@ describe('e2e_multi_validator_node', () => {
     expect(signers).toEqual(expect.arrayContaining(validatorAddresses));
   });
   it('should attest ONLY with the correct validator keys', async () => {
+    await retryUntil(
+      async () => {
+        const view = await rollup.getAttesterView(validatorAddresses[0]);
+        return view.effectiveBalance > 0;
+      },
+      'attester is attesting',
+      config.ethereumSlotDuration * 3,
+      1,
+    );
+
     const rollupContract1 = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
