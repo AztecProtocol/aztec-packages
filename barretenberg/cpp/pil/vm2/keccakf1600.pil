@@ -18,12 +18,12 @@ namespace keccakf1600;
 //#################################################################################################
 //                  High-Level Trace Structure Columns
 //#################################################################################################
-//   ctr   sel   start   last    state_in_00  state_in_01 ....  state_out_00    state_out_01 ......
+//   ctr   sel   start   last    state_in_00  state_in_01 ....
 //    1     1      1      0
-//    2     1      0      0         ROUND FUNCTION SPECIFICS           No Constraints
+//    2     1      0      0         ROUND FUNCTION SPECIFICS
 //    3     1      0      0
-//    ...  ...    ...    ...               ...                        ...              ...
-//    24    1      0      1                                          OUT_00           OUT_01
+//    ...  ...    ...    ...               ...
+//    24    1      0      1
 
 // We use one row to compute a single round function.
 // 24 rows correspond to one keccak permutation.
@@ -1230,66 +1230,102 @@ bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 //#############################################################################
 //                      Next state Inputs OR Outputs
 //#############################################################################
-pol commit state_out_00, state_out_01, state_out_02, state_out_03, state_out_04,
-           state_out_10, state_out_11, state_out_12, state_out_13, state_out_14,
-           state_out_20, state_out_21, state_out_22, state_out_23, state_out_24,
-           state_out_30, state_out_31, state_out_32, state_out_33, state_out_34,
-           state_out_40, state_out_41, state_out_42, state_out_43, state_out_44;
+// If last == 1, state_iota_00 and state_chi_ij's for (i,j) != (0,0) are
+// the output state, otherwise we initialize the next state_in values for the next round.
 
-// If last == 1, state_iota is the output state, otherwise we initialize the next
-// state_in values for the next round.
+#[NEXT_STATE_IN_00]
+(1 - last) * (state_in_00' - state_iota_00) = 0;
+#[NEXT_STATE_IN_01]
+(1 - last) * (state_in_01' - state_chi_01) = 0;
+#[NEXT_STATE_IN_02]
+(1 - last) * (state_in_02' - state_chi_02) = 0;
+#[NEXT_STATE_IN_03]
+(1 - last) * (state_in_03' - state_chi_03) = 0;
+#[NEXT_STATE_IN_04]
+(1 - last) * (state_in_04' - state_chi_04) = 0;
 
-#[NEXT_STATE_IN_OR_OUT_00]
-(1-last) * state_in_00' + last * state_out_00 = state_iota_00;
-#[NEXT_STATE_IN_OR_OUT_01]
-(1-last) * state_in_01' + last * state_out_01 = state_chi_01;
-#[NEXT_STATE_IN_OR_OUT_02]
-(1-last) * state_in_02' + last * state_out_02 = state_chi_02;
-#[NEXT_STATE_IN_OR_OUT_03]
-(1-last) * state_in_03' + last * state_out_03 = state_chi_03;
-#[NEXT_STATE_IN_OR_OUT_04]
-(1-last) * state_in_04' + last * state_out_04 = state_chi_04;
+#[NEXT_STATE_IN_10]
+(1 - last) * (state_in_10' - state_chi_10) = 0;
+#[NEXT_STATE_IN_11]
+(1 - last) * (state_in_11' - state_chi_11) = 0;
+#[NEXT_STATE_IN_12]
+(1 - last) * (state_in_12' - state_chi_12) = 0;
+#[NEXT_STATE_IN_13]
+(1 - last) * (state_in_13' - state_chi_13) = 0;
+#[NEXT_STATE_IN_14]
+(1 - last) * (state_in_14' - state_chi_14) = 0;
 
-#[NEXT_STATE_IN_OR_OUT_10]
-(1-last) * state_in_10' + last * state_out_10 = state_chi_10;
-#[NEXT_STATE_IN_OR_OUT_11]
-(1-last) * state_in_11' + last * state_out_11 = state_chi_11;
-#[NEXT_STATE_IN_OR_OUT_12]
-(1-last) * state_in_12' + last * state_out_12 = state_chi_12;
-#[NEXT_STATE_IN_OR_OUT_13]
-(1-last) * state_in_13' + last * state_out_13 = state_chi_13;
-#[NEXT_STATE_IN_OR_OUT_14]
-(1-last) * state_in_14' + last * state_out_14 = state_chi_14;
+#[NEXT_STATE_IN_20]
+(1 - last) * (state_in_20' - state_chi_20) = 0;
+#[NEXT_STATE_IN_21]
+(1 - last) * (state_in_21' - state_chi_21) = 0;
+#[NEXT_STATE_IN_22]
+(1 - last) * (state_in_22' - state_chi_22) = 0;
+#[NEXT_STATE_IN_23]
+(1 - last) * (state_in_23' - state_chi_23) = 0;
+#[NEXT_STATE_IN_24]
+(1 - last) * (state_in_24' - state_chi_24) = 0;
 
-#[NEXT_STATE_IN_OR_OUT_20]
-(1-last) * state_in_20' + last * state_out_20 = state_chi_20;
-#[NEXT_STATE_IN_OR_OUT_21]
-(1-last) * state_in_21' + last * state_out_21 = state_chi_21;
-#[NEXT_STATE_IN_OR_OUT_22]
-(1-last) * state_in_22' + last * state_out_22 = state_chi_22;
-#[NEXT_STATE_IN_OR_OUT_23]
-(1-last) * state_in_23' + last * state_out_23 = state_chi_23;
-#[NEXT_STATE_IN_OR_OUT_24]
-(1-last) * state_in_24' + last * state_out_24 = state_chi_24;
+#[NEXT_STATE_IN_30]
+(1 - last) * (state_in_30' - state_chi_30) = 0;
+#[NEXT_STATE_IN_31]
+(1 - last) * (state_in_31' - state_chi_31) = 0;
+#[NEXT_STATE_IN_32]
+(1 - last) * (state_in_32' - state_chi_32) = 0;
+#[NEXT_STATE_IN_33]
+(1 - last) * (state_in_33' - state_chi_33) = 0;
+#[NEXT_STATE_IN_34]
+(1 - last) * (state_in_34' - state_chi_34) = 0;
 
-#[NEXT_STATE_IN_OR_OUT_30]
-(1-last) * state_in_30' + last * state_out_30 = state_chi_30;
-#[NEXT_STATE_IN_OR_OUT_31]
-(1-last) * state_in_31' + last * state_out_31 = state_chi_31;
-#[NEXT_STATE_IN_OR_OUT_32]
-(1-last) * state_in_32' + last * state_out_32 = state_chi_32;
-#[NEXT_STATE_IN_OR_OUT_33]
-(1-last) * state_in_33' + last * state_out_33 = state_chi_33;
-#[NEXT_STATE_IN_OR_OUT_34]
-(1-last) * state_in_34' + last * state_out_34 = state_chi_34;
+#[NEXT_STATE_IN_40]
+(1 - last) * (state_in_40' - state_chi_40) = 0;
+#[NEXT_STATE_IN_41]
+(1 - last) * (state_in_41' - state_chi_41) = 0;
+#[NEXT_STATE_IN_42]
+(1 - last) * (state_in_42' - state_chi_42) = 0;
+#[NEXT_STATE_IN_43]
+(1 - last) * (state_in_43' - state_chi_43) = 0;
+#[NEXT_STATE_IN_44]
+(1 - last) * (state_in_44' - state_chi_44) = 0;
 
-#[NEXT_STATE_IN_OR_OUT_40]
-(1-last) * state_in_40' + last * state_out_40 = state_chi_40;
-#[NEXT_STATE_IN_OR_OUT_41]
-(1-last) * state_in_41' + last * state_out_41 = state_chi_41;
-#[NEXT_STATE_IN_OR_OUT_42]
-(1-last) * state_in_42' + last * state_out_42 = state_chi_42;
-#[NEXT_STATE_IN_OR_OUT_43]
-(1-last) * state_in_43' + last * state_out_43 = state_chi_43;
-#[NEXT_STATE_IN_OR_OUT_44]
-(1-last) * state_in_44' + last * state_out_44 = state_chi_44;
+//#############################################################################
+//                  Read-Write to memory slice
+//#############################################################################
+pol commit src_addr;
+pol commit dst_addr;
+pol commit tag_error;
+
+#[DST_ADDR_PROPAGATION]
+(1 - last) * (dst_addr' - dst_addr) = 0;
+
+// rw boolean is set to last as we have the guarantee that start == 1 ==> last == 0.
+#[READ_TO_SLICE]
+start {state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
+       state_in_10, state_in_11, state_in_12, state_in_13, state_in_14,
+       state_in_20, state_in_21, state_in_22, state_in_23, state_in_24,
+       state_in_30, state_in_31, state_in_32, state_in_33, state_in_34,
+       state_in_40, state_in_41, state_in_42, state_in_43, state_in_44,
+       last, src_addr, tag_error}
+is
+keccak_memory.start {keccak_memory.val00, keccak_memory.val01, keccak_memory.val02, keccak_memory.val03, keccak_memory.val04,
+                     keccak_memory.val10, keccak_memory.val11, keccak_memory.val12, keccak_memory.val13, keccak_memory.val14,
+                     keccak_memory.val20, keccak_memory.val21, keccak_memory.val22, keccak_memory.val23, keccak_memory.val24,
+                     keccak_memory.val30, keccak_memory.val31, keccak_memory.val32, keccak_memory.val33, keccak_memory.val34,
+                     keccak_memory.val40, keccak_memory.val41, keccak_memory.val42, keccak_memory.val43, keccak_memory.val44,
+                     keccak_memory.rw, keccak_memory.addr, keccak_memory.tag_error};
+
+// rw boolean is set to last as we have the guarantee that last == 1 here.
+#[WRITE_TO_SLICE]
+last {state_iota_00, state_chi_01, state_chi_02, state_chi_03, state_chi_04,
+      state_chi_10,  state_chi_11, state_chi_12, state_chi_13, state_chi_14,
+      state_chi_20,  state_chi_21, state_chi_22, state_chi_23, state_chi_24,
+      state_chi_30,  state_chi_31, state_chi_32, state_chi_33, state_chi_34,
+      state_chi_40,  state_chi_41, state_chi_42, state_chi_43, state_chi_44,
+      last, dst_addr}
+is
+keccak_memory.start {keccak_memory.val00, keccak_memory.val01, keccak_memory.val02, keccak_memory.val03, keccak_memory.val04,
+                     keccak_memory.val10, keccak_memory.val11, keccak_memory.val12, keccak_memory.val13, keccak_memory.val14,
+                     keccak_memory.val20, keccak_memory.val21, keccak_memory.val22, keccak_memory.val23, keccak_memory.val24,
+                     keccak_memory.val30, keccak_memory.val31, keccak_memory.val32, keccak_memory.val33, keccak_memory.val34,
+                     keccak_memory.val40, keccak_memory.val41, keccak_memory.val42, keccak_memory.val43, keccak_memory.val44,
+                     keccak_memory.rw, keccak_memory.addr};

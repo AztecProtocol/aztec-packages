@@ -53,15 +53,16 @@
 #include "relations/lookups_sha256.hpp"
 #include "relations/lookups_to_radix.hpp"
 #include "relations/lookups_update_check.hpp"
+#include "relations/perms_keccakf1600.hpp"
 
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 75;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 1748;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 208;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 1728;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 209;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2031;
+    static constexpr size_t NUM_ALL_ENTITIES = 2012;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -312,7 +313,9 @@ struct AvmFlavorVariables {
         lookup_update_check_update_hash_poseidon2_relation<FF_>,
         lookup_update_check_update_hash_public_data_read_relation<FF_>,
         lookup_update_check_update_hi_metadata_range_relation<FF_>,
-        lookup_update_check_update_lo_metadata_range_relation<FF_>>;
+        lookup_update_check_update_lo_metadata_range_relation<FF_>,
+        perm_keccakf1600_read_to_slice_relation<FF_>,
+        perm_keccakf1600_write_to_slice_relation<FF_>>;
 };
 
 } // namespace bb::avm2
