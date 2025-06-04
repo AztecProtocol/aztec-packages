@@ -7,6 +7,7 @@ import {
   Fr,
   type Logger,
   type Wallet,
+  retryUntil,
   waitForProven,
 } from '@aztec/aztec.js';
 import {
@@ -99,6 +100,15 @@ describe('e2e_multi_validator_node', () => {
     // We jump to the next epoch such that the committee can be setup.
     const timeToJump = (await rollup.getEpochDuration()) * 2n;
     await progressTimeBySlot(timeToJump);
+    await retryUntil(
+      async () => {
+        const view = await rollup.getAttesterView(validatorAddresses[0]);
+        return view.effectiveBalance > 0;
+      },
+      'attester is attesting',
+      config.ethereumSlotDuration * 3,
+      1,
+    );
   });
 
   afterEach(async () => {
