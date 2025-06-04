@@ -139,6 +139,10 @@ tests:
   - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
+  - regex: "src/e2e_token_contract/access_control"
+    error_regex: "HttpRequestError: HTTP request failed."
+    owners:
+      - *charlie
   # http://ci.aztec-labs.com/7a5104e136578d64
   # The "loop that wastes 5m" thing.
   - regex: "src/e2e_fees/failures"
