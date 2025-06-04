@@ -2,102 +2,123 @@ import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+
+import type { PeerId } from '@libp2p/interface';
 
 import type { P2PClient } from '../client/p2p_client.js';
+import { TxCollectorInstrumentation } from './tx_collect_instrumentation.js';
 
 export class TxCollector {
+  private instrumentation: TxCollectorInstrumentation;
+
   constructor(
     private p2pClient: Pick<
       P2PClient,
-      'getTxsByHashFromPool' | 'hasTxsInPool' | 'getTxsByHash' | 'validate' | 'requestTxsByHash'
+      'getTxsByHashFromPool' | 'hasTxsInPool' | 'getTxsByHash' | 'validate' | 'requestTxsByHash' | 'addTxsToPool'
     >,
     private log: Logger = createLogger('p2p:tx-collector'),
-  ) {}
+    client: TelemetryClient = getTelemetryClient(),
+  ) {
+    this.instrumentation = new TxCollectorInstrumentation(client, 'TxCollector');
+  }
+
+  // Checks the proposal for transactions we don't already have, validates them and adds them to our pool
+  private async collectFromProposal(proposal: BlockProposal): Promise<number> {
+    // Does this proposal have any transactions?
+    if (!proposal.txs || proposal.txs.length === 0) {
+      return 0;
+    }
+
+    const proposalHashes = new Set<string>((proposal.payload.txHashes ?? []).map(txHash => txHash.toString()));
+
+    // Get the transactions from the proposal and their hashes
+    // also, we are only interested in txs that are part of the proposal
+    const txsFromProposal = compactArray(
+      await Promise.all(
+        proposal.txs.map(tx =>
+          tx === undefined
+            ? Promise.resolve(undefined)
+            : tx.getTxHash().then(hash => ({
+                txHash: hash,
+                tx,
+              })),
+        ),
+      ),
+    ).filter(tx => proposalHashes.has(tx.txHash.toString()));
+
+    // Of the transactions from the proposal, retrieve those that we have in the pool already
+    const txsToValidate = [];
+    const txsWeAlreadyHave = await this.p2pClient.getTxsByHashFromPool(txsFromProposal.map(tx => tx.txHash));
+
+    // Txs we already have will have holes where we did not find them
+    // Where that is the case we need to validate the tx in the proposal
+    for (let i = 0; i < txsWeAlreadyHave.length; i++) {
+      if (txsWeAlreadyHave[i] === undefined) {
+        txsToValidate.push(txsFromProposal[i].tx);
+      }
+    }
+
+    // Now validate all the transactions from the proposal that we don't have
+    // This will throw if any of the transactions are invalid, this is probably correct, if someone sends us a proposal with invalid
+    // transactions we probably shouldn't spend any more effort on it
+    try {
+      await this.p2pClient.validate(txsToValidate);
+    } catch (err) {
+      this.log.error(`Received proposal with invalid transactions, skipping`);
+      throw err;
+    }
+
+    // Now store these transactions in our pool, provided these are the txs in proposal.payload.txHashes they will be pinned already
+    await this.p2pClient.addTxsToPool(txsToValidate);
+
+    return txsToValidate.length;
+  }
 
   async collectForBlockProposal(
     proposal: BlockProposal,
-    peerWhoSentTheProposal: any,
+    peerWhoSentTheProposal: PeerId | undefined,
   ): Promise<{ txs: Tx[]; missing?: TxHash[] }> {
     if (proposal.payload.txHashes.length === 0) {
       this.log.verbose(`Received block proposal with no transactions, skipping transaction availability check`);
       return { txs: [] };
     }
-    // Is this a new style proposal?
-    if (proposal.txs && proposal.txs.length > 0 && proposal.txs.length === proposal.payload.txHashes.length) {
-      // Yes, any txs that we already have we should use
-      this.log.info(`Using new style proposal with ${proposal.txs.length} transactions`);
 
-      // Request from the pool based on the signed hashes in the payload
-      const hashesFromPayload = proposal.payload.txHashes;
-      const txsToUse = await this.p2pClient.getTxsByHashFromPool(hashesFromPayload);
+    const txsInMempool = (await this.p2pClient.hasTxsInPool(proposal.payload.txHashes)).filter(Boolean).length;
+    this.instrumentation.incTxsFromMempool(txsInMempool);
 
-      const missingTxs = txsToUse.filter(tx => tx === undefined).length;
-      if (missingTxs > 0) {
-        this.log.verbose(
-          `Missing ${missingTxs}/${hashesFromPayload.length} transactions in the tx pool, will attempt to take from the proposal`,
-        );
-      }
+    // Take txs from the proposal if there are any
+    const txTakenFromProposal = await this.collectFromProposal(proposal);
+    this.instrumentation.incTxsFromProposals(txTakenFromProposal);
 
-      let usedFromProposal = 0;
-
-      // Fill any holes with txs in the proposal, provided their hash matches the hash in the payload
-      for (let i = 0; i < txsToUse.length; i++) {
-        if (txsToUse[i] === undefined) {
-          // We don't have the transaction, take from the proposal, provided the hash is the same
-          const hashOfTxInProposal = await proposal.txs[i].getTxHash();
-          if (hashOfTxInProposal.equals(hashesFromPayload[i])) {
-            // Hash is equal, we can use the tx from the proposal
-            txsToUse[i] = proposal.txs[i];
-            usedFromProposal++;
-          } else {
-            this.log.warn(
-              `Unable to take tx: ${hashOfTxInProposal.toString()} from the proposal, it does not match payload hash: ${hashesFromPayload[
-                i
-              ].toString()}`,
-            );
-          }
-        }
-      }
-
-      // See if we still have any holes, if there are then we were not successful and will try the old method
-      if (txsToUse.some(tx => tx === undefined)) {
-        this.log.warn(`Failed to use transactions from proposal. Falling back to old proposal logic`);
-      } else {
-        this.log.info(
-          `Successfully used ${usedFromProposal}/${hashesFromPayload.length} transactions from the proposal`,
-        );
-
-        await this.p2pClient.validate(txsToUse as Tx[]);
-        return { txs: txsToUse as Tx[] };
-      }
-    }
-
-    this.log.info(`Using old style proposal with ${proposal.payload.txHashes.length} transactions`);
-
-    // Old style proposal, we will perform a request by hash from pool
-    // This will request from network any txs that are missing
+    // Now get the txs we need, either from the pool or the p2p network
     const txHashes: TxHash[] = proposal.payload.txHashes;
-
-    // This part is just for logging that we are requesting from the network
-    const availability = await this.p2pClient.hasTxsInPool(txHashes);
-    const notAvailable = availability.filter(availability => availability === false);
-    if (notAvailable.length) {
-      this.log.verbose(
-        `Missing ${notAvailable.length} transactions in the tx pool, will need to request from the network`,
-      );
-    }
 
     // This will request from the network any txs that are missing
     // NOTE: this could still return missing txs so we need to (1) be careful to handle undefined and (2) keep the txs in the correct order for re-execution
     const maybeRetrievedTxs = await this.p2pClient.getTxsByHash(txHashes, peerWhoSentTheProposal);
+
+    // Get the txs that we didn't get from the network, if any. This will be empty if we got them al
     const missingTxs = compactArray(
       maybeRetrievedTxs.map((tx, index) => (tx === undefined ? txHashes[index] : undefined)),
     );
-    // if we found all txs, this is a noop. If we didn't find all txs then validate the ones we did find and tell the validator to skip attestations because missingTxs.length > 0
+    this.instrumentation.incMissingTxs(missingTxs.length);
+
+    const txsFromP2P = txHashes.length - txTakenFromProposal - txsInMempool - missingTxs.length;
+    this.instrumentation.incTxsFromP2P(txsFromP2P);
+
+    // if we found all txs, this is a noop. If we didn't find all txs then tell the validator to skip attestations because missingTxs.length > 0
     const retrievedTxs = compactArray(maybeRetrievedTxs);
 
-    await this.p2pClient.validate(retrievedTxs);
-
+    this.log.info(`Retrieved ${retrievedTxs.length}/${txHashes.length} txs for block proposal`, {
+      blockNumber: proposal.blockNumber.toNumber(),
+      slotNumber: proposal.slotNumber.toNumber(),
+      totalTxsInProposal: txHashes.length,
+      txsFromProposal: txTakenFromProposal,
+      txsFromMempool: txsInMempool,
+      txsFromP2P,
+      missingTxs: missingTxs.length,
+    });
     return { txs: retrievedTxs, missing: missingTxs };
   }
 }
