@@ -1213,7 +1213,7 @@ template <typename FF> void Graph_<FF>::print_connected_components()
 {
     auto connected_components = find_connected_components();
     for (size_t i = 0; i < connected_components.size(); i++) {
-        info("printing the ", i + 1, " connected component:");
+        info("printing the ", i + 1, " connected component with size ", connected_components[i].size(), ":");
         for (const auto& it : connected_components[i]) {
             info(it, " ");
         }

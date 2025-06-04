@@ -61,7 +61,7 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     };
 
     class VerificationKey
-        : public VerificationKey_<FF, NativeFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<BuilderType, FF, NativeFlavor::PrecomputedEntities<Commitment>> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {

@@ -57,7 +57,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
      * circuits.
      */
     class VerificationKey
-        : public VerificationKey_<FF, UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<BuilderType, FF, UltraFlavor::PrecomputedEntities<Commitment>> {
       public:
         PublicComponentKey ipa_claim_public_input_key; // needs to be a circuit constant
 
@@ -112,6 +112,62 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
 
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
+            }
+        }
+
+        /**
+         * @brief Serialize verification key to field elements.
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const
+        {
+            using namespace bb::stdlib::field_conversion;
+
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
+                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<FF> elements;
+
+            CircuitBuilder* builder = this->circuit_size.context;
+            serialize_to_field_buffer(this->circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+
+            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
+            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
+            serialize_to_field_buffer(pairing_points_start_idx, elements);
+
+            FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
+            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder);
+            serialize_to_field_buffer(ipa_claim_start_idx, elements);
+
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+
+        // Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
+        // submitting that, we want to submit the values directly to the transcript.
+        template <typename Transcript>
+        void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
+        {
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->circuit_size);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->num_public_inputs);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->pub_inputs_offset);
+            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
+            CircuitBuilder* builder = this->circuit_size.context;
+            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", pairing_points_start_idx);
+            FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
+            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", ipa_claim_start_idx);
+            for (const Commitment& commitment : this->get_all()) {
+                transcript->add_to_hash_buffer(domain_separator + "vkey_field", commitment);
             }
         }
 

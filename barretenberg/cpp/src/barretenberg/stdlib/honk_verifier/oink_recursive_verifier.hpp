@@ -51,13 +51,13 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
 
     /**
      * @brief Constructs an oink recursive verifier circuit for an oink proof assumed to be contained in the transcript.
-     *
+     * @returns Hash of verification key. Returned so we can potentially consistency check it with an input vkey hash.
      */
     void verify();
 
     /**
      * @brief Constructs an oink recursive verifier circuit for a provided oink proof.
-     *
+     * @returns Hash of verification key. Returned so we can potentially consistency check it with an input vkey hash.
      */
     void verify_proof(const OinkProof& proof);
 
