@@ -768,7 +768,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     if (nullifierIndex === undefined) {
       throw new Error(
-        `Event hash ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present on the nullifier tree at block ${syncedBlockNumber} (from tx ${txHash})`,
+        `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present on the nullifier tree at block ${syncedBlockNumber} (from tx ${txHash})`,
       );
     }
 
