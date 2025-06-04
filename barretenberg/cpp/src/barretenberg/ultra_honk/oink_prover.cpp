@@ -83,15 +83,16 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
     // super inefficient
     info("Computing the verification key in the prover is super inefficient. Pass in a precomputed verification key "
          "instead.");
-    typename Flavor::VerificationKey vkey(proving_key->proving_key);
+    if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
+        typename Flavor::VerificationKey vkey(proving_key->proving_key);
 
-    std::vector<FF> vkey_fields = vkey.to_field_elements();
-    for (const FF& vkey_field : vkey_fields) {
-        transcript->add_to_hash_buffer(domain_separator + "vkey_field", vkey_field);
+        std::vector<FF> vkey_fields = vkey.to_field_elements();
+        for (const FF& vkey_field : vkey_fields) {
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", vkey_field);
+        }
+        auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
+        info("vkey_hash in prover: ", vkey_hash);
     }
-    auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
-    info("vkey_hash in prover: ", vkey_hash);
-
     BB_ASSERT_EQ(proving_key->proving_key.num_public_inputs, proving_key->proving_key.public_inputs.size());
 
     for (size_t i = 0; i < proving_key->proving_key.num_public_inputs; ++i) {

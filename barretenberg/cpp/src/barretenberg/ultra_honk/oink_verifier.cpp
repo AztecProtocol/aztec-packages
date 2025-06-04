@@ -44,13 +44,14 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
-    std::vector<FF> vkey_fields = verification_key->verification_key->to_field_elements();
-    for (const FF& vkey_field : vkey_fields) {
-        transcript->add_to_hash_buffer(domain_separator + "vkey_field", vkey_field);
+    if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
+        std::vector<FF> vkey_fields = verification_key->verification_key->to_field_elements();
+        for (const FF& vkey_field : vkey_fields) {
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", vkey_field);
+        }
+        auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
+        info("vkey_hash in verifier: ", vkey_hash);
     }
-    auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
-    info("vkey_hash in verifier: ", vkey_hash);
-
     for (size_t i = 0; i < verification_key->verification_key->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));

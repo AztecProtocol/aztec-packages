@@ -15,6 +15,18 @@
 
 using namespace bb;
 
+#ifdef STARKNET_GARAGA_FLAVORS
+using FlavorTypes = ::testing::Types<UltraFlavor,
+                                     UltraKeccakFlavor,
+                                     UltraStarknetFlavor,
+                                     UltraStarknetZKFlavor,
+                                     UltraRollupFlavor,
+                                     UltraZKFlavor,
+                                     UltraKeccakZKFlavor>;
+#else
+using FlavorTypes =
+    ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
+#endif
 template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -51,11 +63,13 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
 
         size_t round = 0;
-        for (size_t i = 0; i < Flavor::VerificationKey::VERIFICATION_KEY_LENGTH; i++) {
-            manifest_expected.add_entry(round, "vkey_field", frs_per_Fr);
+        if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
+            for (size_t i = 0; i < Flavor::VerificationKey::VERIFICATION_KEY_LENGTH; i++) {
+                manifest_expected.add_entry(round, "vkey_field", frs_per_Fr);
+            }
+            manifest_expected.add_challenge(round, "vkey_hash");
+            round++;
         }
-        manifest_expected.add_challenge(round, "vkey_hash");
-        round++;
 
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
         for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
@@ -186,18 +200,6 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     }
 };
 
-#ifdef STARKNET_GARAGA_FLAVORS
-using FlavorTypes = ::testing::Types<UltraFlavor,
-                                     UltraKeccakFlavor,
-                                     UltraStarknetFlavor,
-                                     UltraStarknetZKFlavor,
-                                     UltraRollupFlavor,
-                                     UltraZKFlavor,
-                                     UltraKeccakZKFlavor>;
-#else
-using FlavorTypes =
-    ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
-#endif
 TYPED_TEST_SUITE(UltraTranscriptTests, FlavorTypes);
 
 /**
