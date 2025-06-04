@@ -67,7 +67,7 @@ pub fn evaluate_blobs_and_batch(
             hashed_blobs_fields,
             final_blob_challenges.z,
         );
-        // TODO(MW): If the evaluation being zero is sufficient to say the blob i is empty, remove the range check.
+        // TODO(#14646): If the evaluation being zero is sufficient to say the blob i is empty, remove the range check.
         // The range check exists because we cannot use c_i (it's injected and L1 relies on this circuit to check whether the blob is
         // empty for c_i = O) or z_i (z_i relies on the hashed_blobs_fields, which is the hash of the items in ALL block blobs, not just i).
         let is_empty_blob = sponge_blob.fields <= i * FIELDS_PER_BLOB;

@@ -58,7 +58,7 @@ library BlobLib {
       );
       blobInputStart += Constants.BLS12_POINT_COMPRESSED_BYTES;
 
-      // TODO(MW): Use kzg_to_versioned_hash & VERSIONED_HASH_VERSION_KZG
+      // TODO(#14646): Use kzg_to_versioned_hash & VERSIONED_HASH_VERSION_KZG
       // Using bytes32 array to force bytes into memory
       bytes32[1] memory blobHashCheck = [sha256(blobCommitments[i])];
       // Until we use an external kzg_to_versioned_hash(), calculating it here:
@@ -82,6 +82,12 @@ library BlobLib {
       blobHashes[i] = blobHash;
     }
     // Hash the EVM blob hashes for the block header
+    // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name blobsHashesCommitment is confusingly similar to blobCommitmentsHash
+    // which are different values:
+    // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs inserted into the header, exists so a user can cross check blobs.
+    // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
+    //   exists so we can validate injected commitments to the rollup circuits correspond to the correct real blobs.
+    // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0), blobshash_1) ... blobshash_l) for an epoch with l+1 blocks.
     blobsHashesCommitment = Hash.sha256ToField(abi.encodePacked(blobHashes));
   }
 

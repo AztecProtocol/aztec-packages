@@ -181,7 +181,6 @@ export class ProverNodePublisher {
     }
 
     // Check the batched blob inputs from the root rollup against the batched blob computed in ts
-    // TODO(MW): There is probably a way to add the opening proof Q to publicInputs, but it's not needed in the circuit => may be confusing
     if (!publicInputs.blobPublicInputs.equals(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))) {
       throw new Error(
         `Batched blob mismatch: ${inspect(publicInputs.blobPublicInputs)} !== ${inspect(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))}`,

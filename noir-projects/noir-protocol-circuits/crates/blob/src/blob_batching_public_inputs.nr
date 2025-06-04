@@ -102,7 +102,7 @@ fn get_flags(point: BLSPoint) -> ([bool; 3], Q) {
     (flags, x)
 }
 
-// TODO: Will be part of bigcurve's compression functionality
+// TODO(MW): Will be part of bigcurve's compression functionality
 // Given [is_compressed, is_infinity, is_greater] and the point's most significant byte, returns that
 // byte with the flags set.
 fn set_flags(flags: [bool; 3], byte: u8) -> u8 {
@@ -153,7 +153,7 @@ impl Empty for BlobAccumulationInputs {
 *  - We encompass all the blob elements in challenges (z_i) unique to each blob by using the above H(input_elements)
 *    and the blob's commitment (c_i).
 *
-* TODO(MW): Compress F and Q values to reduce number of public inputs (BLOB_ACCUMULATOR_PUBLIC_INPUTS)
+* TODO(#14646): Compress F and Q values to reduce number of public inputs (BLOB_ACCUMULATOR_PUBLIC_INPUTS)
 */
 pub struct BlobAccumulatorPublicInputs {
     pub blob_commitments_hash_acc: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)

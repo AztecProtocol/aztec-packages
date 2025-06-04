@@ -38,7 +38,7 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
       .slice(offset, (offset += FIELDS_PER_BLOB * BLOBS_PER_BLOCK))
       .map((field: string) => Fr.fromString(field));
     //  - args[1] is an array of BLOBS_PER_BLOCK commitments, which are BLS12_381 points: {x: bignum, y: bignum, is_inf: bool}
-    // TODO(MW): Omit/compress some fields to reduce number of public inputs & outputs here. Below bignum stuff is temporary:
+    // TODO(#14646): Omit/compress some fields to reduce number of public inputs & outputs here?
     const kzgCommitmentsFields = flattenedArgs.slice(offset, (offset += BLS12_POINT * BLOBS_PER_BLOCK));
     const kzgCommitments: BLS12Point[] = [];
     for (let i = 0; i < kzgCommitmentsFields.length; i += BLS12_POINT) {
@@ -58,14 +58,14 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
         .map((field: string) => Fr.fromString(field)),
     );
     // - args[3] is the challenges struct, containing z (BNFr) and gamma (BLS12Fr)
-    // TODO(MW): Omit/compress some fields to reduce number of public inputs & outputs here. Below bignum stuff is temporary:
+    // TODO(#14646): Omit/compress some fields to reduce number of public inputs & outputs here?
     const finalBlobChallenges = new FinalBlobBatchingChallenges(
       Fr.fromString(flattenedArgs[offset++]),
       BLS12Fr.fromNoirBigNum({ limbs: flattenedArgs.slice(offset, (offset += BLS12_FR_LIMBS)) }),
     );
 
     // - args[4] is the start blob batching accumulator
-    // TODO(MW): Omit/compress some fields to reduce number of public inputs & outputs here. Below bignum stuff is temporary:
+    // TODO(#14646): Omit/compress some fields to reduce number of public inputs & outputs here?
     const startBlobAccumulatorFields = flattenedArgs.slice(offset, (offset += BLOB_ACCUMULATOR_PUBLIC_INPUTS));
     const startBlobAccumulator = BlobAccumulatorPublicInputs.fromFields(startBlobAccumulatorFields.map(Fr.fromString));
 

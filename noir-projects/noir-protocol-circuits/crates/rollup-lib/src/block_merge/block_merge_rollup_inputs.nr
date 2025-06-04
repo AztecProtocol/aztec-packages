@@ -55,18 +55,16 @@ impl BlockMergeRollupInputs {
 
         let fees = components::accumulate_blocks_fees(left, right);
 
+        // Note: for blob batching, in assert_prev_block_rollups_follow_on_from_each_other we have checked:
+        // - left.end_blob_accumulator == right.start_blob_accumulator
+        // - left.challenge_z == right.challenge_z
+        // - left.challenge_gamma == right.challenge_gamma
+
         let blob_public_inputs = BlockBlobPublicInputs {
             start_blob_accumulator: left.blob_public_inputs.start_blob_accumulator,
             end_blob_accumulator: right.blob_public_inputs.end_blob_accumulator,
             final_blob_challenges: left.blob_public_inputs.final_blob_challenges,
         };
-
-        // TODO(MW): Batching here will consist of checks:
-        // - left.end_blob_accumulator == right.start_blob_accumulator
-        // - left.challenge_z == right.challenge_z
-        // - left.challenge_gamma == right.challenge_gamma
-        // (^should probably exist in assert_prev_block_rollups_follow_on_from_each_other())
-        // then assigning this.start_blob_accumulator = left.start_blob_accumulator & this.end_blob_accumulator = right.end_blob_accumulator
 
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.previous_archive,

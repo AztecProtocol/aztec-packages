@@ -96,8 +96,9 @@ library ProposeLib {
     FeeLib.updateL1GasFeeOracle();
 
     InterimProposeValues memory v;
-    // Since an invalid blob hash here would fail the consensus checks of
-    // the header, the `blobInput` is implicitly accepted by consensus as well.
+
+    // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly similar to blobCommitmentsHash,
+    // see comment in BlobLib.sol -> validateBlobs().
     (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) =
       BlobLib.validateBlobs(_blobsInput, _checkBlob);
 
