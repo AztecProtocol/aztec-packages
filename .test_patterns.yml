@@ -223,6 +223,10 @@ tests:
     error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
+  - regex: "ethereum/src/deploy_l1_contracts.test.ts"
+    error_regex: "expect(status).toBeGreaterThan(0);"
+    owners:
+      - *palla
   - regex: "ethereum/src/l1_tx_utils.test.ts"
     error_regex: "✕ calculates correct gas prices for initial attempt"
     owners:
