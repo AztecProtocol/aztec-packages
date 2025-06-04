@@ -31,6 +31,7 @@ struct PublicInputs {
     TreeSnapshots startTreeSnapshots;
     Gas startGasUsed;
     GasSettings gasSettings;
+    GasFees effectiveGasFees;
     AztecAddress feePayer;
     PublicCallRequestArrayLengths publicCallRequestArrayLengths;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
@@ -88,6 +89,7 @@ struct PublicInputs {
                    startTreeSnapshots,
                    startGasUsed,
                    gasSettings,
+                   effectiveGasFees,
                    feePayer,
                    publicCallRequestArrayLengths,
                    publicSetupCallRequests,
@@ -293,10 +295,11 @@ struct AccumulatedData {
     // TODO: add as needed.
     std::vector<FF> noteHashes;
     std::vector<FF> nullifiers;
+    std::vector<ScopedL2ToL1Message> l2ToL1Messages;
 
     bool operator==(const AccumulatedData& other) const = default;
 
-    MSGPACK_FIELDS(noteHashes, nullifiers);
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Messages);
 };
 
 // We are currently using this structure as the input to TX simulation.

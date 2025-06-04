@@ -116,6 +116,11 @@ tests:
     error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
     owners:
       - *sean
+  # http://ci.aztec-labs.com/5a291189b35a1b38
+  - regex: "src/e2e_p2p/rediscovery.test.ts"
+    error_regex: 'CodeError: writable end state is "writing" not "ready"'
+    owners:
+      - *palla
   - regex: "src/e2e_p2p/reqresp"
     error_regex: 'CodeError: writable end state is "writing" not "ready"'
     owners:
@@ -207,6 +212,16 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
+  # http://ci.aztec-labs.com/dbd1f6d89d783fe6
+  - regex: "p2p/src/client/p2p_client.integration.test.ts"
+    error_regex: "CodeError: writable end state is .writing. not .ready."
+    owners:
+      - *palla
+  # http://ci.aztec-labs.com/ef728e7bedb2710b
+  - regex: "p2p/src/client/p2p_client.integration.test.ts"
+    error_regex: "Expected number of calls: 0"
+    owners:
+      - *palla
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:

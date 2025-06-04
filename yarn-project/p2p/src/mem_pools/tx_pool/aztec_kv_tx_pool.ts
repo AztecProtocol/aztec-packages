@@ -279,12 +279,12 @@ export class AztecKVTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public async addTxs(txs: Tx[]): Promise<void> {
+  public async addTxs(txs: Tx[]): Promise<number> {
+    let addedCount = 0;
     const hashesAndStats = await Promise.all(
       txs.map(async tx => ({ txHash: await tx.getTxHash(), txStats: await tx.getStats() })),
     );
     await this.#store.transactionAsync(async () => {
-      let addedCount = 0;
       let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
       await Promise.all(
         txs.map(async (tx, i) => {
@@ -320,6 +320,8 @@ export class AztecKVTxPool implements TxPool {
       this.#metrics.recordAddedObjects(addedCount - numNewTxsEvicted, 'pending');
       this.#metrics.recordRemovedObjects(numLowPriorityTxsEvicted - numNewTxsEvicted, 'pending');
     });
+
+    return addedCount;
   }
 
   /**
