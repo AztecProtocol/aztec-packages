@@ -5,30 +5,39 @@
 
 namespace bb {
 
-std::vector<uint8_t> decompress(const void* bytes, size_t size)
+std::vector<uint8_t> decompress(const void* compressed, std::size_t comp_size)
 {
-    std::vector<uint8_t> content;
-    // initial size guess
-    content.resize(1024ULL * 128ULL);
-    for (;;) {
-        auto decompressor = std::unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)>{
-            libdeflate_alloc_decompressor(), libdeflate_free_decompressor
-        };
-        size_t actual_size = 0;
-        libdeflate_result decompress_result =
-            libdeflate_gzip_decompress(decompressor.get(), bytes, size, content.data(), content.size(), &actual_size);
-        if (decompress_result == LIBDEFLATE_INSUFFICIENT_SPACE) {
-            // need a bigger buffer
-            content.resize(content.size() * 2);
-            continue;
-        }
-        if (decompress_result == LIBDEFLATE_BAD_DATA) {
-            THROW std::invalid_argument("bad gzip data in bb main");
-        }
-        content.resize(actual_size);
-        break;
+    // header(10) + footer(8)
+    if (comp_size < 18) {
+        throw std::invalid_argument("truncated gzip");
     }
-    return content;
+
+    const std::uint8_t* in = static_cast<const std::uint8_t*>(compressed);
+
+    // Read the little-endian ISIZE.
+    // Every gzip member ends with an 8-byte footer: four bytes CRC-32 and four bytes ISIZE — the original uncompressed
+    // length modulo 2³². We do not support input files > 4GiB.
+    std::uint32_t isize =
+        static_cast<std::uint32_t>(in[comp_size - 4]) | static_cast<std::uint32_t>(in[comp_size - 3]) << 8 |
+        static_cast<std::uint32_t>(in[comp_size - 2]) << 16 | static_cast<std::uint32_t>(in[comp_size - 1]) << 24;
+
+    std::vector<std::uint8_t> out(isize);
+
+    // Decompress.
+    std::unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)> dec{ libdeflate_alloc_decompressor(),
+                                                                                      libdeflate_free_decompressor };
+
+    size_t written = 0;
+    libdeflate_result r = libdeflate_gzip_decompress(dec.get(), in, comp_size, out.data(), out.size(), &written);
+    if (r != LIBDEFLATE_SUCCESS) {
+        THROW std::invalid_argument("bad gzip data");
+    }
+
+    if (written != isize) {
+        THROW std::runtime_error("gzip size mismatch!");
+    }
+
+    return out;
 }
 
 template <typename T> T unpack_from_file(const std::filesystem::path& filename)
