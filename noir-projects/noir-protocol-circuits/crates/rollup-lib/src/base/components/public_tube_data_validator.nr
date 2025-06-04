@@ -1,6 +1,7 @@
 use crate::base::components::{
     gas::clamp_gas_settings_for_avm, validate_tube_data::validate_max_fees_per_gas,
 };
+use super::fees::compute_effective_gas_fees;
 use dep::types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, constant_rollup_data::ConstantRollupData,
@@ -75,6 +76,15 @@ impl PublicTubeDataValidator {
             ),
             avm_data.gas_settings,
             "unexpected gas settings used in the AVM",
+        );
+
+        assert_eq(
+            compute_effective_gas_fees(
+                avm_data.global_variables.gas_fees, // AVM global_variables are validated to be equal in validate_combined_constant_data
+                tube_data.constants.tx_context.gas_settings,
+            ),
+            avm_data.effective_gas_fees,
+            "unexpected effective gas fees used in the AVM",
         );
 
         assert_eq(

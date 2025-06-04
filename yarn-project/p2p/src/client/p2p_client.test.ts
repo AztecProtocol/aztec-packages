@@ -33,6 +33,7 @@ describe('P2P Client', () => {
     txPool.getMinedTxHashes.mockResolvedValue([]);
     txPool.getAllTxHashes.mockResolvedValue([]);
     txPool.hasTxs.mockResolvedValue([]);
+    txPool.addTxs.mockResolvedValue(1);
 
     p2pService = mock<P2PService>();
     p2pService.sendBatchRequest.mockResolvedValue([]);
@@ -78,14 +79,31 @@ describe('P2P Client', () => {
     expect(client.isReady()).toEqual(false);
   });
 
-  it('adds txs to pool', async () => {
+  it('adds txs to pool and propagates it', async () => {
     await client.start();
     const tx1 = await mockTx();
     const tx2 = await mockTx();
+
     await client.sendTx(tx1);
     await client.sendTx(tx2);
 
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
+    expect(p2pService.propagate).toHaveBeenCalledTimes(2);
+
+    await client.stop();
+  });
+
+  it('adds txs to pool and dont propagate it if it already existed', async () => {
+    await client.start();
+    const tx1 = await mockTx();
+
+    await client.sendTx(tx1);
+    txPool.addTxs.mockResolvedValueOnce(0);
+    await client.sendTx(tx1);
+
+    expect(txPool.addTxs).toHaveBeenCalledTimes(2);
+    expect(p2pService.propagate).toHaveBeenCalledTimes(1);
+
     await client.stop();
   });
 
