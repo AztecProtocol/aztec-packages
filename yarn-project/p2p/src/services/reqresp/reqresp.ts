@@ -5,7 +5,7 @@ import { executeTimeout } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import type { IncomingStreamData, PeerId, Stream } from '@libp2p/interface';
+import { CodeError, type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
 import { pipe } from 'it-pipe';
 import type { Libp2p } from 'libp2p';
 import type { Uint8ArrayList } from 'uint8arraylist';
@@ -538,7 +538,7 @@ export class ReqResp {
 
     // Timeout errors are punished with high tolerance, they can be due to a geogrpahically far away peer or an
     // overloaded peer
-    if (e instanceof IndividualReqRespTimeoutError) {
+    if (e instanceof IndividualReqRespTimeoutError || (e instanceof CodeError && e.code === 'ERR_TIMEOUT')) {
       this.logger.debug(
         `Timeout error: ${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`,
         logTags,
@@ -573,7 +573,7 @@ export class ReqResp {
       }
 
       const messageData = Buffer.concat(chunks);
-      const message: Buffer = this.snappyTransform.inboundTransformNoTopic(messageData);
+      const message = await this.snappyTransform.inboundTransformAsync(messageData);
 
       return {
         status: statusBuffer ?? ReqRespStatus.UNKNOWN,
@@ -651,13 +651,13 @@ export class ReqResp {
             const successChunk = Buffer.from([ReqRespStatus.SUCCESS]);
             yield new Uint8Array(successChunk);
 
-            yield new Uint8Array(transform.outboundTransformNoTopic(response));
+            yield new Uint8Array(await transform.outboundTransformAsync(response));
           }
         },
         stream,
       );
     } catch (e: any) {
-      this.logger.warn('Reqresp Response error: ', e);
+      this.logger.warn(`Reqresp Response error: ${e?.name} ${e?.code} ${e?.message}`, { err: e, protocol });
       this.metrics.recordResponseError(protocol);
 
       // If we receive a known error, we use the error status in the response chunk, otherwise we categorize as unknown
@@ -677,7 +677,7 @@ export class ReqResp {
           stream,
         );
       } else {
-        this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
+        this.logger.trace('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
       }
     } finally {
       //NOTE: All other status codes indicate closed stream.
