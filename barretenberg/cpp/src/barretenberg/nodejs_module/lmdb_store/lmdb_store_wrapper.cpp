@@ -65,8 +65,6 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
     _msg_processor.register_handler(LMDBStoreMessageType::ADVANCE_CURSOR, this, &LMDBStoreWrapper::advance_cursor);
     _msg_processor.register_handler(
         LMDBStoreMessageType::ADVANCE_CURSOR_COUNT, this, &LMDBStoreWrapper::advance_cursor_count);
-    _msg_processor.register_handler(
-        LMDBStoreMessageType::ADVANCE_CURSOR_COUNT, this, &LMDBStoreWrapper::advance_cursor);
     _msg_processor.register_handler(LMDBStoreMessageType::CLOSE_CURSOR, this, &LMDBStoreWrapper::close_cursor);
 
     _msg_processor.register_handler(LMDBStoreMessageType::BATCH, this, &LMDBStoreWrapper::batch);
