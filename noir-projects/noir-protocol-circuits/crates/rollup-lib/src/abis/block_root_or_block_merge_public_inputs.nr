@@ -8,7 +8,7 @@ use dep::types::{
     traits::{Deserialize, Empty, Serialize, ToField},
     utils::reader::Reader,
 };
-use blob::blob_public_inputs::BlockBlobPublicInputs;
+use blob::blob_batching_public_inputs::BlockBlobPublicInputs;
 
 pub struct FeeRecipient {
     pub recipient: EthAddress,
@@ -53,7 +53,7 @@ pub struct BlockRootOrBlockMergePublicInputs {
     pub vk_tree_root: Field, // Root of allowed vk tree
     pub protocol_contract_tree_root: Field, // Root of protocol contract tree
     pub prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
-    pub blob_public_inputs: [BlockBlobPublicInputs; AZTEC_MAX_EPOCH_DURATION], // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
+    pub blob_public_inputs: BlockBlobPublicInputs, // Blob accumulators at the start and end of this block range
 }
 
 impl BlockRootOrBlockMergePublicInputs {
@@ -75,7 +75,7 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
             prover_id: 0,
-            blob_public_inputs: [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
+            blob_public_inputs: BlockBlobPublicInputs::empty(),
         }
     }
 }
@@ -113,9 +113,7 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
         fields.push(self.vk_tree_root);
         fields.push(self.protocol_contract_tree_root);
         fields.push(self.prover_id as Field);
-        for i in 0..AZTEC_MAX_EPOCH_DURATION {
-            fields.extend_from_array(self.blob_public_inputs[i].serialize());
-        }
+        fields.extend_from_array(self.blob_public_inputs.serialize());
         assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
 
         fields.storage()
@@ -141,10 +139,7 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
             vk_tree_root: reader.read(),
             protocol_contract_tree_root: reader.read(),
             prover_id: reader.read(),
-            blob_public_inputs: reader.read_struct_array(
-                BlockBlobPublicInputs::deserialize,
-                [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
-            ),
+            blob_public_inputs: reader.read_struct(BlockBlobPublicInputs::deserialize),
         };
 
         reader.finish();
