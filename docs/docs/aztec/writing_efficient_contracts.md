@@ -47,7 +47,7 @@ When private functions are called, the overhead of a "kernel circuit" is added e
 
 #### Profiling using FlameGraph
 
-Measuring the gate count across a private function can be seen [here](../developers/tutorials/codealong/contract_tutorials/counter_contract#investigate-the-increment-function).
+Measuring the gate count across a private function can be seen at the end of the counter tutorial [here](../developers/tutorials/codealong/contract_tutorials/counter_contract#investigate-the-increment-function). Full profiling and flamegraph commands explained [here](../developers/guides/smart_contracts/profiling_transactions).
 
 ### L2 Data costs
 
@@ -60,7 +60,90 @@ That is, what is stored in an L1 contract is simply a hash.
 
 For data availability, blobs are utilized since data storage is often cheaper here than in contracts. Like other L2s such costs are factored into the L2 fee mechanisms. These limits can be seen and iterated on when a transaction is simulated/estimated.
 
-## Example using unconstrained to reduce L2 reads
+
+## Examples for private functions (reducing gate count)
+### Use arithmetic instead of non-arithmetic operations
+
+Because the underlying equation in the proving backend makes use of multiplication and addition, these operations incur less gates than bit-shifting or bit-masking.
+
+Eg: `n = n * 256` is represented in less gates than `n << 8`
+
+### Loops
+
+Since private functions are circuits, their size must be known at compile time, which is equivalent to its execution trace.
+See [this example](https://github.com/noir-lang/noir-examples/blob/master/noir_by_example/loops/noir/src/main.nr#L11) for how to use loops when dynamic execution lengths (ie variable number of loops) is not possible.
+
+### Using unconstrained
+#### Reducing gate count
+
+Consider the following example of an implementation of the `sqrt` function:
+```rust
+use dep::aztec::macros::aztec;
+
+#[aztec]
+pub contract OptimisationExample {
+    use dep::aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
+
+    #[storage]
+    struct Storage<Context> {}
+
+    #[public]
+    #[initializer]
+    fn constructor() {}
+
+    #[private]
+    fn sqrt_inefficient(number: Field) -> Field {
+        super::sqrt_constrained(number)
+    }
+
+    #[private]
+    fn sqrt_efficient(number: Field) -> Field {
+        // Safety: calculate in unconstrained function, then constrain the result
+        let x = unsafe { super::sqrt_unconstrained(number) };
+        assert(x * x == number, "x*x should be number");
+        x
+    }
+
+}
+
+fn sqrt_constrained(number: Field) -> Field {
+    let MAX_LEN = 100;
+
+    let mut guess = number;
+    let mut guess_squared = guess * guess;
+    for _ in 1..MAX_LEN as u32 + 1 {
+        // only print when beneath len (inclusive)
+        if (guess_squared != number) {
+            guess = (guess + number / guess) / 2;
+            guess_squared = guess * guess;
+        }
+    }
+
+    guess
+}
+
+unconstrained fn sqrt_unconstrained(number: Field) -> Field {
+    let mut guess = number;
+    let mut guess_squared = guess * guess;
+    while guess_squared != number {
+        guess = (guess + number / guess) / 2;
+        guess_squared = guess * guess;
+    }
+    guess
+}
+
+```
+
+The two implementations after the contract differ in one being constrained vs unconstrained, as well as the loop implementation (which has other design considerations).
+Measuring the two, we find the `sqrt_inefficient` to require around 1000 extra gates compared to `sqrt_efficient`.
+
+To see each flamegraph:
+- `SERVE=1 aztec flamegraph target/optimisation_example-OptimisationExample.json sqrt_inefficient`
+- `SERVE=1 aztec flamegraph target/optimisation_example-OptimisationExample.json sqrt_efficient`
+
+Note: this is largely a factor of the loop size choice based on the expected size of number you'll be calculating the square root of. For larger numbers, the loop would have to be much larger, so perform in an unconstrained way (then constraining the result) is much more efficient.
+
+#### Reducing L2 reads
 
 If a struct has many fields to be read, we can design an extra variable maintained as the hash of all values within it (like a checksum). When it comes to reading, we can now do an unconstrained read (incurring no read requests), and then check the hash of the result against that stored for the struct. This final check is thus only one read request rather than one per variable.
 
