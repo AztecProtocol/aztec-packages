@@ -903,8 +903,8 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
         size_t affine_output_it = 0;
         size_t num_affine_output_points = num_affine_points_to_add / 2;
         while ((affine_output_it < (num_affine_output_points - 1)) && (num_affine_output_points > 0)) {
-            size_t lhs_bucket = affine_addition_output_bucket_destinations[affine_output_it];
-            size_t rhs_bucket = affine_addition_output_bucket_destinations[affine_output_it + 1];
+            size_t lhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it]);
+            size_t rhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it + 1]);
             bool has_overflow = overflow_exists.get(lhs_bucket);
 
             bool buckets_match = (lhs_bucket == rhs_bucket);
@@ -965,7 +965,7 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
         }
         if (affine_output_it == (num_affine_output_points - 1)) {
 
-            size_t lhs_bucket = affine_addition_output_bucket_destinations[affine_output_it];
+            size_t lhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it]);
 
             // bucket_accumulators[lhs_bucket] = affine_output[affine_output_it];
             // overflow_exists[lhs_bucket] = true;
