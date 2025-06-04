@@ -289,10 +289,6 @@ template <typename Builder> class field_t {
 
     Builder* get_context() const { return context; }
 
-    /**
-     * Slices a `field_t` at given indices (msb, lsb) both included in the slice,
-     * returns three parts: [low, slice, high].
-     */
     std::array<field_t, 3> slice(uint8_t msb, uint8_t lsb) const;
 
     /**

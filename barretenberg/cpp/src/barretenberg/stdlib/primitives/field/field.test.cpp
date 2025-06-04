@@ -724,13 +724,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
         //
         field_ct a(witness_ct(&builder, fr(126283)));
         auto slice_data = a.slice(10, 3);
-
         EXPECT_EQ(slice_data[0].get_value(), fr(3));
         EXPECT_EQ(slice_data[1].get_value(), fr(169));
         EXPECT_EQ(slice_data[2].get_value(), fr(61));
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     static void test_slice_equal_msb_lsb()
@@ -759,21 +757,25 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         uint8_t lsb = 106;
         uint8_t msb = 189;
-        fr a_ = fr(uint256_t(fr::random_element()) && ((uint256_t(1) << 252) - 1));
+        fr a_ = fr(engine.get_random_uint256() && ((uint256_t(1) << 252) - 1));
         field_ct a(witness_ct(&builder, a_));
         auto slice = a.slice(msb, lsb);
 
-        const uint256_t expected0 = uint256_t(a_) & ((uint256_t(1) << uint64_t(lsb)) - 1);
-        const uint256_t expected1 = (uint256_t(a_) >> lsb) & ((uint256_t(1) << (uint64_t(msb - lsb) + 1)) - 1);
-        const uint256_t expected2 =
-            (uint256_t(a_) >> uint64_t(msb + 1)) & ((uint256_t(1) << (uint64_t(252 - msb) - 1)) - 1);
+        const uint256_t expected0 = uint256_t(a_) & ((uint256_t(1) << lsb) - 1);
+        const uint256_t expected1 = (uint256_t(a_) >> lsb) & ((uint256_t(1) << (msb - lsb + 1)) - 1);
+        const uint256_t expected2 = (uint256_t(a_) >> (msb + 1)) & ((uint256_t(1) << (252 - msb - 1)) - 1);
 
         EXPECT_EQ(slice[0].get_value(), fr(expected0));
         EXPECT_EQ(slice[1].get_value(), fr(expected1));
         EXPECT_EQ(slice[2].get_value(), fr(expected2));
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // Check that attempting to slice a full uint256_t value leads to a circuit failure.
+        a = witness_ct(&builder, engine.get_random_uint256());
+        slice = a.slice(msb, lsb);
+        EXPECT_FALSE(CircuitChecker::check(builder));
+        EXPECT_TRUE(builder.err() == "slice: hi value too large.");
     }
 
     static void three_bit_table()

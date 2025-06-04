@@ -69,7 +69,6 @@ field_t<Builder> field_t<Builder>::from_witness_index(Builder* ctx, const uint32
  */
 template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
 {
-    info("bool conversion");
     // If `this` is a constant field_t element, the resulting bool is also constant.
     // In this case, `additive_constant` uniquely determines the value of `this`.
     // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
@@ -829,6 +828,10 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
     return (lhs - rhs).madd(predicate, rhs);
 }
 
+/**
+ * @brief Let x = *this.normalize(), constrain x.v < 2^{num_bits}
+ *
+ */
 template <typename Builder>
 void field_t<Builder>::create_range_constraint(const size_t num_bits, std::string const& msg) const
 {
@@ -1155,36 +1158,49 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     total.tag = new_tag;
     return total.normalize();
 }
-
+/**
+ * Slices a `field_t` at given indices (msb, lsb) both included in the slice,
+ * returns three parts: [low, slice, high].
+ *
+ * Note: the value of `*this` is constrained to be < 2^{C - msb}, where `C = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH`.
+ */
 template <typename Builder>
 std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const uint8_t lsb) const
 {
     ASSERT(msb >= lsb);
     ASSERT(msb < grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
-    const field_t lhs = *this;
-    Builder* ctx = lhs.get_context();
+    Builder* ctx = get_context();
+    const uint256_t one(1);
 
-    const uint256_t value = uint256_t(get_value());
-    const auto msb_plus_one = uint32_t(msb) + 1;
-    const auto hi_mask = ((uint256_t(1) << (256 - uint32_t(msb))) - 1);
+    const uint256_t value = static_cast<uint256_t>(get_value());
+    const uint8_t msb_plus_one = msb + 1;
+    // Slice the bits of `*this` in the range [msb + 1, 255]
+    const auto hi_mask = (one << (256 - msb)) - 1;
     const auto hi = (value >> msb_plus_one) & hi_mask;
 
-    const auto lo_mask = (uint256_t(1) << lsb) - 1;
+    // Slice the bits of `*this` in the range [0,lsb - 1]
+    const auto lo_mask = (one << lsb) - 1;
     const auto lo = value & lo_mask;
 
-    const auto slice_mask = ((uint256_t(1) << (uint32_t(msb - lsb) + 1)) - 1);
+    // Slice the bits in the desired range [lsb, msb]
+    const auto slice_mask = (one << (msb_plus_one - lsb)) - 1;
     const auto slice = (value >> lsb) & slice_mask;
 
-    const field_t hi_wit = field_t(witness_t(ctx, hi));
-    const field_t lo_wit = field_t(witness_t(ctx, lo));
-    const field_t slice_wit = field_t(witness_t(ctx, slice));
+    const field_t hi_wit(witness_t(ctx, hi));
+    const field_t lo_wit(witness_t(ctx, lo));
+    const field_t slice_wit(witness_t(ctx, slice));
 
-    hi_wit.create_range_constraint(grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH - uint32_t(msb),
-                                   "slice: hi value too large.");
+    // `hi_wit` contains the bits above bit `msb`, so a priori it fits in at most (255 - msb) bits. We need to ensure
+    // that its value is strictly less than 2^(252 - msb)
+    hi_wit.create_range_constraint(grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH - msb, "slice: hi value too large.");
+    // Ensure that `lo_wit`is in the range [0, lsb - 1]
     lo_wit.create_range_constraint(lsb, "slice: lo value too large.");
+    // Ensure that `slice_wit` is in the range [lsb, msb]
     slice_wit.create_range_constraint(msb_plus_one - lsb, "slice: sliced value too large.");
-    assert_equal(
-        ((hi_wit * field_t(uint256_t(1) << msb_plus_one)) + lo_wit + (slice_wit * field_t(uint256_t(1) << lsb))));
+    // Check that
+    //     *this = lo_wit + slice_wit * 2^{lsb} + hi_wit * 2^{msb + 1}
+    const field_t decomposed = lo_wit.add_two(slice_wit * field_t(one << lsb), hi_wit * field_t(one << msb_plus_one));
+    assert_equal(decomposed);
 
     std::array<field_t, 3> result = { lo_wit, slice_wit, hi_wit };
     for (size_t i = 0; i < 3; i++) {
