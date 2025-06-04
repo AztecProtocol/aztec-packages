@@ -418,6 +418,7 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + TREE_SNAPSHOTS_LENGTH /* start_tree_snapshots */
     + GAS_LENGTH /* start_gas_used */
     + GAS_SETTINGS_LENGTH
+    + GAS_FEES_LENGTH /* effective_gas_fees */
     + 1 /* fee_payer */
     + NUM_PUBLIC_CALL_REQUEST_ARRAYS /* public_call_request_array_lengths */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_setup_call_requests */
@@ -628,9 +629,13 @@ pub global AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX: u32
     AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX + 1;
 // Note: each of these gas settings ^, despite being 2 entries each, are split across 2 columns. So we only bump by 1 for each.
 
+// Effective Gas Fees
+pub global AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX + 1;
+
 // Fee Payer
 pub global AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX + 1;
+    AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX + 1;
 
 // Public Call Request Array Lengths
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX: u32 =

@@ -43,6 +43,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_COINBASE_ROW_IDX,
+        AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_FEE_RECIPIENT_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_SLOT_NUMBER_ROW_IDX,
@@ -87,6 +88,7 @@ pub struct AvmCircuitPublicInputs {
     pub start_tree_snapshots: TreeSnapshots,
     pub start_gas_used: Gas,
     pub gas_settings: GasSettings,
+    pub effective_gas_fees: GasFees,
     pub fee_payer: AztecAddress,
     pub public_call_request_array_lengths: PublicCallRequestArrayLengths,
     pub public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
@@ -114,6 +116,7 @@ impl Empty for AvmCircuitPublicInputs {
             start_tree_snapshots: TreeSnapshots::empty(),
             start_gas_used: Gas::empty(),
             gas_settings: GasSettings::empty(),
+            effective_gas_fees: GasFees::empty(),
             fee_payer: AztecAddress::zero(),
             public_call_request_array_lengths: PublicCallRequestArrayLengths::empty(),
             public_setup_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
@@ -139,6 +142,7 @@ impl Eq for AvmCircuitPublicInputs {
             & (self.start_tree_snapshots == other.start_tree_snapshots)
             & (self.start_gas_used == other.start_gas_used)
             & (self.gas_settings == other.gas_settings)
+            & (self.effective_gas_fees == other.effective_gas_fees)
             & (self.fee_payer == other.fee_payer)
             & (self.public_call_request_array_lengths == other.public_call_request_array_lengths)
             & (self.public_setup_call_requests == other.public_setup_call_requests)
@@ -177,6 +181,7 @@ impl Serialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
         fields.extend_from_array(self.start_tree_snapshots.serialize());
         fields.extend_from_array(self.start_gas_used.serialize());
         fields.extend_from_array(self.gas_settings.serialize());
+        fields.extend_from_array(self.effective_gas_fees.serialize());
         fields.push(self.fee_payer.to_field());
         fields.extend_from_array(self.public_call_request_array_lengths.serialize());
         for i in 0..self.public_setup_call_requests.len() {
@@ -213,6 +218,7 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
             start_tree_snapshots: reader.read_struct(TreeSnapshots::deserialize),
             start_gas_used: reader.read_struct(Gas::deserialize),
             gas_settings: reader.read_struct(GasSettings::deserialize),
+            effective_gas_fees: reader.read_struct(GasFees::deserialize),
             fee_payer: AztecAddress::from_field(reader.read()),
             public_call_request_array_lengths: reader.read_struct(
                 PublicCallRequestArrayLengths::deserialize,
@@ -436,6 +442,13 @@ impl AvmCircuitPublicInputs {
             self.gas_settings.max_priority_fees_per_gas,
             &mut cols,
             AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX,
+        );
+
+        // Effective gas fees
+        set_gas_fees_in_cols(
+            self.global_variables.gas_fees,
+            &mut cols,
+            AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX,
         );
 
         // Fee payer
