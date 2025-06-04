@@ -39,7 +39,7 @@ class BitVector {
         ASSERT(index < num_bits_);
         const uint64_t word = index >> 6;
         const uint64_t bit = index & 63;
-        return ((data_[word] >> bit) & 1) == 1;
+        return ((data_[static_cast<size_t>(word)] >> bit) & 1) == 1;
     }
 
     void clear()
