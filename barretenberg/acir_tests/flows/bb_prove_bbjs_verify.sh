@@ -1,7 +1,17 @@
 #!/bin/bash
 
-# prove with bb.js and verify using bb classes
+# Usage:
+#   BIN=/path/to/bb SYS=ultra_honk ./run_ultra_honk_flow.sh
+#
+# This script generates a proof with Barretenberg’s UltraHonk backend and then
+# verifies it using bb.js. The environment variable $BIN must point to the
+# Barretenberg CLI executable (e.g. “bb”). Under set -u, any undefined variable
+# is treated as a fatal error.
+
 set -eu
+
+# Ensure that BIN is defined; otherwise, print a clear error and exit.
+: "${BIN:?Environment variable BIN must be set to the Barretenberg CLI executable (e.g. /usr/local/bin/bb).}"
 
 if [ "${SYS:-}" != "ultra_honk" ]; then
   echo "Error: This flow only supports ultra_honk"
