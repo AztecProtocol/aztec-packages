@@ -25,7 +25,7 @@ import { ForwarderAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { buildBlockWithCleanDB } from '@aztec/prover-client/block-builder';
+import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
 import { SequencerPublisher } from '@aztec/sequencer-client';
 import type { L2Tips } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';

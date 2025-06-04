@@ -72,6 +72,10 @@ class Execution : public ExecutionInterface {
               MemoryAddress cd_size);
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
+    void calldata_copy(ContextInterface& context,
+                       MemoryAddress copy_size_offset,
+                       MemoryAddress cd_start_offset,
+                       MemoryAddress dst_offset);
 
     void init_gas_tracker(ContextInterface& context);
     GasEvent finish_gas_tracker();
