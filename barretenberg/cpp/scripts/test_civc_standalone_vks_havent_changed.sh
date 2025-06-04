@@ -10,7 +10,7 @@ cd ..
 # - Upload the compressed results: aws s3 cp bb-civc-inputs-[version].tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[version].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to: docker pull aztecprotocol/build:3.0
 
-pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-31196ace.tar.gz"
+pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-c1968557.tar.gz"
 
 export inputs_tmp_dir=$(mktemp -d)
 trap 'rm -rf "$inputs_tmp_dir"' EXIT SIGINT
