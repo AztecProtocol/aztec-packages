@@ -177,7 +177,7 @@ val44 = (1 - last) * val43';
 // Memory permutation
 // TODO: Proper memory permutation (not a lookup), add clks in the tuple and introduce a specific
 // selector for keccak in memory sub-trace.
-#[KECCAK_MEM_TO_MEM]
+#[SLICE_TO_MEM]
 sel {addr, val, tag, rw, space_id}
 in // TODO: replace with `is` (permutation)
 memory.sel {memory.address, memory.value, memory.tag, memory.rw, memory.space_id};

@@ -262,12 +262,16 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         lookup_internal_call_push_call_stack_relation<FF_>,
         lookup_internal_call_unwind_call_stack_relation<FF_>,
 =======
 =======
         lookup_keccak_memory_keccak_mem_to_mem_relation<FF_>,
 >>>>>>> cd68b98ec7 (Pil relations for keccak slice memory gadget)
+=======
+        lookup_keccak_memory_slice_to_mem_relation<FF_>,
+>>>>>>> 3e308602cf (Activate lookup to memory sub-trace)
         lookup_keccakf1600_round_cst_relation<FF_>,
         lookup_keccakf1600_state_chi_00_relation<FF_>,
         lookup_keccakf1600_state_chi_01_relation<FF_>,
