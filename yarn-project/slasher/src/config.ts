@@ -7,12 +7,14 @@ export enum Offense {
   UNKNOWN = 0,
   EPOCH_PRUNE = 1,
   INACTIVITY = 2,
+  INVALID_BLOCK = 3,
 }
 
 export const OffenseToBigInt: Record<Offense, bigint> = {
   [Offense.UNKNOWN]: 0n,
   [Offense.EPOCH_PRUNE]: 1n,
   [Offense.INACTIVITY]: 2n,
+  [Offense.INVALID_BLOCK]: 3n,
 };
 
 export function bigIntToOffense(offense: bigint): Offense {
@@ -23,6 +25,8 @@ export function bigIntToOffense(offense: bigint): Offense {
       return Offense.EPOCH_PRUNE;
     case 2n:
       return Offense.INACTIVITY;
+    case 3n:
+      return Offense.INVALID_BLOCK;
     default:
       throw new Error(`Unknown offense: ${offense}`);
   }
@@ -58,6 +62,9 @@ export interface SlasherConfig {
   slashPruneEnabled: boolean;
   slashPrunePenalty: bigint;
   slashPruneMaxPenalty: bigint;
+  slashInvalidBlockEnabled: boolean;
+  slashInvalidBlockPenalty: bigint;
+  slashInvalidBlockMaxPenalty: bigint;
   slashInactivityEnabled: boolean;
   slashInactivityCreateTargetPercentage: number; // 0-1, 0.9 means 90%
   slashInactivitySignalTargetPercentage: number; // 0-1, 0.6 means 60%
@@ -73,6 +80,9 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashPruneEnabled: true,
   slashPrunePenalty: 1n,
   slashPruneMaxPenalty: 100n,
+  slashInvalidBlockEnabled: true,
+  slashInvalidBlockPenalty: 1n,
+  slashInvalidBlockMaxPenalty: 100n,
   slashInactivityEnabled: true,
   slashInactivityCreateTargetPercentage: 0.9,
   slashInactivitySignalTargetPercentage: 0.6,
@@ -82,11 +92,6 @@ export const DefaultSlasherConfig: SlasherConfig = {
 };
 
 export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
-  slashInactivityEnabled: {
-    env: 'SLASH_INACTIVITY_ENABLED',
-    description: 'Enable creation of inactivity slash payloads.',
-    ...booleanConfigHelper(DefaultSlasherConfig.slashInactivityEnabled),
-  },
   slashPayloadTtlSeconds: {
     env: 'SLASH_PAYLOAD_TTL_SECONDS',
     description: 'Time-to-live for slash payloads in seconds.',
@@ -112,6 +117,26 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     env: 'SLASH_PRUNE_MAX_PENALTY',
     description: 'Maximum penalty amount for slashing validators of a pruned epoch.',
     ...bigintConfigHelper(DefaultSlasherConfig.slashPruneMaxPenalty),
+  },
+  slashInvalidBlockEnabled: {
+    env: 'SLASH_INVALID_BLOCK_ENABLED',
+    description: 'Enable creation of slash payloads for invalid blocks.',
+    ...booleanConfigHelper(DefaultSlasherConfig.slashInvalidBlockEnabled),
+  },
+  slashInvalidBlockPenalty: {
+    env: 'SLASH_INVALID_BLOCK_PENALTY',
+    description: 'Penalty amount for slashing a validator for an invalid block.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashInvalidBlockPenalty),
+  },
+  slashInvalidBlockMaxPenalty: {
+    env: 'SLASH_INVALID_BLOCK_MAX_PENALTY',
+    description: 'Maximum penalty amount for slashing a validator for an invalid block.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashInvalidBlockMaxPenalty),
+  },
+  slashInactivityEnabled: {
+    env: 'SLASH_INACTIVITY_ENABLED',
+    description: 'Enable creation of inactivity slash payloads.',
+    ...booleanConfigHelper(DefaultSlasherConfig.slashInactivityEnabled),
   },
   slashInactivityCreateTargetPercentage: {
     env: 'SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE',

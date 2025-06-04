@@ -254,6 +254,20 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
+    const blockBuilder = new BlockBuilder(
+      {
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+        rollupVersion: config.rollupVersion,
+        l1ChainId: config.l1ChainId,
+      },
+      archiver,
+      worldStateSynchronizer,
+      archiver,
+      dateProvider,
+      telemetry,
+    );
+
     const watchers: Watcher[] = [];
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
@@ -269,24 +283,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
       watchers.push(epochPruneWatcher);
     }
-
-    const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
-    await slasherClient.start();
-
-    const blockBuilder = new BlockBuilder(
-      {
-        l1GenesisTime,
-        slotDuration: Number(slotDuration),
-        rollupVersion: config.rollupVersion,
-        l1ChainId: config.l1ChainId,
-      },
-      archiver,
-      worldStateSynchronizer,
-      archiver,
-      dateProvider,
-      telemetry,
-    );
-
     const validatorClient = createValidatorClient(config, {
       p2pClient,
       telemetry,
@@ -295,6 +291,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockBuilder,
       blockSource: archiver,
     });
+
+    if (validatorClient) {
+      watchers.push(validatorClient);
+    }
+
+    const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
+    await slasherClient.start();
+
     log.verbose(`All Aztec Node subsystems synced`);
 
     // now create the sequencer
