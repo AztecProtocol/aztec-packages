@@ -739,7 +739,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async deliverEvent(
     contractAddress: AztecAddress,
-    eventTypeId: EventSelector,
+    selector: EventSelector,
     content: Fr[],
     eventCommitment: Fr,
     txHash: TxHash,
