@@ -12,6 +12,7 @@ uint256 constant NUMBER_OF_ENTITIES = 40;
 uint256 constant NUMBER_UNSHIFTED = 35;
 uint256 constant NUMBER_TO_BE_SHIFTED = 5;
 uint256 constant PAIRING_POINTS_SIZE = 16;
+uint256 constant VERIFICATION_KEY_LENGTH = 111;
 
 // Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
 uint256 constant NUMBER_OF_ALPHAS = 25;
@@ -80,37 +81,37 @@ library Honk {
         uint256 logCircuitSize;
         uint256 publicInputsSize;
         // Selectors
-        G1Point qm;
-        G1Point qc;
-        G1Point ql;
-        G1Point qr;
-        G1Point qo;
-        G1Point q4;
-        G1Point qLookup; // Lookup
-        G1Point qArith; // Arithmetic widget
-        G1Point qDeltaRange; // Delta Range sort
-        G1Point qAux; // Auxillary
-        G1Point qElliptic; // Auxillary
-        G1Point qPoseidon2External;
-        G1Point qPoseidon2Internal;
+        G1ProofPoint qm;
+        G1ProofPoint qc;
+        G1ProofPoint ql;
+        G1ProofPoint qr;
+        G1ProofPoint qo;
+        G1ProofPoint q4;
+        G1ProofPoint qLookup; // Lookup
+        G1ProofPoint qArith; // Arithmetic widget
+        G1ProofPoint qDeltaRange; // Delta Range sort
+        G1ProofPoint qAux; // Auxillary
+        G1ProofPoint qElliptic; // Auxillary
+        G1ProofPoint qPoseidon2External;
+        G1ProofPoint qPoseidon2Internal;
         // Copy cnstraints
-        G1Point s1;
-        G1Point s2;
-        G1Point s3;
-        G1Point s4;
+        G1ProofPoint s1;
+        G1ProofPoint s2;
+        G1ProofPoint s3;
+        G1ProofPoint s4;
         // Copy identity
-        G1Point id1;
-        G1Point id2;
-        G1Point id3;
-        G1Point id4;
+        G1ProofPoint id1;
+        G1ProofPoint id2;
+        G1ProofPoint id3;
+        G1ProofPoint id4;
         // Precomputed lookup table
-        G1Point t1;
-        G1Point t2;
-        G1Point t3;
-        G1Point t4;
+        G1ProofPoint t1;
+        G1ProofPoint t2;
+        G1ProofPoint t3;
+        G1ProofPoint t4;
         // Fixed first and last
-        G1Point lagrangeFirst;
-        G1Point lagrangeLast;
+        G1ProofPoint lagrangeFirst;
+        G1ProofPoint lagrangeLast;
     }
 
     struct RelationParameters {

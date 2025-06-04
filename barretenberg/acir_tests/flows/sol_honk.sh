@@ -8,7 +8,7 @@ PROVE_FLAGS="$FLAGS $BFLAG --oracle_hash keccak --output_format bytes_and_fields
 VERIFY_FLAGS="$FLAGS --oracle_hash keccak"
 
 outdir=$(mktemp -d)
-trap "rm -rf $outdir" EXIT
+# trap "rm -rf $outdir" EXIT
 
 # Export the paths to the environment variables for the js test runner
 export PUBLIC_INPUTS="$outdir/public_inputs"

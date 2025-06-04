@@ -16,6 +16,8 @@
  * @param include_types_import - include a "HonkTypes" import, only required for local tests, not with the bundled
  *contract from bb contract_honk
  **/
+#include "barretenberg/ecc/fields/field_conversion.hpp"
+#include <ostream>
 inline void output_vk_sol_ultra_honk(std::ostream& os,
                                      auto const& key,
                                      std::string const& class_name,
@@ -30,14 +32,23 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
         os << "            " << name << ": uint256(" << element << ")," << std::endl;
     };
 
-    const auto print_g1 = [&](const auto& element, const std::string& name, const bool last = false) {
-        os << "            " << name << ": Honk.G1Point({ \n"
+    const auto print_g1_proof_point = [&](const auto& element, const std::string& name, const bool last = false) {
+        // split element.x into x_0 and x_1 and element.y into y_0 and y_1
+        std::vector<bb::fr> xs = bb::field_conversion::convert_grumpkin_fr_to_bn254_frs(element.x);
+        std::vector<bb::fr> ys = bb::field_conversion::convert_grumpkin_fr_to_bn254_frs(element.y);
+        os << "            " << name << ": Honk.G1ProofPoint({ \n"
            << "               "
-           << "x: "
-           << "uint256(" << element.x << "),\n"
+           << "x_0: "
+           << "uint256(" << xs[0] << "),\n"
            << "               "
-           << "y: "
-           << "uint256(" << element.y << ")\n"
+           << "x_1: "
+           << "uint256(" << xs[1] << "),\n"
+           << "               "
+           << "y_0: "
+           << "uint256(" << ys[0] << "),\n"
+           << "               "
+           << "y_1: "
+           << "uint256(" << ys[1] << ")\n"
            << "            })";
 
         // only include comma if we are not the last element
@@ -74,34 +85,33 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
     print_u256(key->circuit_size, "circuitSize");
     print_u256(key->log_circuit_size, "logCircuitSize");
     print_u256(key->num_public_inputs, "publicInputsSize");
-    print_g1(key->q_l, "ql");
-    print_g1(key->q_r, "qr");
-    print_g1(key->q_o, "qo");
-    print_g1(key->q_4, "q4");
-    print_g1(key->q_m, "qm");
-    print_g1(key->q_c, "qc");
-    print_g1(key->q_arith, "qArith");
-    print_g1(key->q_delta_range, "qDeltaRange");
-    print_g1(key->q_elliptic, "qElliptic");
-    print_g1(key->q_aux, "qAux");
-    print_g1(key->q_lookup, "qLookup");
-    print_g1(key->q_poseidon2_external, "qPoseidon2External");
-    print_g1(key->q_poseidon2_internal, "qPoseidon2Internal");
-    print_g1(key->sigma_1, "s1");
-    print_g1(key->sigma_2, "s2");
-    print_g1(key->sigma_3, "s3");
-    print_g1(key->sigma_4, "s4");
-    print_g1(key->table_1, "t1");
-    print_g1(key->table_2, "t2");
-    print_g1(key->table_3, "t3");
-    print_g1(key->table_4, "t4");
-    // print_g1("0x500", "0x520", key->table, "vk.TABLE_TYPE");
-    print_g1(key->id_1, "id1");
-    print_g1(key->id_2, "id2");
-    print_g1(key->id_3, "id3");
-    print_g1(key->id_4, "id4");
-    print_g1(key->lagrange_first, "lagrangeFirst");
-    print_g1(key->lagrange_last, "lagrangeLast", /*last=*/ true);
+    print_g1_proof_point(key->q_l, "ql");
+    print_g1_proof_point(key->q_r, "qr");
+    print_g1_proof_point(key->q_o, "qo");
+    print_g1_proof_point(key->q_4, "q4");
+    print_g1_proof_point(key->q_m, "qm");
+    print_g1_proof_point(key->q_c, "qc");
+    print_g1_proof_point(key->q_arith, "qArith");
+    print_g1_proof_point(key->q_delta_range, "qDeltaRange");
+    print_g1_proof_point(key->q_elliptic, "qElliptic");
+    print_g1_proof_point(key->q_aux, "qAux");
+    print_g1_proof_point(key->q_lookup, "qLookup");
+    print_g1_proof_point(key->q_poseidon2_external, "qPoseidon2External");
+    print_g1_proof_point(key->q_poseidon2_internal, "qPoseidon2Internal");
+    print_g1_proof_point(key->sigma_1, "s1");
+    print_g1_proof_point(key->sigma_2, "s2");
+    print_g1_proof_point(key->sigma_3, "s3");
+    print_g1_proof_point(key->sigma_4, "s4");
+    print_g1_proof_point(key->table_1, "t1");
+    print_g1_proof_point(key->table_2, "t2");
+    print_g1_proof_point(key->table_3, "t3");
+    print_g1_proof_point(key->table_4, "t4");
+    print_g1_proof_point(key->id_1, "id1");
+    print_g1_proof_point(key->id_2, "id2");
+    print_g1_proof_point(key->id_3, "id3");
+    print_g1_proof_point(key->id_4, "id4");
+    print_g1_proof_point(key->lagrange_first, "lagrangeFirst");
+    print_g1_proof_point(key->lagrange_last, "lagrangeLast", /*last=*/ true);
     os <<
         "        });\n"
         "        return vk;\n"

@@ -6,7 +6,8 @@ import {
     NUMBER_OF_ENTITIES,
     BATCHED_RELATION_PARTIAL_LENGTH,
     CONST_PROOF_SIZE_LOG_N,
-    PAIRING_POINTS_SIZE
+    PAIRING_POINTS_SIZE,
+    VERIFICATION_KEY_LENGTH
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
@@ -31,14 +32,11 @@ library TranscriptLib {
     function generateTranscript(
         Honk.Proof memory proof,
         bytes32[] calldata publicInputs,
-        uint256 circuitSize,
-        uint256 publicInputsSize,
-        uint256 pubInputsOffset
+        Honk.VerificationKey memory vkey
     ) internal pure returns (Transcript memory t) {
         Fr previousChallenge;
-        (t.relationParameters, previousChallenge) = generateRelationParametersChallenges(
-            proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset, previousChallenge
-        );
+        (t.relationParameters, previousChallenge) =
+            generateRelationParametersChallenges(proof, publicInputs, vkey, previousChallenge);
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
 
@@ -68,13 +66,10 @@ library TranscriptLib {
     function generateRelationParametersChallenges(
         Honk.Proof memory proof,
         bytes32[] calldata publicInputs,
-        uint256 circuitSize,
-        uint256 publicInputsSize,
-        uint256 pubInputsOffset,
+        Honk.VerificationKey memory vkey,
         Fr previousChallenge
     ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
-        (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
-            generateEtaChallenge(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset);
+        (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) = generateEtaChallenge(proof, publicInputs, vkey);
 
         (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
     }
@@ -82,35 +77,171 @@ library TranscriptLib {
     function generateEtaChallenge(
         Honk.Proof memory proof,
         bytes32[] calldata publicInputs,
-        uint256 circuitSize,
-        uint256 publicInputsSize,
-        uint256 pubInputsOffset
+        Honk.VerificationKey memory vkey
     ) internal pure returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
-        bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
-        round0[0] = bytes32(circuitSize);
-        round0[1] = bytes32(publicInputsSize);
-        round0[2] = bytes32(pubInputsOffset);
-        for (uint256 i = 0; i < publicInputsSize - PAIRING_POINTS_SIZE; i++) {
-            round0[3 + i] = bytes32(publicInputs[i]);
+        bytes32[] memory round0 = new bytes32[](VERIFICATION_KEY_LENGTH + vkey.publicInputsSize + 12);
+        uint256 idx = 0;
+        round0[idx++] = bytes32(vkey.circuitSize);
+        round0[idx++] = bytes32(vkey.publicInputsSize);
+        round0[idx++] = bytes32(uint256(1));
+
+        round0[idx++] = bytes32(vkey.qm.x_0);
+        round0[idx++] = bytes32(vkey.qm.x_1);
+        round0[idx++] = bytes32(vkey.qm.y_0);
+        round0[idx++] = bytes32(vkey.qm.y_1);
+
+        round0[idx++] = bytes32(vkey.qc.x_0);
+        round0[idx++] = bytes32(vkey.qc.x_1);
+        round0[idx++] = bytes32(vkey.qc.y_0);
+        round0[idx++] = bytes32(vkey.qc.y_1);
+
+        round0[idx++] = bytes32(vkey.ql.x_0);
+        round0[idx++] = bytes32(vkey.ql.x_1);
+        round0[idx++] = bytes32(vkey.ql.y_0);
+        round0[idx++] = bytes32(vkey.ql.y_1);
+
+        round0[idx++] = bytes32(vkey.qr.x_0);
+        round0[idx++] = bytes32(vkey.qr.x_1);
+        round0[idx++] = bytes32(vkey.qr.y_0);
+        round0[idx++] = bytes32(vkey.qr.y_1);
+
+        round0[idx++] = bytes32(vkey.qo.x_0);
+        round0[idx++] = bytes32(vkey.qo.x_1);
+        round0[idx++] = bytes32(vkey.qo.y_0);
+        round0[idx++] = bytes32(vkey.qo.y_1);
+
+        round0[idx++] = bytes32(vkey.q4.x_0);
+        round0[idx++] = bytes32(vkey.q4.x_1);
+        round0[idx++] = bytes32(vkey.q4.y_0);
+        round0[idx++] = bytes32(vkey.q4.y_1);
+
+        round0[idx++] = bytes32(vkey.qLookup.x_0);
+        round0[idx++] = bytes32(vkey.qLookup.x_1);
+        round0[idx++] = bytes32(vkey.qLookup.y_0);
+        round0[idx++] = bytes32(vkey.qLookup.y_1);
+
+        round0[idx++] = bytes32(vkey.qArith.x_0);
+        round0[idx++] = bytes32(vkey.qArith.x_1);
+        round0[idx++] = bytes32(vkey.qArith.y_0);
+        round0[idx++] = bytes32(vkey.qArith.y_1);
+
+        round0[idx++] = bytes32(vkey.qDeltaRange.x_0);
+        round0[idx++] = bytes32(vkey.qDeltaRange.x_1);
+        round0[idx++] = bytes32(vkey.qDeltaRange.y_0);
+        round0[idx++] = bytes32(vkey.qDeltaRange.y_1);
+
+        round0[idx++] = bytes32(vkey.qAux.x_0);
+        round0[idx++] = bytes32(vkey.qAux.x_1);
+        round0[idx++] = bytes32(vkey.qAux.y_0);
+        round0[idx++] = bytes32(vkey.qAux.y_1);
+
+        round0[idx++] = bytes32(vkey.qElliptic.x_0);
+        round0[idx++] = bytes32(vkey.qElliptic.x_1);
+        round0[idx++] = bytes32(vkey.qElliptic.y_0);
+        round0[idx++] = bytes32(vkey.qElliptic.y_1);
+
+        round0[idx++] = bytes32(vkey.qPoseidon2External.x_0);
+        round0[idx++] = bytes32(vkey.qPoseidon2External.x_1);
+        round0[idx++] = bytes32(vkey.qPoseidon2External.y_0);
+        round0[idx++] = bytes32(vkey.qPoseidon2External.y_1);
+
+        round0[idx++] = bytes32(vkey.qPoseidon2Internal.x_0);
+        round0[idx++] = bytes32(vkey.qPoseidon2Internal.x_1);
+        round0[idx++] = bytes32(vkey.qPoseidon2Internal.y_0);
+        round0[idx++] = bytes32(vkey.qPoseidon2Internal.y_1);
+
+        round0[idx++] = bytes32(vkey.s1.x_0);
+        round0[idx++] = bytes32(vkey.s1.x_1);
+        round0[idx++] = bytes32(vkey.s1.y_0);
+        round0[idx++] = bytes32(vkey.s1.y_1);
+
+        round0[idx++] = bytes32(vkey.s2.x_0);
+        round0[idx++] = bytes32(vkey.s2.x_1);
+        round0[idx++] = bytes32(vkey.s2.y_0);
+        round0[idx++] = bytes32(vkey.s2.y_1);
+
+        round0[idx++] = bytes32(vkey.s3.x_0);
+        round0[idx++] = bytes32(vkey.s3.x_1);
+        round0[idx++] = bytes32(vkey.s3.y_0);
+        round0[idx++] = bytes32(vkey.s3.y_1);
+
+        round0[idx++] = bytes32(vkey.s4.x_0);
+        round0[idx++] = bytes32(vkey.s4.x_1);
+        round0[idx++] = bytes32(vkey.s4.y_0);
+        round0[idx++] = bytes32(vkey.s4.y_1);
+
+        round0[idx++] = bytes32(vkey.id1.x_0);
+        round0[idx++] = bytes32(vkey.id1.x_1);
+        round0[idx++] = bytes32(vkey.id1.y_0);
+        round0[idx++] = bytes32(vkey.id1.y_1);
+
+        round0[idx++] = bytes32(vkey.id2.x_0);
+        round0[idx++] = bytes32(vkey.id2.x_1);
+        round0[idx++] = bytes32(vkey.id2.y_0);
+        round0[idx++] = bytes32(vkey.id2.y_1);
+
+        round0[idx++] = bytes32(vkey.id3.x_0);
+        round0[idx++] = bytes32(vkey.id3.x_1);
+        round0[idx++] = bytes32(vkey.id3.y_0);
+        round0[idx++] = bytes32(vkey.id3.y_1);
+
+        round0[idx++] = bytes32(vkey.id4.x_0);
+        round0[idx++] = bytes32(vkey.id4.x_1);
+        round0[idx++] = bytes32(vkey.id4.y_0);
+        round0[idx++] = bytes32(vkey.id4.y_1);
+
+        round0[idx++] = bytes32(vkey.t1.x_0);
+        round0[idx++] = bytes32(vkey.t1.x_1);
+        round0[idx++] = bytes32(vkey.t1.y_0);
+        round0[idx++] = bytes32(vkey.t1.y_1);
+
+        round0[idx++] = bytes32(vkey.t2.x_0);
+        round0[idx++] = bytes32(vkey.t2.x_1);
+        round0[idx++] = bytes32(vkey.t2.y_0);
+        round0[idx++] = bytes32(vkey.t2.y_1);
+
+        round0[idx++] = bytes32(vkey.t3.x_0);
+        round0[idx++] = bytes32(vkey.t3.x_1);
+        round0[idx++] = bytes32(vkey.t3.y_0);
+        round0[idx++] = bytes32(vkey.t3.y_1);
+
+        round0[idx++] = bytes32(vkey.t4.x_0);
+        round0[idx++] = bytes32(vkey.t4.x_1);
+        round0[idx++] = bytes32(vkey.t4.y_0);
+        round0[idx++] = bytes32(vkey.t4.y_1);
+
+        round0[idx++] = bytes32(vkey.lagrangeFirst.x_0);
+        round0[idx++] = bytes32(vkey.lagrangeFirst.x_1);
+        round0[idx++] = bytes32(vkey.lagrangeFirst.y_0);
+        round0[idx++] = bytes32(vkey.lagrangeFirst.y_1);
+
+        round0[idx++] = bytes32(vkey.lagrangeLast.x_0);
+        round0[idx++] = bytes32(vkey.lagrangeLast.x_1);
+        round0[idx++] = bytes32(vkey.lagrangeLast.y_0);
+        round0[idx++] = bytes32(vkey.lagrangeLast.y_1);
+
+        for (uint256 i = 0; i < vkey.publicInputsSize - PAIRING_POINTS_SIZE; i++) {
+            round0[VERIFICATION_KEY_LENGTH + i] = bytes32(publicInputs[i]);
         }
+        idx = VERIFICATION_KEY_LENGTH + vkey.publicInputsSize;
         for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
-            round0[3 + publicInputsSize - PAIRING_POINTS_SIZE + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
+            round0[idx - PAIRING_POINTS_SIZE + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
         }
 
         // Create the first challenge
         // Note: w4 is added to the challenge later on
-        round0[3 + publicInputsSize] = bytes32(proof.w1.x_0);
-        round0[3 + publicInputsSize + 1] = bytes32(proof.w1.x_1);
-        round0[3 + publicInputsSize + 2] = bytes32(proof.w1.y_0);
-        round0[3 + publicInputsSize + 3] = bytes32(proof.w1.y_1);
-        round0[3 + publicInputsSize + 4] = bytes32(proof.w2.x_0);
-        round0[3 + publicInputsSize + 5] = bytes32(proof.w2.x_1);
-        round0[3 + publicInputsSize + 6] = bytes32(proof.w2.y_0);
-        round0[3 + publicInputsSize + 7] = bytes32(proof.w2.y_1);
-        round0[3 + publicInputsSize + 8] = bytes32(proof.w3.x_0);
-        round0[3 + publicInputsSize + 9] = bytes32(proof.w3.x_1);
-        round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
-        round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
+        round0[idx] = bytes32(proof.w1.x_0);
+        round0[idx + 1] = bytes32(proof.w1.x_1);
+        round0[idx + 2] = bytes32(proof.w1.y_0);
+        round0[idx + 3] = bytes32(proof.w1.y_1);
+        round0[idx + 4] = bytes32(proof.w2.x_0);
+        round0[idx + 5] = bytes32(proof.w2.x_1);
+        round0[idx + 6] = bytes32(proof.w2.y_0);
+        round0[idx + 7] = bytes32(proof.w2.y_1);
+        round0[idx + 8] = bytes32(proof.w3.x_0);
+        round0[idx + 9] = bytes32(proof.w3.x_1);
+        round0[idx + 10] = bytes32(proof.w3.y_0);
+        round0[idx + 11] = bytes32(proof.w3.y_1);
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
@@ -286,7 +417,7 @@ library TranscriptLib {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1236)
     function loadProof(bytes calldata proof) internal pure returns (Honk.Proof memory p) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1332): Optimize this away when we finalize.
-         uint256 boundary = 0x0;
+        uint256 boundary = 0x0;
 
         // Pairing point object
         for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {

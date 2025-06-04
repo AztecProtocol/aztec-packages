@@ -158,6 +158,7 @@ uint256 constant NUMBER_OF_ENTITIES = 40;
 uint256 constant NUMBER_UNSHIFTED = 35;
 uint256 constant NUMBER_TO_BE_SHIFTED = 5;
 uint256 constant PAIRING_POINTS_SIZE = 16;
+uint256 constant VERIFICATION_KEY_LENGTH = 111;
 
 // Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
 uint256 constant NUMBER_OF_ALPHAS = 25;
@@ -229,37 +230,37 @@ library Honk {
         uint256 logCircuitSize;
         uint256 publicInputsSize;
         // Selectors
-        G1Point qm;
-        G1Point qc;
-        G1Point ql;
-        G1Point qr;
-        G1Point qo;
-        G1Point q4;
-        G1Point qLookup; // Lookup
-        G1Point qArith; // Arithmetic widget
-        G1Point qDeltaRange; // Delta Range sort
-        G1Point qAux; // Auxillary
-        G1Point qElliptic; // Auxillary
-        G1Point qPoseidon2External;
-        G1Point qPoseidon2Internal;
+        G1ProofPoint qm;
+        G1ProofPoint qc;
+        G1ProofPoint ql;
+        G1ProofPoint qr;
+        G1ProofPoint qo;
+        G1ProofPoint q4;
+        G1ProofPoint qLookup; // Lookup
+        G1ProofPoint qArith; // Arithmetic widget
+        G1ProofPoint qDeltaRange; // Delta Range sort
+        G1ProofPoint qAux; // Auxillary
+        G1ProofPoint qElliptic; // Auxillary
+        G1ProofPoint qPoseidon2External;
+        G1ProofPoint qPoseidon2Internal;
         // Copy cnstraints
-        G1Point s1;
-        G1Point s2;
-        G1Point s3;
-        G1Point s4;
+        G1ProofPoint s1;
+        G1ProofPoint s2;
+        G1ProofPoint s3;
+        G1ProofPoint s4;
         // Copy identity
-        G1Point id1;
-        G1Point id2;
-        G1Point id3;
-        G1Point id4;
+        G1ProofPoint id1;
+        G1ProofPoint id2;
+        G1ProofPoint id3;
+        G1ProofPoint id4;
         // Precomputed lookup table
-        G1Point t1;
-        G1Point t2;
-        G1Point t3;
-        G1Point t4;
+        G1ProofPoint t1;
+        G1ProofPoint t2;
+        G1ProofPoint t3;
+        G1ProofPoint t4;
         // Fixed first and last
-        G1Point lagrangeFirst;
-        G1Point lagrangeLast;
+        G1ProofPoint lagrangeFirst;
+        G1ProofPoint lagrangeLast;
     }
 
     struct RelationParameters {
@@ -316,14 +317,14 @@ struct Transcript {
 }
 
 library TranscriptLib {
-    function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 circuitSize, uint256 publicInputsSize, uint256 pubInputsOffset)
+    function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs, Honk.VerificationKey memory vkey)
         internal
         pure
         returns (Transcript memory t)
     {
         Fr previousChallenge;
         (t.relationParameters, previousChallenge) =
-            generateRelationParametersChallenges(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset, previousChallenge);
+            generateRelationParametersChallenges(proof, publicInputs, vkey, previousChallenge);
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
 
@@ -353,49 +354,184 @@ library TranscriptLib {
     function generateRelationParametersChallenges(
         Honk.Proof memory proof,
         bytes32[] calldata publicInputs,
-        uint256 circuitSize,
-        uint256 publicInputsSize,
-        uint256 pubInputsOffset,
+        Honk.VerificationKey memory vkey,
         Fr previousChallenge
     ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
         (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
-            generateEtaChallenge(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset);
+            generateEtaChallenge(proof, publicInputs, vkey);
 
         (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
 
     }
 
-    function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 circuitSize, uint256 publicInputsSize, uint256 pubInputsOffset)
+    function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs, Honk.VerificationKey memory vkey)
         internal
         pure
         returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
     {
-        bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
-        round0[0] = bytes32(circuitSize);
-        round0[1] = bytes32(publicInputsSize);
-        round0[2] = bytes32(pubInputsOffset);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1331): Consider making publicInputsSize not include pairing point object.
-        for (uint256 i = 0; i < publicInputsSize - PAIRING_POINTS_SIZE; i++) {
-            round0[3 + i] = bytes32(publicInputs[i]);
+        bytes32[] memory round0 = new bytes32[](VERIFICATION_KEY_LENGTH + vkey.publicInputsSize + 12);
+        round0[0] = bytes32(vkey.circuitSize);
+        round0[1] = bytes32(vkey.publicInputsSize);
+        round0[2] = bytes32(uint256(1));
+
+        round0[3] = bytes32(vkey.qm.x_0);
+        round0[4] = bytes32(vkey.qm.x_1);
+        round0[5] = bytes32(vkey.qm.y_0);
+        round0[6] = bytes32(vkey.qm.y_1);
+
+        round0[7] = bytes32(vkey.qc.x_0);
+        round0[8] = bytes32(vkey.qc.x_1);
+        round0[9] = bytes32(vkey.qc.y_0);
+        round0[10] = bytes32(vkey.qc.y_1);
+
+        round0[11] = bytes32(vkey.ql.x_0);
+        round0[12] = bytes32(vkey.ql.x_1);
+        round0[13] = bytes32(vkey.ql.y_0);
+        round0[14] = bytes32(vkey.ql.y_1);
+
+        round0[15] = bytes32(vkey.qr.x_0);
+        round0[16] = bytes32(vkey.qr.x_1);
+        round0[17] = bytes32(vkey.qr.y_0);
+        round0[18] = bytes32(vkey.qr.y_1);
+
+        round0[19] = bytes32(vkey.qo.x_0);
+        round0[20] = bytes32(vkey.qo.x_1);
+        round0[21] = bytes32(vkey.qo.y_0);
+        round0[22] = bytes32(vkey.qo.y_1);
+
+        round0[23] = bytes32(vkey.q4.x_0);
+        round0[24] = bytes32(vkey.q4.x_1);
+        round0[25] = bytes32(vkey.q4.y_0);
+        round0[26] = bytes32(vkey.q4.y_1);
+
+        round0[27] = bytes32(vkey.qLookup.x_0);
+        round0[28] = bytes32(vkey.qLookup.x_1);
+        round0[29] = bytes32(vkey.qLookup.y_0);
+        round0[30] = bytes32(vkey.qLookup.y_1);
+
+        round0[31] = bytes32(vkey.qArith.x_0);
+        round0[32] = bytes32(vkey.qArith.x_1);
+        round0[33] = bytes32(vkey.qArith.y_0);
+        round0[34] = bytes32(vkey.qArith.y_1);
+
+        round0[35] = bytes32(vkey.qDeltaRange.x_0);
+        round0[36] = bytes32(vkey.qDeltaRange.x_1);
+        round0[37] = bytes32(vkey.qDeltaRange.y_0);
+        round0[38] = bytes32(vkey.qDeltaRange.y_1);
+
+        round0[39] = bytes32(vkey.qAux.x_0);
+        round0[40] = bytes32(vkey.qAux.x_1);
+        round0[41] = bytes32(vkey.qAux.y_0);
+        round0[42] = bytes32(vkey.qAux.y_1);
+
+        round0[43] = bytes32(vkey.qElliptic.x_0);
+        round0[44] = bytes32(vkey.qElliptic.x_1);
+        round0[45] = bytes32(vkey.qElliptic.y_0);
+        round0[46] = bytes32(vkey.qElliptic.y_1);
+
+        round0[47] = bytes32(vkey.qPoseidon2External.x_0);
+        round0[48] = bytes32(vkey.qPoseidon2External.x_1);
+        round0[49] = bytes32(vkey.qPoseidon2External.y_0);
+        round0[50] = bytes32(vkey.qPoseidon2External.y_1);
+
+        round0[51] = bytes32(vkey.qPoseidon2Internal.x_0);
+        round0[52] = bytes32(vkey.qPoseidon2Internal.x_1);
+        round0[53] = bytes32(vkey.qPoseidon2Internal.y_0);
+        round0[54] = bytes32(vkey.qPoseidon2Internal.y_1);
+
+        round0[55] = bytes32(vkey.s1.x_0);
+        round0[56] = bytes32(vkey.s1.x_1);
+        round0[57] = bytes32(vkey.s1.y_0);
+        round0[58] = bytes32(vkey.s1.y_1);
+
+        round0[59] = bytes32(vkey.s2.x_0);
+        round0[60] = bytes32(vkey.s2.x_1);
+        round0[61] = bytes32(vkey.s2.y_0);
+        round0[62] = bytes32(vkey.s2.y_1);
+
+        round0[63] = bytes32(vkey.s3.x_0);
+        round0[64] = bytes32(vkey.s3.x_1);
+        round0[65] = bytes32(vkey.s3.y_0);
+        round0[66] = bytes32(vkey.s3.y_1);
+
+        round0[67] = bytes32(vkey.s4.x_0);
+        round0[68] = bytes32(vkey.s4.x_1);
+        round0[69] = bytes32(vkey.s4.y_0);
+        round0[70] = bytes32(vkey.s4.y_1);
+
+        round0[71] = bytes32(vkey.id1.x_0);
+        round0[72] = bytes32(vkey.id1.x_1);
+        round0[73] = bytes32(vkey.id1.y_0);
+        round0[74] = bytes32(vkey.id1.y_1);
+
+        round0[75] = bytes32(vkey.id2.x_0);
+        round0[76] = bytes32(vkey.id2.x_1);
+        round0[77] = bytes32(vkey.id2.y_0);
+        round0[78] = bytes32(vkey.id2.y_1);
+
+        round0[79] = bytes32(vkey.id3.x_0);
+        round0[80] = bytes32(vkey.id3.x_1);
+        round0[81] = bytes32(vkey.id3.y_0);
+        round0[82] = bytes32(vkey.id3.y_1);
+
+        round0[83] = bytes32(vkey.id4.x_0);
+        round0[84] = bytes32(vkey.id4.x_1);
+        round0[85] = bytes32(vkey.id4.y_0);
+        round0[86] = bytes32(vkey.id4.y_1);
+
+        round0[87] = bytes32(vkey.t1.x_0);
+        round0[88] = bytes32(vkey.t1.x_1);
+        round0[89] = bytes32(vkey.t1.y_0);
+        round0[90] = bytes32(vkey.t1.y_1);
+
+        round0[91] = bytes32(vkey.t2.x_0);
+        round0[92] = bytes32(vkey.t2.x_1);
+        round0[93] = bytes32(vkey.t2.y_0);
+        round0[94] = bytes32(vkey.t2.y_1);
+
+        round0[95] = bytes32(vkey.t3.x_0);
+        round0[96] = bytes32(vkey.t3.x_1);
+        round0[97] = bytes32(vkey.t3.y_0);
+        round0[98] = bytes32(vkey.t3.y_1);
+
+        round0[99] = bytes32(vkey.t4.x_0);
+        round0[100] = bytes32(vkey.t4.x_1);
+        round0[101] = bytes32(vkey.t4.y_0);
+        round0[102] = bytes32(vkey.t4.y_1);
+
+        round0[103] = bytes32(vkey.lagrangeFirst.x_0);
+        round0[104] = bytes32(vkey.lagrangeFirst.x_1);
+        round0[105] = bytes32(vkey.lagrangeFirst.y_0);
+        round0[106] = bytes32(vkey.lagrangeFirst.y_1);
+
+        round0[107] = bytes32(vkey.lagrangeLast.x_0);
+        round0[108] = bytes32(vkey.lagrangeLast.x_1);
+        round0[109] = bytes32(vkey.lagrangeLast.y_0);
+        round0[110] = bytes32(vkey.lagrangeLast.y_1);
+
+        for (uint256 i = 0; i < vkey.publicInputsSize - PAIRING_POINTS_SIZE; i++) {
+            round0[VERIFICATION_KEY_LENGTH + i] = bytes32(publicInputs[i]);
         }
+        uint256 idx = VERIFICATION_KEY_LENGTH + vkey.publicInputsSize;
         for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
-            round0[3 + publicInputsSize - PAIRING_POINTS_SIZE + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
+            round0[idx - PAIRING_POINTS_SIZE + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
         }
 
         // Create the first challenge
         // Note: w4 is added to the challenge later on
-        round0[3 + publicInputsSize] = bytes32(proof.w1.x_0);
-        round0[3 + publicInputsSize + 1] = bytes32(proof.w1.x_1);
-        round0[3 + publicInputsSize + 2] = bytes32(proof.w1.y_0);
-        round0[3 + publicInputsSize + 3] = bytes32(proof.w1.y_1);
-        round0[3 + publicInputsSize + 4] = bytes32(proof.w2.x_0);
-        round0[3 + publicInputsSize + 5] = bytes32(proof.w2.x_1);
-        round0[3 + publicInputsSize + 6] = bytes32(proof.w2.y_0);
-        round0[3 + publicInputsSize + 7] = bytes32(proof.w2.y_1);
-        round0[3 + publicInputsSize + 8] = bytes32(proof.w3.x_0);
-        round0[3 + publicInputsSize + 9] = bytes32(proof.w3.x_1);
-        round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
-        round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
+        round0[idx] = bytes32(proof.w1.x_0);
+        round0[idx + 1] = bytes32(proof.w1.x_1);
+        round0[idx + 2] = bytes32(proof.w1.y_0);
+        round0[idx + 3] = bytes32(proof.w1.y_1);
+        round0[idx + 4] = bytes32(proof.w2.x_0);
+        round0[idx + 5] = bytes32(proof.w2.x_1);
+        round0[idx + 6] = bytes32(proof.w2.y_0);
+        round0[idx + 7] = bytes32(proof.w2.y_1);
+        round0[idx + 8] = bytes32(proof.w3.x_0);
+        round0[idx + 9] = bytes32(proof.w3.x_1);
+        round0[idx + 10] = bytes32(proof.w3.y_0);
+        round0[idx + 11] = bytes32(proof.w3.y_1);
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
@@ -636,7 +772,7 @@ function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
 }
 
 // EC Point utilities
-function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory) {
+function convertFromProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory) {
     return Honk.G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});
 }
 
@@ -1452,44 +1588,49 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
-    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
-         // Check the received proof is the expected size where each field element is 32 bytes
-        if (proof.length != PROOF_SIZE * 32) {
+function verify(bytes calldata proofBytes, bytes32[] calldata publicInputs) public view override returns (bool) {
+        // Check the received proofBytes is the expected size where each field element is 32 bytes
+        if (proofBytes.length != PROOF_SIZE * 32) {
             revert ProofLengthWrong();
         }
 
         Honk.VerificationKey memory vk = loadVerificationKey();
-        Honk.Proof memory p = TranscriptLib.loadProof(proof);
-
+        Honk.Proof memory proof = TranscriptLib.loadProof(proofBytes);
         if (publicInputs.length != vk.publicInputsSize - PAIRING_POINTS_SIZE) {
             revert PublicInputsLengthWrong();
         }
 
         // Generate the fiat shamir challenges for the whole protocol
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
-        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, vk.publicInputsSize, /*pubInputsOffset=*/1);
+        Transcript memory t = TranscriptLib.generateTranscript(proof, publicInputs, vk);
 
         // Derive public input delta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
         t.relationParameters.publicInputsDelta = computePublicInputDelta(
-            publicInputs, p.pairingPointObject, t.relationParameters.beta, t.relationParameters.gamma, /*pubInputsOffset=*/1
+            publicInputs,
+            proof.pairingPointObject,
+            t.relationParameters.beta,
+            t.relationParameters.gamma, /*pubInputsOffset=*/
+            1
         );
 
         // Sumcheck
-        bool sumcheckVerified = verifySumcheck(p, t);
+        bool sumcheckVerified = verifySumcheck(proof, t);
         if (!sumcheckVerified) revert SumcheckFailed();
 
-        bool shpleminiVerified = verifyShplemini(p, vk, t);
+        bool shpleminiVerified = verifyShplemini(proof, vk, t);
         if (!shpleminiVerified) revert ShpleminiFailed();
 
         return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
     }
 
-    function computePublicInputDelta(bytes32[] memory publicInputs, Fr[PAIRING_POINTS_SIZE] memory pairingPointObject, Fr beta, Fr gamma, uint256 offset)
-        internal
-        view
-        returns (Fr publicInputDelta)
-    {
+    function computePublicInputDelta(
+        bytes32[] memory publicInputs,
+        Fr[PAIRING_POINTS_SIZE] memory pairingPointObject,
+        Fr beta,
+        Fr gamma,
+        uint256 offset
+    ) internal view returns (Fr publicInputDelta) {
         Fr numerator = Fr.wrap(1);
         Fr denominator = Fr.wrap(1);
 
@@ -1632,7 +1773,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
 
         scalars[0] = Fr.wrap(1);
-        commitments[0] = convertProofPoint(proof.shplonkQ);
+        commitments[0] = convertFromProofPoint(proof.shplonkQ);
 
         mem.batchingChallenge = Fr.wrap(1);
         mem.batchedEvaluation = Fr.wrap(0);
@@ -1649,50 +1790,50 @@ abstract contract BaseHonkVerifier is IVerifier {
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
 
-        commitments[1] = vk.qm;
-        commitments[2] = vk.qc;
-        commitments[3] = vk.ql;
-        commitments[4] = vk.qr;
-        commitments[5] = vk.qo;
-        commitments[6] = vk.q4;
-        commitments[7] = vk.qLookup;
-        commitments[8] = vk.qArith;
-        commitments[9] = vk.qDeltaRange;
-        commitments[10] = vk.qElliptic;
-        commitments[11] = vk.qAux;
-        commitments[12] = vk.qPoseidon2External;
-        commitments[13] = vk.qPoseidon2Internal;
-        commitments[14] = vk.s1;
-        commitments[15] = vk.s2;
-        commitments[16] = vk.s3;
-        commitments[17] = vk.s4;
-        commitments[18] = vk.id1;
-        commitments[19] = vk.id2;
-        commitments[20] = vk.id3;
-        commitments[21] = vk.id4;
-        commitments[22] = vk.t1;
-        commitments[23] = vk.t2;
-        commitments[24] = vk.t3;
-        commitments[25] = vk.t4;
-        commitments[26] = vk.lagrangeFirst;
-        commitments[27] = vk.lagrangeLast;
+        commitments[1] = convertFromProofPoint(vk.qm);
+        commitments[2] = convertFromProofPoint(vk.qc);
+        commitments[3] = convertFromProofPoint(vk.ql);
+        commitments[4] = convertFromProofPoint(vk.qr);
+        commitments[5] = convertFromProofPoint(vk.qo);
+        commitments[6] = convertFromProofPoint(vk.q4);
+        commitments[7] = convertFromProofPoint(vk.qLookup);
+        commitments[8] = convertFromProofPoint(vk.qArith);
+        commitments[9] = convertFromProofPoint(vk.qDeltaRange);
+        commitments[10] = convertFromProofPoint(vk.qElliptic);
+        commitments[11] = convertFromProofPoint(vk.qAux);
+        commitments[12] = convertFromProofPoint(vk.qPoseidon2External);
+        commitments[13] = convertFromProofPoint(vk.qPoseidon2Internal);
+        commitments[14] = convertFromProofPoint(vk.s1);
+        commitments[15] = convertFromProofPoint(vk.s2);
+        commitments[16] = convertFromProofPoint(vk.s3);
+        commitments[17] = convertFromProofPoint(vk.s4);
+        commitments[18] = convertFromProofPoint(vk.id1);
+        commitments[19] = convertFromProofPoint(vk.id2);
+        commitments[20] = convertFromProofPoint(vk.id3);
+        commitments[21] = convertFromProofPoint(vk.id4);
+        commitments[22] = convertFromProofPoint(vk.t1);
+        commitments[23] = convertFromProofPoint(vk.t2);
+        commitments[24] = convertFromProofPoint(vk.t3);
+        commitments[25] = convertFromProofPoint(vk.t4);
+        commitments[26] = convertFromProofPoint(vk.lagrangeFirst);
+        commitments[27] = convertFromProofPoint(vk.lagrangeLast);
 
         // Accumulate proof points
-        commitments[28] = convertProofPoint(proof.w1);
-        commitments[29] = convertProofPoint(proof.w2);
-        commitments[30] = convertProofPoint(proof.w3);
-        commitments[31] = convertProofPoint(proof.w4);
-        commitments[32] = convertProofPoint(proof.zPerm);
-        commitments[33] = convertProofPoint(proof.lookupInverses);
-        commitments[34] = convertProofPoint(proof.lookupReadCounts);
-        commitments[35] = convertProofPoint(proof.lookupReadTags);
+        commitments[28] = convertFromProofPoint(proof.w1);
+        commitments[29] = convertFromProofPoint(proof.w2);
+        commitments[30] = convertFromProofPoint(proof.w3);
+        commitments[31] = convertFromProofPoint(proof.w4);
+        commitments[32] = convertFromProofPoint(proof.zPerm);
+        commitments[33] = convertFromProofPoint(proof.lookupInverses);
+        commitments[34] = convertFromProofPoint(proof.lookupReadCounts);
+        commitments[35] = convertFromProofPoint(proof.lookupReadTags);
 
         // to be Shifted
-        commitments[36] = convertProofPoint(proof.w1);
-        commitments[37] = convertProofPoint(proof.w2);
-        commitments[38] = convertProofPoint(proof.w3);
-        commitments[39] = convertProofPoint(proof.w4);
-        commitments[40] = convertProofPoint(proof.zPerm);
+        commitments[36] = convertFromProofPoint(proof.w1);
+        commitments[37] = convertFromProofPoint(proof.w2);
+        commitments[38] = convertFromProofPoint(proof.w3);
+        commitments[39] = convertFromProofPoint(proof.w4);
+        commitments[40] = convertFromProofPoint(proof.zPerm);
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // Compute the evaluations A_l(r^{2^l}) for l = 0, ..., logN - 1
@@ -1735,14 +1876,14 @@ abstract contract BaseHonkVerifier is IVerifier {
                 mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
             }
 
-            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
+            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertFromProofPoint(proof.geminiFoldComms[i]);
         }
 
         // Finalise the batch opening claim
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
 
-        Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
+        Honk.G1Point memory quotient_commitment = convertFromProofPoint(proof.kzgQuotient);
 
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
