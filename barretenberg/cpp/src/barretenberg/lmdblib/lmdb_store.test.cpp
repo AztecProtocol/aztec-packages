@@ -896,7 +896,8 @@ TEST_F(LMDBStoreTest, can_read_in_both_directions_with_cursors)
 
         int64_t numKeysToRead = 4;
         KeyDupValuesVector keyValuesReverse;
-        cursor->read_prev((uint64_t)numKeysToRead, keyValuesReverse);
+        bool result = cursor->read_prev((uint64_t)numKeysToRead, keyValuesReverse);
+        EXPECT_FALSE(result);
 
         // now read forwards using the same cursor
         startKey = (startKey - numKeysToRead) + 1;
@@ -904,11 +905,271 @@ TEST_F(LMDBStoreTest, can_read_in_both_directions_with_cursors)
         setResult = cursor->set_at_key(key);
         EXPECT_TRUE(setResult);
         KeyDupValuesVector keyValues;
-        cursor->read_next((uint64_t)numKeysToRead, keyValues);
+        result = cursor->read_next((uint64_t)numKeysToRead, keyValues);
+        EXPECT_FALSE(result);
 
         // Ensure the data returned by the reverse operation matches that returned by the forwards operation
         KeyDupValuesVector temp(keyValuesReverse.rbegin(), keyValuesReverse.rend());
         EXPECT_EQ(temp, keyValues);
+    }
+}
+
+TEST_F(LMDBStoreTest, can_count_in_both_directions_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, false);
+
+    int64_t numKeys = 10;
+    int64_t numValues = 1;
+
+    write_test_data({ dbName }, numKeys, numValues, *store);
+
+    {
+        // count backwards from a key mid-way through
+        int64_t startKey = 7;
+        auto key = get_key(startKey);
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t endKey = 2;
+        key = get_key(endKey);
+        uint64_t numKeysRead = 0;
+        bool result = cursor->count_until_prev(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, startKey - endKey);
+
+        // now count forwards using the same cursor
+        startKey = 3;
+        endKey = 8;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_next(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, endKey - startKey);
+
+        // now count nothing
+        startKey = 3;
+        endKey = startKey;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_next(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, 0);
+
+        startKey = 3;
+        endKey = startKey;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_prev(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, 0);
+    }
+}
+
+TEST_F(LMDBStoreTest, can_count_past_end_in_both_directions_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, false);
+
+    int64_t numKeys = 10;
+    int64_t numValues = 1;
+
+    write_test_data({ dbName }, numKeys, numValues, *store);
+
+    {
+        // count backwards from a key mid-way through
+        int64_t startKey = 7;
+        auto key = get_key(startKey);
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t endKey = -5;
+        key = get_key(endKey);
+        uint64_t numKeysRead = 0;
+        bool result = cursor->count_until_prev(key, numKeysRead);
+        EXPECT_TRUE(result);
+        EXPECT_EQ(numKeysRead, startKey + 1);
+
+        // now count forwards using the same cursor
+        startKey = 3;
+        endKey = 15;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_next(key, numKeysRead);
+        EXPECT_TRUE(result);
+        EXPECT_EQ(numKeysRead, numKeys - startKey);
+
+        // now count nothing
+        startKey = 3;
+        endKey = startKey;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_next(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, 0);
+
+        startKey = 3;
+        endKey = startKey;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_prev(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, 0);
+    }
+}
+
+TEST_F(LMDBStoreTest, can_count_duplicates_in_both_directions_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, true);
+
+    int64_t numKeys = 10;
+    int64_t numValues = 5;
+
+    write_test_data({ dbName }, numKeys, numValues, *store);
+
+    {
+        // count backwards from a key mid-way through
+        int64_t startKey = 7;
+        auto key = get_key(startKey);
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t endKey = 2;
+        key = get_key(endKey);
+        uint64_t numKeysRead = 0;
+        bool result = cursor->count_until_prev(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, numValues * (startKey - endKey));
+
+        // now count forwards using the same cursor
+        startKey = 3;
+        endKey = 8;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_next(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, numValues * (endKey - startKey));
+
+        // now count nothing
+        startKey = 3;
+        endKey = startKey;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_next(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, 0);
+
+        startKey = 3;
+        endKey = startKey;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_prev(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, 0);
+    }
+}
+
+TEST_F(LMDBStoreTest, can_count_duplicates_past_end_in_both_directions_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, true);
+
+    int64_t numKeys = 10;
+    int64_t numValues = 5;
+
+    write_test_data({ dbName }, numKeys, numValues, *store);
+
+    {
+        // count backwards from a key mid-way through
+        int64_t startKey = 7;
+        auto key = get_key(startKey);
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t endKey = -5;
+        key = get_key(endKey);
+        uint64_t numKeysRead = 0;
+        bool result = cursor->count_until_prev(key, numKeysRead);
+        EXPECT_TRUE(result);
+        EXPECT_EQ(numKeysRead, numValues * (startKey + 1));
+
+        // now count forwards using the same cursor
+        startKey = 3;
+        endKey = 15;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_next(key, numKeysRead);
+        EXPECT_TRUE(result);
+        EXPECT_EQ(numKeysRead, numValues * (numKeys - startKey));
+
+        startKey = 3;
+        endKey = startKey;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_next(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, 0);
+
+        startKey = 3;
+        endKey = startKey;
+        numKeysRead = 0;
+        key = get_key(startKey);
+        setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+        key = get_key(endKey);
+        result = cursor->count_until_prev(key, numKeysRead);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(numKeysRead, 0);
     }
 }
 
