@@ -233,7 +233,7 @@ tests:
       - *palla
   # http://ci.aztec-labs.com/2edd22a1ffa9edea
   - regex: "p2p/src/client/p2p_client.integration.test.ts"
-    error_regex: "expect(received).toBeDefined()"
+    error_regex: "expect.received..toBeDefined"
     owners:
       - *palla
   - regex: "yarn-project/kv-store"
