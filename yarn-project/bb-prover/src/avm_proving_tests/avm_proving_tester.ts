@@ -24,6 +24,9 @@ import {
 
 const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb');
 
+// Disable these tests based on DISABLE_AZTEC_VM
+export const describeUnlessAvmDisabled = process.env.DISABLE_AZTEC_VM === '1' ? describe.skip : describe;
+
 export class AvmProvingTester extends PublicTxSimulationTester {
   constructor(
     private bbWorkingDirectory: string,

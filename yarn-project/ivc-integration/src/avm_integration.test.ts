@@ -73,7 +73,10 @@ async function proveMockPublicBaseRollup(
   );
 }
 
-describe('AVM Integration', () => {
+// Disable these tests based on DISABLE_AZTEC_VM
+const describeUnlessDisabled = process.env.DISABLE_AZTEC_VM === '1' ? describe.skip : describe;
+
+describeUnlessDisabled('AVM Integration', () => {
   let bbWorkingDirectory: string;
   let bbBinaryPath: string;
   let tubeProof: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;

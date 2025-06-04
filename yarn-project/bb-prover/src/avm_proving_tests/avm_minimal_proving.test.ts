@@ -1,8 +1,8 @@
 import { createAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTester, describeUnlessAvmDisabled } from './avm_proving_tester.js';
 
-describe('AVM minimal tx', () => {
+describeUnlessAvmDisabled('AVM minimal tx', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {

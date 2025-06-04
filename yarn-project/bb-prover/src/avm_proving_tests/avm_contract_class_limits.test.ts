@@ -4,11 +4,12 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTester, describeUnlessAvmDisabled } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-describe('AVM WitGen & Circuit – check circuit - contract class limits', () => {
+// WARNING: when re-enabled, if AVM is still disabled for ARM, use describeUnlessAvmDisabled
+describe.skip('AVM WitGen & Circuit – check circuit - contract class limits', () => {
   const deployer = AztecAddress.fromNumber(42);
   let instances: ContractInstanceWithAddress[];
   let tester: AvmProvingTester;
@@ -30,7 +31,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
     }
     avmTestContractAddress = instances[0].address;
   });
-  it.skip(
+  it(
     'call the max number of unique contract classes',
     async () => {
       // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
@@ -61,7 +62,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
     },
     TIMEOUT,
   );
-  it.skip(
+  it(
     'attempt too many calls to unique contract class ids',
     async () => {
       // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 contract addresses with unique class IDs
