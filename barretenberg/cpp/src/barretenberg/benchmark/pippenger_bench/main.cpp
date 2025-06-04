@@ -41,7 +41,7 @@ using namespace bb;
 //     }
 //     return acc;
 // }
-constexpr size_t NUM_POINTS = 1 << 16;
+constexpr size_t NUM_POINTS = 1 << 20;
 std::vector<fr> scalars;
 static bb::evaluation_domain small_domain;
 static bb::evaluation_domain large_domain;
@@ -104,11 +104,10 @@ int main()
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     std::cout << "initializing" << std::endl;
     init();
-    std::cout << "executing normal fft" << std::endl;
-    coset_fft_regular();
-    std::cout << "executing sliced fft" << std::endl;
-    coset_fft_split();
     std::cout << "executing pippenger algorithm" << std::endl;
+    pippenger();
+    pippenger();
+    pippenger();
     pippenger();
     pippenger();
     pippenger();

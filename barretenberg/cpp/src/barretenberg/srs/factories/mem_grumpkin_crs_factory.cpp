@@ -21,8 +21,6 @@ class MemGrumpkinCrs : public Crs<Grumpkin> {
         : monomials_(bb::scalar_multiplication::point_table_size(points.size()))
     {
         std::copy(points.begin(), points.end(), monomials_.begin());
-        scalar_multiplication::generate_pippenger_point_table<Grumpkin>(
-            monomials_.data(), monomials_.data(), points.size());
     }
 
     ~MemGrumpkinCrs() override = default;

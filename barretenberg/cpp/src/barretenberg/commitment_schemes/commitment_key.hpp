@@ -15,8 +15,9 @@
 
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/op_count.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
-#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication_new.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -56,7 +57,6 @@ template <class Curve> class CommitmentKey {
     }
 
   public:
-    scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
     std::shared_ptr<srs::factories::CrsFactory<Curve>> crs_factory;
     std::shared_ptr<srs::factories::Crs<Curve>> srs;
     size_t dyadic_size;
@@ -71,8 +71,7 @@ template <class Curve> class CommitmentKey {
      *
      */
     CommitmentKey(const size_t num_points)
-        : pippenger_runtime_state(get_num_needed_srs_points(num_points))
-        , crs_factory(srs::get_crs_factory<Curve>())
+        : crs_factory(srs::get_crs_factory<Curve>())
         , srs(crs_factory->get_crs(get_num_needed_srs_points(num_points)))
         , dyadic_size(get_num_needed_srs_points(num_points))
     {}
@@ -114,10 +113,10 @@ template <class Curve> class CommitmentKey {
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial span.
 
-        std::span<G1> point_table = srs->get_monomial_points().subspan(actual_start_index * 2);
+        std::span<G1> point_table = srs->get_monomial_points().subspan(actual_start_index);
         DEBUG_LOG_ALL(polynomial.span);
-        Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
-            { relative_start_index, polynomial.span }, point_table, pippenger_runtime_state);
+        Commitment point =
+            scalar_multiplication::NewMSM<Curve>::msm(point_table, { relative_start_index, polynomial.span });
         DEBUG_LOG(point);
         return point;
     };
@@ -143,7 +142,7 @@ template <class Curve> class CommitmentKey {
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial span.
-        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
+        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index);
 
         // Define structures needed to multithread the extraction of non-zero inputs
         const size_t num_threads = calculate_num_threads(poly_size);
@@ -163,11 +162,9 @@ template <class Curve> class CommitmentKey {
                 if (!scalar.is_zero()) {
                     thread_scalars[thread_idx].emplace_back(scalar);
                     // Save both the raw srs point and the precomputed endomorphism point from the point table
-                    BB_ASSERT_LT(idx * 2 + 1, point_table.size());
-                    const G1& point = point_table[idx * 2];
-                    const G1& endo_point = point_table[idx * 2 + 1];
+                    BB_ASSERT_LT(idx + 1, point_table.size());
+                    const G1& point = point_table[idx];
                     thread_points[thread_idx].emplace_back(point);
-                    thread_points[thread_idx].emplace_back(endo_point);
                 }
             }
         });
@@ -182,14 +179,14 @@ template <class Curve> class CommitmentKey {
         std::vector<Fr> scalars;
         std::vector<G1> points;
         scalars.reserve(num_nonzero_scalars);
-        points.reserve(2 * num_nonzero_scalars); //  2x accounts for endomorphism points
+        points.reserve(num_nonzero_scalars); //  2x accounts for endomorphism points
         for (size_t idx = 0; idx < num_threads; ++idx) {
             scalars.insert(scalars.end(), thread_scalars[idx].begin(), thread_scalars[idx].end());
             points.insert(points.end(), thread_points[idx].begin(), thread_points[idx].end());
         }
 
         // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state);
+        return scalar_multiplication::NewMSM<Curve>::msm(points, { 0, scalars });
     }
 
     /**
@@ -237,7 +234,7 @@ template <class Curve> class CommitmentKey {
         std::vector<Fr> scalars;
         scalars.reserve(total_num_scalars);
         std::vector<G1> points;
-        points.reserve(total_num_scalars * 2);
+        points.reserve(total_num_scalars);
         for (const auto& [first, second] : active_ranges) {
             auto poly_start = &polynomial[first];
             // Pointer to the first element past the active range. Accessing `&polynomial[second]` directly can trigger
@@ -246,13 +243,13 @@ template <class Curve> class CommitmentKey {
             auto poly_end = polynomial.data() + (second - polynomial.start_index);
             scalars.insert(scalars.end(), poly_start, poly_end);
 
-            auto pts_start = &point_table[2 * first];
-            auto pts_end = &point_table[2 * second];
+            auto pts_start = &point_table[first];
+            auto pts_end = &point_table[second];
             points.insert(points.end(), pts_start, pts_end);
         }
 
         // Call pippenger
-        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state);
+        return scalar_multiplication::NewMSM<Curve>::msm(points, { 0, scalars });
     }
 
     /**
@@ -314,7 +311,7 @@ template <class Curve> class CommitmentKey {
         points.reserve(total_num_complement_scalars);
         for (const auto& [start, end] : active_ranges_complement) {
             for (size_t i = start; i < end; i++) {
-                points.emplace_back(point_table[2 * i]);
+                points.emplace_back(point_table[i]);
             }
         }
 

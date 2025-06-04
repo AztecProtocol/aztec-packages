@@ -84,21 +84,14 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
      * @param path is the location to the SRS file
      */
     VerifierCommitmentKey(size_t num_points, const std::shared_ptr<bb::srs::factories::CrsFactory<Curve>>& crs_factory)
-        : pippenger_runtime_state(num_points)
-        , srs(crs_factory->get_crs(num_points))
+        : srs(crs_factory->get_crs(num_points))
     {}
 
-    VerifierCommitmentKey(size_t num_points)
-        : pippenger_runtime_state(num_points)
-    {
-        srs = srs::get_crs_factory<Curve>()->get_crs(num_points);
-    }
+    VerifierCommitmentKey(size_t num_points) { srs = srs::get_crs_factory<Curve>()->get_crs(num_points); }
 
     Commitment get_g1_identity() { return srs->get_g1_identity(); }
 
     std::span<const Commitment> get_monomial_points() { return srs->get_monomial_points(); }
-
-    bb::scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
 
   private:
     std::shared_ptr<bb::srs::factories::Crs<Curve>> srs;

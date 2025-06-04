@@ -1,10 +1,11 @@
 #pragma once
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 
 #include "./runtime_states.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include <algorithm>
 #include <array>
@@ -12,6 +13,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <ostream>
 
 #include "./process_buckets.hpp"
 #include "./runtime_states.hpp"
@@ -55,6 +57,43 @@ template <bool Debug, size_t DebugNumThreads> size_t conditional_get_num_cpus()
     return DebugNumThreads;
 }
 
+template <typename FF> std::vector<uint32_t> get_nonzero_scalar_indices(std::span<FF> scalars)
+{
+    const size_t num_cpus = get_num_cpus();
+
+    const size_t scalars_per_thread = (scalars.size() + num_cpus - 1) / num_cpus;
+
+    std::vector<std::vector<uint32_t>> thread_indices(num_cpus);
+    parallel_for(num_cpus, [&](size_t thread_idx) {
+        const size_t start = thread_idx * scalars_per_thread;
+        const size_t end =
+            (thread_idx == scalars_per_thread - 1) ? scalars.size() : (thread_idx + 1) * scalars_per_thread;
+        thread_indices[thread_idx].reserve(end - start);
+        std::vector<uint32_t>& thread_scalar_indices = thread_indices[thread_idx];
+        for (size_t i = start; i < end; ++i) {
+            auto& scalar = scalars[start];
+            scalar.self_from_montgomery_form();
+            bool is_zero =
+                (scalar.data[0] == 0) && (scalar.data[1] == 0) && (scalar.data[2] == 0) && (scalar.data[3] == 0);
+            if (!is_zero) {
+                thread_scalar_indices.push_back(i);
+            }
+        }
+    });
+
+    std::vector<uint32_t> consolidated_indices;
+    consolidated_indices.resize(scalars.size());
+
+    parallel_for(num_cpus, [&](size_t thread_idx) {
+        size_t offset = 0;
+        for (size_t i = 0; i < num_cpus; ++i) {
+            offset += thread_indices[i].size();
+        }
+        std::copy(thread_indices[thread_idx].begin(), thread_indices[thread_idx].end(), &consolidated_indices[offset]);
+    });
+
+    return consolidated_indices;
+}
 // use conditional_parallel_for for testing???
 // use debug_num_threads
 template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
@@ -63,7 +102,7 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
     using BaseField = typename Curve::BaseField;
     using AffineElement = typename Curve::AffineElement;
 
-    using ScalarSpan = PolynomialSpan<const ScalarField>;
+    using ScalarSpan = std::span<ScalarField>;
     using FF = ScalarField;
     using G1 = AffineElement;
     static constexpr size_t NUM_BITS_IN_FIELD = FF::modulus.get_msb() + 1;
@@ -77,6 +116,7 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
      */
     struct MSMWorkUnit {
         size_t batch_msm_index;
+        size_t num_nonzero_muls;
         ScalarSpan scalars;
         std::span<const AffineElement> points;
     };
@@ -90,53 +130,56 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
 
         size_t get_start_index(size_t non_zero_offset) const
         {
-            std::cout << "calling get index at " << non_zero_offset << std::endl;
+            // std::cout << "calling get index at " << non_zero_offset << std::endl;
             // trying to find "50" but it can't?
-            std::cout << "calling get start index on metadata block with size " << size << std::endl;
+            // std::cout << "calling get start index on metadata block with size " << size << std::endl;
             size_t running_sum = 0;
             size_t start_index = static_cast<size_t>(-1);
             for (size_t i = 0; i < block_counts.size(); ++i) {
-                if (running_sum + block_counts[i] >= non_zero_offset) {
+                if (running_sum + block_counts[i] > non_zero_offset) {
                     const size_t start = i * block_size;
                     const size_t end = (i == block_counts.size() - 1) ? size_including_zeroes : (i + 1) * block_size;
-                    std::cout << "searching for index in block w. start = " << start << " end = " << end << std::endl;
-                    bool found = false;
+                    // std::cout << "searching for index in block w. start = " << start << " end = " << end <<
+                    // std::endl;
+                    // bool found = false;
                     for (size_t j = start; j < end; ++j) {
                         if (running_sum == non_zero_offset && !empty_row[j]) {
                             start_index = j;
-                            found = true;
+                            // found = true;
                             break;
                             // jackpot
                         }
                         running_sum += static_cast<size_t>(!empty_row[j]);
                     }
-                    if ((running_sum == non_zero_offset) && !found && (i < block_counts.size())) {
-                        const size_t start = (i + 1) * block_size;
-                        const size_t end =
-                            ((i + 1) == block_counts.size() - 1) ? size_including_zeroes : (i + 2) * block_size;
-                        for (size_t j = start; j < end; ++j) {
-                            if (!empty_row[j]) {
-                                std::cout << "found start index " << j << std::endl;
-                                start_index = j;
-                                break;
-                            }
-                        }
-                        // search in next block for non zero row
-                    }
+                    // if ((running_sum == non_zero_offset) && !found && (i < block_counts.size())) {
+                    //     const size_t start = (i + 1) * block_size;
+                    //     const size_t end =
+                    //         ((i + 1) == block_counts.size() - 1) ? size_including_zeroes : (i + 2) * block_size;
+                    //     for (size_t j = start; j < end; ++j) {
+                    //         if (!empty_row[j]) {
+                    //             // std::cout << "found start index " << j << std::endl;
+                    //             start_index = j;
+                    //             break;
+                    //         }
+                    //     }
+                    //     // search in next block for non zero row
+                    // }
                     break;
                 }
                 running_sum += block_counts[i];
             }
             if (start_index == static_cast<size_t>(-1)) {
-                start_index = size_including_zeroes;
+                // std::cout << "err start_index == -1" << std::endl;
+                // std::cout << "original start = " << non_zero_offset << std::endl;
+                start_index = 0;
             }
-            std::cout << "returning index " << start_index << std::endl;
+            // std::cout << "returning index " << start_index << std::endl;
             return start_index;
         }
 
         size_t get_end_index(size_t non_zero_offset) const
         {
-            std::cout << "calling get index at " << non_zero_offset << std::endl;
+            // std::cout << "calling get index at " << non_zero_offset << std::endl;
             size_t running_sum = 0;
             size_t end_index = static_cast<size_t>(-1);
             for (size_t i = 0; i < block_counts.size(); ++i) {
@@ -163,7 +206,7 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
             if (end_index == static_cast<size_t>(-1)) {
                 end_index = size_including_zeroes;
             }
-            std::cout << "returning index " << end_index << std::endl;
+            // std::cout << "returning index " << end_index << std::endl;
             return end_index;
         }
     };
@@ -236,10 +279,13 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
     static std::vector<std::vector<MSMWorkUnit>> compute_batch_msm_work_units(
         std::vector<ScalarSpan> batch_scalars, std::vector<std::span<const AffineElement>> batch_points)
     {
+        // std::cout << "INSIDE COMPPUTE BATCH MSM WORK UNITS " << std::endl;
         const size_t num_msms = batch_scalars.size();
         std::vector<PolynomialMetaData> polynomial_metadata(num_msms);
         for (size_t i = 0; i < num_msms; ++i) {
             polynomial_metadata[i] = transform_polynomial_and_get_metadata(batch_scalars[i]);
+            // std::cout << "metadata size incl zeroes" << polynomial_metadata[i].size_including_zeroes << std::endl;
+            // std::cout << "metadata size w/o zeroes" << polynomial_metadata[i].size << std::endl;
         }
 
         size_t total_work = 0;
@@ -251,17 +297,40 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
 
         const size_t work_per_cpu = (total_work + (num_cpus - 1)) / num_cpus;
 
-        std::cout << "work per cpu = " << work_per_cpu << std::endl;
+        // std::cout << "work per cpu = " << work_per_cpu << std::endl;
         std::vector<std::vector<MSMWorkItem>> thread_work_units;
 
         size_t msm_iterator = 0;
-        size_t work_remaining_in_msm = polynomial_metadata[0].size; // get_work_unit(polynomial_metadata[0].size);
+        size_t work_remaining_in_msm = 0; // get_work_unit(polynomial_metadata[0].size);
         size_t msm_offset = 0;
 
+        bool found = false;
+        size_t msm_start_index = 0;
+        while (!found && msm_start_index < polynomial_metadata.size()) {
+            if (polynomial_metadata[msm_start_index].size > 0) {
+                work_remaining_in_msm = polynomial_metadata[msm_start_index].size;
+                found = true;
+                break;
+            }
+            msm_start_index++;
+        }
+        if (!found) {
+            // polynomial is all zeroes!
+            // std::cout << "empty" << std::endl;
+            return std::vector<std::vector<MSMWorkUnit>>();
+        }
+        // std::cout << "original work remaining = " << work_remaining_in_msm << std::endl;
+        // static size_t counter = 0;
+        // counter++;
         for (size_t i = 0; i < num_cpus; ++i) {
             thread_work_units.push_back(std::vector<MSMWorkItem>());
             size_t work_remaining_for_cpu = work_per_cpu;
-            std::cout << "a" << std::endl;
+            // std::cout << "a" << std::endl;
+            // if (counter == 2) {
+            //     std::cout << "work remaining for cpu = " << work_remaining_for_cpu << std::endl;
+            //     std::cout << "msm iterator = " << msm_iterator << std::endl;
+            //     std::cout << "work remaining in msm = " << work_remaining_in_msm << std::endl;
+            // }
             while (work_remaining_for_cpu > 0 && (msm_iterator != batch_scalars.size())) {
                 if (work_remaining_in_msm > work_remaining_for_cpu) {
                     const size_t msm_size = work_remaining_for_cpu;
@@ -275,10 +344,10 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
                     work_remaining_in_msm -= work_remaining_for_cpu;
                     work_remaining_for_cpu = 0;
                     msm_offset += msm_size;
-                    std::cout << "msm larger than cpu" << std::endl;
-                    std::cout << "cpu idx = " << i << std::endl;
-                    std::cout << "msm size = " << msm_size << std::endl;
-                    std::cout << "new work in msm = " << work_remaining_in_msm << std::endl;
+                    // std::cout << "msm larger than cpu" << std::endl;
+                    // std::cout << "cpu idx = " << i << std::endl;
+                    // std::cout << "msm size = " << msm_size << std::endl;
+                    // std::cout << "new work in msm = " << work_remaining_in_msm << std::endl;
                 } else {
 
                     MSMWorkItem work{ .batch_msm_index = msm_iterator,
@@ -288,17 +357,23 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
                                       .non_zero_row_size = work_remaining_in_msm };
                     thread_work_units[i].emplace_back(work);
                     work_remaining_for_cpu -= work_remaining_in_msm;
-                    std::cout << "old cpu work " << work_remaining_for_cpu << std::endl;
-                    std::cout << "work remaining in msm = " << work_remaining_in_msm << std::endl;
-                    std::cout << "new cpu work " << work_remaining_for_cpu << std::endl;
+                    // std::cout << "old cpu work " << work_remaining_for_cpu << std::endl;
+                    // std::cout << "work remaining in msm = " << work_remaining_in_msm << std::endl;
+                    // std::cout << "new cpu work " << work_remaining_for_cpu << std::endl;
                     msm_iterator++;
 
                     work_remaining_in_msm = msm_iterator == (num_msms) ? 0 : polynomial_metadata[msm_iterator].size;
                     msm_offset = 0;
-                    ASSERT(work_remaining_for_cpu < 1000000000);
                 }
             }
-            std::cout << "b" << std::endl;
+            // std::cout << "b" << std::endl;
+        }
+        bool check =
+            (((msm_iterator == batch_scalars.size() - 1)) || (msm_iterator == batch_scalars.size() && msm_offset == 0));
+        if (!check) {
+            std::cout << "batch scalars size = " << batch_scalars.size() << std::endl;
+            std::cout << "msm iterator = " << msm_iterator << std::endl;
+            std::cout << "msm offset = " << msm_offset << std::endl;
         }
         ASSERT(((msm_iterator == batch_scalars.size() - 1)) ||
                (msm_iterator == batch_scalars.size() && msm_offset == 0));
@@ -306,34 +381,63 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
         // todo check last work item ends at end of final msm
 
         std::vector<std::vector<MSMWorkUnit>> thread_msms;
-        size_t count = 0;
+        // size_t count = 0;
+        // std::cout << "BATCH POINTS SIZE = " << batch_points.size() << std::endl;
+        // for (const auto& x : batch_points) {
+        //     std::cout << "INNER BATCH SIZE = " << x.size() << std::endl;
+        // }
+        // for (const auto& x : batch_points[0]) {
+        //     std::cout << "BATCH POINT " << x << std::endl;
+        // }
+        // throw("aa");
+        // size_t count = 0;
         for (const auto& thread_work_items : thread_work_units) {
             thread_msms.push_back(std::vector<MSMWorkUnit>());
             for (const MSMWorkItem work_item : thread_work_items) {
                 const size_t msm_index = work_item.batch_msm_index;
                 const PolynomialMetaData& metadata = polynomial_metadata[msm_index];
 
-                if (count == 0) {
-                    std::cout << "metadata block counts" << std::endl;
-                    for (auto m : metadata.block_counts) {
-                        std::cout << m << std::endl;
-                    }
-                    std::cout << "end" << std::endl;
-                    count++;
-                }
+                // if (count == 0) {
+                // std::cout << "metadata block counts" << std::endl;
+                // for (auto m : metadata.block_counts) {
+                //     // std::cout << m << std::endl;
+                // }
+                // std::cout << "end" << std::endl;
+                // count++;
+                // }
                 size_t start_index = metadata.get_start_index(work_item.non_zero_row_offset);
                 size_t end_index = metadata.get_end_index(work_item.non_zero_row_offset + work_item.non_zero_row_size);
 
+                // if (end_index < start_index) {
+                //     // std::cout << "work_item.non_zero_row_offset = " << work_item.non_zero_row_offset << std::endl;
+                //     // std::cout << "work_item.non_zero_row_size = " << work_item.non_zero_row_size << std::endl;
+                //     // std::cout << "scalars size = " << work_item.scalars.size() << std::endl;
+                //     // std::cout << "points size = " << work_item.points.size() << std::endl;
+                //     // std::cout << "count = " << count << std::endl;
+                //     // std::cout << "start idx = " << start_index << std::endl;
+                //     // std::cout << "end idx = " << end_index << std::endl;
+                //     // std::cout << "err end idx > start idx?" << std::endl;
+                // }
+                // if (end_index == start_index) {
+                //     // std::cout << "err work item size 0?" << std::endl;
+                // }
+                // count++;
+                ASSERT(end_index < 10000000);
+                ASSERT(end_index >= start_index);
+
                 // non zero row size is 49
-                std::cout << "work item MSM SIZE " << work_item.non_zero_row_size << std::endl;
-                std::cout << "non zero row orrset =  " << work_item.non_zero_row_offset << std::endl;
-                const ScalarField* start = &batch_scalars[msm_index].data()[start_index];
-                std::span<const ScalarField> work_scalars(start, end_index - start_index);
-                std::cout << "SPAN SIZE? " << (end_index - start_index) << std::endl;
+                // std::cout << "work item MSM SIZE " << work_item.non_zero_row_size << std::endl;
+                // std::cout << "non zero row orrset =  " << work_item.non_zero_row_offset << std::endl;
+                ScalarField* start = &batch_scalars[msm_index].data()[start_index];
+                std::span<ScalarField> work_scalars(start, end_index - start_index);
+                // std::cout << "SPAN SIZE? " << (end_index - start_index) << std::endl;
                 std::span<const AffineElement> work_points(&batch_points[msm_index].data()[start_index],
                                                            end_index - start_index);
-                thread_msms[thread_msms.size() - 1].emplace_back(MSMWorkUnit{
-                    .batch_msm_index = msm_index, .scalars = ScalarSpan(0, work_scalars), .points = work_points });
+                thread_msms[thread_msms.size() - 1].emplace_back(
+                    MSMWorkUnit{ .batch_msm_index = msm_index,
+                                 .num_nonzero_muls = work_item.non_zero_row_size,
+                                 .scalars = work_scalars,
+                                 .points = work_points });
             }
         }
         return thread_msms;
@@ -389,7 +493,6 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
                 target_bit_slice = bit_slice;
             }
         }
-        std::cout << "target bit slice " << target_bit_slice << std::endl;
         return target_bit_slice;
     }
 
@@ -403,6 +506,15 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
         {}
     };
 
+    struct JacobianBucketAccumulators {
+        std::vector<Element> buckets;
+        BitVector bucket_exists;
+
+        JacobianBucketAccumulators(size_t num_buckets)
+            : buckets(num_buckets)
+            , bucket_exists(num_buckets)
+        {}
+    };
     struct AffineAdditionData {
         static constexpr size_t BATCH_SIZE = 10000;
         std::vector<AffineElement> points_to_add;
@@ -416,37 +528,145 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
         {}
     };
 
-    static AffineElement pippenger_low_memory(std::span<FF> scalars, std::span<AffineElement> points)
+    static bool use_affine_trick(size_t num_points)
     {
+        if (num_points < 128) {
+            return false;
+        }
+        // Our optimized pippenger algorithm makes use of the "affine trick" which uses batch inverse techniques to
+        // ensure the majority of group operations are in affine form.
+        // However, this requires log(N) modular inversions per Pippenger round.
+        // The number of rounds is ~ lambda / log(N) which means this technique incurs lambda modular inversions.
+        // The (rough) number of group ops in Pippenger is (N * lambda) / log(N)
+        // The affine trick converts (N * lambda) / log(N) Jacobian additions into Affine additions, saving roughly 3 FF
+        // muls i.e. (3 * N * lambda) / log(N) = saved FF ops The inversions cost ~ 384 * lambda FF ops
+        // So! if (3 * N) / log(N) < 384, we should not use the affine trick
+        //
+        // TLDR: if N / log(N) >= 128 , we should use the affine trick
+        // N.B. this works out to N = 11
+        double num_points_f = static_cast<double>(num_points);
+        double log2_num_points_f = log2(num_points_f);
 
+        return ((num_points_f / log2_num_points_f) >= 128);
+    }
+
+    static AffineElement pippenger_low_memory(std::span<FF> scalars, std::span<const AffineElement> points)
+    {
+        // std::cout << "pippenger low memory a" << std::endl;
         for (FF& scalar : scalars) {
             scalar.self_from_montgomery_form();
         }
+        // std::cout << "pippenger low memory b" << std::endl;
 
-        const size_t bits_per_slice = get_log_num_buckets(points.size());
+        return pippenger_low_memory_with_transformed_scalars(scalars, points, scalars.size());
+    }
+
+    static AffineElement small_pippenger_low_memory_with_transformed_scalars(std::span<FF> scalars,
+                                                                             std::span<const AffineElement> points)
+    {
+        const size_t bits_per_slice = get_log_num_buckets(scalars.size());
+        const size_t num_buckets = 1 << bits_per_slice;
+        JacobianBucketAccumulators bucket_data = JacobianBucketAccumulators(num_buckets);
+        Element round_output = Curve::Group::point_at_infinity;
+
+        const size_t num_rounds = (NUM_BITS_IN_FIELD + (bits_per_slice - 1)) / bits_per_slice;
+
+        for (size_t i = 0; i < num_rounds; ++i) {
+            // std::cout << "round " << i << std::endl;
+            round_output = evaluate_small_pippenger_round(
+                scalars, points, scalars.size(), i, bucket_data, round_output, bits_per_slice);
+        }
+        for (FF& scalar : scalars) {
+            scalar.self_to_montgomery_form();
+        }
+        // std::cout << "returning affine result: " << round_output << std::endl;
+        return AffineElement(round_output);
+    }
+
+    static AffineElement pippenger_low_memory_with_transformed_scalars(std::span<FF> scalars,
+                                                                       std::span<const AffineElement> points,
+                                                                       size_t num_nonzero_muls)
+    {
+        // std::cout << "init?" << std::endl;
+        if (!use_affine_trick(num_nonzero_muls)) {
+            return small_pippenger_low_memory_with_transformed_scalars(scalars, points);
+        }
+        // std::cout << "USING AFFINE TRICK, SIZE = " << scalars.size() << std::endl;
+        const size_t bits_per_slice = get_log_num_buckets(scalars.size());
         const size_t num_buckets = 1 << bits_per_slice;
         AffineAdditionData affine_data = AffineAdditionData();
         BucketAccumulators bucket_data = BucketAccumulators(num_buckets);
-        std::cout << "init" << std::endl;
 
         Element round_output = Curve::Group::point_at_infinity;
 
         const size_t num_rounds = (NUM_BITS_IN_FIELD + (bits_per_slice - 1)) / bits_per_slice;
+        // std::cout << "num points = " << points.size() << std::endl;
+        // std::cout << "num scalars " << scalars.size() << std::endl;
+        // if (points.size() == 1) {
+        //     std::cout << "THE POINT BEING ADDED... " << points[0] << std::endl;
+        // }
+        // std::cout << "round satrt" << std::endl;
         for (size_t i = 0; i < num_rounds; ++i) {
+            // std::cout << "round " << i << std::endl;
             round_output = evaluate_pippenger_round(
                 scalars, points, scalars.size(), i, affine_data, bucket_data, round_output, bits_per_slice);
         }
+        // std::cout << "round end" << std::endl;
+        // std::cout << "done with round" << std::endl;
+        // std::cout << "converting to mont form" << std::endl;
 
         for (FF& scalar : scalars) {
             scalar.self_to_montgomery_form();
         }
-        std::cout << "finished pipp" << std::endl;
-
+        // std::cout << "pippenger returning affine result: " << round_output << std::endl;
         return AffineElement(round_output);
     }
 
+    static Element evaluate_small_pippenger_round(std::span<FF> scalars,
+                                                  std::span<const AffineElement> points,
+                                                  const size_t size,
+                                                  const size_t round_index,
+                                                  JacobianBucketAccumulators& bucket_data,
+                                                  Element previous_round_output,
+                                                  const size_t bits_per_slice)
+    {
+        std::vector<uint64_t> round_schedule(size);
+        for (size_t i = 0; i < size; ++i) {
+            uint32_t bucket_index = get_scalar_slice(scalars[i], round_index, bits_per_slice);
+            ASSERT(bucket_index < (1 << bits_per_slice));
+            if (bucket_index > 0) {
+                // do this check because we do not reset bucket_data.buckets after each round
+                // (i.e. not neccessarily at infinity)
+                if (bucket_data.bucket_exists.get(bucket_index)) {
+                    bucket_data.buckets[bucket_index] += points[i];
+                } else {
+                    bucket_data.buckets[bucket_index] = points[i];
+                    bucket_data.bucket_exists.set(bucket_index, true);
+                }
+            }
+        }
+        Element round_output;
+        round_output.self_set_infinity();
+        round_output = accumulate_buckets(bucket_data);
+        bucket_data.bucket_exists.clear();
+        Element result = previous_round_output;
+        const size_t num_rounds = (NUM_BITS_IN_FIELD + (bits_per_slice - 1)) / bits_per_slice;
+        size_t num_doublings = ((round_index == num_rounds - 1) && (NUM_BITS_IN_FIELD % bits_per_slice != 0))
+                                   ? NUM_BITS_IN_FIELD % bits_per_slice
+                                   : bits_per_slice;
+        for (size_t i = 0; i < num_doublings; ++i) {
+            result.self_dbl();
+        }
+        // std::cout << "round output(is infinity = " << round_output.is_point_at_infinity() << ") = " << round_output
+        //   << std::endl;
+
+        result += round_output;
+        // std::cout << "result after round " << round_index << " = " << result << std::endl;
+        return result;
+    }
+
     static Element evaluate_pippenger_round(std::span<FF> scalars,
-                                            std::span<AffineElement> points,
+                                            std::span<const AffineElement> points,
                                             const size_t size,
                                             const size_t round_index,
                                             AffineAdditionData& affine_data,
@@ -471,6 +691,7 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
 
         Element round_output;
         round_output.self_set_infinity();
+        // std::cout << "round size = " << round_size << std::endl;
         if (round_size > 0) {
 
             consume_point_batch(point_schedule, points, affine_data, bucket_data, 0, 0);
@@ -485,10 +706,14 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
         for (size_t i = 0; i < num_doublings; ++i) {
             result.self_dbl();
         }
+        // std::cout << "round output(is infinity = " << round_output.is_point_at_infinity() << ") = " << round_output
+        //   << std::endl;
 
         result += round_output;
+        // std::cout << "result after round " << round_index << " = " << result << std::endl;
         return result;
     }
+    // 0x1c8810d5b442d7cd4c56dd7698e232275693cd65bf80a4cc576589b0f6b2b949
     // void pippenger_low_memory(FF* scalars, G1* points, size_t size)
     // {
 
@@ -565,7 +790,7 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
     */
 
     static void consume_point_batch(std::span<uint64_t> point_schedule,
-                                    std::span<G1> points,
+                                    std::span<const AffineElement> points,
                                     AffineAdditionData& affine_data,
                                     BucketAccumulators& bucket_data,
                                     size_t num_input_points_processed,
@@ -573,8 +798,6 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
     {
 
         size_t point_it = num_input_points_processed;
-        // std::cout << "enter. size of input set = " << affine_input_it << ", point_it = " << point_it
-        //           << ", num_points = " << num_points << std::endl;
         size_t affine_input_it = num_queued_affine_points;
         // N.B. points and point_schedule MAY HAVE DIFFERENT SIZES
         size_t num_points = point_schedule.size();
@@ -587,6 +810,24 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
         std::vector<AffineElement> null_location = std::vector<AffineElement>(2);
         while (((affine_input_it + 1) < AffineAdditionData::BATCH_SIZE) && (point_it < (num_points - 1))) {
 
+            if (point_it < (num_points - 32) && ((point_it & 0x0f) == 0)) {
+                __builtin_prefetch(&points[(point_schedule[point_it + 16] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 17] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 18] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 19] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 20] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 21] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 22] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 23] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 24] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 25] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 26] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 27] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 28] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 29] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 30] >> 32ULL)]);
+                __builtin_prefetch(&points[(point_schedule[point_it + 31] >> 32ULL)]);
+            }
             // if buckets do not match then write schedule[point_it] into overflow
             uint64_t lhs_schedule = point_schedule[point_it];
             uint64_t rhs_schedule = point_schedule[point_it + 1];
@@ -595,25 +836,27 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
             size_t lhs_point = static_cast<size_t>(lhs_schedule >> 32);
             size_t rhs_point = static_cast<size_t>(rhs_schedule >> 32);
             bool has_overflow = overflow_exists.get(lhs_bucket);
-
             bool buckets_match = lhs_bucket == rhs_bucket;
-            AffineElement* lhs_source = &points[lhs_point];
-            AffineElement* rhs_source = buckets_match ? &points[rhs_point] : &bucket_accumulators[lhs_bucket];
+            const AffineElement* lhs_source = &points[lhs_point];
+            const AffineElement* rhs_source = buckets_match ? &points[rhs_point] : &bucket_accumulators[lhs_bucket];
 
             bool do_affine_add = buckets_match || has_overflow;
-
+            overflow_exists.set(lhs_bucket, (has_overflow && buckets_match) || !do_affine_add);
             AffineElement* lhs_destination =
                 do_affine_add ? &affine_addition_scratch_space[affine_input_it] : &bucket_accumulators[lhs_bucket];
             AffineElement* rhs_destination =
                 do_affine_add ? &affine_addition_scratch_space[affine_input_it + 1] : &null_location[0];
 
-            if (do_affine_add) {
-                affine_addition_output_bucket_destinations[affine_input_it >> 1] = lhs_bucket;
-            }
+            // if (!do_affine_add) {
+            //     std::cout << "bucket location = " << lhs_bucket << std::endl;
+            //     std::cout << "point index = " << lhs_point << std::endl;
+            // }
+            uint64_t source_bucket_destinations = affine_addition_output_bucket_destinations[affine_input_it >> 1];
+            affine_addition_output_bucket_destinations[affine_input_it >> 1] =
+                do_affine_add ? lhs_bucket : source_bucket_destinations;
             *lhs_destination = *lhs_source;
             *rhs_destination = *rhs_source;
 
-            overflow_exists.set(lhs_bucket, (has_overflow && buckets_match) || !do_affine_add);
             affine_input_it += static_cast<size_t>(do_affine_add) * 2;
             point_it += (1 + static_cast<size_t>(do_affine_add && buckets_match));
         }
@@ -623,6 +866,11 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
             size_t lhs_bucket = static_cast<size_t>(lhs_schedule) & 0xFFFFFFFF;
             size_t lhs_point = static_cast<size_t>(lhs_schedule >> 32);
             bool has_overflow = overflow_exists.get(lhs_bucket);
+
+            // if (!has_overflow) {
+            //     std::cout << "end bucket location = " << lhs_bucket << std::endl;
+            //     std::cout << "point index = " << lhs_point << std::endl;
+            // }
             if (has_overflow) {
                 affine_addition_scratch_space[affine_input_it] = points[lhs_point];
                 affine_addition_scratch_space[affine_input_it + 1] = bucket_accumulators[lhs_bucket];
@@ -799,28 +1047,39 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
         }
         // need to test this one
     }
-    static Element accumulate_buckets(BucketAccumulators& bucket_accumulators)
+
+    template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators)
     {
         auto& buckets = bucket_accumulators.buckets;
 
-        // NOTE: we assume we only reach this point if we have at least 1 point we have added.
-        size_t starting_index = buckets.size() - 1;
+        int starting_index = static_cast<int>(buckets.size() - 1);
         Element prefix_sum;
         bool found_start = false;
-        while (!found_start) {
-            if (bucket_accumulators.bucket_exists.get(starting_index)) {
+        while (!found_start && starting_index >= 0) {
+            const size_t idx = static_cast<size_t>(starting_index);
+            if (bucket_accumulators.bucket_exists.get(idx)) {
 
-                prefix_sum = buckets[starting_index];
+                prefix_sum = buckets[idx];
                 found_start = true;
             } else {
                 starting_index -= 1;
             }
         }
-        constexpr AffineElement offset_generator =
-            bb::get_precomputed_generators<typename Curve::Group, "biggroup offset generator", 1>()[0];
+        if (!found_start) {
+            return Curve::Group::point_at_infinity;
+        }
+        AffineElement offset_generator = Curve::Group::affine_point_at_infinity;
+        if constexpr (std::same_as<typename Curve::Group, bb::g1>) {
+            constexpr auto gen = get_precomputed_generators<typename Curve::Group, "ECCVM_OFFSET_GENERATOR", 1>()[0];
+            offset_generator = gen;
+        } else {
+            constexpr auto gen = get_precomputed_generators<typename Curve::Group, "DEFAULT_DOMAIN_SEPARATOR", 8>()[0];
+            offset_generator = gen;
+        }
         Element sum = prefix_sum + offset_generator;
         for (int i = static_cast<int>(starting_index - 1); i > 0; --i) {
             size_t idx = static_cast<size_t>(i);
+            ASSERT(idx < 10000000);
             if (bucket_accumulators.bucket_exists.get(idx)) {
                 prefix_sum += buckets[idx];
             }
@@ -828,7 +1087,83 @@ template <typename Curve, bool Debug, size_t DebugNumThreads> struct MSM {
         }
         return sum - offset_generator;
     }
+
+    static std::vector<AffineElement> batch_multi_scalar_mul(std::vector<std::span<const AffineElement>>& points,
+                                                             std::vector<ScalarSpan>& scalars)
+    {
+
+        // WHICH WAY AROUND?
+        std::vector<std::vector<MSMWorkUnit>> thread_work_units = compute_batch_msm_work_units(scalars, points);
+        const size_t num_cpus = conditional_get_num_cpus<Debug, DebugNumThreads>();
+
+        // for (size_t thread_idx = 0; thread_idx < num_cpus; ++thread_idx) {
+        //     if (thread_idx < thread_work_units.size()) {
+        //         const std::vector<MSMWorkUnit>& msms = thread_work_units[thread_idx];
+        //         for (const MSMWorkUnit& msm : msms) {
+        //             // std::cout << "WORK UNIT. SIZE = " << msm.scalars.size() << std::endl;
+        //             // for (size_t i = 0; i < msm.scalars.size(); ++i) {
+        //             //     std::cout << "POINT[" << i << "] = " << msm.points[i] << std::endl;
+        //             // }
+        //         }
+        //     }
+        // }
+        std::vector<std::vector<std::pair<AffineElement, size_t>>> thread_msm_results(num_cpus);
+
+        //   parallel_for(num_cpus, [&](size_t thread_idx) {
+        for (size_t thread_idx = 0; thread_idx < num_cpus; ++thread_idx) {
+            // std::cout << "start pipp " << thread_idx << std::endl;
+
+            if (thread_idx < thread_work_units.size()) {
+                if (!thread_work_units[thread_idx].empty()) {
+                    const std::vector<MSMWorkUnit>& msms = thread_work_units[thread_idx];
+                    std::vector<std::pair<AffineElement, size_t>>& msm_results = thread_msm_results[thread_idx];
+                    for (const MSMWorkUnit& msm : msms) {
+                        AffineElement msm_result = pippenger_low_memory_with_transformed_scalars(
+                            msm.scalars, msm.points, msm.num_nonzero_muls);
+                        // std::cout << "recieved msm result" << std::endl;
+                        msm_results.push_back(std::make_pair(msm_result, msm.batch_msm_index));
+                    }
+                }
+            }
+            // std::cout << "done pipp low memory " << thread_idx << std::endl;
+        }
+        // });
+
+        ASSERT(points.size() == scalars.size());
+        std::vector<Element> results(points.size());
+        for (Element& ele : results) {
+            ele.self_set_infinity();
+        }
+        for (const auto& single_thread_msm_results : thread_msm_results) {
+            for (const std::pair<AffineElement, size_t>& result : single_thread_msm_results) {
+                results[result.second] += result.first;
+            }
+        }
+
+        Element::batch_normalize(&results[0], results.size());
+
+        std::vector<AffineElement> affine_results;
+        for (const auto& ele : results) {
+            affine_results.emplace_back(AffineElement(ele.x, ele.y));
+        }
+        return affine_results;
+    }
+
+    static AffineElement msm(std::span<const AffineElement> points, PolynomialSpan<const FF> _scalars)
+    {
+        if (_scalars.size() == 0) {
+            return Curve::Group::affine_point_at_infinity;
+        }
+        // we'll leave it the way we found it, promise
+        FF* scalars = (FF*)(&_scalars[_scalars.start_index]);
+
+        std::vector<std::span<const AffineElement>> pp{ points.subspan(_scalars.start_index) };
+        std::vector<std::span<FF>> ss{ std::span<FF>(scalars, _scalars.size()) };
+        return batch_multi_scalar_mul(pp, ss)[0];
+    }
 };
+
+template <typename Curve> using NewMSM = MSM<Curve, false, 1>;
 
 // NEXT STEP ACCUMULATE BUVKETS
 } // namespace bb::scalar_multiplication

@@ -10,7 +10,7 @@ using Element = Curve::Element;
 using ScalarField = Curve::ScalarField;
 using AffineElement = Curve::AffineElement;
 
-using ScalarSpan = PolynomialSpan<const ScalarField>;
+using ScalarSpan = std::span<ScalarField>;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
@@ -48,7 +48,7 @@ TEST(ScalarMultiplication, TestWorkSchedule)
     std::vector<ScalarSpan> scalar_in;
     std::vector<std::span<const g1::affine_element>> point_in;
     for (size_t i = 0; i < BATCH_MSM_SIZE; ++i) {
-        scalar_in.push_back(ScalarSpan(0, batch_scalars[i]));
+        scalar_in.push_back(ScalarSpan(batch_scalars[i]));
         point_in.push_back(batch_points[i]);
     }
     constexpr size_t NUM_THREADS = 4;
@@ -75,10 +75,10 @@ TEST(ScalarMultiplication, TestWorkSchedule)
     // start at points[51] = [0], 52 = [1], 53 = [2], 54 = [3], 55 = [4]
     // points[0] = input[52]?
     std::vector<MSMWorkUnit> work = result[3];
-    std::cout << "printing points" << std::endl;
-    for (size_t i = 0; i < 10; ++i) {
-        std::cout << work[0].points[i] << std::endl;
-    }
+    // std::cout << "printing points" << std::endl;
+    // for (size_t i = 0; i < 10; ++i) {
+    //     std::cout << work[0].points[i] << std::endl;
+    // }
     EXPECT_EQ(work[0].points[5], work[0].points[4]);
     EXPECT_EQ(work[0].points[6], g1::affine_element(g1::element(work[0].points[5]) + g1::affine_one));
 
@@ -118,7 +118,7 @@ TEST(ScalarMultiplication, TestWorkSchedule2)
     std::vector<ScalarSpan> scalar_in;
     std::vector<std::span<const g1::affine_element>> point_in;
     for (size_t i = 0; i < TOTAL_NUM_MSMS; ++i) {
-        scalar_in.push_back(ScalarSpan(0, batch_scalars[i]));
+        scalar_in.push_back(ScalarSpan(batch_scalars[i]));
         point_in.push_back(batch_points[i]);
     }
     constexpr size_t NUM_THREADS = 13;
@@ -351,26 +351,26 @@ TEST(ScalarMultiplication, ConsumePointBatch)
     for (auto& e : expected_buckets) {
         e.self_set_infinity();
     }
-    std::cout << "computing expected" << std::endl;
+    // std::cout << "computing expected" << std::endl;
     for (size_t i = 0; i < total_points; ++i) {
         uint64_t bucket = input_point_schedule[i] & 0xFFFFFFFF;
-        if (bucket == 37) {
-            std::cout << "bucket " << bucket << std::endl;
-            std::cout << "input_points[i]" << input_points[i] << std::endl;
-        }
+        // if (bucket == 37) {
+        //     std::cout << "bucket " << bucket << std::endl;
+        //     std::cout << "input_points[i]" << input_points[i] << std::endl;
+        // }
         expected_buckets[bucket] += input_points[i];
-        if (bucket == 37) {
-            std::cout << "output bucket " << expected_buckets[bucket] << std::endl;
-        }
+        // if (bucket == 37) {
+        //     std::cout << "output bucket " << expected_buckets[bucket] << std::endl;
+        // }
     }
-    std::cout << "checking expectations" << std::endl;
+    // std::cout << "checking expectations" << std::endl;
     for (size_t i = 0; i < num_buckets; ++i) {
-        std::cout << "i = " << i << std::endl;
+        // std::cout << "i = " << i << std::endl;
         if (!expected_buckets[i].is_point_at_infinity()) {
             AffineElement expected(expected_buckets[i]);
-            if (expected != bucket_data.buckets[i]) {
-                std::cout << "failure at i = " << i << std::endl;
-            }
+            // if (expected != bucket_data.buckets[i]) {
+            //     std::cout << "failure at i = " << i << std::endl;
+            // }
             EXPECT_EQ(expected, bucket_data.buckets[i]);
         } else {
             EXPECT_FALSE(bucket_data.bucket_exists.get(i));
@@ -412,43 +412,14 @@ TEST(ScalarMultiplication, ConsumePointBatchAndAccumulate)
     for (size_t i = 0; i < total_points; ++i) {
         scalars[i] = input_point_schedule[i] & 0xFFFFFFFF;
     }
-    std::cout << "c" << std::endl;
+    // std::cout << "c" << std::endl;
     for (size_t i = 0; i < total_points; ++i) {
         expected_acc += input_points[i] * scalars[i];
     }
-    std::cout << "d" << std::endl;
+    // std::cout << "d" << std::endl;
     AffineElement expected(expected_acc);
-    std::cout << "e" << std::endl;
+    // std::cout << "e" << std::endl;
     EXPECT_EQ(AffineElement(result), expected);
-    // std::vector<Element> expected_buckets(num_buckets);
-    // for (auto& e : expected_buckets) {
-    //     e.self_set_infinity();
-    // }
-    // std::cout << "computing expected" << std::endl;
-    // for (size_t i = 0; i < total_points; ++i) {
-    //     uint64_t bucket = input_point_schedule[i] & 0xFFFFFFFF;
-    //     if (bucket == 37) {
-    //         std::cout << "bucket " << bucket << std::endl;
-    //         std::cout << "input_points[i]" << input_points[i] << std::endl;
-    //     }
-    //     expected_buckets[bucket] += input_points[i];
-    //     if (bucket == 37) {
-    //         std::cout << "output bucket " << expected_buckets[bucket] << std::endl;
-    //     }
-    // }
-    // std::cout << "checking expectations" << std::endl;
-    // for (size_t i = 0; i < num_buckets; ++i) {
-    //     std::cout << "i = " << i << std::endl;
-    //     if (!expected_buckets[i].is_point_at_infinity()) {
-    //         AffineElement expected(expected_buckets[i]);
-    //         if (expected != bucket_data.buckets[i]) {
-    //             std::cout << "failure at i = " << i << std::endl;
-    //         }
-    //         EXPECT_EQ(expected, bucket_data.buckets[i]);
-    //     } else {
-    //         EXPECT_FALSE(bucket_data.bucket_exists[i]);
-    //     }
-    // }
 
     // how do I test more thoroughly?
 }
@@ -472,7 +443,6 @@ TEST(ScalarMultiplication, RadixSortCountZeroEntries)
     for (size_t i = 0; i < total_points; ++i) {
         expected += ((input_point_schedule[i] & 0xFFFFFFFF) == 0);
     }
-    std::cout << "result = " << result << std::endl;
     EXPECT_EQ(result, expected);
 }
 
@@ -555,43 +525,168 @@ TEST(ScalarMultiplication, PippengerLowMemory)
     for (size_t i = 0; i < num_points; ++i) {
         expected += (input_points[i] * scalars[i]);
     }
-    // fr foo = scalars[0].from_montgomery_form();
-    // const size_t num_bits = scalar_multiplication::MSM<Curve, true, 1>::get_log_num_buckets(num_points);
-    // const size_t num_rounds = (254 + num_bits - 1) / num_bits;
 
-    // std::vector<Element> test(num_rounds);
-    // for (size_t i = 0; i < num_rounds; ++i) {
-    //     uint64_t slice = scalar_multiplication::MSM<Curve, true, 1>::get_scalar_slice(foo, i, num_bits);
-    //     test[i] = input_points[0] * slice;
-    //     std::cout << "slice value = " << slice << std::endl;
-    //     std::cout << "EXPECTED ROUND OUTPUT[" << i << "] = " << AffineElement(test[i]) << std::endl;
-    // }
-
-    // Element acc;
-    // acc.self_set_infinity();
-    // for (size_t i = 0; i < num_rounds; ++i) {
-    //     size_t num_doublings = (i == num_rounds - 1) ? 254 % num_bits : num_bits;
-    //     if ((i == num_rounds - 1) && (254 % num_bits == 0)) {
-    //         num_doublings = num_bits;
-    //     }
-    //     for (size_t j = 0; j < num_doublings; ++j) {
-    //         acc.self_dbl();
-    //     }
-    //     acc += test[i];
-    // }
-    // AffineElement expected2(acc);
-
-    // std::cout << "RECOVERED COMP: " << expected2 << " : " << AffineElement(expected) << std::endl;
-    // EXPECT_EQ(expected2, AffineElement(expected));
-    // for (size_t i = 0; i < num_rounds; ++i) {
-    //     round_schedule[i] = get_scalar_slice(scalars[i], round_index, bits_per_slice);
-    //     std::cout << "slice = " << round_schedule[i] << std::endl;
-    //     round_schedule[i] += (static_cast<uint64_t>(i) << 32);
-    // }
-
-    EXPECT_EQ(result, AffineElement(expected));
+    AffineElement expected_affine(expected);
+    EXPECT_EQ(result, expected_affine);
 }
 
+TEST(ScalarMultiplication, BatchMultiScalarMul)
+{
+    const size_t num_msms = 10; // static_cast<size_t>(engine.get_random_uint8());
+    std::vector<AffineElement> expected(num_msms);
+
+    std::vector<std::vector<fr>> batch_scalars(num_msms);
+    std::vector<std::vector<AffineElement>> batch_input_points(num_msms);
+    std::vector<std::span<const AffineElement>> batch_points_span;
+    std::vector<ScalarSpan> batch_scalars_spans;
+
+    for (size_t k = 0; k < num_msms; ++k) {
+        const size_t num_points = static_cast<size_t>(engine.get_random_uint16()) % 1000;
+
+        auto& scalars = batch_scalars[k];
+        auto& input_points = batch_input_points[k];
+
+        input_points.resize(num_points);
+        scalars.resize(num_points);
+
+        for (size_t i = 0; i < num_points; ++i) {
+            const g1::affine_element point = g1::one * fr::random_element(&engine);
+            input_points[i] = (point);
+            scalars[i] = fr::random_element(&engine);
+        }
+
+        batch_points_span.push_back(batch_input_points[k]);
+        batch_scalars_spans.push_back(batch_scalars[k]);
+
+        Element single_expected;
+        single_expected.self_set_infinity();
+        for (size_t i = 0; i < num_points; ++i) {
+            single_expected += (input_points[i] * scalars[i]);
+        }
+        expected[k] = single_expected;
+    }
+
+    std::vector<AffineElement> result =
+        scalar_multiplication::MSM<Curve, false, 1>::batch_multi_scalar_mul(batch_points_span, batch_scalars_spans);
+
+    EXPECT_EQ(result, expected);
+}
+
+TEST(ScalarMultiplication, BatchMultiScalarMulSparse)
+{
+    const size_t num_msms = 10; // static_cast<size_t>(engine.get_random_uint8());
+    std::vector<AffineElement> expected(num_msms);
+
+    std::vector<std::vector<fr>> batch_scalars(num_msms);
+    std::vector<std::vector<AffineElement>> batch_input_points(num_msms);
+    std::vector<std::span<const AffineElement>> batch_points_span;
+    std::vector<ScalarSpan> batch_scalars_spans;
+
+    for (size_t k = 0; k < num_msms; ++k) {
+        const size_t num_points = 33; // static_cast<size_t>(engine.get_random_uint16()) % 1000;
+        // size_t zero_offset = 13;
+        // size_t num_nonzero = 10;
+        auto& scalars = batch_scalars[k];
+        auto& input_points = batch_input_points[k];
+
+        input_points.resize(num_points);
+        scalars.resize(num_points);
+
+        for (size_t i = 0; i < 13; ++i) {
+            const g1::affine_element point = g1::one * fr::random_element(&engine);
+            input_points[i] = (point);
+            scalars[i] = 0; // fr::random_element(&engine);
+        }
+        for (size_t i = 13; i < 23; ++i) {
+            const g1::affine_element point = g1::one * fr::random_element(&engine);
+            input_points[i] = (point);
+            scalars[i] = fr::random_element(&engine);
+        }
+        for (size_t i = 23; i < num_points; ++i) {
+            const g1::affine_element point = g1::one * fr::random_element(&engine);
+            input_points[i] = (point);
+            scalars[i] = 0; // fr::random_element(&engine);
+        }
+        batch_points_span.push_back(batch_input_points[k]);
+        batch_scalars_spans.push_back(batch_scalars[k]);
+
+        Element single_expected;
+        single_expected.self_set_infinity();
+        for (size_t i = 0; i < num_points; ++i) {
+            single_expected += (input_points[i] * scalars[i]);
+        }
+        expected[k] = single_expected;
+    }
+
+    std::vector<AffineElement> result =
+        scalar_multiplication::MSM<Curve, false, 1>::batch_multi_scalar_mul(batch_points_span, batch_scalars_spans);
+
+    EXPECT_EQ(result, expected);
+}
+
+TEST(ScalarMultiplication, MSM)
+{
+    const size_t start_index = 1234;
+    const size_t num_points = 101123;
+    std::vector<fr> scalars(num_points);
+    std::vector<AffineElement> input_points(num_points + start_index);
+
+    for (size_t i = 0; i < num_points; ++i) {
+        const g1::affine_element point = g1::one * fr::random_element(&engine);
+        input_points[i] = (point);
+        scalars[i] = fr::random_element(&engine);
+    }
+    for (size_t i = 0; i < start_index; ++i) {
+        const g1::affine_element point = g1::one * fr::random_element(&engine);
+        input_points[i + num_points] = (point);
+    }
+
+    // span is size 101123 but entries from 0 to 1023 are all zero
+    PolynomialSpan<fr> scalar_span = PolynomialSpan<fr>(start_index, scalars);
+    AffineElement result = scalar_multiplication::MSM<Curve, true, 1>::msm(input_points, scalar_span);
+
+    Element expected;
+    expected.self_set_infinity();
+    for (size_t i = 0; i < num_points; ++i) {
+        expected += (input_points[i + start_index] * scalars[i]);
+    }
+
+    AffineElement expected_affine(expected);
+    EXPECT_EQ(result, expected_affine);
+}
+
+TEST(ScalarMultiplication, MSMAllZeroes)
+{
+    const size_t start_index = 1234;
+    const size_t num_points = 101123;
+    std::vector<fr> scalars(num_points);
+    std::vector<AffineElement> input_points(num_points + start_index);
+
+    for (size_t i = 0; i < num_points; ++i) {
+        const g1::affine_element point = g1::one * fr::random_element(&engine);
+        input_points[i] = (point);
+        scalars[i] = 0;
+    }
+    for (size_t i = 0; i < start_index; ++i) {
+        const g1::affine_element point = g1::one * fr::random_element(&engine);
+        input_points[i + num_points] = (point);
+    }
+    PolynomialSpan<fr> scalar_span = PolynomialSpan<fr>(start_index, scalars);
+    AffineElement result = scalar_multiplication::MSM<Curve, true, 1>::msm(input_points, scalar_span);
+
+    EXPECT_EQ(result, Curve::Group::affine_point_at_infinity);
+}
+
+TEST(ScalarMultiplication, MSMEmptyPolynomial)
+{
+    const size_t num_points = 0;
+    std::vector<fr> scalars(num_points);
+    std::vector<AffineElement> input_points(num_points);
+    PolynomialSpan<fr> scalar_span = PolynomialSpan<fr>(0, scalars);
+    AffineElement result = scalar_multiplication::MSM<Curve, true, 1>::msm(input_points, scalar_span);
+
+    EXPECT_EQ(result, Curve::Group::affine_point_at_infinity);
+}
 /*
    const size_t num_points = 1;
     std::vector<fr> scalars(num_points);

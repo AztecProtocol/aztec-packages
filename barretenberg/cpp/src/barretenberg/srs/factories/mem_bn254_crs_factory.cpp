@@ -30,8 +30,6 @@ class MemBn254Crs : public Crs<curve::BN254> {
             throw_or_abort("invalid g1_identity passed to MemBn254CrsFactory");
         }
         std::copy(points.begin(), points.end(), monomials_.begin());
-        scalar_multiplication::generate_pippenger_point_table<Curve>(
-            monomials_.data(), monomials_.data(), points.size());
         bb::pairing::precompute_miller_lines(bb::g2::one, precomputed_g2_lines[0]);
         bb::pairing::precompute_miller_lines(g2_x, precomputed_g2_lines[1]);
     }

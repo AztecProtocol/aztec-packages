@@ -22,7 +22,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/groups/wnaf.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-
+#include "scalar_multiplication_new.hpp"
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays, google-readability-casting)
 
 #define BBERG_SCALAR_MULTIPLICATION_FETCH_BLOCK                                                                        \
@@ -905,12 +905,12 @@ typename Curve::Element evaluate_pippenger_rounds(pippenger_runtime_state<Curve>
 template <typename Curve>
 typename Curve::Element pippenger_internal(std::span<const typename Curve::AffineElement> points,
                                            PolynomialSpan<const typename Curve::ScalarField> scalars,
-                                           const size_t num_initial_points,
-                                           pippenger_runtime_state<Curve>& state,
-                                           bool handle_edge_cases)
+                                           [[maybe_unused]] const size_t num_initial_points,
+                                           [[maybe_unused]] pippenger_runtime_state<Curve>& state,
+                                           [[maybe_unused]] bool handle_edge_cases)
 {
     PROFILE_THIS();
-
+    // BB_ASSERT_EQ(static_cast<uint64_t>(handle_edge_cases), 10u);
     BB_ASSERT_LTE(scalars.start_index + scalars.size(),
                   state.num_points / 2,
                   "Pippenger runtime state is too small to support this many points");
@@ -925,9 +925,11 @@ typename Curve::Element pippenger_internal(std::span<const typename Curve::Affin
 template <typename Curve>
 typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars_,
                                   std::span<const typename Curve::AffineElement> points,
-                                  pippenger_runtime_state<Curve>& state,
-                                  bool handle_edge_cases)
+                                  [[maybe_unused]] pippenger_runtime_state<Curve>& state,
+                                  [[maybe_unused]] bool handle_edge_cases)
 {
+    auto r = scalar_multiplication::NewMSM<Curve>::msm(points, scalars_);
+    return r;
     PROFILE_THIS();
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
@@ -993,13 +995,17 @@ template <typename Curve>
 typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
     PolynomialSpan<const typename Curve::ScalarField> scalars,
     std::span<const typename Curve::AffineElement> points,
-    pippenger_runtime_state<Curve>& state)
+    [[maybe_unused]] pippenger_runtime_state<Curve>& state)
 {
-    PROFILE_THIS();
 
-    BB_ASSERT_LTE(scalars.start_index + scalars.size(),
-                  state.num_points / 2,
-                  "Pippenger runtime state is too small to support this many points");
+    auto r = scalar_multiplication::NewMSM<Curve>::msm(points, scalars);
+    return r;
+
+    // PROFILE_THIS();
+
+    // BB_ASSERT_LTE(scalars.start_index + scalars.size(),
+    //               state.num_points / 2,
+    //               "Pippenger runtime state is too small to support this many points");
 
     // our windowed non-adjacent form algorthm requires that each thread can work on at least 8 points.
     const size_t threshold = get_num_cpus_pow2() * 8;
@@ -1033,29 +1039,33 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
 template <typename Curve>
 typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                          std::span<const typename Curve::AffineElement> points,
-                                         pippenger_runtime_state<Curve>& state)
+                                         [[maybe_unused]] pippenger_runtime_state<Curve>& state)
 {
-    BB_ASSERT_LTE(scalars.start_index + scalars.size(),
-                  state.num_points / 2,
-                  "Pippenger runtime state is too small to support this many points");
-    return pippenger(scalars, points, state, false);
+    return scalar_multiplication::NewMSM<Curve>::msm(points, scalars);
+
+    // BB_ASSERT_LTE(scalars.start_index + scalars.size(),
+    //               state.num_points / 2,
+    //               "Pippenger runtime state is too small to support this many points");
+    // return pippenger(scalars, points, state, false);
 }
 
 template <typename Curve>
 typename Curve::Element pippenger_without_endomorphism_basis_points(
     PolynomialSpan<const typename Curve::ScalarField> scalars,
     std::span<const typename Curve::AffineElement> points,
-    pippenger_runtime_state<Curve>& state)
+    [[maybe_unused]] pippenger_runtime_state<Curve>& state)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1135): We don't need start_index more scalars here.
-    std::vector<typename Curve::AffineElement> G_mod((scalars.start_index + scalars.size()) * 2);
-    BB_ASSERT_LTE(scalars.start_index + scalars.size(), points.size());
-    BB_ASSERT_LTE(scalars.start_index + scalars.size(),
-                  state.num_points / 2,
-                  "Pippenger runtime state is too small to support this many points");
-    bb::scalar_multiplication::generate_pippenger_point_table<Curve>(
-        points.data(), &G_mod[0], scalars.start_index + scalars.size());
-    return pippenger(scalars, G_mod, state, false);
+    return scalar_multiplication::NewMSM<Curve>::msm(points, scalars);
+
+    // // TODO(https://github.com/AztecProtocol/barretenberg/issues/1135): We don't need start_index more scalars here.
+    // std::vector<typename Curve::AffineElement> G_mod((scalars.start_index + scalars.size()) * 2);
+    // BB_ASSERT_LTE(scalars.start_index + scalars.size(), points.size());
+    // BB_ASSERT_LTE(scalars.start_index + scalars.size(),
+    //               state.num_points / 2,
+    //               "Pippenger runtime state is too small to support this many points");
+    // bb::scalar_multiplication::generate_pippenger_point_table<Curve>(
+    //     points.data(), &G_mod[0], scalars.start_index + scalars.size());
+    // return pippenger(scalars, G_mod, state, false);
 }
 
 // Explicit instantiation

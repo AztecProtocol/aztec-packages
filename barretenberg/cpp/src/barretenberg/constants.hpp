@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 
 namespace bb {
@@ -45,4 +46,6 @@ static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
 // The interleaving trick needed for Translator adds 2 extra claims to Gemini fold claims
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving
 static constexpr uint32_t NUM_INTERLEAVING_CLAIMS = 2;
+
+static constexpr size_t SRS_SKIP_COUNT = 1;
 } // namespace bb
