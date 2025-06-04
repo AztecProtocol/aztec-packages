@@ -7,10 +7,11 @@ cmd=${1:-}
 export native_preset=${NATIVE_PRESET:-clang16-assert}
 export pic_preset=${PIC_PRESET:-clang16-pic-assert}
 export hash=$(cache_content_hash .rebuild_patterns)
-export DISABLE_AZTEC_VM=${DISABLE_AZTEC_VM:-0}
 
 if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
   export DISABLE_AZTEC_VM=1
+  # Make sure the different envs don't read from each other's caches.
+  export hash="$hash-no-avm"
 fi
 
 # Injects version number into a given bb binary.
@@ -40,7 +41,8 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  cmake --fresh --preset "$preset"
+  # DISABLE_AZTEC_VM is set to 1 in CI for arm64, or in dev usage if you export DISABLE_AZTEC_VM=1
+  cmake --fresh --preset "$preset" ${DISABLE_AZTEC_VM:+-DDISABLE_AZTEC_VM=$DISABLE_AZTEC_VM}
   cmake --build --preset "$preset" "$@"
 }
 

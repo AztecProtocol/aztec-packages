@@ -100,6 +100,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
                        "programming language.";
 
+#ifdef DISABLE_AZTEC_VM
+    name += "\nAztec Virtual Machine (AVM): disabled";
+#else
+    name += "\nAztec Virtual Machine (AVM): enabled";
+#endif
+#ifdef STARKNET_GARAGA_FLAVORS
+    name += "\nStarknet Garaga Extensions: enabled";
+#else
+    name += "\nStarknet Garaga Extensions: disabled";
+#endif
     CLI::App app{ name };
     argv = app.ensure_utf8(argv);
     app.formatter(std::make_shared<Formatter>());
