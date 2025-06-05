@@ -816,6 +816,27 @@ export const addMultipleValidators = async (
     }
 
     if (validators.length > 0) {
+      // Verify that the rollup is properly initialized before deploying MultiAdder
+      logger.info(`Verifying rollup initialization...`);
+      const stakingAssetFromRollup = await rollup.getStakingAsset();
+      logger.info(`Staking asset from rollup: ${stakingAssetFromRollup}`);
+
+      if (stakingAssetFromRollup === '0x0000000000000000000000000000000000000000') {
+        logger.error(`❌ Rollup getStakingAsset() returned zero address - rollup not properly initialized`);
+        throw new Error('Rollup staking asset not initialized - cannot deploy MultiAdder');
+      }
+
+      if (stakingAssetFromRollup.toLowerCase() !== stakingAssetAddress.toLowerCase()) {
+        logger.error(
+          `❌ Rollup staking asset mismatch: expected ${stakingAssetAddress}, got ${stakingAssetFromRollup}`,
+        );
+        throw new Error(
+          `Rollup staking asset mismatch: expected ${stakingAssetAddress}, got ${stakingAssetFromRollup}`,
+        );
+      }
+
+      logger.info(`✅ Rollup initialization verified`);
+
       logger.info(`Deploying MultiAdder contract...`);
       const multiAdder = await deployer.deploy(l1Artifacts.multiAdder, [
         rollupAddress,
