@@ -192,3 +192,8 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
     };
   });
 }
+
+export async function startTestP2PClients(clients: P2PClient[]) {
+  await Promise.all(clients.map(c => c.start()));
+  await Promise.all(clients.map(c => c.isReady()));
+}
