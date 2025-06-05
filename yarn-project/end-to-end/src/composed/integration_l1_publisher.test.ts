@@ -119,7 +119,11 @@ describe('L1Publisher integration', () => {
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
-    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {}));
+    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {
+      // Match TestConstants.sol to generate correct jsons for solidity tests
+      aztecSlotDuration: 24,
+      aztecEpochDuration: 16,
+    }));
 
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
 

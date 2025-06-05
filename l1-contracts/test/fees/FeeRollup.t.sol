@@ -148,7 +148,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint256 manaBaseFee = (
+    uint128 manaBaseFee = uint128(
       point.outputs.mana_base_fee_components_in_fee_asset.sequencer_cost
         + point.outputs.mana_base_fee_components_in_fee_asset.prover_cost
         + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost

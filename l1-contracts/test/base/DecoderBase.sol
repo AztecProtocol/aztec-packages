@@ -197,24 +197,24 @@ contract DecoderBase is TestBase {
     return _header;
   }
 
-  function updateHeaderDaFee(bytes memory _header, uint256 _fee)
+  function updateHeaderDaFee(bytes memory _header, uint128 _fee)
     internal
     pure
     returns (bytes memory)
   {
     assembly {
-      mstore(add(_header, add(0x20, 0x00fc)), _fee)
+      mstore(add(_header, add(0x10, 0x00fc)), _fee)
     }
     return _header;
   }
 
-  function updateHeaderBaseFee(bytes memory _header, uint256 _baseFee)
+  function updateHeaderBaseFee(bytes memory _header, uint128 _baseFee)
     internal
     pure
     returns (bytes memory)
   {
     assembly {
-      mstore(add(_header, add(0x20, 0x011c)), _baseFee)
+      mstore(add(_header, add(0x10, 0x010c)), _baseFee)
     }
     return _header;
   }
@@ -225,7 +225,7 @@ contract DecoderBase is TestBase {
     returns (bytes memory)
   {
     assembly {
-      mstore(add(_header, add(0x20, 0x013c)), _manaUsed)
+      mstore(add(_header, add(0x20, 0x011c)), _manaUsed)
     }
     return _header;
   }

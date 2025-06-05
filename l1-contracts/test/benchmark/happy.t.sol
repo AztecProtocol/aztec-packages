@@ -211,7 +211,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint256 manaBaseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+    uint128 manaBaseFee = uint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
     uint256 manaSpent = point.block_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();

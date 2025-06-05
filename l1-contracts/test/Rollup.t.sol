@@ -394,7 +394,7 @@ contract RollupTest is RollupBase {
   struct TestBlockFeeStruct {
     EthValue provingCostPerManaInEth;
     FeeAssetValue provingCostPerManaInFeeAsset;
-    uint256 baseFee;
+    uint128 baseFee;
     uint256 feeAmount;
     uint256 portalBalance;
     uint256 manaUsed;
@@ -426,7 +426,7 @@ contract RollupTest is RollupBase {
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
       skipBlobCheck(address(rollup));
-      interim.baseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+      interim.baseFee = uint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
       header = DecoderBase.updateHeaderBaseFee(header, interim.baseFee);
       header = DecoderBase.updateHeaderManaUsed(header, interim.manaUsed);
       // We mess up the fees and say that someone is paying a massive priority which surpass the amount available.
