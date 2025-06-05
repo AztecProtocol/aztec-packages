@@ -865,6 +865,7 @@ export const addMultipleValidators = async (
 
       // Retry mechanism to handle timing issues where rollup deployment is mined but storage isn't immediately readable
       let stakingAssetFromRollup: string = '';
+      let gseFromRollup: string = '';
       let retries = 0;
       const maxRetries = 10;
       const retryDelayMs = 1000;
@@ -872,22 +873,43 @@ export const addMultipleValidators = async (
       while (retries < maxRetries) {
         try {
           stakingAssetFromRollup = await rollup.getStakingAsset();
-          logger.info(`Staking asset from rollup (attempt ${retries + 1}): ${stakingAssetFromRollup}`);
+          gseFromRollup = await rollup.getGSE();
 
-          if (stakingAssetFromRollup !== '0x0000000000000000000000000000000000000000') {
+          logger.info(`Staking asset from rollup (attempt ${retries + 1}): ${stakingAssetFromRollup}`);
+          logger.info(`GSE address from rollup (attempt ${retries + 1}): ${gseFromRollup}`);
+
+          const stakingAssetValid = stakingAssetFromRollup !== '0x0000000000000000000000000000000000000000';
+          const gseValid = gseFromRollup !== '0x0000000000000000000000000000000000000000';
+
+          if (stakingAssetValid && gseValid) {
             logger.info(`✅ Rollup initialization verified after ${retries + 1} attempts`);
             break;
           }
 
           if (retries === maxRetries - 1) {
-            logger.error(
-              `❌ Rollup getStakingAsset() returned zero address after ${maxRetries} attempts - rollup not properly initialized`,
-            );
-            throw new Error('Rollup staking asset not initialized - cannot deploy MultiAdder');
+            if (!stakingAssetValid) {
+              logger.error(
+                `❌ Rollup getStakingAsset() returned zero address after ${maxRetries} attempts - rollup not properly initialized`,
+              );
+            }
+            if (!gseValid) {
+              logger.error(
+                `❌ Rollup getGSE() returned zero address after ${maxRetries} attempts - rollup not properly initialized`,
+              );
+            }
+            throw new Error('Rollup not properly initialized - cannot deploy MultiAdder');
+          }
+
+          const issues: string[] = [];
+          if (!stakingAssetValid) {
+            issues.push('staking asset');
+          }
+          if (!gseValid) {
+            issues.push('GSE address');
           }
 
           logger.warn(
-            `⚠️ Rollup getStakingAsset() returned zero address on attempt ${retries + 1}, retrying in ${retryDelayMs}ms...`,
+            `⚠️ Rollup ${issues.join(' and ')} returned zero address on attempt ${retries + 1}, retrying in ${retryDelayMs}ms...`,
           );
           await new Promise(resolve => setTimeout(resolve, retryDelayMs));
           retries++;
@@ -913,7 +935,9 @@ export const addMultipleValidators = async (
         );
       }
 
-      logger.info(`✅ Rollup initialization verified`);
+      logger.info(
+        `✅ Rollup initialization verified with staking asset: ${stakingAssetFromRollup} and GSE: ${gseFromRollup}`,
+      );
 
       logger.info(`Deploying MultiAdder contract...`);
       const multiAdder = await deployer.deploy(l1Artifacts.multiAdder, [
