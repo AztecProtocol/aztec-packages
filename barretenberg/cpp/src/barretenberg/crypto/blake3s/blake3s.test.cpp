@@ -415,10 +415,8 @@ TEST(MiscBlake3s, TestVectors)
     });
 }
 
-#if NDEBUG
 TEST(MiscBlake3s, TooLargeInputTest)
 {
     std::vector<uint8_t> input(1025, 0);
-    EXPECT_THROW(blake3::blake3s(input), std::runtime_error);
+    EXPECT_DEATH(blake3::blake3s(input), "Assertion failed");
 }
-#endif // NDEBUG
