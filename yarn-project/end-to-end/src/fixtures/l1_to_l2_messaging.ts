@@ -1,9 +1,9 @@
 import { type ExtendedViemWalletClient, type L1ContractAddresses, RollupContract } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
+import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { InboxAbi } from '@aztec/l1-artifacts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { expect } from '@jest/globals';
 import { decodeEventLog, getContract } from 'viem';
 
 export async function sendL1ToL2Message(
@@ -34,7 +34,11 @@ export async function sendL1ToL2Message(
   const txReceipt = await ctx.l1Client.waitForTransactionReceipt({ hash: txHash });
 
   // Exactly 1 event should be emitted in the transaction
-  expect(txReceipt.logs.length).toBe(1);
+  if (txReceipt.logs.length !== 1) {
+    throw new Error(
+      `Wrong number of logs found in transaction (got ${txReceipt.logs.length} expected 1)\n${tryJsonStringify(txReceipt.logs)}`,
+    );
+  }
 
   // We decode the event and get leaf out of it
   const messageSentLog = txReceipt.logs[0];

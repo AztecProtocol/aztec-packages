@@ -1,3 +1,5 @@
+import type { Archiver } from '@aztec/archiver';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, type AztecNode, Fr, type Logger, retryUntil } from '@aztec/aztec.js';
 import { Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
@@ -6,7 +8,6 @@ import { timesAsync } from '@aztec/foundation/collection';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
-import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -22,6 +23,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let node: AztecNode;
+  let archiver: Archiver;
   let proverNode: ProverNode;
   let monitor: ChainMonitor;
   let proverDelayer: Delayer;
@@ -40,6 +42,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     });
     ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
     node = context.aztecNode;
+    archiver = (node as AztecNodeService).getBlockSource() as Archiver;
     proverNode = context.proverNode!;
   });
 
@@ -180,7 +183,6 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     const L2_BLOCK_NUMBER = 3;
     await test.waitUntilL2BlockNumber(L2_BLOCK_NUMBER - 1, L2_SLOT_DURATION_IN_S * (L2_BLOCK_NUMBER + 4));
     expect(monitor.l2BlockNumber).toEqual(L2_BLOCK_NUMBER - 1);
-    const l1BlockNumber = monitor.l1BlockNumber;
     await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER - 1), 'node sync', 5, 0.1);
 
     // Cancel the next tx to be mined and pause the sequencer
@@ -189,28 +191,33 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     const [l2BlockTx] = sequencerDelayer.getCancelledTxs();
     await context.aztecNodeAdmin!.setConfig({ minTxsPerBlock: 100 });
 
-    // Wait until a few more L1 blocks go by, and trigger a reorg including the target block
-    await retryUntil(() => monitor.l1BlockNumber > l1BlockNumber + 2, 'l1 block number', L1_BLOCK_TIME_IN_S * 4, 0.1);
-    expect(await node.getBlockNumber()).toEqual(L2_BLOCK_NUMBER - 1);
-    logger.warn(`Triggering ${monitor.l1BlockNumber - l1BlockNumber}-block L1 reorg to include L2 block`);
+    // Save the L1 block number when the L2 block would have been mined
+    const l1BlockNumber = monitor.l1BlockNumber;
 
-    // Note that we cannot use reorgWithReplacement here for the reorg, due to an anvil bug with blob txs,
-    // so we reorg, then replay the tx, and then mine. We also run a simulate before so we can extract any
-    // errors that would arise if the tx would revert, to assist with debugging.
-    await context.cheatCodes.eth.reorg(monitor.l1BlockNumber - l1BlockNumber);
-    await context.cheatCodes.eth.mine(2);
-    const l2BlockTxRequest = parseTransaction(l2BlockTx);
-    const sender = (context.sequencer as TestSequencerClient).sequencer.publisher.getSenderAddress();
-    const result = await test.l1Client.simulateCalls({ account: sender.toString(), calls: [l2BlockTxRequest as any] });
-    logger.warn(`Simulation result for L2 block tx`, result);
-    expect(result.results[0].error).toBeUndefined();
-    expect(result.results[0].status).toEqual('success');
+    // Wait until a few more L1 blocks go by
+    await retryUntil(() => monitor.l1BlockNumber > l1BlockNumber + 1, 'l1 block number', L1_BLOCK_TIME_IN_S * 4, 0.1);
+    await retryUntil(() => archiver.getL1BlockNumber() > l1BlockNumber + 1, 'archiver sync', 10, 0.1);
+    expect(await node.getBlockNumber()).toEqual(L2_BLOCK_NUMBER - 1);
+
+    // Manually update the archiver's L1 syncpoint to ensure we look back when needed
+    // Otherwise this test just passes because we do not update the L1 syncpoint in the archiver since there are no new blocks
+    await archiver.dataStore.setBlockSynchedL1BlockNumber(BigInt(archiver.getL1BlockNumber()));
+
+    // Now trigger the reorg. Note that we cannot use reorgWithReplacement here for the reorg, due to an anvil bug with
+    // blob txs (now fixed, we can just update its version), so we reorg, then replay the tx, and then mine.
+    const reorgDepth = monitor.l1BlockNumber - l1BlockNumber;
+    expect(reorgDepth).toBeGreaterThan(0);
+    logger.warn(`Triggering ${reorgDepth}-block L1 reorg to include L2 block`);
+    await context.cheatCodes.eth.reorg(reorgDepth);
+    expect(await context.cheatCodes.eth.blockNumber()).toEqual(l1BlockNumber);
     logger.warn(`Sending L2 block tx to L1`);
     const txHash = await test.l1Client.sendRawTransaction({ serializedTransaction: l2BlockTx });
-    await context.cheatCodes.eth.mine(1);
+    await context.cheatCodes.eth.mine(reorgDepth);
 
-    // Check that the tx was reorged in and succeeded
+    // Check that the tx was reorged in and succeeded. We log the trace to debug any issues with the tx.
     const txReceipt = await test.l1Client.getTransactionReceipt({ hash: txHash });
+    logger.warn(`L2 block tx receipt`, { receipt: txReceipt });
+    logger.warn(`L2 block tx trace`, { trace: await context.cheatCodes.eth.traceTransaction(txHash) });
     expect(txReceipt.status).toEqual('success');
     expect(txReceipt.blobGasUsed).toBeGreaterThan(0n);
     expect(await monitor.run(true).then(m => m.l2BlockNumber)).toEqual(L2_BLOCK_NUMBER);
