@@ -9,7 +9,7 @@ use crate::{
     },
 };
 use blob::blob_public_inputs::BlobPublicInputs;
-use types::{abis::constant_rollup_data::ConstantRollupData, traits::Empty};
+use types::{abis::block_constant_data::BlockConstantData, traits::Empty};
 
 pub global EMPTY_EFFECT_BLOBS_HASH: Field =
     0x001cedbd7ea5309ef9d1d159209835409bf41b6b1802597a52fa70cc82e934d9;
@@ -20,7 +20,7 @@ pub global EMPTY_EFFECT_BLOB_CHALLENGE_Z: Field =
 
 pub struct EmptyBlockRootRollupInputs {
     data: BlockRootRollupData,
-    constants: ConstantRollupData,
+    constants: BlockConstantData,
     // This is set to true for situation where there's only 1 block in an epoch and we need another block root as the
     // right child of the root rollup.
     is_padding: bool,
@@ -33,7 +33,7 @@ impl EmptyBlockRootRollupInputs {
             [], // allowed_vk_indices
             self.data,
         );
-        validator.validate_without_previous_rollups(self.is_padding, self.constants.last_archive);
+        validator.validate_without_previous_rollups(self.is_padding, self.constants);
 
         let mut blob_public_input = BlobPublicInputs::empty();
         blob_public_input.kzg_commitment.inner = EMPTY_EFFECT_BLOB_COMMITMENT;
@@ -77,7 +77,7 @@ mod tests {
         pub fn execute(self) -> BlockRootOrBlockMergePublicInputs {
             EmptyBlockRootRollupInputs {
                 data: self.inputs.to_block_root_rollup_data(),
-                constants: self.inputs.to_constant_rollup_data(),
+                constants: self.inputs.to_block_constant_data(),
                 is_padding: self.is_padding,
             }
                 .execute()
