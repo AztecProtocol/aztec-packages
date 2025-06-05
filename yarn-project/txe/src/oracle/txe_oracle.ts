@@ -62,7 +62,6 @@ import {
 } from '@aztec/simulator/server';
 import {
   type ContractArtifact,
-  EventSelector,
   type FunctionAbi,
   FunctionSelector,
   FunctionType,
@@ -1175,11 +1174,16 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
-  public async validateEnqueuedNotes(
+  public async validateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
+    eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
-    await this.pxeOracleInterface.validateEnqueuedNotes(contractAddress, noteValidationRequestsArrayBaseSlot);
+    await this.pxeOracleInterface.validateEnqueuedNotesAndEvents(
+      contractAddress,
+      noteValidationRequestsArrayBaseSlot,
+      eventValidationRequestsArrayBaseSlot,
+    );
   }
 
   async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
@@ -1322,26 +1326,6 @@ export class TXE implements TypedOracle {
 
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
-  }
-
-  storePrivateEventLog(
-    contractAddress: AztecAddress,
-    recipient: AztecAddress,
-    eventSelector: EventSelector,
-    logContent: Fr[],
-    txHash: TxHash,
-    logIndexInTx: number,
-    txIndexInBlock: number,
-  ): Promise<void> {
-    return this.pxeOracleInterface.storePrivateEventLog(
-      contractAddress,
-      recipient,
-      eventSelector,
-      logContent,
-      txHash,
-      logIndexInTx,
-      txIndexInBlock,
-    );
   }
 
   async privateCallNewFlow(

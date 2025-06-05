@@ -2,12 +2,15 @@ use protocol_types::{address::AztecAddress, debug_log::debug_log};
 
 pub mod nonce_discovery;
 pub mod partial_notes;
+pub mod private_events;
 pub mod private_logs;
 pub mod private_notes;
 
 use crate::messages::{
     discovery::{private_logs::process_private_log, private_notes::MAX_NOTE_PACKED_LEN},
-    processing::{get_private_logs, pending_tagged_log::PendingTaggedLog, validate_enqueued_notes},
+    processing::{
+        get_private_logs, pending_tagged_log::PendingTaggedLog, validate_enqueued_notes_and_events,
+    },
 };
 
 pub struct NoteHashAndNullifier {
@@ -81,7 +84,7 @@ pub unconstrained fn discover_new_messages<Env>(
         compute_note_hash_and_nullifier,
     );
 
-    // Finally we validate all notes that were found as part of the previous processes, resulting in them being added to
-    // PXE's database and retrievable via oracles.
-    validate_enqueued_notes(contract_address);
+    // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
+    // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).
+    validate_enqueued_notes_and_events(contract_address);
 }

@@ -11,6 +11,7 @@ use protocol_types::{
 };
 
 /// The number of fields in a private note message content that are not the note's packed representation.
+// See the call to `std::static_assert` below to see what's in these fields.
 global PRIVATE_NOTE_MSG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 1;
 
 /// The maximum length of the packed representation of a note's contents. This is limited by private log size,
