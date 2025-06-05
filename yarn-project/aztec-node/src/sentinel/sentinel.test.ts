@@ -5,7 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
 import type { SlasherConfig } from '@aztec/slasher/config';
-import { Offence, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
+import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   type L2BlockStream,
@@ -314,7 +314,7 @@ describe('sentinel', () => {
         {
           validator: validator2,
           amount: config.slashInactivityCreatePenalty,
-          offense: Offence.INACTIVITY,
+          offense: Offense.INACTIVITY,
         },
       ]);
     });
@@ -340,12 +340,12 @@ describe('sentinel', () => {
         {
           validator: EthAddress.fromString(`0x0000000000000000000000000000000000000008`),
           amount: penalty,
-          offense: Offence.INACTIVITY,
+          offense: Offense.INACTIVITY,
         },
         {
           validator: EthAddress.fromString(`0x0000000000000000000000000000000000000009`),
           amount: penalty,
-          offense: Offence.INACTIVITY,
+          offense: Offense.INACTIVITY,
         },
       ]);
 
@@ -354,7 +354,7 @@ describe('sentinel', () => {
         const actualAgree = await sentinel.shouldSlash({
           validator: EthAddress.fromString(`0x000000000000000000000000000000000000000${i}`),
           amount: config.slashInactivityMaxPenalty,
-          offense: Offence.INACTIVITY,
+          offense: Offense.INACTIVITY,
         });
         expect(actualAgree).toBe(expectedAgree);
 
@@ -363,7 +363,7 @@ describe('sentinel', () => {
           sentinel.shouldSlash({
             validator: EthAddress.fromString(`0x000000000000000000000000000000000000000${i}`),
             amount: config.slashInactivityMaxPenalty + 1n,
-            offense: Offence.INACTIVITY,
+            offense: Offense.INACTIVITY,
           }),
         ).resolves.toBe(false);
       }
