@@ -192,8 +192,8 @@ function pass {
 # Show FAILED and exit with error code.
 function fail {
   local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${1:-}"
-  track_test $test_hash "$line"
-  track_test "failed_tests" "$line"
+  local history_line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test $test_hash "$history_line"
   track_test "failed_tests_${TARGET_BRANCH:-}" "$line"
   echo -e "$line"
   if [ "${DUMP_FAIL:-0}" -eq 1 ]; then
@@ -206,8 +206,8 @@ function fail {
 # Show FLAKED and send slack message to test owner(s). Exit with success.
 function flake {
   local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
-  track_test $test_hash "$line"
-  track_test "failed_tests" "$line"
+  local history_line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test $test_hash "$history_line"
   track_test "failed_tests_${TARGET_BRANCH:-}" "$line"
   echo -e "$line"
 
