@@ -116,7 +116,7 @@ void write_vk_for_ivc(const std::string& output_data_type,
 {
     const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_circuit(bytecode_path);
     info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
-    write_vk_for_ivc(output_data_type, num_public_inputs_in_final_circuit, output_dir)
+    write_vk_for_ivc(output_data_type, num_public_inputs_in_final_circuit, output_dir);
 }
 
 void ClientIVCAPI::prove(const Flags& flags,
