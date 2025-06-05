@@ -69,17 +69,6 @@ constexpr std::array<Column, NUM_OPERANDS> OPERAND_RELATIVE_OVERFLOW_COLUMNS = {
     C::execution_sel_relative_overflow_3_, C::execution_sel_relative_overflow_4_, C::execution_sel_relative_overflow_5_,
     C::execution_sel_relative_overflow_6_,
 };
-// constexpr std::array<Column, NUM_OPERANDS> OPERAND_SHOULD_DO_FINAL_CHECK_COLUMNS = {
-//     C::execution_sel_do_final_check_0_, C::execution_sel_do_final_check_1_, C::execution_sel_do_final_check_2_,
-//     C::execution_sel_do_final_check_3_, C::execution_sel_do_final_check_4_, C::execution_sel_do_final_check_5_,
-//     C::execution_sel_do_final_check_6_,
-// };
-// constexpr std::array<Column, NUM_OPERANDS> OPERAND_FINAL_OP_NOT_ADDRESS_COLUMNS = {
-//     C::execution_sel_final_op_not_address_0_, C::execution_sel_final_op_not_address_1_,
-//     C::execution_sel_final_op_not_address_2_, C::execution_sel_final_op_not_address_3_,
-//     C::execution_sel_final_op_not_address_4_, C::execution_sel_final_op_not_address_5_,
-//     C::execution_sel_final_op_not_address_6_,
-// };
 
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
 static_assert(NUM_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
@@ -344,110 +333,11 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         bool should_resolve_address = should_check_gas && !oog_base;
-        const auto& addr_event = ex_event.addressing_event;
-        bool addressing_failed = std::any_of(addr_event.resolution_info.begin(),
-                                             addr_event.resolution_info.end(),
-                                             [](const auto& info) { return info.error.has_value(); });
-        assert(addressing_failed == (ex_event.error == ExecutionError::ADDRESSING));
         trace.set(C::execution_sel_should_resolve_address, row, should_resolve_address ? 1 : 0);
-
         if (should_resolve_address) {
-            // At this point we can assume instruction fetching succeeded, so this should never fail.
-            const ExecInstructionSpec& ex_spec = EXEC_INSTRUCTION_SPEC.at(*exec_opcode);
-
-            auto resolution_info_vec = addr_event.resolution_info;
-            assert(resolution_info_vec.size() <= NUM_OPERANDS);
-            resolution_info_vec.resize(NUM_OPERANDS);
-
-            for (size_t i = 0; i < NUM_OPERANDS; i++) {
-                const auto& resolution_info = resolution_info_vec.at(i);
-                bool is_address = i < ex_spec.num_addresses;
-                bool relative_oob = resolution_info.error.has_value() &&
-                                    *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
-                bool is_indirect = is_operand_indirect(ex_event.wire_instruction.indirect, i);
-                bool should_apply_indirection = is_indirect && !relative_oob;
-                // bool should_do_final_check = is_address && should_apply_indirection;
-                // bool final_op_not_address =
-                //     resolution_info.error.has_value() &&
-                //     *resolution_info.error == AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
-                uint8_t resolved_operand_tag = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
-
-                trace.set(row,
-                          { {
-                              { OPERAND_IS_ADDRESS_COLUMNS[i], is_address ? 1 : 0 },
-                              { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob ? 1 : 0 },
-                              { OPERAND_AFTER_RELATIVE_COLUMNS[i], resolution_info.after_relative },
-                              { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection ? 1 : 0 },
-                              { RESOLVED_OPERAND_COLUMNS[i], resolution_info.resolved_operand },
-                              { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag },
-                              //   { OPERAND_SHOULD_DO_FINAL_CHECK_COLUMNS[i], should_do_final_check ? 1 : 0 },
-                              //   { OPERAND_FINAL_OP_NOT_ADDRESS_COLUMNS[i], final_op_not_address ? 1 : 0 }
-                          } });
-            }
-
-            // See comment in PIL file about indirect upper bits.
-            uint8_t num_relative_operands = 0;
-            for (size_t i = 0; i < TOTAL_INDIRECT_BITS / 2; i++) {
-                bool is_relative = is_operand_relative(ex_event.wire_instruction.indirect, i);
-                bool is_indirect = is_operand_indirect(ex_event.wire_instruction.indirect, i);
-                trace.set(row,
-                          { {
-                              { OPERAND_IS_RELATIVE_COLUMNS[i], is_relative ? 1 : 0 },
-                              { OPERAND_IS_INDIRECT_COLUMNS[i], is_indirect ? 1 : 0 },
-                          } });
-                if (is_relative) {
-                    num_relative_operands++;
-                }
-            }
-
-            bool do_base_check = num_relative_operands != 0;
-            bool base_address_invalid = do_base_check && addr_event.base_address.get_tag() != MemoryTag::U32;
-            FF base_address_tag_diff_inv =
-                base_address_invalid
-                    ? FF(static_cast<uint8_t>(addr_event.base_address.get_tag()) - MEM_TAG_U32).invert()
-                    : 0;
-            // Collect addressing errors. See PIL file for reference.
-            FF addressing_error_collection_inv =
-                addressing_failed
-                    ? FF(
-                          // Base address invalid.
-                          (base_address_invalid ? 1 : 0) +
-                          // Relative overflow.
-                          std::accumulate(addr_event.resolution_info.begin(),
-                                          addr_event.resolution_info.end(),
-                                          static_cast<uint32_t>(0),
-                                          [](uint32_t acc, const auto& info) {
-                                              return acc + (info.error.has_value() &&
-                                                                    *info.error ==
-                                                                        AddressingEventError::RELATIVE_COMPUTATION_OOB
-                                                                ? 1
-                                                                : 0);
-                                          }) +
-                          // Some invalid address after indirection.
-                          (std::any_of(addr_event.resolution_info.begin(),
-                                       addr_event.resolution_info.end(),
-                                       [](const auto& info) {
-                                           return info.error.has_value() &&
-                                                  *info.error ==
-                                                      AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
-                                       })
-                               ? 1
-                               : 0))
-                          .invert()
-                    : 0;
-
-            trace.set(
-                row,
-                { { { C::execution_fixed_32, 32 },
-                    { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
-                    { C::execution_addressing_error_collection_inv, addressing_error_collection_inv },
-                    { C::execution_base_address_val, addr_event.base_address.as_ff() },
-                    { C::execution_base_address_tag, static_cast<size_t>(addr_event.base_address.get_tag()) },
-                    { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
-                    { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
-                    { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
-                    { C::execution_sel_do_base_check, do_base_check ? 1 : 0 } } });
+            process_addressing(ex_event.addressing_event, ex_event.wire_instruction, trace, row);
         }
+        bool addressing_failed = ex_event.error == ExecutionError::ADDRESSING;
 
         /**************************************************************************************************
          *  Temporality group...: Registers.
@@ -684,6 +574,129 @@ void ExecutionTraceBuilder::process(
     if (!ex_events.empty()) {
         trace.set(C::execution_last, row - 1, 1);
     }
+}
+
+void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent& addr_event,
+                                               const simulation::Instruction& instruction,
+                                               TraceContainer& trace,
+                                               uint32_t row)
+{
+    // At this point we can assume instruction fetching succeeded, so this should never fail.
+    ExecutionOpCode exec_opcode = instruction.get_exec_opcode();
+    const ExecInstructionSpec& ex_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
+
+    auto resolution_info_vec = addr_event.resolution_info;
+    assert(resolution_info_vec.size() <= NUM_OPERANDS);
+    resolution_info_vec.resize(NUM_OPERANDS);
+
+    std::array<bool, NUM_OPERANDS> is_address{};
+    std::array<bool, NUM_OPERANDS> should_apply_indirection{};
+    std::array<bool, NUM_OPERANDS> relative_oob{};
+    std::array<FF, NUM_OPERANDS> after_relative{};
+    std::array<FF, NUM_OPERANDS> resolved_operand{};
+    std::array<uint8_t, NUM_OPERANDS> resolved_operand_tag{};
+    uint8_t num_relative_operands = 0;
+
+    // Gather operand information.
+    for (size_t i = 0; i < NUM_OPERANDS; i++) {
+        const auto& resolution_info = resolution_info_vec.at(i);
+        is_address[i] = i < ex_spec.num_addresses;
+        relative_oob[i] = resolution_info.error.has_value() &&
+                          *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
+        bool is_indirect = is_operand_indirect(instruction.indirect, i);
+        bool is_relative = is_operand_relative(instruction.indirect, i);
+        should_apply_indirection[i] = is_indirect && !relative_oob[i];
+        resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
+        after_relative[i] = resolution_info.after_relative;
+        resolved_operand[i] = resolution_info.resolved_operand;
+        if (is_relative) {
+            num_relative_operands++;
+        }
+    }
+
+    // Set the operand columns.
+    for (size_t i = 0; i < NUM_OPERANDS; i++) {
+        trace.set(row,
+                  { {
+                      { OPERAND_IS_ADDRESS_COLUMNS[i], is_address[i] ? 1 : 0 },
+                      { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
+                      { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
+                      { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
+                      { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
+                      { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag[i] },
+                  } });
+    }
+
+    // We need to compute relative and indirect over the whole 16 bits of the indirect flag.
+    // See comment in PIL file about indirect upper bits.
+    for (size_t i = 0; i < TOTAL_INDIRECT_BITS / 2; i++) {
+        bool is_relative = is_operand_relative(instruction.indirect, i);
+        bool is_indirect = is_operand_indirect(instruction.indirect, i);
+        trace.set(row,
+                  { {
+                      { OPERAND_IS_RELATIVE_COLUMNS[i], is_relative ? 1 : 0 },
+                      { OPERAND_IS_INDIRECT_COLUMNS[i], is_indirect ? 1 : 0 },
+                  } });
+    }
+
+    // Base address check.
+    bool do_base_check = num_relative_operands != 0;
+    bool base_address_invalid = do_base_check && addr_event.base_address.get_tag() != MemoryTag::U32;
+    FF base_address_tag_diff_inv =
+        base_address_invalid ? FF(static_cast<uint8_t>(addr_event.base_address.get_tag()) - MEM_TAG_U32).invert() : 0;
+
+    // Tag check after indirection.
+    bool some_final_check_failed =
+        std::any_of(addr_event.resolution_info.begin(), addr_event.resolution_info.end(), [](const auto& info) {
+            return info.error.has_value() && *info.error == AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
+        });
+    FF batched_tags_diff_inv = 0;
+    if (some_final_check_failed) {
+        FF batched_tags_diff = 0;
+        FF power_of_2 = 1;
+        for (size_t i = 0; i < NUM_OPERANDS; ++i) {
+            batched_tags_diff += FF(is_address[i]) * FF(should_apply_indirection[i]) * power_of_2 *
+                                 (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
+            power_of_2 *= 8; // 2^3
+        }
+        batched_tags_diff_inv = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+    }
+
+    // Collect addressing errors. See PIL file for reference.
+    bool addressing_failed = std::any_of(addr_event.resolution_info.begin(),
+                                         addr_event.resolution_info.end(),
+                                         [](const auto& info) { return info.error.has_value(); });
+    FF addressing_error_collection_inv =
+        addressing_failed
+            ? FF(
+                  // Base address invalid.
+                  (base_address_invalid ? 1 : 0) +
+                  // Relative overflow.
+                  std::accumulate(addr_event.resolution_info.begin(),
+                                  addr_event.resolution_info.end(),
+                                  static_cast<uint32_t>(0),
+                                  [](uint32_t acc, const auto& info) {
+                                      return acc +
+                                             (info.error.has_value() &&
+                                                      *info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB
+                                                  ? 1
+                                                  : 0);
+                                  }) +
+                  // Some invalid address after indirection.
+                  (some_final_check_failed ? 1 : 0))
+                  .invert()
+            : 0;
+
+    trace.set(row,
+              { { { C::execution_fixed_32, 32 },
+                  { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
+                  { C::execution_addressing_error_collection_inv, addressing_error_collection_inv },
+                  { C::execution_base_address_val, addr_event.base_address.as_ff() },
+                  { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
+                  { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
+                  { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
+                  { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
+                  { C::execution_sel_do_base_check, do_base_check ? 1 : 0 } } });
 }
 
 std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder::lookup_jobs()

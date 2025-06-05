@@ -489,163 +489,191 @@ TEST(AddressingConstrainingTest, IndirectPropagationWhenIndirection)
  *  Final Guarantees
  **************************************************************************************************/
 
-// TEST(AddressingConstrainingTest, FinalCheck)
-// {
-//     TestTraceContainer trace({
-//         {
-//             // From indirect resolution.
-//             { C::execution_sel_should_apply_indirection_0_, 0 },
-//             { C::execution_sel_should_apply_indirection_1_, 1 },
-//             { C::execution_sel_should_apply_indirection_2_, 0 },
-//             { C::execution_sel_should_apply_indirection_3_, 1 },
-//             { C::execution_sel_should_apply_indirection_4_, 0 },
-//             { C::execution_sel_should_apply_indirection_5_, 1 },
-//             { C::execution_sel_should_apply_indirection_6_, 1 },
-//             // From spec.
-//             { C::execution_sel_op_is_address_0_, 0 },
-//             { C::execution_sel_op_is_address_1_, 0 },
-//             { C::execution_sel_op_is_address_2_, 1 },
-//             { C::execution_sel_op_is_address_3_, 1 },
-//             { C::execution_sel_op_is_address_4_, 0 },
-//             { C::execution_sel_op_is_address_5_, 0 },
-//             { C::execution_sel_op_is_address_6_, 1 },
-//             // From indirection.
-//             { C::execution_rop_tag_0_, static_cast<uint8_t>(MemoryTag::FF) },  // shouldn't matter, not address
-//             { C::execution_rop_tag_1_, static_cast<uint8_t>(MemoryTag::U8) },  // shouldn't matter, not address
-//             { C::execution_rop_tag_2_, static_cast<uint8_t>(MemoryTag::U16) }, // shouldn't matter, not indirect
-//             { C::execution_rop_tag_3_, static_cast<uint8_t>(MemoryTag::U32) }, // final_op_not_address expected to be
-//             0 { C::execution_rop_tag_4_, static_cast<uint8_t>(MemoryTag::U1) },  // shouldn't matter, not indirect {
-//             C::execution_rop_tag_5_, static_cast<uint8_t>(MemoryTag::U32) }, // shouldn't matter, not address {
-//             C::execution_rop_tag_6_, static_cast<uint8_t>(MemoryTag::U1) },  // final_op_not_address expected to
-//             be 1.
+TEST(AddressingConstrainingTest, FinalCheckNoFailure)
+{
+    constexpr size_t NUM_OPERANDS = 7;
+    FF should_apply_indirection[NUM_OPERANDS] = { 0, 1, 0, 1, 0, 1, 1 };
+    FF is_address[NUM_OPERANDS] = { 0, 0, 1, 1, 0, 0, 1 };
+    MemoryTag rop_tag[NUM_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U32,
+                                        MemoryTag::U1, MemoryTag::U32, MemoryTag::U32 };
 
-//             // From final check.
-//             { C::execution_sel_final_op_not_address_0_, 0 },
-//             { C::execution_sel_final_op_not_address_1_, 1 },
-//             { C::execution_sel_final_op_not_address_2_, 0 },
-//             { C::execution_sel_final_op_not_address_3_, 0 },
-//             { C::execution_sel_final_op_not_address_4_, 1 },
-//             { C::execution_sel_final_op_not_address_5_, 0 },
-//             { C::execution_sel_final_op_not_address_6_, 1 },
-//         },
-//     });
+    auto get_tag_diff_inv = [&]() {
+        FF batched_tags_diff = 0;
+        FF power_of_2 = 1;
+        for (size_t i = 0; i < NUM_OPERANDS; ++i) {
+            batched_tags_diff += is_address[i] * should_apply_indirection[i] * power_of_2 *
+                                 (FF(static_cast<uint8_t>(rop_tag[i])) - FF(MEM_TAG_U32));
+            power_of_2 *= 8; // 2^3
+        }
+        return batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+    };
 
-//     check_relation<addressing>(trace,
-//                                addressing::SR_FINAL_CHECK_0,
-//                                addressing::SR_FINAL_CHECK_1,
-//                                addressing::SR_FINAL_CHECK_2,
-//                                addressing::SR_FINAL_CHECK_3,
-//                                addressing::SR_FINAL_CHECK_4,
-//                                addressing::SR_FINAL_CHECK_5,
-//                                addressing::SR_FINAL_CHECK_6);
+    TestTraceContainer trace({
+        {
+            // From indirect resolution.
+            { C::execution_sel_should_apply_indirection_0_, should_apply_indirection[0] },
+            { C::execution_sel_should_apply_indirection_1_, should_apply_indirection[1] },
+            { C::execution_sel_should_apply_indirection_2_, should_apply_indirection[2] },
+            { C::execution_sel_should_apply_indirection_3_, should_apply_indirection[3] },
+            { C::execution_sel_should_apply_indirection_4_, should_apply_indirection[4] },
+            { C::execution_sel_should_apply_indirection_5_, should_apply_indirection[5] },
+            { C::execution_sel_should_apply_indirection_6_, should_apply_indirection[6] },
+            // From spec.
+            { C::execution_sel_op_is_address_0_, is_address[0] },
+            { C::execution_sel_op_is_address_1_, is_address[1] },
+            { C::execution_sel_op_is_address_2_, is_address[2] },
+            { C::execution_sel_op_is_address_3_, is_address[3] },
+            { C::execution_sel_op_is_address_4_, is_address[4] },
+            { C::execution_sel_op_is_address_5_, is_address[5] },
+            { C::execution_sel_op_is_address_6_, is_address[6] },
+            // From indirection.
+            { C::execution_rop_tag_0_, static_cast<uint8_t>(rop_tag[0]) }, // shouldn't matter, not address
+            { C::execution_rop_tag_1_, static_cast<uint8_t>(rop_tag[1]) }, // shouldn't matter, not address
+            { C::execution_rop_tag_2_, static_cast<uint8_t>(rop_tag[2]) }, // shouldn't matter, not indirect
+            { C::execution_rop_tag_3_, static_cast<uint8_t>(rop_tag[3]) }, // NO FAIlURE
+            { C::execution_rop_tag_4_, static_cast<uint8_t>(rop_tag[4]) }, // shouldn't matter, not indirect
+            { C::execution_rop_tag_5_, static_cast<uint8_t>(rop_tag[5]) }, // shouldn't matter, not address
+            { C::execution_rop_tag_6_, static_cast<uint8_t>(rop_tag[6]) }, // NO FAILURE
 
-//     // Expect failures if we change values.
-//     trace.set(0,
-//               { {
-//                   // Opposite of above.
-//                   { C::execution_sel_final_op_not_address_0_, 1 },
-//                   { C::execution_sel_final_op_not_address_1_, 0 },
-//                   { C::execution_sel_final_op_not_address_2_, 1 },
-//                   { C::execution_sel_final_op_not_address_3_, 1 },
-//                   { C::execution_sel_final_op_not_address_4_, 0 },
-//                   { C::execution_sel_final_op_not_address_5_, 1 },
-//                   { C::execution_sel_final_op_not_address_6_, 0 },
-//               } });
-//     check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_0); // Shouldn't matter, not address.
-//     check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_1); // Shouldn't matter, not address.
-//     check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_2); // Shouldn't matter, not indirect.
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_3), "FINAL_CHECK_3");
-//     check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_4); // Shouldn't matter, not indirect.
-//     check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_5); // Shouldn't matter, not address.
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_6), "FINAL_CHECK_6");
-// }
+            // From final check.
+            { C::execution_batched_tags_diff_inv, get_tag_diff_inv() },
+            { C::execution_sel_some_final_check_failed, 0 },
+        },
+    });
 
-// TEST(AddressingConstrainingTest, FinalCheckGating)
-// {
-//     TestTraceContainer trace({
-//         {
-//             // From indirect resolution.
-//             { C::execution_sel_should_apply_indirection_0_, 0 },
-//             { C::execution_sel_should_apply_indirection_1_, 1 },
-//             { C::execution_sel_should_apply_indirection_2_, 0 },
-//             { C::execution_sel_should_apply_indirection_3_, 1 },
-//             { C::execution_sel_should_apply_indirection_4_, 0 },
-//             { C::execution_sel_should_apply_indirection_5_, 1 },
-//             { C::execution_sel_should_apply_indirection_6_, 0 },
-//             // From spec.
-//             { C::execution_sel_op_is_address_0_, 0 },
-//             { C::execution_sel_op_is_address_1_, 0 },
-//             { C::execution_sel_op_is_address_2_, 1 },
-//             { C::execution_sel_op_is_address_3_, 1 },
-//             { C::execution_sel_op_is_address_4_, 0 },
-//             { C::execution_sel_op_is_address_5_, 0 },
-//             { C::execution_sel_op_is_address_6_, 1 },
-//             // Expected.
-//             { C::execution_sel_do_final_check_0_, 0 },
-//             { C::execution_sel_do_final_check_1_, 0 },
-//             { C::execution_sel_do_final_check_2_, 0 },
-//             { C::execution_sel_do_final_check_3_, 1 },
-//             { C::execution_sel_do_final_check_4_, 0 },
-//             { C::execution_sel_do_final_check_5_, 0 },
-//             { C::execution_sel_do_final_check_6_, 0 },
-//             // Selectors that enable the subrelation.
-//             { C::execution_sel_should_resolve_address, 1 },
-//         },
-//     });
+    check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK);
 
-//     check_relation<addressing>(trace,
-//                                addressing::SR_FINAL_CHECK_GATING_0,
-//                                addressing::SR_FINAL_CHECK_GATING_1,
-//                                addressing::SR_FINAL_CHECK_GATING_2,
-//                                addressing::SR_FINAL_CHECK_GATING_3,
-//                                addressing::SR_FINAL_CHECK_GATING_4,
-//                                addressing::SR_FINAL_CHECK_GATING_5,
-//                                addressing::SR_FINAL_CHECK_GATING_6);
+    // Should fail if I try to trick the selector.
+    trace.set(C::execution_sel_some_final_check_failed, /*row=*/0, /*value=*/1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK),
+                              "BATCHED_TAGS_DIFF_CHECK");
+}
 
-//     // Expect failures if we change values.
-//     trace.set(0,
-//               { {
-//                   // Opposite of above.
-//                   { C::execution_sel_do_final_check_0_, 1 },
-//                   { C::execution_sel_do_final_check_1_, 1 },
-//                   { C::execution_sel_do_final_check_2_, 1 },
-//                   { C::execution_sel_do_final_check_3_, 0 },
-//                   { C::execution_sel_do_final_check_4_, 1 },
-//                   { C::execution_sel_do_final_check_5_, 1 },
-//                   { C::execution_sel_do_final_check_6_, 1 },
-//               } });
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_0),
-//                               "FINAL_CHECK_GATING_0");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_1),
-//                               "FINAL_CHECK_GATING_1");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_2),
-//                               "FINAL_CHECK_GATING_2");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_3),
-//                               "FINAL_CHECK_GATING_3");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_4),
-//                               "FINAL_CHECK_GATING_4");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_5),
-//                               "FINAL_CHECK_GATING_5");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_6),
-//                               "FINAL_CHECK_GATING_6");
+TEST(AddressingConstrainingTest, FinalCheckSingleFailure)
+{
+    constexpr size_t NUM_OPERANDS = 7;
+    FF should_apply_indirection[NUM_OPERANDS] = { 0, 1, 0, 1, 0, 1, 1 };
+    FF is_address[NUM_OPERANDS] = { 0, 0, 1, 1, 0, 0, 1 };
+    MemoryTag rop_tag[NUM_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U32,
+                                        MemoryTag::U1, MemoryTag::U32, MemoryTag::U1 };
 
-//     // These subrelations do not pay attention to sel_should_resolve_address.
-//     trace.set(C::execution_sel_should_resolve_address, /*row=*/0, /*value=*/0);
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_0),
-//                               "FINAL_CHECK_GATING_0");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_1),
-//                               "FINAL_CHECK_GATING_1");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_2),
-//                               "FINAL_CHECK_GATING_2");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_3),
-//                               "FINAL_CHECK_GATING_3");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_4),
-//                               "FINAL_CHECK_GATING_4");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_5),
-//                               "FINAL_CHECK_GATING_5");
-//     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_FINAL_CHECK_GATING_6),
-//                               "FINAL_CHECK_GATING_6");
-// }
+    auto get_tag_diff_inv = [&]() {
+        FF batched_tags_diff = 0;
+        FF power_of_2 = 1;
+        for (size_t i = 0; i < NUM_OPERANDS; ++i) {
+            batched_tags_diff += is_address[i] * should_apply_indirection[i] * power_of_2 *
+                                 (FF(static_cast<uint8_t>(rop_tag[i])) - FF(MEM_TAG_U32));
+            power_of_2 *= 8; // 2^3
+        }
+        return batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+    };
+
+    TestTraceContainer trace({
+        {
+            // From indirect resolution.
+            { C::execution_sel_should_apply_indirection_0_, should_apply_indirection[0] },
+            { C::execution_sel_should_apply_indirection_1_, should_apply_indirection[1] },
+            { C::execution_sel_should_apply_indirection_2_, should_apply_indirection[2] },
+            { C::execution_sel_should_apply_indirection_3_, should_apply_indirection[3] },
+            { C::execution_sel_should_apply_indirection_4_, should_apply_indirection[4] },
+            { C::execution_sel_should_apply_indirection_5_, should_apply_indirection[5] },
+            { C::execution_sel_should_apply_indirection_6_, should_apply_indirection[6] },
+            // From spec.
+            { C::execution_sel_op_is_address_0_, is_address[0] },
+            { C::execution_sel_op_is_address_1_, is_address[1] },
+            { C::execution_sel_op_is_address_2_, is_address[2] },
+            { C::execution_sel_op_is_address_3_, is_address[3] },
+            { C::execution_sel_op_is_address_4_, is_address[4] },
+            { C::execution_sel_op_is_address_5_, is_address[5] },
+            { C::execution_sel_op_is_address_6_, is_address[6] },
+            // From indirection.
+            { C::execution_rop_tag_0_, static_cast<uint8_t>(rop_tag[0]) }, // shouldn't matter, not address
+            { C::execution_rop_tag_1_, static_cast<uint8_t>(rop_tag[1]) }, // shouldn't matter, not address
+            { C::execution_rop_tag_2_, static_cast<uint8_t>(rop_tag[2]) }, // shouldn't matter, not indirect
+            { C::execution_rop_tag_3_, static_cast<uint8_t>(rop_tag[3]) }, // NO FAIlURE
+            { C::execution_rop_tag_4_, static_cast<uint8_t>(rop_tag[4]) }, // shouldn't matter, not indirect
+            { C::execution_rop_tag_5_, static_cast<uint8_t>(rop_tag[5]) }, // shouldn't matter, not address
+            { C::execution_rop_tag_6_, static_cast<uint8_t>(rop_tag[6]) }, // FAILURE
+
+            // From final check.
+            { C::execution_batched_tags_diff_inv, get_tag_diff_inv() },
+            { C::execution_sel_some_final_check_failed, 1 },
+        },
+    });
+
+    check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK);
+
+    // Should fail if I try to trick the selector.
+    trace.set(C::execution_sel_some_final_check_failed, /*row=*/0, /*value=*/0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK),
+                              "BATCHED_TAGS_DIFF_CHECK");
+    trace.set(C::execution_batched_tags_diff_inv, /*row=*/0, /*value=*/0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK),
+                              "BATCHED_TAGS_DIFF_CHECK");
+}
+
+TEST(AddressingConstrainingTest, FinalCheckMultipleFailures)
+{
+    constexpr size_t NUM_OPERANDS = 7;
+    FF should_apply_indirection[NUM_OPERANDS] = { 0, 1, 0, 1, 0, 1, 1 };
+    FF is_address[NUM_OPERANDS] = { 0, 0, 1, 1, 0, 0, 1 };
+    MemoryTag rop_tag[NUM_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U8,
+                                        MemoryTag::U1, MemoryTag::U32, MemoryTag::U1 };
+
+    auto get_tag_diff_inv = [&]() {
+        FF batched_tags_diff = 0;
+        FF power_of_2 = 1;
+        for (size_t i = 0; i < NUM_OPERANDS; ++i) {
+            batched_tags_diff += is_address[i] * should_apply_indirection[i] * power_of_2 *
+                                 (FF(static_cast<uint8_t>(rop_tag[i])) - FF(MEM_TAG_U32));
+            power_of_2 *= 8; // 2^3
+        }
+        return batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+    };
+
+    TestTraceContainer trace({
+        {
+            // From indirect resolution.
+            { C::execution_sel_should_apply_indirection_0_, should_apply_indirection[0] },
+            { C::execution_sel_should_apply_indirection_1_, should_apply_indirection[1] },
+            { C::execution_sel_should_apply_indirection_2_, should_apply_indirection[2] },
+            { C::execution_sel_should_apply_indirection_3_, should_apply_indirection[3] },
+            { C::execution_sel_should_apply_indirection_4_, should_apply_indirection[4] },
+            { C::execution_sel_should_apply_indirection_5_, should_apply_indirection[5] },
+            { C::execution_sel_should_apply_indirection_6_, should_apply_indirection[6] },
+            // From spec.
+            { C::execution_sel_op_is_address_0_, is_address[0] },
+            { C::execution_sel_op_is_address_1_, is_address[1] },
+            { C::execution_sel_op_is_address_2_, is_address[2] },
+            { C::execution_sel_op_is_address_3_, is_address[3] },
+            { C::execution_sel_op_is_address_4_, is_address[4] },
+            { C::execution_sel_op_is_address_5_, is_address[5] },
+            { C::execution_sel_op_is_address_6_, is_address[6] },
+            // From indirection.
+            { C::execution_rop_tag_0_, static_cast<uint8_t>(rop_tag[0]) }, // shouldn't matter, not address
+            { C::execution_rop_tag_1_, static_cast<uint8_t>(rop_tag[1]) }, // shouldn't matter, not address
+            { C::execution_rop_tag_2_, static_cast<uint8_t>(rop_tag[2]) }, // shouldn't matter, not indirect
+            { C::execution_rop_tag_3_, static_cast<uint8_t>(rop_tag[3]) }, // FAIlURE
+            { C::execution_rop_tag_4_, static_cast<uint8_t>(rop_tag[4]) }, // shouldn't matter, not indirect
+            { C::execution_rop_tag_5_, static_cast<uint8_t>(rop_tag[5]) }, // shouldn't matter, not address
+            { C::execution_rop_tag_6_, static_cast<uint8_t>(rop_tag[6]) }, // FAILURE
+
+            // From final check.
+            { C::execution_batched_tags_diff_inv, get_tag_diff_inv() },
+            { C::execution_sel_some_final_check_failed, 1 },
+        },
+    });
+
+    check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK);
+
+    // Should fail if I try to trick the selector.
+    trace.set(C::execution_sel_some_final_check_failed, /*row=*/0, /*value=*/0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK),
+                              "BATCHED_TAGS_DIFF_CHECK");
+    trace.set(C::execution_batched_tags_diff_inv, /*row=*/0, /*value=*/0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK),
+                              "BATCHED_TAGS_DIFF_CHECK");
+}
 
 } // namespace
 } // namespace bb::avm2::constraining
