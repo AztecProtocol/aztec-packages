@@ -122,8 +122,8 @@ PublicInputsBuilder& PublicInputsBuilder::rand_global_variables()
                                       .coinbase = EthAddress::random_element(),
                                       .feeRecipient = AztecAddress::random_element(),
                                       .gasFees = {
-                                          .feePerDaGas = static_cast<uint64_t>(std::rand()),
-                                          .feePerL2Gas = static_cast<uint64_t>(std::rand()),
+                                          .feePerDaGas = static_cast<uint128_t>(std::rand()),
+                                          .feePerL2Gas = static_cast<uint128_t>(std::rand()),
                                       } };
     return *this;
 }
@@ -162,12 +162,12 @@ PublicInputsBuilder& PublicInputsBuilder::rand_gas_settings()
             .daGas = static_cast<uint32_t>(std::rand()),
         },
         .maxFeesPerGas = {
-            .feePerDaGas = static_cast<uint64_t>(std::rand()),
-            .feePerL2Gas = static_cast<uint64_t>(std::rand()),
+            .feePerDaGas = static_cast<uint128_t>(std::rand()),
+            .feePerL2Gas = static_cast<uint128_t>(std::rand()),
         },
         .maxPriorityFeesPerGas = {
-            .feePerDaGas = static_cast<uint64_t>(std::rand()),
-            .feePerL2Gas = static_cast<uint64_t>(std::rand()),
+            .feePerDaGas = static_cast<uint128_t>(std::rand()),
+            .feePerL2Gas = static_cast<uint128_t>(std::rand()),
         },
     };
     return *this;
