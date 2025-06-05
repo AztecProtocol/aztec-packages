@@ -26,8 +26,8 @@ export class Fr {
       typeof value === 'bigint'
         ? value
         : value instanceof Buffer
-        ? buffer32BytesToBigIntBE(value)
-        : uint8ArrayToBigIntBE(value);
+          ? buffer32BytesToBigIntBE(value)
+          : uint8ArrayToBigIntBE(value);
 
     if (valueBigInt > Fr.MAX_VALUE) {
       throw new Error(`Value 0x${valueBigInt.toString(16)} is greater or equal to field modulus.`);

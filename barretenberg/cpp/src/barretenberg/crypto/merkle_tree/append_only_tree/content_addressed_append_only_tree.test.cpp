@@ -122,6 +122,24 @@ void check_sibling_path(TreeType& tree,
     signal.wait_for_level();
 }
 
+void check_sibling_path_by_value(TreeType& tree,
+                                 fr value,
+                                 fr_sibling_path expected_sibling_path,
+                                 bool includeUncommitted = true,
+                                 bool expected_result = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafPathResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_result);
+        if (expected_result) {
+            EXPECT_EQ(response.inner.leaf_paths[0], expected_sibling_path);
+        }
+        signal.signal_level();
+    };
+    tree.find_leaf_sibling_paths({ value }, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
 void check_historic_sibling_path(TreeType& tree,
                                  index_t index,
                                  fr_sibling_path expected_sibling_path,
@@ -137,6 +155,24 @@ void check_historic_sibling_path(TreeType& tree,
         signal.signal_level();
     };
     tree.get_sibling_path(index, blockNumber, completion, false);
+    signal.wait_for_level();
+}
+
+void check_historic_sibling_path_by_value(TreeType& tree,
+                                          fr value,
+                                          fr_sibling_path expected_sibling_path,
+                                          block_number_t blockNumber,
+                                          bool expected_success = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafPathResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_paths[0], expected_sibling_path);
+        }
+        signal.signal_level();
+    };
+    tree.find_leaf_sibling_paths({ value }, blockNumber, false, completion);
     signal.wait_for_level();
 }
 
@@ -375,6 +411,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_value_and_get_siblin
     check_size(tree, 1);
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
@@ -698,6 +735,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values)
 
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree, i, memdb.get_sibling_path(i));
+
+        check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
+        check_sibling_path_by_value(tree, VALUES[i], memdb.get_sibling_path(i));
     }
 }
 
@@ -722,6 +762,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values_in_a
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
     check_sibling_path(tree, 4 - 1, memdb.get_sibling_path(4 - 1));
+    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
+    check_sibling_path_by_value(tree, VALUES[4 - 1], memdb.get_sibling_path(4 - 1));
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_pad_with_zero_leaves)
@@ -875,8 +917,10 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
 
         for (uint32_t i = 0; i < historicPathsZeroIndex.size(); i++) {
             check_historic_sibling_path(tree, 0, historicPathsZeroIndex[i], i + 1);
+            check_historic_sibling_path_by_value(tree, VALUES[0], historicPathsZeroIndex[i], i + 1);
             index_t maxSizeAtBlock = ((i + 1) * batch_size) - 1;
             check_historic_sibling_path(tree, maxSizeAtBlock, historicPathsMaxIndex[i], i + 1);
+            check_historic_sibling_path_by_value(tree, VALUES[maxSizeAtBlock], historicPathsMaxIndex[i], i + 1);
         }
     };
 
@@ -1262,6 +1306,11 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
             // trying to remove a block that is not the most historic should fail
             remove_historic_block(tree, oldestBlock + 1, false);
 
+            if (oldestBlock > 1) {
+                // trying to remove a block that is older than the most historic should succeed
+                remove_historic_block(tree, oldestBlock - 1, true);
+            }
+
             fr rootToRemove = roots[oldestBlock - 1];
             check_block_and_root_data(db, oldestBlock, rootToRemove, true);
 
@@ -1340,8 +1389,14 @@ void test_unwind(std::string directory,
         const block_number_t blockNumber = numBlocks - i;
 
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
-        // attempting to unwind a block that is not the tip should fail
-        unwind_block(tree, blockNumber + 1, false);
+        // attempting to unwind a block that is ahead of the pending chain should just succeed
+        unwind_block(tree, blockNumber + 1, true);
+
+        // attempting to unwind a block that is behind the pending chain should fail
+        if (blockNumber > 1) {
+            unwind_block(tree, blockNumber - 1, false);
+        }
+
         unwind_block(tree, blockNumber);
 
         // the root should now only exist if there are other blocks with same root
@@ -1710,6 +1765,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
             finalise_block(tree, blockToFinalise + numBlocks, false);
 
             finalise_block(tree, blockToFinalise, true);
+
+            // finalising the currently finalised block should succeed
+            finalise_block(tree, blockToFinalise, true);
         }
     }
 }
@@ -2042,6 +2100,110 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_fo
 
         EXPECT_EQ(get_sibling_path(tree, 3), paths[checkpointIndex]);
     }
+
+    // Should not be able to commit or revert where there is no active checkpoint
+    revert_checkpoint_tree(tree, false);
+    commit_checkpoint_tree(tree, false);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_all_checkpoints)
+{
+    constexpr size_t depth = 10;
+    uint32_t blockSize = 16;
+    std::string name = random_string();
+    ThreadPoolPtr pool = make_thread_pool(1);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    {
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        TreeType tree(std::move(store), pool);
+
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        commit_tree(tree);
+    }
+
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    TreeType tree(std::move(store), pool);
+
+    // We apply a number of updates and checkpoint the tree each time
+
+    uint32_t stackDepth = 20;
+
+    std::vector<fr_sibling_path> paths(stackDepth);
+    uint32_t index = 0;
+    for (; index < stackDepth - 1; index++) {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        paths[index] = get_sibling_path(tree, 3);
+
+        try {
+            checkpoint_tree(tree);
+        } catch (std::exception& e) {
+            std::cout << e.what() << std::endl;
+        }
+    }
+
+    // Now we commit all the checkpoints
+    commit_all_tree_checkpoints(tree);
+
+    // Tree should still be at the final state
+    check_sibling_path(tree, 3, paths[stackDepth - 2]);
+
+    // Should not be able to commit or revert where there is no active checkpoint
+    revert_checkpoint_tree(tree, false);
+    commit_checkpoint_tree(tree, false);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_revert_all_checkpoints)
+{
+    constexpr size_t depth = 10;
+    uint32_t blockSize = 16;
+    std::string name = random_string();
+    ThreadPoolPtr pool = make_thread_pool(1);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    {
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        TreeType tree(std::move(store), pool);
+
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        commit_tree(tree);
+    }
+
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    TreeType tree(std::move(store), pool);
+
+    // We apply a number of updates and checkpoint the tree each time
+
+    uint32_t stackDepth = 20;
+
+    std::vector<fr_sibling_path> paths(stackDepth);
+    uint32_t index = 0;
+    for (; index < stackDepth - 1; index++) {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        paths[index] = get_sibling_path(tree, 3);
+
+        try {
+            checkpoint_tree(tree);
+        } catch (std::exception& e) {
+            std::cout << e.what() << std::endl;
+        }
+    }
+
+    // Now we revert all the checkpoints
+    revert_all_tree_checkpoints(tree);
+
+    // Tree should still be at the initial state
+    check_sibling_path(tree, 3, paths[0]);
 
     // Should not be able to commit or revert where there is no active checkpoint
     revert_checkpoint_tree(tree, false);

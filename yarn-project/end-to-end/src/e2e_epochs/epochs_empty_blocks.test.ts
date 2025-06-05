@@ -1,5 +1,4 @@
 import { type Logger, sleep } from '@aztec/aztec.js';
-// eslint-disable-next-line no-restricted-imports
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
 
@@ -55,7 +54,10 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
       await test.waitUntilEpochStarts(epochNumber + 1);
       const epochTargetBlockNumber = Number(await rollup.getBlockNumber());
       logger.info(`Epoch ${epochNumber} ended with PENDING block number ${epochTargetBlockNumber}`);
-      await test.waitUntilL2BlockNumber(epochTargetBlockNumber);
+      await test.waitUntilL2BlockNumber(
+        epochTargetBlockNumber,
+        test.L2_SLOT_DURATION_IN_S * (epochTargetBlockNumber + 4),
+      );
       provenBlockNumber = epochTargetBlockNumber;
       logger.info(
         `Reached PENDING L2 block ${epochTargetBlockNumber}, proving should now start, waiting for PROVEN block to reach ${provenBlockNumber}`,
@@ -66,12 +68,15 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
       epochNumber++;
 
       // Verify the state syncs
-      await test.waitForNodeToSync(provenBlockNumber, 'finalised');
+      await test.waitForNodeToSync(provenBlockNumber, 'proven');
       await test.verifyHistoricBlock(provenBlockNumber, true);
-      const expectedOldestHistoricBlock = provenBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1;
+
+      // right now finalisation means a block is two L2 epochs deep. If this rule changes then we need this test needs to be updated
+      const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
+      const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1, 1);
       const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
       await test.waitForNodeToSync(expectedOldestHistoricBlock, 'historic');
-      await test.verifyHistoricBlock(Math.max(expectedOldestHistoricBlock, 1), true);
+      await test.verifyHistoricBlock(expectedOldestHistoricBlock, true);
       if (expectedBlockRemoved > 0) {
         await test.verifyHistoricBlock(expectedBlockRemoved, false);
       }

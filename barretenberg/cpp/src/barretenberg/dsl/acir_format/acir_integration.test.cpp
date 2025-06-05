@@ -1,5 +1,4 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #ifndef __wasm__
 #include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
@@ -7,7 +6,7 @@
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
-#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
+#include "barretenberg/honk/proving_key_inspector.hpp"
 
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -78,26 +77,6 @@ class AcirIntegrationTest : public ::testing::Test {
         return verifier.verify_proof(proof);
     }
 
-    template <class Flavor> bool prove_and_verify_plonk(Flavor::CircuitBuilder& builder)
-    {
-        plonk::UltraComposer composer;
-
-        auto prover = composer.create_prover(builder);
-#ifdef LOG_SIZES
-        // builder.blocks.summarize();
-        // info("num gates          = ", builder.get_estimated_num_finalized_gates());
-        // info("total circuit size = ", builder.get_estimated_total_circuit_size());
-#endif
-        auto proof = prover.construct_proof();
-#ifdef LOG_SIZES
-        // info("circuit size       = ", prover.circuit_size);
-        // info("log circuit size   = ", numeric::get_msb(prover.circuit_size));
-#endif
-        // Verify Plonk proof
-        auto verifier = composer.create_verifier(builder);
-        return verifier.verify_proof(proof);
-    }
-
     void add_some_simple_RAM_gates(auto& circuit)
     {
         std::array<uint32_t, 3> ram_values{ circuit.add_variable(5),
@@ -141,7 +120,6 @@ class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::W
 TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 {
     using Flavor = UltraFlavor;
-    // using Flavor = bb::plonk::flavor::Ultra;
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = GetParam();
@@ -152,11 +130,7 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
     Builder builder = acir_format::create_circuit<Builder>(acir_program);
 
     // Construct and verify Honk proof
-    if constexpr (IsPlonkFlavor<Flavor>) {
-        EXPECT_TRUE(prove_and_verify_plonk<Flavor>(builder));
-    } else {
-        EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
-    }
+    EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/994): Run all tests
@@ -524,7 +498,7 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
     // NOTE: to populate the test inputs at this location, run the following commands:
     //      export  AZTEC_CACHE_COMMIT=origin/master~3
     //      export DOWNLOAD_ONLY=1
-    //      yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
+    //      yarn-project/end-to-end/bootstrap.sh build_bench
     std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
                              "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
 
@@ -584,7 +558,10 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
             computed_vk_hash = proving_key_inspector::compute_vk_hash<MegaFlavor>(circuit);
         }
 
+        // Check that the hashes computed from the dummy witness VK and the genuine witness VK are equal
         EXPECT_EQ(recomputed_vk_hash, computed_vk_hash);
+        // Check that the VK hashes match the hash of the precomputed VK contained in the msgpack inputs
+        EXPECT_EQ(computed_vk_hash, precomputed_vk->hash());
     }
 }
 #endif

@@ -50,7 +50,7 @@ import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelecti
  */
 contract RollupShouldBeGetters is ValidatorSelectionTestBase {
   function test_getEpochCommittee(uint16 _epochToGet, bool _setup) external setup(4) {
-    uint256 expectedSize = _epochToGet == 0 ? 0 : 4;
+    uint256 expectedSize = _epochToGet < 2 ? 0 : 4;
     Epoch e = Epoch.wrap(_epochToGet);
     Timestamp t = timeCheater.epochToTimestamp(e);
 
@@ -65,16 +65,20 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     address[] memory committee = rollup.getEpochCommittee(e);
     address[] memory committee2 = rollup.getCommitteeAt(t);
     address[] memory committee3 = rollup.getCurrentEpochCommittee();
+    (bytes32 committeeCommitment, uint256 committeeSize) = rollup.getCommitteeCommitmentAt(t);
+
     assertEq(committee.length, expectedSize, "invalid getEpochCommittee");
     assertEq(committee2.length, expectedSize, "invalid getCommitteeAt");
     assertEq(committee3.length, expectedSize, "invalid getCurrentEpochCommittee");
+    assertEq(committeeSize, expectedSize, "invalid getCommitteeCommittmentAt size");
+    assertNotEq(committeeCommitment, bytes32(0), "invalid committee commitment");
 
     (, bytes32[] memory writes) = vm.accesses(address(rollup));
     assertEq(writes.length, 0, "No writes should be done");
   }
 
   function test_getEpochCommitteeBig(uint16 _epochToGet, bool _setup) external setup(49) {
-    uint256 expectedSize = _epochToGet == 0 ? 0 : 48;
+    uint256 expectedSize = _epochToGet < 2 ? 0 : 48;
     Epoch e = Epoch.wrap(_epochToGet);
     Timestamp t = timeCheater.epochToTimestamp(e);
 
@@ -89,9 +93,13 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     address[] memory committee = rollup.getEpochCommittee(e);
     address[] memory committee2 = rollup.getCommitteeAt(t);
     address[] memory committee3 = rollup.getCurrentEpochCommittee();
+    (bytes32 committeeCommitment, uint256 committeeSize) = rollup.getCommitteeCommitmentAt(t);
+
     assertEq(committee.length, expectedSize, "invalid getEpochCommittee");
     assertEq(committee2.length, expectedSize, "invalid getCommitteeAt");
     assertEq(committee3.length, expectedSize, "invalid getCurrentEpochCommittee");
+    assertEq(committeeSize, expectedSize, "invalid getCommitteeCommittmentAt size");
+    assertNotEq(committeeCommitment, bytes32(0), "invalid committee commitment");
 
     (, bytes32[] memory writes) = vm.accesses(address(rollup));
     assertEq(writes.length, 0, "No writes should be done");

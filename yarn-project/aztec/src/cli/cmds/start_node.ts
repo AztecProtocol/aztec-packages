@@ -134,8 +134,8 @@ export async function startNode(
     };
     let account;
     if (!sequencerConfig.publisherPrivateKey || sequencerConfig.publisherPrivateKey === NULL_KEY) {
-      if (sequencerConfig.validatorPrivateKey) {
-        sequencerConfig.publisherPrivateKey = sequencerConfig.validatorPrivateKey as `0x${string}`;
+      if (sequencerConfig.validatorPrivateKeys?.length) {
+        sequencerConfig.publisherPrivateKey = sequencerConfig.validatorPrivateKeys[0] as `0x${string}`;
       } else if (!options.l1Mnemonic) {
         userLog(
           '--sequencer.publisherPrivateKey or --l1-mnemonic is required to start Aztec Node with --sequencer option',
@@ -189,11 +189,11 @@ export async function startNode(
     await setupUpdateMonitor(
       nodeConfig.autoUpdate,
       new URL(nodeConfig.autoUpdateUrl),
-      followsCanonicalRollup ? 'canonical' : nodeConfig.rollupVersion,
+      followsCanonicalRollup,
       getPublicClient(nodeConfig!),
       nodeConfig.l1Contracts.registryAddress,
       signalHandlers,
-      config => node.setConfig(config),
+      async config => node.setConfig((await AztecNodeAdminApiSchema.setConfig.parameters().parseAsync([config]))[0]),
     );
   }
 

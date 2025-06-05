@@ -6,7 +6,7 @@
 
 #include "eccvm_trace_checker.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 
 using namespace bb;
 

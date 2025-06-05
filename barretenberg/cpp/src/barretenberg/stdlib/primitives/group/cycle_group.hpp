@@ -128,10 +128,26 @@ template <typename Builder> class cycle_group {
          *
          * @param tag
          */
-        void set_origin_tag(const OriginTag& tag)
+        void set_origin_tag(const OriginTag& tag) const
         {
             lo.set_origin_tag(tag);
             hi.set_origin_tag(tag);
+        }
+        /**
+         * @brief Set the free witness flag for the cycle scalar's tags
+         */
+        void set_free_witness_tag()
+        {
+            lo.set_free_witness_tag();
+            hi.set_free_witness_tag();
+        }
+        /**
+         * @brief Unset the free witness flag for the cycle scalar's tags
+         */
+        void unset_free_witness_tag()
+        {
+            lo.unset_free_witness_tag();
+            hi.unset_free_witness_tag();
         }
     };
 
@@ -170,7 +186,7 @@ template <typename Builder> class cycle_group {
      * We can ensure that all Provers cannot create point collisions between the base points and offset generators.
      * For this restricted case we can skip the x-coordiante collision checks when performing group operations.
      *
-     * @note straus_lookup_table uses UltraPlonk ROM tables if available. If not, we use simple conditional assignment
+     * @note straus_lookup_table uses Ultra ROM tables if available. If not, we use simple conditional assignment
      * constraints and restrict the table size to be 1 bit.
      */
     struct straus_lookup_table {
@@ -269,7 +285,7 @@ template <typename Builder> class cycle_group {
      *
      * @param tag
      */
-    void set_origin_tag(OriginTag tag)
+    void set_origin_tag(OriginTag tag) const
     {
         x.set_origin_tag(tag);
         y.set_origin_tag(tag);
@@ -285,6 +301,25 @@ template <typename Builder> class cycle_group {
         return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
     }
 
+    /**
+     * @brief Set the free witness flag for the cycle_group's tags
+     */
+    void set_free_witness_tag()
+    {
+        x.set_free_witness_tag();
+        y.set_free_witness_tag();
+        _is_infinity.set_free_witness_tag();
+    }
+
+    /**
+     * @brief Unset the free witness flag for the cycle_group's tags
+     */
+    void unset_free_witness_tag()
+    {
+        x.unset_free_witness_tag();
+        y.unset_free_witness_tag();
+        _is_infinity.unset_free_witness_tag();
+    }
     /**
      * @brief Set the witness indices representing the cycle_group to public
      *

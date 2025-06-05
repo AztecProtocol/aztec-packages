@@ -97,6 +97,9 @@ export const P2P_REQ_RESP_RECEIVED_REQUESTS = 'aztec.p2p.req_resp.received_reque
 export const P2P_REQ_RESP_FAILED_OUTBOUND_REQUESTS = 'aztec.p2p.req_resp.failed_outbound_requests';
 export const P2P_REQ_RESP_FAILED_INBOUND_REQUESTS = 'aztec.p2p.req_resp.failed_inbound_requests';
 
+export const P2P_GOSSIP_MESSAGE_VALIDATION_DURATION = 'aztec.p2p.gossip.message_validation_duration';
+export const P2P_GOSSIP_MESSAGE_PREVALIDATION_COUNT = 'aztec.p2p.gossip.message_validation_count';
+
 export const PUBLIC_PROCESSOR_TX_DURATION = 'aztec.public_processor.tx_duration';
 export const PUBLIC_PROCESSOR_TX_COUNT = 'aztec.public_processor.tx_count';
 export const PUBLIC_PROCESSOR_TX_PHASE_COUNT = 'aztec.public_processor.tx_phase_count';
@@ -178,3 +181,8 @@ export const NODEJS_EVENT_LOOP_DELAY_P99 = 'nodejs.eventloop.delay.p99';
 
 export const NODEJS_EVENT_LOOP_UTILIZATION = 'nodejs.eventloop.utilization';
 export const NODEJS_EVENT_LOOP_TIME = 'nodejs.eventloop.time';
+
+export const NODEJS_MEMORY_HEAP_USAGE = 'nodejs.memory.v8_heap.usage';
+export const NODEJS_MEMORY_HEAP_TOTAL = 'nodejs.memory.v8_heap.total';
+export const NODEJS_MEMORY_NATIVE_USAGE = 'nodejs.memory.native.usage';
+export const NODEJS_MEMORY_BUFFER_USAGE = 'nodejs.memory.array_buffer.usage';

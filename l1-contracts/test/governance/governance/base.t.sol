@@ -10,7 +10,7 @@ import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
-
+import {IGSE} from "@aztec/core/staking/GSE.sol";
 import {
   ProposalLib,
   VoteTabulationReturn,
@@ -38,9 +38,13 @@ contract GovernanceBase is TestBase {
     token = IMintableERC20(address(new TestERC20("test", "TEST", address(this))));
 
     registry = new Registry(address(this), token);
-    governanceProposer = new GovernanceProposer(registry, 677, 1000);
+    governanceProposer = new GovernanceProposer(registry, IGSE(address(0x03)), 677, 1000);
 
-    governance = new Governance(token, address(governanceProposer));
+    governance = new Governance(token, address(governanceProposer), address(this));
+
+    vm.prank(address(governance));
+    governance.openFloodgates();
+
     registry.transferOwnership(address(governance));
 
     {
@@ -95,14 +99,14 @@ contract GovernanceBase is TestBase {
     assertTrue(governance.getProposalState(proposalId) == DataStructures.ProposalState.Active);
   }
 
-  function _stateDropped(bytes32 _proposalName, address _governanceProposer) internal {
+  function _stateDropped(bytes32 _proposalName, address _proposer) internal {
     proposal = proposals[_proposalName];
     proposalId = proposalIds[_proposalName];
 
-    vm.assume(_governanceProposer != proposal.governanceProposer);
+    vm.assume(_proposer != proposal.proposer);
 
     vm.prank(address(governance));
-    governance.updateGovernanceProposer(_governanceProposer);
+    governance.updateGovernanceProposer(_proposer);
   }
 
   function _stateRejected(bytes32 _proposalName) internal {

@@ -8,12 +8,12 @@
  * @file ultra_circuit_builder.cpp
  * @author Luke (ledwards2225) and Kesha (Rumata888)
  * @brief This file contains the implementation of field-agnostic UltraCircuitBuilder class that defines the logic
- * of ultra-style circuits and is intended for the use in UltraHonk and UltraPlonk systems
+ * of ultra-style circuits and is intended for the use in UltraHonk
  *
  */
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/plonk/proof_system/constants.hpp"
+
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include <execution>
 #include <unordered_map>
@@ -26,7 +26,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
 {
     /**
      * First of all, add the gates related to ROM arrays and range lists.
-     * Note that the total number of rows in an UltraPlonk program can be divided as following:
+     * Note that the total number of rows in an Ultra program can be divided as following:
      *  1. arithmetic gates:  n_computation (includes all computation gates)
      *  2. rom/memory gates:  n_rom
      *  3. range list gates:  n_range
@@ -470,8 +470,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_balanced_add_gate(const add_qu
     // If we allow this overflow 'flag' to range from 0 to 3, instead of 0 to 1,
     // we can get away with chaining a few addition operations together with basic add gates,
     // before having to use this gate.
-    // (N.B. a larger value would be better, the value '3' is for TurboPlonk backwards compatibility.
-    // In TurboPlonk this method uses a custom gate,
+    // (N.B. a larger value would be better, the value '3' is for Turbo backwards compatibility.
+    // In Turbo this method uses a custom gate,
     // where we were limited to a 2-bit range check by the degree of the custom gate identity.
     create_new_range_constraint(in.d, 3);
 }
@@ -692,7 +692,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
 }
 
 /**
- * @brief Add a gate equating a particular witness to a constant, fixing it the value
+ * @brief Add a gate equating a particular witness to a constant, fixing its value
  *
  * @param witness_index The index of the witness we are fixing
  * @param witness_value The value we are fixing it to
@@ -2931,7 +2931,7 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
         cir.vars_of_interest.insert({ this->real_variable_index[tup.first], tup.second });
     }
 
-    for (auto var : this->variables) {
+    for (const auto& var : this->get_variables()) {
         cir.variables.push_back(var);
     }
 

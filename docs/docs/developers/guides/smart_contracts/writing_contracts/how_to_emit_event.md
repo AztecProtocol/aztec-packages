@@ -12,12 +12,15 @@ There are also public logs, which are similar to events, but are unstructured da
 
 ## Private Events
 
-To emit encrypted logs you can import the `encode_and_encrypt_event` or `encode_and_encrypt_event_unconstrained` functions and pass them into the `emit` function. An example can be seen in the reference token contract's transfer function:
+To emit logs privately in an encrypted format you can import the `emit_event_in_private_log` function. An example can be seen in the reference token contract's transfer function:
 
 #include_code encrypted_unconstrained /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
-- `encode_and_encrypt_event` Sends an encrypted message to `recipient` with the content of the event, which they will discover when processing private logs.
-- `encode_and_encrypt_event_unconstrained` is the same as `encode_and_encrypt_event`, except encryption is unconstrained. This means that the sender is free to make the log contents be whatever they wish, so the recipient is trusting the sender of the event. This could also potentially result in scenarios in which the recipient is unable to decrypt and process the payload, **leading to the event being lost**. Only use this function in scenarios where the recipient not receiving the event is an acceptable outcome.
+This function takes an enum value that indicates which constraints will be placed on the values:
+- `NO_CONSTRAINTS`:  encryption is unconstrained. This means that the sender is free to make the log contents be whatever they wish, so the recipient is trusting the sender of the event. This could also potentially result in scenarios in which the recipient is unable to decrypt and process the payload, **leading to the event being lost**. Only use this function in scenarios where the recipient not receiving the event is an acceptable outcome.
+- `CONSTRAINED_ENCRYPTION`: the contents of the log and its encryption are constrained. The tag (and therefore whether the recipient is actually able to find the message) is not.
+
+In the near future more options will exist, including the possibility of fully constraining the tag, guaranteeing the recipient will find the message.
 
 :::note
 Developer can choose whether to emit encrypted events or not. Emitting the events means that they will be posted to Ethereum, in blobs, and will inherit the availability guarantees of Ethereum. Developers may choose not to emit events and to share information with recipients off-chain, or through alternative mechanisms that are to be developed (e.g. alternative, cheaper data availability solutions).
@@ -31,7 +34,7 @@ Contracts created using aztec-nr will try to discover newly created events by se
 
 ## Public Events
 
-You can emit public events by calling the `emit` function on the event type that you would like to emit. For example:
+You can emit public events by calling the `emit_event_in_public_log` function with the event that you would like to emit. For example:
 
 #include_code emit_public /noir-projects/noir-contracts/contracts/test/test_log_contract/src/main.nr rust
 

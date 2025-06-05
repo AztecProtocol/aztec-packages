@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
@@ -30,6 +30,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using DeciderProvingKeys = DeciderProvingKeys_;
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1239): clean out broken support for multi-folding
+    static_assert(DeciderProvingKeys::NUM == 2, "Protogalaxy currently only supports folding one instance at a time.");
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderProvingKeys_::NUM_SUBRELATIONS;
 
@@ -97,11 +100,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
      * multiplication of matrices whose columns are polynomials, as well as taking similar linear combinations of the
      * relation parameters.
      */
-    FoldingResult<Flavor> update_target_sum_and_fold(const DeciderProvingKeys_& keys,
-                                                     const CombinerQuotient& combiner_quotient,
-                                                     const UnivariateRelationSeparator& alphas,
-                                                     const UnivariateRelationParameters& univariate_relation_parameters,
-                                                     const FF& perturbator_evaluation);
+    void update_target_sum_and_fold(const DeciderProvingKeys_& keys,
+                                    const CombinerQuotient& combiner_quotient,
+                                    const UnivariateRelationSeparator& alphas,
+                                    const UnivariateRelationParameters& univariate_relation_parameters,
+                                    const FF& perturbator_evaluation);
 
     /**
      * @brief Execute the folding prover.

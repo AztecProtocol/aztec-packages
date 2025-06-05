@@ -23,22 +23,25 @@ library UserLib {
   using Checkpoints for Checkpoints.Trace224;
   using SafeCast for uint256;
 
-  function add(User storage _self, uint256 _amount) internal {
-    if (_amount == 0) {
-      return;
-    }
+  function add(User storage _self, uint256 _amount) internal returns (uint256, uint256) {
     uint224 current = _self.checkpoints.latest();
-    _self.checkpoints.push(block.timestamp.toUint32(), current + _amount.toUint224());
+    if (_amount == 0) {
+      return (current, current);
+    }
+    uint224 amount = _amount.toUint224();
+    _self.checkpoints.push(block.timestamp.toUint32(), current + amount);
+    return (current, current + amount);
   }
 
-  function sub(User storage _self, uint256 _amount) internal {
-    if (_amount == 0) {
-      return;
-    }
+  function sub(User storage _self, uint256 _amount) internal returns (uint256, uint256) {
     uint224 current = _self.checkpoints.latest();
+    if (_amount == 0) {
+      return (current, current);
+    }
     uint224 amount = _amount.toUint224();
     require(current >= amount, Errors.Governance__InsufficientPower(msg.sender, current, amount));
     _self.checkpoints.push(block.timestamp.toUint32(), current - amount);
+    return (current, current - amount);
   }
 
   function powerNow(User storage _self) internal view returns (uint256) {

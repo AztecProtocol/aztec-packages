@@ -2,6 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { IFullNodeBlockBuilder } from '@aztec/stdlib/interfaces/server';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { generatePrivateKey } from 'viem/accounts';
@@ -12,6 +13,7 @@ import { ValidatorClient } from './validator.js';
 export function createValidatorClient(
   config: ValidatorClientConfig,
   deps: {
+    blockBuilder: IFullNodeBlockBuilder;
     p2pClient: P2P;
     blockSource: L2BlockSource;
     telemetry: TelemetryClient;
@@ -22,12 +24,13 @@ export function createValidatorClient(
   if (config.disableValidator) {
     return undefined;
   }
-  if (config.validatorPrivateKey === undefined || config.validatorPrivateKey === '') {
-    config.validatorPrivateKey = generatePrivateKey();
+  if (config.validatorPrivateKeys === undefined || !config.validatorPrivateKeys?.length) {
+    config.validatorPrivateKeys = [generatePrivateKey()];
   }
 
   return ValidatorClient.new(
     config,
+    deps.blockBuilder,
     deps.epochCache,
     deps.p2pClient,
     deps.blockSource,

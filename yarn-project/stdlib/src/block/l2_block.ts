@@ -20,6 +20,7 @@ export class L2Block {
     public header: BlockHeader,
     /** L2 block body. */
     public body: Body,
+    private blockHash: Fr | undefined = undefined,
   ) {}
 
   static get schema() {
@@ -86,8 +87,9 @@ export class L2Block {
     numPublicLogsPerCall = 1,
     inHash: Buffer | undefined = undefined,
     slotNumber: number | undefined = undefined,
+    maxEffects: number | undefined = undefined,
   ): Promise<L2Block> {
-    const body = await Body.random(txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall);
+    const body = await Body.random(txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall, maxEffects);
 
     return new L2Block(
       makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
@@ -112,8 +114,11 @@ export class L2Block {
    * Returns the block's hash (hash of block header).
    * @returns The block's hash.
    */
-  public hash(): Promise<Fr> {
-    return this.header.hash();
+  public async hash(): Promise<Fr> {
+    if (this.blockHash === undefined) {
+      this.blockHash = await this.header.hash();
+    }
+    return this.blockHash;
   }
 
   /**

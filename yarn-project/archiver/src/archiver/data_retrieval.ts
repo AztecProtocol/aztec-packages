@@ -1,14 +1,18 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import type { EpochProofPublicInputArgs, ViemClient, ViemPublicClient } from '@aztec/ethereum';
+import type {
+  EpochProofPublicInputArgs,
+  ViemClient,
+  ViemCommitteeAttestation,
+  ViemPublicClient,
+} from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, L2Block } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
@@ -36,7 +40,7 @@ export type RetrievedL2Block = {
   l1: L1PublishedData;
   chainId: Fr;
   version: Fr;
-  signatures: Signature[];
+  attestations: CommitteeAttestation[];
 };
 
 export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): PublishedL2Block {
@@ -49,7 +53,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
     l1,
     chainId,
     version,
-    signatures,
+    attestations,
   } = retrievedBlock;
 
   const archive = new AppendOnlyTreeSnapshot(
@@ -82,7 +86,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
   return {
     block,
     l1,
-    signatures,
+    attestations,
   };
 }
 
@@ -196,7 +200,7 @@ async function processL2BlockProposedLogs(
         l1BlockNumber: log.blockNumber,
         l2BlockNumber,
         archive: archive.toString(),
-        signatures: block.signatures.map(signature => signature.toString()),
+        attestations: block.attestations,
       });
     } else {
       logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
@@ -256,7 +260,7 @@ function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): H
       if (rollupFunctionName === 'propose') {
         return callData;
       }
-    } catch (err) {
+    } catch {
       // Skip invalid function data
       continue;
     }
@@ -295,7 +299,7 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  const [decodedArgs, signatures, _blobInput] = rollupArgs! as readonly [
+  const [decodedArgs, attestations, _blobInput] = rollupArgs! as readonly [
     {
       header: Hex;
       archive: Hex;
@@ -306,7 +310,7 @@ async function getBlockFromRollupTx(
       };
       txHashes: Hex[];
     },
-    ViemSignature[],
+    ViemCommitteeAttestation[],
     Hex,
   ];
 
@@ -341,18 +345,21 @@ async function getBlockFromRollupTx(
     stateReference,
     header,
     body,
-    signatures: signatures.map(Signature.fromViemSignature),
+    attestations: attestations.map(CommitteeAttestation.fromViem),
   };
 }
 
-/** Given an L1 to L2 message, retrieves its corresponding event from the Inbox. */
+/** Given an L1 to L2 message, retrieves its corresponding event from the Inbox within a specific block range. */
 export async function retrieveL1ToL2Message(
   inbox: GetContractReturnType<typeof InboxAbi, ViemClient>,
   leaf: Fr,
   fromBlock: bigint,
+  toBlock: bigint,
 ): Promise<InboxMessage | undefined> {
-  const logs = await inbox.getEvents.MessageSent({ hash: leaf.toString() }, { fromBlock });
-  return mapLogsInboxMessage(logs)[0];
+  const logs = await inbox.getEvents.MessageSent({ hash: leaf.toString() }, { fromBlock, toBlock });
+
+  const messages = mapLogsInboxMessage(logs);
+  return messages.length > 0 ? messages[0] : undefined;
 }
 
 /**

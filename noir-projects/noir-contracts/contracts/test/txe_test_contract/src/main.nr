@@ -109,4 +109,9 @@ pub contract TXETest {
     fn emit_in_public(n: Field) {
         context.push_note_hash(n);
     }
+
+    #[public]
+    fn return_public(n: Field) -> Field {
+        n
+    }
 }

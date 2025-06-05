@@ -22,11 +22,17 @@ import {
   OptionalNumber,
   PrivateToRollupAccumulatedData,
   PublicCallRequest,
+  PublicCallRequestArrayLengths,
   ScopedCountedLogHash,
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
 import { PrivateLog, PublicLog } from '@aztec/stdlib/logs';
-import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
+import {
+  CountedL2ToL1Message,
+  L2ToL1Message,
+  ScopedCountedL2ToL1Message,
+  ScopedL2ToL1Message,
+} from '@aztec/stdlib/messaging';
 import {
   AppendOnlyTreeSnapshot,
   type NullifierLeafPreimage,
@@ -43,7 +49,7 @@ import {
   StateReference,
   TxContext,
 } from '@aztec/stdlib/tx';
-import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
+import type { VerificationKeyAsFields, VkData } from '@aztec/stdlib/vks';
 
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
@@ -72,15 +78,16 @@ import type {
   PartialStateReference as PartialStateReferenceNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
   ProtocolContractLeafPreimage as ProtocolContractLeafPreimageNoir,
+  PublicCallRequestArrayLengths as PublicCallRequestArrayLengthsNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
   PublicLog as PublicLogNoir,
   Scoped,
-  ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   StateReference as StateReferenceNoir,
   TxContext as TxContextNoir,
   VerificationKey as VerificationKeyNoir,
+  VkData as VkDataNoir,
 } from '../types/index.js';
 
 /* eslint-disable camelcase */
@@ -445,25 +452,54 @@ export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): M
  * @param message - The L2 to L1 message.
  * @returns The noir L2 to L1 message.
  */
-export function mapL2ToL1MessageToNoir(message: L2ToL1Message): L2ToL1MessageNoir {
+function mapL2ToL1MessageToNoir(message: L2ToL1Message): L2ToL1MessageNoir {
   return {
     recipient: mapEthAddressToNoir(message.recipient),
     content: mapFieldToNoir(message.content),
+  };
+}
+
+function mapL2ToL1MessageFromNoir(message: L2ToL1MessageNoir) {
+  return new L2ToL1Message(mapEthAddressFromNoir(message.recipient), mapFieldFromNoir(message.content));
+}
+
+export function mapCountedL2ToL1MessageToNoir(message: CountedL2ToL1Message): Counted<L2ToL1MessageNoir> {
+  return {
+    inner: mapL2ToL1MessageToNoir(message.message),
     counter: mapNumberToNoir(message.counter),
   };
 }
 
-export function mapL2ToL1MessageFromNoir(message: L2ToL1MessageNoir) {
-  return new L2ToL1Message(
-    mapEthAddressFromNoir(message.recipient),
-    mapFieldFromNoir(message.content),
-    mapNumberFromNoir(message.counter),
+function mapCountedL2ToL1MessageFromNoir(message: Counted<L2ToL1MessageNoir>) {
+  return new CountedL2ToL1Message(mapL2ToL1MessageFromNoir(message.inner), mapNumberFromNoir(message.counter));
+}
+
+export function mapScopedL2ToL1MessageToNoir(message: ScopedL2ToL1Message): Scoped<L2ToL1MessageNoir> {
+  return {
+    inner: mapL2ToL1MessageToNoir(message.message),
+    contract_address: mapAztecAddressToNoir(message.contractAddress),
+  };
+}
+
+export function mapScopedL2ToL1MessageFromNoir(message: Scoped<L2ToL1MessageNoir>) {
+  return new ScopedL2ToL1Message(
+    mapL2ToL1MessageFromNoir(message.inner),
+    mapAztecAddressFromNoir(message.contract_address),
   );
 }
 
-export function mapScopedL2ToL1MessageFromNoir(message: ScopedL2ToL1MessageNoir) {
-  return new ScopedL2ToL1Message(
-    mapL2ToL1MessageFromNoir(message.message),
+export function mapScopedCountedL2ToL1MessageToNoir(
+  message: ScopedCountedL2ToL1Message,
+): Scoped<Counted<L2ToL1MessageNoir>> {
+  return {
+    inner: mapCountedL2ToL1MessageToNoir(message.inner),
+    contract_address: mapAztecAddressToNoir(message.contractAddress),
+  };
+}
+
+export function mapScopedCountedL2ToL1MessageFromNoir(message: Scoped<Counted<L2ToL1MessageNoir>>) {
+  return new ScopedCountedL2ToL1Message(
+    mapCountedL2ToL1MessageFromNoir(message.inner),
     mapAztecAddressFromNoir(message.contract_address),
   );
 }
@@ -506,10 +542,13 @@ export function mapPublicCallRequestToNoir(request: PublicCallRequest): PublicCa
   };
 }
 
-export function mapScopedL2ToL1MessageToNoir(message: ScopedL2ToL1Message): ScopedL2ToL1MessageNoir {
+export function mapPublicCallRequestArrayLengthsToNoir(
+  lengths: PublicCallRequestArrayLengths,
+): PublicCallRequestArrayLengthsNoir {
   return {
-    message: mapL2ToL1MessageToNoir(message.message),
-    contract_address: mapAztecAddressToNoir(message.contractAddress),
+    setup_calls: mapNumberToNoir(lengths.setupCalls),
+    app_logic_calls: mapNumberToNoir(lengths.appLogicCalls),
+    teardown_call: lengths.teardownCall,
   };
 }
 
@@ -523,6 +562,14 @@ export function mapVerificationKeyToNoir<N extends number>(
   return {
     key: key.key.map(mapFieldToNoir) as FixedLengthArray<NoirField, N>,
     hash: mapFieldToNoir(key.hash),
+  };
+}
+
+export function mapVkDataToNoir<N extends number>(vkData: VkData, length: N): VkDataNoir<N> {
+  return {
+    vk: mapVerificationKeyToNoir<N>(vkData.vk.keyAsFields, length),
+    leaf_index: mapFieldToNoir(new Fr(vkData.leafIndex)),
+    sibling_path: mapTuple(vkData.siblingPath, mapFieldToNoir),
   };
 }
 
