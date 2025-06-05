@@ -304,10 +304,6 @@ export class AztecKVTxPool implements TxPool {
 
       await this.#pendingTxSize.set(pendingTxSize);
       await this.evictLowPriorityTxs(hashesAndStats.map(({ txHash }) => txHash));
-
-      await this.#pendingTxSize.set(pendingTxSize);
-
-      await this.evictLowPriorityTxs(hashesAndStats.map(({ txHash }) => txHash));
     });
 
     return addedCount;
