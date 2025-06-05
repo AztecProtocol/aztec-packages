@@ -31,9 +31,17 @@ struct SubmitEpochRootProofArgs {
   bytes proof;
 }
 
+/**
+ * @notice Struct for storing block data, set in proposal.
+ * @param archive - Archive tree root of the block
+ * @param headerHash - Hash of the proposed block header
+ * @param blobCommitmentsHash - H(...H(H(commitment_0), commitment_1).... commitment_n) - used to validate we are using the same blob commitments on L1 and in the rollup circuit
+ * @param slotNumber - This block's slot
+ */
 struct BlockLog {
   bytes32 archive;
-  bytes32 headerHash; // hash of the proposed block header
+  bytes32 headerHash;
+  bytes32 blobCommitmentsHash; // TODO(#14646): Keep a running hash we iteratively overwrite per epoch, instead of per block.
   Slot slotNumber;
 }
 
