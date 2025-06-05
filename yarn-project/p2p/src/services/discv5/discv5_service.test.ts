@@ -68,8 +68,7 @@ describe('Discv5Service', () => {
 
   const startNodes = (...nodes: { start: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.start()));
   const stopNodes = (...nodes: { stop: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.stop()));
-  const getPeers = (node: DiscV5Service) =>
-    Promise.all(node.getKadValues().map(async peer => (await peer.peerId).toString()));
+  const getPeers = (node: DiscV5Service) => Promise.all(node.getKadValues().map(async peer => peer.peerId.toString()));
 
   it('should initialize with default values', async () => {
     const node = await createNode();
@@ -78,7 +77,7 @@ describe('Discv5Service', () => {
     expect(node.getStatus()).toEqual(PeerDiscoveryState.RUNNING);
     const kadValues = node.getKadValues();
     const bootnode = kadValues[0];
-    expect((await bootnode.peerId).toString()).toEqual(bootNodePeerId.toString());
+    expect(bootnode.peerId.toString()).toEqual(bootNodePeerId.toString());
     await node.stop();
   });
 
@@ -227,7 +226,7 @@ describe('Discv5Service', () => {
     await node2.start();
     await waitForPeers(node2, 1);
 
-    const node2Peers = await Promise.all(node2.getKadValues().map(async peer => (await peer.peerId).toString()));
+    const node2Peers = node2.getKadValues().map(async peer => peer.peerId.toString());
     // NOTE: bootnode seems to still be present in list of peers sometimes, will investigate
     // expect(node2Peers).toHaveLength(1);
     expect(node2Peers).toContain(node1.getPeerId().toString());
