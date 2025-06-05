@@ -123,9 +123,8 @@ tests:
     owners:
       - *palla
   - regex: "src/e2e_p2p/reqresp"
-    error_regex: 'CodeError: writable end state is "writing" not "ready"'
     owners:
-      - *sean
+      - *palla
   - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
@@ -204,6 +203,11 @@ tests:
     error_regex: "Exceeded timeout"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/f2007345762c50a8
+  - regex: "src/e2e_multi_validator_node.test.ts"
+    error_regex: "✕ should attest ONLY with the correct validator keys"
+    owners:
+      - *spyros
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -222,6 +226,9 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
+  - regex: "p2p/src/client/p2p_client.integration.test.ts" # http://ci.aztec-labs.com/31c4c9821b1a533c
+    owners:
+      - *palla
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -235,11 +242,6 @@ tests:
     owners:
       - *alex
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
-    error_regex: "BlockOutOfRangeError"
-    owners:
-      - *palla
-  - regex: "ethereum/src/deploy_l1_contracts.test.ts"
-    error_regex: "Expected: > 0"
     owners:
       - *palla
   - regex: "ethereum/src/l1_tx_utils.test.ts"
