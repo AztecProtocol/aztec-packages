@@ -9,7 +9,17 @@ contract OffchainMessage {
     };
 
     #[private]
-    fn emit_offchain_message_for_recipient(message: [Field; 5], recipient: AztecAddress) {
+    fn emit_offchain_message_for_recipient(
+        message: [Field; 5],
+        recipient: AztecAddress,
+        num_recursions: u8,
+    ) {
         emit_offchain_message(message, recipient);
+
+        if num_recursions > 0 {
+            OffchainMessage::at(context.this_address())
+                .emit_offchain_message_for_recipient(message, recipient, num_recursions - 1)
+                .call(&mut context);
+        }
     }
 }
