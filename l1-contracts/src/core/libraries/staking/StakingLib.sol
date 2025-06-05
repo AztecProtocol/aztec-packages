@@ -177,12 +177,21 @@ library StakingLib {
       Errors.Staking__InvalidDeposit(_attester, _withdrawer)
     );
     StakingStorage storage store = getStorage();
+
+    // Debug the GSE address before any operations
+    require(address(store.gse) != address(0), "StakingLib: GSE address is zero in storage");
+
     // We don't allow deposits, if we are currently exiting.
     require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
     uint256 amount = store.gse.MINIMUM_DEPOSIT();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
-    store.stakingAsset.approve(address(store.gse), amount);
+
+    // Debug the GSE address right before approve
+    address gseAddress = address(store.gse);
+    require(gseAddress != address(0), "StakingLib: GSE address became zero before approve");
+
+    store.stakingAsset.approve(gseAddress, amount);
     store.gse.deposit(_attester, _withdrawer, _onCanonical);
   }
 
