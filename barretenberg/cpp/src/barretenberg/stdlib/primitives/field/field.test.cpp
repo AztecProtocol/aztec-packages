@@ -996,7 +996,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
         fr expected = base_val.pow(exponent_val);
 
         EXPECT_EQ(result.get_value(), expected);
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
