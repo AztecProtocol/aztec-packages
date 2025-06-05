@@ -724,8 +724,9 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 
     field_t inverse = witness_t(context, inverse_native);
 
-    // Create a `big_mul_gate` for the first constraint, it is given by the
-    // equation:
+    // Note that `evaluate_polynomial_identity(a, b, c, d)` checks that `a * b + c + d = 0`, so we are using it for the
+    // constraints 1) and 2) above.
+    // More precisely, to check that `a * I - 1 + is_zero   = 0`, it creates a `big_mul_gate` given by the equation:
     //      a.v * I.v * q_m + a.v * q_1 + I.v * q_2 + is_zero.v * q_3 + (-1) * q_4 + q_c = 0
     // where
     //      q_m := a.mul * I.mul;
@@ -736,8 +737,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
     //      q_c := a.add * I.add + is_zero.add - 1;
     field_t::evaluate_polynomial_identity(*this, inverse, is_zero, bb::fr::neg_one());
 
-    // Create a `big_mul_gate` for the second constraint, it is given by the
-    // equation:
+    // To check that `-is_zero * I + is_zero = 0`, create a `big_mul_gate` given by the equation:
     //      is_zero.v * (-I).v * q_m + is_zero.v * q_1 + (-I).v * q_2 + is_zero.v * q_3 + 0 * q_4 + q_c = 0
     // where
     //      q_m := is_zero.mul * (-I).mul;
