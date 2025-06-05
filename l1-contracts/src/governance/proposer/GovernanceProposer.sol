@@ -4,12 +4,12 @@ pragma solidity >=0.8.27;
 
 import {IGSE} from "@aztec/core/staking/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
+import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {EmpireBase} from "./EmpireBase.sol";
-import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 
 /**
  * @notice  A GovernanceProposer implementation following the empire model

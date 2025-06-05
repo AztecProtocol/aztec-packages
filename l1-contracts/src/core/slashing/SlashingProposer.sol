@@ -3,9 +3,9 @@
 pragma solidity >=0.8.27;
 
 import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
+import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {EmpireBase} from "@aztec/governance/proposer/EmpireBase.sol";
-import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 
 /**
  * @notice  A SlashingProposer implementation following the empire model
