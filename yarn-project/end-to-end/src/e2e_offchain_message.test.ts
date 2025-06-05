@@ -81,4 +81,22 @@ describe('e2e_offchain_message', () => {
       'Cannot emit offchain message from a utility function',
     );
   });
+
+  it('should emit offchain message with send', async () => {
+    const message = [Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()];
+    const recipient = await AztecAddress.random();
+
+    const numRecursions = 1;
+
+    const { offchainMessages } = await contract1.methods
+      .emit_offchain_message_for_recipient(message, recipient, numRecursions)
+      .send()
+      .wait();
+
+    expect(offchainMessages.length).toBe(4);
+    for (let i = 0; i < offchainMessages.length; i++) {
+      expect(offchainMessages[i].recipient).toEqual(recipient);
+      expect(offchainMessages[i].message).toEqual(message);
+    }
+  });
 });

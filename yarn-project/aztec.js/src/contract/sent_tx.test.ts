@@ -24,7 +24,7 @@ describe('SentTx', () => {
     beforeEach(() => {
       txReceipt = { status: TxStatus.SUCCESS, blockNumber: 20 } as TxReceipt;
       pxe.getTxReceipt.mockResolvedValue(txReceipt);
-      sentTx = new SentTx(pxe, txHashPromise);
+      sentTx = new SentTx(pxe, txHashPromise, Promise.resolve([]));
     });
 
     it('throws if tx is dropped', async () => {
@@ -38,7 +38,7 @@ describe('SentTx', () => {
     beforeEach(() => {
       txReceipt = { status: TxStatus.SUCCESS, blockNumber: 20 } as TxReceipt;
       node.getTxReceipt.mockResolvedValue(txReceipt);
-      sentTx = new SentTx(node, txHashPromise);
+      sentTx = new SentTx(node, txHashPromise, Promise.resolve([]));
     });
 
     it('throws if tx is dropped', async () => {
