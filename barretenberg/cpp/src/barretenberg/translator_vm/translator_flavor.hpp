@@ -72,11 +72,11 @@ class TranslatorFlavor {
     // The number of interleaved_* wires
     static constexpr size_t NUM_INTERLEAVED_WIRES = 4;
 
-    // Number of wires
-    static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
-
     // The step in the DeltaRangeConstraint relation i.e. the maximum difference between two consecutive values
     static constexpr size_t SORT_STEP = 3;
+
+    // Number of wires
+    static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
     // The result of evaluating the polynomials in the nonnative form in translator circuit, stored as limbs and
     // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
@@ -85,6 +85,13 @@ class TranslatorFlavor {
 
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
+
+    // The number of "steps" inserted in ordered range constraint polynomials to ensure that the
+    // DeltaRangeConstraintRelation can always be satisfied if the polynomial is within the appropriate range.
+    static constexpr size_t SORTED_STEPS_COUNT = (1 << MICRO_LIMB_BITS) / SORT_STEP + 1;
+    static_assert(SORTED_STEPS_COUNT * (NUM_INTERLEAVED_WIRES + 1) < MINI_CIRCUIT_SIZE * INTERLEAVING_GROUP_SIZE,
+                  "Translator circuit is too small for defined number of steps "
+                  "(TranslatorDeltaRangeConstraintRelation). ");
 
     // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one
     static constexpr const std::array<FF, 5>& negative_modulus_limbs()
