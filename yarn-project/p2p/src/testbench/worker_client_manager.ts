@@ -133,7 +133,7 @@ class WorkerClientManager {
       this.messageReceivedByClient = new Array(numberOfClients).fill(0);
       this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
       this.ports = await getPorts(numberOfClients);
-      this.peerEnrs = await makeEnrs(this.peerIdPrivateKeys, this.ports, testChainConfig);
+      this.peerEnrs = makeEnrs(this.peerIdPrivateKeys, this.ports, testChainConfig);
 
       this.processes = [];
       const readySignals: Promise<void>[] = [];
@@ -202,7 +202,7 @@ class WorkerClientManager {
       this.ports[clientIndex] = newPort;
 
       // Update the port in the peerEnrs array
-      this.peerEnrs[clientIndex] = await makeEnr(this.peerIdPrivateKeys[clientIndex], newPort, testChainConfig);
+      this.peerEnrs[clientIndex] = makeEnr(this.peerIdPrivateKeys[clientIndex], newPort, testChainConfig);
 
       // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
       const otherNodes = this.peerEnrs.filter(

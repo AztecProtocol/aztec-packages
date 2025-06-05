@@ -272,7 +272,7 @@ export function createBootstrapNodeFromPrivateKey(
  * @param port - the port of the bootstrap node
  * @returns the bootstrap node ENR
  */
-export async function getBootstrapNodeEnr(privateKey: PrivateKey, port: number) {
+export function getBootstrapNodeEnr(privateKey: PrivateKey, port: number) {
   const enr = SignableENR.createFromPrivateKey(privateKey);
   const listenAddrUdp = multiaddr(convertToMultiaddr('127.0.0.1', port, 'udp'));
   enr.setLocationMultiaddr(listenAddrUdp);

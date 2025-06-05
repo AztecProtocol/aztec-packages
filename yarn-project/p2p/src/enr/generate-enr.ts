@@ -13,12 +13,12 @@ import { setAztecClientVersionEnrKey, setAztecEnrKey } from '../versioning.js';
 
 export { ENR };
 
-export async function createBootnodeENRandPeerId(
+export function createBootnodeENRandPeerId(
   privateKey: PrivateKey,
   p2pIp: string,
   p2pBroadcastPort: number,
   l1ChainId: number,
-): Promise<{ enr: SignableENR; peerId: PeerId }> {
+): { enr: SignableENR; peerId: PeerId } {
   const peerId = peerIdFromPrivateKey(privateKey);
   const enr = SignableENR.createFromPrivateKey(privateKey);
   const publicAddr = multiaddr(convertToMultiaddr(p2pIp, p2pBroadcastPort, 'udp'));
@@ -58,7 +58,7 @@ export function createNodeENR(
   return { enr, versions };
 }
 
-export async function printENR(enr: string, log: LogFn) {
+export function printENR(enr: string, log: LogFn) {
   const decoded = ENR.decodeTxt(enr);
   log(`PeerID: ${decoded.peerId}`);
   log(`IP: ${decoded.ip}`);

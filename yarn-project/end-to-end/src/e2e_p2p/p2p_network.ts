@@ -134,7 +134,7 @@ export class P2PNetworkTest {
   }) {
     const port = basePort || (await getPort());
 
-    const bootstrapNodeENR = await getBootstrapNodeEnr(privateKeyFromHex(BOOTSTRAP_NODE_PRIVATE_KEY), port);
+    const bootstrapNodeENR = getBootstrapNodeEnr(privateKeyFromHex(BOOTSTRAP_NODE_PRIVATE_KEY), port);
     const bootstrapNodeEnr = bootstrapNodeENR.encodeTxt();
 
     const initialValidatorConfig = await createValidatorConfig(

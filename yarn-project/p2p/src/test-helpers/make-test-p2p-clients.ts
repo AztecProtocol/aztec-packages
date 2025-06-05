@@ -134,7 +134,7 @@ export async function makeAndStartTestP2PClients(numberOfPeers: number, testConf
     }
   }
 
-  const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
+  const peerEnrs = makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
 
   for (let i = 0; i < numberOfPeers; i++) {
     const client = await makeAndStartTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {
@@ -175,7 +175,7 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
     }
   }
 
-  const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
+  const peerEnrs = makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
 
   for (let i = 0; i < numberOfPeers; i++) {
     const client = await makeTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {
