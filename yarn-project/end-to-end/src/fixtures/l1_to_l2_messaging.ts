@@ -6,6 +6,8 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { decodeEventLog, getContract } from 'viem';
 
+import { getLogger } from './utils.js';
+
 export async function sendL1ToL2Message(
   message: { recipient: AztecAddress; content: Fr; secretHash: Fr },
   ctx: {
@@ -13,6 +15,7 @@ export async function sendL1ToL2Message(
     l1ContractAddresses: Pick<L1ContractAddresses, 'inboxAddress' | 'rollupAddress'>;
   },
 ) {
+  const logger = getLogger();
   const inbox = getContract({
     address: ctx.l1ContractAddresses.inboxAddress.toString(),
     abi: InboxAbi,
@@ -29,14 +32,21 @@ export async function sendL1ToL2Message(
     content.toString(),
     secretHash.toString(),
   ]);
+  logger.info(`L1 to L2 message sent in tx ${txHash}`);
 
   // We check that the message was correctly injected by checking the emitted event
   const txReceipt = await ctx.l1Client.waitForTransactionReceipt({ hash: txHash });
 
+  logger.info(`L1 to L2 message receipt retried for tx ${txReceipt.transactionHash}`);
+
+  if (txReceipt.transactionHash !== txHash) {
+    throw new Error(`Receipt transaction hash mismatch: ${txReceipt.transactionHash} !== ${txHash}`);
+  }
+
   // Exactly 1 event should be emitted in the transaction
   if (txReceipt.logs.length !== 1) {
     throw new Error(
-      `Wrong number of logs found in transaction (got ${txReceipt.logs.length} expected 1)\n${tryJsonStringify(txReceipt.logs)}`,
+      `Wrong number of logs found in ${txHash} transaction (got ${txReceipt.logs.length} expected 1)\n${tryJsonStringify(txReceipt.logs)}`,
     );
   }
 
