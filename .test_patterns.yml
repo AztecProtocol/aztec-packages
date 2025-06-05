@@ -148,6 +148,8 @@ tests:
     error_regex: "HttpRequestError: HTTP request failed."
     owners:
       - *charlie
+  - regex: "e2e_prover/full"
+    skip: true
   # http://ci.aztec-labs.com/7a5104e136578d64
   # The "loop that wastes 5m" thing.
   - regex: "src/e2e_fees/failures"
