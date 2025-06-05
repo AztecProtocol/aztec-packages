@@ -47,7 +47,11 @@ import type {
   PXEInfo,
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
-import type { PrivateKernelExecutionProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import type {
+  PrivateExecutionStep,
+  PrivateKernelExecutionProofOutput,
+  PrivateKernelTailCircuitPublicInputs,
+} from '@aztec/stdlib/kernel';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { computeL2ToL1MembershipWitness, getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
@@ -73,7 +77,10 @@ import { inspect } from 'util';
 
 import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
-import { ContractFunctionSimulator } from '../contract_function_simulator/contract_function_simulator.js';
+import {
+  ContractFunctionSimulator,
+  generateSimulatedProvingResult,
+} from '../contract_function_simulator/contract_function_simulator.js';
 import { readCurrentClassId } from '../contract_function_simulator/oracle/private_execution.js';
 import { ProxiedNodeFactory } from '../contract_function_simulator/proxied_node.js';
 import { PXEOracleInterface } from '../contract_function_simulator/pxe_oracle_interface.js';
@@ -345,6 +352,7 @@ export class PXEService implements PXE {
     contractFunctionSimulator: ContractFunctionSimulator,
     txRequest: TxExecutionRequest,
     msgSender?: AztecAddress,
+    skipClassVerification?: boolean,
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     const { origin: contractAddress, functionSelector } = txRequest;
@@ -355,6 +363,7 @@ export class PXEService implements PXE {
         contractAddress,
         functionSelector,
         msgSender,
+        skipClassVerification,
         scopes,
       );
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
@@ -822,6 +831,7 @@ export class PXEService implements PXE {
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
     skipFeeEnforcement: boolean = false,
+    skipClassVerification: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
@@ -852,19 +862,26 @@ export class PXEService implements PXE {
           contractFunctionSimulator,
           txRequest,
           msgSender,
+          skipClassVerification,
           scopes,
         );
 
-        const { publicInputs, executionSteps } = await this.#prove(
-          txRequest,
-          this.proofCreator,
-          privateExecutionResult,
-          {
+        let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
+        let executionSteps: PrivateExecutionStep[] = [];
+
+        if (skipClassVerification) {
+          ({ publicInputs, executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
             simulate: true,
             skipFeeEnforcement,
             profileMode: 'none',
-          },
-        );
+          }));
+        } else {
+          ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
+            privateExecutionResult,
+            this.contractDataProvider,
+            this.syncDataProvider,
+          ));
+        }
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
         const simulatedTx = privateSimulationResult.toSimulatedTx();

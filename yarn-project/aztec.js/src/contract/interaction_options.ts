@@ -42,6 +42,8 @@ export type SimulateMethodOptions = Pick<
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
+  /** Whether to skip all kernel checks, which allows certain state overrides */
+  skipClassVerification?: boolean;
   /** Whether to include performance statistics (e.g. timing information of the different circuits and oracles) in
    * the simulation result, instead of just the return value of the function */
   includeStats?: boolean;

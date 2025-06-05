@@ -162,6 +162,7 @@ export interface PXE {
    * @param msgSender - (Optional) The message sender to use for the simulation.
    * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
    * @param skipFeeEnforcement - (Optional) If false, fees are enforced.
+   * @param skipClassVerification - (Optional) If false, addresses are verified to belong to the proper contractClassIds
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns A simulated transaction result object that includes public and private return values.
    * @throws If the code for the functions executed in this transaction have not been made available via `addContracts`.
@@ -173,6 +174,7 @@ export interface PXE {
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
+    skipClassVerification?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
 
@@ -475,6 +477,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       TxExecutionRequest.schema,
       z.boolean(),
       optional(schemas.AztecAddress),
+      optional(z.boolean()),
       optional(z.boolean()),
       optional(z.boolean()),
       optional(z.array(schemas.AztecAddress)),

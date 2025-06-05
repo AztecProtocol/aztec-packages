@@ -142,6 +142,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       options.from,
       options.skipTxValidation,
       options.skipFeeEnforcement ?? true,
+      options.skipClassVerification ?? false,
     );
 
     let rawReturnValues;
