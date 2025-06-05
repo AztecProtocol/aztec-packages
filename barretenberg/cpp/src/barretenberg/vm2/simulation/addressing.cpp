@@ -116,6 +116,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
     }
 
     events.emit(AddressingEvent(event));
+    // If any entry in resolution_info has an error set, throw.
     if (std::any_of(event.resolution_info.begin(), event.resolution_info.end(), [](const auto& info) {
             return info.error.has_value();
         })) {
