@@ -299,51 +299,31 @@ export const deploySharedContracts = async (
 
   if (needToSetGovernance) {
     logger.info(`Setting governance on GSE to ${governanceAddress.toString()}`);
-    const { txHash } = await deployer.sendTransaction({
-      to: gseAddress.toString(),
-      data: encodeFunctionData({
-        abi: l1Artifacts.gse.contractAbi,
-        functionName: 'setGovernance',
-        args: [governanceAddress.toString()],
-      }),
-      ...(args.acceleratedTestDeployments ? { gasLimit: 1_000_000n } : {}),
-    });
+    // const { txHash } = await deployer.sendTransaction({
+    //   to: gseAddress.toString(),
+    //   data: encodeFunctionData({
+    //     abi: l1Artifacts.gse.contractAbi,
+    //     functionName: 'setGovernance',
+    //     args: [governanceAddress.toString()],
+    //   }),
+    //   ...(true ? { gasLimit: 1_000_000n } : {}),
+    // });
+    const { txHash } = await deployer.l1TxUtils.sendTransaction(
+      {
+        to: gseAddress.toString(),
+        data: encodeFunctionData({
+          abi: l1Artifacts.gse.contractAbi,
+          functionName: 'setGovernance',
+          args: [governanceAddress.toString()],
+        }),
+      },
+      { gasLimit: 1_000_000n },
+    ); // Always set adequate gas limit for setGovernance
 
     logger.verbose(`Set governance on GSE in ${txHash}`);
     txHashes.push(txHash);
 
-    // Verify the setGovernance transaction was successful
-    const receipt = await l1Client.waitForTransactionReceipt({ hash: txHash });
-    if (receipt.status !== 'success') {
-      logger.error(`❌ setGovernance transaction failed with status: ${receipt.status}`);
-      logger.error(`Transaction hash: ${txHash}`);
-      logger.error(`Block number: ${receipt.blockNumber}`);
-      logger.error(`Gas used: ${receipt.gasUsed}`);
-
-      // Try to get the revert reason
-      try {
-        // Re-simulate the transaction to get the revert reason
-        await l1Client.call({
-          to: gseAddress.toString(),
-          data: encodeFunctionData({
-            abi: l1Artifacts.gse.contractAbi,
-            functionName: 'setGovernance',
-            args: [governanceAddress.toString()],
-          }),
-          blockNumber: receipt.blockNumber - 1n, // Call at the block before the failed transaction
-        });
-      } catch (simulationError) {
-        logger.error(
-          `Revert reason: ${simulationError instanceof Error ? simulationError.message : String(simulationError)}`,
-        );
-        if (typeof simulationError === 'object' && simulationError !== null && 'data' in simulationError) {
-          logger.error(`Revert data: ${(simulationError as any).data}`);
-        }
-      }
-
-      throw new Error(`setGovernance transaction failed: ${txHash} - Status: ${receipt.status}`);
-    }
-    logger.info(`✅ setGovernance transaction confirmed successful: ${txHash}`);
+    logger.info(`✅ setGovernance transaction sent successfully: ${txHash}`);
   }
 
   const coinIssuerAddress = await deployer.deploy(l1Artifacts.coinIssuer, [
