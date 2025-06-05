@@ -126,7 +126,7 @@ import { PublicKeys, computeAddress } from '../keys/index.js';
 import { ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { PublicLog } from '../logs/public_log.js';
-import { L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
+import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { BaseParityInputs } from '../parity/base_parity_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
@@ -593,7 +593,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     privateCallRequests: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallRequest, seed + 0x600),
     publicCallRequests: makeTuple(MAX_ENQUEUED_CALLS_PER_CALL, makeCountedPublicCallRequest, seed + 0x700),
     publicTeardownCallRequest: makePublicCallRequest(seed + 0x800),
-    l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
+    l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeCountedL2ToL1Message, seed + 0x800),
     privateLogs: makeTuple(MAX_PRIVATE_LOGS_PER_CALL, makePrivateLogData, seed + 0x875),
     contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeCountedLogHash, seed + 0xa00),
     startSideEffectCounter: fr(seed + 0x849),
@@ -642,10 +642,6 @@ export function makeConstantRollupData(
     protocolContractTreeRoot: fr(seed + 0x402),
     globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x500),
   });
-}
-
-export function makeScopedL2ToL1Message(seed = 1): ScopedL2ToL1Message {
-  return new ScopedL2ToL1Message(makeL2ToL1Message(seed), makeAztecAddress(seed + 3));
 }
 
 /**
@@ -969,7 +965,15 @@ export function makeL2ToL1Message(seed = 0): L2ToL1Message {
   const recipient = EthAddress.fromField(new Fr(seed));
   const content = new Fr(seed + 1);
 
-  return new L2ToL1Message(recipient, content, seed + 2);
+  return new L2ToL1Message(recipient, content);
+}
+
+function makeCountedL2ToL1Message(seed = 0) {
+  return new CountedL2ToL1Message(makeL2ToL1Message(seed), seed + 2);
+}
+
+function makeScopedL2ToL1Message(seed = 1) {
+  return new ScopedL2ToL1Message(makeL2ToL1Message(seed), makeAztecAddress(seed + 3));
 }
 
 /**
