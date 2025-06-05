@@ -13,11 +13,12 @@ template <typename FF_> class keccakf1600Impl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 147> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 4, 4, 3, 5, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+    static constexpr std::array<size_t, 155> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 4, 4, 3, 5, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 3, 4, 3, 4, 5
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -1210,12 +1211,78 @@ template <typename FF_> class keccakf1600Impl {
             tmp *= scaling_factor;
             std::get<145>(evals) += typename Accumulator::View(tmp);
         }
-        { // DST_ADDR_PROPAGATION
+        { // SRC_OUT_OF_RANGE_ERROR_BOOLEAN
             using Accumulator = typename std::tuple_element_t<146, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::keccakf1600_src_out_of_range_error) * (FF(1) - in.get(C::keccakf1600_src_out_of_range_error));
+            tmp *= scaling_factor;
+            std::get<146>(evals) += typename Accumulator::View(tmp);
+        }
+        { // DST_OUT_OF_RANGE_ERROR_BOOLEAN
+            using Accumulator = typename std::tuple_element_t<147, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::keccakf1600_dst_out_of_range_error) * (FF(1) - in.get(C::keccakf1600_dst_out_of_range_error));
+            tmp *= scaling_factor;
+            std::get<147>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SRC_OUT_OF_RANGE_TOGGLE
+            using Accumulator = typename std::tuple_element_t<148, ContainerOverSubrelations>;
+            auto tmp =
+                (in.get(C::keccakf1600_src_abs_diff) -
+                 in.get(C::keccakf1600_start) * ((FF(2) * in.get(C::keccakf1600_src_out_of_range_error) - FF(1)) *
+                                                     ((in.get(C::keccakf1600_src_addr) - FF(4294967296UL)) + FF(25)) -
+                                                 in.get(C::keccakf1600_src_out_of_range_error)));
+            tmp *= scaling_factor;
+            std::get<148>(evals) += typename Accumulator::View(tmp);
+        }
+        { // DST_OUT_OF_RANGE_TOGGLE
+            using Accumulator = typename std::tuple_element_t<149, ContainerOverSubrelations>;
+            auto tmp =
+                (in.get(C::keccakf1600_dst_abs_diff) -
+                 in.get(C::keccakf1600_start) * ((FF(2) * in.get(C::keccakf1600_dst_out_of_range_error) - FF(1)) *
+                                                     ((in.get(C::keccakf1600_dst_addr) - FF(4294967296UL)) + FF(25)) -
+                                                 in.get(C::keccakf1600_dst_out_of_range_error)));
+            tmp *= scaling_factor;
+            std::get<149>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<150, ContainerOverSubrelations>;
+            auto tmp = in.get(C::keccakf1600_sel) * (in.get(C::keccakf1600_thirty_two) - FF(32));
+            tmp *= scaling_factor;
+            std::get<150>(evals) += typename Accumulator::View(tmp);
+        }
+        { // ERROR
+            using Accumulator = typename std::tuple_element_t<151, ContainerOverSubrelations>;
+            auto tmp =
+                (in.get(C::keccakf1600_error) - (FF(1) - (FF(1) - in.get(C::keccakf1600_src_out_of_range_error)) *
+                                                             (FF(1) - in.get(C::keccakf1600_dst_out_of_range_error)) *
+                                                             (FF(1) - in.get(C::keccakf1600_tag_error))));
+            tmp *= scaling_factor;
+            std::get<151>(evals) += typename Accumulator::View(tmp);
+        }
+        { // DST_ADDR_PROPAGATION
+            using Accumulator = typename std::tuple_element_t<152, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
                        (in.get(C::keccakf1600_dst_addr_shift) - in.get(C::keccakf1600_dst_addr));
             tmp *= scaling_factor;
-            std::get<146>(evals) += typename Accumulator::View(tmp);
+            std::get<152>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SEL_SLICE_READ
+            using Accumulator = typename std::tuple_element_t<153, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccakf1600_sel_slice_read) -
+                        in.get(C::keccakf1600_start) * (FF(1) - in.get(C::keccakf1600_src_out_of_range_error)) *
+                            (FF(1) - in.get(C::keccakf1600_dst_out_of_range_error)));
+            tmp *= scaling_factor;
+            std::get<153>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SEL_SLICE_WRITE
+            using Accumulator = typename std::tuple_element_t<154, ContainerOverSubrelations>;
+            auto tmp =
+                (in.get(C::keccakf1600_sel_slice_write) - in.get(C::keccakf1600_sel) * in.get(C::keccakf1600_last) *
+                                                              (FF(1) - in.get(C::keccakf1600_src_out_of_range_error)) *
+                                                              (FF(1) - in.get(C::keccakf1600_dst_out_of_range_error)));
+            tmp *= scaling_factor;
+            std::get<154>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -1460,7 +1527,21 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
         case 145:
             return "NEXT_STATE_IN_44";
         case 146:
+            return "SRC_OUT_OF_RANGE_ERROR_BOOLEAN";
+        case 147:
+            return "DST_OUT_OF_RANGE_ERROR_BOOLEAN";
+        case 148:
+            return "SRC_OUT_OF_RANGE_TOGGLE";
+        case 149:
+            return "DST_OUT_OF_RANGE_TOGGLE";
+        case 151:
+            return "ERROR";
+        case 152:
             return "DST_ADDR_PROPAGATION";
+        case 153:
+            return "SEL_SLICE_READ";
+        case 154:
+            return "SEL_SLICE_WRITE";
         }
         return std::to_string(index);
     }
@@ -1582,7 +1663,14 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
     static constexpr size_t SR_NEXT_STATE_IN_42 = 143;
     static constexpr size_t SR_NEXT_STATE_IN_43 = 144;
     static constexpr size_t SR_NEXT_STATE_IN_44 = 145;
-    static constexpr size_t SR_DST_ADDR_PROPAGATION = 146;
+    static constexpr size_t SR_SRC_OUT_OF_RANGE_ERROR_BOOLEAN = 146;
+    static constexpr size_t SR_DST_OUT_OF_RANGE_ERROR_BOOLEAN = 147;
+    static constexpr size_t SR_SRC_OUT_OF_RANGE_TOGGLE = 148;
+    static constexpr size_t SR_DST_OUT_OF_RANGE_TOGGLE = 149;
+    static constexpr size_t SR_ERROR = 151;
+    static constexpr size_t SR_DST_ADDR_PROPAGATION = 152;
+    static constexpr size_t SR_SEL_SLICE_READ = 153;
+    static constexpr size_t SR_SEL_SLICE_WRITE = 154;
 };
 
 } // namespace bb::avm2
