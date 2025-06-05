@@ -17,6 +17,7 @@ import {Rollup} from "@aztec/core/Rollup.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 
 import {
+  ITestRollup,
   IRollup,
   IRollupCore,
   BlockLog,
@@ -122,6 +123,40 @@ contract RollupTest is RollupBase {
 
     assertEq(rollup.getPendingBlockNumber(), 1);
     assertEq(rollup.getProvenBlockNumber(), 1);
+  }
+
+  function testSetManaTarget(uint256 _initialManaTarget, uint256 _newManaTarget)
+    public
+    setUpFor("mixed_block_1")
+  {
+    _initialManaTarget = bound(_initialManaTarget, 0, 1e36);
+    _newManaTarget = bound(_newManaTarget, 0, 1e36);
+
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.setManaTarget(_initialManaTarget);
+    builder.deploy();
+
+    address governance = address(builder.getConfig().governance);
+    rollup = IInstance(address(builder.getConfig().rollup));
+
+    assertEq(rollup.getManaTarget(), _initialManaTarget);
+
+    // Cannot decrease the mana target
+    if (_newManaTarget >= _initialManaTarget) {
+      vm.expectEmit(true, true, true, true);
+      emit ITestRollup.ManaTargetUpdated(_newManaTarget);
+      vm.prank(governance);
+      rollup.updateManaTarget(_newManaTarget);
+      assertEq(rollup.getManaTarget(), _newManaTarget);
+    } else {
+      vm.expectRevert(
+        abi.encodeWithSelector(
+          Errors.Rollup__InvalidManaTarget.selector, _initialManaTarget, _newManaTarget
+        )
+      );
+      vm.prank(governance);
+      rollup.updateManaTarget(_newManaTarget);
+    }
   }
 
   function testPrune() public setUpFor("mixed_block_1") {
