@@ -419,6 +419,66 @@ export const deploySharedContracts = async (
   await deployer.waitForDeployments();
   await Promise.all(txHashes.map(txHash => l1Client.waitForTransactionReceipt({ hash: txHash })));
 
+  // Debug potential caching issues with governance reads
+  if (needToSetGovernance) {
+    logger.info(`=== DEBUGGING GOVERNANCE CACHING ===`);
+
+    const gseContract = getContract({
+      address: getAddress(gseAddress.toString()),
+      abi: l1Artifacts.gse.contractAbi,
+      client: l1Client,
+    });
+
+    // Method 1: Using viem client (potentially cached)
+    logger.info(`Reading governance via viem client...`);
+    const governanceViaClient = await gseContract.read.getGovernance();
+    logger.info(`Governance via viem client: ${governanceViaClient}`);
+
+    // Method 2: Raw RPC call (bypasses client caching)
+    logger.info(`Reading governance via raw RPC call...`);
+    const getGovernanceFunctionSelector = encodeFunctionData({
+      abi: l1Artifacts.gse.contractAbi,
+      functionName: 'getGovernance',
+      args: [],
+    });
+
+    const rawGovernanceResult = (await l1Client.transport.request({
+      method: 'eth_call',
+      params: [
+        {
+          to: gseAddress.toString(),
+          data: getGovernanceFunctionSelector,
+        },
+        'latest',
+      ],
+    })) as string;
+
+    // Decode the raw result (should be an address)
+    const decodedRawGovernance =
+      rawGovernanceResult && rawGovernanceResult.length >= 66
+        ? `0x${rawGovernanceResult.slice(-40)}`
+        : rawGovernanceResult;
+
+    logger.info(`Governance via raw RPC: ${rawGovernanceResult} (decoded: ${decodedRawGovernance})`);
+
+    // Method 3: Wait and read again to check timing
+    logger.info(`Waiting 2 seconds and reading governance again...`);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const governanceAfterDelay = await gseContract.read.getGovernance();
+    logger.info(`Governance after 2s delay: ${governanceAfterDelay}`);
+
+    // Compare results
+    logger.info(`Expected governance: ${governanceAddress.toString()}`);
+    logger.info(
+      `Results match between viem and raw: ${governanceViaClient.toLowerCase() === (decodedRawGovernance || '').toLowerCase()}`,
+    );
+    logger.info(
+      `Delayed result matches expected: ${governanceAfterDelay.toLowerCase() === governanceAddress.toString().toLowerCase()}`,
+    );
+
+    logger.info(`=== END DEBUGGING GOVERNANCE CACHING ===`);
+  }
+
   logger.verbose(`Deployed shared contracts`);
 
   const registry = new RegistryContract(l1Client, registryAddress);
@@ -711,6 +771,48 @@ export const deployRollup = async (
 
   if (args.initialValidators && isRollupRegisteredAfterTx) {
     logger.info(`✅ CONDITIONS MET - Adding initial validators to rollup ${rollupContract.address}`);
+
+    // Before adding validators, ensure GSE governance is properly set up
+    logger.info(`Double-checking GSE governance setup before adding validators...`);
+    const gseContract = getContract({
+      address: getAddress(addresses.gseAddress.toString()),
+      abi: l1Artifacts.gse.contractAbi,
+      client: extendedClient,
+    });
+
+    let governanceReady = false;
+    let govRetries = 0;
+    const maxGovRetries = 15;
+    const govRetryDelayMs = 3000;
+
+    while (!governanceReady && govRetries < maxGovRetries) {
+      try {
+        const currentGovernance = await gseContract.read.getGovernance();
+        if (currentGovernance !== EthAddress.ZERO.toString()) {
+          logger.info(`✅ GSE governance confirmed: ${currentGovernance}`);
+          governanceReady = true;
+        } else {
+          govRetries++;
+          logger.warn(
+            `⚠️ GSE governance still zero on attempt ${govRetries}/${maxGovRetries}, waiting ${govRetryDelayMs}ms...`,
+          );
+          if (govRetries < maxGovRetries) {
+            await new Promise(resolve => setTimeout(resolve, govRetryDelayMs));
+          }
+        }
+      } catch (error) {
+        govRetries++;
+        logger.warn(`⚠️ Error checking GSE governance on attempt ${govRetries}/${maxGovRetries}: ${error}`);
+        if (govRetries < maxGovRetries) {
+          await new Promise(resolve => setTimeout(resolve, govRetryDelayMs));
+        }
+      }
+    }
+
+    if (!governanceReady) {
+      throw new Error(`GSE governance setup timed out after ${maxGovRetries} attempts`);
+    }
+
     try {
       await addMultipleValidators(
         extendedClient,
@@ -870,8 +972,8 @@ export const addMultipleValidators = async (
       let gseFromRollup: string = '';
       let gseGovernanceAddress: string = '';
       let retries = 0;
-      const maxRetries = 10;
-      const retryDelayMs = 1000;
+      const maxRetries = 30; // Increased from 10 to 30
+      const retryDelayMs = 2000; // Increased from 1s to 2s
 
       while (retries < maxRetries) {
         try {
