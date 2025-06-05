@@ -120,7 +120,8 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
   }
 
   public async makeBlockBuilderDeps(globalVariables: GlobalVariables, opts: BuildBlockOptions) {
-    const publicProcessorDBFork = await this.worldState.fork();
+    const blockNumber = globalVariables.blockNumber.toNumber();
+    const publicProcessorDBFork = await this.worldState.fork(blockNumber - 1);
     const contractsDB = new PublicContractsDB(this.contractDataSource);
     const guardedFork = new GuardedMerkleTreeOperations(publicProcessorDBFork);
 
