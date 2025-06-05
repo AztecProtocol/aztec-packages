@@ -13,8 +13,12 @@ import type { ExecutionPayload } from './payload.js';
 export type TxExecutionOptions = {
   /** Whether the transaction can be cancelled. */
   cancellable?: boolean;
-  /** The nonce to use for the transaction. */
-  nonce?: Fr;
+  /**
+   * A nonce to inject into the app payload of the transaction. When used with cancellable=true, this nonce will be
+   * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
+   * but higher fee. The nullifier ensures only one transaction can succeed.
+   */
+  txNonce?: Fr;
 };
 
 /**
@@ -26,7 +30,7 @@ export interface EntrypointInterface {
    * Generates an execution request out of set of function calls.
    * @param exec - The execution intents to be run.
    * @param fee - The fee options for the transaction.
-   * @param options - Nonce and whether the transaction is cancellable.
+   * @param options - Transaction nonce and whether the transaction is cancellable.
    * @returns The authenticated transaction execution request.
    */
   createTxExecutionRequest(

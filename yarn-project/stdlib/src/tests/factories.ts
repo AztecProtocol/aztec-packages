@@ -462,6 +462,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
     makeTreeSnapshots(seed + 0x10),
     makeGas(seed + 0x20),
     makeGasSettings(),
+    makeGasFees(seed + 0x30),
     makeAztecAddress(seed + 0x40),
     makePublicCallRequestArrayLengths(seed + 0x40),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
@@ -1490,6 +1491,7 @@ export function makeAvmTxHint(seed = 0): AvmTxHint {
     `txhash-${seed}`,
     makeGlobalVariables(seed),
     makeGasSettings(),
+    makeGasFees(seed + 0x1000),
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),

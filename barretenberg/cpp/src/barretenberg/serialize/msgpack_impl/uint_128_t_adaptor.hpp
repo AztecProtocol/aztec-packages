@@ -4,6 +4,7 @@
 #define MSGPACK_USE_STD_VARIANT_ADAPTOR
 #include <msgpack.hpp>
 
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 
 namespace msgpack::adaptor {
@@ -24,7 +25,7 @@ template <> struct convert<uint128_t> {
 
             v = result;
         } else {
-            throw msgpack::type_error();
+            throw_or_abort("Invalid type for uint128_t deserialization");
         }
         return o;
     }

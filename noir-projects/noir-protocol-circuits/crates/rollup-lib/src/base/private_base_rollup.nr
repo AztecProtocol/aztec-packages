@@ -6,16 +6,16 @@ use crate::{
     base::{
         components::{
             archive::perform_archive_membership_check,
-            fees::compute_fee_payer_fee_juice_balance_leaf_slot,
+            constants::validate_tx_constant_data,
+            fees::{compute_fee_payer_fee_juice_balance_leaf_slot, compute_transaction_fee},
             nullifier_tree::nullifier_tree_batch_insert,
-            private_base_rollup_output_composer::compute_transaction_fee, PrivateTubeDataValidator,
+            PrivateTubeDataValidator,
             public_data_tree::public_data_tree_insert,
         },
         state_diff_hints::PrivateBaseStateDiffHints,
     },
     components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
-use super::components::constants::validate_tx_constant_data;
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,

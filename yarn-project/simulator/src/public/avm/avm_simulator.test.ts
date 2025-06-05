@@ -668,8 +668,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, value0);
-      const nonce = await computeNoteHashNonce(firstNullifier, 0);
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
+      const noteNonce = await computeNoteHashNonce(firstNullifier, 0);
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
 
@@ -1109,8 +1109,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     beforeAll(async () => {
       siloedNullifier0 = await siloNullifier(address, value0);
       const siloedNoteHash0 = await siloNoteHash(address, value0);
-      const nonce = await computeNoteHashNonce(firstNullifier, noteHashIndexInTx);
-      uniqueNoteHash0 = await computeUniqueNoteHash(nonce, siloedNoteHash0);
+      const noteNonce = await computeNoteHashNonce(firstNullifier, noteHashIndexInTx);
+      uniqueNoteHash0 = await computeUniqueNoteHash(noteNonce, siloedNoteHash0);
     });
 
     beforeEach(async () => {
