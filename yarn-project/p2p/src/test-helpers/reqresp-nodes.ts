@@ -16,8 +16,7 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import type { PeerId } from '@libp2p/interface';
-import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
+import type { PrivateKey } from '@libp2p/interface';
 import { tcp } from '@libp2p/tcp';
 import { multiaddr } from '@multiformats/multiaddr';
 import getPort from 'get-port';
@@ -39,7 +38,7 @@ import {
 } from '../services/reqresp/interface.js';
 import { pingHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
-import { type PubSubLibp2p, convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
+import { type PubSubLibp2p, convertToMultiaddr, createSecp256k1PrivateKey, privateKeyToHex } from '../util.js';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -48,7 +47,7 @@ import { type PubSubLibp2p, convertToMultiaddr, createLibP2PPeerIdFromPrivateKey
  */
 export async function createLibp2pNode(
   boostrapAddrs: string[] = [],
-  peerId?: PeerId,
+  privateKey?: PrivateKey,
   port?: number,
   enableGossipSub: boolean = false,
   start: boolean = true,
@@ -60,7 +59,7 @@ export async function createLibp2pNode(
       listen: [`/ip4/127.0.0.1/tcp/${port}`],
       announce: [`/ip4/127.0.0.1/tcp/${port}`],
     },
-    connectionEncryption: [noise()],
+    connectionEncrypters: [noise()],
     streamMuxers: [yamux()],
     transports: [tcp()],
     services: {
@@ -78,8 +77,8 @@ export async function createLibp2pNode(
     ];
   }
 
-  if (peerId) {
-    options.peerId = peerId;
+  if (privateKey) {
+    options.privateKey = privateKey;
   }
 
   if (enableGossipSub) {
@@ -94,8 +93,6 @@ export async function createLibp2pNode(
 /**
  * Test Libp2p service
  * P2P functionality is operational, however everything else is default
- *
- *
  */
 export async function createTestLibP2PService<T extends P2PClientType>(
   clientType: T,
@@ -106,10 +103,10 @@ export async function createTestLibP2PService<T extends P2PClientType>(
   mempools: MemPools<T>,
   telemetry: TelemetryClient,
   port: number = 0,
-  peerId?: PeerId,
+  privateKey?: PrivateKey,
   chainConfig: ChainConfig = emptyChainConfig,
 ) {
-  peerId = peerId ?? (await createSecp256k1PeerId());
+  privateKey = privateKey ?? (await createSecp256k1PrivateKey());
   const config = {
     p2pIp: `127.0.0.1`,
     p2pPort: port,
@@ -117,15 +114,15 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     peerCheckIntervalMS: 1000,
     maxPeerCount: 5,
     p2pEnabled: true,
-    peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
+    peerIdPrivateKey: privateKeyToHex(privateKey),
     bootstrapNodeEnrVersionCheck: false,
     ...chainConfig,
   } as P2PConfig & DataStoreConfig;
-  const discoveryService = new DiscV5Service(peerId, config, 'test-reqresp-node', telemetry);
+  const discoveryService = new DiscV5Service(privateKey, config, 'test-reqresp-node', telemetry);
   const proofVerifier = new AlwaysTrueCircuitVerifier();
 
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
-  const p2pNode = await createLibp2pNode([], peerId, port, /*enable gossip */ true, /**start */ false);
+  const p2pNode = await createLibp2pNode([], privateKey, port, /*enable gossip */ true, /**start */ false);
 
   return new LibP2PService<T>(
     clientType,
@@ -242,12 +239,16 @@ export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier
 }
 
 // Bootnodes
-export function createBootstrapNodeConfig(privateKey: string, port: number, chainConfig: ChainConfig): BootnodeConfig {
+export function createBootstrapNodeConfig(
+  privateKey: PrivateKey,
+  port: number,
+  chainConfig: ChainConfig,
+): BootnodeConfig {
   return {
     l1ChainId: chainConfig.l1ChainId,
     p2pIp: '127.0.0.1',
     p2pPort: port,
-    peerIdPrivateKey: privateKey,
+    peerIdPrivateKey: privateKeyToHex(privateKey),
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
     bootstrapNodes: [],
@@ -256,7 +257,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number, chai
 }
 
 export function createBootstrapNodeFromPrivateKey(
-  privateKey: string,
+  privateKey: PrivateKey,
   port: number,
   telemetry: TelemetryClient = getTelemetryClient(),
   chainConfig: ChainConfig = emptyChainConfig,
@@ -271,9 +272,8 @@ export function createBootstrapNodeFromPrivateKey(
  * @param port - the port of the bootstrap node
  * @returns the bootstrap node ENR
  */
-export async function getBootstrapNodeEnr(privateKey: string, port: number) {
-  const peerId = await createLibP2PPeerIdFromPrivateKey(privateKey);
-  const enr = SignableENR.createFromPeerId(peerId);
+export async function getBootstrapNodeEnr(privateKey: PrivateKey, port: number) {
+  const enr = SignableENR.createFromPrivateKey(privateKey);
   const listenAddrUdp = multiaddr(convertToMultiaddr('127.0.0.1', port, 'udp'));
   enr.setLocationMultiaddr(listenAddrUdp);
 
@@ -285,8 +285,8 @@ export async function createBootstrapNode(
   telemetry: TelemetryClient = getTelemetryClient(),
   chainConfig: ChainConfig = emptyChainConfig,
 ): Promise<BootstrapNode> {
-  const peerId = await createSecp256k1PeerId();
-  const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port, chainConfig);
+  const privateKey = await createSecp256k1PrivateKey();
+  const config = createBootstrapNodeConfig(privateKey, port, chainConfig);
 
   return startBootstrapNode(config, telemetry);
 }

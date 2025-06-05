@@ -15,6 +15,7 @@ import { ChainMonitor } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import { privateKeyFromHex } from '@aztec/p2p';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -134,7 +135,7 @@ export class P2PNetworkTest {
   }) {
     const port = basePort || (await getPort());
 
-    const bootstrapNodeENR = await getBootstrapNodeEnr(BOOTSTRAP_NODE_PRIVATE_KEY, port);
+    const bootstrapNodeENR = await getBootstrapNodeEnr(privateKeyFromHex(BOOTSTRAP_NODE_PRIVATE_KEY), port);
     const bootstrapNodeEnr = bootstrapNodeENR.encodeTxt();
 
     const initialValidatorConfig = await createValidatorConfig(
@@ -164,7 +165,7 @@ export class P2PNetworkTest {
     await this.snapshotManager.snapshot('add-bootstrap-node', async ({ aztecNodeConfig }) => {
       const telemetry = getEndToEndTestTelemetryClient(this.metricsPort);
       this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
-        BOOTSTRAP_NODE_PRIVATE_KEY,
+        privateKeyFromHex(BOOTSTRAP_NODE_PRIVATE_KEY),
         this.bootNodePort,
         telemetry,
         aztecNodeConfig,
