@@ -17,15 +17,15 @@ contract SlashFactory is ISlashFactory {
   function createSlashPayload(
     address[] memory _validators,
     uint96[] memory _amounts,
-    uint256[] memory _offences
+    uint256[] memory _offenses
   ) external override(ISlashFactory) returns (IPayload) {
     require(
       _validators.length == _amounts.length,
       ISlashFactory.SlashPayloadAmountsLengthMismatch(_validators.length, _amounts.length)
     );
     require(
-      _validators.length == _offences.length,
-      ISlashFactory.SlashPayloadOffencesLengthMismatch(_validators.length, _offences.length)
+      _validators.length == _offenses.length,
+      ISlashFactory.SlashPayloadOffensesLengthMismatch(_validators.length, _offenses.length)
     );
 
     (address predictedAddress, bytes32 salt, bool isDeployed) =
@@ -35,10 +35,10 @@ contract SlashFactory is ISlashFactory {
       return IPayload(predictedAddress);
     }
 
-    // _offences are not used in the SlashPayload constructor, only in the event.
+    // _offenses are not used in the SlashPayload constructor, only in the event.
     SlashPayload payload = new SlashPayload{salt: salt}(_validators, _amounts, VALIDATOR_SELECTION);
 
-    emit SlashPayloadCreated(address(payload), _validators, _amounts, _offences);
+    emit SlashPayloadCreated(address(payload), _validators, _amounts, _offenses);
     return IPayload(address(payload));
   }
 

@@ -5,7 +5,7 @@ use crate::{
     },
     base::components::{
         archive::perform_archive_membership_check, constants::validate_combined_constant_data,
-        gas::clamp_gas_settings_for_avm, PublicTubeDataValidator,
+        PublicTubeDataValidator,
     },
     components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
@@ -18,7 +18,6 @@ use dep::types::{
     constants::{ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX},
     hash::silo_l2_to_l1_message,
     merkle_tree::MembershipWitness,
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
     proof::traits::Verifiable,
     traits::{Empty, Hash},
     utils::arrays::array_merge,
@@ -41,14 +40,11 @@ impl PublicBaseRollupInputs {
         let from_public = self.avm_proof_data.public_inputs;
         let reverted = from_public.reverted;
         let revert_code = if reverted { 1 } else { 0 };
-        let siloed_l2_to_l1_msgs = from_public
-            .accumulated_data
-            .l2_to_l1_msgs
-            .map(|message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                message,
-                combined_constant_data.tx_context.version,
-                combined_constant_data.tx_context.chain_id,
-            ));
+        let siloed_l2_to_l1_msgs = from_public.accumulated_data.l2_to_l1_msgs.map(|message| silo_l2_to_l1_message(
+            message,
+            combined_constant_data.tx_context.version,
+            combined_constant_data.tx_context.chain_id,
+        ));
 
         let private_logs = if reverted {
             from_private.non_revertible_accumulated_data.private_logs
@@ -91,19 +87,6 @@ impl PublicBaseRollupInputs {
             public_logs: from_public.accumulated_data.public_logs,
             contract_class_logs,
         }
-    }
-
-    // TODO: We should probably have a general struct/function where we encapsulate validation
-    // of the AVM public inputs against the tube proof.
-    fn validate_avm_gas_limits(self) {
-        assert_eq(
-            clamp_gas_settings_for_avm(
-                self.tube_data.public_inputs.constants.tx_context.gas_settings,
-                self.tube_data.public_inputs.gas_used,
-            ),
-            self.avm_proof_data.public_inputs.gas_settings,
-            "unexpected gas settings used in the AVM",
-        );
     }
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
@@ -196,7 +179,6 @@ mod tests {
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
         merkle_tree::MembershipWitness,
-        messaging::l2_to_l1_message::ScopedL2ToL1Message,
         tests::{
             fixture_builder::FixtureBuilder,
             fixtures::{self, merkle_tree::generate_full_sha_tree},
@@ -508,7 +490,7 @@ mod tests {
         offset += 1;
         for i in 0..NUM_MSGS {
             reconstructed_tx_effects[offset + i] = silo_l2_to_l1_message(
-                builder.avm_data.l2_to_l1_msgs.storage()[i],
+                builder.avm_data.l2_to_l1_msgs.get(i).expose_to_public(),
                 builder.avm_data.tx_context.version,
                 builder.avm_data.tx_context.chain_id,
             );
@@ -636,14 +618,11 @@ mod tests {
 
         let out_hash = builder.execute().out_hash;
 
-        let siloed_l2_to_l1_msgs = builder
-            .avm_data
-            .l2_to_l1_msgs
-            .map(|l2_to_l1_message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                l2_to_l1_message,
-                builder.constants.global_variables.version,
-                builder.constants.global_variables.chain_id,
-            ));
+        let siloed_l2_to_l1_msgs = builder.avm_data.l2_to_l1_msgs.map(|l2_to_l1_message| silo_l2_to_l1_message(
+            l2_to_l1_message.expose_to_public(),
+            builder.constants.global_variables.version,
+            builder.constants.global_variables.chain_id,
+        ));
 
         // Since we fill the tree completely, we know to expect a full tree as below
         let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());
@@ -793,6 +772,48 @@ mod tests {
 
         builder.tube_data.tx_context.gas_settings = gas_settings;
         builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        builder.fails();
+    }
+
+    #[test]
+    unconstrained fn avm_effective_gas_fees() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        builder.constants.global_variables.gas_fees = GasFees::new(100, 100);
+        builder.avm_data.global_variables.gas_fees = builder.constants.global_variables.gas_fees;
+
+        let gas_settings = GasSettings {
+            gas_limits: Gas::new(1000, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
+            teardown_gas_limits: Gas::new(1000, 1000),
+            max_fees_per_gas: GasFees::new(150, 150),
+            max_priority_fees_per_gas: GasFees::new(100, 100),
+        };
+        builder.tube_data.tx_context.gas_settings = gas_settings;
+        builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        // Effective should be 150 taking 50 as priority fees.
+        builder.avm_data.effective_gas_fees = GasFees::new(150, 150);
+
+        builder.succeeds();
+    }
+
+    #[test(should_fail_with = "unexpected effective gas fees used in the AVM")]
+    unconstrained fn wrong_avm_effective_gas_fees() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        builder.constants.global_variables.gas_fees = GasFees::new(100, 100);
+        builder.avm_data.global_variables.gas_fees = builder.constants.global_variables.gas_fees;
+
+        let gas_settings = GasSettings {
+            gas_limits: Gas::new(1000, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
+            teardown_gas_limits: Gas::new(1000, 1000),
+            max_fees_per_gas: GasFees::new(150, 150),
+            max_priority_fees_per_gas: GasFees::new(25, 25),
+        };
+        builder.tube_data.tx_context.gas_settings = gas_settings;
+        builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        // Effective should be 125 taking all priority fees.
+        builder.avm_data.effective_gas_fees = GasFees::new(150, 150);
 
         builder.fails();
     }

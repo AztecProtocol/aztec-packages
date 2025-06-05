@@ -17,6 +17,7 @@ use crate::{
         constant_rollup_data::ConstantRollupData,
         function_data::FunctionData,
         gas::Gas,
+        gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{
@@ -71,7 +72,7 @@ use crate::{
         compute_siloed_private_log_field, compute_unique_siloed_note_hash,
     },
     merkle_tree::{membership::MembershipWitness, MerkleTree},
-    messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
+    messaging::l2_to_l1_message::L2ToL1Message,
     partial_state_reference::PartialStateReference,
     point::Point,
     proof::{
@@ -125,6 +126,7 @@ pub struct FixtureBuilder {
     pub fee_payer: AztecAddress,
     pub public_teardown_call_request: PublicCallRequest,
     pub transaction_fee: Field,
+    pub effective_gas_fees: GasFees,
 
     // Constant data.
     pub historical_header: BlockHeader,
@@ -134,7 +136,7 @@ pub struct FixtureBuilder {
     // Accumulated data.
     pub note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     pub nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
-    pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
+    pub l2_to_l1_msgs: BoundedVec<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX>,
     pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
     pub public_logs: BoundedVec<PublicLog, MAX_PUBLIC_LOGS_PER_TX>,
     pub contract_class_logs_hashes: BoundedVec<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
@@ -419,9 +421,10 @@ impl FixtureBuilder {
             private_call_requests: subarray(self.private_call_requests.storage()),
             public_call_requests: subarray(self.public_call_requests.storage()),
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage().map(|r: ScopedL2ToL1Message| {
-                r.message
-            })),
+            l2_to_l1_msgs: subarray(self
+                .l2_to_l1_msgs
+                .storage()
+                .map(|r: Scoped<Counted<L2ToL1Message>>| r.inner)),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
             private_logs: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
@@ -568,7 +571,7 @@ impl FixtureBuilder {
                 .map(|n: ScopedNullifier| n.nullifier.value),
             l2_to_l1_msgs: self
                 .get_split_ordered_side_effects(self.l2_to_l1_msgs, revertible)
-                .map(|m: ScopedL2ToL1Message| m.expose_to_public()),
+                .map(|m: Scoped<Counted<L2ToL1Message>>| m.expose_to_public()),
             private_logs: self
                 .get_split_ordered_side_effects(self.private_logs, revertible)
                 .map(|l: Scoped<PrivateLogData>| l.expose_to_public()),
@@ -585,7 +588,7 @@ impl FixtureBuilder {
         PrivateToRollupAccumulatedData {
             note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: Scoped<Counted<L2ToL1Message>>| {
                 m.expose_to_public()
             }),
             private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
@@ -694,7 +697,7 @@ impl FixtureBuilder {
         AvmAccumulatedData {
             note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: Scoped<Counted<L2ToL1Message>>| {
                 m.expose_to_public()
             }),
             public_logs: self.public_logs.storage(),
@@ -715,7 +718,7 @@ impl FixtureBuilder {
                 .map(|n: ScopedNullifier| n.nullifier.value),
             l2_to_l1_msgs: self
                 .get_split_ordered_side_effects(self.l2_to_l1_msgs, revertible)
-                .map(|m: ScopedL2ToL1Message| m.expose_to_public()),
+                .map(|m: Scoped<Counted<L2ToL1Message>>| m.expose_to_public()),
         }
     }
 
@@ -749,6 +752,7 @@ impl FixtureBuilder {
             start_tree_snapshots: self.start_snapshots,
             start_gas_used: self.start_gas_used,
             gas_settings: self.tx_context.gas_settings,
+            effective_gas_fees: self.effective_gas_fees,
             fee_payer: self.fee_payer,
             public_call_request_array_lengths,
             public_setup_call_requests,
@@ -928,14 +932,9 @@ impl FixtureBuilder {
     }
 
     pub fn add_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
-        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content, counter: self.next_counter() }
+        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content }
+            .count(self.next_counter())
             .scope(self.contract_address));
-    }
-
-    pub fn add_exposed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
-        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content, counter: 0 }.scope(
-            self.contract_address,
-        ));
     }
 
     pub fn add_siloed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
@@ -955,16 +954,6 @@ impl FixtureBuilder {
             if i < num {
                 let (content, recipient) = self.mock_l2_to_l1_msg(index_offset + i);
                 self.add_l2_to_l1_message(content, recipient);
-            }
-        }
-    }
-
-    pub fn append_exposed_l2_to_l1_msgs(&mut self, num: u32) {
-        let index_offset = self.l2_to_l1_msgs.len();
-        for i in 0..self.l2_to_l1_msgs.max_len() {
-            if i < num {
-                let (content, recipient) = self.mock_l2_to_l1_msg(index_offset + i);
-                self.add_exposed_l2_to_l1_message(content, recipient);
             }
         }
     }
@@ -1437,6 +1426,7 @@ impl Empty for FixtureBuilder {
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
             public_teardown_call_request: PublicCallRequest::empty(),
+            effective_gas_fees: GasFees::empty(),
             historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),

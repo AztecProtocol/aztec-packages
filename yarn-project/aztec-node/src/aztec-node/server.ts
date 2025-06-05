@@ -258,11 +258,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const watchers: Watcher[] = [];
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    if (validatorsSentinel) {
+    if (validatorsSentinel && config.slashInactivityEnabled) {
       watchers.push(validatorsSentinel);
     }
-    const epochPruneWatcher = new EpochPruneWatcher(archiver, epochCache, config.slashPrunePenalty);
-    watchers.push(epochPruneWatcher);
+    if (config.slashPruneEnabled) {
+      const epochPruneWatcher = new EpochPruneWatcher(
+        archiver,
+        epochCache,
+        config.slashPrunePenalty,
+        config.slashPruneMaxPenalty,
+      );
+      watchers.push(epochPruneWatcher);
+    }
 
     const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
     await slasherClient.start();
