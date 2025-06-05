@@ -243,7 +243,7 @@ export class BotFactory {
         lpToken.methods.balance_of_private(wallet.getAddress()).simulate(),
       ]);
 
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
 
     // keep some tokens for swapping
     const amount0Max = MINT_BALANCE / 2;
@@ -264,7 +264,7 @@ export class BotFactory {
         wallet.getAddress(),
         amm.address,
         amount0Max,
-        nonce,
+        authwitNonce,
       ),
     });
     const token1Authwit = await wallet.createAuthWit({
@@ -273,7 +273,7 @@ export class BotFactory {
         wallet.getAddress(),
         amm.address,
         amount1Max,
-        nonce,
+        authwitNonce,
       ),
     });
 
@@ -285,9 +285,11 @@ export class BotFactory {
     this.log.info(`Sent mint tx: ${await mintTx.getTxHash()}`);
     await mintTx.wait({ timeout: this.config.txMinedWaitSeconds });
 
-    const addLiquidityTx = amm.methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonce).send({
-      authWitnesses: [token0Authwit, token1Authwit],
-    });
+    const addLiquidityTx = amm.methods
+      .add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, authwitNonce)
+      .send({
+        authWitnesses: [token0Authwit, token1Authwit],
+      });
 
     this.log.info(`Sent tx to add liquidity to the AMM: ${await addLiquidityTx.getTxHash()}`);
     await addLiquidityTx.wait({ timeout: this.config.txMinedWaitSeconds });

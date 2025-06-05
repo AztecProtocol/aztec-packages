@@ -377,7 +377,7 @@ describe('Private Execution test suite', () => {
       // array index at the output of the final kernel/ordering circuit are used to derive nonce via:
       // `hash(firstNullifier, noteHashIndex)`
       const noteHashIndex = randomInt(1); // mock index in TX's final noteHashes array
-      const nonce = await computeNoteHashNonce(mockFirstNullifier, noteHashIndex);
+      const noteNonce = await computeNoteHashNonce(mockFirstNullifier, noteHashIndex);
       const note = new Note([new Fr(amount), ownerAddress.toField(), Fr.random()]);
       // Note: The following does not correspond to how note hashing is generally done in real notes.
       const noteHash = await poseidon2Hash([storageSlot, ...note.items]);
@@ -385,7 +385,7 @@ describe('Private Execution test suite', () => {
         contractAddress,
         storageSlot,
         noteTypeId,
-        nonce,
+        noteNonce,
         note,
         noteHash,
         siloedNullifier: new Fr(0),
@@ -462,10 +462,10 @@ describe('Private Execution test suite', () => {
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue(notes);
 
-      const consumedNotes = await asyncMap(notes, async ({ note, nonce }) => {
+      const consumedNotes = await asyncMap(notes, async ({ note, noteNonce }) => {
         const noteHash = await computeNoteHash(note, storageSlot);
         const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
-        const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNoteHash);
+        const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNoteHash);
         return uniqueNoteHash;
       });
 
@@ -513,10 +513,10 @@ describe('Private Execution test suite', () => {
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue(notes);
 
-      const consumedNotes = await asyncMap(notes, async ({ note, nonce }) => {
+      const consumedNotes = await asyncMap(notes, async ({ note, noteNonce }) => {
         const noteHash = await computeNoteHash(note, storageSlot);
         const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
-        const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNoteHash);
+        const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNoteHash);
         return uniqueNoteHash;
       });
 
