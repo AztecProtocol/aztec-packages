@@ -62,16 +62,11 @@ export class InMemoryTxPool implements TxPool {
     }
 
     const keys = txHashes.map(x => x.toBigInt());
-    let deleted = 0;
-    let added = 0;
     for (const key of keys) {
-      if (this.minedTxs.delete(key)) {
-        deleted++;
-      }
+      this.minedTxs.delete(key);
 
       // only add back to the pending set if we have the tx object
       if (this.txs.has(key)) {
-        added++;
         this.pendingTxs.add(key);
       }
     }
@@ -160,14 +155,11 @@ export class InMemoryTxPool implements TxPool {
    * @returns The number of transactions that was deleted from the pool.
    */
   public deleteTxs(txHashes: TxHash[]): Promise<void> {
-    let deletedMined = 0;
-    let deletedPending = 0;
-
     for (const txHash of txHashes) {
       const key = txHash.toBigInt();
       this.txs.delete(key);
-      deletedPending += this.pendingTxs.delete(key) ? 1 : 0;
-      deletedMined += this.minedTxs.delete(key) ? 1 : 0;
+      this.pendingTxs.delete(key);
+      this.minedTxs.delete(key);
     }
 
     return Promise.resolve();

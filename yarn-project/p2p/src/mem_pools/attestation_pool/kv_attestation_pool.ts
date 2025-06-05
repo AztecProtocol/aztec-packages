@@ -81,7 +81,7 @@ export class KvAttestationPool implements AttestationPool {
         });
       }
 
-      this.incAttestionCount(attestations.length);
+      await this.incAttestionCount(attestations.length);
     });
   }
 
@@ -145,7 +145,7 @@ export class KvAttestationPool implements AttestationPool {
       }
 
       this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
-      this.incAttestionCount(-1 * numberOfAttestations);
+      await this.incAttestionCount(-1 * numberOfAttestations);
     });
   }
 
@@ -166,7 +166,7 @@ export class KvAttestationPool implements AttestationPool {
       await this.attestationsForProposal.delete(this.getProposalKey(slotString, proposalId));
 
       this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
-      this.incAttestionCount(-1 * numberOfAttestations);
+      await this.incAttestionCount(-1 * numberOfAttestations);
     });
   }
 
@@ -196,7 +196,7 @@ export class KvAttestationPool implements AttestationPool {
     });
   }
 
-  private incAttestionCount(delta: number) {
+  private incAttestionCount(delta: number): Promise<void> {
     return this.store.transactionAsync(async () => {
       const count = (await this.attestationCount.getAsync()) ?? 0;
       await this.attestationCount.set(count + delta);
