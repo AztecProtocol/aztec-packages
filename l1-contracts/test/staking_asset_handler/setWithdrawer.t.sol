@@ -5,6 +5,7 @@ import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
+
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
 // solhint-disable ordering
@@ -34,6 +35,8 @@ contract SetWithdrawerTest is StakingAssetHandlerBase {
   function test_WhenOwnerCallsAddValidatorAfterSettingTheWithdrawer(address _newWithdrawer)
     external
   {
+    vm.assume(_newWithdrawer != address(0));
+
     // it uses the new withdrawer
     stakingAssetHandler.setWithdrawer(_newWithdrawer);
     assertEq(stakingAssetHandler.withdrawer(), _newWithdrawer);
