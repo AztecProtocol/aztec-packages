@@ -49,9 +49,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     await ap.addAttestations(attestations);
 
-    // Check metrics have been updated.
-    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
-
     const retrievedAttestations = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), archive.toString());
     expect(retrievedAttestations.length).toBe(attestations.length);
     compareAttestations(retrievedAttestations, attestations);
@@ -63,7 +60,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     // Add another one
     const newAttestation = mockAttestation(signers[NUMBER_OF_SIGNERS_PER_TEST - 1], slotNumber, archive);
     await ap.addAttestations([newAttestation]);
-    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(1);
     const retrievedAttestationsAfterAdd = await ap.getAttestationsForSlotAndProposal(
       BigInt(slotNumber),
       archive.toString(),
@@ -76,7 +72,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     // Delete by slot
     await ap.deleteAttestationsForSlot(BigInt(slotNumber));
-    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length + 1);
 
     const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlotAndProposal(
       BigInt(slotNumber),
@@ -154,15 +149,11 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     await ap.addAttestations(attestations);
 
-    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
-
     const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
     compareAttestations(retreivedAttestations, attestations);
 
     await ap.deleteAttestations(attestations);
-
-    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
     const gottenAfterDelete = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
     expect(gottenAfterDelete.length).toBe(0);
@@ -200,16 +191,11 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     await ap.addAttestations(attestations);
     await ap.addAttestations(attestations2);
 
-    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
-    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations2.length);
-
     const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
     compareAttestations(retreivedAttestations, attestations);
 
     await ap.deleteAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
-
-    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
     const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
     expect(retreivedAttestationsAfterDelete.length).toBe(0);
