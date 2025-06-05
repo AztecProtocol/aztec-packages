@@ -63,7 +63,12 @@ import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMap } from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
-import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
+import {
+  pingHandler,
+  reqRespBlockHandler,
+  reqRespStatusHandler,
+  reqRespTxHandler,
+} from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PBlockReceivedCallback, P2PService, PeerDiscoveryService } from '../service.js';
 import { P2PInstrumentation } from './instrumentation.js';
@@ -154,6 +159,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       createLogger(`${logger.module}:peer_manager`),
       peerScoring,
       this.reqresp,
+      this.worldStateSynchronizer,
+      this.protocolVersion,
     );
 
     // Update gossipsub score params
@@ -355,10 +362,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const txHandler = reqRespTxHandler(this.mempools);
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
     const blockHandler = reqRespBlockHandler(this.archiver);
+    const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer);
 
     const requestResponseHandlers = {
       [ReqRespSubProtocol.PING]: pingHandler,
-      [ReqRespSubProtocol.STATUS]: statusHandler,
+      [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
       [ReqRespSubProtocol.TX]: txHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
       [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
@@ -608,7 +616,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
     const txHash = await tx.getTxHash();
     const txHashString = txHash.toString();
-    this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
+    this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
+      source: source.toString(),
+      txHash: txHashString,
+    });
     await this.mempools.txPool.addTxs([tx]);
   }
 
@@ -639,12 +650,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return;
     }
     this.logger.debug(
-      `Received attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()} from external peer.`,
+      `Received attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()} from external peer ${source.toString()}`,
       {
         p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
         slot: attestation.slotNumber.toNumber(),
         archive: attestation.archive.toString(),
         block: attestation.blockNumber.toNumber(),
+        source: source.toString(),
       },
     );
     await this.mempools.attestationPool!.addAttestations([attestation]);
@@ -670,6 +682,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!result || !block) {
       return;
     }
+
     await this.processValidBlockProposal(block, source);
   }
 
@@ -685,12 +698,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const previousSlot = slot - 1n;
     const epoch = slot / 32n;
     this.logger.verbose(
-      `Received block ${block.blockNumber.toNumber()} for slot ${slot}, epoch ${epoch} from external peer.`,
+      `Received block ${block.blockNumber.toNumber()} for slot ${slot} epoch ${epoch} from external peer ${sender.toString()}.`,
       {
         p2pMessageIdentifier: await block.p2pMessageIdentifier(),
         slot: block.slotNumber.toNumber(),
         archive: block.archive.toString(),
         block: block.blockNumber.toNumber(),
+        source: sender.toString(),
       },
     );
     const attestationsForPreviousSlot = await this.mempools.attestationPool?.getAttestationsForSlot(previousSlot);
