@@ -22,7 +22,7 @@ contract ScreamAndShoutTest is Test {
     bytes32 codeHash = keccak256(creationCode);
 
     assertEq(
-      codeHash, 0x8660a25b0d480424b950324ef5d078cfb12a06d5c807ab09ade301968ac20ae1, ERR_STRING
+      codeHash, 0xf118ef0d9c1449c3994d445402d6f669a7aefa60ef690a638dc2613e1ee5c970, ERR_STRING
     );
   }
 
@@ -31,7 +31,7 @@ contract ScreamAndShoutTest is Test {
     bytes32 codeHash = keccak256(creationCode);
 
     assertEq(
-      codeHash, 0x892b4a5c70e2e665b147db8ae02a0410ae400adefd02d85feb56847593d4b9dd, ERR_STRING
+      codeHash, 0xe8270174682b4b0091fa65f9db3019351b55a34305b82c83ad741bdec5fb8769, ERR_STRING
     );
   }
 
@@ -40,7 +40,7 @@ contract ScreamAndShoutTest is Test {
     bytes32 codeHash = keccak256(creationCode);
 
     assertEq(
-      codeHash, 0x1c9e54944cd8c92ee57305f1fba26284638268a934f9fab38b7c6a4facb92ee5, ERR_STRING
+      codeHash, 0xe4c07e42b5b4ce0eea84e1107d33a902c0d6766d4ab3c02ed99aba1802f49a3e, ERR_STRING
     );
   }
 
@@ -49,7 +49,7 @@ contract ScreamAndShoutTest is Test {
     bytes32 codeHash = keccak256(creationCode);
 
     assertEq(
-      codeHash, 0xddd8431ed52d33e28fb5072e1dd57fbecb5fd919da403bc20cdad17ca2113726, ERR_STRING
+      codeHash, 0xeb3e103b253f6aad61f3a83811f24d3a4f7d9eaaeffc363e68df699b1358078c, ERR_STRING
     );
   }
 }
