@@ -6,12 +6,15 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider, type Timer } from '@aztec/foundation/timer';
-import { type P2P, type PeerId, TxCollector } from '@aztec/p2p';
+import { DateProvider } from '@aztec/foundation/timer';
+import type { P2P, PeerId } from '@aztec/p2p';
+import { TxCollector } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSource } from '@aztec/stdlib/block';
+import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import type { IFullNodeBlockBuilder } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
+import { GlobalVariables, type ProposedBlockHeader, type StateReference, type Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { ValidatorClientConfig } from './config.js';
@@ -29,28 +32,9 @@ import type { ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 import { ValidatorMetrics } from './metrics.js';
 
-/**
- * Callback function for building a block
- *
- * We reuse the sequencer's block building functionality for re-execution
- */
-type BlockBuilderCallback = (
-  blockNumber: Fr,
-  header: ProposedBlockHeader,
-  txs: Iterable<Tx> | AsyncIterableIterator<Tx>,
-  opts?: { validateOnly?: boolean },
-) => Promise<{
-  block: L2Block;
-  publicProcessorDuration: number;
-  numTxs: number;
-  numFailedTxs: number;
-  blockBuildingTimer: Timer;
-}>;
-
 export interface Validator {
   start(): Promise<void>;
   registerBlockProposalHandler(): void;
-  registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
   // Block validation responsibilities
   createBlockProposal(
@@ -59,6 +43,7 @@ export interface Validator {
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
+    proposerAddress: EthAddress,
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation[] | undefined>;
@@ -77,9 +62,6 @@ export class ValidatorClient extends WithTracer implements Validator {
   // Used to check if we are sending the same proposal twice
   private previousProposal?: BlockProposal;
 
-  // Callback registered to: sequencer.buildBlock
-  private blockBuilder?: BlockBuilderCallback = undefined;
-
   private myAddresses: EthAddress[];
   private lastEpoch: bigint | undefined;
   private epochCacheUpdateLoop: RunningPromise;
@@ -88,6 +70,7 @@ export class ValidatorClient extends WithTracer implements Validator {
   private txCollector: TxCollector;
 
   constructor(
+    private blockBuilder: IFullNodeBlockBuilder,
     private keyStore: ValidatorKeyStore,
     private epochCache: EpochCache,
     private p2pClient: P2P,
@@ -139,6 +122,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
   static new(
     config: ValidatorClientConfig,
+    blockBuilder: IFullNodeBlockBuilder,
     epochCache: EpochCache,
     p2pClient: P2P,
     blockSource: L2BlockSource,
@@ -153,6 +137,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const localKeyStore = new LocalKeyStore(privateKeys);
 
     const validator = new ValidatorClient(
+      blockBuilder,
       localKeyStore,
       epochCache,
       p2pClient,
@@ -198,15 +183,6 @@ export class ValidatorClient extends WithTracer implements Validator {
       return this.attestToProposal(block, proposalSender);
     };
     this.p2pClient.registerBlockProposalHandler(handler);
-  }
-
-  /**
-   * Register a callback function for building a block
-   *
-   * We reuse the sequencer's block building functionality for re-execution
-   */
-  public registerBlockBuilder(blockBuilder: BlockBuilderCallback) {
-    this.blockBuilder = blockBuilder;
   }
 
   async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> {
@@ -295,6 +271,15 @@ export class ValidatorClient extends WithTracer implements Validator {
     return this.doAttestToProposal(proposal, inCommittee);
   }
 
+  private getReexecutionDeadline(
+    proposal: BlockProposal,
+    config: { l1GenesisTime: bigint; slotDuration: number },
+  ): Date {
+    const nextSlotTimestampSeconds = Number(getTimestampForSlot(proposal.slotNumber.toBigInt() + 1n, config));
+    const msNeededForPropagationAndPublishing = this.config.validatorReexecuteDeadlineMs;
+    return new Date(nextSlotTimestampSeconds * 1000 - msNeededForPropagationAndPublishing);
+  }
+
   /**
    * Re-execute the transactions in the proposal and check that the state updates match the header state
    * @param proposal - The proposal to re-execute
@@ -316,12 +301,22 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Use the sequencer's block building logic to re-execute the transactions
     const stopTimer = this.metrics.reExecutionTimer();
-    const { block, numFailedTxs } = await this.blockBuilder(proposal.blockNumber, header, txs, {
-      validateOnly: true,
+    const config = this.blockBuilder.getConfig();
+    const globalVariables = GlobalVariables.from({
+      ...proposal.payload.header,
+      blockNumber: proposal.blockNumber,
+      timestamp: new Fr(header.timestamp),
+      chainId: new Fr(config.l1ChainId),
+      version: new Fr(config.rollupVersion),
+    });
+
+    const { block, failedTxs } = await this.blockBuilder.buildBlock(txs, globalVariables, {
+      deadline: this.getReexecutionDeadline(proposal, config),
     });
     stopTimer();
 
     this.log.verbose(`Transaction re-execution complete`);
+    const numFailedTxs = failedTxs.length;
 
     if (numFailedTxs > 0) {
       this.metrics.recordFailedReexecution(proposal);
@@ -346,6 +341,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
+    proposerAddress: EthAddress,
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
@@ -353,17 +349,13 @@ export class ValidatorClient extends WithTracer implements Validator {
       return Promise.resolve(undefined);
     }
 
-    // const { currentProposer: proposerAttesterAddress } =
-    const result = await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
-    const proposerAttesterAddress = result.currentProposer;
-
     const newProposal = await this.validationService.createBlockProposal(
       blockNumber,
       header,
       archive,
       stateReference,
       txs,
-      proposerAttesterAddress,
+      proposerAddress,
       options,
     );
     this.previousProposal = newProposal;

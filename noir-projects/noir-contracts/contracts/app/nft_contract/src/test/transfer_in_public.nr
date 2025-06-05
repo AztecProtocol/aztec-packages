@@ -56,7 +56,7 @@ unconstrained fn transfer_in_public_on_behalf_of_other() {
     utils::assert_owns_public_nft(env, nft_contract_address, recipient, token_id);
 }
 
-#[test(should_fail_with = "invalid nonce")]
+#[test(should_fail_with = "invalid authwit nonce")]
 unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
     // The authwit check is in the beginning so we don't need to waste time on minting the NFT and transferring
@@ -64,7 +64,7 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, nft_contract_address, sender, recipient) =
         utils::setup(/* with_account_contracts */ false);
 
-    // We set random value for the token_id as the nonce check is before we use the value.
+    // We set random value for the token_id as the authwit nonce check is before we use the value.
     let token_id = random();
 
     // Try to transfer the NFT

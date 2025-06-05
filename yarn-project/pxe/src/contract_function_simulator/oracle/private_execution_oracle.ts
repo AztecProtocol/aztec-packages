@@ -231,7 +231,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
     this.log.debug(
       `Returning ${notes.length} notes for ${this.callContext.contractAddress} at ${storageSlot}: ${notes
-        .map(n => `${n.nonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
+        .map(n => `${n.noteNonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
     );
 
@@ -239,7 +239,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       notes.map(async n => {
         if (n.index !== undefined) {
           const siloedNoteHash = await siloNoteHash(n.contractAddress, n.noteHash);
-          const uniqueNoteHash = await computeUniqueNoteHash(n.nonce, siloedNoteHash);
+          const uniqueNoteHash = await computeUniqueNoteHash(n.noteNonce, siloedNoteHash);
 
           return { hash: uniqueNoteHash, index: n.index };
         }
@@ -284,7 +284,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       {
         contractAddress: this.callContext.contractAddress,
         storageSlot,
-        nonce: Fr.ZERO, // Nonce cannot be known during private execution.
+        noteNonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
         noteHash,

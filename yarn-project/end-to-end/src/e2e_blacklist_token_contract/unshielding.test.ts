@@ -37,13 +37,13 @@ describe('e2e_blacklist_token_contract unshielding', () => {
   it('on behalf of other', async () => {
     const balancePriv0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
     const amount = balancePriv0 / 2n;
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
 
     // We need to compute the message we want to sign and add it to the wallet as approved
     const action = asset
       .withWallet(wallets[1])
-      .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+      .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce);
 
     // Both wallets are connected to same node and PXE so we could just insert directly
     // But doing it in two actions to show the flow.
@@ -55,7 +55,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     // Perform the transfer again, should fail
     const txReplay = asset
       .withWallet(wallets[1])
-      .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
+      .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce)
       .send({ authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     // @todo @LHerskind This error is weird?
@@ -72,26 +72,26 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       ).rejects.toThrow('Assertion failed: Balance too low');
     });
 
-    it('on behalf of self (invalid nonce)', async () => {
+    it('on behalf of self (invalid authwit nonce)', async () => {
       const balancePriv = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
       const amount = balancePriv + 1n;
       expect(amount).toBeGreaterThan(0n);
 
       await expect(
         asset.methods.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 1).simulate(),
-      ).rejects.toThrow('Assertion failed: invalid nonce');
+      ).rejects.toThrow('Assertion failed: invalid authwit nonce');
     });
 
     it('on behalf of other (more than balance)', async () => {
       const balancePriv0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
       const amount = balancePriv0 + 2n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[1])
-        .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+        .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce);
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
@@ -103,13 +103,13 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     it('on behalf of other (invalid designated caller)', async () => {
       const balancePriv0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
       const amount = balancePriv0 + 2n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[2])
-        .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+        .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce);
       const expectedMessageHash = await computeAuthWitMessageHash(
         { caller: wallets[2].getAddress(), action },
         { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },

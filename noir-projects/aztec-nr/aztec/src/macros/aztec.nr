@@ -183,12 +183,12 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     
                         // The message discovery process finds settled notes, that is, notes that were created in prior
                         // transactions and are therefore already part of the note hash tree. We therefore compute the
-                        // nullification note hash by treating the note as a settled note with the provided nonce.
+                        // nullification note hash by treating the note as a settled note with the provided note nonce.
                         let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(
                             aztec::note::retrieved_note::RetrievedNote{ 
                                 note, 
                                 contract_address, 
-                                metadata: aztec::note::note_metadata::SettledNoteMetadata::new(nonce).into() 
+                                metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into()
                             }, 
                             storage_slot,
                         );
@@ -210,7 +210,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
         quote {
             /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash
             /// (non-siloed) and inner nullifier (non-siloed) assuming the note has been inserted into the note hash
-            /// tree with `nonce`.
+            /// tree with `note_nonce`.
             ///
             /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHashAndNullifier` type,
             /// and so it can be used to call functions from that module such as `discover_new_messages`, 
@@ -223,7 +223,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 storage_slot: Field,
                 note_type_id: Field,
                 contract_address: aztec::protocol_types::address::AztecAddress,
-                nonce: Field,
+                note_nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 $if_note_type_id_match_statements
                 else {
