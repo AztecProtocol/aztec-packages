@@ -157,11 +157,24 @@
         window.chartInstances = [];
 
         function init() {
+          // Only use the last 10 commits for each bench
+          // to phase out obsolete benchmarks.
+          const NUM_COMMITS_FOR_BENCHMARK_DISCOVERY = 10;
           function collectBenchesPerTestCase(entries) {
             const map = new Map();
+            const activeBenches = new Set();
+            // Collect all benches from the entries.
+            for (const entry of entries.slice(-NUM_COMMITS_FOR_BENCHMARK_DISCOVERY)) {
+              for (const bench of entry.benches) {
+                activeBenches.add(bench.name);
+              }
+            }
             for (const entry of entries) {
               const { commit, date, tool, benches } = entry;
               for (const bench of benches) {
+                if (!activeBenches.has(bench.name)) {
+                  continue; // Skip benches that are not active
+                }
                 const result = { commit, date, tool, bench };
                 const arr = map.get(bench.name);
                 if (arr === undefined) {
