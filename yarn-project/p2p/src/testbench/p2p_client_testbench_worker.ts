@@ -35,7 +35,7 @@ function mockTxPool(): TxPool {
   // Mock all methods
   return {
     isEmpty: () => Promise.resolve(false),
-    addTxs: () => Promise.resolve(),
+    addTxs: () => Promise.resolve(1),
     getTxByHash: () => Promise.resolve(undefined),
     getArchivedTxByHash: () => Promise.resolve(undefined),
     markAsMined: () => Promise.resolve(),

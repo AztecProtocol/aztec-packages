@@ -67,7 +67,7 @@ export const randomUniqueNote = async ({
   contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
-  nonce = Fr.random(),
+  noteNonce = Fr.random(),
 }: Partial<UniqueNote> = {}) => {
   return new UniqueNote(
     note,
@@ -75,7 +75,7 @@ export const randomUniqueNote = async ({
     contractAddress ?? (await AztecAddress.random()),
     storageSlot,
     txHash,
-    nonce,
+    noteNonce,
   );
 };
 
