@@ -525,17 +525,20 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
-    await this.addTxsToPool([tx]);
-    await this.p2pService.propagate(tx);
+    const addedCount = await this.addTxsToPool([tx]);
+    const txAddedSuccessfully = addedCount === 1;
+    if (txAddedSuccessfully) {
+      await this.p2pService.propagate(tx);
+    }
   }
 
   /**
    * Adds transactions to the pool. Does not send to peers or validate the txs.
    * @param txs - The transactions.
    **/
-  public async addTxsToPool(txs: Tx[]): Promise<void> {
+  public async addTxsToPool(txs: Tx[]): Promise<number> {
     this.#assertIsReady();
-    await this.txPool.addTxs(txs);
+    return await this.txPool.addTxs(txs);
   }
 
   /**

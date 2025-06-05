@@ -85,7 +85,7 @@ describe('tx collector', () => {
     p2p.addTxsToPool.mockImplementation(async txs => {
       const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
       txs.forEach((tx, index) => txPool.set(hashes[index].toString(), tx));
-      return Promise.resolve();
+      return Promise.resolve(txs.length);
     });
   });
 

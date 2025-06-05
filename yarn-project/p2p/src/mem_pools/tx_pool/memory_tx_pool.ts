@@ -24,10 +24,7 @@ export class InMemoryTxPool implements TxPool {
    * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
    * @param log - A logger.
    */
-  constructor(
-    telemetry: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('p2p:tx_pool'),
-  ) {
+  constructor(telemetry: TelemetryClient = getTelemetryClient(), private log = createLogger('p2p:tx_pool')) {
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();
@@ -130,7 +127,7 @@ export class InMemoryTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public async addTxs(txs: Tx[]): Promise<void> {
+  public async addTxs(txs: Tx[]): Promise<number> {
     let pending = 0;
     for (const tx of txs) {
       const txHash = await tx.getTxHash();
@@ -149,7 +146,7 @@ export class InMemoryTxPool implements TxPool {
     }
 
     this.metrics.recordAddedObjects(pending, 'pending');
-    return;
+    return pending;
   }
 
   /**
