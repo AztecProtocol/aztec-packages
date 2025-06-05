@@ -135,4 +135,29 @@ describe('validateInParallel', () => {
       },
     });
   });
+
+  it('correctly handles skipped validators', async () => {
+    mockValidatorFns.foo.mockResolvedValue({ result: 'skipped', reason: ['N/A'] });
+    mockValidatorFns.bar.mockResolvedValue({ result: 'valid' });
+    mockValidatorFns.baz.mockResolvedValue({ result: 'valid' });
+
+    await expect(validateInParallel(tx, validators)).resolves.toEqual({
+      allPassed: true,
+    });
+  });
+
+  it('correctly handles skipped and invalid validators', async () => {
+    mockValidatorFns.foo.mockResolvedValue({ result: 'skipped', reason: ['N/A'] });
+    mockValidatorFns.bar.mockResolvedValue({ result: 'invalid', reason: ['Error'] });
+    mockValidatorFns.baz.mockResolvedValue({ result: 'valid' });
+
+    await expect(validateInParallel(tx, validators)).resolves.toEqual({
+      allPassed: false,
+      failure: {
+        name: 'bar',
+        isValid: { result: 'invalid', reason: ['Error'] },
+        severity: PeerErrorSeverity.MidToleranceError,
+      },
+    });
+  });
 });

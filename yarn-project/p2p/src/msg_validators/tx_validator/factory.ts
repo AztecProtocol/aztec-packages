@@ -14,6 +14,8 @@ import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { DatabasePublicStateSource, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { Tx, TxValidationResult } from '@aztec/stdlib/tx';
 
+import assert from 'assert';
+
 import { ArchiveCache } from './archive_cache.js';
 import { BlockHeaderTxValidator } from './block_header_validator.js';
 import { DataTxValidator } from './data_validator.js';
@@ -121,7 +123,7 @@ export async function validateInParallel(
         } catch (err) {
           if (err instanceof AbortError) {
             log?.trace(`Validation task ${name} was aborted for tx ${txHash}`, { name, txHash });
-            return { name, isValid: { result: 'skipped' as const, reason: ['Operation aborted'] }, severity };
+            return { name, isValid: { result: 'invalid' as const, reason: ['Operation aborted'] }, severity };
           }
 
           log?.warn(`Unexpected error running validator ${name} on ${txHash}`, { err, name, txHash });
@@ -139,21 +141,21 @@ export async function validateInParallel(
     allValidations.push(nextTaskFinished);
     delete asyncTasks[nextTaskFinished.name];
 
-    if (nextTaskFinished.isValid.result !== 'valid') {
+    if (nextTaskFinished.isValid.result === 'invalid') {
       abortController.abort();
+
+      return {
+        allPassed: false,
+        failure: nextTaskFinished,
+      };
     }
   }
 
-  // this will select the first 'real' failure (i.e. before any timeouts)
-  const failure = allValidations.find(x => x.isValid.result !== 'valid');
-  if (failure) {
-    return {
-      allPassed: false,
-      failure,
-    };
-  } else {
-    return {
-      allPassed: true,
-    };
-  }
+  // any invalid results would have been handled in the `while` loop above
+  // just sanity check everything here is valid | skipped
+  assert(
+    allValidations.every(x => x.isValid.result !== 'invalid'),
+    'expected all validation to pass',
+  );
+  return { allPassed: true };
 }
