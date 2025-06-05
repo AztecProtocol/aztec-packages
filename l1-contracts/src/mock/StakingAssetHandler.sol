@@ -165,9 +165,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _attester - the validator's attester address
    */
   function reenterExitedValidator(address _attester) external override(IStakingAssetHandler) {
-    IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-    uint256 depositAmount = rollup.getMinimumStake();
-
     // Validator must not be in the queue
     require(!entryQueue.isInQueue(_attester), InDepositQueue());
 
@@ -176,7 +173,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(nullifier != bytes32(0), AttesterDoesNotExist(_attester));
     require(nullifiers[nullifier] != false, NoNullifier());
 
-    _triggerDeposit(rollup, depositAmount, _attester);
+    _addToQueue(_attester);
   }
 
   function dripQueue() external override(IStakingAssetHandler) {
@@ -267,6 +264,12 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     return entryQueue.length();
   }
 
+  /**
+   * Validate an attester's zk passport proof
+   *
+   * @param _attester - The validator's attester address
+   * @param _params - ZKPassport proof params
+   */
   function _validatePassportProof(address _attester, ProofVerificationParams calldata _params)
     internal
   {
@@ -287,20 +290,38 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     nullifiers[nullifier] = true;
     attesterToNullifier[_attester] = nullifier;
 
+    _addToQueue(_attester);
+  }
+
+  /**
+   * Add To Queue Entry Queue
+   *
+   * @param _attester - the validator attester address to add to the queue
+   */
+  function _addToQueue(address _attester) internal {
     // Add validator into the entry queue
     entryQueue.enqueue(_attester);
     emit AddedToQueue(_attester);
   }
 
-  function _triggerDeposit(IStaking rollup, uint256 depositAmount, address _attester) internal {
+  /**
+   * Trigger Deposit
+   * Deposit a validator into the rollup, if they are waiting on an exit, then
+   * complete the exit for them first.
+   *
+   * @param _rollup - the rollup address
+   * @param _depositAmount - the deposit amount
+   * @param _attester - the validator's attester address
+   */
+  function _triggerDeposit(IStaking _rollup, uint256 _depositAmount, address _attester) internal {
     // If the attester is currently exiting, we finalize the exit for them.
-    if (rollup.getExit(_attester).exists) {
-      rollup.finaliseWithdraw(_attester);
+    if (_rollup.getExit(_attester).exists) {
+      _rollup.finaliseWithdraw(_attester);
     }
 
-    STAKING_ASSET.approve(address(rollup), depositAmount);
-    try rollup.deposit(_attester, withdrawer, true) {
-      emit ValidatorAdded(address(rollup), _attester, withdrawer);
+    STAKING_ASSET.approve(address(_rollup), _depositAmount);
+    try _rollup.deposit(_attester, withdrawer, true) {
+      emit ValidatorAdded(address(_rollup), _attester, withdrawer);
     } catch {
       // Allow the deposit call to fail silently e.g. when the attester has already been added
     }

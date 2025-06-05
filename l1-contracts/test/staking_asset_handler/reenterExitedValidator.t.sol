@@ -20,10 +20,8 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
     vm.expectRevert(
       abi.encodeWithSelector(IStakingAssetHandler.AttesterDoesNotExist.selector, _attester)
     );
-    stakingAssetHandler.reenterExitedValidator(_attester, _proposer);
+    stakingAssetHandler.reenterExitedValidator(_attester);
   }
-
-  // TODO: SHOULD NOT BE ABLE TO SKIP THE QUEUE USING THIS FEATURE THE VALIDATOR MUST HAVE BEEN EXITED AT SOME POINT.
 
   function test_WhenAttesterHasProvidedAValidDeposit(
     address _caller,
@@ -31,7 +29,7 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
     address _proposer
   ) external {
     // it succeeds
-    // it emits a {ValidatorAdded} event
+    // it emits a {AddedToQueue} event
 
     // 1. Perform a valid deposit
     // 2. Exit the validator
@@ -41,9 +39,9 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
 
     // 1. Perform a valid deposit
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, _proposer, realProof);
+    stakingAssetHandler.addValidatorToQueue(_attester, realProof);
 
-    emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, _proposer, WITHDRAWER);
+    emit IStakingAssetHandler.AddedToQueue(_attester);
     stakingAssetHandler.dripQueue();
 
     // 2. Exit the validator
@@ -55,8 +53,12 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
 
     // 3. Reenter the validator
     vm.prank(_caller);
-    emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, _proposer, WITHDRAWER);
-    stakingAssetHandler.reenterExitedValidator(_attester, _proposer);
+    emit IStakingAssetHandler.AddedToQueue(_attester);
+    stakingAssetHandler.reenterExitedValidator(_attester);
+
+    vm.prank(_caller);
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
+    stakingAssetHandler.dripQueue();
   }
 
   function test_WhenInEntryQueue(address _caller, address _attester, address _proposer) external {
@@ -67,11 +69,11 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
 
     // 1. Perform adding to queue
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, _proposer, realProof);
+    stakingAssetHandler.addValidatorToQueue(_attester, realProof);
 
     // 2. Reenter the validator should revert
     vm.prank(_caller);
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.InDepositQueue.selector));
-    stakingAssetHandler.reenterExitedValidator(_attester, _proposer);
+    stakingAssetHandler.reenterExitedValidator(_attester);
   }
 }
