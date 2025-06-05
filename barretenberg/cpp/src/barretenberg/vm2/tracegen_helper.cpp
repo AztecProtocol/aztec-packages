@@ -201,55 +201,55 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
             // Subtrace jobs.
             std::vector<std::function<void()>>{
                 [&]() {
-                TxTraceBuilder tx_builder;
-                AVM_TRACK_TIME("tracegen/tx", tx_builder.process(events.tx, trace));
-                clear_events(events.tx);
+                    TxTraceBuilder tx_builder;
+                    AVM_TRACK_TIME("tracegen/tx", tx_builder.process(events.tx, trace));
+                    clear_events(events.tx);
                 },
                 [&]() {
-                ExecutionTraceBuilder exec_builder;
-                AVM_TRACK_TIME("tracegen/execution", exec_builder.process(events.execution, trace));
-                clear_events(events.execution);
+                    ExecutionTraceBuilder exec_builder;
+                    AVM_TRACK_TIME("tracegen/execution", exec_builder.process(events.execution, trace));
+                    clear_events(events.execution);
                 },
                 [&]() {
-                AddressDerivationTraceBuilder address_derivation_builder;
-                AVM_TRACK_TIME("tracegen/address_derivation",
-                               address_derivation_builder.process(events.address_derivation, trace));
-                clear_events(events.address_derivation);
+                    AddressDerivationTraceBuilder address_derivation_builder;
+                    AVM_TRACK_TIME("tracegen/address_derivation",
+                                   address_derivation_builder.process(events.address_derivation, trace));
+                    clear_events(events.address_derivation);
                 },
                 [&]() {
-                AluTraceBuilder alu_builder;
-                AVM_TRACK_TIME("tracegen/alu", alu_builder.process(events.alu, trace));
-                clear_events(events.alu);
+                    AluTraceBuilder alu_builder;
+                    AVM_TRACK_TIME("tracegen/alu", alu_builder.process(events.alu, trace));
+                    clear_events(events.alu);
                 },
                 [&]() {
-                BytecodeTraceBuilder bytecode_builder;
-                AVM_TRACK_TIME("tracegen/bytecode_decomposition",
-                               bytecode_builder.process_decomposition(events.bytecode_decomposition, trace));
-                clear_events(events.bytecode_decomposition);
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/bytecode_decomposition",
+                                   bytecode_builder.process_decomposition(events.bytecode_decomposition, trace));
+                    clear_events(events.bytecode_decomposition);
                 },
                 [&]() {
-                BytecodeTraceBuilder bytecode_builder;
-                AVM_TRACK_TIME("tracegen/bytecode_hashing",
-                               bytecode_builder.process_hashing(events.bytecode_hashing, trace));
-                clear_events(events.bytecode_hashing);
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/bytecode_hashing",
+                                   bytecode_builder.process_hashing(events.bytecode_hashing, trace));
+                    clear_events(events.bytecode_hashing);
                 },
                 [&]() {
-                ClassIdDerivationTraceBuilder class_id_builder;
-                AVM_TRACK_TIME("tracegen/class_id_derivation",
-                               class_id_builder.process(events.class_id_derivation, trace));
-                clear_events(events.class_id_derivation);
+                    ClassIdDerivationTraceBuilder class_id_builder;
+                    AVM_TRACK_TIME("tracegen/class_id_derivation",
+                                   class_id_builder.process(events.class_id_derivation, trace));
+                    clear_events(events.class_id_derivation);
                 },
                 [&]() {
-                BytecodeTraceBuilder bytecode_builder;
-                AVM_TRACK_TIME("tracegen/bytecode_retrieval",
-                               bytecode_builder.process_retrieval(events.bytecode_retrieval, trace));
-                clear_events(events.bytecode_retrieval);
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/bytecode_retrieval",
+                                   bytecode_builder.process_retrieval(events.bytecode_retrieval, trace));
+                    clear_events(events.bytecode_retrieval);
                 },
                 [&]() {
-                BytecodeTraceBuilder bytecode_builder;
-                AVM_TRACK_TIME("tracegen/instruction_fetching",
-                               bytecode_builder.process_instruction_fetching(events.instruction_fetching, trace));
-                clear_events(events.instruction_fetching);
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/instruction_fetching",
+                                   bytecode_builder.process_instruction_fetching(events.instruction_fetching, trace));
+                    clear_events(events.instruction_fetching);
                 },
                 [&]() {
                 Sha256TraceBuilder sha256_builder;
@@ -257,87 +257,91 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                 clear_events(events.sha256_compression);
                 },
                 [&]() {
-                EccTraceBuilder ecc_builder;
-                AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process_add(events.ecc_add, trace));
-                clear_events(events.ecc_add);
+                    EccTraceBuilder ecc_builder;
+                    AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process_add(events.ecc_add, trace));
+                    clear_events(events.ecc_add);
                 },
                 [&]() {
-                EccTraceBuilder ecc_builder;
-                AVM_TRACK_TIME("tracegen/scalar_mul", ecc_builder.process_scalar_mul(events.scalar_mul, trace));
-                clear_events(events.scalar_mul);
+                    EccTraceBuilder ecc_builder;
+                    AVM_TRACK_TIME("tracegen/scalar_mul", ecc_builder.process_scalar_mul(events.scalar_mul, trace));
+                    clear_events(events.scalar_mul);
                 },
                 [&]() {
-                Poseidon2TraceBuilder poseidon2_builder;
-                AVM_TRACK_TIME("tracegen/poseidon2_hash", poseidon2_builder.process_hash(events.poseidon2_hash, trace));
-                clear_events(events.poseidon2_hash);
+                    Poseidon2TraceBuilder poseidon2_builder;
+                    AVM_TRACK_TIME("tracegen/poseidon2_hash",
+                                   poseidon2_builder.process_hash(events.poseidon2_hash, trace));
+                    clear_events(events.poseidon2_hash);
                 },
                 [&]() {
-                Poseidon2TraceBuilder poseidon2_builder;
-                AVM_TRACK_TIME("tracegen/poseidon2_permutation",
-                               poseidon2_builder.process_permutation(events.poseidon2_permutation, trace));
-                clear_events(events.poseidon2_permutation);
+                    Poseidon2TraceBuilder poseidon2_builder;
+                    AVM_TRACK_TIME("tracegen/poseidon2_permutation",
+                                   poseidon2_builder.process_permutation(events.poseidon2_permutation, trace));
+                    clear_events(events.poseidon2_permutation);
                 },
                 [&]() {
-                ToRadixTraceBuilder to_radix_builder;
-                AVM_TRACK_TIME("tracegen/to_radix", to_radix_builder.process(events.to_radix, trace));
-                clear_events(events.to_radix);
+                    ToRadixTraceBuilder to_radix_builder;
+                    AVM_TRACK_TIME("tracegen/to_radix", to_radix_builder.process(events.to_radix, trace));
+                    clear_events(events.to_radix);
                 },
                 [&]() {
-                FieldGreaterThanTraceBuilder field_gt_builder;
-                AVM_TRACK_TIME("tracegen/field_gt", field_gt_builder.process(events.field_gt, trace));
-                clear_events(events.field_gt);
+                    FieldGreaterThanTraceBuilder field_gt_builder;
+                    AVM_TRACK_TIME("tracegen/field_gt", field_gt_builder.process(events.field_gt, trace));
+                    clear_events(events.field_gt);
                 },
                 [&]() {
-                MerkleCheckTraceBuilder merkle_check_builder;
-                AVM_TRACK_TIME("tracegen/merkle_check", merkle_check_builder.process(events.merkle_check, trace));
-                clear_events(events.merkle_check);
+                    MerkleCheckTraceBuilder merkle_check_builder;
+                    AVM_TRACK_TIME("tracegen/merkle_check", merkle_check_builder.process(events.merkle_check, trace));
+                    clear_events(events.merkle_check);
                 },
                 [&]() {
-                RangeCheckTraceBuilder range_check_builder;
-                AVM_TRACK_TIME("tracegen/range_check", range_check_builder.process(events.range_check, trace));
-                clear_events(events.range_check);
+                    RangeCheckTraceBuilder range_check_builder;
+                    AVM_TRACK_TIME("tracegen/range_check", range_check_builder.process(events.range_check, trace));
+                    clear_events(events.range_check);
                 },
                 [&]() {
-                PublicDataTreeCheckTraceBuilder public_data_tree_check_trace_builder;
-                AVM_TRACK_TIME(
-                    "tracegen/public_data_tree_check",
-                    public_data_tree_check_trace_builder.process(events.public_data_tree_check_events, trace));
-                clear_events(events.public_data_tree_check_events);
+                    PublicDataTreeCheckTraceBuilder public_data_tree_check_trace_builder;
+                    AVM_TRACK_TIME(
+                        "tracegen/public_data_tree_check",
+                        public_data_tree_check_trace_builder.process(events.public_data_tree_check_events, trace));
+                    clear_events(events.public_data_tree_check_events);
                 },
                 [&]() {
-                UpdateCheckTraceBuilder update_check_trace_builder;
-                AVM_TRACK_TIME("tracegen/update_check",
-                               update_check_trace_builder.process(events.update_check_events, trace));
-                clear_events(events.update_check_events);
+                    UpdateCheckTraceBuilder update_check_trace_builder;
+                    AVM_TRACK_TIME("tracegen/update_check",
+                                   update_check_trace_builder.process(events.update_check_events, trace));
+                    clear_events(events.update_check_events);
                 },
                 [&]() {
-                NullifierTreeCheckTraceBuilder nullifier_tree_check_trace_builder;
-                AVM_TRACK_TIME("tracegen/nullifier_tree_check",
-                               nullifier_tree_check_trace_builder.process(events.nullifier_tree_check_events, trace));
-                clear_events(events.nullifier_tree_check_events);
+                    NullifierTreeCheckTraceBuilder nullifier_tree_check_trace_builder;
+                    AVM_TRACK_TIME(
+                        "tracegen/nullifier_tree_check",
+                        nullifier_tree_check_trace_builder.process(events.nullifier_tree_check_events, trace));
+                    clear_events(events.nullifier_tree_check_events);
                 },
                 [&]() {
-                MemoryTraceBuilder memory_trace_builder;
-                AVM_TRACK_TIME("tracegen/memory", memory_trace_builder.process(events.memory, trace));
-                clear_events(events.memory);
+                    MemoryTraceBuilder memory_trace_builder;
+                    AVM_TRACK_TIME("tracegen/memory", memory_trace_builder.process(events.memory, trace));
+                    clear_events(events.memory);
                 },
                 [&]() {
-                DataCopyTraceBuilder data_copy_trace_builder;
-                AVM_TRACK_TIME("tracegen/data_copy", data_copy_trace_builder.process(events.data_copy_events, trace));
-                clear_events(events.data_copy_events);
+                    DataCopyTraceBuilder data_copy_trace_builder;
+                    AVM_TRACK_TIME("tracegen/data_copy",
+                                   data_copy_trace_builder.process(events.data_copy_events, trace));
+                    clear_events(events.data_copy_events);
                 },
                 [&]() {
-                BitwiseTraceBuilder bitwise_builder;
-                AVM_TRACK_TIME("tracegen/bitwise", bitwise_builder.process(events.bitwise, trace));
-                clear_events(events.bitwise);
+                    BitwiseTraceBuilder bitwise_builder;
+                    AVM_TRACK_TIME("tracegen/bitwise", bitwise_builder.process(events.bitwise, trace));
+                    clear_events(events.bitwise);
                 },
                 [&]() {
-                CalldataTraceBuilder calldata_builder;
-                AVM_TRACK_TIME("tracegen/calldata_hashing",
-                               calldata_builder.process_hashing(events.calldata_events, trace));
-                AVM_TRACK_TIME("tracegen/calldata_retrieval",
-                               calldata_builder.process_retrieval(events.calldata_events, trace));
-                clear_events(events.calldata_events);
+                    CalldataTraceBuilder calldata_builder;
+                    AVM_TRACK_TIME("tracegen/calldata_hashing",
+                                   calldata_builder.process_hashing(events.calldata_events, trace));
+                    AVM_TRACK_TIME("tracegen/calldata_retrieval",
+                                   calldata_builder.process_retrieval(events.calldata_events, trace));
+                    clear_events(events.calldata_events);
+                },
                 [&]() {
                     InternalCallStackBuilder internal_call_stack_builder;
                     AVM_TRACK_TIME("tracegen/internal_call_stack",
@@ -345,47 +349,45 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.internal_call_stack_events);
                 } });
 
-                AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
+        AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
-    }
+}
 
-    void AvmTraceGenHelper::fill_trace_interactions(TraceContainer & trace)
+void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
+{
+    // Now we can compute lookups and permutations.
     {
-        // Now we can compute lookups and permutations.
-        {
-            auto jobs_interactions = concatenate_jobs(TxTraceBuilder::lookup_jobs(),
-                                                      ExecutionTraceBuilder::lookup_jobs(),
-                                                      Poseidon2TraceBuilder::lookup_jobs(),
-                                                      RangeCheckTraceBuilder::lookup_jobs(),
-                                                      BitwiseTraceBuilder::lookup_jobs(),
-                                                      Sha256TraceBuilder::lookup_jobs(),
-                                                      BytecodeTraceBuilder::lookup_jobs(),
-                                                      ClassIdDerivationTraceBuilder::lookup_jobs(),
-                                                      EccTraceBuilder::lookup_jobs(),
-                                                      ToRadixTraceBuilder::lookup_jobs(),
-                                                      AddressDerivationTraceBuilder::lookup_jobs(),
-                                                      FieldGreaterThanTraceBuilder::lookup_jobs(),
-                                                      MerkleCheckTraceBuilder::lookup_jobs(),
-                                                      PublicDataTreeCheckTraceBuilder::lookup_jobs(),
-                                                      UpdateCheckTraceBuilder::lookup_jobs(),
-                                                      NullifierTreeCheckTraceBuilder::lookup_jobs(),
-                                                      MemoryTraceBuilder::lookup_jobs(),
-                                                      ExecutionTraceBuilder::lookup_jobs(),
-                                                      DataCopyTraceBuilder::lookup_jobs(),
-                                                      CalldataTraceBuilder::lookup_jobs());
+        auto jobs_interactions = concatenate_jobs(TxTraceBuilder::lookup_jobs(),
+                                                  ExecutionTraceBuilder::lookup_jobs(),
+                                                  Poseidon2TraceBuilder::lookup_jobs(),
+                                                  RangeCheckTraceBuilder::lookup_jobs(),
+                                                  BitwiseTraceBuilder::lookup_jobs(),
+                                                  Sha256TraceBuilder::lookup_jobs(),
+                                                  BytecodeTraceBuilder::lookup_jobs(),
+                                                  ClassIdDerivationTraceBuilder::lookup_jobs(),
+                                                  EccTraceBuilder::lookup_jobs(),
+                                                  ToRadixTraceBuilder::lookup_jobs(),
+                                                  AddressDerivationTraceBuilder::lookup_jobs(),
+                                                  FieldGreaterThanTraceBuilder::lookup_jobs(),
+                                                  MerkleCheckTraceBuilder::lookup_jobs(),
+                                                  PublicDataTreeCheckTraceBuilder::lookup_jobs(),
+                                                  UpdateCheckTraceBuilder::lookup_jobs(),
+                                                  NullifierTreeCheckTraceBuilder::lookup_jobs(),
+                                                  MemoryTraceBuilder::lookup_jobs(),
+                                                  DataCopyTraceBuilder::lookup_jobs(),
+                                                  CalldataTraceBuilder::lookup_jobs());
 
-            AVM_TRACK_TIME("tracegen/interactions", parallel_for(jobs_interactions.size(), [&](size_t i) {
-                               jobs_interactions[i]->process(trace);
-                           }));
-        }
+        AVM_TRACK_TIME("tracegen/interactions",
+                       parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }
+}
 
-    TraceContainer AvmTraceGenHelper::generate_precomputed_columns()
-    {
-        TraceContainer trace;
-        auto jobs = build_precomputed_columns_jobs(trace);
-        execute_jobs(jobs);
-        return trace;
-    }
+TraceContainer AvmTraceGenHelper::generate_precomputed_columns()
+{
+    TraceContainer trace;
+    auto jobs = build_precomputed_columns_jobs(trace);
+    execute_jobs(jobs);
+    return trace;
+}
 
 } // namespace bb::avm2

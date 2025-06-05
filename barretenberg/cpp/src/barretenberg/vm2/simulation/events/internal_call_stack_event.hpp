@@ -5,12 +5,9 @@
 
 namespace bb::avm2::simulation {
 
-using InternalCallId = uint32_t;
-
 struct InternalCallStackEvent {
-    InternalCallId id;
-    InternalCallId return_id;
-    PC return_pc;
+    uint32_t context_id;
+    InternalCallPtr call_ptr;
 };
 
 } // namespace bb::avm2::simulation

@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/internal_callstack_manager.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -39,10 +40,12 @@ class ContextProvider : public ContextProviderInterface {
   public:
     ContextProvider(TxBytecodeManagerInterface& tx_bytecode_manager,
                     MemoryProviderInterface& memory_provider,
-                    CalldataHashingProviderInterface& cd_hash_provider)
+                    CalldataHashingProviderInterface& cd_hash_provider,
+                    EventEmitterInterface<InternalCallStackEvent>& internal_call_stack_events)
         : tx_bytecode_manager(tx_bytecode_manager)
         , memory_provider(memory_provider)
         , cd_hash_provider(cd_hash_provider)
+        , internal_call_stack_events(internal_call_stack_events)
     {}
     std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
                                                           AztecAddress msg_sender,
@@ -65,6 +68,7 @@ class ContextProvider : public ContextProviderInterface {
     TxBytecodeManagerInterface& tx_bytecode_manager;
     MemoryProviderInterface& memory_provider;
     CalldataHashingProviderInterface& cd_hash_provider;
+    EventEmitterInterface<InternalCallStackEvent>& internal_call_stack_events;
 };
 
 } // namespace bb::avm2::simulation

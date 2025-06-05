@@ -45,7 +45,6 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockExecutionComponentsProvider> execution_components;
     StrictMock<MockContext> context;
     StrictMock<MockDataCopy> data_copy;
-    StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.

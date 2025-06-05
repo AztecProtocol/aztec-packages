@@ -9,16 +9,17 @@ void InternalCallStackBuilder::process(
     TraceContainer& trace)
 {
     using C = Column;
-    uint32_t row = 1; // Has skip relations
+    uint32_t row = 0;
 
     for (const auto& event : events) {
         trace.set(row,
                   { {
                       { C::call_stack_sel, 1 },
-                      { C::call_stack_id, event.id },
-                      { C::call_stack_return_id, event.return_id },
-                      { C::call_stack_return_pc, event.return_pc },
-                      { C::call_stack_id_inv, FF(event.id).invert() },
+                      { C::call_stack_context_id, event.context_id },
+                      { C::call_stack_entered_call_id, event.call_ptr.entered_call_id },
+                      { C::call_stack_id, event.call_ptr.id },
+                      { C::call_stack_return_id, event.call_ptr.return_id },
+                      { C::call_stack_return_pc, event.call_ptr.return_pc },
                   } });
         row++;
     }
