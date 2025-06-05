@@ -29,6 +29,15 @@ enum TransactionPhase {
     COLLECT_GAS_FEES = 10,
 };
 
+using InternalCallId = uint32_t;
+
+struct InternalCallPtr {
+    InternalCallId id;
+    InternalCallId entered_call_id;
+    InternalCallId return_id;
+    PC return_pc;
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Keys, Instances, Classes
 ////////////////////////////////////////////////////////////////////////////

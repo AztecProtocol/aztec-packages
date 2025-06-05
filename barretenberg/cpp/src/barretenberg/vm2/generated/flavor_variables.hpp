@@ -22,6 +22,7 @@
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/internal_call.hpp"
 #include "relations/internal_call_stack.hpp"
 #include "relations/keccakf1600.hpp"
 #include "relations/memory.hpp"
@@ -49,18 +50,11 @@
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
 #include "relations/lookups_data_copy.hpp"
-<<<<<<< HEAD
 #include "relations/lookups_execution.hpp"
-=======
-<<<<<<< HEAD
->>>>>>> a423283097 (feat(avm): cd_copy)
-=======
-#include "relations/lookups_execution.hpp"
->>>>>>> fd2cbf39cd (wip)
->>>>>>> 44cdc56833 (wip)
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
 #include "relations/lookups_instr_fetching.hpp"
+#include "relations/lookups_internal_call.hpp"
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
@@ -91,8 +85,18 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_ALL_ENTITIES = 2638;
 =======
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2327;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 170;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2334;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2336;
+>>>>>>> 02ae197294 (fix: make part of context)
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 171;
+>>>>>>> 7a1571cc6d (fix: make part of context)
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
 <<<<<<< HEAD
 =======
@@ -319,10 +323,28 @@ struct AvmFlavorVariables {
 >>>>>>> 470be80ed7 (wip)
 >>>>>>> 30c6b2560b (wip)
 >>>>>>> 41d7b90fbe (wip)
+<<<<<<< HEAD
 >>>>>>> bcee8f3e95 (wip)
+<<<<<<< HEAD
 >>>>>>> af3ee58bbb (wip)
+<<<<<<< HEAD
 >>>>>>> 2ff5b9c469 (wip)
+<<<<<<< HEAD
 >>>>>>> fb6825b382 (wip)
+=======
+=======
+=======
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2355;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 175;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2617;
+>>>>>>> fd49b16f7c (fix: make part of context)
+>>>>>>> 02ae197294 (fix: make part of context)
+>>>>>>> 7a1571cc6d (fix: make part of context)
+>>>>>>> 3c920a1e88 (fix: make part of context)
+>>>>>>> 82566c53c1 (fix: make part of context)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -348,6 +370,7 @@ struct AvmFlavorVariables {
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::internal_call<FF_>,
         avm2::internal_call_stack<FF_>,
         avm2::keccakf1600<FF_>,
         avm2::memory<FF_>,
@@ -421,34 +444,6 @@ struct AvmFlavorVariables {
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
-<<<<<<< HEAD
-=======
-=======
-=======
-        lookup_data_copy_col_read_relation<FF_>,
-        lookup_data_copy_mem_read_relation<FF_>,
-        lookup_data_copy_mem_write_relation<FF_>,
->>>>>>> a423283097 (feat(avm): cd_copy)
->>>>>>> aab01214cd (feat(avm): cd_copy)
-=======
-        lookup_data_copy_col_read_relation<FF_>,
-        lookup_data_copy_mem_read_relation<FF_>,
-        lookup_data_copy_mem_write_relation<FF_>,
-<<<<<<< HEAD
-        lookup_execution_exec_spec_read_relation<FF_>,
-<<<<<<< HEAD
->>>>>>> f5c63bcde8 (feat: calldata and some hashing)
-=======
-=======
-<<<<<<< HEAD
->>>>>>> a423283097 (feat(avm): cd_copy)
-=======
-        lookup_execution_push_call_stack_relation<FF_>,
-        lookup_execution_unwind_call_stack_relation<FF_>,
->>>>>>> fd2cbf39cd (wip)
->>>>>>> 44cdc56833 (wip)
->>>>>>> 470be80ed7 (wip)
->>>>>>> 30c6b2560b (wip)
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,
@@ -460,6 +455,8 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+        lookup_internal_call_push_call_stack_relation<FF_>,
+        lookup_internal_call_unwind_call_stack_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,

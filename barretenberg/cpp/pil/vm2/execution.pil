@@ -30,6 +30,7 @@ include "public_inputs.pil";
 include "gas.pil";
 include "data_copy.pil";
 include "internal_call_stack.pil";
+include "opcodes/internal_call.pil";
 
 namespace execution;
 
@@ -234,6 +235,13 @@ pol commit sel_bitwise;
 pol commit sel_to_radix;
 pol commit sel_ecc_add;
 pol commit sel_poseidon2_perm;
+pol commit sel_internal_call;
+pol commit sel_internal_return;
+pol commit sel_jump;
+pol commit sel_jumpi;
+
+// This is used in context.pil
+pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
 
 /**************************************************************************************************
  *  Temporality group N: Dynamic gas
@@ -277,3 +285,4 @@ sel_internal_return * (internal_call_id' -  internal_call_return_id) = 0;
 sel_internal_return { internal_call_id', internal_call_return_id', pc' }
 in
 call_stack.sel      { call_stack.id, call_stack.return_id, call_stack.return_pc };
+

@@ -14,6 +14,7 @@
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
+#include "barretenberg/vm2/simulation/internal_callstack_manager.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 
 namespace bb::avm2::simulation {
@@ -25,6 +26,7 @@ class ContextInterface {
     // Machine state.
     virtual MemoryInterface& get_memory() = 0;
     virtual BytecodeManagerInterface& get_bytecode_manager() = 0;
+    virtual InternalCallStackManager& get_internal_call_stack_manager() = 0;
     virtual uint32_t get_pc() const = 0;
     virtual void set_pc(uint32_t new_pc) = 0;
     virtual uint32_t get_next_pc() const = 0;
@@ -83,7 +85,8 @@ class BaseContext : public ContextInterface {
                 Gas gas_limit,
                 Gas gas_used,
                 std::unique_ptr<BytecodeManagerInterface> bytecode,
-                std::unique_ptr<MemoryInterface> memory)
+                std::unique_ptr<MemoryInterface> memory,
+                std::unique_ptr<InternalCallStackManager> internal_call_stack_manager)
         : address(address)
         , msg_sender(msg_sender)
         , is_static(is_static)
@@ -92,12 +95,14 @@ class BaseContext : public ContextInterface {
         , gas_limit(gas_limit)
         , bytecode(std::move(bytecode))
         , memory(std::move(memory))
+        , internal_call_stack_manager(std::move(internal_call_stack_manager))
     {}
 
     // Having getters and setters make it easier to mock the context.
     // Machine state.
     MemoryInterface& get_memory() override { return *memory; }
     BytecodeManagerInterface& get_bytecode_manager() override { return *bytecode; }
+    InternalCallStackManager& get_internal_call_stack_manager() override { return *internal_call_stack_manager; }
     uint32_t get_pc() const override { return pc; }
     void set_pc(uint32_t new_pc) override { pc = new_pc; }
     uint32_t get_next_pc() const override { return next_pc; }
@@ -153,6 +158,7 @@ class BaseContext : public ContextInterface {
     Gas gas_limit;
     std::unique_ptr<BytecodeManagerInterface> bytecode;
     std::unique_ptr<MemoryInterface> memory;
+    std::unique_ptr<InternalCallStackManager> internal_call_stack_manager;
 
     // Output
     std::unique_ptr<ContextInterface> child_context = nullptr;
@@ -161,7 +167,7 @@ class BaseContext : public ContextInterface {
     bool last_child_success = false;
 };
 
-// TODO(ilyas): flesh these out in the cpp file, these are just temporary
+// TODO(ilyas): move to cpp file
 class EnqueuedCallContext : public BaseContext {
   public:
     EnqueuedCallContext(uint32_t context_id,
@@ -172,9 +178,17 @@ class EnqueuedCallContext : public BaseContext {
                         Gas gas_used,
                         std::unique_ptr<BytecodeManagerInterface> bytecode,
                         std::unique_ptr<MemoryInterface> memory,
+                        std::unique_ptr<InternalCallStackManager> internal_call_stack_manager,
                         std::span<const FF> calldata)
-        : BaseContext(
-              context_id, address, msg_sender, is_static, gas_limit, gas_used, std::move(bytecode), std::move(memory))
+        : BaseContext(context_id,
+                      address,
+                      msg_sender,
+                      is_static,
+                      gas_limit,
+                      gas_used,
+                      std::move(bytecode),
+                      std::move(memory),
+                      std::move(internal_call_stack_manager))
         , calldata(calldata.begin(), calldata.end())
     {}
 
@@ -206,6 +220,7 @@ class NestedContext : public BaseContext {
                   Gas gas_limit,
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
                   std::unique_ptr<MemoryInterface> memory,
+                  std::unique_ptr<InternalCallStackManager> internal_call_stack_manager,
                   ContextInterface& parent_context,
                   MemoryAddress cd_offset_address, /* This is a direct mem address */
                   MemoryAddress cd_size)
@@ -216,7 +231,8 @@ class NestedContext : public BaseContext {
                       gas_limit,
                       Gas{ 0, 0 },
                       std::move(bytecode),
-                      std::move(memory))
+                      std::move(memory),
+                      std::move(internal_call_stack_manager))
         , parent_cd_addr(cd_offset_address)
         , parent_cd_size(cd_size)
         , parent_context(parent_context)

@@ -19,6 +19,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_call_opcode.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -418,10 +419,16 @@ void ExecutionTraceBuilder::process(
                               { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
+                              // Internal Stack
+                              { C::execution_internal_call_id, ex_event.internal_call_ptr.id },
+                              { C::execution_internal_call_return_id, ex_event.internal_call_ptr.return_id },
+                              { C::execution_internal_call_return_pc, ex_event.internal_call_ptr.return_pc },
+                              { C::execution_next_internal_call_id, ex_event.next_internal_call_id },
+                              { C::execution_internal_ret_err, 0 },     // TODO
+                              { C::execution_internal_call_id_inv, 0 }, // TODO
                           } });
             }
         }
-<<<<<<< HEAD
 
         /**************************************************************************************************
          *  Discarding.
@@ -768,7 +775,6 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         // Instruction fetching
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_result_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_body_settings>>(),
-<<<<<<< HEAD
         // Addressing
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_base_address_from_memory_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_0_settings>>(),
@@ -785,11 +791,9 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_4_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_5_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_6_settings>>(),
-=======
         // Internal Call Stack
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_execution_push_call_stack_settings_>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_execution_unwind_call_stack_settings_>>(),
->>>>>>> bcee8f3e95 (wip)
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_internal_call_push_call_stack_settings_>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_internal_call_unwind_call_stack_settings_>>(),
         // Gas
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),

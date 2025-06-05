@@ -128,11 +128,13 @@ namespace execution;
 
     // nested_exit_call = 1 <==> constraints come from lookup
     // sel_enter_call   = 1 <==> pc' = 0
+    // internal_call    = 1 <==> pc' = operand 0
+    // internal_return  = 1 <==> pc' = internal_call_return_pc (from internal_call.pil)
     // otherwise        = 0 <==> pc' = next_pc
     #[PC_NEXT_ROW_DEFAULT]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
     #[PC_NEXT_ROW_INT_CALL]
-    NOT_LAST_EXEC * sel_internal_call * (pc' - op1) = 0;
+    NOT_LAST_EXEC * sel_internal_call * (pc' - op[0]) = 0;
     #[PC_NEXT_ROW_EXT_CALL]
     NOT_LAST_EXEC * sel_enter_call  * pc' = 0;
 
@@ -317,6 +319,7 @@ namespace execution;
     nested_return = nested_exit_call * sel_return;
     #[CTX_STACK_RETURN]
     nested_return {
+        context_id,
         context_id', // constrained to be parent_id
         parent_id',
         pc',
@@ -331,6 +334,7 @@ namespace execution;
         parent_da_gas_used'
     } in
     context_stack.sel {
+        context_stack.entered_context_id,
         context_stack.context_id,
         context_stack.parent_id,
         context_stack.next_pc,

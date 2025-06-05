@@ -59,9 +59,7 @@ struct ExecutionEvent {
     bool is_exit() const { return is_failure() || wire_instruction.get_exec_opcode() == ExecutionOpCode::RETURN; }
 =======
     // Internal Call Stack Info
-    InternalCallStackEvent internal_call_event;
-    InternalCallId internal_call_id = 0;
-    InternalCallId internal_call_return_id = 0;
+    InternalCallPtr internal_call_ptr;
     InternalCallId next_internal_call_id = 0;
 >>>>>>> bcee8f3e95 (wip)
 };

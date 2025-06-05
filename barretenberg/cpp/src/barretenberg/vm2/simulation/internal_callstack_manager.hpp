@@ -13,33 +13,33 @@ class InternalCallStackManagerInterface {
   public:
     virtual ~InternalCallStackManagerInterface() = default;
 
-    // These are so similar we can use the same type.
-    using InternalCallStackElement = InternalCallStackEvent;
-
     virtual void push(PC return_pc) = 0;
     virtual PC pop() = 0;
-    virtual InternalCallId get_current_call_id() const = 0;
-    virtual InternalCallId get_current_return_id() const = 0;
+    virtual InternalCallPtr top() const = 0;
     virtual InternalCallId get_next_call_id() const = 0;
 };
 
+// This contains the context_id due to circuit requirements similar to memory (i.e. it is used in  the event emitter)
+// There might be a way to avoid this by emitting in the context / execution itself.
 class InternalCallStackManager : public InternalCallStackManagerInterface {
   public:
-    InternalCallStackManager(EventEmitterInterface<InternalCallStackEvent>& emitter)
-        : internal_call_stack_events(emitter)
+    InternalCallStackManager(uint32_t context_id, EventEmitterInterface<InternalCallStackEvent>& emitter)
+        : context_id(context_id)
+        , internal_call_stack_events(emitter)
     {}
 
     void push(PC return_pc) override;
     PC pop() override;
-    InternalCallId get_current_call_id() const override;
-    InternalCallId get_current_return_id() const override;
+    InternalCallPtr top() const override;
     InternalCallId get_next_call_id() const override;
 
   private:
-    InternalCallId internal_call_id = 1; // dont start at 0
-    InternalCallId internal_call_return_id = 0;
+    InternalCallId current_internal_call_id = 1; // dont start at 0
+    InternalCallId return_id = 0;                // used to track the return id of the last call
 
-    std::stack<InternalCallStackElement> internal_call_stack;
+    uint32_t context_id;
+
+    std::stack<InternalCallPtr> internal_call_stack;
     EventEmitterInterface<InternalCallStackEvent>& internal_call_stack_events;
 };
 

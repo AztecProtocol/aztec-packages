@@ -19,7 +19,6 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
-#include "barretenberg/vm2/simulation/events/internal_call_stack_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/internal_callstack_manager.hpp"
@@ -63,7 +62,6 @@ class Execution : public ExecutionInterface {
         , data_copy(data_copy)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
-        , internal_call_stack_manager(internal_call_stack_manager)
     {}
 
     ExecutionResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
@@ -78,8 +76,8 @@ class Execution : public ExecutionInterface {
               MemoryAddress l2_gas_offset,
               MemoryAddress da_gas_offset,
               MemoryAddress addr,
-              MemoryAddress cd_offset,
-              MemoryAddress cd_size);
+              MemoryAddress cd_size_offset,
+              MemoryAddress cd_offset);
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
     void cd_copy(ContextInterface& context,
@@ -130,7 +128,6 @@ class Execution : public ExecutionInterface {
 
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
-    InternalCallStackManagerInterface& internal_call_stack_manager;
 
     ExecutionResult exec_result;
 

@@ -1,19 +1,14 @@
 include "precomputed.pil";
 
 namespace call_stack;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
     #[skippable_if]
     sel = 0;
 
-    pol commit sel; // = 1 iff id != 0
-    sel * (1 - sel) = 0;
-    pol commit id; // Must be constrained to start at 1
+    pol commit context_id;
+    pol commit id;
+    pol commit entered_call_id;
     pol commit return_id;
     pol commit return_pc;
-
-    pol commit id_inv;
-    #[NON_ZERO_ID]
-    id * ((1 - sel) * (1 - id_inv) + id_inv) - sel = 0;
-
-    // If sel = 0, sel' != 1
-    #[TRACE_CONTINUITY]
-    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;

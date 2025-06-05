@@ -13,7 +13,7 @@ template <typename FF_> class internal_call_stackImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4 };
+    static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS = { 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,22 +35,6 @@ template <typename FF_> class internal_call_stackImpl {
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
-        { // NON_ZERO_ID
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::call_stack_id) *
-                            ((FF(1) - in.get(C::call_stack_sel)) * (FF(1) - in.get(C::call_stack_id_inv)) +
-                             in.get(C::call_stack_id_inv)) -
-                        in.get(C::call_stack_sel));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        { // TRACE_CONTINUITY
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::call_stack_sel)) *
-                       in.get(C::call_stack_sel_shift);
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
     }
 };
 
@@ -60,18 +44,9 @@ template <typename FF> class internal_call_stack : public Relation<internal_call
 
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {
-        case 1:
-            return "NON_ZERO_ID";
-        case 2:
-            return "TRACE_CONTINUITY";
-        }
+        switch (index) {}
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_NON_ZERO_ID = 1;
-    static constexpr size_t SR_TRACE_CONTINUITY = 2;
 };
 
 } // namespace bb::avm2
