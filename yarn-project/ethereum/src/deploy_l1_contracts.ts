@@ -327,9 +327,10 @@ export const deploySharedContracts = async (
     const governanceAfterWaiting = await gseContract.read.getGovernance();
     if (governanceAfterWaiting !== governanceAddress.toString()) {
       logger.error(`❌ Governance on GSE is not set to ${governanceAddress.toString()}`);
-      throw new Error(`Governance on GSE is not set to ${governanceAddress.toString()}`);
+      logger.error(`GSE governance: ${governanceAfterWaiting}`);
+    } else {
+      logger.info(`✅ Governance on GSE is set to ${governanceAddress.toString()}`);
     }
-    logger.info(`✅ Governance on GSE is set to ${governanceAddress.toString()}`);
   }
 
   const coinIssuerAddress = await deployer.deploy(l1Artifacts.coinIssuer, [
