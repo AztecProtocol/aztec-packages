@@ -1,64 +1,29 @@
 #!/usr/bin/env bash
-# memusg -- Measure peak memory usage of a command, polling every second.
-# Usage: memusage output-file COMMAND [ARGS]...
-#
-# Runs the process, outputting peak memory usage to 'output-file' in
-# amount of megabytes.
-#
-# Author: Jaeho Shin <netj@sparcs.org>
-# Created: 2010-08-16
-############################################################################
-# Copyright 2010 Jaeho Shin.                         #
-#                                      #
-# Licensed under the Apache License, Version 2.0 (the "License");      #
-# you may not use this file except in compliance with the License.     #
-# You may obtain a copy of the License at                  #
-#                                      #
-#   http://www.apache.org/licenses/LICENSE-2.0               #
-#                                      #
-# Unless required by applicable law or agreed to in writing, software    #
-# distributed under the License is distributed on an "AS IS" BASIS,    #
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. #
-# See the License for the specific language governing permissions and    #
-# limitations under the License.                       #
-############################################################################
 set -eu
 
-memory_output_file="${MEMUSAGE_OUT:-&2}"
+memory_output_file="${MEMUSAGE_OUT:-/dev/stderr}"
 
-# detect OS-specific ps command
-case $(uname) in
-  Darwin|*BSD) function sizes { /bin/ps -o rss= -g $1; } ;;
-  Linux) function sizes { /bin/ps -o rss= $1; } ;;
-  *) echo "$(uname): unsupported OS" >&2; exit 2 ;;
-esac
+############################################################################
+# Run the target command under the time wrapper.
+#   %M  — maximum resident set size in kilobytes.
+# We redirect that single number to a temporary file so we don’t disturb the
+# program’s own stdout/stderr streams.
+############################################################################
+function gnu_time {
+  if command -v gtime >/dev/null 2>&1; then
+    # macOS (brew install gnu-time)
+    exec gtime "$@"
+    return
+  fi
+  if ! command -v /usr/bin/time >/dev/null 2>&1; then
+    # TODO remove this auto-installation once build image is updated properly
+    echo "Running: sudo apt install -y time" >&2
+    sudo apt install -y time || {
+      echo "Tried to auto-install GNU time but couldn't. Do so manually" >&2
+      exit 1
+    }
+  fi
+  exec /usr/bin/time "$@"
+}
 
-# run the target command in the background in its own process group
-setsid "$@" &
-cmd_pid=$!
-sleep 1 # wait for the command to get a process group
-cmd_pgid=$(ps -o pgid= $cmd_pid)
-
-# start monitoring in background
-(
-  peak=0
-  while kill -0 "$cmd_pid" 2>/dev/null && sizes_out=$(sizes "$cmd_pgid"); do
-    sample=$(echo "$sizes_out" | awk '{sum += $1} END {print sum}')
-    if [[ -n "$sample" && "$sample" -gt "$peak" ]]; then
-      peak=$sample
-    fi
-    sleep 0.1
-  done
-  echo "$((peak / 1024))" > "$memory_output_file"
-) &
-monitor_pid=$!
-trap "kill -- -$cmd_pgid &>/dev/null || true" EXIT SIGINT
-
-# wait for command, save its exit code
-wait "$cmd_pid"
-exit_code=$?
-
-# clean up monitor
-wait "$monitor_pid"
-
-exit "$exit_code"
+gnu_time -f '%M' -o "$memory_output_file" "$@"
