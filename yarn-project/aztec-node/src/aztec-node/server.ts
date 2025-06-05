@@ -1,5 +1,5 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   type ARCHIVE_HEIGHT,
@@ -229,10 +229,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       options.prefilledPublicData,
       telemetry,
     );
-    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+    const circuitVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
     }
+    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
 
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
 
@@ -567,6 +568,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.log.info(`Stopping`);
     await this.txQueue.end();
     // await this.validatorsSentinel?.stop(); <- The slasher client will stop this
+    await this.proofVerifier.stop();
     await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
