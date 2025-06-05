@@ -1,5 +1,6 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
@@ -713,6 +714,41 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         nullifier: siloedNullifier.toString(),
       });
     }
+  }
+
+  public async bulkRetrieveLogs(logRetrievalRequestsArrayBaseSlot: Fr, logRetrievalResponsesArrayBaseSlot: Fr) {
+    // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
+    // don't need to wait for the network round-trip.
+    const logRetrievalRequests = (
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot)
+    ).map(LogRetrievalRequest.fromFields);
+
+    const logRetrievalResponses = await Promise.all(
+      logRetrievalRequests.map(async request => {
+        const [publicLog, privateLog] = await Promise.all([
+          this.getPublicLogByTag(request.unsiloedTag, request.contractAddress),
+          this.getPrivateLogByTag(poseidon2Hash([request.contractAddress, request.unsiloedTag])),
+        ]);
+
+        if (publicLog !== undefined) {
+          if (privateLog !== undefined) {
+            throw new Error('found both');
+          }
+        } else if (privateLog !== undefined) {
+        } else {
+          // none
+        }
+      }),
+    );
+
+    // Requests are cleared once we're done.
+    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, []);
+
+    await this.capsuleDataProvider.resetCapsuleArray(
+      contractAddress,
+      logRetrievalResponsesArrayBaseSlot,
+      logRetrievalResponses.map(response => response.toFields()),
+    );
   }
 
   public async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {

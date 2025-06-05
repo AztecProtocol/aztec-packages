@@ -1,5 +1,7 @@
 pub(crate) mod pending_tagged_log;
 pub(crate) mod note_validation_request;
+pub(crate) mod log_retrieval_request;
+pub(crate) mod log_retrieval_response;
 
 use crate::{capsules::CapsuleArray, oracle};
 use crate::messages::{

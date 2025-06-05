@@ -3,15 +3,17 @@ use crate::{
     messages::{
         discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
-        processing::enqueue_note_for_validation,
+        processing::{
+            enqueue_note_for_validation, log_retrieval_request::LogRetrievalRequest,
+            log_retrieval_response::LogRetrievalResponse,
+        },
     },
-    oracle::message_processing::get_log_by_tag,
+    oracle,
     utils::array,
 };
 
 use protocol_types::{
     address::AztecAddress,
-    constants::{PRIVATE_LOG_CIPHERTEXT_LEN, PUBLIC_LOG_PLAINTEXT_LEN},
     debug_log::debug_log_format,
     hash::sha256_to_field,
     traits::{Deserialize, Serialize},
@@ -29,11 +31,13 @@ pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sh
     "AZTEC_NR::DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT".as_bytes(),
 );
 
-/// A partial note completion log's maximum length is the minimum of the public log plaintext length and private log
-/// ciphertext length. While these logs can be transmitted through either the public or private log stream, we standardize
-/// their length to whichever format is shorter. This ensures consistent behavior regardless of the delivery mechanism.
-global MAX_PARTIAL_NOTE_COMPLETION_LOG_LEN: u32 =
-    std::cmp::min(PUBLIC_LOG_PLAINTEXT_LEN, PRIVATE_LOG_CIPHERTEXT_LEN);
+global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
+    "AZTEC_NR::LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
+);
+
+global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
+    "AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT".as_bytes(),
+);
 
 /// A partial note that was delivered but is still pending completion. Contains the information necessary to find the
 /// log that will complete it and lead to a note being discovered and delivered.
@@ -88,11 +92,26 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
         [pending_partial_notes.len() as Field],
     );
 
-    pending_partial_notes.for_each(|i, pending_partial_note: DeliveredPendingPartialNote| {
-        let maybe_log = get_log_by_tag::<MAX_PARTIAL_NOTE_COMPLETION_LOG_LEN>(
-            pending_partial_note.note_completion_log_tag,
-            contract_address,
+    pending_partial_notes.for_each(|_, pending_partial_note: DeliveredPendingPartialNote| {
+        CapsuleArray::at(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT).push(
+            LogRetrievalRequest {
+                contract_address,
+                unsiloed_tag: pending_partial_note.note_completion_log_tag,
+            },
         );
+    });
+
+    oracle::message_processing::bulk_retrieve_logs(
+        LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
+        LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
+    );
+
+    let responses = CapsuleArray::at(contract_address, LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT);
+    responses.for_each(|i, maybe_log: Option<_>| {
+        responses.remove(i);
+
+        let pending_partial_note = pending_partial_notes.get(i);
+
         if maybe_log.is_none() {
             debug_log_format(
                 "Found no completion logs for partial note with tag {}",
@@ -107,7 +126,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                 "Completion log found for partial note with tag {}",
                 [pending_partial_note.note_completion_log_tag],
             );
-            let log = maybe_log.unwrap();
+            let log: LogRetrievalResponse = maybe_log.unwrap();
 
             // Public fields are assumed to all be placed at the end of the packed representation, so we combine the
             // private and public packed fields (i.e. the contents of the private message and public log plaintext to get
