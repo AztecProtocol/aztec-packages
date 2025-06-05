@@ -389,6 +389,12 @@ concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
 template <typename T>
 concept HasDataBus = IsMegaFlavor<T>;
 
+// Whether the Flavor has randomness at the end of its trace to randomise commitments and evaluations of its polynomials
+// hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.
+// This is not the case for Translator, where randomness resides in different parts of the trace and the locations will
+// be reflected via Translator relations.
+template <typename T> concept UseRowDisablingPolynomial = !IsAnyOf<T,TranslatorFlavor, TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
+
 template <typename T>
 concept HasIPAAccumulator = IsAnyOf<T, UltraRollupFlavor, UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 

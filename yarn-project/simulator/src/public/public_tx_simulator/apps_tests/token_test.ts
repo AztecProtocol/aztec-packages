@@ -31,7 +31,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   expect(mintResult.revertCode.isOK()).toBe(true);
   await checkBalance(tester, token, sender, sender, mintAmount);
 
-  const nonce = new Fr(0);
+  const authwitNonce = new Fr(0);
   const transferAmount = 50n;
   const transferResult = await tester.simulateTxWithLabel(
     /*txLabel=*/ 'Token/transfer_in_public',
@@ -41,7 +41,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
       {
         address: token.address,
         fnName: 'transfer_in_public',
-        args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+        args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, authwitNonce],
       },
     ],
   );
@@ -72,7 +72,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
       {
         address: token.address,
         fnName: 'burn_public',
-        args: [/*from=*/ receiver, transferAmount, nonce],
+        args: [/*from=*/ receiver, transferAmount, authwitNonce],
       },
     ],
   );

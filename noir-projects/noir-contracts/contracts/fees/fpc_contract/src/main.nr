@@ -77,7 +77,7 @@ pub contract FPC {
     /// - the asset which was used to make the payment.
     // docs:start:fee_entrypoint_private
     #[private]
-    fn fee_entrypoint_private(max_fee: u128, nonce: Field) {
+    fn fee_entrypoint_private(max_fee: u128, authwit_nonce: Field) {
         let accepted_asset = storage.config.read().accepted_asset;
 
         let user = context.msg_sender();
@@ -87,7 +87,9 @@ pub contract FPC {
         // fee juice/mana/gas limit. Currently the fee juice/AA exchange rate is fixed 1:1.
 
         // Pull the max fee from the user's balance of the accepted asset to the public balance of this contract.
-        token.transfer_to_public(user, context.this_address(), max_fee, nonce).call(&mut context);
+        token.transfer_to_public(user, context.this_address(), max_fee, authwit_nonce).call(
+            &mut context,
+        );
 
         // Prepare a partial note for the refund for the user.
         let partial_note = token.prepare_private_balance_increase(user, user).call(&mut context);
@@ -149,14 +151,15 @@ pub contract FPC {
     /// Protocol-enshrined fee-payment phase:
     /// 4. The protocol deducts the actual fee denominated in fee juice from the FPC's balance.
     #[private]
-    fn fee_entrypoint_public(max_fee: u128, nonce: Field) {
+    fn fee_entrypoint_public(max_fee: u128, authwit_nonce: Field) {
         let config = storage.config.read();
 
         // We pull the max fee from the user's balance of the accepted asset to this contract.
         // docs:start:public_call
         Token::at(config.accepted_asset)
-            .transfer_in_public(context.msg_sender(), context.this_address(), max_fee, nonce)
-            .enqueue(&mut context);
+            .transfer_in_public(context.msg_sender(), context.this_address(), max_fee, authwit_nonce
+                )
+                .enqueue(&mut context);
         // docs:end:public_call
 
         context.set_as_fee_payer();
