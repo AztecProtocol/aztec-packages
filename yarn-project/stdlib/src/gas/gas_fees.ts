@@ -97,8 +97,8 @@ export class GasFees {
 
   toInspect() {
     return {
-      feePerDaGas: Number(this.feePerDaGas),
-      feePerL2Gas: Number(this.feePerL2Gas),
+      feePerDaGas: this.feePerDaGas,
+      feePerL2Gas: this.feePerL2Gas,
     };
   }
 
