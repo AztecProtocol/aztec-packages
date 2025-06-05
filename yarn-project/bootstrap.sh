@@ -9,18 +9,11 @@ if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
 fi
 
 function hash {
-	local hash=$(hash_str \
-		$(../noir/bootstrap.sh hash) \
-		$(cache_content_hash \
-			../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-			../barretenberg/*/.rebuild_patterns))
-
-	local suffix=""
-	if [[ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]]; then
-		suffix="-no-avm"
-	fi
-
-	echo "${hash}${suffix}"
+  hash_str \
+    $(../noir/bootstrap.sh hash) \
+    $(cache_content_hash \
+      ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+      ../barretenberg/*/.rebuild_patterns)
 }
 
 function compile_project {

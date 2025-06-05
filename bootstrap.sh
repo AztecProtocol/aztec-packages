@@ -16,6 +16,10 @@ export NUM_TXES=8
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
+if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
+	export DISABLE_AZTEC_VM=1
+fi
+
 if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
   export NOIR_HASH=$(./noir/bootstrap.sh hash)
   [ -n "$NOIR_HASH" ]
