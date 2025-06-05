@@ -200,6 +200,10 @@ contract GSECore is IGSECore, Ownable {
     STAKING_ASSET.transferFrom(msg.sender, address(this), MINIMUM_DEPOSIT);
 
     Governance gov = getGovernance();
+
+    // Validate governance address before approve to get specific error
+    require(address(gov) != address(0), "GSE: Governance address is zero before approve in deposit");
+
     STAKING_ASSET.approve(address(gov), MINIMUM_DEPOSIT);
     gov.deposit(address(this), MINIMUM_DEPOSIT);
 
