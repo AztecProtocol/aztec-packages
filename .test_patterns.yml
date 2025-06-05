@@ -166,7 +166,7 @@ tests:
   - regex: "src/e2e_epochs/epochs_l1_reorgs"
     error_regex: "updates L1 to L2 messages changed due to an L1 reorg"
     owners:
-      - *lasse
+      - *spyros
   - regex: "src/e2e_epochs/epochs_empty_blocks"
     error_regex: "✕ successfully proves multiple epochs"
     owners:
