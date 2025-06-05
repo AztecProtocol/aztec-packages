@@ -19,18 +19,10 @@ contract MultiAdder is IMultiAdder {
   IStaking public immutable STAKING;
 
   constructor(address _staking, address _owner) {
-    require(_staking != address(0), "MultiAdder: staking address cannot be zero");
-    require(_owner != address(0), "MultiAdder: owner address cannot be zero");
-
     OWNER = _owner;
     STAKING = IStaking(_staking);
 
     IERC20 stakingAsset = STAKING.getStakingAsset();
-    require(address(stakingAsset) != address(0), "MultiAdder: staking asset cannot be zero");
-
-    // Validate STAKING address before approve to get specific error
-    require(address(STAKING) != address(0), "MultiAdder: STAKING address is zero before approve");
-
     stakingAsset.approve(address(STAKING), type(uint256).max);
   }
 

@@ -868,6 +868,7 @@ export const addMultipleValidators = async (
       // Retry mechanism to handle timing issues where rollup deployment is mined but storage isn't immediately readable
       let stakingAssetFromRollup: string = '';
       let gseFromRollup: string = '';
+      let gseGovernanceAddress: string = '';
       let retries = 0;
       const maxRetries = 10;
       const retryDelayMs = 1000;
@@ -877,14 +878,24 @@ export const addMultipleValidators = async (
           stakingAssetFromRollup = await rollup.getStakingAsset();
           gseFromRollup = await rollup.getGSE();
 
+          // Also check that the GSE has governance set
+          const gseContract = getContract({
+            address: getAddress(gseFromRollup),
+            abi: l1Artifacts.gse.contractAbi,
+            client: extendedClient,
+          });
+          gseGovernanceAddress = await gseContract.read.getGovernance();
+
           logger.info(`Staking asset from rollup (attempt ${retries + 1}): ${stakingAssetFromRollup}`);
           logger.info(`GSE address from rollup (attempt ${retries + 1}): ${gseFromRollup}`);
+          logger.info(`GSE governance address (attempt ${retries + 1}): ${gseGovernanceAddress}`);
 
-          const stakingAssetValid = stakingAssetFromRollup !== '0x0000000000000000000000000000000000000000';
-          const gseValid = gseFromRollup !== '0x0000000000000000000000000000000000000000';
+          const stakingAssetValid = stakingAssetFromRollup !== EthAddress.ZERO.toString();
+          const gseValid = gseFromRollup !== EthAddress.ZERO.toString();
+          const gseGovernanceValid = gseGovernanceAddress !== EthAddress.ZERO.toString();
 
-          if (stakingAssetValid && gseValid) {
-            logger.info(`✅ Rollup initialization verified after ${retries + 1} attempts`);
+          if (stakingAssetValid && gseValid && gseGovernanceValid) {
+            logger.info(`✅ Rollup and GSE initialization verified after ${retries + 1} attempts`);
             break;
           }
 
@@ -899,7 +910,12 @@ export const addMultipleValidators = async (
                 `❌ Rollup getGSE() returned zero address after ${maxRetries} attempts - rollup not properly initialized`,
               );
             }
-            throw new Error('Rollup not properly initialized - cannot deploy MultiAdder');
+            if (!gseGovernanceValid) {
+              logger.error(
+                `❌ GSE getGovernance() returned zero address after ${maxRetries} attempts - governance not properly set`,
+              );
+            }
+            throw new Error('Rollup and GSE not properly initialized - cannot deploy MultiAdder');
           }
 
           const issues: string[] = [];
@@ -909,9 +925,12 @@ export const addMultipleValidators = async (
           if (!gseValid) {
             issues.push('GSE address');
           }
+          if (!gseGovernanceValid) {
+            issues.push('GSE governance');
+          }
 
           logger.warn(
-            `⚠️ Rollup ${issues.join(' and ')} returned zero address on attempt ${retries + 1}, retrying in ${retryDelayMs}ms...`,
+            `⚠️ Rollup/GSE ${issues.join(' and ')} returned zero address on attempt ${retries + 1}, retrying in ${retryDelayMs}ms...`,
           );
           await new Promise(resolve => setTimeout(resolve, retryDelayMs));
           retries++;
@@ -943,7 +962,7 @@ export const addMultipleValidators = async (
       }
 
       logger.info(
-        `✅ Rollup initialization verified with staking asset: ${stakingAssetFromRollup} and GSE: ${gseFromRollup}`,
+        `✅ Rollup and GSE initialization verified with staking asset: ${stakingAssetFromRollup}, GSE: ${gseFromRollup}, and governance: ${gseGovernanceAddress}`,
       );
 
       logger.info(`Deploying MultiAdder contract...`);
