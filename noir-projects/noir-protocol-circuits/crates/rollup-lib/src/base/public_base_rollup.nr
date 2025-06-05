@@ -15,7 +15,6 @@ use dep::types::{
     constants::{ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX},
     hash::silo_l2_to_l1_message,
     merkle_tree::MembershipWitness,
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
     proof::traits::Verifiable,
     traits::{Empty, Hash},
     utils::arrays::array_merge,
@@ -40,12 +39,9 @@ impl PublicBaseRollupInputs {
         let revert_code = if reverted { 1 } else { 0 };
         let global_variables = self.avm_proof_data.public_inputs.global_variables;
 
-        let siloed_l2_to_l1_msgs = from_public
-            .accumulated_data
-            .l2_to_l1_msgs
-            .map(|message: ScopedL2ToL1Message| {
-                silo_l2_to_l1_message(message, global_variables.version, global_variables.chain_id)
-            });
+        let siloed_l2_to_l1_msgs = from_public.accumulated_data.l2_to_l1_msgs.map(|message| {
+            silo_l2_to_l1_message(message, global_variables.version, global_variables.chain_id)
+        });
 
         let private_logs = if reverted {
             from_private.non_revertible_accumulated_data.private_logs
@@ -171,7 +167,6 @@ mod tests {
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
-        messaging::l2_to_l1_message::ScopedL2ToL1Message,
         tests::{fixture_builder::FixtureBuilder, fixtures::merkle_tree::generate_full_sha_tree},
         traits::{Empty, Hash, ToField},
         utils::{arrays::array_concat, field::field_from_bytes},
@@ -452,7 +447,7 @@ mod tests {
         offset += 1;
         for i in 0..NUM_MSGS {
             reconstructed_tx_effects[offset + i] = silo_l2_to_l1_message(
-                builder.avm_data.l2_to_l1_msgs.storage()[i],
+                builder.avm_data.l2_to_l1_msgs.get(i).expose_to_public(),
                 builder.avm_data.tx_context.version,
                 builder.avm_data.tx_context.chain_id,
             );
@@ -580,14 +575,11 @@ mod tests {
 
         let out_hash = builder.execute().out_hash;
 
-        let siloed_l2_to_l1_msgs = builder
-            .avm_data
-            .l2_to_l1_msgs
-            .map(|l2_to_l1_message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                l2_to_l1_message,
-                builder.avm_data.global_variables.version,
-                builder.avm_data.global_variables.chain_id,
-            ));
+        let siloed_l2_to_l1_msgs = builder.avm_data.l2_to_l1_msgs.map(|l2_to_l1_message| silo_l2_to_l1_message(
+            l2_to_l1_message.expose_to_public(),
+            builder.avm_data.global_variables.version,
+            builder.avm_data.global_variables.chain_id,
+        ));
 
         // Since we fill the tree completely, we know to expect a full tree as below
         let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());
