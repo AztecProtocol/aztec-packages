@@ -316,21 +316,34 @@ export const deploySharedContracts = async (
     const receipt = await l1Client.waitForTransactionReceipt({ hash: txHash });
     if (receipt.status !== 'success') {
       logger.error(`❌ setGovernance transaction failed with status: ${receipt.status}`);
-      throw new Error(`setGovernance transaction failed: ${txHash}`);
+      logger.error(`Transaction hash: ${txHash}`);
+      logger.error(`Block number: ${receipt.blockNumber}`);
+      logger.error(`Gas used: ${receipt.gasUsed}`);
+
+      // Try to get the revert reason
+      try {
+        // Re-simulate the transaction to get the revert reason
+        await l1Client.call({
+          to: gseAddress.toString(),
+          data: encodeFunctionData({
+            abi: l1Artifacts.gse.contractAbi,
+            functionName: 'setGovernance',
+            args: [governanceAddress.toString()],
+          }),
+          blockNumber: receipt.blockNumber - 1n, // Call at the block before the failed transaction
+        });
+      } catch (simulationError) {
+        logger.error(
+          `Revert reason: ${simulationError instanceof Error ? simulationError.message : String(simulationError)}`,
+        );
+        if (typeof simulationError === 'object' && simulationError !== null && 'data' in simulationError) {
+          logger.error(`Revert data: ${(simulationError as any).data}`);
+        }
+      }
+
+      throw new Error(`setGovernance transaction failed: ${txHash} - Status: ${receipt.status}`);
     }
     logger.info(`✅ setGovernance transaction confirmed successful: ${txHash}`);
-    const gseContract = getContract({
-      address: getAddress(gseAddress.toString()),
-      abi: l1Artifacts.gse.contractAbi,
-      client: l1Client,
-    });
-    const governanceAfterWaiting = await gseContract.read.getGovernance();
-    if (governanceAfterWaiting !== governanceAddress.toString()) {
-      logger.error(`❌ Governance on GSE is not set to ${governanceAddress.toString()}`);
-      logger.error(`GSE governance: ${governanceAfterWaiting}`);
-    } else {
-      logger.info(`✅ Governance on GSE is set to ${governanceAddress.toString()}`);
-    }
   }
 
   const coinIssuerAddress = await deployer.deploy(l1Artifacts.coinIssuer, [
