@@ -68,7 +68,7 @@ describe('Discv5Service', () => {
 
   const startNodes = (...nodes: { start: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.start()));
   const stopNodes = (...nodes: { stop: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.stop()));
-  const getPeers = (node: DiscV5Service) => Promise.all(node.getKadValues().map(async peer => peer.peerId.toString()));
+  const getPeers = (node: DiscV5Service) => node.getKadValues().map(peer => peer.peerId.toString());
 
   it('should initialize with default values', async () => {
     const node = await createNode();
@@ -111,8 +111,8 @@ describe('Discv5Service', () => {
       })(),
     ]);
 
-    const node1Peers = await getPeers(node1);
-    const node2Peers = await getPeers(node2);
+    const node1Peers = getPeers(node1);
+    const node2Peers = getPeers(node2);
 
     expect(node1Peers).toHaveLength(2);
     expect(node2Peers).toHaveLength(2);
@@ -194,9 +194,9 @@ describe('Discv5Service', () => {
       })(),
     ]);
 
-    const node1Peers = await getPeers(node1);
-    const node2Peers = await getPeers(node2);
-    const node3Peers = await getPeers(node3);
+    const node1Peers = getPeers(node1);
+    const node2Peers = getPeers(node2);
+    const node3Peers = getPeers(node3);
 
     expect(node1Peers).toHaveLength(2);
     expect(node2Peers).toHaveLength(2);
@@ -226,7 +226,7 @@ describe('Discv5Service', () => {
     await node2.start();
     await waitForPeers(node2, 1);
 
-    const node2Peers = node2.getKadValues().map(async peer => peer.peerId.toString());
+    const node2Peers = node2.getKadValues().map(peer => peer.peerId.toString());
     // NOTE: bootnode seems to still be present in list of peers sometimes, will investigate
     // expect(node2Peers).toHaveLength(1);
     expect(node2Peers).toContain(node1.getPeerId().toString());
@@ -263,8 +263,8 @@ describe('Discv5Service', () => {
     // Verify node2 and node3 are connected to the trusted peer
     expect(node2.getKadValues().length).toBe(1);
     expect(node3.getKadValues().length).toBe(1);
-    expect(await getPeers(node2)).toContain(trustedNode.getPeerId().toString());
-    expect(await getPeers(node3)).toContain(trustedNode.getPeerId().toString());
+    expect(getPeers(node2)).toContain(trustedNode.getPeerId().toString());
+    expect(getPeers(node3)).toContain(trustedNode.getPeerId().toString());
 
     await Promise.all([
       waitForPeers(node2, 2),
@@ -284,13 +284,13 @@ describe('Discv5Service', () => {
     expect(node1.getKadValues()).toHaveLength(0);
 
     // Verify node2 and node3 discovered each other through the trusted peer
-    const node2Peers = await getPeers(node2);
+    const node2Peers = getPeers(node2);
     expect(node2Peers).toHaveLength(2);
     expect(node2Peers).toContain(node3.getPeerId().toString());
-    const node3Peers = await getPeers(node3);
+    const node3Peers = getPeers(node3);
     expect(node3Peers).toHaveLength(2);
     expect(node3Peers).toContain(node2.getPeerId().toString());
-    const trustedNodePeers = await getPeers(trustedNode);
+    const trustedNodePeers = getPeers(trustedNode);
     expect(trustedNodePeers).toHaveLength(2);
     expect(trustedNodePeers).toContain(node2.getPeerId().toString());
     expect(trustedNodePeers).toContain(node3.getPeerId().toString());
