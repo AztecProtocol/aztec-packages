@@ -200,9 +200,9 @@ TEST(AvmInputsTest, ValuesInColumns)
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_FEE_RECIPIENT_ROW_IDX],
               pi.globalVariables.feeRecipient);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX],
-              pi.globalVariables.gasFees.feePerDaGas);
+              FF(uint256_t::from_uint128(pi.globalVariables.gasFees.feePerDaGas)));
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX],
-              pi.globalVariables.gasFees.feePerL2Gas);
+              FF(uint256_t::from_uint128(pi.globalVariables.gasFees.feePerL2Gas)));
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_COINBASE_ROW_IDX], pi.globalVariables.coinbase);
 
     // Start tree snapshots
@@ -235,13 +235,13 @@ TEST(AvmInputsTest, ValuesInColumns)
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX],
               pi.gasSettings.teardownGasLimits.l2Gas);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX],
-              pi.gasSettings.maxFeesPerGas.feePerDaGas);
+              FF(uint256_t::from_uint128(pi.gasSettings.maxFeesPerGas.feePerDaGas)));
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX],
-              pi.gasSettings.maxFeesPerGas.feePerL2Gas);
+              FF(uint256_t::from_uint128(pi.gasSettings.maxFeesPerGas.feePerL2Gas)));
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX],
-              pi.gasSettings.maxPriorityFeesPerGas.feePerDaGas);
+              FF(uint256_t::from_uint128(pi.gasSettings.maxPriorityFeesPerGas.feePerDaGas)));
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX],
-              pi.gasSettings.maxPriorityFeesPerGas.feePerL2Gas);
+              FF(uint256_t::from_uint128(pi.gasSettings.maxPriorityFeesPerGas.feePerL2Gas)));
 
     // Fee payer
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX], pi.feePayer);
