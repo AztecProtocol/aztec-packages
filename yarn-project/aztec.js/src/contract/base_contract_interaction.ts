@@ -61,7 +61,8 @@ export abstract class BaseContractInteraction {
   public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
     // docs:end:prove
     const txProvingResult = await this.proveInternal(options);
-    return new ProvenTx(this.wallet, txProvingResult.toTx(), txProvingResult.stats);
+    const offchainMessages = txProvingResult.getOffchainMessages();
+    return new ProvenTx(this.wallet, txProvingResult.toTx(), offchainMessages, txProvingResult.stats);
   }
 
   // docs:start:send

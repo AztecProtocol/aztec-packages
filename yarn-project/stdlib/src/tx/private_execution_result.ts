@@ -14,6 +14,7 @@ import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class
 import { Note } from '../note/note.js';
 import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
 import { HashedValues } from './hashed_values.js';
+import type { OffchainMessage } from './offchain_message.js';
 
 /**
  * The contents of a new note.
@@ -242,6 +243,24 @@ export function collectSortedContractClassLogs(execResult: PrivateExecutionResul
   const allLogs = collectContractClassLogs(execResult.entrypoint);
   const sortedLogs = sortByCounter(allLogs);
   return sortedLogs.map(l => l.log.fields);
+}
+
+/**
+ * Collect all offchain messages emitted across all nested executions.
+ * @param execResult - The execution result to collect messages from.
+ * @returns Array of offchain messages.
+ */
+export function collectOffchainMessages(execResult: PrivateExecutionResult): OffchainMessage[] {
+  const collectMessagesRecursive = (callResult: PrivateCallExecutionResult): OffchainMessage[] => {
+    return [
+      ...callResult.offchainMessages.map(msg => ({
+        ...msg,
+        contractAddress: callResult.publicInputs.callContext.contractAddress, // contract that emitted the message
+      })),
+      ...callResult.nestedExecutions.flatMap(nested => collectMessagesRecursive(nested)),
+    ];
+  };
+  return collectMessagesRecursive(execResult.entrypoint);
 }
 
 export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecutionResult): number {

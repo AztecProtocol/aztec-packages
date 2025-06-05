@@ -1,6 +1,6 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { ProvingStats, Tx } from '@aztec/stdlib/tx';
+import type { ProvingStats, TxProvingResult } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import type { Contract } from './contract.js';
@@ -13,12 +13,12 @@ import { ProvenTx } from './proven_tx.js';
 export class DeployProvenTx<TContract extends Contract = Contract> extends ProvenTx {
   constructor(
     wallet: Wallet,
-    tx: Tx,
+    txProvingResult: TxProvingResult,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private instanceGetter: () => Promise<ContractInstanceWithAddress>,
     stats?: ProvingStats,
   ) {
-    super(wallet, tx, stats);
+    super(wallet, txProvingResult.toTx(), txProvingResult.getOffchainMessages(), stats);
   }
 
   /**

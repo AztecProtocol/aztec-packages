@@ -1,4 +1,4 @@
-import { type ProvingStats, Tx } from '@aztec/stdlib/tx';
+import { type OffchainMessage, type ProvingStats, Tx } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { SentTx } from './sent_tx.js';
@@ -10,6 +10,8 @@ export class ProvenTx extends Tx {
   constructor(
     protected wallet: Wallet,
     tx: Tx,
+    /** The offchain messages emitted during the execution of the transaction. */
+    public offchainMessages: OffchainMessage[],
     // eslint-disable-next-line jsdoc/require-jsdoc
     public stats?: ProvingStats,
   ) {
