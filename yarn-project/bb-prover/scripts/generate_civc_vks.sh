@@ -9,7 +9,7 @@ cd ..
 # This prevents us from having a chicken and egg problem as IVC input generation occurs as a last phase
 # and for purposes of VK generation, stale inputs work just fine.
 # IF NEW INPUTS SUDDENLY DO NOT VERIFY IN THE IVC BENCH - we need to redo this:
-# - Generate inputs: $root/yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
+# - Generate inputs: $root/yarn-project/end-to-end/bootstrap.sh build_bench
 # - Compress the results: tar -czf bb-civc-inputs.tar.gz -C example-app-ivc-inputs-out .
 # - Generate a hash for versioning: sha256sum bb-civc-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-civc-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[hash(0:8)].tar.gz

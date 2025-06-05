@@ -14,6 +14,7 @@ use crate::{
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
         public_log::PublicLog,
+        side_effect::scoped::Scoped,
         tree_snapshots::TreeSnapshots,
     },
     address::{AztecAddress, EthAddress},
@@ -74,7 +75,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
         MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM, PUBLIC_LOG_SIZE_IN_FIELDS,
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
     utils::reader::Reader,
@@ -321,16 +322,15 @@ fn set_field_array_in_cols<let SIZE: u32>(
 }
 
 fn set_l2_to_l1_msg_array_in_cols<let SIZE: u32>(
-    arr: [ScopedL2ToL1Message; SIZE],
+    arr: [Scoped<L2ToL1Message>; SIZE],
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
     array_start_row_idx: u32,
 ) {
     for i in 0..arr.len() {
         let row = array_start_row_idx + i;
-        cols[0][row] = arr[i].message.recipient.to_field();
-        cols[1][row] = arr[i].message.content;
-        cols[2][row] = arr[i].message.counter as Field;
-        cols[3][row] = arr[i].contract_address.to_field();
+        cols[0][row] = arr[i].inner.recipient.to_field();
+        cols[1][row] = arr[i].inner.content;
+        cols[2][row] = arr[i].contract_address.to_field();
     }
 }
 
@@ -670,10 +670,9 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     item.fee_payer = AztecAddress::from_field(12345);
 
     // revertible l2_to_l1_msgs from private
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.recipient =
+    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].inner.recipient =
         EthAddress::from_field(1234);
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content = 5678;
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.counter = 9012;
+    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].inner.content = 5678;
     item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].contract_address =
         AztecAddress::from_field(3456);
 
@@ -709,7 +708,6 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     let col0_offset = 0;
     let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
     let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
-    let col3_offset = col2_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
 
     // Verify serialized values are at the expected positions
 
@@ -726,8 +724,7 @@ fn flat_columns_of_avm_circuit_public_inputs() {
         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
     assert_eq(flat[col0_offset + l2_to_l1_msg_row], 1234);
     assert_eq(flat[col1_offset + l2_to_l1_msg_row], 5678);
-    assert_eq(flat[col2_offset + l2_to_l1_msg_row], 9012);
-    assert_eq(flat[col3_offset + l2_to_l1_msg_row], 3456);
+    assert_eq(flat[col2_offset + l2_to_l1_msg_row], 3456);
 
     // Array elements
     // Note hash array
