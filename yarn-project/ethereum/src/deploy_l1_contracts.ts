@@ -556,13 +556,57 @@ export const deployRollup = async (
     rollupConfigArgs,
   ];
 
+  // Add extensive debugging for rollup arguments
+  logger.info(`=== ROLLUP DEPLOYMENT ARGS DEBUG ===`);
+  logger.info(`Fee juice address: ${addresses.feeJuiceAddress.toString()}`);
+  logger.info(`Reward distributor address: ${addresses.rewardDistributorAddress.toString()}`);
+  logger.info(`Staking asset address: ${addresses.stakingAssetAddress.toString()}`);
+  logger.info(`GSE address: ${addresses.gseAddress.toString()}`);
+  logger.info(`Owner address: ${extendedClient.account.address.toString()}`);
+  logger.info(`Genesis state args:`, genesisStateArgs);
+  logger.info(`Rollup config args:`, rollupConfigArgs);
+  logger.info(`Full rollup args array:`, rollupArgs);
+  logger.info(`=== END ROLLUP DEPLOYMENT ARGS DEBUG ===`);
+
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
   const rollupContract = new RollupContract(extendedClient, rollupAddress);
 
+  // Debug the rollup state immediately after deployment
+  logger.info(`=== ROLLUP STATE DEBUG AFTER DEPLOYMENT ===`);
+  try {
+    const stakingAssetFromRollup = await rollupContract.getStakingAsset();
+    logger.info(`Staking asset from rollup (immediate): ${stakingAssetFromRollup}`);
+
+    const minimumStake = await rollupContract.getMinimumStake();
+    logger.info(`Minimum stake from rollup (immediate): ${minimumStake.toString()}`);
+
+    const version = await rollupContract.getVersion();
+    logger.info(`Rollup version (immediate): ${version}`);
+  } catch (error) {
+    logger.error(`Error reading rollup state immediately after deployment: ${error}`);
+  }
+  logger.info(`=== END ROLLUP STATE DEBUG AFTER DEPLOYMENT ===`);
+
   await deployer.waitForDeployments();
   logger.verbose(`All core contracts have been deployed`);
+
+  // Debug the rollup state after waiting for deployments
+  logger.info(`=== ROLLUP STATE DEBUG AFTER WAIT ===`);
+  try {
+    const stakingAssetFromRollup = await rollupContract.getStakingAsset();
+    logger.info(`Staking asset from rollup (after wait): ${stakingAssetFromRollup}`);
+
+    const minimumStake = await rollupContract.getMinimumStake();
+    logger.info(`Minimum stake from rollup (after wait): ${minimumStake.toString()}`);
+
+    const version = await rollupContract.getVersion();
+    logger.info(`Rollup version (after wait): ${version}`);
+  } catch (error) {
+    logger.error(`Error reading rollup state after waiting: ${error}`);
+  }
+  logger.info(`=== END ROLLUP STATE DEBUG AFTER WAIT ===`);
 
   if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
     const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
@@ -818,15 +862,49 @@ export const addMultipleValidators = async (
     if (validators.length > 0) {
       // Verify that the rollup is properly initialized before deploying MultiAdder
       logger.info(`Verifying rollup initialization...`);
-      const stakingAssetFromRollup = await rollup.getStakingAsset();
-      logger.info(`Staking asset from rollup: ${stakingAssetFromRollup}`);
 
-      if (stakingAssetFromRollup === '0x0000000000000000000000000000000000000000') {
-        logger.error(`❌ Rollup getStakingAsset() returned zero address - rollup not properly initialized`);
-        throw new Error('Rollup staking asset not initialized - cannot deploy MultiAdder');
+      // Retry mechanism to handle timing issues where rollup deployment is mined but storage isn't immediately readable
+      let stakingAssetFromRollup: string = '';
+      let retries = 0;
+      const maxRetries = 10;
+      const retryDelayMs = 1000;
+
+      while (retries < maxRetries) {
+        try {
+          stakingAssetFromRollup = await rollup.getStakingAsset();
+          logger.info(`Staking asset from rollup (attempt ${retries + 1}): ${stakingAssetFromRollup}`);
+
+          if (stakingAssetFromRollup !== '0x0000000000000000000000000000000000000000') {
+            logger.info(`✅ Rollup initialization verified after ${retries + 1} attempts`);
+            break;
+          }
+
+          if (retries === maxRetries - 1) {
+            logger.error(
+              `❌ Rollup getStakingAsset() returned zero address after ${maxRetries} attempts - rollup not properly initialized`,
+            );
+            throw new Error('Rollup staking asset not initialized - cannot deploy MultiAdder');
+          }
+
+          logger.warn(
+            `⚠️ Rollup getStakingAsset() returned zero address on attempt ${retries + 1}, retrying in ${retryDelayMs}ms...`,
+          );
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+          retries++;
+        } catch (error) {
+          if (retries === maxRetries - 1) {
+            logger.error(`❌ Error reading rollup state after ${maxRetries} attempts: ${error}`);
+            throw error;
+          }
+          logger.warn(
+            `⚠️ Error reading rollup state on attempt ${retries + 1}: ${error}, retrying in ${retryDelayMs}ms...`,
+          );
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+          retries++;
+        }
       }
 
-      if (stakingAssetFromRollup.toLowerCase() !== stakingAssetAddress.toLowerCase()) {
+      if (stakingAssetFromRollup!.toLowerCase() !== stakingAssetAddress.toLowerCase()) {
         logger.error(
           `❌ Rollup staking asset mismatch: expected ${stakingAssetAddress}, got ${stakingAssetFromRollup}`,
         );
