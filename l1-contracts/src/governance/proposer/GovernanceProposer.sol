@@ -24,8 +24,6 @@ contract GovernanceProposer is IGovernanceProposer, EmpireBase {
 
   mapping(uint256 proposalId => address proposer) internal proposalProposer;
 
-  event Lasser(uint256 proposalId, address proposer);
-
   constructor(IRegistry _registry, IGSE _gse, uint256 _n, uint256 _m) EmpireBase(_n, _m) {
     REGISTRY = _registry;
     GSE = _gse;
