@@ -298,6 +298,7 @@ export const deploySharedContracts = async (
   }
 
   if (needToSetGovernance) {
+    logger.info(`Setting governance on GSE to ${governanceAddress.toString()}`);
     const { txHash } = await deployer.sendTransaction({
       to: gseAddress.toString(),
       data: encodeFunctionData({
@@ -310,6 +311,25 @@ export const deploySharedContracts = async (
 
     logger.verbose(`Set governance on GSE in ${txHash}`);
     txHashes.push(txHash);
+
+    // Verify the setGovernance transaction was successful
+    const receipt = await l1Client.waitForTransactionReceipt({ hash: txHash });
+    if (receipt.status !== 'success') {
+      logger.error(`❌ setGovernance transaction failed with status: ${receipt.status}`);
+      throw new Error(`setGovernance transaction failed: ${txHash}`);
+    }
+    logger.info(`✅ setGovernance transaction confirmed successful: ${txHash}`);
+    const gseContract = getContract({
+      address: getAddress(gseAddress.toString()),
+      abi: l1Artifacts.gse.contractAbi,
+      client: l1Client,
+    });
+    const governanceAfterWaiting = await gseContract.read.getGovernance();
+    if (governanceAfterWaiting !== governanceAddress.toString()) {
+      logger.error(`❌ Governance on GSE is not set to ${governanceAddress.toString()}`);
+      throw new Error(`Governance on GSE is not set to ${governanceAddress.toString()}`);
+    }
+    logger.info(`✅ Governance on GSE is set to ${governanceAddress.toString()}`);
   }
 
   const coinIssuerAddress = await deployer.deploy(l1Artifacts.coinIssuer, [
@@ -418,66 +438,6 @@ export const deploySharedContracts = async (
   logger.verbose(`Waiting for deployments to complete`);
   await deployer.waitForDeployments();
   await Promise.all(txHashes.map(txHash => l1Client.waitForTransactionReceipt({ hash: txHash })));
-
-  // Debug potential caching issues with governance reads
-  if (needToSetGovernance) {
-    logger.info(`=== DEBUGGING GOVERNANCE CACHING ===`);
-
-    const gseContract = getContract({
-      address: getAddress(gseAddress.toString()),
-      abi: l1Artifacts.gse.contractAbi,
-      client: l1Client,
-    });
-
-    // Method 1: Using viem client (potentially cached)
-    logger.info(`Reading governance via viem client...`);
-    const governanceViaClient = await gseContract.read.getGovernance();
-    logger.info(`Governance via viem client: ${governanceViaClient}`);
-
-    // Method 2: Raw RPC call (bypasses client caching)
-    logger.info(`Reading governance via raw RPC call...`);
-    const getGovernanceFunctionSelector = encodeFunctionData({
-      abi: l1Artifacts.gse.contractAbi,
-      functionName: 'getGovernance',
-      args: [],
-    });
-
-    const rawGovernanceResult = (await l1Client.transport.request({
-      method: 'eth_call',
-      params: [
-        {
-          to: gseAddress.toString(),
-          data: getGovernanceFunctionSelector,
-        },
-        'latest',
-      ],
-    })) as string;
-
-    // Decode the raw result (should be an address)
-    const decodedRawGovernance =
-      rawGovernanceResult && rawGovernanceResult.length >= 66
-        ? `0x${rawGovernanceResult.slice(-40)}`
-        : rawGovernanceResult;
-
-    logger.info(`Governance via raw RPC: ${rawGovernanceResult} (decoded: ${decodedRawGovernance})`);
-
-    // Method 3: Wait and read again to check timing
-    logger.info(`Waiting 2 seconds and reading governance again...`);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    const governanceAfterDelay = await gseContract.read.getGovernance();
-    logger.info(`Governance after 2s delay: ${governanceAfterDelay}`);
-
-    // Compare results
-    logger.info(`Expected governance: ${governanceAddress.toString()}`);
-    logger.info(
-      `Results match between viem and raw: ${governanceViaClient.toLowerCase() === (decodedRawGovernance || '').toLowerCase()}`,
-    );
-    logger.info(
-      `Delayed result matches expected: ${governanceAfterDelay.toLowerCase() === governanceAddress.toString().toLowerCase()}`,
-    );
-
-    logger.info(`=== END DEBUGGING GOVERNANCE CACHING ===`);
-  }
 
   logger.verbose(`Deployed shared contracts`);
 
