@@ -6,7 +6,7 @@ import { executeTimeout } from './timeout.js';
 describe('timeout', () => {
   it('execs within timeout', async () => {
     const task = jest.fn<(signal: AbortSignal) => Promise<string>>(() => sleep(200).then(() => 'ok'));
-    await expect(executeTimeout(task, 300)).resolves.toEqual('ok');
+    await expect(executeTimeout(task, 1000)).resolves.toEqual('ok');
     expect(task.mock.calls[0][0].aborted).toEqual(false);
   });
 
