@@ -72,9 +72,6 @@ export class TxCollector {
     // Now store these transactions in our pool, provided these are the txs in proposal.payload.txHashes they will be pinned already
     await this.p2pClient.addTxsToPool(txsToValidate);
 
-    this.log.info(
-      `Received proposal with ${proposal.txs.length} transactions, ${txsToValidate.length} of which were new`,
-    );
     return txsToValidate.length;
   }
 
@@ -112,6 +109,16 @@ export class TxCollector {
 
     // if we found all txs, this is a noop. If we didn't find all txs then tell the validator to skip attestations because missingTxs.length > 0
     const retrievedTxs = compactArray(maybeRetrievedTxs);
+
+    this.log.info(`Retrieved ${retrievedTxs.length}/${txHashes.length} txs for block proposal`, {
+      blockNumber: proposal.blockNumber.toNumber(),
+      slotNumber: proposal.slotNumber.toNumber(),
+      totalTxsInProposal: txHashes.length,
+      txsFromProposal: txTakenFromProposal,
+      txsFromMempool: txsInMempool,
+      txsFromP2P,
+      missingTxs: missingTxs.length,
+    });
     return { txs: retrievedTxs, missing: missingTxs };
   }
 }
