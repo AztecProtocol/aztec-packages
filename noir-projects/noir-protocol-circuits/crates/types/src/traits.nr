@@ -278,19 +278,16 @@ where
     #[inline_always]
     fn serialize(self) -> [Field; O * M + 1] {
         let mut fields = [0; O * M + 1];
+        fields[0] = self.len() as Field;
 
-        let len = self.len();
-        fields[0] = len as Field;
+        let storage = self.storage();
 
-        let mut index: u32 = 1;
-
-        for i in 0..len {
-            let item = self.get_unchecked(i);
-            let serialized_item = item.serialize();
+        for i in 0..M {
+            // Calling here serialize on zeroed-out items doesn't seem right, but I don't know what to do :(.
+            let serialized_item = storage[i].serialize();
 
             for j in 0..O {
-                fields[index] = serialized_item[j];
-                index += 1;
+                fields[i * O + j + 1] = serialized_item[j];
             }
         }
 
