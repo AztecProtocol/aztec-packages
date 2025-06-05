@@ -61,7 +61,7 @@ export class LMDBMultiMap<K extends Key, V extends Value> implements AztecAsyncM
   }
 
   sizeAsync(): Promise<number> {
-    return execInReadTx(this.store, tx => tx.countEntries(minKey(this.prefix), maxKey(this.prefix), false));
+    return execInReadTx(this.store, tx => tx.countEntriesIndex(minKey(this.prefix), maxKey(this.prefix), false));
   }
 
   /**
