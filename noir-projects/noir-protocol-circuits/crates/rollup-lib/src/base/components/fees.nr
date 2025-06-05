@@ -39,7 +39,6 @@ pub fn compute_effective_gas_fees(gas_fees: GasFees, gas_settings: GasSettings) 
         gas_fees.fee_per_da_gas + priority_fees.fee_per_da_gas,
         gas_fees.fee_per_l2_gas + priority_fees.fee_per_l2_gas,
     );
-    // TODO(14711): Range check effective_gas_fees and priority_fees or change GasFees to u128
 
     effective_gas_fees
 }
