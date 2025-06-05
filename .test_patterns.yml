@@ -118,7 +118,8 @@ tests:
     owners:
       - *sean
   # http://ci.aztec-labs.com/5a291189b35a1b38
-  - regex: "src/e2e_p2p/rediscovery.test.ts"
+  # http://ci.aztec-labs.com/b175321d1289021c
+  - regex: "src/e2e_p2p"
     error_regex: 'CodeError: writable end state is "writing" not "ready"'
     owners:
       - *palla
