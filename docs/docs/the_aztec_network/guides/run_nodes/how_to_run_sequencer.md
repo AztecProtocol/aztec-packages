@@ -52,7 +52,7 @@ import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
 <General.InstallationInstructions />
 
-Now install the latest testnet version of aztec: `aztec-up alpha-testnet`
+Now install the latest testnet version of aztec: `aztec-up latest`
 
 
 Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
@@ -245,13 +245,14 @@ name: aztec-node
 services:
   node:
     network_mode: host # Optional, run with host networking
-    image: aztecprotocol/aztec:alpha-testnet
+    image: aztecprotocol/aztec:latest
     environment:
       ETHEREUM_HOSTS: ""
       L1_CONSENSUS_HOST_URLS: ""
       DATA_DIRECTORY: /data
       VALIDATOR_PRIVATE_KEY: $VALIDATOR_PRIVATE_KEY
       P2P_IP: $P2P_IP
+      P2P_MAX_TX_POOL_SIZE: 100000000
       LOG_LEVEL: debug
     entrypoint: >
       sh -c 'node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --network alpha-testnet start --node --archiver --sequencer'
