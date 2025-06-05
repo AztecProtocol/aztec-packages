@@ -222,13 +222,6 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
-  # http://ci.aztec-labs.com/dbd1f6d89d783fe6
-  # http://ci.aztec-labs.com/2edd22a1ffa9edea
-  # http://ci.aztec-labs.com/ef728e7bedb2710b
-  # http://ci.aztec-labs.com/2edd22a1ffa9edea
-  - regex: "p2p/src/client/p2p_client.integration.test.ts"
-    owners:
-      - *palla
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
