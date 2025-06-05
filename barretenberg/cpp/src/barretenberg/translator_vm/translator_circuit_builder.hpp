@@ -403,9 +403,14 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         current_wire.push_back(add_variable(second));
     }
 
+    std::array<SlabVector<uint32_t>, 4> get_op_queue_wires() const
+    {
+        return { wires[OP], wires[X_LOW_Y_HI], wires[X_HIGH_Z_1], wires[Y_LOW_Z_2] };
+    }
+
     /**
-     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials representing
-     * commitments to ECCOpQueue
+     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials
+     * representing commitments to ECCOpQueue
      *
      * @param ecc_op_queue The queue
      */

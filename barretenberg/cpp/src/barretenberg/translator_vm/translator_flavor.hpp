@@ -103,10 +103,10 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 186;
+    static constexpr size_t NUM_ALL_ENTITIES = 187;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 9;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
@@ -180,7 +180,8 @@ class TranslatorFlavor {
                               lagrange_result_row,          // column 5
                               lagrange_last_in_minicircuit, // column 6
                               lagrange_masking,             // column 7
-                              lagrange_real_last);          // column 8
+                              lagrange_mini_masking,        // column 8
+                              lagrange_real_last);          // column 9
     };
 
     template <typename DataType> class InterleavedRangeConstraints {
@@ -193,6 +194,7 @@ class TranslatorFlavor {
     };
     template <typename DataType> class WireToBeShiftedEntities {
       public:
+        // For now let's put randomness in everything bout the op queue
         DEFINE_FLAVOR_MEMBERS(DataType,
                               x_lo_y_hi,                                    // column 0
                               x_hi_z_1,                                     // column 1
@@ -324,6 +326,8 @@ class TranslatorFlavor {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all());
         };
+
+        RefVector<DataType> get_op_queue() { return { this->op, this->x_lo_y_hi, this->x_hi_z_1, this->y_lo_z_2 }; };
 
         auto get_wires_to_be_shifted() { return WireToBeShiftedEntities<DataType>::get_all(); };
 
@@ -636,7 +640,6 @@ class TranslatorFlavor {
             z_perm = Polynomial{ /*size*/ circuit_size - 1,
                                  /*virtual_size*/ circuit_size,
                                  /*start_index*/ 1 };
-
             // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
             // circuit
             for (auto& poly : get_to_be_shifted()) {
@@ -754,6 +757,7 @@ class TranslatorFlavor {
                        lagrange_result_row,
                        lagrange_last_in_minicircuit,
                        lagrange_masking,
+                       lagrange_mini_masking,
                        lagrange_real_last);
     };
 
@@ -895,6 +899,7 @@ class TranslatorFlavor {
             this->lagrange_last_in_minicircuit = "__LAGRANGE_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
             this->lagrange_masking = "__LAGRANGE_MASKING";
+            this->lagrange_mini_masking = "__LAGRANGE_MINI_MASKING";
             this->lagrange_real_last = "__LAGRANGE_REAL_LAST";
         };
     };
@@ -913,6 +918,7 @@ class TranslatorFlavor {
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
             this->lagrange_masking = verification_key->lagrange_masking;
+            this->lagrange_mini_masking = verification_key->lagrange_mini_masking;
             this->lagrange_real_last = verification_key->lagrange_real_last;
         }
     }; // namespace bb

@@ -153,6 +153,9 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     const auto& relation_wide_limbs_shift = View(in.relation_wide_limbs_shift);
     const auto& lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
 
+    const auto lagrange_mini_masking = View(in.lagrange_mini_masking);
+    const FF minus_one = FF(-1);
+
     // Contribution (1) Computing the mod 2²⁷² relation over lower 136 bits
     // clang-format off
         // the index-0 limb
@@ -184,7 +187,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     // subtract large value; vanishing shows the desired relation holds on low 136-bit limb
     tmp -= relation_wide_limbs * shiftx2;
     tmp *= lagrange_even_in_minicircuit;
-    tmp *= scaling_factor;
+    tmp *= (lagrange_mini_masking + minus_one) * scaling_factor;
     std::get<0>(accumulators) += tmp;
 
     // Contribution (2) Computing the 2²⁷² relation over higher 136 bits
@@ -237,7 +240,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     // subtract large value; vanishing shows the desired relation holds on high 136-bit limb
     tmp -= relation_wide_limbs_shift * shiftx2;
     tmp *= lagrange_even_in_minicircuit;
-    tmp *= scaling_factor;
+    tmp *= (lagrange_mini_masking + minus_one) * scaling_factor;
     std::get<1>(accumulators) += tmp;
 
     const auto reconstruct_from_two = [](const auto& l0, const auto& l1) { return l0 + l1 * shift; };
@@ -279,7 +282,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                      - reconstructed_current_accumulator;
     // clang-format on
     tmp *= lagrange_even_in_minicircuit;
-    tmp *= scaling_factor;
+    tmp *= (lagrange_mini_masking + minus_one) * scaling_factor;
     std::get<2>(accumulators) += tmp;
 };
 } // namespace bb

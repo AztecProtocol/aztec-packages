@@ -16,9 +16,9 @@ template <typename FF_> class TranslatorNonNativeFieldRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{
-        3, // Lower wide limb subrelation (checks result is 0 mod 2¹³⁶)
-        3, // Higher wide limb subrelation (checks result is 0 in higher mod 2¹³⁶),
-        3  // Prime subrelation (checks result in native field)
+        4, // Lower wide limb subrelation (checks result is 0 mod 2¹³⁶)
+        4, // Higher wide limb subrelation (checks result is 0 in higher mod 2¹³⁶),
+        4  // Prime subrelation (checks result in native field)
     };
 
     /**

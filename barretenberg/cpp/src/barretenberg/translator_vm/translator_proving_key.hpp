@@ -26,6 +26,9 @@ class TranslatorProvingKey {
     // to bring the degree of relations down, while extending the length.
 
     static constexpr size_t dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
+    static constexpr size_t real_circuit_size =
+        dyadic_circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+
     std::shared_ptr<ProvingKey> proving_key;
 
     BF batching_challenge_v = { 0 };
@@ -45,11 +48,12 @@ class TranslatorProvingKey {
         }
 
         proving_key = std::make_shared<ProvingKey>(std::move(commitment_key));
-
-        // Populate the wire polynomials from the wire vectors in the circuit
-        for (auto [wire_poly_, wire_] : zip_view(proving_key->polynomials.get_wires(), circuit.wires)) {
+        auto wires = proving_key->polynomials.get_wires();
+        // this was of parallelising is silly
+        for (auto [wire_poly_, wire_] : zip_view(wires, circuit.wires)) {
             auto& wire_poly = wire_poly_;
             const auto& wire = wire_;
+            // this was of parallelising is silly
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1383)
             parallel_for_range(circuit.num_gates, [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
@@ -62,10 +66,20 @@ class TranslatorProvingKey {
             });
         }
 
+        for (size_t idx = 4; idx < wires.size(); idx++) {
+            auto& wire = wires[idx];
+            for (size_t i = wire.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < wire.end_index(); i++) {
+                wire.at(i) = FF::random_element();
+            }
+        }
+
         // First and last lagrange polynomials (in the full circuit size)
         proving_key->polynomials.lagrange_first.at(0) = 1;
-        proving_key->polynomials.lagrange_real_last.at(dyadic_circuit_size - 1) = 1;
+        proving_key->polynomials.lagrange_real_last.at(real_circuit_size - 1) = 1;
         proving_key->polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
+        for (size_t i = real_circuit_size; i < dyadic_circuit_size; i++) {
+            proving_key->polynomials.lagrange_masking.at(i) = 1;
+        }
 
         // Construct polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
         // polynomials at second and second to last indices in the minicircuit
@@ -81,7 +95,18 @@ class TranslatorProvingKey {
 
         // Construct the ordered polynomials, containing the values of the interleaved polynomials + enough values to
         // bridge the range from 0 to 3 (3 is the maximum allowed range defined by the range constraint).
-        compute_translator_range_constraint_ordered_polynomials();
+        compute_translator_range_constraint_ordered_polynomials(true);
+
+        // Populate the first 4 ordered polynomials with the random values from the interleaved polynomials
+        for (size_t i = 0; i < 4; i++) {
+            auto& ordered = proving_key->polynomials.get_ordered_range_constraints()[i];
+            auto& interleaved = proving_key->polynomials.get_interleaved()[i];
+            for (size_t j = real_circuit_size; j < dyadic_circuit_size; j++) {
+                ordered.at(j) = interleaved.at(j);
+            }
+        }
+
+        // TODO: mask the last ordered range constraint polynomial
     };
 
     void compute_lagrange_polynomials();
