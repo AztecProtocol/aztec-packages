@@ -4,12 +4,23 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
+if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
+	export DISABLE_AZTEC_VM=1
+fi
+
 function hash {
-  hash_str \
-    $(../noir/bootstrap.sh hash) \
-    $(cache_content_hash \
-      ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-      ../barretenberg/*/.rebuild_patterns)
+	local hash=$(hash_str \
+		$(../noir/bootstrap.sh hash) \
+		$(cache_content_hash \
+			../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+			../barretenberg/*/.rebuild_patterns))
+
+	local suffix=""
+	if [[ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]]; then
+		suffix="-no-avm"
+	fi
+
+	echo "${hash}${suffix}"
 }
 
 function compile_project {
