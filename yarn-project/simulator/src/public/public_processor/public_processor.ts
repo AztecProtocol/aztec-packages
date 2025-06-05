@@ -10,7 +10,11 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type {
+  MerkleTreeWriteOperations,
+  PublicProcessorLimits,
+  PublicProcessorValidator,
+} from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type FailedTx,
@@ -142,16 +146,8 @@ export class PublicProcessor implements Traceable {
    */
   public async process(
     txs: Iterable<Tx> | AsyncIterable<Tx>,
-    limits: {
-      maxTransactions?: number;
-      maxBlockSize?: number;
-      maxBlockGas?: Gas;
-      deadline?: Date;
-    } = {},
-    validator: {
-      preprocessValidator?: TxValidator<Tx>;
-      nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
-    } = {},
+    limits: PublicProcessorLimits = {},
+    validator: PublicProcessorValidator = {},
   ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> {
     const { maxTransactions, maxBlockSize, deadline, maxBlockGas } = limits;
     const { preprocessValidator, nullifierCache } = validator;

@@ -1,5 +1,11 @@
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
+export type TxPoolOptions = {
+  maxTxPoolSize?: number;
+  txPoolOverflowFactor?: number;
+  archivedTxLimit?: number;
+};
+
 /**
  * Interface of a transaction pool. The pool includes tx requests and is kept up-to-date by a P2P client.
  */
@@ -7,8 +13,9 @@ export interface TxPool {
   /**
    * Adds a list of transactions to the pool. Duplicates are ignored.
    * @param txs - An array of txs to be added to the pool.
+   * @returns The number of txs added to the pool. Note if the transaction already exists, it will not be added again.
    */
-  addTxs(txs: Tx[]): Promise<void>;
+  addTxs(txs: Tx[]): Promise<number>;
 
   /**
    * Checks if a transaction exists in the pool and returns it.
@@ -95,7 +102,7 @@ export interface TxPool {
    * Configure the maximum size of the tx pool
    * @param maxSizeBytes - The maximum size in bytes of the mempool. Set to undefined to disable it
    */
-  setMaxTxPoolSize(maxSizeBytes: number | undefined): Promise<void>;
+  updateConfig(config: TxPoolOptions): void;
 
   /** Returns whether the pool is empty. */
   isEmpty(): Promise<boolean>;

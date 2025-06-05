@@ -462,6 +462,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
     makeTreeSnapshots(seed + 0x10),
     makeGas(seed + 0x20),
     makeGasSettings(),
+    makeGasFees(seed + 0x30),
     makeAztecAddress(seed + 0x40),
     makePublicCallRequestArrayLengths(seed + 0x40),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
@@ -1490,13 +1491,16 @@ export function makeAvmTxHint(seed = 0): AvmTxHint {
     `txhash-${seed}`,
     makeGlobalVariables(seed),
     makeGasSettings(),
+    makeGasFees(seed + 0x1000),
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
+      l2ToL1Messages: makeArray((seed % 20) + 4, i => makeScopedL2ToL1Message(i), seed + 0x3000),
     },
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x3000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x4000),
+      l2ToL1Messages: makeArray((seed % 20) + 4, i => makeScopedL2ToL1Message(i), seed + 0x5000),
     },
     makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x5000), // setupEnqueuedCalls
     makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x6000), // appLogicEnqueuedCalls

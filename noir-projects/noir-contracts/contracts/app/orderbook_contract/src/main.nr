@@ -78,7 +78,7 @@ pub contract Orderbook {
         ask_token: AztecAddress,
         bid_amount: u128,
         ask_amount: u128,
-        nonce: Field,
+        authwit_nonce: Field,
     ) -> Field {
         let config = storage.config.read();
 
@@ -89,7 +89,7 @@ pub contract Orderbook {
 
         // Transfer tokens from maker to the public balance of this contract.
         Token::at(bid_token)
-            .transfer_to_public(maker, context.this_address(), bid_amount, nonce)
+            .transfer_to_public(maker, context.this_address(), bid_amount, authwit_nonce)
             .call(&mut context);
 
         // Prepare a partial note that will get completed once the order is fulfilled. Note that only the Orderbook
@@ -121,7 +121,7 @@ pub contract Orderbook {
     /// Privately fulfills an existing order in the orderbook
     /// The taker provides the order ID they want to fulfill
     #[private]
-    fn fulfill_order(order_id: Field, nonce: Field) {
+    fn fulfill_order(order_id: Field, authwit_nonce: Field) {
         let config = storage.config.read();
         let order = storage.orders.at(order_id).read();
         let taker = context.msg_sender();
@@ -129,11 +129,17 @@ pub contract Orderbook {
         // Determine which tokens are being exchanged based on bid_token_is_zero flag
         let (bid_token, ask_token) = config.get_tokens(order.bid_token_is_zero);
 
-        // TODO(#14362): Once we allow partial note completion in private we can skip the transfer to public here and
-        // just finalize the maker's partial note straight away here.
-        // Transfer the ask_amount from taker to the contract
+        // The `order_id` is a serialized form of the maker's partial note.
+        let maker_partial_note = PartialUintNote::from_field(order_id);
+
+        // Transfer the ask_amount from taker directly to the maker's partial note.
         Token::at(ask_token)
-            .transfer_to_public(taker, context.this_address(), order.ask_amount, nonce)
+            .finalize_transfer_to_private_from_private(
+                taker,
+                maker_partial_note,
+                order.ask_amount,
+                authwit_nonce,
+            )
             .call(&mut context);
 
         // Prepare partial note for taker to receive bid_token
@@ -149,14 +155,7 @@ pub contract Orderbook {
 
         // Enqueue the fulfillment to finalize both partial notes
         Orderbook::at(context.this_address())
-            ._fulfill_order(
-                order_id,
-                taker_partial_note,
-                bid_token,
-                ask_token,
-                order.bid_amount,
-                order.ask_amount,
-            )
+            ._fulfill_order(order_id, taker_partial_note, bid_token, order.bid_amount)
             .enqueue(&mut context);
     }
 
@@ -166,18 +165,8 @@ pub contract Orderbook {
         order_id: Field,
         taker_partial_note: PartialUintNote,
         bid_token: AztecAddress,
-        ask_token: AztecAddress,
         bid_amount: u128,
-        ask_amount: u128,
     ) {
-        // The `order_id` is a serialized form of the maker's partial note.
-        let maker_partial_note = PartialUintNote::from_field(order_id);
-
-        // Finalize transfer of ask_amount of ask_token to maker
-        Token::at(ask_token).finalize_transfer_to_private(ask_amount, maker_partial_note).call(
-            &mut context,
-        );
-
         // Finalize transfer of bid_amount of bid_token to taker
         Token::at(bid_token).finalize_transfer_to_private(bid_amount, taker_partial_note).call(
             &mut context,

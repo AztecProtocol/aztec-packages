@@ -14,7 +14,7 @@ interface CoordinationPool {
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
-  addTxs(txs: Tx[]): Promise<void>;
+  addTxs(txs: Tx[]): Promise<number>;
 }
 
 export interface TxSource {
@@ -25,7 +25,7 @@ export interface TxSource {
 class P2PCoordinationPool implements CoordinationPool {
   constructor(private readonly p2p: P2P) {}
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return this.p2p.getTxsByHash(txHashes);
+    return this.p2p.getTxsByHash(txHashes, undefined);
   }
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
     return this.p2p.hasTxsInPool(txHashes);
@@ -33,8 +33,8 @@ class P2PCoordinationPool implements CoordinationPool {
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return this.p2p.getTxsByHashFromPool(txHashes);
   }
-  addTxs(txs: Tx[]): Promise<void> {
-    return this.p2p.addTxs(txs);
+  addTxs(txs: Tx[]): Promise<number> {
+    return this.p2p.addTxsToPool(txs);
   }
 }
 
@@ -50,9 +50,10 @@ class InMemoryCoordinationPool implements CoordinationPool {
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return this.getTxsByHash(txHashes);
   }
-  async addTxs(txs: Tx[]): Promise<void> {
+  async addTxs(txs: Tx[]): Promise<number> {
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     txs.forEach((tx, index) => this.txs.set(hashes[index].toString(), tx));
+    return txs.length;
   }
 }
 

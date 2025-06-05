@@ -71,8 +71,6 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     auto& engine = numeric::get_debug_randomness();
-    const auto sort_step = Flavor::SORT_STEP;
-    const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
     TranslatorProvingKey key;
     key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
@@ -83,16 +81,12 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     prover_polynomials.lagrange_real_last.at(key.dyadic_circuit_size - 1) = 1;
 
     // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
-    auto sorted_elements_count = (max_value / sort_step) + 1;
-    std::vector<uint64_t> vector_for_sorting(prover_polynomials.ordered_range_constraints_0.size());
-    for (size_t i = 0; i < sorted_elements_count - 1; i++) {
-        vector_for_sorting[i] = i * sort_step;
-    }
-    vector_for_sorting[sorted_elements_count - 1] = max_value;
+    auto sorted_steps = TranslatorProvingKey::get_sorted_steps();
+    std::vector<uint64_t> vector_for_sorting(sorted_steps.begin(), sorted_steps.end());
 
     // Add random values to fill the leftover space
-    for (size_t i = sorted_elements_count; i < vector_for_sorting.size(); i++) {
-        vector_for_sorting[i] = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+    for (size_t i = sorted_steps.size(); i < prover_polynomials.ordered_range_constraints_0.size(); i++) {
+        vector_for_sorting.emplace_back(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
     }
 
     // Get ordered polynomials
@@ -723,8 +717,6 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     auto& engine = numeric::get_debug_randomness();
-    const auto sort_step = Flavor::SORT_STEP;
-    const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
     TranslatorProvingKey key;
     key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
@@ -742,16 +734,13 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     }
 
     // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
-    auto sorted_elements_count = (max_value / sort_step) + 1;
-    std::vector<uint64_t> vector_for_sorting;
-    vector_for_sorting.reserve(prover_polynomials.ordered_range_constraints_0.size());
-    for (size_t i = 0; i < sorted_elements_count - 1; i++) {
-        vector_for_sorting.emplace_back(i * sort_step);
-    }
-    vector_for_sorting[sorted_elements_count - 1] = max_value;
+    auto sorted_steps = TranslatorProvingKey::get_sorted_steps();
+    std::vector<uint64_t> vector_for_sorting(sorted_steps.begin(), sorted_steps.end());
 
     // Add random values in the appropriate range to fill the leftover space
-    for (size_t i = sorted_elements_count; i < real_circuit_size; i++) {
+    for (size_t i = sorted_steps.size();
+         i < prover_polynomials.ordered_range_constraints_0.size() - full_masking_offset;
+         i++) {
         vector_for_sorting.emplace_back(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
     }
 

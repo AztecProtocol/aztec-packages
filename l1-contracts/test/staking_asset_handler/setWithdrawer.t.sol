@@ -35,6 +35,8 @@ contract SetWithdrawerTest is StakingAssetHandlerBase {
     external
   {
     // it uses the new withdrawer
+    vm.assume(_newWithdrawer != address(0));
+
     stakingAssetHandler.setWithdrawer(_newWithdrawer);
     assertEq(stakingAssetHandler.withdrawer(), _newWithdrawer);
 

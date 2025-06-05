@@ -202,11 +202,16 @@ pub contract Token {
 
     // docs:start:transfer_in_public
     #[public]
-    fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
+    fn transfer_in_public(
+        from: AztecAddress,
+        to: AztecAddress,
+        amount: u128,
+        authwit_nonce: Field,
+    ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
@@ -217,12 +222,12 @@ pub contract Token {
 
     // docs:start:burn_public
     #[public]
-    fn burn_public(from: AztecAddress, amount: u128, nonce: Field) {
+    fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         // docs:start:assert_current_call_valid_authwit_public
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
         // docs:end:assert_current_call_valid_authwit_public
         let from_balance = storage.public_balances.at(from).read().sub(amount);
@@ -234,11 +239,16 @@ pub contract Token {
 
     // docs:start:transfer_to_public
     #[private]
-    fn transfer_to_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
+    fn transfer_to_public(
+        from: AztecAddress,
+        to: AztecAddress,
+        amount: u128,
+        authwit_nonce: Field,
+    ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
@@ -269,12 +279,12 @@ pub contract Token {
         from: AztecAddress,
         to: AztecAddress,
         amount: u128,
-        nonce: Field,
+        authwit_nonce: Field,
     ) -> PartialUintNote {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
@@ -397,12 +407,17 @@ pub contract Token {
 
     // docs:start:transfer_in_private
     #[private]
-    fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
+    fn transfer_in_private(
+        from: AztecAddress,
+        to: AztecAddress,
+        amount: u128,
+        authwit_nonce: Field,
+    ) {
         // docs:start:assert_current_call_valid_authwit
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
         // docs:end:assert_current_call_valid_authwit
 
@@ -419,11 +434,11 @@ pub contract Token {
 
     // docs:start:burn_private
     #[private]
-    fn burn_private(from: AztecAddress, amount: u128, nonce: Field) {
+    fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
             &mut context,
@@ -511,6 +526,37 @@ pub contract Token {
         );
     }
     // docs:end:finalize_transfer_to_private
+
+    /// Finalizes a transfer of token `amount` from private balance of `from` to a private balance of `to`.
+    /// The transfer must be prepared by calling `prepare_private_balance_increase` from `from` account and
+    /// the resulting `partial_note` must be passed as an argument to this function.
+    ///
+    /// Note that this contract does not protect against a `partial_note` being used multiple times and it is up to
+    /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
+    /// times, the token `amount` would most likely get lost (the partial note log processing functionality would fail
+    /// to find the pending partial note when trying to complete it).
+    #[private]
+    fn finalize_transfer_to_private_from_private(
+        from: AztecAddress,
+        partial_note: PartialUintNote,
+        amount: u128,
+        authwit_nonce: Field,
+    ) {
+        if (!from.eq(context.msg_sender())) {
+            assert_current_call_valid_authwit(&mut context, from);
+        } else {
+            assert(authwit_nonce == 0, "invalid authwit nonce");
+        }
+
+        // First we subtract the `amount` from the private balance of `from`
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+            &mut context,
+            from,
+            from,
+        ));
+
+        partial_note.complete_from_private(&mut context, context.msg_sender(), amount);
+    }
 
     // docs:start:finalize_transfer_to_private_unsafe
     /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
