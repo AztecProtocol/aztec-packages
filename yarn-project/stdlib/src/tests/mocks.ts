@@ -181,6 +181,7 @@ const emptyPrivateCallExecutionResult = () =>
     [],
     [],
     [],
+    [],
   );
 
 const emptyPrivateExecutionResult = () => new PrivateExecutionResult(emptyPrivateCallExecutionResult(), Fr.zero(), []);

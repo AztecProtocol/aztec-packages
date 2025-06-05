@@ -6,6 +6,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { NoteSelector } from '../abi/note_selector.js';
+import { AztecAddress } from '../aztec-address/index.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import type { IsEmpty } from '../kernel/utils/interfaces.js';
 import { sortByCounter } from '../kernel/utils/order_and_comparison.js';
@@ -131,6 +132,8 @@ export class PrivateCallExecutionResult {
     public noteHashNullifierCounterMap: Map<number, number>,
     /** The raw return values of the executed function. */
     public returnValues: Fr[],
+    /** The offchain messages emitted during execution of this function call via the `emit_offchain_message` oracle. */
+    public offchainMessages: { message: Fr[]; recipient: AztecAddress }[],
     /** The nested executions. */
     public nestedExecutions: PrivateCallExecutionResult[],
     /**
@@ -153,6 +156,7 @@ export class PrivateCallExecutionResult {
         newNotes: z.array(NoteAndSlot.schema),
         noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
         returnValues: z.array(schemas.Fr),
+        offchainMessages: z.array(z.object({ message: z.array(schemas.Fr), recipient: AztecAddress.schema })),
         nestedExecutions: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
         contractClassLogs: z.array(CountedContractClassLog.schema),
       })
@@ -169,6 +173,7 @@ export class PrivateCallExecutionResult {
       fields.newNotes,
       fields.noteHashNullifierCounterMap,
       fields.returnValues,
+      fields.offchainMessages,
       fields.nestedExecutions,
       fields.contractClassLogs,
     );
@@ -184,6 +189,12 @@ export class PrivateCallExecutionResult {
       [NoteAndSlot.random()],
       new Map([[0, 0]]),
       [Fr.random()],
+      [
+        {
+          message: [Fr.random()],
+          recipient: await AztecAddress.random(),
+        },
+      ],
       await timesParallel(nested, () => PrivateCallExecutionResult.random(0)),
       [new CountedContractClassLog(await ContractClassLog.random(), randomInt(10))],
     );
