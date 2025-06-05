@@ -14,25 +14,26 @@ import { SlashFactoryAbi } from '@aztec/l1-artifacts';
 import {
   type GetContractEventsReturnType,
   type GetContractReturnType,
+  type Hex,
   encodeFunctionData,
   getAddress,
   getContract,
 } from 'viem';
 
 import {
-  Offence,
+  Offense,
   type SlasherConfig,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
-  bigIntToOffence,
+  bigIntToOffense,
 } from './config.js';
 
 type MonitoredSlashPayload = {
   payloadAddress: EthAddress;
   validators: readonly EthAddress[];
   amounts: readonly bigint[];
-  offenses: readonly Offence[];
+  offenses: readonly Offense[];
   observedAtSeconds: number;
   totalAmount: bigint;
 };
@@ -44,9 +45,9 @@ type MonitoredSlashPayload = {
  *
  * How it works:
  *
- * The constructor accepts instances of Watcher classes that correspond to specific offences. These "watchers" do two things:
- * - watch for their offence conditions and emit an event when they are detected
- * - confirm/deny whether they agree with a proposed offence
+ * The constructor accepts instances of Watcher classes that correspond to specific offenses. These "watchers" do two things:
+ * - watch for their offense conditions and emit an event when they are detected
+ * - confirm/deny whether they agree with a proposed offense
  *
  * The SlasherClient class is responsible for:
  * - listening for events from the watchers and creating a corresponding payload
@@ -141,6 +142,30 @@ export class SlasherClient {
     this.log.info('Slasher client stopped.');
   }
 
+  public clearMonitoredPayloads() {
+    this.log.warn('Clearing monitored payloads', this.monitoredPayloads);
+    this.monitoredPayloads = [];
+  }
+
+  /**
+   * Update the config of the slasher client
+   *
+   * @param config - the new config. Can only update the following fields:
+   * - slashOverridePayload
+   * - slashPayloadTtlSeconds
+   * - slashProposerRoundPollingIntervalSeconds
+   */
+  public updateConfig(config: Partial<SlasherConfig>) {
+    const newConfig: SlasherConfig = {
+      ...this.config,
+      slashOverridePayload: config.slashOverridePayload ?? this.config.slashOverridePayload,
+      slashPayloadTtlSeconds: config.slashPayloadTtlSeconds ?? this.config.slashPayloadTtlSeconds,
+      slashProposerRoundPollingIntervalSeconds:
+        config.slashProposerRoundPollingIntervalSeconds ?? this.config.slashProposerRoundPollingIntervalSeconds,
+    };
+    this.config = newConfig;
+  }
+
   /**
    * Get the payload to slash
    *
@@ -185,17 +210,57 @@ export class SlasherClient {
    *
    * @param args - the arguments from the watcher, including the validators, amounts, and offenses
    */
-  private wantToSlash(args: WantToSlashArgs) {
-    // TODO(#14489): need to sort the payloads by attester address
-    this.log.info('Wants to slash', args);
+  private wantToSlash(args: WantToSlashArgs[]) {
+    const sortedArgs = [...args].sort((a, b) => a.validator.toString().localeCompare(b.validator.toString()));
+    this.log.info('Wants to slash', sortedArgs);
     this.l1TxUtils
       .sendAndMonitorTransaction({
         to: this.slashFactoryContract.address,
         data: encodeFunctionData({
           abi: SlashFactoryAbi,
           functionName: 'createSlashPayload',
-          args: [args.validators, args.amounts, args.offenses.map(offense => BigInt(offense))],
+          args: [
+            sortedArgs.map(a => a.validator.toString()),
+            sortedArgs.map(a => a.amount),
+            sortedArgs.map(a => BigInt(a.offense)),
+          ],
         }),
+      })
+      .then(tx => {
+        if (tx.receipt.status !== 'success') {
+          this.log.error('Slash payload creation failed', tx);
+          // TODO
+          // this.l1TxUtils.tryGetErrorFromRevertedTx()
+          throw new Error('Slash payload creation failed');
+        }
+        return this.getAddressAndIsDeployed(
+          sortedArgs.map(a => a.validator),
+          sortedArgs.map(a => a.amount),
+        );
+      })
+      .then(({ address, salt, isDeployed }) => {
+        if (!isDeployed) {
+          this.log.info('Slash payload not deployed', { address, salt });
+          throw new Error('Slash payload not deployed');
+        }
+        const payload = this.slashPayloadToMonitoredPayload({
+          payloadAddress: address.toString(),
+          validators: sortedArgs.map(a => a.validator.toString()),
+          amounts: sortedArgs.map(a => a.amount),
+          offenses: sortedArgs.map(a => BigInt(a.offense)),
+        });
+        if (!payload) {
+          this.log.error('Invalid payload', { address, salt });
+          throw new Error('Invalid payload');
+        }
+        return this.addMonitoredPayload(payload);
+      })
+      .then(added => {
+        if (!added) {
+          this.log.warn('Failed to add monitored payload that we created');
+        } else {
+          this.log.info('Added monitored payload that we created');
+        }
       })
       // note, we don't need to monitor the logs here,
       // it is handled by watchSlashFactoryEvents
@@ -240,20 +305,28 @@ export class SlasherClient {
       if (!event.args) {
         continue;
       }
-      const args = event.args;
-      if (!args.payloadAddress || !args.validators || !args.amounts || !args.offences) {
+      const payload = this.slashPayloadToMonitoredPayload(event.args);
+      if (!payload) {
         continue;
       }
-
-      yield {
-        payloadAddress: EthAddress.fromString(args.payloadAddress),
-        validators: args.validators.map(EthAddress.fromString),
-        amounts: args.amounts,
-        offenses: args.offences.map(offense => bigIntToOffence(offense)),
-        observedAtSeconds: this.dateProvider.now() / 1000,
-        totalAmount: args.amounts.reduce((acc, amount) => acc + amount, BigInt(0)),
-      };
+      yield payload;
     }
+  }
+
+  private slashPayloadToMonitoredPayload(
+    payload: GetContractEventsReturnType<typeof SlashFactoryAbi, 'SlashPayloadCreated'>[number]['args'],
+  ): MonitoredSlashPayload | undefined {
+    if (!payload.payloadAddress || !payload.validators || !payload.amounts || !payload.offenses) {
+      return undefined;
+    }
+    return {
+      payloadAddress: EthAddress.fromString(payload.payloadAddress),
+      validators: payload.validators.map(EthAddress.fromString),
+      amounts: payload.amounts,
+      offenses: payload.offenses.map(offense => bigIntToOffense(offense)),
+      observedAtSeconds: this.dateProvider.now() / 1000,
+      totalAmount: payload.amounts.reduce((acc, amount) => acc + amount, BigInt(0)),
+    };
   }
 
   /**
@@ -261,12 +334,19 @@ export class SlasherClient {
    *
    * @param payload
    */
-  private async addMonitoredPayload(payload: MonitoredSlashPayload) {
+  private async addMonitoredPayload(payload: MonitoredSlashPayload): Promise<boolean> {
+    const duplicate = this.monitoredPayloads.find(p => p.payloadAddress.equals(payload.payloadAddress));
+    if (duplicate) {
+      this.log.verbose('Duplicate payload. Not adding to monitored payloads', payload);
+      return false;
+    }
     if (await this.doIAgreeWithPayload(payload)) {
       this.log.info('Adding monitored payload', payload);
       this.monitoredPayloads.push(payload);
+      return true;
     } else {
-      this.log.info('Disagreeing with payload', payload);
+      this.log.info('Disagree with payload. Not adding to monitored payloads', payload);
+      return false;
     }
   }
 
@@ -289,13 +369,7 @@ export class SlasherClient {
     // check each offense
     for (const offenseAndValidator of offensesAndValidators) {
       const watcherResponses = await Promise.all(
-        this.watchers.map(watcher =>
-          watcher.shouldSlash(
-            offenseAndValidator.validator.toString(),
-            offenseAndValidator.amount,
-            offenseAndValidator.offense,
-          ),
-        ),
+        this.watchers.map(watcher => watcher.shouldSlash(offenseAndValidator)),
       );
       // if no watcher agrees, return false
       if (watcherResponses.every(response => !response)) {
@@ -348,15 +422,17 @@ export class SlasherClient {
 
     await this.slashingProposer
       .executeRound(this.l1TxUtils, round)
-      .then(() => {
-        this.log.info('Round executed', { round });
+      .then(({ receipt }) => {
+        this.log.info('Round executed', { round, receipt });
       })
       .catch(err => {
         if (err instanceof ProposalAlreadyExecutedError) {
           this.log.debug('Round already executed', { round });
           return;
+        } else {
+          this.log.error('Error executing round', err);
+          throw err;
         }
-        throw err;
       });
   }
 
@@ -376,5 +452,16 @@ export class SlasherClient {
       return;
     }
     this.monitoredPayloads.splice(index, 1);
+  }
+
+  private async getAddressAndIsDeployed(
+    validators: EthAddress[],
+    amounts: bigint[],
+  ): Promise<{ address: EthAddress; salt: Hex; isDeployed: boolean }> {
+    const [address, salt, isDeployed] = await this.slashFactoryContract.read.getAddressAndIsDeployed([
+      validators.map(v => v.toString()),
+      amounts,
+    ]);
+    return { address: EthAddress.fromString(address), salt, isDeployed };
   }
 }

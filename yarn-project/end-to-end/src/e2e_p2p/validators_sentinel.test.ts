@@ -51,6 +51,7 @@ describe('e2e_p2p_validators_sentinel', () => {
         slashingQuorum: SLASHING_QUORUM,
         slashingRoundSize: SLASHING_ROUND_SIZE,
         slashInactivityCreatePenalty: SLASH_AMOUNT,
+        slashInactivityMaxPenalty: SLASH_AMOUNT,
         slashInactivityCreateTargetPercentage: 0.5,
         slashInactivitySignalTargetPercentage: 0.1,
         slashProposerRoundPollingIntervalSeconds: 1,

@@ -212,7 +212,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     }
 
     const recipientAddress = EthAddress.fromField(recipient);
-    this.l2ToL1Messages.push(new L2ToL1Message(recipientAddress, content, 0).scope(contractAddress));
+    this.l2ToL1Messages.push(new L2ToL1Message(recipientAddress, content).scope(contractAddress));
     this.log.trace(`Tracing new l2 to l1 message (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }

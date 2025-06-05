@@ -5,8 +5,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
-import type { SlasherConfig, Watcher, WatcherEmitter } from '@aztec/slasher/config';
-import { Offence, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
+import type { SlasherConfig, WantToSlashArgs, Watcher, WatcherEmitter } from '@aztec/slasher/config';
+import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   L2BlockStream,
@@ -48,6 +48,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       | 'slashInactivityCreateTargetPercentage'
       | 'slashInactivityCreatePenalty'
       | 'slashInactivitySignalTargetPercentage'
+      | 'slashInactivityMaxPenalty'
       | 'slashPayloadTtlSeconds'
     >,
     protected logger = createLogger('node:sentinel'),
@@ -165,28 +166,42 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       })
       .map(([address]) => address as `0x${string}`);
 
-    const amounts = Array(criminals.length).fill(this.config.slashInactivityCreatePenalty);
-    const offenses = Array(criminals.length).fill(Offence.INACTIVITY);
+    const args = criminals.map(address => ({
+      validator: EthAddress.fromString(address),
+      amount: this.config.slashInactivityCreatePenalty,
+      offense: Offense.INACTIVITY,
+    }));
 
-    this.logger.info(`Criminals: ${criminals.length}`, { criminals, amounts, offenses });
+    this.logger.info(`Criminals: ${criminals.length}`, { args });
 
     if (criminals.length > 0) {
-      this.emit(WANT_TO_SLASH_EVENT, { validators: criminals, amounts, offenses });
+      this.emit(WANT_TO_SLASH_EVENT, args);
     }
   }
 
-  public async shouldSlash(validator: `0x${string}`, _amount: bigint, _offense: Offence): Promise<boolean> {
+  public async shouldSlash({ validator, amount }: WantToSlashArgs): Promise<boolean> {
     const l1Constants = this.epochCache.getL1Constants();
     const ttlL2Slots = this.config.slashPayloadTtlSeconds / l1Constants.slotDuration;
     const ttlEpochs = BigInt(Math.ceil(ttlL2Slots / l1Constants.epochDuration));
 
     const currentEpoch = this.epochCache.getEpochAndSlotNow().epoch;
-    const performance = await this.store.getProvenPerformance(EthAddress.fromString(validator));
-    return (
+    const performance = await this.store.getProvenPerformance(validator);
+    const isCriminal =
       performance
         .filter(p => p.epoch >= currentEpoch - ttlEpochs)
-        .findIndex(p => p.missed / p.total >= this.config.slashInactivitySignalTargetPercentage) !== -1
-    );
+        .findIndex(p => p.missed / p.total >= this.config.slashInactivitySignalTargetPercentage) !== -1;
+    if (isCriminal) {
+      if (amount <= this.config.slashInactivityMaxPenalty) {
+        return true;
+      } else {
+        this.logger.warn(`Validator ${validator} is a criminal but the penalty is too high`, {
+          amount,
+          maxPenalty: this.config.slashInactivityMaxPenalty,
+        });
+        return false;
+      }
+    }
+    return false;
   }
 
   /**

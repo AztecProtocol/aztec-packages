@@ -90,7 +90,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_failure
         .call(&mut env.private());
 }
 
-#[test(should_fail_with = "invalid nonce")]
+#[test(should_fail_with = "invalid authwit nonce")]
 unconstrained fn transfer_to_public_and_prepare_private_balance_increase_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, sender, recipient, mint_amount) =
