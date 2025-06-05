@@ -130,7 +130,7 @@ export class InMemoryTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public async addTxs(txs: Tx[]): Promise<void> {
+  public async addTxs(txs: Tx[]): Promise<number> {
     let pending = 0;
     for (const tx of txs) {
       const txHash = await tx.getTxHash();
@@ -149,7 +149,7 @@ export class InMemoryTxPool implements TxPool {
     }
 
     this.metrics.recordAddedObjects(pending, 'pending');
-    return;
+    return pending;
   }
 
   /**

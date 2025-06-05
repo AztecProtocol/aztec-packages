@@ -62,7 +62,6 @@ import {
 } from '@aztec/simulator/server';
 import {
   type ContractArtifact,
-  EventSelector,
   type FunctionAbi,
   FunctionSelector,
   FunctionType,
@@ -632,7 +631,7 @@ export class TXE implements TypedOracle {
 
     this.logger.debug(
       `Returning ${notes.length} notes for ${this.contractAddress} at ${storageSlot}: ${notes
-        .map(n => `${n.nonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
+        .map(n => `${n.noteNonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
     );
 
@@ -645,7 +644,7 @@ export class TXE implements TypedOracle {
       {
         contractAddress: this.contractAddress,
         storageSlot,
-        nonce: Fr.ZERO, // Nonce cannot be known during private execution.
+        noteNonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
         noteHash,
@@ -1175,11 +1174,16 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
-  public async validateEnqueuedNotes(
+  public async validateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
+    eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
-    await this.pxeOracleInterface.validateEnqueuedNotes(contractAddress, noteValidationRequestsArrayBaseSlot);
+    await this.pxeOracleInterface.validateEnqueuedNotesAndEvents(
+      contractAddress,
+      noteValidationRequestsArrayBaseSlot,
+      eventValidationRequestsArrayBaseSlot,
+    );
   }
 
   async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
@@ -1324,26 +1328,6 @@ export class TXE implements TypedOracle {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  storePrivateEventLog(
-    contractAddress: AztecAddress,
-    recipient: AztecAddress,
-    eventSelector: EventSelector,
-    logContent: Fr[],
-    txHash: TxHash,
-    logIndexInTx: number,
-    txIndexInBlock: number,
-  ): Promise<void> {
-    return this.pxeOracleInterface.storePrivateEventLog(
-      contractAddress,
-      recipient,
-      eventSelector,
-      logContent,
-      txHash,
-      logIndexInTx,
-      txIndexInBlock,
-    );
-  }
-
   async privateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
@@ -1453,11 +1437,11 @@ export class TXE implements TypedOracle {
         execution.publicInputs.noteHashes
           .filter(noteHash => !noteHash.isEmpty())
           .map(async noteHash => {
-            const nonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
+            const noteNonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
             const siloedNoteHash = await siloNoteHash(contractAddress, noteHash.value);
 
             // We could defer this to the public processor, and pass this in as non-revertible.
-            return computeUniqueNoteHash(nonce, siloedNoteHash);
+            return computeUniqueNoteHash(noteNonce, siloedNoteHash);
           }),
       );
 
