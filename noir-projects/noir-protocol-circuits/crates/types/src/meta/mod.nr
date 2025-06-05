@@ -111,7 +111,11 @@ pub comptime fn generate_deserialize_from_fields(
         result = quote { $unpack_method([ $packed_fields ]) };
 
         consumed_counter = packed_len;
-    } else if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
+    } else if typ.is_bool() {
+        // The field is a primitive so we just reference it in the field array
+        result = quote { $field_array_name[$num_already_consumed] != 0 };
+        consumed_counter = 1;
+    } else if typ.is_field() | typ.as_integer().is_some() {
         // The field is a primitive so we just reference it in the field array
         result = quote { $field_array_name[$num_already_consumed] as $typ };
         consumed_counter = 1;
@@ -124,7 +128,7 @@ pub comptime fn generate_deserialize_from_fields(
 
         // Iterate over each field in the struct
         for field in nested_def.fields(generics) {
-            let (field_name, field_type) = field;
+            let (field_name, field_type, _) = field;
             // Recursively call `generate_deserialize_from_fields` for each field in the struct
             let (deserialized_field, num_consumed_in_recursion) = generate_deserialize_from_fields(
                 field_name,
@@ -227,7 +231,6 @@ pub comptime fn generate_deserialize_from_fields(
 /// # Parameters
 /// - `name`: The base identifier (e.g., `self`, `some_var`).
 /// - `typ`: The type being serialized (e.g., a custom struct, array, or primitive type).
-/// - `omit`: A list of field names (as `Quoted`) to be excluded from the serialized output.
 /// - `should_pack`: A boolean indicating whether the type should be packed.
 ///
 /// # Returns
@@ -248,7 +251,7 @@ pub comptime fn generate_deserialize_from_fields(
 ///
 /// Serializing the struct:
 /// ```rust
-/// generate_serialize_to_fields(quote { my_mock_struct }, MockStruct, &[], false)
+/// generate_serialize_to_fields(quote { my_mock_struct }, MockStruct, false)
 /// // Returns:
 /// // ([`my_mock_struct.a`, `my_mock_struct.b`], [])
 /// ```
@@ -264,7 +267,7 @@ pub comptime fn generate_deserialize_from_fields(
 ///
 /// Serialization output:
 /// ```rust
-/// generate_serialize_to_fields(quote { self }, NestedStruct, &[], false)
+/// generate_serialize_to_fields(quote { self }, NestedStruct, false)
 /// // Returns:
 /// // ([`self.m1.a`, `self.m1.b`, `self.m2.a`, `self.m2.b`], [])
 /// ```
@@ -272,7 +275,7 @@ pub comptime fn generate_deserialize_from_fields(
 /// ## Array
 /// For an array type:
 /// ```rust
-/// generate_serialize_to_fields(quote { my_array }, [Field; 3], &[], false)
+/// generate_serialize_to_fields(quote { my_array }, [Field; 3], false)
 /// // Returns:
 /// // ([`my_array[0]`, `my_array[1]`, `my_array[2]`], [])
 /// ```
@@ -280,13 +283,13 @@ pub comptime fn generate_deserialize_from_fields(
 /// ## String
 /// For a string field, where each character is serialized as a `Field`:
 /// ```rust
-/// generate_serialize_to_fields(quote { my_string }, StringType, &[], false)
+/// generate_serialize_to_fields(quote { my_string }, StringType, false)
 /// // Returns:
 /// // ([`my_string_as_bytes[0] as Field`, `my_string_as_bytes[1] as Field`, ...],
 /// // [`let my_string_as_bytes = my_string.as_bytes()`])
 /// ```
 ///
-/// ## Nested Struct with Omitted Field and packing enabled
+/// ## Nested Struct with packing enabled
 /// - u128 has a `Packable` implementation hence it will be packed.
 ///
 /// For a more complex struct:
@@ -297,128 +300,109 @@ pub comptime fn generate_deserialize_from_fields(
 /// }
 /// ```
 ///
-/// Serializing while omitting `value2`:
-/// ```rust
-/// generate_serialize_to_fields(quote { self }, MyStruct, &[quote { self.value2 }], true)
-/// // Returns:
-/// // ([`value_packed[0]`], [`let value_packed = self.value.pack()`])
-/// ```
-///
 /// # Panics
 /// - If the type is unsupported for serialization.
 /// - If the provided `typ` contains invalid constants or incompatible structures.
 pub comptime fn generate_serialize_to_fields(
     name: Quoted,
     typ: Type,
-    omit: [Quoted],
     should_pack: bool,
 ) -> ([Quoted], [Quoted]) {
     let mut fields = &[];
     let mut aux_vars = &[];
 
-    // Proceed if none of the omit rules omits this name
-    if !omit.any(|to_omit| to_omit == name) {
-        // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
-        let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
-        let packable_constraint =
-            quote { crate::traits::Packable<$maybe_packed_len_typ> }.as_trait_constraint();
+    // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
+    let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
+    let packable_constraint =
+        quote { crate::traits::Packable<$maybe_packed_len_typ> }.as_trait_constraint();
 
-        if (should_pack & typ.implements(packable_constraint)) {
-            // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
-            // method, add the resulting field array to `aux_vars` and each field to `fields`.
-            let packed_len = maybe_packed_len_typ.as_constant().unwrap();
+    if (should_pack & typ.implements(packable_constraint)) {
+        // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
+        // method, add the resulting field array to `aux_vars` and each field to `fields`.
+        let packed_len = maybe_packed_len_typ.as_constant().unwrap();
 
-            // We collapse the name to a one that gets tokenized as a single token (e.g. "self.value" -> "self_value").
-            let name_at_one_token = collapse_to_one_token(name);
-            let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
+        // We collapse the name to a one that gets tokenized as a single token (e.g. "self.value" -> "self_value").
+        let name_at_one_token = collapse_to_one_token(name);
+        let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
 
-            // We add the individual fields to the fields array
-            let pack_method = get_trait_impl_method(
-                typ,
-                quote { crate::traits::Packable<$packed_len> },
-                quote { pack },
-            );
-            let packed_struct = quote { let $packed_struct_name = $pack_method($name) };
-            for i in 0..packed_len {
-                fields = fields.push_back(quote { $packed_struct_name[$i] });
-            }
-
-            // We add the new auxiliary variable to the aux_vars array
-            aux_vars = aux_vars.push_back(packed_struct);
-        } else if typ.is_field() {
-            // For field we just add the value to fields
-            fields = fields.push_back(name);
-        } else if typ.as_integer().is_some() | typ.is_bool() {
-            // For integer and bool we just cast to Field and add the value to fields
-            fields = fields.push_back(quote { $name as Field });
-        } else if typ.as_data_type().is_some() {
-            // For struct we pref
-            let nested_struct = typ.as_data_type().unwrap();
-            let params = nested_struct.0.fields(nested_struct.1);
-            let struct_flattened = params.map(|(param_name, param_type): (Quoted, Type)| {
-                let maybe_prefixed_name = if name == quote {} {
-                    // Triggered when the param name is of a value available in the current scope (e.g. a function
-                    // argument) --> then we don't prefix the name with anything.
-                    param_name
-                } else {
-                    // Triggered when we want to prefix the param name with the `name` from function input. This
-                    // can typically be `self` when implementing a method on a struct.
-                    quote { $name.$param_name }
-                };
-                generate_serialize_to_fields(
-                    quote {$maybe_prefixed_name},
-                    param_type,
-                    omit,
-                    should_pack,
-                )
-            });
-            let struct_flattened_fields = struct_flattened.fold(
-                &[],
-                |acc: [Quoted], (fields, _): (_, [Quoted])| acc.append(fields),
-            );
-            let struct_flattened_aux_vars = struct_flattened.fold(
-                &[],
-                |acc: [Quoted], (_, aux_vars): ([Quoted], _)| acc.append(aux_vars),
-            );
-            fields = fields.append(struct_flattened_fields);
-            aux_vars = aux_vars.append(struct_flattened_aux_vars);
-        } else if typ.as_array().is_some() {
-            // For array we recursively call `generate_serialize_to_fields(...)` for each element
-            let (element_type, array_len) = typ.as_array().unwrap();
-            let array_len = array_len.as_constant().unwrap();
-            for i in 0..array_len {
-                let (element_fields, element_aux_vars) = generate_serialize_to_fields(
-                    quote { $name[$i] },
-                    element_type,
-                    omit,
-                    should_pack,
-                );
-                fields = fields.append(element_fields);
-                aux_vars = aux_vars.append(element_aux_vars);
-            }
-        } else if typ.as_str().is_some() {
-            // For string we convert the value to bytes, we store the `as_bytes` in an auxiliary variables and
-            // then we add each byte to fields as a Field
-            let length_type = typ.as_str().unwrap();
-            let str_len = length_type.as_constant().unwrap();
-            let as_member = name.as_expr().unwrap().as_member_access();
-            let var_name = if as_member.is_some() {
-                as_member.unwrap().1
-            } else {
-                name
-            };
-            let as_bytes_name = f"{var_name}_as_bytes".quoted_contents();
-            let as_bytes = quote { let $as_bytes_name = $name.as_bytes() };
-            for i in 0..str_len {
-                fields = fields.push_back(quote { $as_bytes_name[$i] as Field });
-            }
-            aux_vars = aux_vars.push_back(as_bytes);
-        } else {
-            panic(
-                f"Unsupported type for serialization of argument {name} and type {typ}",
-            )
+        // We add the individual fields to the fields array
+        let pack_method = get_trait_impl_method(
+            typ,
+            quote { crate::traits::Packable<$packed_len> },
+            quote { pack },
+        );
+        let packed_struct = quote { let $packed_struct_name = $pack_method($name) };
+        for i in 0..packed_len {
+            fields = fields.push_back(quote { $packed_struct_name[$i] });
         }
+
+        // We add the new auxiliary variable to the aux_vars array
+        aux_vars = aux_vars.push_back(packed_struct);
+    } else if typ.is_field() {
+        // For field we just add the value to fields
+        fields = fields.push_back(name);
+    } else if typ.as_integer().is_some() | typ.is_bool() {
+        // For integer and bool we just cast to Field and add the value to fields
+        fields = fields.push_back(quote { $name as Field });
+    } else if typ.as_data_type().is_some() {
+        // For struct we pref
+        let nested_struct = typ.as_data_type().unwrap();
+        let params = nested_struct.0.fields(nested_struct.1);
+        let struct_flattened = params.map(|(param_name, param_type, _)| {
+            let maybe_prefixed_name = if name == quote {} {
+                // Triggered when the param name is of a value available in the current scope (e.g. a function
+                // argument) --> then we don't prefix the name with anything.
+                param_name
+            } else {
+                // Triggered when we want to prefix the param name with the `name` from function input. This
+                // can typically be `self` when implementing a method on a struct.
+                quote { $name.$param_name }
+            };
+            generate_serialize_to_fields(quote {$maybe_prefixed_name}, param_type, should_pack)
+        });
+        let struct_flattened_fields = struct_flattened.fold(
+            &[],
+            |acc: [Quoted], (fields, _): (_, [Quoted])| acc.append(fields),
+        );
+        let struct_flattened_aux_vars = struct_flattened.fold(
+            &[],
+            |acc: [Quoted], (_, aux_vars): ([Quoted], _)| acc.append(aux_vars),
+        );
+        fields = fields.append(struct_flattened_fields);
+        aux_vars = aux_vars.append(struct_flattened_aux_vars);
+    } else if typ.as_array().is_some() {
+        // For array we recursively call `generate_serialize_to_fields(...)` for each element
+        let (element_type, array_len) = typ.as_array().unwrap();
+        let array_len = array_len.as_constant().unwrap();
+        for i in 0..array_len {
+            let (element_fields, element_aux_vars) =
+                generate_serialize_to_fields(quote { $name[$i] }, element_type, should_pack);
+            fields = fields.append(element_fields);
+            aux_vars = aux_vars.append(element_aux_vars);
+        }
+    } else if typ.as_str().is_some() {
+        // For string we convert the value to bytes, we store the `as_bytes` in an auxiliary variables and
+        // then we add each byte to fields as a Field
+        let length_type = typ.as_str().unwrap();
+        let str_len = length_type.as_constant().unwrap();
+        let as_member = name.as_expr().unwrap().as_member_access();
+        let var_name = if as_member.is_some() {
+            as_member.unwrap().1
+        } else {
+            name
+        };
+        let as_bytes_name = f"{var_name}_as_bytes".quoted_contents();
+        let as_bytes = quote { let $as_bytes_name = $name.as_bytes() };
+        for i in 0..str_len {
+            fields = fields.push_back(quote { $as_bytes_name[$i] as Field });
+        }
+        aux_vars = aux_vars.push_back(as_bytes);
+    } else {
+        panic(
+            f"Unsupported type for serialization of argument {name} and type {typ}",
+        )
     }
+
     (fields, aux_vars)
 }
 
@@ -439,9 +423,9 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
     single_token
 }
 
-pub(crate) comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
+pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, &[], false);
+    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, false);
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
         let joint = aux_vars.join(quote {;});
         quote { $joint; }
@@ -451,8 +435,11 @@ pub(crate) comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
 
     let field_serializations = fields.join(quote {,});
     let serialized_len = fields.len();
+    let serialize_trait: TraitConstraint =
+        quote { Serialize<$serialized_len> }.as_trait_constraint();
     quote {
-        impl Serialize<$serialized_len> for $typ {
+        impl $serialize_trait for $typ {
+            #[inline_always]
             fn serialize(self) -> [Field; $serialized_len] {
                 $aux_vars_for_serialization
                 [ $field_serializations ]
@@ -463,12 +450,13 @@ pub(crate) comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
 
 pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, _) = generate_serialize_to_fields(quote { self }, typ, &[], false);
+    let (fields, _) = generate_serialize_to_fields(quote { self }, typ, false);
     let serialized_len = fields.len();
     let (deserialized, _) =
         generate_deserialize_from_fields(quote { self }, typ, quote { serialized }, 0, false);
     quote {
         impl Deserialize<$serialized_len> for $typ {
+            #[inline_always]
             fn deserialize(serialized: [Field; $serialized_len]) -> Self {
                 $deserialized
             }
@@ -485,8 +473,7 @@ pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted
     let packing_enabled = true;
 
     let typ = s.as_type();
-    let (fields, aux_vars) =
-        generate_serialize_to_fields(quote { self }, typ, &[], packing_enabled);
+    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, packing_enabled);
     let aux_vars_for_packing = if aux_vars.len() > 0 {
         let joint = aux_vars.join(quote {;});
         quote { $joint; }

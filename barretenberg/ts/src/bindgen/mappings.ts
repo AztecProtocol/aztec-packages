@@ -13,6 +13,7 @@ const typeMap: { [key: string]: string } = {
   'fq::vec_in_buf': 'Fq[]',
   'fq::vec_out_buf': 'Fq[]',
   'const uint8_t *': 'Uint8Array',
+  uint8_vec_vec_in_buf: 'Uint8Array[]',
   'uint8_t **': 'Uint8Array',
   in_str_buf: 'string',
   out_str_buf: 'string',

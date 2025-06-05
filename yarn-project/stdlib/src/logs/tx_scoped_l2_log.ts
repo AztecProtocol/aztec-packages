@@ -6,6 +6,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { PrivateLog } from './private_log.js';
 import { PublicLog } from './public_log.js';
 
+// TODO(#14460): Split to private and public versions instead of having this weird mix.
 export class TxScopedL2Log {
   constructor(
     /*
@@ -75,8 +76,7 @@ export class TxScopedL2Log {
     return new TxScopedL2Log(txHash, dataStartIndexForTx, logIndexInTx, blockNumber, log);
   }
 
-  static async random() {
-    const isFromPublic = Math.random() < 0.5;
+  static async random(isFromPublic = Math.random() < 0.5) {
     const log = isFromPublic ? await PublicLog.random() : PrivateLog.random();
     return new TxScopedL2Log(TxHash.random(), 1, 1, 1, log);
   }

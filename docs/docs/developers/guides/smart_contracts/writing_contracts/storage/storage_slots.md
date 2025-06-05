@@ -31,8 +31,7 @@ sequenceDiagram
     BalanceSet->>Set: insert(note)
     Set->>LifeCycle: create_note(derived_slot, note)
     LifeCycle->>LifeCycle: note.header = NoteHeader { contract_address, <br> storage_slot: derived_slot, nonce: 0, note_hash_counter }
-    Utils->>UintNote: note_hiding_point = note.compute_note_hiding_point()
-    UintNote->>Utils: note_hash = note_hiding_point.x
+    UintPartialNotePrivateContent->>UintNote: note_hash = compute_partial_commitment(storage_slot).x
     LifeCycle->>Context: push_note_hash(note_hash)
     end
     Context->>Kernel: unique_note_hash = H(nonce, note_hash)

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
@@ -92,7 +98,7 @@ void g(uint32<Builder> state[BLAKE3_STATE_SIZE],
  *
  * Function `G' in the Blake2s and Blake3s algorithm which is the core
  * mixing step with additions, xors and right-rotates. This function is
- * used in  UltraPlonk version (with lookup tables).
+ * used in  Ultra version (with lookup tables).
  *
  * Inputs: - A pointer to a 16-word `state`,
  *         - indices a, b, c, d,
@@ -221,7 +227,7 @@ void round_fn(uint32<Builder> state[BLAKE3_STATE_SIZE],
 }
 
 /*
- * This is the round function used in Blake2s and Blake3s for UltraPlonk.
+ * This is the round function used in Blake2s and Blake3s for Ultra.
  * Inputs: - 16-word state
  *         - 16-word msg
  *         - round numbe

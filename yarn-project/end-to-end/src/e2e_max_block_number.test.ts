@@ -1,6 +1,6 @@
 import { Fr, type PXE, type Wallet } from '@aztec/aztec.js';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
-import { TX_ERROR_INVALID_BLOCK_NUMBER } from '@aztec/stdlib/tx';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import { TX_ERROR_INVALID_MAX_BLOCK_NUMBER } from '@aztec/stdlib/tx';
 
 import { setup } from './fixtures/utils.js';
 
@@ -73,7 +73,7 @@ describe('e2e_max_block_number', () => {
       it('invalidates the transaction', async () => {
         await expect(
           contract.methods.set_tx_max_block_number(maxBlockNumber, enqueuePublicCall).send().wait(),
-        ).rejects.toThrow(TX_ERROR_INVALID_BLOCK_NUMBER);
+        ).rejects.toThrow(TX_ERROR_INVALID_MAX_BLOCK_NUMBER);
       });
     });
 
@@ -89,7 +89,7 @@ describe('e2e_max_block_number', () => {
       it('invalidates the transaction', async () => {
         await expect(
           contract.methods.set_tx_max_block_number(maxBlockNumber, enqueuePublicCall).send().wait(),
-        ).rejects.toThrow(TX_ERROR_INVALID_BLOCK_NUMBER);
+        ).rejects.toThrow(TX_ERROR_INVALID_MAX_BLOCK_NUMBER);
       });
     });
   });

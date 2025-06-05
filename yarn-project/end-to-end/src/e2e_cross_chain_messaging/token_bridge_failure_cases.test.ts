@@ -23,7 +23,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     ownerAddress = crossChainTestHarness.ownerAddress;
 
     const rollup = new RollupContract(
-      crossChainTestHarness.publicClient,
+      crossChainTestHarness.l1Client,
       crossChainTestHarness.l1ContractAddresses.rollupAddress.toString(),
     );
     version = Number(await rollup.getVersion());
@@ -38,13 +38,13 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     await crossChainTestHarness.mintTokensPublicOnL2(mintAmountToOwner);
 
     const withdrawAmount = 9n;
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
     // Should fail as owner has not given approval to bridge burn their funds.
     await expect(
       l2Bridge
         .withWallet(user1Wallet)
-        .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-        .prove(),
+        .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
+        .simulate(),
     ).rejects.toThrow(/unauthorized/);
   }, 60_000);
 
@@ -65,7 +65,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     ]);
 
     const wrongMessage = new L1ToL2Message(
-      new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
+      new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.l1Client.chain.id),
       new L2Actor(l2Bridge.address, version),
       wrongMessageContent,
       claim.claimSecretHash,
@@ -77,7 +77,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_private(ownerAddress, wrongBridgeAmount, claim.claimSecret, claim.messageLeafIndex)
-        .prove(),
+        .simulate(),
     ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 60_000);
 
@@ -98,7 +98,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_public(ownerAddress, bridgeAmount, Fr.random(), claim.messageLeafIndex)
-        .prove(),
+        .simulate(),
     ).rejects.toThrow(NO_L1_TO_L2_MSG_ERROR);
   });
 });

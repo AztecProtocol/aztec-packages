@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "field.hpp"
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
@@ -19,30 +25,23 @@ field_t<Builder>::field_t(Builder* parent_context)
 template <typename Builder>
 field_t<Builder>::field_t(const witness_t<Builder>& value)
     : context(value.context)
-{
-    if constexpr (IsSimulator<Builder>) {
-        additive_constant = value.witness;
-        multiplicative_constant = 1;
-        witness_index = IS_CONSTANT;
-    } else {
-        additive_constant = 0;
-        multiplicative_constant = 1;
-        witness_index = value.witness_index;
-    }
-}
+    , additive_constant(0)
+    , multiplicative_constant(1)
+    , witness_index(value.witness_index)
+{}
 
 template <typename Builder>
 field_t<Builder>::field_t(Builder* parent_context, const bb::fr& value)
     : context(parent_context)
-{
-    additive_constant = value;
-    multiplicative_constant = bb::fr::one();
-    witness_index = IS_CONSTANT;
-}
+    , additive_constant(value)
+    , multiplicative_constant(bb::fr::one())
+    , witness_index(IS_CONSTANT)
+{}
 
-template <typename Builder> field_t<Builder>::field_t(const bool_t<Builder>& other)
+template <typename Builder>
+field_t<Builder>::field_t(const bool_t<Builder>& other)
+    : context(other.context)
 {
-    context = (other.context == nullptr) ? nullptr : other.context;
     if (other.witness_index == IS_CONSTANT) {
         additive_constant = (other.witness_bool ^ other.witness_inverted) ? bb::fr::one() : bb::fr::zero();
         multiplicative_constant = bb::fr::one();
@@ -62,39 +61,52 @@ field_t<Builder> field_t<Builder>::from_witness_index(Builder* ctx, const uint32
     result.witness_index = witness_index;
     return result;
 }
-
+/**
+ * @brief Convert a field_t element to a boolean and enforce bool constraints.
+ *
+ * @tparam Builder
+ * @return bool_t<Builder>
+ */
 template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
 {
-    if (witness_index == IS_CONSTANT) {
+    // If `this` is a constant field_t element, the resulting bool is also constant.
+    // In this case, `additive_constant` uniquely determines the value of `this`.
+    // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
+    // value of `additive_constant`.
+    if (this->is_constant()) {
+        ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero());
         bool_t<Builder> result(context);
         result.witness_bool = (additive_constant == bb::fr::one());
-        result.witness_inverted = false;
-        result.witness_index = IS_CONSTANT;
         result.set_origin_tag(tag);
         return result;
     }
-    bool add_constant_check = (additive_constant == bb::fr::zero());
-    bool mul_constant_check = (multiplicative_constant == bb::fr::one());
-    bool inverted_check = (additive_constant == bb::fr::one()) && (multiplicative_constant == bb::fr::neg_one());
-    if ((!add_constant_check || !mul_constant_check) && !inverted_check) {
-        auto normalized_element = normalize();
-        bb::fr witness = context->get_variable(normalized_element.get_witness_index());
-        ASSERT((witness == bb::fr::zero()) || (witness == bb::fr::one()));
-        bool_t<Builder> result(context);
-        result.witness_bool = (witness == bb::fr::one());
-        result.witness_inverted = false;
-        result.witness_index = normalized_element.get_witness_index();
-        context->create_bool_gate(normalized_element.get_witness_index());
-        return result;
-    }
 
-    bb::fr witness = context->get_variable(witness_index);
-    ASSERT((witness == bb::fr::zero()) || (witness == bb::fr::one()));
+    const bool add_constant_check = (additive_constant == bb::fr::zero());
+    const bool mul_constant_check = (multiplicative_constant == bb::fr::one());
+    const bool inverted_check = (additive_constant == bb::fr::one()) && (multiplicative_constant == bb::fr::neg_one());
     bool_t<Builder> result(context);
+    // Process the elements of the form
+    //      a = a.v * 1 + 0 and a = a.v * (-1) + 1
+    // They do not need to be normalized, as in the first case the value of
+    //      a == a.v,
+    // and in the second case
+    //      a == ¬(a.v).
+    // The distinction between the cases is tracked by the .witness_inverted field of bool_t.
+    uint32_t witness_idx = witness_index;
+    if ((add_constant_check && mul_constant_check) || inverted_check) {
+        result.witness_inverted = inverted_check;
+    } else {
+        // In general, the witness has to be normalized.
+        witness_idx = get_normalized_witness_index();
+    }
+    // Get the normalized value of the witness
+    bb::fr witness = context->get_variable(witness_idx);
+    BB_ASSERT_EQ((witness == bb::fr::zero()) || (witness == bb::fr::one()),
+                 true,
+                 "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
     result.witness_bool = (witness == bb::fr::one());
-    result.witness_inverted = inverted_check;
-    result.witness_index = witness_index;
-    context->create_bool_gate(witness_index);
+    result.witness_index = witness_idx;
+    context->create_bool_gate(witness_idx);
     result.set_origin_tag(tag);
     return result;
 }
@@ -103,43 +115,48 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
+    // Ensure that non-constant circuit elements can not be added without context
     ASSERT(ctx || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
 
-    if (witness_index == other.witness_index && witness_index != IS_CONSTANT) {
+    if (witness_index == other.witness_index && !this->is_constant()) {
+        // If summands represent the same circuit variable, i.e. their witness indices coincide, we just need to update
+        // the scaling factors of this variable.
         result.additive_constant = additive_constant + other.additive_constant;
         result.multiplicative_constant = multiplicative_constant + other.multiplicative_constant;
         result.witness_index = witness_index;
-    } else if (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT) {
+    } else if (this->is_constant() && other.is_constant()) {
         // both inputs are constant - don't add a gate
         result.additive_constant = additive_constant + other.additive_constant;
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
+    } else if (!this->is_constant() && other.is_constant()) {
         // one input is constant - don't add a gate, but update scaling factors
         result.additive_constant = additive_constant + other.additive_constant;
         result.multiplicative_constant = multiplicative_constant;
         result.witness_index = witness_index;
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
+    } else if (this->is_constant() && !other.is_constant()) {
         result.additive_constant = additive_constant + other.additive_constant;
         result.multiplicative_constant = other.multiplicative_constant;
         result.witness_index = other.witness_index;
     } else {
-        bb::fr T0;
-        bb::fr left = ctx->get_variable(witness_index);
-        bb::fr right = ctx->get_variable(other.witness_index);
-        bb::fr out;
-        out = left * multiplicative_constant;
-        T0 = right * other.multiplicative_constant;
-        out += T0;
-        out += additive_constant;
-        out += other.additive_constant;
-        result.witness_index = ctx->add_variable(out);
+        // The summands are distinct circuit variables, the result needs to be constrained.
+        //       a + b = a.v * a.mul + b.v * b.mul + (a.add + b.add)
+        // which leads to the constraint
+        //       a.v * q_l + b.v * q_r + result.v * q_o + q_c = 0,
+        // where q_l, q_r, q_0, and q_c are the selectors storing corresponding scaling factors.
+        bb::fr left = ctx->get_variable(witness_index);        // =: a.v
+        bb::fr right = ctx->get_variable(other.witness_index); // =: b.v
+        bb::fr result_value = left * multiplicative_constant;
+        result_value += right * other.multiplicative_constant;
+        result_value += additive_constant;
+        result_value += other.additive_constant;
+        result.witness_index = ctx->add_variable(result_value);
 
-        ctx->create_add_gate({ witness_index,
-                               other.witness_index,
-                               result.witness_index,
-                               multiplicative_constant,
-                               other.multiplicative_constant,
-                               bb::fr::neg_one(),
-                               (additive_constant + other.additive_constant) });
+        ctx->create_add_gate({ .a = witness_index,
+                               .b = other.witness_index,
+                               .c = result.witness_index,
+                               .a_scaling = multiplicative_constant,
+                               .b_scaling = other.multiplicative_constant,
+                               .c_scaling = bb::fr::neg_one(),
+                               .const_scaling = (additive_constant + other.additive_constant) });
     }
     result.tag = OriginTag(tag, other.tag);
     return result;
@@ -159,60 +176,51 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
-    ASSERT(ctx || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
+    // Ensure that non-constant circuit elements can not be multiplied without context
+    ASSERT(ctx || (this->is_constant() && other.is_constant()));
 
-    if (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT) {
+    if (this->is_constant() && other.is_constant()) {
         // Both inputs are constant - don't add a gate.
         // The value of a constant is tracked in `.additive_constant`.
         result.additive_constant = additive_constant * other.additive_constant;
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
-        // One input is constant: don't add a gate, but update scaling factors.
+    } else if (!this->is_constant() && other.is_constant()) {
 
-        /**
-         * Let:
-         *   a := this;
-         *   b := other;
-         *   a.v := ctx->variables[this.witness_index];
-         *   b.v := ctx->variables[other.witness_index];
-         *   .mul = .multiplicative_constant
-         *   .add = .additive_constant
-         */
-
-        /**
-         * Value of this   = a.v * a.mul + a.add;
-         * Value of other  = b.add
-         * Value of result = a * b = a.v * [a.mul * b.add] + [a.add * b.add]
-         *                             ^   ^result.mul       ^result.add
-         *                             ^result.v
-         */
+        //  Here and in the next case, only one input is not constant: don't add a gate, but update scaling factors.
+        // More concretely, let:
+        //   a := this;
+        //   b := other;
+        //   a.v := ctx->variables[a.witness_index], the value of a;
+        //   b.v := ctx->variables[b.witness_index], the value of b;
+        //   .mul = .multiplicative_constant
+        //   .add = .additive_constant
+        // Value of this   = a.v * a.mul + a.add;
+        // Value of other  = b.add
+        // Value of result = a * b = a.v * [a.mul * b.add] + [a.add * b.add]
+        //                            ^           ^result.mul      ^result.add
+        //                            ^result.v
 
         result.additive_constant = additive_constant * other.additive_constant;
         result.multiplicative_constant = multiplicative_constant * other.additive_constant;
+        // We simply updated the scaling factors of `*this`, so `witness_index` of `result` must be equal to
+        // `this->witness_index`.
         result.witness_index = witness_index;
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
-        // One input is constant: don't add a gate, but update scaling factors.
-
-        /**
-         * Value of this   = a.add;
-         * Value of other  = b.v * b.mul + b.add
-         * Value of result = a * b = b.v * [a.add * b.mul] + [a.add * b.add]
-         *                             ^   ^result.mul       ^result.add
-         *                             ^result.v
-         */
-
+    } else if (this->is_constant() && !other.is_constant()) {
+        // Only one input is not constant: don't add a gate, but update scaling factors
         result.additive_constant = additive_constant * other.additive_constant;
         result.multiplicative_constant = other.multiplicative_constant * additive_constant;
+        // We simply updated the scaling factors of `other`, so `witness_index` of `result` must be equal to
+        // `other->witness_index`.
         result.witness_index = other.witness_index;
     } else {
-        // Both inputs map to circuit varaibles: create a `*` constraint.
-
         /**
+         * Both inputs are circuit variables: create a * b constraint.
+         *
          * Value of this   = a.v * a.mul + a.add;
          * Value of other  = b.v * b.mul + b.add;
          * Value of result = a * b
          *            = [a.v * b.v] * [a.mul * b.mul] + a.v * [a.mul * b.add] + b.v * [a.add * b.mul] + [a.ac * b.add]
          *            = [a.v * b.v] * [     q_m     ] + a.v * [     q_l     ] + b.v * [     q_r     ] + [    q_c     ]
-         *            ^               ^Notice the add/mul_constants form selectors when a gate is created.
+         *            ^               ^Notice the add/mul_constants are placed into selectors when a gate is created.
          *            |                Only the witnesses (pointed-to by the witness_indexes) form the wires in/out of
          *            |                the gate.
          *            ^This entire value is pushed to ctx->variables as a new witness. The
@@ -228,23 +236,28 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         bb::fr q_r;
         bb::fr q_c;
 
+        // Compute selector values
         q_c = additive_constant * other.additive_constant;
         q_r = additive_constant * other.multiplicative_constant;
         q_l = multiplicative_constant * other.additive_constant;
         q_m = multiplicative_constant * other.multiplicative_constant;
 
-        bb::fr left = context->get_variable(witness_index);
-        bb::fr right = context->get_variable(other.witness_index);
-        bb::fr out;
+        bb::fr left = context->get_variable(witness_index);        // =: a.v
+        bb::fr right = context->get_variable(other.witness_index); // =: b.v
+        bb::fr result_value;
 
-        out = left * right;
-        out *= q_m;
+        result_value = left * right;
+        result_value *= q_m;
+        // Scale `b.v` by the constant `a_mul * b_add`
         T0 = left * q_l;
-        out += T0;
+        result_value += T0;
+        // Scale `a.v` by the constant `a_add * b_mul`
         T0 = right * q_r;
-        out += T0;
-        out += q_c;
-        result.witness_index = ctx->add_variable(out);
+        result_value += T0;
+        result_value += q_c;
+        result.witness_index = ctx->add_variable(result_value);
+        // Constrain
+        //    a.v * b.v * q_m + a.v * q_l + b_v * q_r + q_c + result.v * q_o = 0
         ctx->create_poly_gate({ .a = witness_index,
                                 .b = other.witness_index,
                                 .c = result.witness_index,
@@ -258,47 +271,87 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
     return result;
 }
 
-// Since in divide_no_zero_check, we check a/b=c by the constraint a=b*c, if a=b=0, we can set c to *any value*
-// and it will pass the constraint. Hence, when not having prior knowledge of b not being zero it is essential to check.
+/**
+ * @brief Since in divide_no_zero_check, we check \f$ a / b = q \f$ by the constraint \f$ a = b \cdot q\f$, if \f$ a =
+ * b= 0\f$, we can set \f$ q \f$ to *any value* and it will pass the constraint. Hence, when not having prior knowledge
+ * of \f$ b \f$ not being zero it is essential to check.
+ *
+ * If \f$ b = 0 \f$ and is constant, this method aborts due to failed ASSERT( b !=0 ) condition inside
+ * `assert_is_not_zero()`.
+ * If \f$ b = 0 \f$ and is not constant, a `Builder` failure is set and an unsatisfiable constraint `1 = 0` is
+ * created.
+ *
+ */
 template <typename Builder> field_t<Builder> field_t<Builder>::operator/(const field_t& other) const
 {
+    // If the denominator is a constant 0, the division is aborted. Otherwise, it is constrained to be non-zero.
     other.assert_is_not_zero("field_t::operator/ divisor is 0");
     return divide_no_zero_check(other);
 }
+
+/**
+ * @brief Given field elements `a` = `*this` and `b` = `other`, output \f$ a / b \f$ without checking whether \f$  b = 0
+ * \f$.
+ */
 template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_check(const field_t& other) const
 {
+
+    // Let
+    //    a := this;
+    //    b := other;
+    //    q := a / b;
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
-    ASSERT(ctx || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
+    // Ensure that non-constant circuit elements can not be divided without context
+    ASSERT(ctx || (this->is_constant() && other.is_constant()));
 
     bb::fr additive_multiplier = bb::fr::one();
 
-    if (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT) {
-        // both inputs are constant - don't add a gate
+    if (this->is_constant() && other.is_constant()) {
+        // Both inputs are constant, the result is given by
+        //      q = a.add / b.add, if b != 0.
+        //      q = a.add        , if b == 0
         if (!(other.additive_constant == bb::fr::zero())) {
             additive_multiplier = other.additive_constant.invert();
         }
         result.additive_constant = additive_constant * additive_multiplier;
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
-        // one input is constant - don't add a gate, but update scaling factors
+    } else if (!this->is_constant() && other.is_constant()) {
+        // The numerator is a circuit variable, the denominator is a constant.
+        // The result is obtained by updating the circuit variable `a`
+        //      q = a.v * [a.mul / b.add] + a.add / b.add, if b != 0.
+        //      q = a                                    , if b == 0
+        // with q.witness_index = a.witness_index.
         if (!(other.additive_constant == bb::fr::zero())) {
             additive_multiplier = other.additive_constant.invert();
         }
         result.additive_constant = additive_constant * additive_multiplier;
         result.multiplicative_constant = multiplicative_constant * additive_multiplier;
         result.witness_index = witness_index;
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
-        // numerator 0?
+    } else if (this->is_constant() && !other.is_constant()) {
+        // The numerator is a constant, the denominator is a circuit variable.
+        // If a == 0, the result is a constant 0, otherwise the result is a new variable that has to be constrained.
         if (get_value() == 0) {
             result.additive_constant = 0;
             result.multiplicative_constant = 1;
             result.witness_index = IS_CONSTANT;
         } else {
+            bb::fr numerator = get_value();
+            bb::fr denominator_inv = other.get_value();
+            denominator_inv = denominator_inv.is_zero() ? 0 : denominator_inv.invert();
+
+            bb::fr out(numerator * denominator_inv);
+            result.witness_index = ctx->add_variable(out);
+            // Define non-zero selector values for a `poly` gate
+            // q_m := b.mul
+            // q_l := b.add
+            // q_c := a     (= a.add, since a is constant)
             bb::fr q_m = other.multiplicative_constant;
             bb::fr q_l = other.additive_constant;
             bb::fr q_c = -get_value();
-            bb::fr out_value = get_value() / other.get_value();
-            result.witness_index = ctx->add_variable(out_value);
+            // The value of the quotient q = a / b has to satisfy
+            //      q * (b.v * b.mul +  b.add) = a
+            // Create a `poly` gate to constrain the quotient.
+            // q * b.v * q_m +  q * q_l + 0 * b + 0 * c + q_c = 0
             ctx->create_poly_gate({ .a = result.witness_index,
                                     .b = other.witness_index,
                                     .c = result.witness_index,
@@ -309,35 +362,24 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
                                     .q_c = q_c });
         }
     } else {
-        // TODO SHOULD WE CARE ABOUT IF THE DIVISOR IS ZERO?
-        bb::fr left = ctx->get_variable(witness_index);
-        bb::fr right = ctx->get_variable(other.witness_index);
-        bb::fr out;
+        // Both numerator and denominator are circuit variables. Create a new circuit variable with the value a / b.
+        bb::fr numerator = get_value();
+        bb::fr denominator_inv = other.get_value();
+        denominator_inv = denominator_inv.is_zero() ? 0 : denominator_inv.invert();
 
-        // even if LHS is constant, if divisor is not constant we need a gate to compute the inverse
-        // bb::fr witness_multiplier = other.witness.invert();
-        // m1.x1 + a1 / (m2.x2 + a2) = x3
-        bb::fr T0;
-        T0 = multiplicative_constant * left;
-        T0 += additive_constant;
-        bb::fr T1;
-        T1 = other.multiplicative_constant * right;
-        T1 += other.additive_constant;
-
-        T1 = T1.is_zero() ? 0 : T1.invert();
-        out = T0 * T1;
+        bb::fr out(numerator * denominator_inv);
         result.witness_index = ctx->add_variable(out);
 
-        // m2.x2.x3 + a2.x3 = m1.x1 + a1
-        // m2.x2.x3 + a2.x3 - m1.x1 - a1 = 0
-        // left = x3
-        // right = x2
-        // out = x1
-        // qm = m2
-        // ql = a2
-        // qr = 0
-        // qo = -m1
-        // qc = -a1
+        // The value of the quotient q = a / b has to satisfy
+        //      q * (b.v * b.mul +  b.add) = a.v * a.mul + a.add
+        // Create a `poly` gate to constrain the quotient
+        //  	q * b.v * q_m +  q * q_l + 0 * c + a.v * q_o + q_c = 0,
+        // where the `poly_gate` selector values are defined as follows:
+        //  	q_m = b.mul;
+        //      q_l = b.add;
+        //      q_r = 0;
+        //      q_o = - a.mul;
+        //      q_c = - a.add.
         bb::fr q_m = other.multiplicative_constant;
         bb::fr q_l = other.additive_constant;
         bb::fr q_r = bb::fr::zero();
@@ -367,15 +409,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
 
     auto* ctx = get_context() ? get_context() : exponent.get_context();
     uint256_t exponent_value = exponent.get_value();
-    if constexpr (IsSimulator<Builder>) {
-        if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
-            ctx->failure("field_t::pow exponent accumulator incorrect");
-        }
-        constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
-        auto result = field_t(get_value().pow(exponent_value & MASK_32_BITS));
-        result.set_origin_tag(OriginTag(get_origin_tag(), exponent.get_origin_tag()));
-        return result;
-    }
 
     bool exponent_constant = exponent.is_constant();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/446): optimize by allowing smaller exponent
@@ -384,6 +417,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
         uint256_t value_bit = exponent_value & 1;
         bool_t<Builder> bit;
         bit = exponent_constant ? bool_t<Builder>(ctx, value_bit.data[0]) : witness_t<Builder>(ctx, value_bit.data[0]);
+        if (!exponent_constant) {
+            bit.set_origin_tag(exponent.tag);
+        }
         exponent_bits[31 - i] = (bit);
         exponent_value >>= 1;
     }
@@ -426,10 +462,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const size_t 
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_t& to_mul, const field_t& to_add) const
 {
-    Builder* ctx = (context == nullptr) ? (to_mul.context == nullptr ? to_add.context : to_mul.context) : context;
+    Builder* ctx = first_non_null<Builder>(context, to_mul.context, to_add.context);
 
-    if ((to_mul.witness_index == IS_CONSTANT) && (to_add.witness_index == IS_CONSTANT) &&
-        (witness_index == IS_CONSTANT)) {
+    if (to_mul.is_constant() && to_add.is_constant() && this->is_constant()) {
         return ((*this) * to_mul + to_add);
     }
 
@@ -482,22 +517,31 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
     return result;
 }
 
+/**
+ * @brief Returns (this + a + b)
+ *
+ * @details Use custom big_mul_gate to save gates.
+ *
+ * @tparam Builder
+ * @param add_a
+ * @param add_b
+ * @return field_t<Builder>
+ */
 template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const field_t& add_a, const field_t& add_b) const
 {
-    Builder* ctx = (context == nullptr) ? (add_a.context == nullptr ? add_b.context : add_a.context) : context;
+    Builder* ctx = first_non_null<Builder>(context, add_a.context, add_b.context);
 
-    if ((add_a.witness_index == IS_CONSTANT) && (add_b.witness_index == IS_CONSTANT) &&
-        (witness_index == IS_CONSTANT)) {
-        return ((*this) + add_a + add_b).normalize();
+    if ((add_a.is_constant()) && (add_b.is_constant()) && (this->is_constant())) {
+        return (*this) + add_a + add_b;
     }
     bb::fr q_1 = multiplicative_constant;
     bb::fr q_2 = add_a.multiplicative_constant;
     bb::fr q_3 = add_b.multiplicative_constant;
     bb::fr q_c = additive_constant + add_a.additive_constant + add_b.additive_constant;
 
-    bb::fr a = witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(witness_index);
-    bb::fr b = add_a.witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(add_a.witness_index);
-    bb::fr c = add_b.witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(add_b.witness_index);
+    bb::fr a = this->is_constant() ? bb::fr(0) : ctx->get_variable(witness_index);
+    bb::fr b = add_a.is_constant() ? bb::fr(0) : ctx->get_variable(add_a.witness_index);
+    bb::fr c = add_b.is_constant() ? bb::fr(0) : ctx->get_variable(add_b.witness_index);
 
     bb::fr out = a * q_1 + b * q_2 + c * q_3 + q_c;
 
@@ -505,9 +549,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     result.witness_index = ctx->add_variable(out);
 
     ctx->create_big_mul_gate({
-        .a = witness_index == IS_CONSTANT ? ctx->zero_idx : witness_index,
-        .b = add_a.witness_index == IS_CONSTANT ? ctx->zero_idx : add_a.witness_index,
-        .c = add_b.witness_index == IS_CONSTANT ? ctx->zero_idx : add_b.witness_index,
+        .a = this->is_constant() ? ctx->zero_idx : witness_index,
+        .b = add_a.is_constant() ? ctx->zero_idx : add_a.witness_index,
+        .c = add_b.is_constant() ? ctx->zero_idx : add_b.witness_index,
         .d = result.witness_index,
         .mul_scaling = bb::fr(0),
         .a_scaling = q_1,
@@ -521,12 +565,12 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
 }
 
 /**
- * @brief Return an new element, where the in-circuit witness contains the actual represented value (multiplicative
+ * @brief Return a new element, where the in-circuit witness contains the actual represented value (multiplicative
  * constant is 1 and additive_constant is 0)
  *
  * @details If the element is a constant or it is already normalized, just return the element itself
  *
- *@todo We need to add a mechanism into the circuit builders for caching normalized variants for fields and bigfields.
+ * @todo We need to add a mechanism into the circuit builders for caching normalized variants for fields and bigfields.
  *It should make the circuits smaller. https://github.com/AztecProtocol/barretenberg/issues/1052
  *
  * @tparam Builder
@@ -571,55 +615,43 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 
 template <typename Builder> void field_t<Builder>::assert_is_zero(std::string const& msg) const
 {
-    if constexpr (IsSimulator<Builder>) {
-        if (get_value() != 0) {
-            context->failure(msg);
-        }
-    } else {
-        if (get_value() != bb::fr(0)) {
-            context->failure(msg);
-        }
-
-        if (witness_index == IS_CONSTANT) {
-            ASSERT(additive_constant == bb::fr(0));
-            return;
-        }
-
-        // Aim of new gate: this.v * this.mul + this.add == 0
-        // I.e.:
-        // this.v * 0 * [ 0 ] + this.v * [this.mul] + 0 * [ 0 ] + 0 * [ 0 ] + [this.add] == 0
-        // this.v * 0 * [q_m] + this.v * [   q_l  ] + 0 * [q_r] + 0 * [q_o] + [   q_c  ] == 0
-
-        Builder* ctx = context;
-
-        context->create_poly_gate({
-            .a = witness_index,
-            .b = ctx->zero_idx,
-            .c = ctx->zero_idx,
-            .q_m = bb::fr(0),
-            .q_l = multiplicative_constant,
-            .q_r = bb::fr(0),
-            .q_o = bb::fr(0),
-            .q_c = additive_constant,
-        });
+    if (get_value() != bb::fr(0)) {
+        context->failure(msg);
     }
+
+    if (witness_index == IS_CONSTANT) {
+        ASSERT(additive_constant == bb::fr(0));
+        return;
+    }
+
+    // Aim of new gate: this.v * this.mul + this.add == 0
+    // I.e.:
+    // this.v * 0 * [ 0 ] + this.v * [this.mul] + 0 * [ 0 ] + 0 * [ 0 ] + [this.add] == 0
+    // this.v * 0 * [q_m] + this.v * [   q_l  ] + 0 * [q_r] + 0 * [q_o] + [   q_c  ] == 0
+
+    Builder* ctx = context;
+
+    context->create_poly_gate({
+        .a = witness_index,
+        .b = ctx->zero_idx,
+        .c = ctx->zero_idx,
+        .q_m = bb::fr(0),
+        .q_l = multiplicative_constant,
+        .q_r = bb::fr(0),
+        .q_o = bb::fr(0),
+        .q_c = additive_constant,
+    });
 }
 
 template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::string const& msg) const
 {
-    if (get_value() == bb::fr(0)) {
-        context->failure(msg);
-        // We don't return; we continue with the function, for debugging purposes.
+
+    if (witness_index == IS_CONSTANT) {
+        ASSERT(additive_constant != bb::fr(0), msg);
+        return;
     }
 
-    if constexpr (!IsSimulator<Builder>) {
-        if (witness_index == IS_CONSTANT) {
-            ASSERT(additive_constant != bb::fr(0));
-            return;
-        }
-    }
-
-    if (get_value() == 0 && context) {
+    if (get_value() == 0) {
         context->failure(msg);
     }
 
@@ -720,11 +752,10 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
     if (witness_index != IS_CONSTANT) {
         ASSERT(context != nullptr);
         return (multiplicative_constant * context->get_variable(witness_index)) + additive_constant;
-    } else {
-        ASSERT(this->multiplicative_constant == bb::fr::one());
-        // A constant field_t's value is tracked wholly by its additive_constant member.
-        return additive_constant;
     }
+    ASSERT(this->multiplicative_constant == bb::fr::one());
+    // A constant field_t's value is tracked wholly by its additive_constant member.
+    return additive_constant;
 }
 
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const field_t& other) const
@@ -780,45 +811,53 @@ field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& pre
     return multiplicand.madd(*this, *this);
 }
 
-// if predicate == true then return lhs, else return rhs
+/**
+ * @brief If predicate == true then return lhs, else return rhs
+
+ * @details Conditional assign x = (predicate) ? lhs : rhs can be expressed arithmetically as follows
+ *      x = predciate * lhs + (1 - predicate) * rhs
+ * which is equivalent to
+ *      x = (lhs - rhs) * predicate + rhs = (lhs - rhs)*madd(predicate, rhs)
+ * where take advantage of `madd()` to create less gates.
+ *
+ * @return field_t<Builder>
+ */
 template <typename Builder>
 field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& predicate,
                                                       const field_t& lhs,
                                                       const field_t& rhs)
 {
+    // If the predicate is constant, the conditional assignment can be done out of circuit
     if (predicate.is_constant()) {
         auto result = field_t(predicate.get_value() ? lhs : rhs);
         result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
         return result;
     }
-    // if lhs and rhs are the same witness, just return it!
+    // If lhs and rhs are the same witness, just return it
     if (lhs.get_witness_index() == rhs.get_witness_index() && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
         return lhs;
     }
+
     return (lhs - rhs).madd(predicate, rhs);
 }
 
 template <typename Builder>
 void field_t<Builder>::create_range_constraint(const size_t num_bits, std::string const& msg) const
 {
-    if constexpr (IsSimulator<Builder>) {
-        context->create_range_constraint(get_value(), num_bits, msg);
+    if (num_bits == 0) {
+        assert_is_zero("0-bit range_constraint on non-zero field_t.");
     } else {
-        if (num_bits == 0) {
-            assert_is_zero("0-bit range_constraint on non-zero field_t.");
+        if (is_constant()) {
+            ASSERT(uint256_t(get_value()).get_msb() < num_bits);
         } else {
-            if (is_constant()) {
-                ASSERT(uint256_t(get_value()).get_msb() < num_bits);
+            if constexpr (HasPlookup<Builder>) {
+                context->decompose_into_default_range(normalize().get_witness_index(),
+                                                      num_bits,
+                                                      bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM,
+                                                      msg);
             } else {
-                if constexpr (HasPlookup<Builder>) {
-                    context->decompose_into_default_range(normalize().get_witness_index(),
-                                                          num_bits,
-                                                          bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM,
-                                                          msg);
-                } else {
-                    context->decompose_into_base4_accumulators(normalize().get_witness_index(), num_bits, msg);
-                }
+                context->decompose_into_base4_accumulators(normalize().get_witness_index(), num_bits, msg);
             }
         }
     }
@@ -835,10 +874,8 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
 {
     const field_t lhs = *this;
     Builder* ctx = lhs.get_context() ? lhs.get_context() : rhs.get_context();
-
-    if constexpr (IsSimulator<Builder>) {
-        ctx->assert_equal(lhs.get_value(), rhs.get_value(), msg);
-    } else if (lhs.is_constant() && rhs.is_constant()) {
+    (void)OriginTag(get_origin_tag(), rhs.get_origin_tag());
+    if (lhs.is_constant() && rhs.is_constant()) {
         ASSERT(lhs.get_value() == rhs.get_value());
     } else if (lhs.is_constant()) {
         field_t right = rhs.normalize();
@@ -948,15 +985,15 @@ field_t<Builder> field_t<Builder>::select_from_three_bit_table(const std::array<
     return R6;
 }
 
+/**
+ * @brief Constrain a + b + c + d to be equal to 0
+ */
 template <typename Builder>
 void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d)
 {
-    Builder* ctx = a.context == nullptr
-                       ? (b.context == nullptr ? (c.context == nullptr ? d.context : c.context) : b.context)
-                       : a.context;
+    Builder* ctx = first_non_null(a.context, b.context, c.context, d.context);
 
-    if (a.witness_index == IS_CONSTANT && b.witness_index == IS_CONSTANT && c.witness_index == IS_CONSTANT &&
-        d.witness_index == IS_CONSTANT) {
+    if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
         ASSERT(a.get_value() + b.get_value() + c.get_value() + d.get_value() == 0);
         return;
     }
@@ -969,10 +1006,10 @@ void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t&
     bb::fr q_c = a.additive_constant + b.additive_constant + c.additive_constant + d.additive_constant;
 
     ctx->create_big_add_gate({
-        a.witness_index == IS_CONSTANT ? ctx->zero_idx : a.witness_index,
-        b.witness_index == IS_CONSTANT ? ctx->zero_idx : b.witness_index,
-        c.witness_index == IS_CONSTANT ? ctx->zero_idx : c.witness_index,
-        d.witness_index == IS_CONSTANT ? ctx->zero_idx : d.witness_index,
+        a.is_constant() ? ctx->zero_idx : a.witness_index,
+        b.is_constant() ? ctx->zero_idx : b.witness_index,
+        c.is_constant() ? ctx->zero_idx : c.witness_index,
+        d.is_constant() ? ctx->zero_idx : d.witness_index,
         q_1,
         q_2,
         q_3,
@@ -987,12 +1024,9 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
                                                     const field_t& c,
                                                     const field_t& d)
 {
-    Builder* ctx = a.context == nullptr
-                       ? (b.context == nullptr ? (c.context == nullptr ? d.context : c.context) : b.context)
-                       : a.context;
+    Builder* ctx = first_non_null(a.context, b.context, c.context, d.context);
 
-    if (a.witness_index == IS_CONSTANT && b.witness_index == IS_CONSTANT && c.witness_index == IS_CONSTANT &&
-        d.witness_index == IS_CONSTANT) {
+    if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
         ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
         return;
     }
@@ -1006,10 +1040,10 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
     bb::fr q_c = a.additive_constant * b.additive_constant + c.additive_constant + d.additive_constant;
 
     ctx->create_big_mul_gate({
-        a.witness_index == IS_CONSTANT ? ctx->zero_idx : a.witness_index,
-        b.witness_index == IS_CONSTANT ? ctx->zero_idx : b.witness_index,
-        c.witness_index == IS_CONSTANT ? ctx->zero_idx : c.witness_index,
-        d.witness_index == IS_CONSTANT ? ctx->zero_idx : d.witness_index,
+        a.is_constant() ? ctx->zero_idx : a.witness_index,
+        b.is_constant() ? ctx->zero_idx : b.witness_index,
+        c.is_constant() ? ctx->zero_idx : c.witness_index,
+        d.is_constant() ? ctx->zero_idx : d.witness_index,
         q_m,
         q_1,
         q_2,
@@ -1024,7 +1058,7 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const std::vector<field_t>& input)
 {
-    if (input.size() == 0) {
+    if (input.empty()) {
         return field_t<Builder>(nullptr, 0);
     }
     if (input.size() == 1) {
@@ -1066,7 +1100,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
             }
             ctx = (element.get_context() ? element.get_context() : ctx);
         }
-        if (accumulator.size() == 0) {
+        if (accumulator.empty()) {
             return constant_term;
         } else if (accumulator.size() != input.size()) {
             accumulator[0] += constant_term;
@@ -1161,7 +1195,7 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
 }
 
 /**
- * @brief Build a circuit allowing a user to prove that they have deomposed `this` into bits.
+ * @brief Build a circuit allowing a user to prove that they have decomposed `this` into bits.
  *
  * @details A bit vector `result` is extracted and used to to construct a sum `sum` using the normal binary expansion.
  * Along the way, we extract a value `shifted_high_limb` which is equal to `sum_hi` in the natural decomposition
@@ -1185,16 +1219,16 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
  */
 template <typename Builder>
 std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
-    const size_t num_bits, const std::function<witness_t<Builder>(Builder*, uint64_t, uint256_t)> get_bit) const
+    const std::function<witness_t<Builder>(Builder*, uint64_t, uint256_t)> get_bit) const
 {
-    ASSERT(num_bits <= 256);
+    static constexpr size_t num_bits = 256;
+    ASSERT(num_bits == 256);
+    static constexpr size_t midpoint = num_bits / 2 - 1;
     std::vector<bool_t<Builder>> result(num_bits);
 
     const uint256_t val_u256 = static_cast<uint256_t>(get_value());
     field_t<Builder> sum(context, 0);
     field_t<Builder> shifted_high_limb(context, 0); // will equal high 128 bits, left shifted by 128 bits
-    // TODO: Guido will make a PR that will fix an error here; hard-coded 127 is incorrect when 128 < num_bits < 256.
-    // Extract bit vector and show that it has the same value as `this`.
     for (size_t i = 0; i < num_bits; ++i) {
         bool_t<Builder> bit = get_bit(context, num_bits - 1 - i, val_u256);
         bit.set_origin_tag(tag);
@@ -1203,8 +1237,9 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
         field_t<Builder> scaling_factor(context, scaling_factor_value);
 
         sum = sum + (scaling_factor * bit);
-        if (i == 127)
+        if (i == midpoint) {
             shifted_high_limb = sum;
+        }
     }
 
     this->assert_equal(sum); // `this` and `sum` are both normalized here.
@@ -1224,38 +1259,27 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
         field_t<Builder> y_lo = (-sum) + (p_lo + shift);
         y_lo += shifted_high_limb;
 
-        if constexpr (IsSimulator<Builder>) {
-            fr sum_lo = shift + p_lo - y_lo.get_value();
-            auto sum_nonreduced =
-                static_cast<uint256_t>(sum_lo) + static_cast<uint256_t>(shifted_high_limb.get_value());
-            if (sum_nonreduced > modulus_minus_one) {
-                context->failure("Bit decomposition describes non-reduced form of a field element.");
-            }
-        } else {
-            // A carry was necessary if and only if the 128th bit y_lo_hi of y_lo is 0.
-            auto [y_lo_lo, y_lo_hi, zeros] = y_lo.slice(128, 128);
-            // This copy constraint, along with the constraints of field_t::slice, imposes that y_lo has bit length 129.
-            // Since the integer y_lo is at least -2**128+1, which has more than 129 bits in `Fr`, the implicit range
-            // constraint shows that y_lo is non-negative.
-            context->assert_equal(
-                zeros.witness_index, context->zero_idx, "field_t: bit decomposition_fails: high limb non-zero");
-            // y_borrow is the boolean "a carry was necessary"
-            field_t<Builder> y_borrow = -(y_lo_hi - 1);
-            // If a carry was necessary, subtract that carry from p_hi
-            // y_hi = (p_hi - y_borrow) - sum_hi
-            field_t<Builder> y_hi = -(shifted_high_limb / shift) + (p_hi);
-            y_hi -= y_borrow;
-            // As before, except that now the range constraint is explicit, this shows that y_hi is non-negative.
-            y_hi.create_range_constraint(128, "field_t: bit decomposition fails: y_hi is too large.");
-        }
+        // A carry was necessary if and only if the 128th bit y_lo_hi of y_lo is 0.
+        auto [y_lo_lo, y_lo_hi, zeros] = y_lo.slice(128, 128);
+        // This copy constraint, along with the constraints of field_t::slice, imposes that y_lo has bit length 129.
+        // Since the integer y_lo is at least -2**128+1, which has more than 129 bits in `Fr`, the implicit range
+        // constraint shows that y_lo is non-negative.
+        context->assert_equal(
+            zeros.witness_index, context->zero_idx, "field_t: bit decomposition_fails: high limb non-zero");
+        // y_borrow is the boolean "a carry was necessary"
+        field_t<Builder> y_borrow = -(y_lo_hi - 1);
+        // If a carry was necessary, subtract that carry from p_hi
+        // y_hi = (p_hi - y_borrow) - sum_hi
+        field_t<Builder> y_hi = -(shifted_high_limb / shift) + (p_hi);
+        y_hi -= y_borrow;
+        // As before, except that now the range constraint is explicit, this shows that y_hi is non-negative.
+        y_hi.create_range_constraint(128, "field_t: bit decomposition fails: y_hi is too large.");
     }
 
     return result;
 }
 
-template class field_t<bb::StandardCircuitBuilder>;
 template class field_t<bb::UltraCircuitBuilder>;
 template class field_t<bb::MegaCircuitBuilder>;
-template class field_t<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

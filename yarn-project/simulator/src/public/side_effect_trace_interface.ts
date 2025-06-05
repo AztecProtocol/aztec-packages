@@ -1,7 +1,5 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { PublicCallRequest } from '@aztec/stdlib/kernel';
-import type { PublicLog } from '@aztec/stdlib/logs';
 
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
@@ -14,12 +12,11 @@ export interface PublicSideEffectTraceInterface {
     value: Fr,
     protocolWrite: boolean,
   ): Promise<void>;
+  isStorageCold(contractAddress: AztecAddress, slot: Fr): boolean;
   traceNewNoteHash(uniqueNoteHash: Fr): void;
   getNoteHashCount(): number;
   traceNewNullifier(siloedNullifier: Fr): void;
   traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr): void;
   tracePublicLog(contractAddress: AztecAddress, log: Fr[]): void;
   traceGetContractClass(contractClassId: Fr, exists: boolean): void;
-  traceEnqueuedCall(publicCallRequest: PublicCallRequest): void;
-  getPublicLogs(): PublicLog[];
 }

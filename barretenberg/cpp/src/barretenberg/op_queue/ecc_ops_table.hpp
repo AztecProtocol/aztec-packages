@@ -1,8 +1,15 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include <deque>
 namespace bb {
 
@@ -35,6 +42,7 @@ struct EccOpCode {
 
 struct UltraOp {
     using Fr = curve::BN254::ScalarField;
+    using Fq = curve::BN254::BaseField;
     EccOpCode op_code;
     Fr x_lo;
     Fr x_hi;
@@ -43,6 +51,22 @@ struct UltraOp {
     Fr z_1;
     Fr z_2;
     bool return_is_infinity;
+
+    /**
+     * @brief Get the point in standard form i.e. as two coordinates x and y in the base field or as a point at
+     * infinity whose coordinates are set to (0,0).
+     *
+     */
+    std::array<Fq, 2> get_base_point_standard_form() const
+    {
+        if (return_is_infinity) {
+            return { Fq(0), Fq(0) };
+        }
+        auto x = Fq((uint256_t(x_hi) << 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) + uint256_t(x_lo));
+        auto y = Fq((uint256_t(y_hi) << 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) + uint256_t(y_lo));
+
+        return { x, y };
+    }
 };
 
 template <typename CycleGroup> struct VMOperation {
@@ -50,26 +74,8 @@ template <typename CycleGroup> struct VMOperation {
     typename CycleGroup::affine_element base_point = typename CycleGroup::affine_element{ 0, 0 };
     uint256_t z1 = 0;
     uint256_t z2 = 0;
-    typename CycleGroup::subgroup_field mul_scalar_full = 0;
+    typename CycleGroup::Fr mul_scalar_full = 0;
     bool operator==(const VMOperation<CycleGroup>& other) const = default;
-
-    /**
-     * @brief Get the point in standard form i.e. as two coordinates x and y in the base field or as a point at
-     * infinity whose coordinates are set to (0,0).
-     *
-     * @details These are represented as uint265_t to make chunking easier, the function being used in translator
-     * where each coordinate is chunked to efficiently be represented in the scalar field.
-     */
-    std::array<uint256_t, 2> get_base_point_standard_form() const
-    {
-        uint256_t x(base_point.x);
-        uint256_t y(base_point.y);
-        if (base_point.is_point_at_infinity()) {
-            x = 0;
-            y = 0;
-        }
-        return { x, y };
-    }
 };
 using ECCVMOperation = VMOperation<curve::BN254::Group>;
 
@@ -141,7 +147,7 @@ template <typename OpFormat> class EccOpsTable {
     }
 };
 
-/***
+/**
  * @brief A VM operation is represented as one row with 6 columns in the ECCVM version of the Op Queue.
  * | OP | X | Y | z_1 | z_2 | mul_scalar_full |
  */
@@ -181,6 +187,7 @@ class UltraEccOpsTable {
     size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
+    std::vector<UltraOp> get_reconstructed() const { return table.get_reconstructed(); }
 
     // Construct the columns of the full ultra ecc ops table
     ColumnPolynomials construct_table_columns() const

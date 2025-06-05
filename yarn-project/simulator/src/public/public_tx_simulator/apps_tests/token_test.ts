@@ -17,7 +17,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
 
   const mintAmount = 100n;
   const mintResult = await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'mint_to_public',
+    /*txLabel=*/ 'Token/mint_to_public',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -31,17 +31,17 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   expect(mintResult.revertCode.isOK()).toBe(true);
   await checkBalance(tester, token, sender, sender, mintAmount);
 
-  const nonce = new Fr(0);
+  const authwitNonce = new Fr(0);
   const transferAmount = 50n;
   const transferResult = await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'transfer_in_public',
+    /*txLabel=*/ 'Token/transfer_in_public',
     /*sender=*/ sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
       {
         address: token.address,
         fnName: 'transfer_in_public',
-        args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+        args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, authwitNonce],
       },
     ],
   );
@@ -50,7 +50,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   await checkBalance(tester, token, sender, receiver, transferAmount);
 
   const balResult = await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'balance_of_public',
+    /*txLabel=*/ 'Token/balance_of_public',
     sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -65,14 +65,14 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   expect(balResult.revertCode.isOK()).toBe(true);
 
   const burnResult = await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'burn_public',
+    /*txLabel=*/ 'Token/burn_public',
     /*sender=*/ receiver,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
       {
         address: token.address,
         fnName: 'burn_public',
-        args: [/*from=*/ receiver, transferAmount, nonce],
+        args: [/*from=*/ receiver, transferAmount, authwitNonce],
       },
     ],
   );
@@ -95,7 +95,7 @@ export async function deployToken(tester: PublicTxSimulationTester, admin: Aztec
   );
 
   const result = await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'Token.constructor',
+    /*txLabel=*/ 'Token/constructor',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -118,7 +118,7 @@ async function checkBalance(
   expectedBalance: bigint,
 ) {
   const balResult = await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'balance_of_public',
+    /*txLabel=*/ 'Token/balance_of_public',
     sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [

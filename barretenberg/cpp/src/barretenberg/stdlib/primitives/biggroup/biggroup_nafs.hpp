@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
@@ -243,15 +249,9 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
         // Compute and constrain skews
         field_t<C> negative_skew = witness_t<C>(ctx, is_negative ? 0 : skew);
         field_t<C> positive_skew = witness_t<C>(ctx, is_negative ? skew : 0);
-        if constexpr (HasPlookup<C>) {
-            ctx->create_new_range_constraint(negative_skew.witness_index, 1, "biggroup_nafs");
-            ctx->create_new_range_constraint(positive_skew.witness_index, 1, "biggroup_nafs");
-            ctx->create_new_range_constraint((negative_skew + positive_skew).witness_index, 1, "biggroup_nafs");
-        } else {
-            ctx->create_range_constraint(negative_skew.witness_index, 1, "biggroup_nafs");
-            ctx->create_range_constraint(positive_skew.witness_index, 1, "biggroup_nafs");
-            ctx->create_range_constraint((negative_skew + positive_skew).witness_index, 1, "biggroup_nafs");
-        }
+        ctx->create_new_range_constraint(negative_skew.witness_index, 1, "biggroup_nafs");
+        ctx->create_new_range_constraint(positive_skew.witness_index, 1, "biggroup_nafs");
+        ctx->create_new_range_constraint((negative_skew + positive_skew).witness_index, 1, "biggroup_nafs");
 
         const auto reconstruct_bigfield_from_wnaf = [ctx](const std::vector<field_t<C>>& wnaf,
                                                           const field_t<C>& positive_skew,
@@ -383,25 +383,14 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
             offset_entry = (1ULL << (WNAF_SIZE - 1)) - 1 - (wnaf_values[i] & 0xffffff);
         }
         field_t<C> entry(witness_t<C>(ctx, offset_entry));
-        if constexpr (HasPlookup<C>) {
-            ctx->create_new_range_constraint(entry.witness_index, 1ULL << (WNAF_SIZE), "biggroup_nafs");
-        } else if constexpr (IsSimulator<C>) {
-            ctx->create_range_constraint(entry.get_value(), WNAF_SIZE, "biggroup_nafs");
-        } else {
-            ctx->create_range_constraint(entry.witness_index, WNAF_SIZE, "biggroup_nafs");
-        }
+        ctx->create_new_range_constraint(entry.witness_index, 1ULL << (WNAF_SIZE), "biggroup_nafs");
+
         wnaf_entries.emplace_back(entry);
     }
 
     // add skew
     wnaf_entries.emplace_back(witness_t<C>(ctx, skew));
-    if constexpr (HasPlookup<C>) {
-        ctx->create_new_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
-    } else if constexpr (IsSimulator<C>) {
-        ctx->create_range_constraint(wnaf_entries[wnaf_entries.size() - 1].get_value(), 1, "biggroup_nafs");
-    } else {
-        ctx->create_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
-    }
+    ctx->create_new_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/664)
     // VALIDATE SUM DOES NOT OVERFLOW P
@@ -512,44 +501,34 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     } else {
         naf_entries[num_rounds] = bool_ct(witness_t(ctx, false));
     }
+    // We need to manually propagate the origin tag
+    naf_entries[num_rounds].set_origin_tag(scalar.get_origin_tag());
+
     for (size_t i = 0; i < num_rounds - 1; ++i) {
         bool next_entry = scalar_multiplier.get_bit(i + 1);
         // if the next entry is false, we need to flip the sign of the current entry. i.e. make negative
-        // This is a VERY hacky workaround to ensure that UltraPlonkBuilder will apply a basic
+        // This is a VERY hacky workaround to ensure that UltraBuilder will apply a basic
         // range constraint per bool, and not a full 1-bit range gate
         if (next_entry == false) {
             bool_ct bit(ctx, true);
             bit.context = ctx;
             bit.witness_index = witness_t<C>(ctx, true).witness_index; // flip sign
             bit.witness_bool = true;
-            if constexpr (IsSimulator<C>) {
-                ctx->create_range_constraint(
-                    bit.get_value(), 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
-            } else if constexpr (HasPlookup<C>) {
-                ctx->create_new_range_constraint(
-                    bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
-            } else {
-                ctx->create_range_constraint(
-                    bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
-            }
+            ctx->create_new_range_constraint(
+                bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
+
             naf_entries[num_rounds - i - 1] = bit;
         } else {
             bool_ct bit(ctx, false);
             bit.witness_index = witness_t<C>(ctx, false).witness_index; // don't flip sign
             bit.witness_bool = false;
-            if constexpr (IsSimulator<C>) {
-                ctx->create_range_constraint(
-                    bit.get_value(), 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
-            } else if constexpr (HasPlookup<C>) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/665)
-                ctx->create_new_range_constraint(
-                    bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
-            } else {
-                ctx->create_range_constraint(
-                    bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
-            }
+            ctx->create_new_range_constraint(
+                bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
+
             naf_entries[num_rounds - i - 1] = bit;
         }
+        // We need to manually propagate the origin tag
+        naf_entries[num_rounds - i - 1].set_origin_tag(scalar.get_origin_tag());
     }
     naf_entries[0] = bool_ct(ctx, false); // most significant entry is always true
 

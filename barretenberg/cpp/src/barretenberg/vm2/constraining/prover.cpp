@@ -5,8 +5,8 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
@@ -134,22 +134,20 @@ HonkProof AvmProver::construct_proof()
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
 
-    // Compute wire commitments
+    // Compute wire commitments.
     AVM_TRACK_TIME("prove/execute_wire_commitments_round", execute_wire_commitments_round());
 
-    // Compute sorted list accumulator
+    // Compute log derivative inverses.
     AVM_TRACK_TIME("prove/execute_log_derivative_inverse_round", execute_log_derivative_inverse_round());
 
-    // Compute commitments to logderivative inverse polynomials
+    // Compute commitments to logderivative inverse polynomials.
     AVM_TRACK_TIME("prove/execute_log_derivative_inverse_commitments_round",
                    execute_log_derivative_inverse_commitments_round());
 
-    // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.
     AVM_TRACK_TIME("prove/execute_relation_check_rounds", execute_relation_check_rounds());
 
-    // Fiat-Shamir: rho, y, x, z
-    // Execute Shplemini PCS
+    // Execute PCS.
     AVM_TRACK_TIME("prove/execute_pcs_rounds", execute_pcs_rounds());
 
     return export_proof();

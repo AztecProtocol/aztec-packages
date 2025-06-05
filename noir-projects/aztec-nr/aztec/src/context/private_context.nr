@@ -20,14 +20,13 @@ use dep::protocol_types::{
         call_context::CallContext,
         function_selector::FunctionSelector,
         gas_settings::GasSettings,
-        log::Log,
         log_hash::LogHash,
         max_block_number::MaxBlockNumber,
         note_hash::NoteHash,
         nullifier::Nullifier,
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        private_log::PrivateLogData,
+        private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
         read_request::ReadRequest,
         side_effect::Counted,
@@ -72,14 +71,14 @@ pub struct PrivateContext {
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
     pub public_teardown_call_request: PublicCallRequest,
-    pub l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
+    pub l2_to_l1_msgs: BoundedVec<Counted<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     pub historical_header: BlockHeader,
 
     pub private_logs: BoundedVec<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,
-    pub contract_class_logs_hashes: BoundedVec<LogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    pub contract_class_logs_hashes: BoundedVec<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
     // fetching the same request multiple times.
@@ -286,8 +285,8 @@ impl PrivateContext {
     // docs:start:context_message_portal
     pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
         // docs:end:context_message_portal
-        let message = L2ToL1Message { recipient, content, counter: self.next_counter() };
-        self.l2_to_l1_msgs.push(message);
+        let message = L2ToL1Message { recipient, content };
+        self.l2_to_l1_msgs.push(message.count(self.next_counter()));
     }
 
     // docs:start:context_consume_l1_to_l2_message
@@ -316,19 +315,22 @@ impl PrivateContext {
     }
     // docs:end:consume_l1_to_l2_message
 
-    pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS]) {
+    pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS], length: u32) {
         let counter = self.next_counter();
-        let private_log = PrivateLogData { log: Log::new(log), note_hash_counter: 0, counter };
+        let private_log =
+            PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter: 0, counter };
         self.private_logs.push(private_log);
     }
 
     pub fn emit_raw_note_log(
         &mut self,
         log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
+        length: u32,
         note_hash_counter: u32,
     ) {
         let counter = self.next_counter();
-        let private_log = PrivateLogData { log: Log::new(log), note_hash_counter, counter };
+        let private_log =
+            PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter, counter };
         self.private_logs.push(private_log);
     }
 

@@ -7,13 +7,11 @@ import {
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type RECURSIVE_PROOF_LENGTH,
-  VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import type { Logger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
-import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import type { L2Block } from '@aztec/stdlib/block';
@@ -34,6 +32,7 @@ import {
 import type { CircuitName } from '@aztec/stdlib/stats';
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/stdlib/tx';
+import { VkData } from '@aztec/stdlib/vks';
 
 import { buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
 import type { EpochProvingState } from './epoch-proving-state.js';
@@ -68,6 +67,7 @@ export class BlockProvingState {
     private readonly l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     private readonly l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSnapshot: AppendOnlyTreeSnapshot,
+    private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly previousBlockHeader: BlockHeader,
     private readonly parentEpoch: EpochProvingState,
@@ -232,6 +232,7 @@ export class BlockProvingState {
     const data = BlockRootRollupData.from({
       l1ToL2Roots: this.#getRootParityData(this.rootParityProvingOutput!),
       l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
+      previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader: newBlockHeader,
       proverId,
@@ -267,7 +268,7 @@ export class BlockProvingState {
     return this.txs[txIndex];
   }
 
-  public async buildHeaderFromProvingOutputs(logger?: Logger) {
+  public async buildHeaderFromProvingOutputs() {
     const previousRollupData =
       this.totalNumTxs === 0
         ? []
@@ -289,7 +290,6 @@ export class BlockProvingState {
       this.rootParityProvingOutput!.inputs,
       this.blockRootProvingOutput!.inputs,
       endState,
-      logger,
     );
   }
 
@@ -326,6 +326,7 @@ export class BlockProvingState {
     return BlockRootRollupData.from({
       l1ToL2Roots: this.#getRootParityData(this.rootParityProvingOutput!),
       l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
+      previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader: this.previousBlockHeader,
       proverId,
@@ -360,12 +361,8 @@ export class BlockProvingState {
     verificationKey,
   }: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>) {
     const leafIndex = getVKIndex(verificationKey.keyAsFields);
-    return new PreviousRollupData(
-      inputs,
-      proof,
-      verificationKey.keyAsFields,
-      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
-    );
+    const vkData = new VkData(verificationKey, leafIndex, getVKSiblingPath(leafIndex));
+    return new PreviousRollupData(inputs, proof, vkData);
   }
 
   #getRootParityData({ inputs, proof, verificationKey }: PublicInputsAndRecursiveProof<ParityPublicInputs>) {

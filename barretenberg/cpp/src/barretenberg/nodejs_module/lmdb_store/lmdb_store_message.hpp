@@ -116,7 +116,8 @@ struct BatchResponse {
 struct StatsResponse {
     std::vector<lmdblib::DBStats> stats;
     uint64_t dbMapSizeBytes;
-    MSGPACK_FIELDS(stats, dbMapSizeBytes);
+    uint64_t dbPhysicalFileSizeBytes;
+    MSGPACK_FIELDS(stats, dbMapSizeBytes, dbPhysicalFileSizeBytes);
 };
 
 struct CopyStoreRequest {

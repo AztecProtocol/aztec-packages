@@ -11,6 +11,8 @@ import {
 export class ValidatorMetrics {
   private reExecutionTime: Gauge;
   private failedReexecutionCounter: UpDownCounter;
+  private attestationsCount: UpDownCounter;
+  private failedAttestationsCount: UpDownCounter;
 
   constructor(telemetryClient: TelemetryClient) {
     const meter = telemetryClient.getMeter('Validator');
@@ -26,6 +28,16 @@ export class ValidatorMetrics {
       unit: 'ms',
       valueType: ValueType.DOUBLE,
     });
+
+    this.attestationsCount = meter.createUpDownCounter(Metrics.VALIDATOR_ATTESTATION_COUNT, {
+      description: 'The number of attestations',
+      valueType: ValueType.INT,
+    });
+
+    this.failedAttestationsCount = meter.createUpDownCounter(Metrics.VALIDATOR_FAILED_ATTESTATION_COUNT, {
+      description: 'The number of failed attestations',
+      valueType: ValueType.INT,
+    });
   }
 
   public reExecutionTimer(): () => void {
@@ -40,10 +52,20 @@ export class ValidatorMetrics {
     this.reExecutionTime.record(time);
   }
 
-  public async recordFailedReexecution(proposal: BlockProposal) {
+  public recordFailedReexecution(proposal: BlockProposal) {
     this.failedReexecutionCounter.add(1, {
       [Attributes.STATUS]: 'failed',
-      [Attributes.BLOCK_PROPOSER]: (await proposal.getSender())?.toString(),
+      [Attributes.BLOCK_PROPOSER]: proposal.getSender().toString(),
+    });
+  }
+
+  public incAttestations(num: number) {
+    this.attestationsCount.add(num);
+  }
+
+  public incFailedAttestations(num: number, reason: string) {
+    this.failedAttestationsCount.add(num, {
+      [Attributes.ERROR_TYPE]: reason,
     });
   }
 }

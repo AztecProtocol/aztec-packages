@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /* eslint-disable no-console */
 import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -24,7 +23,7 @@ async function main() {
   const blobs = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   logger.info(`Got ${blobs.length} blobs`);
   for (const blob of blobs) {
-    console.log(blob.toJson());
+    console.log(blob.toJSON());
   }
 }
 

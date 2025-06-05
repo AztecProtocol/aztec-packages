@@ -11,8 +11,8 @@ import {
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -140,7 +140,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       metadata: {
         stage: 3, // aztec::note::note_metadata::NoteStage::SETTLED
         // eslint-disable-next-line camelcase
-        maybe_nonce: uniqueNote.nonce,
+        maybe_note_nonce: uniqueNote.noteNonce,
       },
     };
   };
@@ -161,7 +161,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         .wait();
 
       // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
-      await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
+      await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_private_state().simulate();
       const notes = await pxe.getNotes({ txHash: donateTxReceipt.txHash });
       const filteredNotes = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
       expect(filteredNotes!.length).toEqual(1);
@@ -225,7 +225,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       .wait();
 
     // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
-    await crowdfundingContract.withWallet(unrelatedWallet).methods.sync_notes().simulate();
+    await crowdfundingContract.withWallet(unrelatedWallet).methods.sync_private_state().simulate();
     const notes = await pxe.getNotes({ txHash: donateTxReceipt.txHash });
     const filtered = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
     expect(filtered!.length).toEqual(1);
@@ -272,7 +272,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         .call_create_note(arbitraryValue, owner, sender, arbitraryStorageSlot)
         .send()
         .wait();
-      await testContract.methods.sync_notes().simulate();
+      await testContract.methods.sync_private_state().simulate();
       const notes = await pxe.getNotes({ txHash: receipt.txHash });
       expect(notes.length).toEqual(1);
       note = processUniqueNote(notes[0]);

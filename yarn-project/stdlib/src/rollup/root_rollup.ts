@@ -7,7 +7,6 @@ import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { FeeRecipient } from './block_root_or_block_merge_public_inputs.js';
 import { PreviousRollupBlockData } from './previous_rollup_block_data.js';
 
@@ -100,16 +99,14 @@ export class RootRollupInputs {
  */
 export class RootRollupPublicInputs {
   constructor(
-    /** Snapshot of archive tree before/after this rollup been processed */
-    public previousArchive: AppendOnlyTreeSnapshot,
-    public endArchive: AppendOnlyTreeSnapshot,
-    public previousBlockHash: Fr,
-    public endBlockHash: Fr,
-    // This is a u64 in nr, but GlobalVariables contains this as a u64 and is mapped to ts as a field, so I'm doing the same here
-    public endTimestamp: Fr,
-    public endBlockNumber: Fr,
-    public outHash: Fr,
+    /** Root of the archive tree before this rollup is processed */
+    public previousArchiveRoot: Fr,
+    /** Root of the archive tree after this rollup is processed */
+    public endArchiveRoot: Fr,
+    public proposedBlockHeaderHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
     public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
+    public chainId: Fr,
+    public version: Fr,
     public vkTreeRoot: Fr,
     public protocolContractTreeRoot: Fr,
     public proverId: Fr,
@@ -118,14 +115,12 @@ export class RootRollupPublicInputs {
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
     return [
-      fields.previousArchive,
-      fields.endArchive,
-      fields.previousBlockHash,
-      fields.endBlockHash,
-      fields.endTimestamp,
-      fields.endBlockNumber,
-      fields.outHash,
+      fields.previousArchiveRoot,
+      fields.endArchiveRoot,
+      fields.proposedBlockHeaderHashes,
       fields.fees,
+      fields.chainId,
+      fields.version,
       fields.vkTreeRoot,
       fields.protocolContractTreeRoot,
       fields.proverId,
@@ -153,14 +148,12 @@ export class RootRollupPublicInputs {
   public static fromBuffer(buffer: Buffer | BufferReader): RootRollupPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new RootRollupPublicInputs(
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -189,14 +182,12 @@ export class RootRollupPublicInputs {
   /** Creates a random instance. */
   static random() {
     return new RootRollupPublicInputs(
-      AppendOnlyTreeSnapshot.random(),
-      AppendOnlyTreeSnapshot.random(),
       Fr.random(),
       Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
+      makeTuple(AZTEC_MAX_EPOCH_DURATION, Fr.random),
       makeTuple(AZTEC_MAX_EPOCH_DURATION, FeeRecipient.random),
+      Fr.random(),
+      Fr.random(),
       Fr.random(),
       Fr.random(),
       Fr.random(),

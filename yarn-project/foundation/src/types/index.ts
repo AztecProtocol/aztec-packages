@@ -1,12 +1,10 @@
 /** Strips methods of a type. */
 export type FieldsOf<T> = {
-  // eslint-disable-next-line @typescript-eslint/ban-types
   [P in keyof T as T[P] extends Function ? never : P]: T[P];
 };
 
 /** Extracts methods of a type. */
 export type FunctionsOf<T> = {
-  // eslint-disable-next-line @typescript-eslint/ban-types
   [P in keyof T as T[P] extends Function ? P : never]: T[P];
 };
 
@@ -21,5 +19,21 @@ export function unfreeze<T>(obj: T): Writeable<T> {
   return obj as Writeable<T>;
 }
 
-/** Maybe exists, maybe not. */
-export type Maybe<T extends object> = T | unknown;
+/**
+ * Type-safe Event Emitter type
+ * @example
+ * export type ArchiverEmitter = TypedEventEmitter<{
+ *  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockSourceEvent) => void;
+ *  [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockSourceEvent) => void;
+ * }>;
+ * class Archiver extends (EventEmitter as new () => ArchiverEmitter) {
+ *  // ...
+ * }
+ */
+export interface TypedEventEmitter<TEventMap extends { [key in keyof TEventMap]: (...args: any[]) => void }> {
+  on<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
+  off<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
+  emit<K extends keyof TEventMap>(event: K, ...args: Parameters<TEventMap[K]>): boolean;
+  removeListener<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
+  // Can add other EventEmitter methods if needed, like once(), listenerCount(), etc.
+}

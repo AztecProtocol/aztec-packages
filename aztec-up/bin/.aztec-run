@@ -103,11 +103,11 @@ fi
 
 # Forward all requested environment variables into the container.
 # Substitute any reference to localhost with our host gateway.
-arg_env_vars="-e HOME=$HOME"
+arg_env_vars=("-e" "HOME=$HOME")
 for env in ${ENV_VARS_TO_INJECT:-}; do
   if [ -n "${!env:-}" ]; then
     env=${env//localhost/host.docker.internal}
-    arg_env_vars+=" -e $env=${!env:-}"
+    arg_env_vars+=("-e" "$env=${!env}")
   fi
 done
 
@@ -135,12 +135,15 @@ function run {
     ${arg_container_name:-} \
     --rm \
     --workdir "$PWD" \
+    --restart "${DOCKER_RESTART_POLICY:-no}" \
+    --pull "${DOCKER_PULL_POLICY:-missing}" \
     ${arg_interactive:-} \
     ${arg_volume_mounts:-} \
     ${arg_port_assignment:-} \
-    ${arg_env_vars:-} \
+    "${arg_env_vars[@]}" \
     ${arg_host_binds:-} \
     ${arg_user:-} \
+    --entrypoint "" \
     aztecprotocol/aztec:$VERSION "${args[@]}"
 }
 

@@ -9,14 +9,14 @@ export class AttestationValidator implements P2PValidator<BlockAttestation> {
   }
 
   async validate(message: BlockAttestation): Promise<PeerErrorSeverity | undefined> {
-    const { currentSlot, nextSlot } = await this.epochCache.getProposerInCurrentOrNextSlot();
+    const { currentSlot, nextSlot } = await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
 
-    const slotNumberBigInt = message.payload.header.globalVariables.slotNumber.toBigInt();
+    const slotNumberBigInt = message.payload.header.slotNumber.toBigInt();
     if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
       return PeerErrorSeverity.HighToleranceError;
     }
 
-    const attester = await message.getSender();
+    const attester = message.getSender();
     if (!(await this.epochCache.isInCommittee(attester))) {
       return PeerErrorSeverity.HighToleranceError;
     }

@@ -2,12 +2,12 @@
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { type AccountWallet, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 // docs:end:imports
 // docs:start:import_contract
-import { TestContract } from '@aztec/noir-contracts.js/Test';
-// docs:end:import_contract
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
+// docs:end:import_contract
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
@@ -80,7 +80,7 @@ describe('guides/dapp/testing', () => {
 
       it('checks private storage', async () => {
         // docs:start:private-storage
-        await token.methods.sync_notes().simulate();
+        await token.methods.sync_private_state().simulate();
         const notes = await pxe.getNotes({
           recipient: owner.getAddress(),
           contractAddress: token.address,
@@ -115,22 +115,15 @@ describe('guides/dapp/testing', () => {
           limit: 1, // 1 log expected
         };
         const logs = (await pxe.getPublicLogs(filter)).logs;
-        expect(logs[0].log.log[0]).toEqual(value);
+        expect(logs[0].log.getEmittedFields()).toEqual([value]);
         // docs:end:public-logs
       });
 
       it('asserts a local transaction simulation fails by calling simulate', async () => {
         // docs:start:local-tx-fails
         const call = token.methods.transfer(recipient.getAddress(), 200n);
-        await expect(call.prove()).rejects.toThrow(/Balance too low/);
+        await expect(call.simulate()).rejects.toThrow(/Balance too low/);
         // docs:end:local-tx-fails
-      });
-
-      it('asserts a local transaction simulation fails by calling send', async () => {
-        // docs:start:local-tx-fails-send
-        const call = token.methods.transfer(recipient.getAddress(), 200n);
-        await expect(call.send().wait()).rejects.toThrow(/Balance too low/);
-        // docs:end:local-tx-fails-send
       });
 
       it('asserts a transaction is dropped', async () => {
@@ -149,14 +142,14 @@ describe('guides/dapp/testing', () => {
       it('asserts a simulation for a public function call fails', async () => {
         // docs:start:local-pub-fails
         const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
-        await expect(call.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+        await expect(call.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
         // docs:end:local-pub-fails
       });
 
       it('asserts a transaction with a failing public call is included (with no state changes)', async () => {
         // docs:start:pub-reverted
         const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
-        const receipt = await call.send({ skipPublicSimulation: true }).wait({ dontThrowOnRevert: true });
+        const receipt = await call.send().wait({ dontThrowOnRevert: true });
         expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
         const ownerPublicBalanceSlot = await cheats.aztec.computeSlotInMap(
           TokenContract.storage.public_balances.slot,

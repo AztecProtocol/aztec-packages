@@ -18,8 +18,9 @@ use types::{
         L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT, MERGE_ROLLUP_INDEX,
         PUBLIC_BASE_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX,
     },
-    merkle_tree::{MembershipWitness, MerkleTree},
+    merkle_tree::MerkleTree,
     partial_state_reference::PartialStateReference,
+    proof::vk_data::VkData,
     tests::{fixtures, merkle_tree_utils::{compute_zero_hashes, NonEmptyMerkleTree}},
     traits::{Empty, Hash},
 };
@@ -31,6 +32,7 @@ pub struct RollupFixtureBuilder {
     pub last_l1_to_l2: AppendOnlyTreeSnapshot,
     pub last_l1_to_l2_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
     pub last_archive: AppendOnlyTreeSnapshot,
+    pub last_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     pub new_archive: AppendOnlyTreeSnapshot,
     pub new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     pub blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
@@ -58,6 +60,7 @@ impl RollupFixtureBuilder {
             last_l1_to_l2: AppendOnlyTreeSnapshot::zero(),
             last_l1_to_l2_subtree_sibling_path: [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
             last_archive: AppendOnlyTreeSnapshot::zero(),
+            last_archive_sibling_path: [0; ARCHIVE_HEIGHT],
             new_archive: AppendOnlyTreeSnapshot::zero(),
             new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
             blobs_fields: [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
@@ -94,15 +97,13 @@ impl RollupFixtureBuilder {
             MERGE_ROLLUP_INDEX
         };
         let vk = fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
-        self.previous_rollup_data[0].vk = vk;
-        self.previous_rollup_data[1].vk = vk;
-
-        let vk_witness = MembershipWitness {
-            leaf_index: vk_index as Field,
+        let vk_data = VkData {
+            vk,
+            leaf_index: vk_index,
             sibling_path: self.vk_tree.get_sibling_path(vk_index),
         };
-        self.previous_rollup_data[0].vk_witness = vk_witness;
-        self.previous_rollup_data[1].vk_witness = vk_witness;
+        self.previous_rollup_data[0].vk_data = vk_data;
+        self.previous_rollup_data[1].vk_data = vk_data;
 
         let mut note_hash_tree = self.previous_block_header.state.partial.note_hash_tree;
         rollup_0.start.note_hash_tree = note_hash_tree;
@@ -232,6 +233,7 @@ impl RollupFixtureBuilder {
         self.last_archive =
             AppendOnlyTreeSnapshot { root: tree.get_root(), next_available_leaf_index: 1 };
 
+        self.last_archive_sibling_path = tree.get_sibling_path(0);
         self.new_archive_sibling_path = tree.get_sibling_path(1);
 
         *self
@@ -261,6 +263,7 @@ impl RollupFixtureBuilder {
         BlockRootRollupData {
             l1_to_l2_roots: self.to_root_rollup_parity_input(),
             l1_to_l2_message_subtree_sibling_path: self.last_l1_to_l2_subtree_sibling_path,
+            previous_archive_sibling_path: self.last_archive_sibling_path,
             new_archive_sibling_path: self.new_archive_sibling_path,
             previous_block_header: self.previous_block_header,
             prover_id: self.prover_id,

@@ -30,8 +30,8 @@ class ContextInterface {
     virtual void set_next_pc(uint32_t new_next_pc) = 0;
     virtual bool halted() const = 0;
     virtual void halt() = 0;
-
     virtual uint32_t get_context_id() const = 0;
+    virtual uint32_t get_parent_id() const = 0;
 
     // Environment.
     virtual const AztecAddress& get_address() const = 0;
@@ -56,6 +56,15 @@ class ContextInterface {
     virtual bool get_last_success() const = 0;
     virtual void set_last_success(bool success) = 0;
 
+    virtual Gas get_gas_used() const = 0;
+    virtual Gas get_gas_limit() const = 0;
+    virtual void set_gas_used(Gas gas_used) = 0;
+
+    virtual Gas get_parent_gas_used() const = 0;
+    virtual Gas get_parent_gas_limit() const = 0;
+
+    virtual Gas gas_left() const = 0;
+
     // Events
     virtual ContextEvent serialize_context_event() = 0;
 };
@@ -67,12 +76,16 @@ class BaseContext : public ContextInterface {
                 AztecAddress address,
                 AztecAddress msg_sender,
                 bool is_static,
+                Gas gas_limit,
+                Gas gas_used,
                 std::unique_ptr<BytecodeManagerInterface> bytecode,
                 std::unique_ptr<MemoryInterface> memory)
         : address(address)
         , msg_sender(msg_sender)
         , is_static(is_static)
         , context_id(context_id)
+        , gas_used(gas_used)
+        , gas_limit(gas_limit)
         , bytecode(std::move(bytecode))
         , memory(std::move(memory))
     {}
@@ -110,15 +123,21 @@ class BaseContext : public ContextInterface {
     bool get_last_success() const override { return last_child_success; }
     void set_last_success(bool success) override { last_child_success = success; }
 
+    Gas get_gas_used() const override { return gas_used; }
+    Gas get_gas_limit() const override { return gas_limit; }
+
+    Gas gas_left() const override { return gas_limit - gas_used; }
+
+    void set_gas_used(Gas gas_used) override { this->gas_used = gas_used; }
+
     // Input / Output
     std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) override
     {
         MemoryInterface& child_memory = get_child_context().get_memory();
-        auto get_returndata_size = child_memory.get(last_child_rd_size);
-        uint32_t returndata_size = get_returndata_size.as<uint32_t>();
-        uint32_t write_size = std::min(rd_offset + rd_size, returndata_size);
+        uint32_t write_size = std::min(rd_offset + rd_size, last_child_rd_size);
 
         std::vector<FF> retrieved_returndata;
+        retrieved_returndata.reserve(write_size);
         for (uint32_t i = 0; i < write_size; i++) {
             retrieved_returndata.push_back(child_memory.get(get_last_rd_offset() + i));
         }
@@ -139,6 +158,8 @@ class BaseContext : public ContextInterface {
     uint32_t pc = 0;
     uint32_t next_pc = 0;
     bool has_halted = false;
+    Gas gas_used;
+    Gas gas_limit;
     std::unique_ptr<BytecodeManagerInterface> bytecode;
     std::unique_ptr<MemoryInterface> memory;
 
@@ -156,26 +177,35 @@ class EnqueuedCallContext : public BaseContext {
                         AztecAddress address,
                         AztecAddress msg_sender,
                         bool is_static,
+                        Gas gas_limit,
+                        Gas gas_used,
                         std::unique_ptr<BytecodeManagerInterface> bytecode,
                         std::unique_ptr<MemoryInterface> memory,
                         std::span<const FF> calldata)
-        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
+        : BaseContext(
+              context_id, address, msg_sender, is_static, gas_limit, gas_used, std::move(bytecode), std::move(memory))
         , calldata(calldata.begin(), calldata.end())
     {}
 
+    uint32_t get_parent_id() const override { return 0; } // No parent context for the top-level context.
     // Event Emitting
     ContextEvent serialize_context_event() override
     {
-        return { .id = get_context_id(),
-                 .pc = get_pc(),
-                 .msg_sender = get_msg_sender(),
-                 .contract_addr = get_address(),
-                 .is_static = get_is_static(),
-                 .parent_cd_addr = 0,
-                 .parent_cd_size_addr = 0,
-                 .last_child_rd_addr = get_last_rd_offset(),
-                 .last_child_rd_size_addr = get_last_rd_size(),
-                 .last_child_success = get_last_success() };
+        return {
+            .id = get_context_id(),
+            .parent_id = 0,
+            .pc = get_pc(),
+            .msg_sender = get_msg_sender(),
+            .contract_addr = get_address(),
+            .is_static = get_is_static(),
+            .parent_cd_addr = 0,
+            .parent_cd_size_addr = 0,
+            .last_child_rd_addr = get_last_rd_offset(),
+            .last_child_rd_size_addr = get_last_rd_size(),
+            .last_child_success = get_last_success(),
+            .gas_used = get_gas_used(),
+            .gas_limit = get_gas_limit(),
+        };
     };
 
     // Input / Output
@@ -194,6 +224,9 @@ class EnqueuedCallContext : public BaseContext {
         return padded_calldata;
     };
 
+    Gas get_parent_gas_used() const override { return Gas{}; }
+    Gas get_parent_gas_limit() const override { return Gas{}; }
+
   private:
     std::vector<FF> calldata;
 };
@@ -205,28 +238,51 @@ class NestedContext : public BaseContext {
                   AztecAddress address,
                   AztecAddress msg_sender,
                   bool is_static,
+                  Gas gas_limit,
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
                   std::unique_ptr<MemoryInterface> memory,
                   ContextInterface& parent_context,
                   MemoryAddress cd_offset_address, /* This is a direct mem address */
                   MemoryAddress cd_size_address    /* This is a direct mem address */
                   )
-        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
+        : BaseContext(context_id,
+                      address,
+                      msg_sender,
+                      is_static,
+                      gas_limit,
+                      Gas{ 0, 0 },
+                      std::move(bytecode),
+                      std::move(memory))
         , parent_cd_offset(cd_offset_address)
         , parent_cd_size(cd_size_address)
         , parent_context(parent_context)
     {}
 
+    uint32_t get_parent_id() const override { return parent_context.get_context_id(); }
+
+    Gas get_parent_gas_used() const override { return parent_context.get_gas_used(); }
+    Gas get_parent_gas_limit() const override { return parent_context.get_gas_limit(); }
+
     // Event Emitting
     ContextEvent serialize_context_event() override
     {
-        return { .id = get_context_id(),
-                 .pc = get_pc(),
-                 .msg_sender = get_msg_sender(),
-                 .contract_addr = get_address(),
-                 .is_static = get_is_static(),
-                 .parent_cd_addr = parent_cd_offset,
-                 .parent_cd_size_addr = parent_cd_size };
+        return {
+            .id = get_context_id(),
+            .parent_id = get_parent_id(),
+            .pc = get_pc(),
+            .msg_sender = get_msg_sender(),
+            .contract_addr = get_address(),
+            .is_static = get_is_static(),
+            .parent_cd_addr = parent_cd_offset,
+            .parent_cd_size_addr = parent_cd_size,
+            .last_child_rd_addr = get_last_rd_offset(),
+            .last_child_rd_size_addr = get_last_rd_size(),
+            .last_child_success = get_last_success(),
+            .gas_used = get_gas_used(),
+            .gas_limit = get_gas_limit(),
+            .parent_gas_used = get_parent_gas_used(),
+            .parent_gas_limit = get_parent_gas_limit(),
+        };
     };
 
     // Input / Output
@@ -238,6 +294,7 @@ class NestedContext : public BaseContext {
         uint32_t read_size = std::min(cd_offset + cd_size, calldata_size);
 
         std::vector<FF> retrieved_calldata;
+        retrieved_calldata.reserve(read_size);
         for (uint32_t i = 0; i < read_size; i++) {
             retrieved_calldata.push_back(parent_context.get_memory().get(parent_cd_offset + i));
         }

@@ -1,36 +1,27 @@
-import {
-  type L1ContractAddresses,
-  RollupContract,
-  type ViemPublicClient,
-  type ViemWalletClient,
-} from '@aztec/ethereum';
+import { type ExtendedViemWalletClient, type L1ContractAddresses, RollupContract } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
+import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { InboxAbi } from '@aztec/l1-artifacts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { expect } from '@jest/globals';
 import { decodeEventLog, getContract } from 'viem';
 
 export async function sendL1ToL2Message(
   message: { recipient: AztecAddress; content: Fr; secretHash: Fr },
   ctx: {
-    walletClient: ViemWalletClient;
-    publicClient: ViemPublicClient;
+    l1Client: ExtendedViemWalletClient;
     l1ContractAddresses: Pick<L1ContractAddresses, 'inboxAddress' | 'rollupAddress'>;
   },
 ) {
   const inbox = getContract({
     address: ctx.l1ContractAddresses.inboxAddress.toString(),
     abi: InboxAbi,
-    client: ctx.walletClient,
+    client: ctx.l1Client,
   });
 
   const { recipient, content, secretHash } = message;
 
-  const version = await new RollupContract(
-    ctx.publicClient,
-    ctx.l1ContractAddresses.rollupAddress.toString(),
-  ).getVersion();
+  const version = await new RollupContract(ctx.l1Client, ctx.l1ContractAddresses.rollupAddress.toString()).getVersion();
 
   // We inject the message to Inbox
   const txHash = await inbox.write.sendL2Message([
@@ -40,10 +31,14 @@ export async function sendL1ToL2Message(
   ]);
 
   // We check that the message was correctly injected by checking the emitted event
-  const txReceipt = await ctx.publicClient.waitForTransactionReceipt({ hash: txHash });
+  const txReceipt = await ctx.l1Client.waitForTransactionReceipt({ hash: txHash });
 
   // Exactly 1 event should be emitted in the transaction
-  expect(txReceipt.logs.length).toBe(1);
+  if (txReceipt.logs.length !== 1) {
+    throw new Error(
+      `Wrong number of logs found in transaction (got ${txReceipt.logs.length} expected 1)\n${tryJsonStringify(txReceipt.logs)}`,
+    );
+  }
 
   // We decode the event and get leaf out of it
   const messageSentLog = txReceipt.logs[0];
@@ -55,5 +50,5 @@ export async function sendL1ToL2Message(
   const receivedMsgHash = topics.args.hash;
   const receivedGlobalLeafIndex = topics.args.index;
 
-  return [Fr.fromHexString(receivedMsgHash), new Fr(receivedGlobalLeafIndex)];
+  return { msgHash: Fr.fromHexString(receivedMsgHash), globalLeafIndex: new Fr(receivedGlobalLeafIndex), txReceipt };
 }

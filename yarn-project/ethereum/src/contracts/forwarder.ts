@@ -11,50 +11,46 @@ import {
   getContract,
 } from 'viem';
 
-import { deployL1Contract, getExpectedAddress } from '../deploy_l1_contracts.js';
+import { deployL1Contract } from '../deploy_l1_contracts.js';
 import type { L1BlobInputs, L1GasConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
-import type { L1Clients, ViemPublicClient, ViemWalletClient } from '../types.js';
+import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import { RollupContract } from './rollup.js';
 
-export class ForwarderContract {
-  private readonly forwarder: GetContractReturnType<typeof ForwarderAbi, ViemPublicClient>;
+// No harm in this, since the default forwarder is effectively multi-call,
+// and has no owner or state
+const DEFAULT_FORWARDER_SALT = '0x42';
 
-  constructor(public readonly client: L1Clients['publicClient'], address: Hex, public readonly rollupAddress: Hex) {
+export class ForwarderContract {
+  private readonly forwarder: GetContractReturnType<typeof ForwarderAbi, ViemClient>;
+
+  constructor(
+    public readonly client: ExtendedViemWalletClient,
+    address: Hex,
+    public readonly rollupAddress: Hex,
+  ) {
     this.forwarder = getContract({ address, abi: ForwarderAbi, client });
   }
 
-  static expectedAddress(owner: Hex) {
-    const { address } = getExpectedAddress(ForwarderAbi, ForwarderBytecode, [owner], owner);
-    return address;
-  }
-
-  static async create(
-    owner: Hex,
-    walletClient: ViemWalletClient,
-    publicClient: ViemPublicClient,
-    logger: Logger,
-    rollupAddress: Hex,
-  ) {
+  static async create(l1Client: ExtendedViemWalletClient, logger: Logger, rollupAddress: Hex) {
     logger.info('Deploying forwarder contract');
 
     const { address, txHash } = await deployL1Contract(
-      walletClient,
-      publicClient,
+      l1Client,
       ForwarderAbi,
       ForwarderBytecode,
-      [owner],
-      owner,
+      [],
+      DEFAULT_FORWARDER_SALT,
       undefined,
       logger,
     );
 
     if (txHash) {
-      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      await l1Client.waitForTransactionReceipt({ hash: txHash });
     }
 
-    logger.info(`Forwarder contract deployed at ${address} with owner ${owner}`);
+    logger.info(`Forwarder contract deployed at ${address}`);
 
-    return new ForwarderContract(publicClient, address.toString(), rollupAddress);
+    return new ForwarderContract(l1Client, address.toString(), rollupAddress);
   }
 
   public getAddress() {

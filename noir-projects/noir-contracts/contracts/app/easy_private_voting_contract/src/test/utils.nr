@@ -9,6 +9,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
 
     let initializer_call_interface = EasyPrivateVoting::interface().constructor(admin);
     let voting_contract = env.deploy_self("EasyPrivateVoting").with_public_void_initializer(
+        admin,
         initializer_call_interface,
     );
 

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "./element.hpp"
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
@@ -231,7 +237,6 @@ template <class Fq, class Fr, class T>
 constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed,
                                                                              uint8_t attempt_count) noexcept
     requires SupportsHashToCurve<T>
-
 {
     std::vector<uint8_t> target_seed(seed);
     // expand by 2 bytes to cover incremental hash attempts

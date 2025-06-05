@@ -46,12 +46,12 @@ describe('e2e_blacklist_token_contract transfer public', () => {
     const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
 
     // docs:start:authwit_public_transfer_example
     const action = asset
       .withWallet(wallets[1])
-      .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+      .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce);
 
     const validateActionInteraction = await wallets[0].setPublicAuthWit(
       { caller: wallets[1].getAddress(), action },
@@ -68,7 +68,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
     await expect(
       asset
         .withWallet(wallets[1])
-        .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
+        .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce)
         .simulate(),
     ).rejects.toThrow(/unauthorized/);
   });
@@ -77,29 +77,33 @@ describe('e2e_blacklist_token_contract transfer public', () => {
     it('transfer more than balance', async () => {
       const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
       const amount = balance0 + 1n;
-      const nonce = 0;
+      const authwitNonce = 0;
       await expect(
-        asset.methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce).prove(),
+        asset.methods
+          .transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce)
+          .simulate(),
       ).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
 
     it('transfer on behalf of self with non-zero nonce', async () => {
       const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
       const amount = balance0 - 1n;
-      const nonce = 1;
+      const authwitNonce = 1;
       await expect(
-        asset.methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce).prove(),
-      ).rejects.toThrow('Assertion failed: invalid nonce');
+        asset.methods
+          .transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce)
+          .simulate(),
+      ).rejects.toThrow('Assertion failed: invalid authwit nonce');
     });
 
     it('transfer on behalf of other without "approval"', async () => {
       const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
       const amount = balance0 + 1n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       await expect(
         asset
           .withWallet(wallets[1])
-          .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
+          .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce)
           .simulate(),
       ).rejects.toThrow(/unauthorized/);
     });
@@ -108,12 +112,12 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
       const balance1 = await asset.methods.balance_of_public(wallets[1].getAddress()).simulate();
       const amount = balance0 + 1n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+        .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       // docs:start:set_public_authwit
@@ -124,7 +128,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       await validateActionInteraction.send().wait();
       // docs:end:set_public_authwit
       // Perform the transfer
-      await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+      await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
       expect(await asset.methods.balance_of_public(wallets[0].getAddress()).simulate()).toEqual(balance0);
       expect(await asset.methods.balance_of_public(wallets[1].getAddress()).simulate()).toEqual(balance1);
@@ -134,13 +138,13 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
       const balance1 = await asset.methods.balance_of_public(wallets[1].getAddress()).simulate();
       const amount = balance0 + 2n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+        .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce);
 
       const validateActionInteraction = await wallets[0].setPublicAuthWit(
         { caller: wallets[0].getAddress(), action },
@@ -164,14 +168,14 @@ describe('e2e_blacklist_token_contract transfer public', () => {
 
     it('transfer from a blacklisted account', async () => {
       await expect(
-        asset.methods.transfer_public(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0n).prove(),
-      ).rejects.toThrow(/Assertion failed: Blacklisted: Sender .*/);
+        asset.methods.transfer_public(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0n).simulate(),
+      ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
 
     it('transfer to a blacklisted account', async () => {
       await expect(
-        asset.methods.transfer_public(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0n).prove(),
-      ).rejects.toThrow(/Assertion failed: Blacklisted: Recipient .*/);
+        asset.methods.transfer_public(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0n).simulate(),
+      ).rejects.toThrow('Assertion failed: Blacklisted: Recipient');
     });
   });
 });

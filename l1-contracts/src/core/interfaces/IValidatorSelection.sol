@@ -3,29 +3,19 @@
 pragma solidity >=0.8.27;
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-
-/**
- * @notice  The data structure for an epoch
- * @param committee - The attesters for the epoch
- * @param sampleSeed - The seed used to sample the attesters of the epoch
- * @param nextSeed - The seed used to influence the NEXT epoch
- */
-struct EpochData {
-  address[] committee;
-  uint256 sampleSeed;
-  uint256 nextSeed;
-}
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set
-  mapping(Epoch => EpochData) epochs;
-  // The last stored randao value, same value as `seed` in the last inserted epoch
-  uint256 lastSeed;
+  mapping(Epoch => bytes32 committeeCommitment) committeeCommitments;
+  // Checkpointed map of epoch -> sample seed
+  Checkpoints.Trace224 seeds;
   uint256 targetCommitteeSize;
 }
 
 interface IValidatorSelectionCore {
   function setupEpoch() external;
+  function setupSeedSnapshotForNextEpoch() external;
 }
 
 interface IValidatorSelection is IValidatorSelectionCore {
@@ -36,6 +26,7 @@ interface IValidatorSelection is IValidatorSelectionCore {
   // Non view as uses transient storage
   function getCurrentEpochCommittee() external returns (address[] memory);
   function getCommitteeAt(Timestamp _ts) external returns (address[] memory);
+  function getCommitteeCommitmentAt(Timestamp _ts) external returns (bytes32, uint256);
   function getEpochCommittee(Epoch _epoch) external returns (address[] memory);
 
   // Stable

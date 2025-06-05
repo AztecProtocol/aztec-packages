@@ -28,9 +28,7 @@ using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
 using simulation::EventEmitter;
-using simulation::Memory;
-using simulation::MemoryEvent;
-using simulation::NoopEventEmitter;
+using simulation::MemoryStore;
 using simulation::Sha256;
 using simulation::Sha256CompressionEvent;
 
@@ -53,8 +51,7 @@ TEST(Sha256ConstrainingTest, EmptyRow)
 // TOOD: Replace this with a hardcoded test vector and write a negative test
 TEST(Sha256ConstrainingTest, Basic)
 {
-    NoopEventEmitter<MemoryEvent> emitter;
-    Memory mem(/*space_id=*/0, emitter);
+    MemoryStore mem;
     StrictMock<simulation::MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
 
@@ -89,8 +86,7 @@ TEST(Sha256ConstrainingTest, Basic)
 
 TEST(Sha256ConstrainingTest, Interaction)
 {
-    NoopEventEmitter<MemoryEvent> emitter;
-    Memory mem(/*space_id=*/0, emitter);
+    MemoryStore mem;
     StrictMock<simulation::MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
 

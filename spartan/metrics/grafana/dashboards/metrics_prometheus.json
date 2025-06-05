@@ -38,7 +38,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -87,7 +87,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -107,7 +107,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -156,7 +156,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -174,7 +174,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -223,7 +223,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "sum(prometheus_tsdb_head_series)",
@@ -240,7 +240,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -289,7 +289,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -320,7 +320,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -400,7 +400,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -421,7 +421,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -501,7 +501,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -522,7 +522,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -603,7 +603,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "builder",
           "expr": "scrape_duration_seconds",
@@ -620,7 +620,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -700,7 +700,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "rate(prometheus_target_scrape_pools_failed_total[$__rate_interval])",
@@ -717,7 +717,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -795,7 +795,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -818,7 +818,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -893,7 +893,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -926,7 +926,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1005,7 +1005,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -1021,7 +1021,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "code",
@@ -1043,7 +1043,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1122,7 +1122,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "code",
@@ -1138,7 +1138,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "code",
@@ -1160,7 +1160,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1239,7 +1239,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "code",
@@ -1261,7 +1261,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1340,7 +1340,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "code",
@@ -1362,7 +1362,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1441,7 +1441,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "editorMode": "code",
               "expr": "label_replace(rate(otelcol_exporter_sent_metric_points[$__rate_interval]), \"_type\", \"metric\", \"\", \"\")",
@@ -1453,7 +1453,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "editorMode": "code",
               "expr": "label_replace(rate(otelcol_exporter_sent_spans[$__rate_interval]), \"_type\", \"span\", \"\", \"\")",
@@ -1471,7 +1471,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1550,7 +1550,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "editorMode": "code",
               "expr": "label_replace(rate(otelcol_exporter_send_failed_metric_points[$__rate_interval]), \"_type\", \"metric\", \"\", \"\")",
@@ -1562,7 +1562,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "editorMode": "code",
               "expr": "label_replace(rate(otelcol_exporter_send_failed_spans[$__rate_interval]), \"_type\", \"span\", \"\", \"\")",
@@ -1584,7 +1584,22 @@
   "schemaVersion": 39,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "includeAll": false,
+        "name": "data_source",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource",
+        "current": {
+          "selected": false,
+          "text": "default",
+          "value": "default"
+        }
+      }
+    ]
   },
   "time": {
     "from": "now-15m",

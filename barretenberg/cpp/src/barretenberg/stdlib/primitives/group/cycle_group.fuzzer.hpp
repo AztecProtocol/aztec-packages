@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -13,6 +19,10 @@
 #pragma clang diagnostic ignored "-Wc99-designator"
 
 #define HAVOC_TESTING
+
+// This is a global variable, so that the execution handling class could alter it and signal to the input tester
+// that the input should fail
+bool circuit_should_fail = false;
 
 #include "barretenberg/common/fuzzer.hpp"
 
@@ -40,10 +50,6 @@
 #endif
 
 FastRandom VarianceRNG(0);
-
-// This is a global variable, so that the execution handling class could alter it and signal to the input tester
-// that the input should fail
-bool circuit_should_fail = false;
 
 #define MINIMUM_MUL_ELEMENTS 0
 #define MAXIMUM_MUL_ELEMENTS 8
@@ -1705,44 +1711,6 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
     fuzzer_havoc_settings.value_mutation_distribution = value_mutation_distribution;
     return 0;
 }
-#endif
-
-#ifndef DISABLE_CUSTOM_MUTATORS
-/**
- * @brief Custom mutator. Since we know the structure, this is more efficient than basic
- *
- */
-extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* Data, size_t Size, size_t MaxSize, unsigned int Seed)
-{
-    using FuzzerClass = CycleGroupBase<bb::StandardCircuitBuilder>;
-    auto fast_random = FastRandom(Seed);
-    auto size_occupied = ArithmeticFuzzHelper<FuzzerClass>::MutateInstructionBuffer(Data, Size, MaxSize, fast_random);
-    if ((fast_random.next() % 200) < fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB) {
-        size_occupied = LLVMFuzzerMutate(Data, size_occupied, MaxSize);
-    }
-    return size_occupied;
-}
-
-/**
- * @brief Custom crossover that parses the buffers as instructions and then splices them
- *
- */
-extern "C" size_t LLVMFuzzerCustomCrossOver(const uint8_t* Data1,
-                                            size_t Size1,
-                                            const uint8_t* Data2,
-                                            size_t Size2,
-                                            uint8_t* Out,
-                                            size_t MaxOutSize,
-                                            unsigned int Seed)
-{
-    using FuzzerClass = CycleGroupBase<bb::StandardCircuitBuilder>;
-    auto fast_random = FastRandom(Seed);
-    auto vecA = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data1, Size1);
-    auto vecB = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data2, Size2);
-    auto vecC = ArithmeticFuzzHelper<FuzzerClass>::crossoverInstructionVector(vecA, vecB, fast_random);
-    return ArithmeticFuzzHelper<FuzzerClass>::writeInstructionsToBuffer(vecC, Out, MaxOutSize);
-}
-
 #endif
 
 /**

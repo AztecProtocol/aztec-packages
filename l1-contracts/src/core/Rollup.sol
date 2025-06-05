@@ -16,17 +16,19 @@ import {
   RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
 import {
-  IStaking,
-  ValidatorInfo,
-  Exit,
-  OperatorInfo,
-  EnumerableSet
+  IStaking, AttesterConfig, Exit, AttesterView, Status
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {
+  AddressSnapshotLib,
+  SnapshottedAddressSet
+} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
+import {GSE} from "@aztec/core/staking/GSE.sol";
 import {EpochProofLib} from "./libraries/rollup/EpochProofLib.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {ValidatorSelectionLib} from "./libraries/validator-selection/ValidatorSelectionLib.sol";
@@ -36,13 +38,12 @@ import {
   IRewardDistributor,
   IFeeJuicePortal,
   IERC20,
-  StakingLib,
   TimeLib,
   Slot,
   Epoch,
   Timestamp,
   Errors,
-  Signature,
+  CommitteeAttestation,
   ExtRollupLib,
   EthValue,
   STFLib,
@@ -59,7 +60,7 @@ import {
  *         about the state of the rollup and test it.
  */
 contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
-  using EnumerableSet for EnumerableSet.AddressSet;
+  using AddressSnapshotLib for SnapshottedAddressSet;
 
   using TimeLib for Timestamp;
   using TimeLib for Slot;
@@ -70,10 +71,21 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     IERC20 _feeAsset,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
+    GSE _gse,
     address _governance,
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
-  ) RollupCore(_feeAsset, _rewardDistributor, _stakingAsset, _governance, _genesisState, _config) {}
+  )
+    RollupCore(
+      _feeAsset,
+      _rewardDistributor,
+      _stakingAsset,
+      _gse,
+      _governance,
+      _genesisState,
+      _config
+    )
+  {}
 
   /**
    * @notice  Validate a header for submission
@@ -82,7 +94,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *          without having to deal with viem or anvil for simulating timestamps in the future.
    *
    * @param _header - The header to validate
-   * @param _signatures - The signatures to validate
+   * @param _attestations - The attestations to validate
    * @param _digest - The digest to validate
    * @param _currentTime - The current time
    * @param _blobsHash - The blobs hash for this block
@@ -90,7 +102,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function validateHeader(
     bytes calldata _header,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
     Timestamp _currentTime,
     bytes32 _blobsHash,
@@ -99,7 +111,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     ProposeLib.validateHeader(
       ValidateHeaderArgs({
         header: HeaderLib.decode(_header),
-        attestations: _signatures,
+        attestations: _attestations,
         digest: _digest,
         currentTime: _currentTime,
         manaBaseFee: getManaBaseFeeAt(_currentTime, true),
@@ -118,24 +130,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IValidatorSelection)
     returns (address[] memory)
   {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getCurrentEpoch());
-  }
-
-  /**
-   * @notice  Get the validator set for a given epoch
-   *
-   * @dev     Consider removing this to replace with a `size` and individual getter.
-   *
-   * @param _epoch The epoch number to get the validator set for
-   *
-   * @return The validator set for the given epoch
-   */
-  function getEpochCommittee(Epoch _epoch)
-    external
-    override(IValidatorSelection)
-    returns (address[] memory)
-  {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), _epoch);
+    return getEpochCommittee(getCurrentEpoch());
   }
 
   /**
@@ -150,7 +145,23 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IValidatorSelection)
     returns (address[] memory)
   {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(_ts));
+    return getEpochCommittee(getEpochAt(_ts));
+  }
+
+  /**
+   * @notice Get the committee commitment a the given timestamp
+   *
+   * @param _ts - The timestamp to get the committee for
+   *
+   * @return The committee commitment for the given timestamp
+   * @return The committee size for the given timestamp
+   */
+  function getCommitteeCommitmentAt(Timestamp _ts)
+    external
+    override(IValidatorSelection)
+    returns (bytes32, uint256)
+  {
+    return ValidatorSelectionLib.getCommitteeCommitmentAt(getEpochAt(_ts));
   }
 
   /**
@@ -191,15 +202,9 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
-    Signature[] memory sigs = new Signature[](0);
-
-    ValidatorSelectionLib.verify(
-      StakingLib.getStorage(),
-      slot,
-      slot.epochFromSlot(),
-      sigs,
-      _archive,
-      BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
+    address proposer = ValidatorSelectionLib.getProposerAt(slot, slot.epochFromSlot());
+    require(
+      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
     );
 
     return (slot, pendingBlockNumber + 1);
@@ -230,15 +235,19 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getMinimumStake() external view override(IStaking) returns (uint256) {
-    return StakingLib.getStorage().minimumStake;
+    return StakingLib.getStorage().gse.MINIMUM_DEPOSIT();
   }
 
   function getExitDelay() external view override(IStaking) returns (Timestamp) {
     return StakingLib.getStorage().exitDelay;
   }
 
+  function getGSE() external view override(IStaking) returns (GSE) {
+    return StakingLib.getStorage().gse;
+  }
+
   function getActiveAttesterCount() external view override(IStaking) returns (uint256) {
-    return StakingLib.getStorage().attesters.length();
+    return StakingLib.getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
   }
 
   function getManaTarget() external view override(IRollup) returns (uint256) {
@@ -286,7 +295,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @param  _start - The start of the epoch (inclusive)
    * @param  _end - The end of the epoch (inclusive)
-   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
+   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
    * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
    */
   function getEpochProofPublicInputs(
@@ -357,45 +366,30 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return STFLib.getStorage().blobPublicInputsHashes[_blockNumber];
   }
 
-  function getProposerForAttester(address _attester)
+  function getConfig(address _attester)
     external
     view
     override(IStaking)
-    returns (address)
+    returns (AttesterConfig memory)
   {
-    return StakingLib.getStorage().info[_attester].proposer;
-  }
-
-  function getAttesterAtIndex(uint256 _index) external view override(IStaking) returns (address) {
-    return StakingLib.getStorage().attesters.at(_index);
-  }
-
-  function getProposerAtIndex(uint256 _index) external view override(IStaking) returns (address) {
-    return StakingLib.getStorage().info[StakingLib.getStorage().attesters.at(_index)].proposer;
-  }
-
-  function getInfo(address _attester)
-    external
-    view
-    override(IStaking)
-    returns (ValidatorInfo memory)
-  {
-    return StakingLib.getStorage().info[_attester];
+    return StakingLib.getConfig(_attester);
   }
 
   function getExit(address _attester) external view override(IStaking) returns (Exit memory) {
-    return StakingLib.getStorage().exits[_attester];
+    return StakingLib.getExit(_attester);
   }
 
-  function getOperatorAtIndex(uint256 _index)
+  function getStatus(address _attester) external view override(IStaking) returns (Status) {
+    return StakingLib.getStatus(_attester);
+  }
+
+  function getAttesterView(address _attester)
     external
     view
     override(IStaking)
-    returns (OperatorInfo memory)
+    returns (AttesterView memory)
   {
-    address attester = StakingLib.getStorage().attesters.at(_index);
-    return
-      OperatorInfo({proposer: StakingLib.getStorage().info[attester].proposer, attester: attester});
+    return StakingLib.getAttesterView(_attester);
   }
 
   /**
@@ -431,7 +425,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The validator set
    */
   function getAttesters() external view override(IValidatorSelection) returns (address[] memory) {
-    return StakingLib.getStorage().attesters.values();
+    return StakingLib.getAttestersAtTime(Timestamp.wrap(block.timestamp));
   }
 
   /**
@@ -603,6 +597,23 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
+   * @notice  Get the validator set for a given epoch
+   *
+   * @dev     Consider removing this to replace with a `size` and individual getter.
+   *
+   * @param _epoch The epoch number to get the validator set for
+   *
+   * @return The validator set for the given epoch
+   */
+  function getEpochCommittee(Epoch _epoch)
+    public
+    override(IValidatorSelection)
+    returns (address[] memory)
+  {
+    return ValidatorSelectionLib.getCommitteeAt(_epoch);
+  }
+
+  /**
    * @notice  Get the proposer for the slot at a specific timestamp
    *
    * @dev     This function is very useful for off-chain usage, as it easily allow a client to
@@ -626,7 +637,18 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   function getProposerAt(Timestamp _ts) public override(IValidatorSelection) returns (address) {
     Slot slot = _ts.slotFromTimestamp();
     Epoch epochNumber = slot.epochFromSlot();
-    return ValidatorSelectionLib.getProposerAt(StakingLib.getStorage(), slot, epochNumber);
+    return ValidatorSelectionLib.getProposerAt(slot, epochNumber);
+  }
+
+  /**
+   * @notice  Get the attester at an index
+   *
+   * @param _index - The index to get the attester for
+   *
+   * @return The attester at the index
+   */
+  function getAttesterAtIndex(uint256 _index) public view override(IStaking) returns (address) {
+    return StakingLib.getAttesterAtIndex(_index);
   }
 
   /**

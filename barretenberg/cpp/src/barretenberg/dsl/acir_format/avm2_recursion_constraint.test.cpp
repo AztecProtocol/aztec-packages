@@ -1,8 +1,9 @@
+#include "barretenberg/srs/global_crs.hpp"
 #ifndef DISABLE_AZTEC_VM
 
-#include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
+#include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
@@ -35,32 +36,31 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
     using InnerProver = bb::avm2::AvmProvingHelper;
     using InnerVerifier = bb::avm2::AvmVerifier;
 
-    using OuterProver = UltraProver;
-    using OuterVerifier = UltraVerifier;
-    using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
+    using OuterFlavor = UltraRollupFlavor;
+    using OuterProver = UltraProver_<OuterFlavor>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
-    using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
-    using OuterVerificationKey = UltraFlavor::VerificationKey;
+    using OuterVerificationKey = OuterFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
 
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static InnerCircuitData create_inner_circuit_data()
     {
         auto [trace, public_inputs] = avm2::testing::get_minimal_trace_with_pi();
 
         InnerProver prover;
-        const auto [proof, vk_data] = prover.prove(std::move(trace));
+        auto [proof, vk_data] = prover.prove(std::move(trace));
         const auto verification_key = InnerProver::create_verification_key(vk_data);
 
         const bool verified = prover.verify(proof, public_inputs, vk_data);
         EXPECT_TRUE(verified) << "native proof verification failed";
 
         const auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());
+
+        // TODO(#14234)[Unconditional PIs validation]: Remove next line
+        proof.insert(proof.begin(), 0);
         return { proof, verification_key, public_inputs_flat };
     }
 
@@ -133,13 +133,14 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
 
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
+    auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
     OuterProver prover(proving_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
     auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
-    OuterVerifier verifier(verification_key);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    OuterVerifier verifier(verification_key, ipa_verification_key);
+    EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
 }
 
 /**
@@ -151,7 +152,6 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
  */
 TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 {
-
     // Generate AVM proof, verification key and public inputs
     InnerCircuitData avm_prover_output = create_inner_circuit_data();
 
@@ -159,20 +159,21 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
     std::shared_ptr<OuterVerificationKey> expected_vk;
     {
         AcirProgram avm_verifier_program = construct_avm_verifier_program({ avm_prover_output });
-        const ProgramMetadata metadata{ .honk_recursion = 1 };
+        const ProgramMetadata metadata{ .honk_recursion = 2 };
         auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-        auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
         OuterProver prover(proving_key);
         info("prover gates = ", proving_key->proving_key.circuit_size);
         expected_vk = std::make_shared<OuterVerificationKey>(prover.proving_key->proving_key);
 
         // Construct and verify a proof of the outer AVM verifier circuits
         auto proof = prover.construct_proof();
-        OuterVerifier verifier(expected_vk);
-        EXPECT_TRUE(verifier.verify_proof(proof));
+        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        OuterVerifier verifier(expected_vk, ipa_verification_key);
+        EXPECT_TRUE(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof));
     }
 
     // Now, construct the AVM2 recursive verifier circuit VK by providing the program without a witness
@@ -182,20 +183,16 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         // Clear the program witness then construct the bberg circuit as normal
         avm_verifier_program.witness.clear();
-        const ProgramMetadata metadata{ .honk_recursion = 1 };
+        const ProgramMetadata metadata{ .honk_recursion = 2 };
         auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-        auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
         OuterProver prover(proving_key);
         info("prover gates = ", proving_key->proving_key.circuit_size);
         actual_vk = std::make_shared<OuterVerificationKey>(prover.proving_key->proving_key);
     }
-
-    // PCS verification key adresses will in general not match so set to null before comparing
-    expected_vk->pcs_verification_key = nullptr;
-    actual_vk->pcs_verification_key = nullptr;
 
     // Compare the VK constructed via running the IVC with the one constructed via mocking
     EXPECT_EQ(*actual_vk.get(), *expected_vk.get());

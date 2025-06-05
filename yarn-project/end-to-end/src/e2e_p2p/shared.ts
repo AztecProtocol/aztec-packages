@@ -3,8 +3,8 @@ import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { Fr, type Logger, ProvenTx, type SentTx, TxStatus, getContractInstanceFromDeployParams } from '@aztec/aztec.js';
 import { timesAsync } from '@aztec/foundation/collection';
-import type { SpamContract } from '@aztec/noir-contracts.js/Spam';
-import { TestContract, TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
 
 import type { NodeContext } from '../fixtures/setup_p2p_test.js';
@@ -22,9 +22,7 @@ export const submitComplexTxsTo = async (
   const seed = 1234n;
   const spamCount = 15;
   for (let i = 0; i < numTxs; i++) {
-    const tx = spamContract.methods
-      .spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic)
-      .send({ skipPublicSimulation: true });
+    const tx = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic).send();
     const txHash = await tx.getTxHash();
 
     logger.info(`Tx sent with hash ${txHash}`);
@@ -50,7 +48,7 @@ export const createPXEServiceAndSubmitTransactions = async (
 ): Promise<NodeContext> => {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const pxeService = await createPXEService(node, rpcConfig, true);
+  const pxeService = await createPXEService(node, rpcConfig, { useLogSuffix: true });
 
   const account = await getSchnorrAccount(
     pxeService,
@@ -73,7 +71,7 @@ export async function createPXEServiceAndPrepareTransactions(
 ): Promise<{ pxeService: PXEService; txs: ProvenTx[]; node: AztecNodeService }> {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const pxe = await createPXEService(node, rpcConfig, true);
+  const pxe = await createPXEService(node, rpcConfig, { useLogSuffix: true });
 
   const account = await getSchnorrAccount(pxe, fundedAccount.secret, fundedAccount.signingKey, fundedAccount.salt);
   await account.register();
@@ -84,7 +82,7 @@ export async function createPXEServiceAndPrepareTransactions(
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
   const txs = await timesAsync(numTxs, async () => {
-    const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ skipPublicSimulation: true });
+    const tx = await contract.methods.emit_nullifier(Fr.random()).prove();
     const txHash = await tx.getTxHash();
     logger.info(`Tx prepared with hash ${txHash}`);
     return tx;

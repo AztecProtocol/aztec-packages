@@ -6,7 +6,7 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -19,10 +19,6 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 struct PublicInputArgs {
   bytes32 previousArchive;
   bytes32 endArchive;
-  bytes32 previousBlockHash; // @todo #8829 Not needed as public input, unconstrained on L1
-  bytes32 endBlockHash; // @todo #8829 Not needed as public input, unconstrained on L1
-  Timestamp endTimestamp;
-  bytes32 outHash;
   address proverId;
 }
 
@@ -37,7 +33,7 @@ struct SubmitEpochRootProofArgs {
 
 struct BlockLog {
   bytes32 archive;
-  bytes32 blockHash;
+  bytes32 headerHash; // hash of the proposed block header
   Slot slotNumber;
 }
 
@@ -71,7 +67,6 @@ struct GenesisState {
   bytes32 vkTreeRoot;
   bytes32 protocolContractTreeRoot;
   bytes32 genesisArchiveRoot;
-  bytes32 genesisBlockHash;
 }
 
 struct RollupConfigInput {
@@ -79,7 +74,6 @@ struct RollupConfigInput {
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
   uint256 aztecProofSubmissionWindow;
-  uint256 minimumStake;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 manaTarget;
@@ -113,20 +107,12 @@ struct RollupStore {
   RollupConfig config;
 }
 
-struct CheatDepositArgs {
-  address attester;
-  address proposer;
-  address withdrawer;
-  uint256 amount;
-}
-
 interface ITestRollup {
   event ManaTargetUpdated(uint256 indexed manaTarget);
 
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
-  function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args) external;
   function updateManaTarget(uint256 _manaTarget) external;
 }
 
@@ -136,7 +122,9 @@ interface IRollupCore {
   );
   event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
+  event RewardsClaimableUpdated(bool isRewardsClaimable);
 
+  function setRewardsClaimable(bool _isRewardsClaimable) external;
   function claimSequencerRewards(address _recipient) external returns (uint256);
   function claimProverRewards(address _recipient, Epoch[] memory _epochs)
     external
@@ -149,7 +137,7 @@ interface IRollupCore {
 
   function propose(
     ProposeArgs calldata _args,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes calldata _blobInput
   ) external;
 
@@ -162,7 +150,7 @@ interface IRollupCore {
 interface IRollup is IRollupCore {
   function validateHeader(
     bytes calldata _header,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
     Timestamp _currentTime,
     bytes32 _blobsHash,

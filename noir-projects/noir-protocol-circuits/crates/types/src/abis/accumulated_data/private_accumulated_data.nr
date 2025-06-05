@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-        log_hash::ScopedLogHash,
+        log_hash::LogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         private_call_request::PrivateCallRequest,
@@ -8,7 +8,7 @@ use crate::{
         public_call_request::PublicCallRequest,
         side_effect::{Counted, scoped::Scoped},
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
@@ -21,10 +21,10 @@ use crate::constants::{
 pub struct PrivateAccumulatedData {
     pub note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
     pub nullifiers: [ScopedNullifier; MAX_NULLIFIERS_PER_TX],
-    pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub l2_to_l1_msgs: [Scoped<Counted<L2ToL1Message>>; MAX_L2_TO_L1_MSGS_PER_TX],
 
     pub private_logs: [Scoped<PrivateLogData>; MAX_PRIVATE_LOGS_PER_TX],
-    pub contract_class_logs_hashes: [ScopedLogHash; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    pub contract_class_logs_hashes: [Scoped<Counted<LogHash>>; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 
     pub public_call_requests: [Counted<PublicCallRequest>; MAX_ENQUEUED_CALLS_PER_TX],
     pub private_call_stack: [PrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
@@ -82,16 +82,16 @@ impl Deserialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
                 [ScopedNullifier::empty(); MAX_NULLIFIERS_PER_TX],
             ),
             l2_to_l1_msgs: reader.read_struct_array(
-                ScopedL2ToL1Message::deserialize,
-                [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
+                Scoped::deserialize,
+                [Scoped::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             ),
             private_logs: reader.read_struct_array(
                 Scoped::deserialize,
                 [Scoped::empty(); MAX_PRIVATE_LOGS_PER_TX],
             ),
             contract_class_logs_hashes: reader.read_struct_array(
-                ScopedLogHash::deserialize,
-                [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
+                Scoped::deserialize,
+                [Scoped::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
             ),
             public_call_requests: reader.read_struct_array(
                 Counted::deserialize,
@@ -124,9 +124,9 @@ impl Empty for PrivateAccumulatedData {
         PrivateAccumulatedData {
             note_hashes: [ScopedNoteHash::empty(); MAX_NOTE_HASHES_PER_TX],
             nullifiers: [ScopedNullifier::empty(); MAX_NULLIFIERS_PER_TX],
-            l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
+            l2_to_l1_msgs: [Scoped::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             private_logs: [Scoped::empty(); MAX_PRIVATE_LOGS_PER_TX],
-            contract_class_logs_hashes: [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
+            contract_class_logs_hashes: [Scoped::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
             public_call_requests: [Counted::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             private_call_stack: [PrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
         }

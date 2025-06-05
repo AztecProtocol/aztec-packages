@@ -21,7 +21,7 @@ auto& engine = numeric::get_debug_randomness();
 STANDARD_TESTING_TAGS
 template <class Builder> class BoolTest : public ::testing::Test {};
 
-using CircuitTypes = ::testing::Types<bb::CircuitSimulatorBN254, bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(BoolTest, CircuitTypes);
 TYPED_TEST(BoolTest, TestBasicOperations)
@@ -81,10 +81,8 @@ TYPED_TEST(BoolTest, TestBasicOperations)
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 
-    if (!IsSimulator<Builder>) {
-        auto gates_after = builder.get_estimated_num_finalized_gates();
-        EXPECT_EQ(gates_after - gates_before, 6UL);
-    }
+    auto gates_after = builder.get_estimated_num_finalized_gates();
+    EXPECT_EQ(gates_after - gates_before, 6UL);
 }
 
 TYPED_TEST(BoolTest, Xor)

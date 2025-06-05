@@ -4,26 +4,35 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  type PRIVATE_LOG_SIZE_IN_FIELDS,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+import { type Tuple, assertLength, mapTuple, toTruncField } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
+  CountedLogHash,
   LogHash,
   OptionalNumber,
   PrivateToRollupAccumulatedData,
   PublicCallRequest,
+  PublicCallRequestArrayLengths,
+  ScopedCountedLogHash,
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
 import { PrivateLog, PublicLog } from '@aztec/stdlib/logs';
-import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
+import {
+  CountedL2ToL1Message,
+  L2ToL1Message,
+  ScopedCountedL2ToL1Message,
+  ScopedL2ToL1Message,
+} from '@aztec/stdlib/messaging';
 import {
   AppendOnlyTreeSnapshot,
   type NullifierLeafPreimage,
@@ -40,12 +49,13 @@ import {
   StateReference,
   TxContext,
 } from '@aztec/stdlib/tx';
-import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
+import type { VerificationKeyAsFields, VkData } from '@aztec/stdlib/vks';
 
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
   ContentCommitment as ContentCommitmentNoir,
+  Counted,
   Field,
   FixedLengthArray,
   FunctionSelector as FunctionSelectorNoir,
@@ -68,15 +78,16 @@ import type {
   PartialStateReference as PartialStateReferenceNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
   ProtocolContractLeafPreimage as ProtocolContractLeafPreimageNoir,
+  PublicCallRequestArrayLengths as PublicCallRequestArrayLengthsNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
   PublicLog as PublicLogNoir,
-  ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
-  ScopedLogHash as ScopedLogHashNoir,
+  Scoped,
   StateReference as StateReferenceNoir,
   TxContext as TxContextNoir,
   VerificationKey as VerificationKeyNoir,
+  VkData as VkDataNoir,
 } from '../types/index.js';
 
 /* eslint-disable camelcase */
@@ -251,24 +262,32 @@ export function mapGasFeesFromNoir(gasFees: GasFeesNoir): GasFees {
 export function mapPrivateLogToNoir(log: PrivateLog): LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS> {
   return {
     fields: mapTuple(log.fields, mapFieldToNoir),
+    length: mapNumberToNoir(log.emittedLength),
   };
 }
 
 export function mapPrivateLogFromNoir(log: LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS>) {
-  return new PrivateLog(mapTupleFromNoir(log.fields, log.fields.length, mapFieldFromNoir));
+  return new PrivateLog(
+    mapTupleFromNoir(log.fields, PRIVATE_LOG_SIZE_IN_FIELDS, mapFieldFromNoir),
+    mapNumberFromNoir(log.length),
+  );
 }
 
 export function mapPublicLogToNoir(log: PublicLog): PublicLogNoir {
   return {
     contract_address: mapAztecAddressToNoir(log.contractAddress),
-    log: { fields: mapTuple(log.log, mapFieldToNoir) },
+    log: {
+      fields: mapTuple(log.fields, mapFieldToNoir),
+      length: mapNumberToNoir(log.emittedLength),
+    },
   };
 }
 
 export function mapPublicLogFromNoir(log: PublicLogNoir) {
   return new PublicLog(
     mapAztecAddressFromNoir(log.contract_address),
-    mapTupleFromNoir(log.log.fields, log.log.fields.length, mapFieldFromNoir),
+    mapTupleFromNoir(log.log.fields, PUBLIC_LOG_SIZE_IN_FIELDS, mapFieldFromNoir),
+    mapNumberFromNoir(log.log.length),
   );
 }
 
@@ -288,6 +307,20 @@ export function mapTupleFromNoir<T, N extends number, M>(
     throw new Error(`Expected ${length} items, got ${noirArray.length}`);
   }
   return Array.from({ length }, (_, idx) => mapper(noirArray[idx])) as Tuple<M, N>;
+}
+
+export function mapTupleToNoir<T, M, N extends number>(
+  tuple: Tuple<T, N>,
+  mapper: (item: T) => M,
+): FixedLengthArray<M, N> {
+  return mapTuple(tuple, mapper) as FixedLengthArray<M, N>;
+}
+
+export function mapFieldArrayToNoir<N extends number>(
+  array: Fr[],
+  length: N = array.length as N,
+): FixedLengthArray<string, N> {
+  return mapTupleToNoir(assertLength(array, length), mapFieldToNoir);
 }
 
 /**
@@ -419,25 +452,54 @@ export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): M
  * @param message - The L2 to L1 message.
  * @returns The noir L2 to L1 message.
  */
-export function mapL2ToL1MessageToNoir(message: L2ToL1Message): L2ToL1MessageNoir {
+function mapL2ToL1MessageToNoir(message: L2ToL1Message): L2ToL1MessageNoir {
   return {
     recipient: mapEthAddressToNoir(message.recipient),
     content: mapFieldToNoir(message.content),
+  };
+}
+
+function mapL2ToL1MessageFromNoir(message: L2ToL1MessageNoir) {
+  return new L2ToL1Message(mapEthAddressFromNoir(message.recipient), mapFieldFromNoir(message.content));
+}
+
+export function mapCountedL2ToL1MessageToNoir(message: CountedL2ToL1Message): Counted<L2ToL1MessageNoir> {
+  return {
+    inner: mapL2ToL1MessageToNoir(message.message),
     counter: mapNumberToNoir(message.counter),
   };
 }
 
-export function mapL2ToL1MessageFromNoir(message: L2ToL1MessageNoir) {
-  return new L2ToL1Message(
-    mapEthAddressFromNoir(message.recipient),
-    mapFieldFromNoir(message.content),
-    mapNumberFromNoir(message.counter),
+function mapCountedL2ToL1MessageFromNoir(message: Counted<L2ToL1MessageNoir>) {
+  return new CountedL2ToL1Message(mapL2ToL1MessageFromNoir(message.inner), mapNumberFromNoir(message.counter));
+}
+
+export function mapScopedL2ToL1MessageToNoir(message: ScopedL2ToL1Message): Scoped<L2ToL1MessageNoir> {
+  return {
+    inner: mapL2ToL1MessageToNoir(message.message),
+    contract_address: mapAztecAddressToNoir(message.contractAddress),
+  };
+}
+
+export function mapScopedL2ToL1MessageFromNoir(message: Scoped<L2ToL1MessageNoir>) {
+  return new ScopedL2ToL1Message(
+    mapL2ToL1MessageFromNoir(message.inner),
+    mapAztecAddressFromNoir(message.contract_address),
   );
 }
 
-export function mapScopedL2ToL1MessageFromNoir(message: ScopedL2ToL1MessageNoir) {
-  return new ScopedL2ToL1Message(
-    mapL2ToL1MessageFromNoir(message.message),
+export function mapScopedCountedL2ToL1MessageToNoir(
+  message: ScopedCountedL2ToL1Message,
+): Scoped<Counted<L2ToL1MessageNoir>> {
+  return {
+    inner: mapCountedL2ToL1MessageToNoir(message.inner),
+    contract_address: mapAztecAddressToNoir(message.contractAddress),
+  };
+}
+
+export function mapScopedCountedL2ToL1MessageFromNoir(message: Scoped<Counted<L2ToL1MessageNoir>>) {
+  return new ScopedCountedL2ToL1Message(
+    mapCountedL2ToL1MessageFromNoir(message.inner),
     mapAztecAddressFromNoir(message.contract_address),
   );
 }
@@ -480,10 +542,13 @@ export function mapPublicCallRequestToNoir(request: PublicCallRequest): PublicCa
   };
 }
 
-export function mapScopedL2ToL1MessageToNoir(message: ScopedL2ToL1Message): ScopedL2ToL1MessageNoir {
+export function mapPublicCallRequestArrayLengthsToNoir(
+  lengths: PublicCallRequestArrayLengths,
+): PublicCallRequestArrayLengthsNoir {
   return {
-    message: mapL2ToL1MessageToNoir(message.message),
-    contract_address: mapAztecAddressToNoir(message.contractAddress),
+    setup_calls: mapNumberToNoir(lengths.setupCalls),
+    app_logic_calls: mapNumberToNoir(lengths.appLogicCalls),
+    teardown_call: lengths.teardownCall,
   };
 }
 
@@ -497,6 +562,14 @@ export function mapVerificationKeyToNoir<N extends number>(
   return {
     key: key.key.map(mapFieldToNoir) as FixedLengthArray<NoirField, N>,
     hash: mapFieldToNoir(key.hash),
+  };
+}
+
+export function mapVkDataToNoir<N extends number>(vkData: VkData, length: N): VkDataNoir<N> {
+  return {
+    vk: mapVerificationKeyToNoir<N>(vkData.vk.keyAsFields, length),
+    leaf_index: mapFieldToNoir(new Fr(vkData.leafIndex)),
+    sibling_path: mapTuple(vkData.siblingPath, mapFieldToNoir),
   };
 }
 
@@ -645,10 +718,9 @@ export function mapMembershipWitnessToNoir<N extends number>(witness: Membership
  * @param logHash - The LogHash.
  * @returns The noir log hash.
  */
-export function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
+function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
   return {
     value: mapFieldToNoir(logHash.value),
-    counter: mapNumberToNoir(logHash.counter),
     length: mapNumberToNoir(logHash.length),
   };
 }
@@ -659,11 +731,18 @@ export function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
  * @returns The TS log hash.
  */
 function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
-  return new LogHash(
-    mapFieldFromNoir(logHash.value),
-    mapNumberFromNoir(logHash.counter),
-    mapNumberFromNoir(logHash.length),
-  );
+  return new LogHash(mapFieldFromNoir(logHash.value), mapNumberFromNoir(logHash.length));
+}
+
+export function mapCountedLogHashToNoir(logHash: CountedLogHash): Counted<LogHashNoir> {
+  return {
+    inner: mapLogHashToNoir(logHash.logHash),
+    counter: mapNumberToNoir(logHash.counter),
+  };
+}
+
+export function mapCountedLogHashFromNoir(countedLogHash: Counted<LogHashNoir>): CountedLogHash {
+  return new CountedLogHash(mapLogHashFromNoir(countedLogHash.inner), mapNumberFromNoir(countedLogHash.counter));
 }
 
 /**
@@ -671,11 +750,25 @@ function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
  * @param logHash - The ts LogHash.
  * @returns The noir log hash.
  */
-export function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogHashNoir {
+export function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): Scoped<LogHashNoir> {
   return {
-    log_hash: mapLogHashToNoir(scopedLogHash.logHash),
+    inner: mapLogHashToNoir(scopedLogHash.logHash),
     contract_address: mapAztecAddressToNoir(scopedLogHash.contractAddress),
   };
+}
+
+export function mapScopedCountedLogHashToNoir(logHash: ScopedCountedLogHash): Scoped<Counted<LogHashNoir>> {
+  return {
+    inner: mapCountedLogHashToNoir(logHash.inner),
+    contract_address: mapAztecAddressToNoir(logHash.contractAddress),
+  };
+}
+
+export function mapScopedCountedLogHashFromNoir(scopedCountedLogHash: Scoped<Counted<LogHashNoir>>) {
+  return new ScopedCountedLogHash(
+    mapCountedLogHashFromNoir(scopedCountedLogHash.inner),
+    mapAztecAddressFromNoir(scopedCountedLogHash.contract_address),
+  );
 }
 
 /**
@@ -683,9 +776,9 @@ export function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogH
  * @param logHash - The noir LogHash.
  * @returns The TS log hash.
  */
-export function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
+export function mapScopedLogHashFromNoir(scopedLogHash: Scoped<LogHashNoir>): ScopedLogHash {
   return new ScopedLogHash(
-    mapLogHashFromNoir(scopedLogHash.log_hash),
+    mapLogHashFromNoir(scopedLogHash.inner),
     mapAztecAddressFromNoir(scopedLogHash.contract_address),
   );
 }

@@ -20,7 +20,7 @@ import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/serv
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
-  createL1Clients,
+  createExtendedL1Client,
   getL1ContractsConfigEnvVars,
   l1Artifacts,
 } from '@aztec/ethereum';
@@ -330,7 +330,7 @@ async function setupFromFresh(
 
   // Deploy our L1 contracts.
   logger.verbose('Deploying L1 contracts...');
-  const hdAccount = mnemonicToAccount(MNEMONIC, { accountIndex: 0 });
+  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
@@ -338,7 +338,7 @@ async function setupFromFresh(
   const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
-  aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+  aztecNodeConfig.validatorPrivateKeys = [`0x${validatorPrivKey!.toString('hex')}`];
 
   const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 
@@ -348,7 +348,7 @@ async function setupFromFresh(
 
   const initialFundedAccounts = await generateSchnorrAccounts(numberOfInitialFundedAccounts);
   const sponsoredFPCAddress = await getSponsoredFPCAddress();
-  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData, fundingNeeded } = await getGenesisValues(
+  const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
     initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
     opts.initialAccountFeeJuice,
   );
@@ -356,7 +356,6 @@ async function setupFromFresh(
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
     genesisArchiveRoot,
-    genesisBlockHash,
     feeJuicePortalInitialBalance: fundingNeeded,
     salt: opts.salt,
     ...deployL1ContractsArgs,
@@ -371,7 +370,7 @@ async function setupFromFresh(
     const rewardDistributor = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
       abi: l1Artifacts.rewardDistributor.contractAbi,
-      client: deployL1ContractsValues.publicClient,
+      client: deployL1ContractsValues.l1Client,
     });
 
     const blockReward = await rewardDistributor.read.BLOCK_REWARD();
@@ -380,18 +379,21 @@ async function setupFromFresh(
     const feeJuice = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
       abi: l1Artifacts.feeAsset.contractAbi,
-      client: deployL1ContractsValues.walletClient,
+      client: deployL1ContractsValues.l1Client,
     });
 
     const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
-    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
+    await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
     logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
   }
+
+  const dateProvider = new TestDateProvider();
 
   const watcher = new AnvilTestWatcher(
     new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    deployL1ContractsValues.publicClient,
+    deployL1ContractsValues.l1Client,
+    dateProvider,
   );
   await watcher.start();
 
@@ -424,7 +426,6 @@ async function setupFromFresh(
   await blobSink.start();
 
   logger.verbose('Creating and synching an aztec node...');
-  const dateProvider = new TestDateProvider();
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
     { telemetry, dateProvider },
@@ -437,8 +438,8 @@ async function setupFromFresh(
     proverNode = await createAndSyncProverNode(
       `0x${proverNodePrivateKey!.toString('hex')}`,
       aztecNodeConfig,
+      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')) },
       aztecNode,
-      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
       prefilledPublicData,
     );
   }
@@ -522,17 +523,18 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   }
 
   logger.verbose('Creating ETH clients...');
-  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, mnemonicToAccount(MNEMONIC));
+  const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, mnemonicToAccount(MNEMONIC));
 
+  const dateProvider = new TestDateProvider();
   const watcher = new AnvilTestWatcher(
     new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     aztecNodeConfig.l1Contracts.rollupAddress,
-    publicClient,
+    l1Client,
+    dateProvider,
   );
   await watcher.start();
 
   const telemetry = initTelemetryClient(getTelemetryConfig());
-  const dateProvider = new TestDateProvider();
   const blobSink = await createBlobSinkServer(
     {
       l1ChainId: aztecNodeConfig.l1ChainId,
@@ -561,8 +563,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     proverNode = await createAndSyncProverNode(
       proverNodePrivateKeyHex,
       aztecNodeConfig,
+      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')) },
       aztecNode,
-      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
       prefilledPublicData,
     );
   }
@@ -583,8 +585,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     bbConfig,
     proverNode,
     deployL1ContractsValues: {
-      walletClient,
-      publicClient,
+      l1Client,
       l1ContractAddresses: aztecNodeConfig.l1Contracts,
     },
     watcher,

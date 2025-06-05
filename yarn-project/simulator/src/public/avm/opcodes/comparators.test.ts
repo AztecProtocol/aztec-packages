@@ -26,8 +26,8 @@ describe('Comparators', () => {
         Eq.wireFormat16,
       );
 
-      expect(Eq.as(Eq.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Eq.as(Eq.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Works on integral types', async () => {
@@ -93,8 +93,8 @@ describe('Comparators', () => {
         Lt.wireFormat16,
       );
 
-      expect(Lt.as(Lt.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Lt.as(Lt.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Works on integral types', async () => {
@@ -160,8 +160,8 @@ describe('Comparators', () => {
         Lte.wireFormat16,
       );
 
-      expect(Lte.as(Lte.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Lte.as(Lte.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Works on integral types', async () => {

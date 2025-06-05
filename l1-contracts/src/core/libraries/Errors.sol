@@ -51,16 +51,12 @@ library Errors {
   error Rollup__InsufficientBondAmount(uint256 minimum, uint256 provided); // 0xa165f276
   error Rollup__InsufficientFundsInEscrow(uint256 required, uint256 available); // 0xa165f276
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
-  error Rollup__InvalidBlockHash(bytes32 expected, bytes32 actual);
   error Rollup__InvalidBlockNumber(uint256 expected, uint256 actual); // 0xe5edf847
-  error Rollup__InvalidChainId(uint256 expected, uint256 actual); // 0x37b5bc12
   error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
   error Rollup__InvalidPreviousArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
-  error Rollup__InvalidPreviousBlockHash(bytes32 expected, bytes32 actual);
   error Rollup__InvalidProof(); // 0xa5b2ba17
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
-  error Rollup__InvalidVersion(uint256 expected, uint256 actual); // 0x9ef30794
   error Rollup__InvalidBlobHash(bytes32 blobHash); // 0xc4a168c6
   error Rollup__InvalidBlobProof(bytes32 blobHash); // 0x5ca17bef
   error Rollup__InvalidBlobPublicInputsHash(bytes32 expected, bytes32 actual); // 0xfe6b4994
@@ -83,6 +79,7 @@ library Errors {
   error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
   error Rollup__ManaLimitExceeded();
+  error Rollup__RewardsNotClaimable();
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -104,16 +101,16 @@ library Errors {
   error ValidatorSelection__InvalidProposer(address expected, address actual); // 0xa8843a68
   error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
-  error ValidatorSelection__InsufficientAttestationsProvided(
-    uint256 minimumNeeded, uint256 provided
-  ); // 0x4d4f66ac
+  error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
+  error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual); // 0xe923198c
 
   // Staking
   error Staking__AlreadyActive(address attester); // 0x5e206fa4
-  error Staking__AlreadyRegistered(address); // 0x18047699
+  error Staking__AlreadyRegistered(address instance, address attester);
   error Staking__CannotSlashExitedStake(address); // 0x45bf4940
   error Staking__FailedToRemove(address); // 0xa7d7baab
   error Staking__InvalidDeposit(address attester, address proposer); // 0xf33fe8c6
+  error Staking__InvalidRecipient(address); // 0x7e2f7f1c
   error Staking__InsufficientStake(uint256, uint256); // 0x903aee24
   error Staking__NoOneToSlash(address); // 0x7e2f7f1c
   error Staking__NotExiting(address); // 0xef566ee0
@@ -121,6 +118,21 @@ library Errors {
   error Staking__NotWithdrawer(address, address); // 0x8e668e5d
   error Staking__NothingToExit(address); // 0xd2aac9b6
   error Staking__WithdrawalNotUnlockedYet(Timestamp, Timestamp); // 0x88e1826c
+  error Staking__WithdrawFailed(address); // 0x377422c1
+  error Staking__OutOfBounds(uint256, uint256); // 0x4bea6597
+  error Staking__NotRollup(address); // 0xf5509eb3
+  error Staking__RollupAlreadyRegistered(address); // 0x108a39c8
+  error Staking__InvalidRollupAddress(address); // 0xd876720e
+  error Staking__NotCanonical(address); // 0x6244212e
+  error Staking__InstanceDoesNotExist(address);
+  error Staking__InsufficientPower(uint256, uint256);
+  error Staking__AlreadyExiting(address);
+  error Staking__FatalError(string);
+  error Staking__NotOurProposal(uint256);
+  error Staking__GovernanceAlreadySet();
+
+  // GSE
+  error GSE__EmptyVoter();
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
@@ -134,4 +146,7 @@ library Errors {
 
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
+
+  // AddressSnapshotLib
+  error AddressSnapshotLib__IndexOutOfBounds(uint256 index, uint256 size); // 0xd789b71a
 }

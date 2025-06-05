@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "ecdsa_secp256k1.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 
@@ -5,8 +11,6 @@ namespace acir_format {
 
 using namespace bb;
 using secp256k1_ct = bb::stdlib::secp256k1<Builder>;
-
-using namespace bb::plonk;
 
 template <typename Builder>
 secp256k1_ct::g1_ct ecdsa_convert_inputs(Builder* ctx, const bb::secp256k1::g1::affine_element& input)

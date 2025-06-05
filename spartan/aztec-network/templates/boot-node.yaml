@@ -66,8 +66,10 @@ spec:
             # Key generation
             - name: KEY_INDEX_START
               value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
-            - name: NUMBER_OF_VALIDATORS
+            - name: NUMBER_OF_VALIDATOR_NODES
               value: {{ .Values.validator.replicas | quote }}
+            - name: VALIDATORS_PER_NODE
+              value: {{ .Values.validator.keysPerNode | quote }}
 
             # Deployment
             - name: ACCELERATED_TEST_DEPLOYMENTS
@@ -177,6 +179,8 @@ spec:
               value: "{{ .Values.bootNode.p2p.enabled }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
               value: "{{ .Values.bootNode.p2p.floodPublish }}"
+            - name: P2P_MAX_TX_POOL_SIZE
+              value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: COINBASE
               value: "{{ .Values.bootNode.coinbaseAddress }}"
             - name: VALIDATOR_DISABLED

@@ -12,6 +12,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/world_state/types.hpp"
@@ -20,63 +21,90 @@
 namespace bb::avm2 {
 
 ////////////////////////////////////////////////////////////////////////////
-// Public Inputs
+// Avm Circuit Public Inputs
 ////////////////////////////////////////////////////////////////////////////
 
-struct GlobalVariables {
-    FF blockNumber;
-
-    bool operator==(const GlobalVariables& other) const = default;
-
-    MSGPACK_FIELDS(blockNumber);
-};
-
-struct AppendOnlyTreeSnapshot {
-    FF root;
-    uint64_t nextAvailableLeafIndex;
-
-    std::size_t hash() const noexcept { return utils::hash_as_tuple(root, nextAvailableLeafIndex); }
-    bool operator==(const AppendOnlyTreeSnapshot& other) const = default;
-    friend std::ostream& operator<<(std::ostream& os, const AppendOnlyTreeSnapshot& obj)
-    {
-        os << "root: " << obj.root << ", nextAvailableLeafIndex: " << obj.nextAvailableLeafIndex;
-        return os;
-    }
-
-    MSGPACK_FIELDS(root, nextAvailableLeafIndex);
-};
-
-struct TreeSnapshots {
-    AppendOnlyTreeSnapshot l1ToL2MessageTree;
-    AppendOnlyTreeSnapshot noteHashTree;
-    AppendOnlyTreeSnapshot nullifierTree;
-    AppendOnlyTreeSnapshot publicDataTree;
-
-    bool operator==(const TreeSnapshots& other) const = default;
-
-    MSGPACK_FIELDS(l1ToL2MessageTree, noteHashTree, nullifierTree, publicDataTree);
-};
-
 struct PublicInputs {
+    ///////////////////////////////////
+    // Inputs
     GlobalVariables globalVariables;
     TreeSnapshots startTreeSnapshots;
+    Gas startGasUsed;
+    GasSettings gasSettings;
+    GasFees effectiveGasFees;
+    AztecAddress feePayer;
+    PublicCallRequestArrayLengths publicCallRequestArrayLengths;
+    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
+    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests;
+    PublicCallRequest publicTeardownCallRequest;
+    PrivateToAvmAccumulatedDataArrayLengths previousNonRevertibleAccumulatedDataArrayLengths;
+    PrivateToAvmAccumulatedDataArrayLengths previousRevertibleAccumulatedDataArrayLengths;
+    PrivateToAvmAccumulatedData previousNonRevertibleAccumulatedData;
+    PrivateToAvmAccumulatedData previousRevertibleAccumulatedData;
+    ///////////////////////////////////
+    // Outputs
+    TreeSnapshots endTreeSnapshots;
+    Gas endGasUsed;
+    AvmAccumulatedDataArrayLengths accumulatedDataArrayLengths;
+    AvmAccumulatedData accumulatedData;
+    FF transactionFee;
     bool reverted;
 
     static PublicInputs from(const std::vector<uint8_t>& data);
-    // TODO: implement three following methods.
-    std::vector<std::vector<FF>> to_columns() const { return { { static_cast<uint8_t>(reverted) } }; }
-    // Flatten public input columns as a single vector.
-    static std::vector<FF> columns_to_flat(std::vector<std::vector<FF>> columns) { return columns[0]; }
 
-    // Reverse direction as the above but needs to templated as recursive verifier needs it with a circuit type.
+    // A vector per public inputs column
+    std::vector<std::vector<FF>> to_columns() const;
+
+    // Flatten public input columns as a single vector
+    static std::vector<FF> columns_to_flat(std::vector<std::vector<FF>> const& columns);
+
+    // From flattened public inputs columns to vector per-column
+    // Reverse direction as the above but needs to be templated as
+    // recursive verifier needs it with a circuit type.
     template <typename FF_> static std::vector<std::vector<FF_>> flat_to_columns(const std::vector<FF_>& input)
     {
-        return { input };
+        if (input.size() != AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH) {
+            throw std::invalid_argument(
+                "Flattened public inputs vector size does not match the expected combined length.");
+        }
+
+        std::vector<std::vector<FF_>> cols(AVM_NUM_PUBLIC_INPUT_COLUMNS);
+
+        for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
+            typename std::vector<FF_>::const_iterator start =
+                input.begin() +
+                static_cast<typename std::vector<FF_>::difference_type>(i * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+            typename std::vector<FF_>::const_iterator end =
+                input.begin() +
+                static_cast<typename std::vector<FF_>::difference_type>((i + 1) * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+            cols[i] = std::vector<FF_>(start, end);
+        }
+
+        return cols;
     }
 
     bool operator==(const PublicInputs& other) const = default;
 
-    MSGPACK_FIELDS(globalVariables, startTreeSnapshots, reverted);
+    MSGPACK_FIELDS(globalVariables,
+                   startTreeSnapshots,
+                   startGasUsed,
+                   gasSettings,
+                   effectiveGasFees,
+                   feePayer,
+                   publicCallRequestArrayLengths,
+                   publicSetupCallRequests,
+                   publicAppLogicCallRequests,
+                   publicTeardownCallRequest,
+                   previousNonRevertibleAccumulatedDataArrayLengths,
+                   previousRevertibleAccumulatedDataArrayLengths,
+                   previousNonRevertibleAccumulatedData,
+                   previousRevertibleAccumulatedData,
+                   endTreeSnapshots,
+                   endGasUsed,
+                   accumulatedDataArrayLengths,
+                   accumulatedData,
+                   transactionFee,
+                   reverted);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -267,10 +295,11 @@ struct AccumulatedData {
     // TODO: add as needed.
     std::vector<FF> noteHashes;
     std::vector<FF> nullifiers;
+    std::vector<ScopedL2ToL1Message> l2ToL1Messages;
 
     bool operator==(const AccumulatedData& other) const = default;
 
-    MSGPACK_FIELDS(noteHashes, nullifiers);
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Messages);
 };
 
 // We are currently using this structure as the input to TX simulation.
@@ -278,21 +307,24 @@ struct AccumulatedData {
 struct Tx {
     std::string hash;
     GlobalVariables globalVariables;
+    GasSettings gasSettings;
     AccumulatedData nonRevertibleAccumulatedData;
     AccumulatedData revertibleAccumulatedData;
     std::vector<EnqueuedCallHint> setupEnqueuedCalls;
     std::vector<EnqueuedCallHint> appLogicEnqueuedCalls;
     std::optional<EnqueuedCallHint> teardownEnqueuedCall;
-
+    Gas gasUsedByPrivate;
     bool operator==(const Tx& other) const = default;
 
     MSGPACK_FIELDS(hash,
                    globalVariables,
+                   gasSettings,
                    nonRevertibleAccumulatedData,
                    revertibleAccumulatedData,
                    setupEnqueuedCalls,
                    appLogicEnqueuedCalls,
-                   teardownEnqueuedCall);
+                   teardownEnqueuedCall,
+                   gasUsedByPrivate);
 };
 
 struct ExecutionHints {

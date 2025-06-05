@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "./tree_meta.hpp"
 #include "barretenberg/common/log.hpp"
@@ -188,6 +194,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     void checkpoint();
     void revert_checkpoint();
     void commit_checkpoint();
+    void revert_all_checkpoints();
+    void commit_all_checkpoints();
 
   private:
     using Cache = ContentAddressedCache<LeafValueType>;
@@ -226,6 +234,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     void remove_leaf_index(const fr& key, const index_t& maxIndex, WriteTransaction& tx);
 
     void extract_db_stats(TreeDBStats& stats);
+
+    void extract_db_stats(TreeDBStats& stats, ReadTransaction& tx);
 
     void persist_block_for_index(const block_number_t& blockNumber, const index_t& index, WriteTransaction& tx);
 
@@ -278,6 +288,16 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_checkpoint()
 {
     cache_.commit();
+}
+
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::revert_all_checkpoints()
+{
+    cache_.revert_all();
+}
+
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_all_checkpoints()
+{
+    cache_.commit_all();
 }
 
 template <typename LeafValueType>
@@ -719,7 +739,16 @@ void ContentAddressedCachedTreeStore<LeafValueType>::extract_db_stats(TreeDBStat
 {
     try {
         ReadTransactionPtr tx = create_read_transaction();
-        dataStore_->get_stats(stats, *tx);
+        extract_db_stats(stats, *tx);
+    } catch (std::exception&) {
+    }
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::extract_db_stats(TreeDBStats& stats, ReadTransaction& tx)
+{
+    try {
+        dataStore_->get_stats(stats, tx);
     } catch (std::exception&) {
     }
 }
@@ -808,22 +837,19 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
     }
     {
         // read both committed and uncommitted meta values
-        ReadTransactionPtr tx = create_read_transaction();
+        ReadTransactionPtr readTx = create_read_transaction();
         get_meta(uncommittedMeta);
-        get_meta(committedMeta, *tx, false);
-        if (!dataStore_->read_block_data(blockNumber, blockPayload, *tx)) {
+        get_meta(committedMeta, *readTx, false);
+        if (!dataStore_->read_block_data(blockNumber, blockPayload, *readTx)) {
             throw std::runtime_error(format("Unable to advance finalised block: ",
                                             blockNumber,
                                             ". Failed to read block data. Tree name: ",
                                             forkConstantData_.name_));
         }
     }
-    // can only finalise blocks that are not finalised
+    // do nothing if the block is already finalised
     if (committedMeta.finalisedBlockHeight >= blockNumber) {
-        throw std::runtime_error(format("Unable to finalise block ",
-                                        blockNumber,
-                                        " currently finalised block height ",
-                                        committedMeta.finalisedBlockHeight));
+        return;
     }
 
     // can currently only finalise up to the unfinalised block height
@@ -875,15 +901,21 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
         throw std::runtime_error("Removing a block on a fork is forbidden");
     }
     {
-        ReadTransactionPtr tx = create_read_transaction();
+        ReadTransactionPtr readTx = create_read_transaction();
         get_meta(uncommittedMeta);
-        get_meta(committedMeta, *tx, false);
+        get_meta(committedMeta, *readTx, false);
         if (committedMeta != uncommittedMeta) {
             throw std::runtime_error(
                 format("Unable to unwind block: ",
                        blockNumber,
                        " Can't unwind with uncommitted data, first rollback before unwinding. Tree name: ",
                        forkConstantData_.name_));
+        }
+        if (blockNumber > uncommittedMeta.unfinalisedBlockHeight) {
+            // Nothing to do, the block doesn't exist. Maybe it was already removed
+            finalMeta = uncommittedMeta;
+            extract_db_stats(dbStats, *readTx);
+            return;
         }
         if (blockNumber != uncommittedMeta.unfinalisedBlockHeight) {
             throw std::runtime_error(format("Unable to unwind block: ",
@@ -907,7 +939,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
             previousBlockData.root = uncommittedMeta.initialRoot;
             previousBlockData.size = uncommittedMeta.initialSize;
             previousBlockData.blockNumber = 0;
-        } else if (!dataStore_->read_block_data(blockNumber - 1, previousBlockData, *tx)) {
+        } else if (!dataStore_->read_block_data(blockNumber - 1, previousBlockData, *readTx)) {
             throw std::runtime_error(format("Unable to unwind block: ",
                                             blockNumber,
                                             ". Failed to read previous block data. Tree name: ",
@@ -915,7 +947,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
         }
 
         // now get the root for the block we want to unwind
-        if (!dataStore_->read_block_data(blockNumber, blockData, *tx)) {
+        if (!dataStore_->read_block_data(blockNumber, blockData, *readTx)) {
             throw std::runtime_error(format("Unable to unwind block: ",
                                             blockNumber,
                                             ". Failed to read block data. Tree name: ",
@@ -982,9 +1014,15 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
     {
         // retrieve both the committed and uncommitted meta data, validate the provide block is the oldest historical
         // block
-        ReadTransactionPtr tx = create_read_transaction();
+        ReadTransactionPtr readTx = create_read_transaction();
         get_meta(uncommittedMeta);
-        get_meta(committedMeta, *tx, false);
+        get_meta(committedMeta, *readTx, false);
+        if (blockNumber < committedMeta.oldestHistoricBlock) {
+            // Nothing to do, the block was probably already removed
+            finalMeta = uncommittedMeta;
+            extract_db_stats(dbStats, *readTx);
+            return;
+        }
         if (blockNumber != committedMeta.oldestHistoricBlock) {
             throw std::runtime_error(format("Unable to remove historical block: ",
                                             blockNumber,
@@ -1002,7 +1040,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
                                             forkConstantData_.name_));
         }
 
-        if (!dataStore_->read_block_data(blockNumber, blockData, *tx)) {
+        if (!dataStore_->read_block_data(blockNumber, blockData, *readTx)) {
             throw std::runtime_error(format("Unable to remove historical block: ",
                                             blockNumber,
                                             ". Failed to read block data. Tree name: ",

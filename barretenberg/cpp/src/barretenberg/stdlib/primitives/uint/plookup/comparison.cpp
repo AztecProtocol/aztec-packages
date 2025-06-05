@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "../../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
@@ -75,14 +81,10 @@ template <typename Builder, typename Native> bool_t<Builder> uint_plookup<Builde
 
 template class uint_plookup<bb::UltraCircuitBuilder, uint8_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint8_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint8_t>;
 template class uint_plookup<bb::UltraCircuitBuilder, uint16_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint16_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint16_t>;
 template class uint_plookup<bb::UltraCircuitBuilder, uint32_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint32_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint32_t>;
 template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint64_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint64_t>;
 } // namespace bb::stdlib

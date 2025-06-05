@@ -47,7 +47,10 @@ import type { PublicContractsDBInterface } from './db_interfaces.js';
  * A public contracts database that forwards requests and collects AVM hints.
  */
 export class HintingPublicContractsDB implements PublicContractsDBInterface {
-  constructor(private readonly db: PublicContractsDBInterface, private hints: AvmExecutionHints) {}
+  constructor(
+    private readonly db: PublicContractsDBInterface,
+    private hints: AvmExecutionHints,
+  ) {}
 
   public async getContractInstance(
     address: AztecAddress,
@@ -129,7 +132,10 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   }
 
   // Use create() to instantiate.
-  private constructor(private db: MerkleTreeWriteOperations, private hints: AvmExecutionHints) {}
+  private constructor(
+    private db: MerkleTreeWriteOperations,
+    private hints: AvmExecutionHints,
+  ) {}
 
   // Getters.
   public async getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>> {
@@ -284,8 +290,15 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
 
     // We need to process each leaf individually because we need the sibling path after insertion, to be able to constraint the insertion.
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13380): This can be changed if the world state appendLeaves returns the sibling paths.
-    for (const leaf of leaves) {
-      await this.appendLeafInternal(treeId, leaf);
+    if (leaves.length === 1) {
+      await this.appendLeafInternal(treeId, leaves[0]);
+      return;
+    } else {
+      // TODO(dbanks12): NON-HINTING! We skip hinting here for now because:
+      // 1. We only ever append multiple leaves (for now) when padding (all empty leaves).
+      // 2. We don't need hints per-item when padding.
+      // 3. In order to get per-item hints today, you need to append one-at-a-time (mentioned above), which is VERY slow.
+      await this.db.appendLeaves<ID>(treeId, leaves);
     }
   }
 
@@ -303,6 +316,14 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     HintingMerkleWriteOperations.log.trace(
       `[createCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
+  }
+
+  public commitAllCheckpoints(): Promise<void> {
+    throw new Error('commitAllCheckpoints is not supported in HintingMerkleWriteOperations.');
+  }
+
+  public revertAllCheckpoints(): Promise<void> {
+    throw new Error('revertAllCheckpoints is not supported in HintingMerkleWriteOperations.');
   }
 
   public async commitCheckpoint(): Promise<void> {
@@ -444,6 +465,13 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     values: MerkleTreeLeafType<ID>[],
   ): Promise<(bigint | undefined)[]> {
     return await this.db.findLeafIndices(treeId, values);
+  }
+
+  public async findSiblingPaths<ID extends MerkleTreeId, N extends number>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+  ): Promise<(SiblingPath<N> | undefined)[]> {
+    return await this.db.findSiblingPaths(treeId, values);
   }
 
   public async findLeafIndicesAfter<ID extends MerkleTreeId>(

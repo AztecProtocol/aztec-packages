@@ -1,7 +1,10 @@
 import { resolve, dirname } from "path";
+import { createRequire } from 'module';
 import { fileURLToPath } from "url";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import webpack from "webpack";
+
+const require = createRequire(import.meta.url);
 
 export default {
   target: "web",
@@ -13,38 +16,29 @@ export default {
     rules: [
       {
         test: /\.tsx?$/,
-        use: [{ loader: "ts-loader" }],
+        loader: 'ts-loader',
       },
     ],
   },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), "./dest"),
-    publicPath: "/",
-    filename: "[name].js",
-    library: {
-      type: 'module',
-    },
-    chunkFormat: 'module',
-  },
-  experiments: {
-    outputModule: true,
   },
   plugins: [
     new HtmlWebpackPlugin({ inject: false, template: "./src/index.html" }),
     new webpack.DefinePlugin({ "process.env.NODE_DEBUG": false }),
+    new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
   ],
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],
+    fallback: {
+      buffer: require.resolve('buffer/'),
+    }
   },
   devServer: {
     hot: false,
     client: {
       logging: "none",
       overlay: false,
-    },
-    headers: {
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
 };

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -14,7 +20,7 @@ class TranslatorVerifier {
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using TranslationEvaluations = bb::TranslationEvaluations_<BF, FF>;
+    using TranslationEvaluations = bb::TranslationEvaluations_<BF>;
     using Transcript = typename Flavor::Transcript;
 
     BF evaluation_input_x = 0;
@@ -22,9 +28,9 @@ class TranslatorVerifier {
 
     // Default construct fixed VK
     std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
-    std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
     RelationParameters<FF> relation_parameters;
+    std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
 
     TranslatorVerifier(const std::shared_ptr<Transcript>& transcript);
 
@@ -39,5 +45,7 @@ class TranslatorVerifier {
     bool verify_proof(const HonkProof& proof, const uint256_t& evaluation_input_x, const BF& batching_challenge_v);
     bool verify_translation(const TranslationEvaluations& translation_evaluations,
                             const BF& translation_masking_term_eval);
+    bool verify_consistency_with_final_merge(
+        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments);
 };
 } // namespace bb

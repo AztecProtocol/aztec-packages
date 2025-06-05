@@ -2,12 +2,14 @@ services:
   ethereum:
     image: aztecprotocol/build:3.0
     cpus: 1
+    cpuset: ${CPU_LIST:-}
     mem_limit: 2G
     entrypoint: "anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337"
 
   aztec:
     image: aztecprotocol/build:3.0
     cpus: 4
+    cpuset: ${CPU_LIST:-}
     mem_limit: 8G
     tty: true
     volumes:
@@ -32,15 +34,16 @@ services:
     depends_on:
       - ethereum
 
-  boxes:
+  box:
     image: aztecprotocol/build:3.0
     cpus: 4
+    cpuset: ${CPU_LIST:-}
     mem_limit: 8G
     tty: true
     volumes:
       - ../:/root/aztec-packages
     working_dir: /root/aztec-packages/boxes
-    command: "yarn workspace @aztec/$BOX test --project=$BROWSER"
+    command: "yarn workspace aztec-example-$BOX test --project=$BROWSER"
     environment:
       HARDWARE_CONCURRENCY: 4
       DEBUG: "aztec:*"

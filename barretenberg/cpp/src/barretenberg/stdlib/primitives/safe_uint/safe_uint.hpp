@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
@@ -15,11 +21,11 @@ namespace bb::stdlib {
 
 template <typename Builder> class safe_uint_t {
   private:
-    typedef field_t<Builder> field_ct;
-    typedef bool_t<Builder> bool_ct;
+    using field_ct = field_t<Builder>;
+    using bool_ct = bool_t<Builder>;
     // this constructor is private since we only want the operators to be able to define a positive int without a range
     // check.
-    safe_uint_t(field_ct const& value, uint256_t current_max, size_t safety)
+    safe_uint_t(field_ct const& value, const uint256_t& current_max, size_t safety)
         : value(value)
         , current_max(current_max)
     {
@@ -35,8 +41,6 @@ template <typename Builder> class safe_uint_t {
     static constexpr size_t MAX_BIT_NUM = bb::fr::modulus.get_msb();
     static constexpr uint256_t MAX_VALUE = bb::fr::modulus - 1;
     static constexpr size_t IS_UNSAFE = 143; // weird constant to make it hard to use accidentally
-    // Make sure our uint256 values don't wrap  - add_two function sums three of these
-    static_assert((uint512_t)MAX_VALUE * 3 < (uint512_t)1 << 256);
     field_ct value;
     uint256_t current_max;
 
@@ -81,7 +85,9 @@ template <typename Builder> class safe_uint_t {
     {
         witness_t<Builder> out(parent_context, value);
         parent_context->assert_equal_constant(out.witness_index, value, "create_constant_witness");
-        return safe_uint_t(value, uint256_t(value), IS_UNSAFE);
+        auto result = safe_uint_t(value, uint256_t(value), IS_UNSAFE);
+        result.set_free_witness_tag();
+        return result;
     }
 
     // We take advantage of the range constraint already being applied in the bool constructor and don't make a
@@ -205,6 +211,8 @@ template <typename Builder> class safe_uint_t {
     void set_origin_tag(OriginTag tag) const { value.set_origin_tag(tag); }
 
     OriginTag get_origin_tag() const { return value.get_origin_tag(); }
+    void set_free_witness_tag() { value.set_free_witness_tag(); }
+    void unset_free_witness_tag() { value.unset_free_witness_tag(); }
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, safe_uint_t<Builder> const& v)

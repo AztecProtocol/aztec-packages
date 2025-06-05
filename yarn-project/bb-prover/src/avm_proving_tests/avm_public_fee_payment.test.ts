@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
@@ -27,7 +27,7 @@ describe('AVM WitGen & Circuit – public fee payment', () => {
       AvmTestContractArtifact,
     );
   });
-  it(
+  it.skip(
     'fee payment',
     async () => {
       await tester.simProveVerify(

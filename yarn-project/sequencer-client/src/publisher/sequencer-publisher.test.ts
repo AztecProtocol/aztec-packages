@@ -17,12 +17,12 @@ import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs'
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { L2Block } from '@aztec/stdlib/block';
+import { L2Block, Signature } from '@aztec/stdlib/block';
 
 import express, { json } from 'express';
 import type { Server } from 'http';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type GetTransactionReceiptReturnType, type TransactionReceipt, encodeFunctionData } from 'viem';
+import { type GetTransactionReceiptReturnType, type TransactionReceipt, encodeFunctionData, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisher, VoteType } from './sequencer-publisher.js';
@@ -113,6 +113,7 @@ describe('SequencerPublisher', () => {
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n });
+    epochCache.getCommittee.mockResolvedValue({ committee: [], seed: 1n, epoch: 1n });
 
     publisher = new SequencerPublisher(config, {
       blobSinkClient,
@@ -134,12 +135,17 @@ describe('SequencerPublisher', () => {
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
     (l1TxUtils as any).simulateGasUsed.mockResolvedValue(1_000_000n);
     (l1TxUtils as any).bumpGasLimit.mockImplementation((val: bigint) => val + (val * 20n) / 100n);
+    (l1TxUtils as any).client = {
+      account: {
+        address: '0x1234567890123456789012345678901234567890',
+      },
+    };
 
     const currentL2Slot = publisher.getCurrentL2Slot();
 
     l2Block = await L2Block.random(42, undefined, undefined, undefined, undefined, Number(currentL2Slot));
 
-    header = l2Block.header.toBuffer();
+    header = l2Block.header.toPropose().toBuffer();
     archive = l2Block.archive.root.toBuffer();
     blockHash = (await l2Block.header.hash()).toBuffer();
   });
@@ -195,15 +201,20 @@ describe('SequencerPublisher', () => {
 
     expect(await publisher.enqueueProposeL2Block(l2Block)).toEqual(true);
     const govPayload = EthAddress.random();
+    const voteSig = Signature.random();
     publisher.setGovernancePayload(govPayload);
     governanceProposerContract.getRoundInfo.mockResolvedValue({
       lastVote: 1n,
       leader: govPayload.toString(),
       executed: false,
     });
-    governanceProposerContract.createVoteRequest.mockReturnValue({
+    governanceProposerContract.createVoteRequestWithSignature.mockResolvedValue({
       to: mockGovernanceProposerAddress,
-      data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [govPayload.toString()] }),
+      data: encodeFunctionData({
+        abi: EmpireBaseAbi,
+        functionName: 'voteWithSig',
+        args: [govPayload.toString(), voteSig.toViemSignature()],
+      }),
     });
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
     expect(await publisher.enqueueCastVote(2n, 1n, VoteType.GOVERNANCE)).toEqual(true);
@@ -215,9 +226,10 @@ describe('SequencerPublisher', () => {
 
     const args = [
       {
-        header: `0x${header.toString('hex')}`,
-        archive: `0x${archive.toString('hex')}`,
-        blockHash: `0x${blockHash.toString('hex')}`,
+        header: toHex(header),
+        archive: toHex(archive),
+        stateReference: toHex(l2Block.header.state.toBuffer()),
+        blockHash: toHex(blockHash),
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },
@@ -234,7 +246,11 @@ describe('SequencerPublisher', () => {
         },
         {
           to: mockGovernanceProposerAddress,
-          data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [govPayload.toString()] }),
+          data: encodeFunctionData({
+            abi: EmpireBaseAbi,
+            functionName: 'voteWithSig',
+            args: [govPayload.toString(), voteSig.toViemSignature()],
+          }),
         },
       ],
       l1TxUtils,
@@ -281,7 +297,7 @@ describe('SequencerPublisher', () => {
     expect(enqueued).toEqual(true);
     const result = await publisher.sendRequests();
 
-    expect(result?.errorMsg).toEqual('Test error');
+    expect(result?.result?.errorMsg).toEqual('Test error');
   });
 
   it('does not send requests if interrupted', async () => {
@@ -305,10 +321,6 @@ describe('SequencerPublisher', () => {
   });
 
   it('does not send requests if no valid requests are found', async () => {
-    const epochCache = (publisher as any).epochCache as MockProxy<EpochCache>;
-
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n });
-
     publisher.addRequest({
       action: 'propose',
       request: {

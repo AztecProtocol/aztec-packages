@@ -1,0 +1,19 @@
+include "range_check.pil";
+
+namespace memory;
+
+pol commit sel;
+pol commit address;
+pol commit value;
+pol commit tag;
+pol commit rw;
+pol commit space_id;
+
+#[skippable_if]
+sel = 0;
+
+sel * (sel - 1) = 0;
+rw * (1 - rw) = 0;
+
+// TODO: consider tag-value consistency checking.
+// TODO: consider address range checking.

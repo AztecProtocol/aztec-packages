@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
@@ -89,6 +95,26 @@ template <typename Builder> class byte_array {
             tag = bb::OriginTag(tag, value.tag);
         }
         return tag;
+    }
+
+    /**
+     * @brief Set the free witness flag for the byte array
+     */
+    void set_free_witness_tag()
+    {
+        for (auto& value : values) {
+            value.set_free_witness_tag();
+        }
+    }
+
+    /**
+     * @brief Unset the free witness flag for the byte array
+     */
+    void unset_free_witness_tag()
+    {
+        for (auto& value : values) {
+            value.unset_free_witness_tag();
+        }
     }
 
   private:

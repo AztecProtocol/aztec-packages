@@ -12,7 +12,6 @@ const APP_MAX_CALLS = 4;
 // - and noir-projects/aztec-nr/aztec/src/entrypoint/fee.nr
 const FEE_MAX_CALLS = 2;
 
-/* eslint-disable camelcase */
 /** Encoded function call for an Aztec entrypoint */
 export type EncodedFunctionCall = {
   /** Arguments hash for the call. */
@@ -27,7 +26,6 @@ export type EncodedFunctionCall = {
   /** Whether the function can alter state */
   is_static: boolean;
 };
-/* eslint-enable camelcase */
 
 /** Type that represents function calls ready to be sent to a circuit for execution */
 export type EncodedCalls = {
@@ -50,8 +48,13 @@ export abstract class EncodedCallsForEntrypoint implements EncodedCalls {
     public hashedArguments: HashedValues[],
     /** The index of the generator to use for hashing */
     public generatorIndex: number,
-    /** The nonce for the payload, used to emit a nullifier identifying the call */
-    public nonce: Fr,
+    /**
+     * A nonce to inject into the payload of the transaction. When used with cancellable=true, this nonce will be
+     * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
+     * but higher fee. The nullifier ensures only one transaction can succeed.
+     */
+    // eslint-disable-next-line camelcase
+    public tx_nonce: Fr,
   ) {}
 
   /* eslint-disable camelcase */
@@ -102,12 +105,13 @@ export abstract class EncodedCallsForEntrypoint implements EncodedCalls {
   /**
    * Encodes the functions for the app-portion of a transaction from a set of function calls and a nonce
    * @param functionCalls - The function calls to execute
-   * @param nonce - The nonce for the payload, used to emit a nullifier identifying the call
+   * @param txNonce - A nonce used to enable transaction cancellation when cancellable=true. Transactions with the same
+   * nonce can be replaced by submitting a new one with a higher fee.
    * @returns The encoded calls
    */
   static async fromAppExecution(
     functionCalls: FunctionCall[] | Tuple<FunctionCall, typeof APP_MAX_CALLS>,
-    nonce = Fr.random(),
+    txNonce = Fr.random(),
   ) {
     if (functionCalls.length > APP_MAX_CALLS) {
       throw new Error(`Expected at most ${APP_MAX_CALLS} function calls, got ${functionCalls.length}`);
@@ -118,7 +122,7 @@ export abstract class EncodedCallsForEntrypoint implements EncodedCalls {
       encoded.encodedFunctionCalls,
       encoded.hashedArguments,
       GeneratorIndex.SIGNATURE_PAYLOAD,
-      nonce,
+      txNonce,
     );
   }
 
@@ -150,13 +154,13 @@ export class EncodedAppEntrypointCalls extends EncodedCallsForEntrypoint {
     encodedFunctionCalls: EncodedFunctionCall[],
     hashedArguments: HashedValues[],
     generatorIndex: number,
-    nonce: Fr,
+    txNonce: Fr,
   ) {
-    super(encodedFunctionCalls, hashedArguments, generatorIndex, nonce);
+    super(encodedFunctionCalls, hashedArguments, generatorIndex, txNonce);
   }
 
   override toFields(): Fr[] {
-    return [...this.functionCallsToFields(), this.nonce];
+    return [...this.functionCallsToFields(), this.tx_nonce];
   }
 }
 
@@ -168,15 +172,15 @@ export class EncodedFeeEntrypointCalls extends EncodedCallsForEntrypoint {
     encodedFunctionCalls: EncodedFunctionCall[],
     hashedArguments: HashedValues[],
     generatorIndex: number,
-    nonce: Fr,
+    txNonce: Fr,
     isFeePayer: boolean,
   ) {
-    super(encodedFunctionCalls, hashedArguments, generatorIndex, nonce);
+    super(encodedFunctionCalls, hashedArguments, generatorIndex, txNonce);
     this.#isFeePayer = isFeePayer;
   }
 
   override toFields(): Fr[] {
-    return [...this.functionCallsToFields(), this.nonce, new Fr(this.#isFeePayer)];
+    return [...this.functionCallsToFields(), this.tx_nonce, new Fr(this.#isFeePayer)];
   }
 
   /* eslint-disable camelcase */

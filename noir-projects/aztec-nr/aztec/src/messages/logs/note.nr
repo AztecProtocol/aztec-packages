@@ -7,6 +7,7 @@ use crate::{
         msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
+    utils::remove_constraints::remove_constraints,
 };
 use protocol_types::{
     abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -14,7 +15,7 @@ use protocol_types::{
 };
 
 // TODO: it feels like this existence check is in the wrong place. In fact, why is it needed at all? Under what circumstances have we found a non-existent note being emitted accidentally?
-fn assert_note_exists<let N: u32>(context: PrivateContext, note_hash_counter: u32) {
+fn assert_note_exists(context: PrivateContext, note_hash_counter: u32) {
     // TODO(#8589): use typesystem to skip this check when not needed
     let note_exists =
         context.note_hashes.storage().any(|n: NoteHash| n.counter == note_hash_counter);
@@ -86,18 +87,6 @@ where
     log
 }
 
-pub unconstrained fn compute_note_log_unconstrained<Note, let N: u32>(
-    note: Note,
-    storage_slot: Field,
-    recipient: AztecAddress,
-    sender: AztecAddress,
-) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
-where
-    Note: NoteType + Packable<N>,
-{
-    compute_note_log(note, storage_slot, recipient, sender)
-}
-
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
 /// private logs.
 pub fn encode_and_encrypt_note<Note, let N: u32>(
@@ -116,7 +105,10 @@ where
         assert_note_exists(*context, note_hash_counter);
 
         let encrypted_log = compute_note_log(note, storage_slot, recipient, sender);
-        context.emit_raw_note_log(encrypted_log, note_hash_counter);
+        // Regardless of the original note size `N, the log is padded with random bytes up to
+        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+        let length = encrypted_log.len();
+        context.emit_raw_note_log(encrypted_log, length, note_hash_counter);
     }
 }
 
@@ -142,8 +134,12 @@ where
         assert_note_exists(*context, note_hash_counter);
 
         // Safety: this function does not constrain the encryption of the log, as explained on its description.
-        let encrypted_log =
-            unsafe { compute_note_log_unconstrained(note, storage_slot, recipient, sender) };
-        context.emit_raw_note_log(encrypted_log, note_hash_counter);
+        let encrypted_log = unsafe {
+            remove_constraints(|| compute_note_log(note, storage_slot, recipient, sender))
+        };
+        // Regardless of the original note size `N`, the log is padded with random bytes up to
+        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+        let length = encrypted_log.len();
+        context.emit_raw_note_log(encrypted_log, length, note_hash_counter);
     }
 }

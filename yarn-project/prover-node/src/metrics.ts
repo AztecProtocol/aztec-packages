@@ -1,23 +1,120 @@
+import type { RollupContract } from '@aztec/ethereum';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { L1PublishProofStats, L1PublishStats } from '@aztec/stdlib/stats';
 import {
   Attributes,
+  type BatchObservableResult,
   type Gauge,
   type Histogram,
+  type Meter,
   Metrics,
+  type ObservableGauge,
   type TelemetryClient,
+  type Tracer,
   type UpDownCounter,
   ValueType,
 } from '@aztec/telemetry-client';
 
-import { formatEther } from 'viem';
+import { formatEther, formatUnits } from 'viem';
 
-export class ProverNodeMetrics {
+export class ProverNodeJobMetrics {
   proverEpochExecutionDuration: Histogram;
   provingJobDuration: Histogram;
   provingJobBlocks: Gauge;
   provingJobTransactions: Gauge;
 
+  constructor(
+    private meter: Meter,
+    public readonly tracer: Tracer,
+    private logger = createLogger('prover-node:publisher:metrics'),
+  ) {
+    this.proverEpochExecutionDuration = this.meter.createHistogram(Metrics.PROVER_NODE_EXECUTION_DURATION, {
+      description: 'Duration of execution of an epoch by the prover',
+      unit: 'ms',
+      valueType: ValueType.INT,
+    });
+    this.provingJobDuration = this.meter.createHistogram(Metrics.PROVER_NODE_JOB_DURATION, {
+      description: 'Duration of proving job',
+      unit: 's',
+      valueType: ValueType.DOUBLE,
+    });
+    this.provingJobBlocks = this.meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS, {
+      description: 'Number of blocks in a proven epoch',
+      valueType: ValueType.INT,
+    });
+    this.provingJobTransactions = this.meter.createGauge(Metrics.PROVER_NODE_JOB_TRANSACTIONS, {
+      description: 'Number of transactions in a proven epoch',
+      valueType: ValueType.INT,
+    });
+  }
+
+  public recordProvingJob(executionTimeMs: number, totalTimeMs: number, numBlocks: number, numTxs: number) {
+    this.proverEpochExecutionDuration.record(Math.ceil(executionTimeMs));
+    this.provingJobDuration.record(totalTimeMs / 1000);
+    this.provingJobBlocks.record(Math.floor(numBlocks));
+    this.provingJobTransactions.record(Math.floor(numTxs));
+  }
+}
+
+export class ProverNodeRewardsMetrics {
+  private rewards: ObservableGauge;
+  private accumulatedRewards: UpDownCounter;
+  private prevEpoch = -1n;
+  private proofSubmissionWindow = 0n;
+
+  constructor(
+    private meter: Meter,
+    private coinbase: EthAddress,
+    private rollup: RollupContract,
+    private logger = createLogger('prover-node:publisher:metrics'),
+  ) {
+    this.rewards = this.meter.createObservableGauge(Metrics.PROVER_NODE_REWARDS_PER_EPOCH, {
+      valueType: ValueType.DOUBLE,
+      description: 'The rewards earned',
+    });
+
+    this.accumulatedRewards = this.meter.createUpDownCounter(Metrics.PROVER_NODE_REWARDS_TOTAL, {
+      valueType: ValueType.DOUBLE,
+      description: 'The rewards earned (total)',
+    });
+  }
+
+  public async start() {
+    this.proofSubmissionWindow = await this.rollup.getProofSubmissionWindow();
+    this.meter.addBatchObservableCallback(this.observe, [this.rewards]);
+  }
+
+  public stop() {
+    this.meter.removeBatchObservableCallback(this.observe, [this.rewards]);
+  }
+
+  private observe = async (observer: BatchObservableResult): Promise<void> => {
+    const slot = await this.rollup.getSlotNumber();
+
+    // look at the prev epoch so that we get an accurate value, after proof submission window has closed
+    if (slot > this.proofSubmissionWindow) {
+      const closedEpoch = await this.rollup.getEpochNumberForSlotNumber(slot - this.proofSubmissionWindow);
+      const rewards = await this.rollup.getSpecificProverRewardsForEpoch(closedEpoch, this.coinbase);
+
+      const fmt = parseFloat(formatUnits(rewards, 18));
+
+      observer.observe(this.rewards, fmt, {
+        [Attributes.COINBASE]: this.coinbase.toString(),
+      });
+
+      // only accumulate once per epoch
+      if (closedEpoch > this.prevEpoch) {
+        this.prevEpoch = closedEpoch;
+        this.accumulatedRewards.add(fmt, {
+          [Attributes.COINBASE]: this.coinbase.toString(),
+        });
+      }
+    }
+  };
+}
+
+export class ProverNodePublisherMetrics {
   gasPrice: Histogram;
   txCount: UpDownCounter;
   txDuration: Histogram;
@@ -29,79 +126,62 @@ export class ProverNodeMetrics {
   txTotalFee: Histogram;
 
   private senderBalance: Gauge;
+  private meter: Meter;
 
   constructor(
     public readonly client: TelemetryClient,
     name = 'ProverNode',
     private logger = createLogger('prover-node:publisher:metrics'),
   ) {
-    const meter = client.getMeter(name);
-    this.proverEpochExecutionDuration = meter.createHistogram(Metrics.PROVER_NODE_EXECUTION_DURATION, {
-      description: 'Duration of execution of an epoch by the prover',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
-    this.provingJobDuration = meter.createHistogram(Metrics.PROVER_NODE_JOB_DURATION, {
-      description: 'Duration of proving job',
-      unit: 's',
-      valueType: ValueType.DOUBLE,
-    });
-    this.provingJobBlocks = meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS, {
-      description: 'Number of blocks in a proven epoch',
-      valueType: ValueType.INT,
-    });
-    this.provingJobTransactions = meter.createGauge(Metrics.PROVER_NODE_JOB_TRANSACTIONS, {
-      description: 'Number of transactions in a proven epoch',
-      valueType: ValueType.INT,
-    });
+    this.meter = client.getMeter(name);
 
-    this.gasPrice = meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE, {
+    this.gasPrice = this.meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE, {
       description: 'The gas price used for transactions',
       unit: 'gwei',
       valueType: ValueType.DOUBLE,
     });
 
-    this.txCount = meter.createUpDownCounter(Metrics.L1_PUBLISHER_TX_COUNT, {
+    this.txCount = this.meter.createUpDownCounter(Metrics.L1_PUBLISHER_TX_COUNT, {
       description: 'The number of transactions processed',
     });
 
-    this.txDuration = meter.createHistogram(Metrics.L1_PUBLISHER_TX_DURATION, {
+    this.txDuration = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_DURATION, {
       description: 'The duration of transaction processing',
       unit: 'ms',
       valueType: ValueType.INT,
     });
 
-    this.txGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_GAS, {
+    this.txGas = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_GAS, {
       description: 'The gas consumed by transactions',
       unit: 'gas',
       valueType: ValueType.INT,
     });
 
-    this.txCalldataSize = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_SIZE, {
+    this.txCalldataSize = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_SIZE, {
       description: 'The size of the calldata in transactions',
       unit: 'By',
       valueType: ValueType.INT,
     });
 
-    this.txCalldataGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_GAS, {
+    this.txCalldataGas = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_GAS, {
       description: 'The gas consumed by the calldata in transactions',
       unit: 'gas',
       valueType: ValueType.INT,
     });
 
-    this.txBlobDataGasUsed = meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_USED, {
+    this.txBlobDataGasUsed = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_USED, {
       description: 'The amount of blob gas used in transactions',
       unit: 'gas',
       valueType: ValueType.INT,
     });
 
-    this.txBlobDataGasCost = meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_COST, {
+    this.txBlobDataGasCost = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_COST, {
       description: 'The gas cost of blobs in transactions',
       unit: 'gwei',
       valueType: ValueType.INT,
     });
 
-    this.txTotalFee = meter.createHistogram(Metrics.L1_PUBLISHER_TX_TOTAL_FEE, {
+    this.txTotalFee = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_TOTAL_FEE, {
       description: 'How much L1 tx costs',
       unit: 'gwei',
       valueType: ValueType.DOUBLE,
@@ -112,7 +192,7 @@ export class ProverNodeMetrics {
       },
     });
 
-    this.senderBalance = meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
+    this.senderBalance = this.meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
       unit: 'eth',
       description: 'The balance of the sender address',
       valueType: ValueType.DOUBLE,
@@ -128,13 +208,6 @@ export class ProverNodeMetrics {
 
   recordSubmitProof(durationMs: number, stats: L1PublishProofStats) {
     this.recordTx(durationMs, stats);
-  }
-
-  public recordProvingJob(executionTimeMs: number, totalTimeMs: number, numBlocks: number, numTxs: number) {
-    this.proverEpochExecutionDuration.record(Math.ceil(executionTimeMs));
-    this.provingJobDuration.record(totalTimeMs / 1000);
-    this.provingJobBlocks.record(Math.floor(numBlocks));
-    this.provingJobTransactions.record(Math.floor(numTxs));
   }
 
   public recordSenderBalance(wei: bigint, senderAddress: string) {
@@ -169,7 +242,7 @@ export class ProverNodeMetrics {
 
     try {
       this.gasPrice.record(parseInt(formatEther(stats.gasPrice, 'gwei'), 10));
-    } catch (e) {
+    } catch {
       // ignore
     }
 
@@ -179,7 +252,7 @@ export class ProverNodeMetrics {
 
     try {
       this.txTotalFee.record(parseFloat(formatEther(totalFee)));
-    } catch (e) {
+    } catch {
       // ignore
     }
   }

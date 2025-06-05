@@ -9,7 +9,10 @@ export enum ReadRequestState {
 }
 
 export class ReadRequestStatus {
-  constructor(public state: ReadRequestState, public hintIndex: number) {}
+  constructor(
+    public state: ReadRequestState,
+    public hintIndex: number,
+  ) {}
 
   static nada() {
     return new ReadRequestStatus(ReadRequestState.NADA, 0);
@@ -34,7 +37,10 @@ export class ReadRequestStatus {
 }
 
 export class PendingReadHint {
-  constructor(public readRequestIndex: number, public pendingValueIndex: number) {}
+  constructor(
+    public readRequestIndex: number,
+    public pendingValueIndex: number,
+  ) {}
 
   static nada(readRequestLen: number) {
     return new PendingReadHint(readRequestLen, 0);
@@ -88,8 +94,8 @@ export class SettledReadHint<TREE_HEIGHT extends number, LEAF_PREIMAGE extends B
  */
 export class ReadRequestResetHints<
   READ_REQUEST_LEN extends number,
-  NUM_PENDING_READS extends number,
-  NUM_SETTLED_READS extends number,
+  PENDING_READ_HINTS_LEN extends number,
+  SETTLED_READ_HINTS_LEN extends number,
   TREE_HEIGHT extends number,
   LEAF_PREIMAGE extends Bufferable,
 > {
@@ -98,23 +104,29 @@ export class ReadRequestResetHints<
     /**
      * The hints for read requests reading pending values.
      */
-    public pendingReadHints: Tuple<PendingReadHint, NUM_PENDING_READS>,
+    public pendingReadHints: Tuple<PendingReadHint, PENDING_READ_HINTS_LEN>,
     /**
      * The hints for read requests reading settled values.
      */
-    public settledReadHints: Tuple<SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE>, NUM_SETTLED_READS>,
+    public settledReadHints: Tuple<SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE>, SETTLED_READ_HINTS_LEN>,
   ) {}
 
-  trimToSizes<NEW_NUM_PENDING_READS extends number, NEW_NUM_SETTLED_READS extends number>(
-    numPendingReads: NEW_NUM_PENDING_READS,
-    numSettledReads: NEW_NUM_SETTLED_READS,
-  ): ReadRequestResetHints<READ_REQUEST_LEN, NEW_NUM_PENDING_READS, NEW_NUM_SETTLED_READS, TREE_HEIGHT, LEAF_PREIMAGE> {
+  trimToSizes<NEW_PENDING_READ_HINTS_LEN extends number, NEW_SETTLED_READ_HINTS_LEN extends number>(
+    numPendingReads: NEW_PENDING_READ_HINTS_LEN,
+    numSettledReads: NEW_SETTLED_READ_HINTS_LEN,
+  ): ReadRequestResetHints<
+    READ_REQUEST_LEN,
+    NEW_PENDING_READ_HINTS_LEN,
+    NEW_SETTLED_READ_HINTS_LEN,
+    TREE_HEIGHT,
+    LEAF_PREIMAGE
+  > {
     return new ReadRequestResetHints(
       this.readRequestStatuses,
-      this.pendingReadHints.slice(0, numPendingReads) as Tuple<PendingReadHint, NEW_NUM_PENDING_READS>,
+      this.pendingReadHints.slice(0, numPendingReads) as Tuple<PendingReadHint, NEW_PENDING_READ_HINTS_LEN>,
       this.settledReadHints.slice(0, numSettledReads) as Tuple<
         SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE>,
-        NEW_NUM_SETTLED_READS
+        NEW_SETTLED_READ_HINTS_LEN
       >,
     );
   }
@@ -126,18 +138,24 @@ export class ReadRequestResetHints<
    */
   static fromBuffer<
     READ_REQUEST_LEN extends number,
-    NUM_PENDING_READS extends number,
-    NUM_SETTLED_READS extends number,
+    PENDING_READ_HINTS_LEN extends number,
+    SETTLED_READ_HINTS_LEN extends number,
     TREE_HEIGHT extends number,
     LEAF_PREIMAGE extends Bufferable,
   >(
     buffer: Buffer | BufferReader,
     readRequestLen: READ_REQUEST_LEN,
-    numPendingReads: NUM_PENDING_READS,
-    numSettledReads: NUM_SETTLED_READS,
+    numPendingReads: PENDING_READ_HINTS_LEN,
+    numSettledReads: SETTLED_READ_HINTS_LEN,
     treeHeight: TREE_HEIGHT,
     leafPreimageFromBuffer: { fromBuffer: (buffer: BufferReader) => LEAF_PREIMAGE },
-  ): ReadRequestResetHints<READ_REQUEST_LEN, NUM_PENDING_READS, NUM_SETTLED_READS, TREE_HEIGHT, LEAF_PREIMAGE> {
+  ): ReadRequestResetHints<
+    READ_REQUEST_LEN,
+    PENDING_READ_HINTS_LEN,
+    SETTLED_READ_HINTS_LEN,
+    TREE_HEIGHT,
+    LEAF_PREIMAGE
+  > {
     const reader = BufferReader.asReader(buffer);
     return new ReadRequestResetHints(
       reader.readArray(readRequestLen, ReadRequestStatus),
@@ -154,7 +172,10 @@ export class ReadRequestResetHints<
 }
 
 export class ReadRequestResetStates<NUM_READS extends number> {
-  constructor(public states: Tuple<ReadRequestState, NUM_READS>, public pendingReadHints: PendingReadHint[]) {}
+  constructor(
+    public states: Tuple<ReadRequestState, NUM_READS>,
+    public pendingReadHints: PendingReadHint[],
+  ) {}
 
   static empty<NUM_READS extends number>(numReads: NUM_READS) {
     return new ReadRequestResetStates(

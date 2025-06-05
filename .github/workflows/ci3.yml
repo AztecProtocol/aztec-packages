@@ -1,12 +1,12 @@
 # CI for Aztec. At a high-level, runs ./bootstrap.sh ci in root. See root README.md for more details.
 # Only for internal devs. For external devs, see ci3-external.yml.
+#
+# CAREFUL! We use "exec" a lot to ensure signal propagation to the child process, to allow proper ec2 cleanup.
 name: CI3
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - master
     tags:
       - "v*"
   pull_request:
@@ -14,37 +14,16 @@ on:
   merge_group: {}
 
 concurrency:
-  # If we are pushing a tag, we are doing a release - we should only ever have 1 of those at a time, globally!
-  # On PR's the group id is the ref_name so only 1 can run at a time per PR.
-  group: |
-    ci3-${{ startsWith(github.ref, 'refs/tags/v') && 'release'
-                                                  || (github.event_name == 'pull_request' && github.ref_name
-                                                                                          || github.run_id) }}
+  group: ci3-${{ github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
-  merge-queue-pr-link:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'merge_group'
-    steps:
-      - run: echo "This job exists only to link merge queue to the PR run."
-
   ci:
     runs-on: ubuntu-latest
     # exclusive with ci3-external.yml: never run on forks
     # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
-    if: github.event.pull_request.head.repo.fork != true
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
-    strategy:
-      fail-fast: true
-      matrix:
-        # Only run arm64 build with arm64-ci label or on master or on tagged releases.
-        # The way to do conditions here is to parse full strings as JSON.
-        settings: >-
-          ${{ fromJson(
-            (contains(github.event.pull_request.labels.*.name, 'arm64-ci') || github.event_name == 'push' || github.event_name == 'merge_group' || startsWith(github.ref, 'refs/tags/v')) &&
-            '[{"arch":"amd64"},{"arch":"arm64"}]' ||
-            '[{"arch":"amd64"}]') }}
     steps:
       #############
       # Prepare Env
@@ -54,23 +33,28 @@ jobs:
         with:
           # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          # Include previous commit for master history comparisons.
-          fetch-depth: 2
-
-      - name: Fail If Draft
-        if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
-        run: echo "CI is not run on drafts." && exit 1
 
       - name: CI Full Override
-        # TODO consolidate legacy labels to just ci-full.
         if: contains(github.event.pull_request.labels.*.name, 'ci-full')
-        run: |
-          echo "CI_FULL=1" >> $GITHUB_ENV
-          echo "USE_TEST_CACHE=0" >> $GITHUB_ENV
+        run: echo "CI_FULL=1" >> $GITHUB_ENV
 
-      - name: CI Nightly Check
-        if: contains(github.ref, '-nightly.')
-        run: echo "CI_NIGHTLY=1" >> $GITHUB_ENV
+      - name: Cache Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
+        run: echo "NO_CACHE=1" >> $GITHUB_ENV
+
+      - name: Compute Target Branch
+        id: target_branch
+        run: |
+          if [ "${{ github.event_name }}" == "merge_group" ]; then
+            target_branch=${{ github.event.merge_group.base_ref }}
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            target_branch=${{ github.event.pull_request.base.ref }}
+          else
+            target_branch=${{ github.ref_name }}
+          fi
+          target_branch=${target_branch#refs/heads/}
+          echo "target_branch=$target_branch" >> $GITHUB_OUTPUT
+          echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
 
       - name: Setup
         run: |
@@ -78,6 +62,8 @@ jobs:
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
+          # Install required packages.
+          sudo apt update && sudo apt install -y redis-tools parallel
 
       #############
       # Run
@@ -87,154 +73,52 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          ARCH: ${{ matrix.settings.arch }}
           RUN_ID: ${{ github.run_id }}
-          JOB_ID: ${{ matrix.settings.arch }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          CI: 1
-          # Enable full CI until we have a merge queue to prevent easy regressions.
-          CI_FULL: 1
           # Nightly test env vars.
           EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
-        run: exec ./ci.sh ec2
+        run: |
+          if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_FULL:-0}" -eq 1 ]; then
+            exec ./ci.sh merge-queue
+          elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ]; then
+            exec ./ci.sh nightly
+          elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
+            exec ./ci.sh release
+          else
+            exec ./ci.sh fast
+          fi
 
       - name: Download benchmarks
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
-        run: |
-          ./ci.sh gh-bench
+        if: github.event_name == 'merge_group'
+        run: ./ci.sh gh-bench
 
-      - name: Store barretenberg benchmark result
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_BB_BENCH != 'true'
-        continue-on-error: true
+      - name: Upload benchmarks
+        if: github.event_name == 'merge_group'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
-          name: C++ Benchmark
-          tool: "googlecpp"
-          output-file-path: ./bench-out/bb-bench.json
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: "105%"
-          comment-on-alert: true
-          fail-on-alert: false
-          alert-comment-cc-users: "@ludamad @codygunton"
-          max-items-in-chart: 50
-
-      - name: Store Example App IVC benchmark results
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_YP_BENCH != 'true'
-        continue-on-error: true
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with:
-          name: C++ Benchmark
-          tool: "googlecpp"
-          output-file-path: ./bench-out/ivc-bench.json
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: "105%"
-          comment-on-alert: true
-          fail-on-alert: false
-          alert-comment-cc-users: "@ludamad @codygunton"
-          max-items-in-chart: 50
-
-      - name: Store yarn project benchmark result
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_YP_BENCH != 'true'
-        continue-on-error: true
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with:
-          name: "End-to-end Benchmark"
-          benchmark-data-dir-path: "dev/e2e-bench"
+          name: Aztec Benchmarks
+          benchmark-data-dir-path: "bench/${{ steps.target_branch.outputs.target_branch }}"
           tool: "customSmallerIsBetter"
-          output-file-path: ./bench-out/yp-bench.json
+          output-file-path: ./bench-out/bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
-          alert-threshold: "150%"
-          comment-on-alert: true
+          alert-threshold: "105%"
+          comment-on-alert: false
           fail-on-alert: false
-          alert-comment-cc-users: "@philwindle @spalladino"
-          max-items-in-chart: 50
-
-      # - name: Store p2p benchmark result
-      #   if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
-      #   continue-on-error: true
-      #   uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-      #   with:
-      #     name: "P2P Testbench"
-      #     tool: "customSmallerIsBetter"
-      #     benchmark-data-dir-path: "dev/p2p-bench"
-      #     output-file-path: ./bench-out/p2p-bench.json
-      #     github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-      #     auto-push: true
-      #     alert-threshold: "105%"
-      #     comment-on-alert: true
-      #     fail-on-alert: false
-      #     alert-comment-cc-users: "@Maddiaa0"
-      #     max-items-in-chart: 50
-
-  ci-grind:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'merge_group'
-    strategy:
-      matrix:
-        number: [1, 2]
-      fail-fast: true
-    steps:
-      #############
-      # Prepare Env
-      #############
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Setup
-        run: |
-          # Ensure we can SSH into the spot instances we request.
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-
-      #############
-      # Run
-      #############
-      - name: Run
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ARCH: amd64
-          RUN_ID: ${{ github.run_id }}
-          JOB_ID: g${{ matrix.number }}
-          INSTANCE_POSTFIX: ${{ matrix.number }}
-          DRY_RUN: 1
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          CI: 1
-          CI_FULL: 1
-        run: exec ./ci.sh ec2-test
-
-  # Necessary as github actions won't allow checks on matrix builds.
-  merge-check:
-    runs-on: ubuntu-latest
-    if: always()
-    needs:
-      - ci
-      - ci-grind
-    steps:
-      - name: Failing deploy
-        if: ${{ contains(needs.*.result, 'failure') }}
-        run: exit 1
+          max-items-in-chart: 100
 
   notify:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && failure()
     needs:
       - ci
-      - ci-grind
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

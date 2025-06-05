@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
@@ -79,7 +85,7 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
         if (!scalar_is_constant_equal_one) {
             auto z_1 = Fr::from_witness_index(builder, op_tuple.z_1);
             auto z_2 = Fr::from_witness_index(builder, op_tuple.z_2);
-            auto beta = G::subgroup_field::cube_root_of_unity();
+            auto beta = G::Fr::cube_root_of_unity();
             scalar.assert_equal(z_1 - z_2 * beta);
         }
     }

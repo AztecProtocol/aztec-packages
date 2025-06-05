@@ -31,16 +31,29 @@ export const BlobscanBlockResponseSchema = z
     ),
   })
   .transform(data =>
-    data.transactions.flatMap(tx =>
-      tx.blobs.map(blob => ({
-        blob: blob.data,
-        // eslint-disable-next-line camelcase
-        kzg_commitment: blob.commitment,
-        // eslint-disable-next-line camelcase
-        kzg_proof: blob.proof,
-      })),
-    ),
+    data.transactions
+      .flatMap(tx =>
+        tx.blobs.map(blob => ({
+          blob: blob.data,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: blob.commitment,
+          // eslint-disable-next-line camelcase
+          kzg_proof: blob.proof,
+        })),
+      )
+      .map((blob, index) => ({ ...blob, index: index.toString() })),
   ) satisfies ZodFor<BlobJson[]>;
+
+// Response from https://api.blobscan.com/blocks?sort=desc&type=canonical
+export const BlobscanBlocksResponseSchema = z.object({
+  blocks: z.array(
+    z.object({
+      hash: z.string(),
+      slot: z.number().int(),
+      number: z.number().int(),
+    }),
+  ),
+});
 
 export class BlobscanArchiveClient implements BlobArchiveClient {
   private readonly logger = createLogger('blob-sink:blobscan-archive-client');
@@ -48,6 +61,7 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
   private readonly fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
     return await retry(
       () => fetch(...args),
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
       `Fetching ${args[0]}`,
       makeBackoff([1, 1, 3]),
       this.logger,
@@ -55,26 +69,61 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
     );
   };
 
-  private readonly baseUrl;
+  private readonly baseUrl: URL;
 
   private instrumentation: BlobArchiveClientInstrumentation;
 
   constructor(baseUrl: string, telemetry: TelemetryClient = getTelemetryClient()) {
-    this.baseUrl = baseUrl.replace(/^https?:\/\//, '');
+    this.baseUrl = new URL(baseUrl);
+    if (this.baseUrl.protocol !== 'https:') {
+      throw new TypeError('BaseURL must be secure: ' + baseUrl);
+    }
     this.instrumentation = new BlobArchiveClientInstrumentation(
       telemetry,
-      new URL(baseUrl).host,
+      this.baseUrl.origin,
       'BlobscanArchiveClient',
     );
   }
 
+  public async getLatestBlock(): Promise<{ hash: string; number: number; slot: number }> {
+    const url = new URL('blocks', this.baseUrl);
+    url.searchParams.set('sort', 'desc');
+    url.searchParams.set('type', 'canonical');
+    url.searchParams.set('p', '1');
+    url.searchParams.set('ps', '1');
+
+    this.logger.trace(`Fetching latest block from ${url.href}`);
+    const response = await this.fetch(url, this.fetchOpts);
+
+    if (response.status !== 200) {
+      throw new Error(`Failed to fetch latest block: ${response.statusText} (${response.status})`, {
+        cause: {
+          httpResponse: {
+            status: response.status,
+            body: await response.text().catch(() => 'Failed to read response body'),
+          },
+        },
+      });
+    }
+
+    const parsed = await response.json().then((data: any) => BlobscanBlocksResponseSchema.parse(data));
+    if (parsed.blocks.length === 0) {
+      throw new Error(`No blocks found at ${this.baseUrl}`);
+    }
+
+    return parsed.blocks[0];
+  }
+
   public getBaseUrl(): string {
-    return this.baseUrl;
+    return this.baseUrl.href;
   }
 
   public async getBlobsFromBlock(blockId: string): Promise<BlobJson[] | undefined> {
-    const url = `https://${this.baseUrl}/blocks/${blockId}?type=canonical&expand=blob%2Cblob_data`;
-    this.logger.trace(`Fetching blobs for block ${blockId} from ${url}`);
+    const url = new URL(`blocks/${blockId}`, this.baseUrl);
+    url.searchParams.set('type', 'canonical');
+    url.searchParams.set('expand', 'blob,blob_data');
+
+    this.logger.trace(`Fetching blobs for block ${blockId} from ${url.href}`);
     const response = await this.fetch(url, this.fetchOpts);
 
     this.instrumentation.incRequest('blocks', response.status);
@@ -87,10 +136,7 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
         cause: {
           httpResponse: {
             status: response.status,
-            body: await response.text().catch(err => {
-              this.logger.warn('Failed to read response body', err);
-              return '';
-            }),
+            body: await response.text().catch(() => 'Failed to read response body'),
           },
         },
       });
@@ -103,7 +149,9 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
   }
 
   public async getBlobData(id: string): Promise<Buffer | undefined> {
-    const response = await this.fetch(`https://${this.baseUrl}/blobs/${id}/data`, this.fetchOpts);
+    const url = new URL(`blobs/${id}/data`, this.baseUrl);
+
+    const response = await this.fetch(url, this.fetchOpts);
     this.instrumentation.incRequest('blobs', response.status);
     if (response.status === 404) {
       return undefined;

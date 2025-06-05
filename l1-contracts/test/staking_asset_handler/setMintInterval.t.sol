@@ -47,11 +47,11 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
       )
     );
     vm.prank(address(0xbeefdeef));
-    stakingAssetHandler.addValidator(address(1), address(1));
+    stakingAssetHandler.addValidator(address(1));
   }
 
   function test_WhenOwnerTriesToMintAfterTheNewIntervalHasPassed(uint256 _newMintInterval) external {
-    _newMintInterval = bound(_newMintInterval, mintInterval + 1, 1e18);
+    _newMintInterval = bound(_newMintInterval, mintInterval + 1, type(uint24).max);
     stakingAssetHandler.setMintInterval(_newMintInterval);
     vm.warp(block.timestamp + _newMintInterval);
     // it mints
@@ -61,9 +61,9 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
     address rollup = stakingAssetHandler.getRollup();
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ValidatorAdded(rollup, address(1), address(1), WITHDRAWER);
+    emit IStakingAssetHandler.ValidatorAdded(rollup, address(1), WITHDRAWER);
     vm.prank(address(0xbeefdeef));
-    stakingAssetHandler.addValidator(address(1), address(1));
+    stakingAssetHandler.addValidator(address(1));
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
   }
 }

@@ -98,7 +98,6 @@ function(barretenberg_module MODULE_NAME)
             PRIVATE
             ${TRACY_LIBS}
             GTest::gtest
-            GTest::gtest_main
             GTest::gmock_main
             ${TBB_IMPORTED_TARGETS}
         )
@@ -143,7 +142,6 @@ function(barretenberg_module MODULE_NAME)
             target_compile_definitions(
                 ${MODULE_NAME}_test_objects
                 PRIVATE
-                -DDISABLE_HEAVY_TESTS=1
             )
         endif()
 
@@ -169,48 +167,8 @@ function(barretenberg_module MODULE_NAME)
             add_dependencies(${MODULE_NAME}_tests lmdb_repo)
         endif()
         if(NOT WASM)
-            # If collecting coverage data, set profile
-            # For some reason processor affinity doesn't work, so the developer has to set it manually anyway
-            if(COVERAGE)
-                # Profile filename has to be dependent on some process characteristic, because ctest calls all tests individually and the profiles get overwritten
-                gtest_discover_tests(${MODULE_NAME}_tests
-                PROPERTIES ENVIRONMENT "LLVM_PROFILE_FILE=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/profdata/${MODULE_NAME}.%p.profraw"
-                PROPERTIES PROCESSOR_AFFINITY ON
-                PROPERTIES PROCESSORS 16
-                WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-            else()
-                # Currently haven't found a way to easily wrap the calls in wasmtime when run from ctest.
-                gtest_discover_tests(${MODULE_NAME}_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR} TEST_FILTER -*_SKIP_CI*)
-            endif()
-        endif()
-
-        if(COVERAGE)
-            target_link_options(
-                ${MODULE_NAME}_tests
-                PRIVATE
-                -fprofile-instr-generate -fcoverage-mapping
-            )
-            add_custom_target(
-                run_${MODULE_NAME}_tests
-                COMMAND mkdir -p ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/profdata
-                COMMAND LLVM_PROFILE_FILE=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/profdata/${MODULE_NAME}.%p.profraw ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${MODULE_NAME}_tests
-                BYPRODUCTS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/profdata/${MODULE_NAME}.profraw
-                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-                DEPENDS ${MODULE_NAME}_tests
-            )
-            add_custom_target(
-                generate_${MODULE_NAME}_tests_coverage
-                COMMAND ${PROFDATA_EXECUTABLE} merge -sparse ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/profdata/${MODULE_NAME}.profraw -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/profdata/${MODULE_NAME}.profdata
-                DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/profdata/${MODULE_NAME}.profraw
-                BYPRODUCTS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/profdata/${MODULE_NAME}.profdata
-                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-            )
-        else()
-            add_custom_target(
-                run_${MODULE_NAME}_tests
-                COMMAND ${MODULE_NAME}_tests
-                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-            )
+            # Currently haven't found a way to easily wrap the calls in wasmtime when run from ctest.
+            gtest_discover_tests(${MODULE_NAME}_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR} TEST_FILTER -*_SKIP_CI*)
         endif()
     endif()
 

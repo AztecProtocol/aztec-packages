@@ -7,8 +7,6 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 using namespace bb;
-using witness_ct = stdlib::witness_t<StandardCircuitBuilder>;
-using uint_ct = stdlib::uint32<StandardCircuitBuilder>;
 
 using namespace smt_terms;
 

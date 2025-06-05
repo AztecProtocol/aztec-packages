@@ -67,8 +67,14 @@ impl Ordered for Scoped<PrivateLogData> {
     }
 }
 
+impl Scoped<PrivateLogData> {
+    pub fn expose_to_public(self) -> PrivateLog {
+        self.inner.log
+    }
+}
+
 #[test]
-fn serialization_of_empty_private_log() {
+fn serialization_of_empty_private_log_data() {
     let item = PrivateLogData::empty();
     let serialized = item.serialize();
     let deserialized = PrivateLogData::deserialize(serialized);

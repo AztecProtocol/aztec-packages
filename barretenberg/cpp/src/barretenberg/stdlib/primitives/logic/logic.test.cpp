@@ -3,9 +3,9 @@
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "logic.hpp"
 
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
@@ -26,7 +26,7 @@ template <class T> void ignore_unused(T&) {} // use to ignore unused variables i
 
 template <class Builder> class LogicTest : public testing::Test {};
 
-using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
+using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(LogicTest, CircuitTypes);
 
@@ -86,14 +86,12 @@ TYPED_TEST(LogicTest, TestCorrectLogic)
 }
 
 // Tests the constraints will fail if the operands are larger than expected even though the result contains the correct
-// number of bits when using the UltraPlonkBuilder This is because the range constraints on the right and left operand
+// number of bits when using the UltraBuilder This is because the range constraints on the right and left operand
 // are not being satisfied.
 TYPED_TEST(LogicTest, LargeOperands)
 {
     STDLIB_TYPE_ALIASES
-    if constexpr (IsSimulator<Builder>) {
-        GTEST_SKIP() << "Skipping this test for the simulator";
-    }
+
     auto builder = Builder();
 
     uint256_t mask = (uint256_t(1) << 48) - 1;

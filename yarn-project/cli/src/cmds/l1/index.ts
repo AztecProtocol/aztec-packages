@@ -289,7 +289,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .addOption(l1ChainIdOption)
     .option('--attester <address>', 'ethereum address of the attester', parseEthereumAddress)
-    .option('--proposer-eoa <address>', 'ethereum address of the proposer EOA', parseEthereumAddress)
     .option('--staking-asset-handler <address>', 'ethereum address of the staking asset handler', parseEthereumAddress)
     .action(async options => {
       const { addL1Validator } = await import('./update_l1_validators.js');
@@ -299,7 +298,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         privateKey: options.privateKey,
         mnemonic: options.mnemonic,
         attesterAddress: options.attester,
-        proposerEOAAddress: options.proposerEoa,
         stakingAssetHandlerAddress: options.stakingAssetHandler,
         log,
         debugLogger,
@@ -349,6 +347,30 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         numEpochs: options.count,
         log,
         debugLogger,
+      });
+    });
+
+  program
+    .command('trigger-seed-snapshot')
+    .description('Triggers a seed snapshot for the next epoch.')
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .addOption(l1RpcUrlsOption)
+    .addOption(l1ChainIdOption)
+    .action(async options => {
+      const { triggerSeedSnapshot } = await import('./trigger_seed_snapshot.js');
+      await triggerSeedSnapshot({
+        rollupAddress: options.rollup,
+        rpcUrls: options.l1RpcUrls,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        log,
       });
     });
 
@@ -414,6 +436,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
+    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
     .requiredOption('--verifier <verifier>', 'Either mock or real', 'real')
     .action(async options => {
       const { deployMockVerifier, deployUltraHonkVerifier } = await import('./deploy_l1_verifier.js');
@@ -435,6 +458,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
           options.l1ChainId,
           options.l1PrivateKey,
           options.mnemonic,
+          options.mnemonicIndex,
           options.rpcUrl,
           log,
           debugLogger,

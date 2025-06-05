@@ -38,6 +38,38 @@ std::vector<uint8_t> random_bytes(size_t n)
     return bytes;
 }
 
+std::vector<ScopedL2ToL1Message> random_l2_to_l1_messages(size_t n)
+{
+    std::vector<ScopedL2ToL1Message> messages;
+    messages.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        messages.push_back(ScopedL2ToL1Message{
+            .message =
+                L2ToL1Message{
+                    .recipient = FF::random_element(),
+                    .content = FF::random_element(),
+                },
+            .contractAddress = FF::random_element(),
+        });
+    }
+    return messages;
+}
+
+std::vector<EnqueuedCallHint> random_enqueued_calls(size_t n)
+{
+    std::vector<EnqueuedCallHint> calls;
+    calls.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        calls.push_back(EnqueuedCallHint{
+            .msgSender = FF::random_element(),
+            .contractAddress = FF::random_element(),
+            .calldata = random_fields(5),
+            .isStaticCall = rand() % 2 == 0,
+        });
+    }
+    return calls;
+}
+
 Operand random_operand(OperandType operand_type)
 {
     const auto rand_bytes = random_bytes(simulation::testonly::get_operand_type_sizes().at(operand_type));
@@ -139,11 +171,37 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 {
     AvmTraceGenHelper trace_gen_helper;
 
+    PublicInputs public_inputs = {
+        .globalVariables = {
+            .blockNumber = 42,
+        },
+        .startTreeSnapshots = {
+            .l1ToL2MessageTree = {
+                .root = 111,
+                .nextAvailableLeafIndex = 222,
+            },
+            .noteHashTree = {
+                .root = 333,
+                .nextAvailableLeafIndex = 444,
+            },
+            .nullifierTree = {
+                .root = 555,
+                .nextAvailableLeafIndex = 666,
+            },
+            .publicDataTree = {
+                .root = 777,
+                .nextAvailableLeafIndex = 888,
+            },
+        },
+        .reverted = false,
+    };
+
     auto trace = trace_gen_helper.generate_trace({
             .alu = { { .operation = simulation::AluOperation::ADD, .a = MemoryValue::from<uint16_t>(1), .b = MemoryValue::from<uint16_t>(2), .c = MemoryValue::from<uint16_t>(3) }, },
-        });
+        },
+        public_inputs);
 
-    return std::make_pair<tracegen::TraceContainer, PublicInputs>(std::move(trace), { .reverted = false });
+    return { std::move(trace), std::move(public_inputs) };
 }
 
 bool skip_slow_tests()

@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/execution.hpp"
 
+#include "gmock/gmock.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -9,15 +10,19 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/context_provider.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 
 namespace bb::avm2::simulation {
@@ -40,8 +45,13 @@ class ExecutionSimulationTest : public ::testing::Test {
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
-    Execution execution =
-        Execution(alu, execution_components, instruction_info_db, execution_event_emitter, context_stack_event_emitter);
+    StrictMock<MockContextProvider> context_provider;
+    Execution execution = Execution(alu,
+                                    execution_components,
+                                    context_provider,
+                                    instruction_info_db,
+                                    execution_event_emitter,
+                                    context_stack_event_emitter);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -58,34 +68,47 @@ TEST_F(ExecutionSimulationTest, Add)
 
 TEST_F(ExecutionSimulationTest, Call)
 {
-
-    AztecAddress parent_address = 1;
-    AztecAddress nested_address = 2;
+    AztecAddress parent_address = 0xdeadbeef;
+    AztecAddress nested_address = 0xc0ffee;
     MemoryValue nested_address_value = MemoryValue::from<FF>(nested_address);
+    MemoryValue l2_gas_allocated = MemoryValue::from<uint32_t>(6);
+    MemoryValue da_gas_allocated = MemoryValue::from<uint32_t>(7);
+
+    auto gas_tracker = std::make_unique<StrictMock<MockGasTracker>>();
+    EXPECT_CALL(*gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
+
+    EXPECT_CALL(execution_components, make_gas_tracker(_)).WillOnce(Return(std::move(gas_tracker)));
+    execution.init_gas_tracker(context);
+
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
+    EXPECT_CALL(context_provider, get_next_context_id);
+    EXPECT_CALL(context, get_parent_id);
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
+    EXPECT_CALL(context, get_parent_gas_used);
+    EXPECT_CALL(context, get_parent_gas_limit);
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
-    EXPECT_CALL(memory, get).WillOnce(ReturnRef(nested_address_value));
+    EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(l2_gas_allocated));     // l2_gas_offset
+    EXPECT_CALL(memory, get(2)).WillOnce(ReturnRef(da_gas_allocated));     // da_gas_offset
+    EXPECT_CALL(memory, get(3)).WillOnce(ReturnRef(nested_address_value)); // contract_address
 
     auto nested_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
 
-    EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _))
+    EXPECT_CALL(context_provider, make_nested_context(nested_address, parent_address, _, _, _, _, Gas{ 2, 3 }))
         .WillOnce(Return(std::move(nested_context)));
 
-    // Back in parent context
-    EXPECT_CALL(context, set_child_context(_));
-    EXPECT_CALL(context, set_last_rd_offset(_));
-    EXPECT_CALL(context, set_last_rd_size(_));
-    EXPECT_CALL(context, set_last_success(_));
-
-    execution.call(context, 10, 20, 30);
+    execution.call(context,
+                   /*l2_gas_offset=*/1,
+                   /*da_gas_offset=*/2,
+                   /*addr=*/3,
+                   /*cd_offset=*/5,
+                   /*cd_size=*/4);
 }
 
 } // namespace

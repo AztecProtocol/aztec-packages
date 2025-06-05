@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/common/serialize.hpp"
@@ -11,10 +17,11 @@
 namespace bb::group_elements {
 template <typename T>
 concept SupportsHashToCurve = T::can_hash_to_curve;
-template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_element {
+template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine_element {
   public:
     using Fq = Fq_;
     using Fr = Fr_;
+    using Params = Params_;
 
     using in_buf = const uint8_t*;
     using vec_in_buf = const uint8_t*;

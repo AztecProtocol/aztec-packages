@@ -8,7 +8,10 @@ import type { RequestMethodOptions, SendMethodOptions, SimulateMethodOptions } f
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
 export class BatchCall extends BaseContractInteraction {
-  constructor(wallet: Wallet, protected calls: BaseContractInteraction[]) {
+  constructor(
+    wallet: Wallet,
+    protected calls: BaseContractInteraction[],
+  ) {
     super(wallet);
   }
 
@@ -21,10 +24,10 @@ export class BatchCall extends BaseContractInteraction {
   public async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
 
-    const { fee: userFee, nonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
+    const { fee: userFee, txNonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
 
-    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
+    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   /**
@@ -87,9 +90,12 @@ export class BatchCall extends BaseContractInteraction {
       combinedPayload.capsules.concat(options.capsules ?? []),
       combinedPayload.extraHashedArgs,
     );
-    const { fee: userFee, nonce, cancellable } = options;
+    const { fee: userFee, txNonce, cancellable } = options;
     const fee = await this.getFeeOptions(requestWithoutFee, userFee, {});
-    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
+    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, {
+      txNonce,
+      cancellable,
+    });
 
     const utilityCalls = utility.map(
       async ([call, index]) =>
@@ -106,7 +112,7 @@ export class BatchCall extends BaseContractInteraction {
 
     const results: any[] = [];
 
-    utilityResults.forEach(([result, index]) => {
+    utilityResults.forEach(([{ result }, index]) => {
       results[index] = result;
     });
     indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {

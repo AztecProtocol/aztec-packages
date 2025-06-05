@@ -16,7 +16,6 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import type { Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -25,7 +24,7 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import { PublicDataHint } from '@aztec/stdlib/avm';
 import { Body } from '@aztec/stdlib/block';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { ContractClassLog } from '@aztec/stdlib/logs';
+import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -55,8 +54,6 @@ import {
 import { Attributes, type Span, runInSpan } from '@aztec/telemetry-client';
 import type { MerkleTreeReadOperations } from '@aztec/world-state';
 
-import { inspect } from 'util';
-
 /**
  * Type representing the names of the trees for the base rollup.
  */
@@ -67,7 +64,7 @@ type BaseTreeNames = 'NoteHashTree' | 'ContractTree' | 'NullifierTree' | 'Public
 export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 
 // Builds the hints for base rollup. Updating the contract, nullifier, and data trees in the process.
-export const buildBaseRollupHints = runInSpan(
+export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
   'BlockBuilderHelpers',
   'buildBaseRollupHints',
   async (
@@ -141,9 +138,9 @@ export const buildBaseRollupHints = runInSpan(
     const inputSpongeBlob = startSpongeBlob.clone();
     await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
-    const contractClassLogsPreimages = makeTuple(
+    const contractClassLogsFields = makeTuple(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
-      i => tx.txEffect.contractClassLogs[i]?.toUnsiloed() || ContractClassLog.empty(),
+      i => tx.txEffect.contractClassLogs[i]?.fields || ContractClassLogFields.empty(),
     );
 
     if (tx.avmProvingRequest) {
@@ -158,7 +155,7 @@ export const buildBaseRollupHints = runInSpan(
       return PublicBaseRollupHints.from({
         startSpongeBlob: inputSpongeBlob,
         archiveRootMembershipWitness,
-        contractClassLogsPreimages,
+        contractClassLogsFields,
         constants,
       });
     } else {
@@ -213,7 +210,7 @@ export const buildBaseRollupHints = runInSpan(
         stateDiffHints,
         feePayerFeeJuiceBalanceReadHint,
         archiveRootMembershipWitness,
-        contractClassLogsPreimages,
+        contractClassLogsFields,
         constants,
       });
     }
@@ -255,13 +252,12 @@ export const buildBlobHints = runInSpan(
 export const buildHeaderFromCircuitOutputs = runInSpan(
   'BlockBuilderHelpers',
   'buildHeaderFromCircuitOutputs',
-  async (
+  (
     _span,
     previousRollupData: BaseOrMergeRollupPublicInputs[],
     parityPublicInputs: ParityPublicInputs,
     rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
     endState: StateReference,
-    logger?: Logger,
   ) => {
     if (previousRollupData.length > 2) {
       throw new Error(`There can't be more than 2 previous rollups. Received ${previousRollupData.length}.`);
@@ -273,10 +269,10 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
       previousRollupData.length === 0
         ? Fr.ZERO.toBuffer()
         : previousRollupData.length === 1
-        ? previousRollupData[0].outHash.toBuffer()
-        : sha256Trunc(
-            Buffer.concat([previousRollupData[0].outHash.toBuffer(), previousRollupData[1].outHash.toBuffer()]),
-          );
+          ? previousRollupData[0].outHash.toBuffer()
+          : sha256Trunc(
+              Buffer.concat([previousRollupData[0].outHash.toBuffer(), previousRollupData[1].outHash.toBuffer()]),
+            );
     const contentCommitment = new ContentCommitment(
       new Fr(numTxs),
       blobsHash,
@@ -286,7 +282,8 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
 
     const accumulatedFees = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedFees), Fr.ZERO);
     const accumulatedManaUsed = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedManaUsed), Fr.ZERO);
-    const header = new BlockHeader(
+
+    return new BlockHeader(
       rootRollupOutputs.previousArchive,
       contentCommitment,
       endState,
@@ -294,15 +291,6 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
       accumulatedFees,
       accumulatedManaUsed,
     );
-    if (!(await header.hash()).equals(rootRollupOutputs.endBlockHash)) {
-      logger?.error(
-        `Block header mismatch when building header from circuit outputs.` +
-          `\n\nHeader: ${inspect(header)}` +
-          `\n\nCircuit: ${toFriendlyJSON(rootRollupOutputs)}`,
-      );
-      throw new Error(`Block header mismatch when building from circuit outputs`);
-    }
-    return header;
   },
 );
 
@@ -336,16 +324,21 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       numTxs === 0
         ? Fr.ZERO.toBuffer()
         : numTxs === 1
-        ? body.txEffects[0].txOutHash()
-        : computeUnbalancedMerkleRoot(
-            body.txEffects.map(tx => tx.txOutHash()),
-            TxEffect.empty().txOutHash(),
-          );
+          ? body.txEffects[0].txOutHash()
+          : computeUnbalancedMerkleRoot(
+              body.txEffects.map(tx => tx.txOutHash()),
+              TxEffect.empty().txOutHash(),
+            );
 
     l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    const hasher = (left: Buffer, right: Buffer) => Promise.resolve(sha256Trunc(Buffer.concat([left, right])));
+    const hasher = (left: Buffer, right: Buffer) =>
+      Promise.resolve(sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>);
     const parityHeight = Math.ceil(Math.log2(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
-    const parityCalculator = await MerkleTreeCalculator.create(parityHeight, Fr.ZERO.toBuffer(), hasher);
+    const parityCalculator = await MerkleTreeCalculator.create(
+      parityHeight,
+      Fr.ZERO.toBuffer() as Buffer<ArrayBuffer>,
+      hasher,
+    );
     const parityShaRoot = await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
     const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobs(body.toBlobFields()));
 
@@ -397,6 +390,12 @@ export const validateState = runInSpan(
     );
   },
 );
+
+export async function getLastSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
+  const { size } = await db.getTreeInfo(treeId);
+  const path = await db.getSiblingPath(treeId, size - 1n);
+  return padArrayEnd(path.toFields(), Fr.ZERO, getTreeHeight(treeId));
+}
 
 export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
   const { size } = await db.getTreeInfo(treeId);

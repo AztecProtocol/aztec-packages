@@ -15,7 +15,7 @@ import {
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { Timer } from '@aztec/foundation/timer';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
@@ -173,7 +173,6 @@ export class BotFactory {
       deployOpts.skipPublicDeployment = true;
       deployOpts.skipClassRegistration = true;
       deployOpts.skipInitialization = false;
-      deployOpts.skipPublicSimulation = true;
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
@@ -239,12 +238,12 @@ export class BotFactory {
   ): Promise<void> {
     const getPrivateBalances = () =>
       Promise.all([
-        token0.methods.balance_of_private(wallet.getAddress()),
-        token1.methods.balance_of_private(wallet.getAddress()),
-        lpToken.methods.balance_of_private(wallet.getAddress()),
+        token0.methods.balance_of_private(wallet.getAddress()).simulate(),
+        token1.methods.balance_of_private(wallet.getAddress()).simulate(),
+        lpToken.methods.balance_of_private(wallet.getAddress()).simulate(),
       ]);
 
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
 
     // keep some tokens for swapping
     const amount0Max = MINT_BALANCE / 2;
@@ -258,13 +257,24 @@ export class BotFactory {
       `Minting ${MINT_BALANCE} tokens of each BotToken0 and BotToken1. Current private balances of ${wallet.getAddress()}: token0=${t0Bal}, token1=${t1Bal}, lp=${lpBal}`,
     );
 
+    // Add authwitnesses for the transfers in AMM::add_liquidity function
     const token0Authwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: token0.methods.transfer_to_public(wallet.getAddress(), amm.address, amount0Max, nonce),
+      action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
+        wallet.getAddress(),
+        amm.address,
+        amount0Max,
+        authwitNonce,
+      ),
     });
     const token1Authwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: token1.methods.transfer_to_public(wallet.getAddress(), amm.address, amount1Max, nonce),
+      action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
+        wallet.getAddress(),
+        amm.address,
+        amount1Max,
+        authwitNonce,
+      ),
     });
 
     const mintTx = new BatchCall(wallet, [
@@ -275,9 +285,11 @@ export class BotFactory {
     this.log.info(`Sent mint tx: ${await mintTx.getTxHash()}`);
     await mintTx.wait({ timeout: this.config.txMinedWaitSeconds });
 
-    const addLiquidityTx = amm.methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonce).send({
-      authWitnesses: [token0Authwit, token1Authwit],
-    });
+    const addLiquidityTx = amm.methods
+      .add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, authwitNonce)
+      .send({
+        authWitnesses: [token0Authwit, token1Authwit],
+      });
 
     this.log.info(`Sent tx to add liquidity to the AMM: ${await addLiquidityTx.getTxHash()}`);
     await addLiquidityTx.wait({ timeout: this.config.txMinedWaitSeconds });
@@ -366,9 +378,9 @@ export class BotFactory {
 
     const { l1ChainId } = await this.pxe.getNodeInfo();
     const chain = createEthereumChain(l1RpcUrls, l1ChainId);
-    const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
+    const extendedClient = createExtendedL1Client(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
-    const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
+    const portal = await L1FeeJuicePortalManager.new(this.pxe, extendedClient, this.log);
     const mintAmount = await portal.getTokenManager().getMintAmount();
     const claim = await portal.bridgeTokensPublic(recipient, mintAmount, true /* mint */);
 

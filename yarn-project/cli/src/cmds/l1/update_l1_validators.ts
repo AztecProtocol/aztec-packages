@@ -1,16 +1,18 @@
 import {
   EthCheatCodes,
+  L1TxUtils,
   RollupContract,
   createEthereumChain,
-  getExpectedAddress,
+  createExtendedL1Client,
   getL1ContractsConfigEnvVars,
+  getPublicClient,
   isAnvilTestChain,
 } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import { ForwarderAbi, ForwarderBytecode, RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
+import { RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, createWalletClient, fallback, formatEther, getContract, http } from 'viem';
+import { encodeFunctionData, formatEther, getContract } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 export interface RollupCommandArgs {
@@ -51,43 +53,44 @@ export async function addL1Validator({
   privateKey,
   mnemonic,
   attesterAddress,
-  proposerEOAAddress,
   stakingAssetHandlerAddress,
   log,
   debugLogger,
-}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress; proposerEOAAddress: EthAddress }) {
+}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress }) {
   const dualLog = makeDualLog(log, debugLogger);
-  const publicClient = getPublicClient(rpcUrls, chainId);
-  const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
+  const account = getAccount(privateKey, mnemonic);
+  const chain = createEthereumChain(rpcUrls, chainId);
+  const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
 
   const stakingAssetHandler = getContract({
     address: stakingAssetHandlerAddress.toString(),
     abi: StakingAssetHandlerAbi,
-    client: walletClient,
+    client: l1Client,
   });
 
   const rollup = await stakingAssetHandler.read.getRollup();
+  dualLog(`Adding validator (${attesterAddress} to rollup ${rollup.toString()}`);
 
-  const forwarderAddress = getExpectedAddress(
-    ForwarderAbi,
-    ForwarderBytecode,
-    [proposerEOAAddress.toString()],
-    proposerEOAAddress.toString(),
-  ).address;
+  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
 
-  dualLog(
-    `Adding validator (${attesterAddress}, ${proposerEOAAddress} [forwarder: ${forwarderAddress}]) to rollup ${rollup.toString()}`,
-  );
-  const txHash = await stakingAssetHandler.write.addValidator([attesterAddress.toString(), forwarderAddress]);
-  dualLog(`Transaction hash: ${txHash}`);
-  await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: stakingAssetHandlerAddress.toString(),
+    data: encodeFunctionData({
+      abi: StakingAssetHandlerAbi,
+      functionName: 'addValidator',
+      args: [attesterAddress.toString()],
+    }),
+    abi: StakingAssetHandlerAbi,
+  });
+  dualLog(`Transaction hash: ${receipt.transactionHash}`);
+  await l1Client.waitForTransactionReceipt({ hash: receipt.transactionHash });
   if (isAnvilTestChain(chainId)) {
     dualLog(`Funding validator on L1`);
     const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
-    await cheatCodes.setBalance(proposerEOAAddress, 10n ** 20n);
+    await cheatCodes.setBalance(attesterAddress, 10n ** 20n);
   } else {
-    const balance = await publicClient.getBalance({ address: proposerEOAAddress.toString() });
-    dualLog(`Proposer balance: ${formatEther(balance)} ETH`);
+    const balance = await l1Client.getBalance({ address: attesterAddress.toString() });
+    dualLog(`Validator balance: ${formatEther(balance)} ETH`);
     if (balance === 0n) {
       dualLog(`WARNING: Proposer has no balance. Remember to fund it!`);
     }
@@ -105,18 +108,21 @@ export async function removeL1Validator({
   debugLogger,
 }: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
   const dualLog = makeDualLog(log, debugLogger);
-  const publicClient = getPublicClient(rpcUrls, chainId);
-  const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
-  const rollup = getContract({
-    address: rollupAddress.toString(),
-    abi: RollupAbi,
-    client: walletClient,
-  });
+  const account = getAccount(privateKey, mnemonic);
+  const chain = createEthereumChain(rpcUrls, chainId);
+  const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
+  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
 
   dualLog(`Removing validator ${validatorAddress.toString()} from rollup ${rollupAddress.toString()}`);
-  const txHash = await rollup.write.initiateWithdraw([validatorAddress.toString(), validatorAddress.toString()]);
-  dualLog(`Transaction hash: ${txHash}`);
-  await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: rollupAddress.toString(),
+    data: encodeFunctionData({
+      abi: RollupAbi,
+      functionName: 'initiateWithdraw',
+      args: [validatorAddress.toString(), validatorAddress.toString()],
+    }),
+  });
+  dualLog(`Transaction hash: ${receipt.transactionHash}`);
 }
 
 export async function pruneRollup({
@@ -129,18 +135,20 @@ export async function pruneRollup({
   debugLogger,
 }: RollupCommandArgs & LoggerArgs) {
   const dualLog = makeDualLog(log, debugLogger);
-  const publicClient = getPublicClient(rpcUrls, chainId);
-  const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
-  const rollup = getContract({
-    address: rollupAddress.toString(),
-    abi: RollupAbi,
-    client: walletClient,
-  });
+  const account = getAccount(privateKey, mnemonic);
+  const chain = createEthereumChain(rpcUrls, chainId);
+  const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
+  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
 
   dualLog(`Trying prune`);
-  const txHash = await rollup.write.prune();
-  dualLog(`Transaction hash: ${txHash}`);
-  await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: rollupAddress.toString(),
+    data: encodeFunctionData({
+      abi: RollupAbi,
+      functionName: 'prune',
+    }),
+  });
+  dualLog(`Transaction hash: ${receipt.transactionHash}`);
 }
 
 export async function fastForwardEpochs({
@@ -152,7 +160,7 @@ export async function fastForwardEpochs({
   debugLogger,
 }: RollupCommandArgs & LoggerArgs & { numEpochs: bigint }) {
   const dualLog = makeDualLog(log, debugLogger);
-  const publicClient = getPublicClient(rpcUrls, chainId);
+  const publicClient = getPublicClient({ l1RpcUrls: rpcUrls, l1ChainId: chainId });
   const rollup = getContract({
     address: rollupAddress.toString(),
     abi: RollupAbi,
@@ -179,7 +187,7 @@ export async function fastForwardEpochs({
 
 export async function debugRollup({ rpcUrls, chainId, rollupAddress, log }: RollupCommandArgs & LoggerArgs) {
   const config = getL1ContractsConfigEnvVars();
-  const publicClient = getPublicClient(rpcUrls, chainId);
+  const publicClient = getPublicClient({ l1RpcUrls: rpcUrls, l1ChainId: chainId });
   const rollup = new RollupContract(publicClient, rollupAddress);
 
   const pendingNum = await rollup.getBlockNumber();
@@ -210,24 +218,12 @@ function makeDualLog(log: LogFn, debugLogger: Logger) {
   };
 }
 
-function getPublicClient(rpcUrls: string[], chainId: number) {
-  const chain = createEthereumChain(rpcUrls, chainId);
-  return createPublicClient({ chain: chain.chainInfo, transport: fallback(rpcUrls.map(url => http(url))) });
-}
-
-function getWalletClient(
-  rpcUrls: string[],
-  chainId: number,
-  privateKey: string | undefined,
-  mnemonic: string | undefined,
-) {
+function getAccount(privateKey: string | undefined, mnemonic: string | undefined) {
   if (!privateKey && !mnemonic) {
     throw new Error('Either privateKey or mnemonic must be provided to create a wallet client');
   }
-
-  const chain = createEthereumChain(rpcUrls, chainId);
   const account = !privateKey
     ? mnemonicToAccount(mnemonic!)
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
-  return createWalletClient({ account, chain: chain.chainInfo, transport: fallback(rpcUrls.map(url => http(url))) });
+  return account;
 }

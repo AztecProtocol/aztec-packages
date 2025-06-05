@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "translator_proving_key.hpp"
 namespace bb {
 /**
@@ -77,32 +83,12 @@ void TranslatorProvingKey::compute_interleaved_polynomials()
 void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomials(bool masking)
 {
     // Get constants
-    constexpr size_t sort_step = Flavor::SORT_STEP;
     constexpr size_t num_interleaved_wires = Flavor::NUM_INTERLEAVED_WIRES;
 
-    const size_t full_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
     const size_t mini_NUM_DISABLED_ROWS_IN_SUMCHECK = masking ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
     const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK =
         masking ? mini_NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE : 0;
-    const size_t real_circuit_size = full_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
-
-    // The value we have to end polynomials with, 2¹⁴ - 1
-    constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
-
-    // Number of elements needed to go from 0 to MAX_VALUE with our step
-    constexpr size_t sorted_elements_count = (max_value / sort_step) + 1 + (max_value % sort_step == 0 ? 0 : 1);
-
-    // Check if we can construct these polynomials
-    ASSERT((num_interleaved_wires + 1) * sorted_elements_count < real_circuit_size);
-
-    // First use integers (easier to sort)
-    std::vector<size_t> sorted_elements(sorted_elements_count);
-
-    // Fill with necessary steps
-    sorted_elements[0] = max_value;
-    for (size_t i = 1; i < sorted_elements_count; i++) {
-        sorted_elements[i] = (sorted_elements_count - 1 - i) * sort_step;
-    }
+    const size_t real_circuit_size = dyadic_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     RefArray ordered_constraint_polynomials{ proving_key->polynomials.ordered_range_constraints_0,
                                              proving_key->polynomials.ordered_range_constraints_1,
@@ -110,6 +96,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
                                              proving_key->polynomials.ordered_range_constraints_3 };
     std::vector<size_t> extra_denominator_uint(real_circuit_size);
 
+    auto sorted_elements = get_sorted_steps();
     auto to_be_interleaved_groups = proving_key->polynomials.get_groups_to_be_interleaved();
 
     // Given the polynomials in group_i, transfer their elements, sorted in non-descending order, into the corresponding
@@ -121,10 +108,10 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 
         // Calculate how much space there is for values from the group polynomials given we also need to append the
         // additional steps
-        auto free_space_before_runway = real_circuit_size - sorted_elements_count;
+        auto free_space_before_runway = real_circuit_size - sorted_elements.size();
 
         // Calculate the starting index of this group's overflowing elements in the extra denominator polynomial
-        size_t extra_denominator_offset = i * sorted_elements_count;
+        size_t extra_denominator_offset = i * sorted_elements.size();
 
         // Go through each polynomial in the interleaved group
         for (size_t j = 0; j < Flavor::INTERLEAVING_GROUP_SIZE; j++) {
@@ -168,7 +155,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 
     // Advance the iterator into the extra range constraint past the last written element
     auto extra_denominator_it = extra_denominator_uint.begin();
-    std::advance(extra_denominator_it, num_interleaved_wires * sorted_elements_count);
+    std::advance(extra_denominator_it, num_interleaved_wires * sorted_elements.size());
 
     // Add steps to the extra denominator polynomial to fill it
     std::copy(sorted_elements.cbegin(), sorted_elements.cend(), extra_denominator_it);
@@ -189,12 +176,12 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 void TranslatorProvingKey::compute_lagrange_polynomials()
 {
 
-    for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
-        proving_key->polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
-        proving_key->polynomials.lagrange_even_in_minicircuit.at(i + 1) = 1;
+    for (size_t i = 2; i < mini_circuit_dyadic_size; i += 2) {
+        proving_key->polynomials.lagrange_even_in_minicircuit.at(i) = 1;
+        proving_key->polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
-    proving_key->polynomials.lagrange_second.at(1) = 1;
-    proving_key->polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_dyadic_size - 2) = 1;
+    proving_key->polynomials.lagrange_result_row.at(2) = 1;
+    proving_key->polynomials.lagrange_last_in_minicircuit.at(mini_circuit_dyadic_size - 1) = 1;
 }
 
 /**
@@ -214,28 +201,13 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
  */
 void TranslatorProvingKey::compute_extra_range_constraint_numerator()
 {
-    auto& extra_range_constraint_numerator = proving_key->polynomials.ordered_extra_range_constraints_numerator;
 
-    static constexpr uint32_t MAX_VALUE = (1 << Flavor::MICRO_LIMB_BITS) - 1;
-
-    // Calculate how many elements there are in the sequence MAX_VALUE, MAX_VALUE - 3,...,0
-    size_t sorted_elements_count = (MAX_VALUE / Flavor::SORT_STEP) + 1 + (MAX_VALUE % Flavor::SORT_STEP == 0 ? 0 : 1);
-
-    // Check that we can fit every element in the polynomial
-    ASSERT((Flavor::NUM_INTERLEAVED_WIRES + 1) * sorted_elements_count < extra_range_constraint_numerator.size());
-
-    std::vector<size_t> sorted_elements(sorted_elements_count);
-
-    // Calculate the sequence in integers
-    sorted_elements[0] = MAX_VALUE;
-    for (size_t i = 1; i < sorted_elements_count; i++) {
-        sorted_elements[i] = (sorted_elements_count - 1 - i) * Flavor::SORT_STEP;
-    }
-
+    auto sorted_elements = get_sorted_steps();
     // TODO(#756): can be parallelized further. This will use at most 5 threads
     auto fill_with_shift = [&](size_t shift) {
-        for (size_t i = 0; i < sorted_elements_count; i++) {
-            extra_range_constraint_numerator.at(shift + i * (Flavor::NUM_INTERLEAVED_WIRES + 1)) = sorted_elements[i];
+        for (size_t i = 0; i < sorted_elements.size(); i++) {
+            proving_key->polynomials.ordered_extra_range_constraints_numerator.at(
+                shift + i * (Flavor::NUM_INTERLEAVED_WIRES + 1)) = sorted_elements[i];
         }
     };
     // Fill polynomials with a sequence, where each element is repeated NUM_INTERLEAVED_WIRES+1 times

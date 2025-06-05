@@ -1,6 +1,7 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -28,6 +29,26 @@ interface MakeTestP2PClientOptions {
 }
 
 /**
+ * Creates a single P2P client and immediately starts it for testing purposes.
+ * @param peerIdPrivateKey - The private key of the peer.
+ * @param port - The port to run the client on.
+ * @param peers - The peers to connect to.
+ * @param options - The options for the client.
+ * @returns The created and already started client.
+ */
+export async function makeAndStartTestP2PClient(
+  peerIdPrivateKey: string,
+  port: number,
+  peers: string[],
+  options: MakeTestP2PClientOptions,
+) {
+  const client = await makeTestP2PClient(peerIdPrivateKey, port, peers, options);
+
+  await client.start();
+  return client;
+}
+
+/**
  * Creates a single P2P client for testing purposes.
  * @param peerIdPrivateKey - The private key of the peer.
  * @param port - The port to run the client on.
@@ -51,12 +72,12 @@ export async function makeTestP2PClient(
   }: MakeTestP2PClientOptions,
 ) {
   // Filter nodes so that we only dial active peers
-
   const config: P2PConfig & DataStoreConfig = {
     ...p2pBaseConfig,
     p2pEnabled: true,
     peerIdPrivateKey,
     p2pIp: `127.0.0.1`,
+    listenAddress: `127.0.0.1`,
     p2pPort: port,
     bootstrapNodes: peers,
     peerCheckIntervalMS: 1000,
@@ -83,12 +104,53 @@ export async function makeTestP2PClient(
     proofVerifier,
     mockWorldState,
     mockEpochCache,
+    'test-p2p-client',
     undefined,
     deps,
   );
-  await client.start();
 
   return client;
+}
+
+/**
+ * Creates a number of P2P clients and immediately starts them for testing purposes.
+ * @param numberOfPeers - The number of clients to create.
+ * @param options - The options for the clients.
+ * @returns The created and started clients.
+ */
+export async function makeAndStartTestP2PClients(numberOfPeers: number, testConfig: MakeTestP2PClientOptions) {
+  const clients: P2PClient[] = [];
+  const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
+
+  let ports = [];
+  while (true) {
+    try {
+      ports = await getPorts(numberOfPeers);
+      break;
+    } catch {
+      await sleep(1000);
+    }
+  }
+
+  const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
+
+  for (let i = 0; i < numberOfPeers; i++) {
+    const client = await makeAndStartTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {
+      ...testConfig,
+      logger: createLogger(`p2p:${i}`),
+    });
+    clients.push(client);
+  }
+
+  await Promise.all(clients.map(client => client.isReady()));
+  return clients.map((client, index) => {
+    return {
+      client,
+      peerPrivateKey: peerIdPrivateKeys[index],
+      port: ports[index],
+      enr: peerEnrs[index],
+    };
+  });
 }
 
 /**
@@ -101,7 +163,16 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
   const clients: P2PClient[] = [];
   const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
 
-  const ports = await getPorts(numberOfPeers);
+  let ports = [];
+  while (true) {
+    try {
+      ports = await getPorts(numberOfPeers);
+      break;
+    } catch {
+      await sleep(1000);
+    }
+  }
+
   const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
 
   for (let i = 0; i < numberOfPeers; i++) {
@@ -112,6 +183,17 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
     clients.push(client);
   }
 
-  await Promise.all(clients.map(client => client.isReady()));
-  return clients;
+  return clients.map((client, index) => {
+    return {
+      client,
+      peerPrivateKey: peerIdPrivateKeys[index],
+      port: ports[index],
+      enr: peerEnrs[index],
+    };
+  });
+}
+
+export async function startTestP2PClients(clients: P2PClient[]) {
+  await Promise.all(clients.map(c => c.start()));
+  await Promise.all(clients.map(c => c.isReady()));
 }

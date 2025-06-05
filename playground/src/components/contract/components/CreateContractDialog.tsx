@@ -29,6 +29,7 @@ import {
   getDefaultInitializer,
   getInitializer,
   getAllFunctionAbis,
+  isAddressStruct,
 } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../../aztecEnv';
 import { FunctionParameter } from '../../common/FnParameter';
@@ -36,11 +37,13 @@ import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import { dialogBody, form, progressIndicator } from '../../../styles/common';
 import { InfoText } from '../../common/InfoText';
 import { INFO_TEXT } from '../../../constants';
+import { DialogActions, DialogContent } from '@mui/material';
 
 export function CreateContractDialog({
   open,
   contractArtifact,
   onClose,
+  defaultContractCreationParams,
 }: {
   open: boolean;
   contractArtifact: ContractArtifact;
@@ -50,8 +53,9 @@ export function CreateContractDialog({
     interaction?: DeployMethod,
     opts?: DeployOptions,
   ) => void;
+  defaultContractCreationParams?: Record<string, unknown>;
 }) {
-  const [alias, setAlias] = useState('');
+  const [alias, setAlias] = useState(defaultContractCreationParams['alias'] as string);
   const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
   const { wallet, walletDB, pxe, node } = useContext(AztecContext);
@@ -70,6 +74,19 @@ export function CreateContractDialog({
     setInitializer(defaultInitializer);
     setFunctionAbis(getAllFunctionAbis(contractArtifact));
   }, [contractArtifact]);
+
+  useEffect(() => {
+    if (initializer && defaultContractCreationParams) {
+      initializer.parameters.map((param, i) => {
+        let value = defaultContractCreationParams[param.name];
+        if (isAddressStruct(param.type)) {
+          value = (value as { id: string })?.id;
+        }
+        handleParameterChange(i, value);
+      });
+    }
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [defaultContractCreationParams, initializer]);
 
   const handleParameterChange = (index, value) => {
     parameters[index] = value;
@@ -104,7 +121,7 @@ export function CreateContractDialog({
           contractArtifact,
           postDeployCtor,
           parameters,
-          initializer.name,
+          initializer?.name,
         );
         opts = {
           contractAddressSalt: salt,
@@ -123,6 +140,9 @@ export function CreateContractDialog({
     setIsRegistering(true);
     try {
       const contract = await node.getContract(AztecAddress.fromString(address));
+      if (!contract) {
+        throw new Error('Contract with this address was not found in node');
+      }
       await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
       onClose(contract);
     } catch (e) {
@@ -135,14 +155,16 @@ export function CreateContractDialog({
   return (
     <Dialog onClose={handleClose} open={open}>
       <DialogTitle>Create contract</DialogTitle>
+
       <div css={{ display: 'flex', padding: '1rem', flexDirection: 'column' }}>
         <FormControlLabel
           control={<Switch value={registerExisting} onChange={(_event, checked) => setRegisterExisting(checked)} />}
-          label={registerExisting ? 'Register existing contract' : 'Create & deploy a new contract'}
+          label={'Load an already deployed version of this contract'}
         />
         <InfoText>{INFO_TEXT.CREATE_CONTRACT}</InfoText>
       </div>
-      <div css={dialogBody}>
+
+      <DialogContent sx={dialogBody}>
         <FormGroup css={form}>
           {registerExisting ? (
             <TextField
@@ -179,6 +201,7 @@ export function CreateContractDialog({
                     <FunctionParameter
                       parameter={param}
                       key={param.name}
+                      defaultValue={defaultContractCreationParams?.[param.name]}
                       onParameterChange={newValue => {
                         handleParameterChange(i, newValue);
                       }}
@@ -203,6 +226,7 @@ export function CreateContractDialog({
               placeholder="Alias"
               value={alias}
               label="Alias"
+              size="small"
               sx={{ marginTop: '1rem' }}
               onChange={event => {
                 setAlias(event.target.value);
@@ -211,36 +235,39 @@ export function CreateContractDialog({
             <InfoText>{INFO_TEXT.ALIASES}</InfoText>
           </FormControl>
         </FormGroup>
-        <div css={{ flexGrow: 1, margin: 'auto' }}></div>
-        {!error ? (
-          isRegistering ? (
-            <div css={progressIndicator}>
-              <Typography variant="body2" sx={{ mr: 1 }}>
-                Registering contract...
-              </Typography>
-              <CircularProgress size={20} />
-            </div>
-          ) : registerExisting ? (
-            <Button disabled={alias === '' || address === '' || isRegistering} onClick={registerExistingContract}>
-              Register
-            </Button>
+
+        <DialogActions>
+          {!error ? (
+            isRegistering ? (
+              <div css={progressIndicator}>
+                <Typography variant="body2" sx={{ mr: 1 }}>
+                  Registering contract...
+                </Typography>
+                <CircularProgress size={20} />
+              </div>
+            ) : registerExisting ? (
+              <Button disabled={alias === '' || address === '' || isRegistering} onClick={registerExistingContract}>
+                Register
+              </Button>
+            ) : (
+              <Button
+                disabled={alias === '' || (publiclyDeploy && !feePaymentMethod) || isRegistering}
+                onClick={createContract}
+              >
+                {publiclyDeploy ? 'Create and deploy' : 'Create'}
+              </Button>
+            )
           ) : (
-            <Button
-              disabled={alias === '' || (publiclyDeploy && !feePaymentMethod) || isRegistering}
-              onClick={createContract}
-            >
-              {publiclyDeploy ? 'Create and deploy' : 'Create'}
-            </Button>
-          )
-        ) : (
-          <Typography variant="body2" sx={{ mr: 1 }} color="warning.main">
-            An error occurred: {error}
-          </Typography>
-        )}
-        <Button color="error" onClick={handleClose}>
-          Cancel
-        </Button>
-      </div>
+            <Typography variant="body2" sx={{ mr: 1 }} color="warning.main">
+              An error occurred: {error}
+            </Typography>
+          )}
+          <Button color="error" onClick={handleClose}>
+            Cancel
+          </Button>
+        </DialogActions>
+
+      </DialogContent>
     </Dialog>
   );
 }

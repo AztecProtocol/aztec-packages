@@ -25,11 +25,12 @@
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
-#include "barretenberg/vm2/simulation/events/public_data_tree_read_event.hpp"
+#include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
+#include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
@@ -88,9 +89,10 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
     typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
     typename S::template DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
-    typename S::template DefaultEventEmitter<PublicDataTreeReadEvent> public_data_read_emitter;
+    typename S::template DefaultEventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
     typename S::template DefaultEventEmitter<UpdateCheckEvent> update_check_emitter;
     typename S::template DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
+    typename S::template DefaultEventEmitter<TxEvent> tx_event_emitter;
 
     uint32_t current_block_number = static_cast<uint32_t>(hints.tx.globalVariables.blockNumber);
 
@@ -100,7 +102,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
-    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_read_emitter);
+    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
 
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
@@ -124,16 +126,19 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
-    ExecutionComponentsProvider execution_components(bytecode_manager, memory_emitter, instruction_info_db);
+    ExecutionComponentsProvider execution_components(range_check, instruction_info_db);
 
     Alu alu(alu_emitter);
-    Execution execution(alu, execution_components, instruction_info_db, execution_emitter, context_stack_emitter);
-    TxExecution tx_execution(execution, merkle_db);
+    ContextProvider context_provider(bytecode_manager, range_check, memory_emitter);
+    Execution execution(
+        alu, execution_components, context_provider, instruction_info_db, execution_emitter, context_stack_emitter);
+    TxExecution tx_execution(execution, context_provider, merkle_db, tx_event_emitter);
     Sha256 sha256(sha256_compression_emitter);
 
     tx_execution.simulate(hints.tx);
 
-    return { execution_emitter.dump_events(),
+    return { tx_event_emitter.dump_events(),
+             execution_emitter.dump_events(),
              alu_emitter.dump_events(),
              bitwise_emitter.dump_events(),
              memory_emitter.dump_events(),
@@ -154,7 +159,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              merkle_check_emitter.dump_events(),
              range_check_emitter.dump_events(),
              context_stack_emitter.dump_events(),
-             public_data_read_emitter.dump_events(),
+             public_data_tree_check_emitter.dump_events(),
              update_check_emitter.dump_events(),
              nullifier_tree_check_emitter.dump_events() };
 }

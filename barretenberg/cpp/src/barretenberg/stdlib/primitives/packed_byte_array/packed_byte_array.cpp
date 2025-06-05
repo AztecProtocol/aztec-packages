@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "packed_byte_array.hpp"
 
 #include "../circuit_builders/circuit_builders.hpp"
@@ -265,8 +271,6 @@ template <typename Builder> std::string packed_byte_array<Builder>::get_value() 
     return bytes;
 }
 
-template class packed_byte_array<bb::CircuitSimulatorBN254>;
-template class packed_byte_array<bb::StandardCircuitBuilder>;
 template class packed_byte_array<bb::UltraCircuitBuilder>;
 template class packed_byte_array<bb::MegaCircuitBuilder>;
 

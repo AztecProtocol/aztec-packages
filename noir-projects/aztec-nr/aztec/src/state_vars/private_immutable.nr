@@ -21,10 +21,10 @@ pub struct PrivateImmutable<Note, Context> {
 }
 // docs:end:struct
 
-impl<T, Context, let N: u32> Storage<N> for PrivateImmutable<T, Context>
-where
-    T: Packable<N>,
-{
+// Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
+// value spilling over multiple slots. For this reason PrivateImmutable (and all other private state variables) needs
+// just one slot to be reserved, regardless of what it stores.
+impl<T, Context> Storage<1> for PrivateImmutable<T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
@@ -58,7 +58,8 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     where
         Note: NoteType + NoteHash + Packable<N>,
     {
-        // Nullify the storage slot.
+        // We emit an initialization nullifier to indicate that the struct is initialized. This also prevents
+        // the value from being initialized again as a nullifier can be included only once.
         let nullifier = self.compute_initialization_nullifier();
         self.context.push_nullifier(nullifier);
 

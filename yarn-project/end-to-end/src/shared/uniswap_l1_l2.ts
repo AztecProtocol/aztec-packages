@@ -12,15 +12,15 @@ import {
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import {
   type DeployL1ContractsReturnType,
+  type ExtendedViemWalletClient,
   RollupContract,
-  type ViemPublicClient,
-  type ViemWalletClient,
   deployL1Contract,
   extractEvent,
 } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
+import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
@@ -46,10 +46,8 @@ export type UniswapSetupContext = {
   pxe: PXE;
   /** Logger instance named as the current test. */
   logger: Logger;
-  /** Viem Public client instance. */
-  publicClient: ViemPublicClient;
-  /** Viem Wallet Client instance. */
-  walletClient: ViemWalletClient;
+  /** The L1 wallet client, extended with public actions. */
+  l1Client: ExtendedViemWalletClient;
   /** The owner wallet. */
   ownerWallet: AccountWallet;
   /** The sponsor wallet. */
@@ -77,8 +75,7 @@ export const uniswapL1L2TestSuite = (
     let pxe: PXE;
     let logger: Logger;
 
-    let walletClient: ViemWalletClient;
-    let publicClient: ViemPublicClient;
+    let l1Client: ExtendedViemWalletClient;
 
     let ownerWallet: AccountWallet;
     let ownerAddress: AztecAddress;
@@ -92,7 +89,7 @@ export const uniswapL1L2TestSuite = (
 
     let deployL1ContractsValues: DeployL1ContractsReturnType;
     let rollup: RollupContract;
-    let uniswapPortal: GetContractReturnType<typeof UniswapPortalAbi, ViemWalletClient>;
+    let uniswapPortal: GetContractReturnType<typeof UniswapPortalAbi, ExtendedViemWalletClient>;
     let uniswapPortalAddress: EthAddress;
     let uniswapL2Contract: UniswapContract;
 
@@ -103,30 +100,21 @@ export const uniswapL1L2TestSuite = (
     let cheatCodes: CheatCodes;
     let version: number;
     beforeAll(async () => {
-      ({
-        aztecNode,
-        pxe,
-        logger,
-        publicClient,
-        walletClient,
-        ownerWallet,
-        sponsorWallet,
-        deployL1ContractsValues,
-        cheatCodes,
-      } = await setup());
+      ({ aztecNode, pxe, logger, l1Client, ownerWallet, sponsorWallet, deployL1ContractsValues, cheatCodes } =
+        await setup());
 
-      if (Number(await publicClient.getBlockNumber()) < expectedForkBlockNumber) {
+      if (Number(await l1Client.getBlockNumber()) < expectedForkBlockNumber) {
         throw new Error('This test must be run on a fork of mainnet with the expected fork block');
       }
 
       rollup = new RollupContract(
-        deployL1ContractsValues.publicClient,
+        deployL1ContractsValues.l1Client,
         deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       );
       version = Number(await rollup.getVersion());
       ownerAddress = ownerWallet.getAddress();
       // sponsorAddress = sponsorWallet.getAddress();
-      ownerEthAddress = EthAddress.fromString((await walletClient.getAddresses())[0]);
+      ownerEthAddress = EthAddress.fromString((await l1Client.getAddresses())[0]);
 
       await ensureAccountsPubliclyDeployed(ownerWallet, [ownerWallet, sponsorWallet]);
 
@@ -134,8 +122,7 @@ export const uniswapL1L2TestSuite = (
       daiCrossChainHarness = await CrossChainTestHarness.new(
         aztecNode,
         pxe,
-        publicClient,
-        walletClient,
+        deployL1ContractsValues.l1Client,
         ownerWallet,
         logger,
         DAI_ADDRESS,
@@ -145,25 +132,21 @@ export const uniswapL1L2TestSuite = (
       wethCrossChainHarness = await CrossChainTestHarness.new(
         aztecNode,
         pxe,
-        publicClient,
-        walletClient,
+        l1Client,
         ownerWallet,
         logger,
         WETH9_ADDRESS,
       );
 
       logger.info('Deploy Uniswap portal on L1 and L2...');
-      uniswapPortalAddress = await deployL1Contract(
-        walletClient,
-        publicClient,
-        UniswapPortalAbi,
-        UniswapPortalBytecode,
-      ).then(({ address }) => address);
+      uniswapPortalAddress = await deployL1Contract(l1Client, UniswapPortalAbi, UniswapPortalBytecode).then(
+        ({ address }) => address,
+      );
 
       uniswapPortal = getContract({
         address: uniswapPortalAddress.toString(),
         abi: UniswapPortalAbi,
-        client: walletClient,
+        client: l1Client,
       });
       // deploy l2 uniswap contract and attach to portal
       uniswapL2Contract = await UniswapContract.deploy(ownerWallet, uniswapPortalAddress).send().deployed();
@@ -177,8 +160,8 @@ export const uniswapL1L2TestSuite = (
 
       // Give me some WETH so I can deposit to L2 and do the swap...
       logger.info('Getting some weth');
-      const hash = await walletClient.sendTransaction({ to: WETH9_ADDRESS.toString(), value: parseEther('1000') });
-      await publicClient.waitForTransactionReceipt({ hash });
+      const hash = await l1Client.sendTransaction({ to: WETH9_ADDRESS.toString(), value: parseEther('1000') });
+      await l1Client.waitForTransactionReceipt({ hash });
 
       const wethBalance = await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress);
       expect(wethBalance).toBe(parseEther('1000'));
@@ -263,7 +246,7 @@ export const uniswapL1L2TestSuite = (
         uniswapL2Contract.address,
         new Fr(version), // aztec version
         EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-        new Fr(publicClient.chain.id), // chain id
+        new Fr(l1Client.chain.id), // chain id
         swapPrivateContent,
       ]);
 
@@ -278,7 +261,7 @@ export const uniswapL1L2TestSuite = (
         wethCrossChainHarness.l2Bridge.address,
         new Fr(version), // aztec version
         wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-        new Fr(publicClient.chain.id), // chain id
+        new Fr(l1Client.chain.id), // chain id
         withdrawContent,
       ]);
 
@@ -295,15 +278,22 @@ export const uniswapL1L2TestSuite = (
       const daiL1BalanceOfPortalBeforeSwap = await daiCrossChainHarness.getL1BalanceOf(
         daiCrossChainHarness.tokenPortalAddress,
       );
-
-      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+      const swapResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
         l2UniswapInteractionReceipt.blockNumber!,
         swapPrivateLeaf,
       );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+      const withdrawResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
         l2UniswapInteractionReceipt.blockNumber!,
         withdrawLeaf,
       );
+
+      const swapPrivateL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPrivateSiblingPath = swapResult!.siblingPath;
+
+      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
         _l2BlockNumber: BigInt(l2UniswapInteractionReceipt.blockNumber!),
@@ -333,7 +323,7 @@ export const uniswapL1L2TestSuite = (
       ] as const;
 
       // this should also insert a message into the inbox.
-      const txReceipt = await daiCrossChainHarness.publicClient.waitForTransactionReceipt({
+      const txReceipt = await daiCrossChainHarness.l1Client.waitForTransactionReceipt({
         hash: await uniswapPortal.write.swapPrivate(swapArgs),
       });
 
@@ -643,7 +633,7 @@ export const uniswapL1L2TestSuite = (
             Fr.random(),
             ownerEthAddress,
           )
-          .prove(),
+          .simulate(),
       ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
     });
 
@@ -851,7 +841,7 @@ export const uniswapL1L2TestSuite = (
         uniswapL2Contract.address,
         new Fr(version), // aztec version
         EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-        new Fr(publicClient.chain.id), // chain id
+        new Fr(l1Client.chain.id), // chain id
         swapPrivateContent,
       ]);
 
@@ -866,18 +856,22 @@ export const uniswapL1L2TestSuite = (
         wethCrossChainHarness.l2Bridge.address,
         new Fr(version), // aztec version
         wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-        new Fr(publicClient.chain.id), // chain id
+        new Fr(l1Client.chain.id), // chain id
         withdrawContent,
       ]);
 
-      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
-        withdrawReceipt.blockNumber!,
-        swapPrivateLeaf,
-      );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+      const swapResult = await computeL2ToL1MembershipWitness(aztecNode, withdrawReceipt.blockNumber!, swapPrivateLeaf);
+      const withdrawResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
         withdrawReceipt.blockNumber!,
         withdrawLeaf,
       );
+
+      const swapPrivateL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPrivateSiblingPath = swapResult!.siblingPath;
+
+      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
         _l2BlockNumber: BigInt(withdrawReceipt.blockNumber!),
@@ -981,7 +975,7 @@ export const uniswapL1L2TestSuite = (
         uniswapL2Contract.address,
         new Fr(version), // aztec version
         EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-        new Fr(publicClient.chain.id), // chain id
+        new Fr(l1Client.chain.id), // chain id
         swapPublicContent,
       ]);
 
@@ -996,18 +990,22 @@ export const uniswapL1L2TestSuite = (
         wethCrossChainHarness.l2Bridge.address,
         new Fr(version), // aztec version
         wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-        new Fr(publicClient.chain.id), // chain id
+        new Fr(l1Client.chain.id), // chain id
         withdrawContent,
       ]);
 
-      const [swapPublicL2MessageIndex, swapPublicSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
-        withdrawReceipt.blockNumber!,
-        swapPublicLeaf,
-      );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+      const swapResult = await computeL2ToL1MembershipWitness(aztecNode, withdrawReceipt.blockNumber!, swapPublicLeaf);
+      const withdrawResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
         withdrawReceipt.blockNumber!,
         withdrawLeaf,
       );
+
+      const swapPublicL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPublicSiblingPath = swapResult!.siblingPath;
+
+      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
         _l2BlockNumber: BigInt(withdrawReceipt.blockNumber!),

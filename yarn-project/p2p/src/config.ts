@@ -1,6 +1,7 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -54,6 +55,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   p2pPort: number;
 
   /**
+   * The port to broadcast the P2P service on (included in the node's ENR).
+   */
+  p2pBroadcastPort?: number;
+
+  /**
    * The IP address for the P2P service.
    */
   p2pIp?: string;
@@ -93,12 +99,6 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    * If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
    */
   queryForIp: boolean;
-
-  /** How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven) */
-  keepProvenTxsInPoolFor: number;
-
-  /** How many slots to keep attestations for. */
-  keepAttestationsInPoolFor: number;
 
   /**
    * The interval of the gossipsub heartbeat to perform maintenance tasks.
@@ -141,6 +141,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   gossipsubMcacheGossip: number;
 
   /**
+   * How long to keep message IDs in the seen cache (ms).
+   */
+  gossipsubSeenTTL: number;
+
+  /**
    * The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it.
    */
   doubleSpendSeverePeerPenaltyWindow: number;
@@ -176,6 +181,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   trustedPeers: string[];
 
   /**
+   * A list of private peers.
+   */
+  privatePeers: string[];
+
+  /**
    * The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
    */
   p2pStoreMapSizeKb?: number;
@@ -187,7 +197,19 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    * The maximum cumulative tx size (in bytes) of pending txs before evicting lower priority txs.
    */
   maxTxPoolSize: number;
+
+  /**
+   * If the pool is full, it will still accept a few more txs until it reached maxTxPoolOverspillFactor * maxTxPoolSize. Then it will evict
+   */
+  txPoolOverflowFactor: number;
+
+  /**
+   * The node's seen message ID cache size
+   */
+  seenMessageCacheSize: number;
 }
+
+export const DEFAULT_P2P_PORT = 40400;
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   p2pEnabled: {
@@ -222,8 +244,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   p2pPort: {
     env: 'P2P_PORT',
-    description: 'The port for the P2P service.',
-    ...numberConfigHelper(40400),
+    description: `The port for the P2P service. Defaults to ${DEFAULT_P2P_PORT}`,
+    ...numberConfigHelper(DEFAULT_P2P_PORT),
+  },
+  p2pBroadcastPort: {
+    env: 'P2P_BROADCAST_PORT',
+    description: `The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P_PORT.`,
   },
   p2pIp: {
     env: 'P2P_IP',
@@ -265,17 +291,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.',
     ...booleanConfigHelper(),
   },
-  keepProvenTxsInPoolFor: {
-    env: 'P2P_TX_POOL_KEEP_PROVEN_FOR',
-    description:
-      'How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)',
-    ...numberConfigHelper(0),
-  },
-  keepAttestationsInPoolFor: {
-    env: 'P2P_ATTESTATION_POOL_KEEP_FOR',
-    description: 'How many slots to keep attestations for.',
-    ...numberConfigHelper(96),
-  },
   gossipsubInterval: {
     env: 'P2P_GOSSIPSUB_INTERVAL_MS',
     description: 'The interval of the gossipsub heartbeat to perform maintenance tasks.',
@@ -304,7 +319,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubFloodPublish: {
     env: 'P2P_GOSSIPSUB_FLOOD_PUBLISH',
     description: 'Whether to flood publish messages. - For testing purposes only',
-    ...booleanConfigHelper(true),
+    ...booleanConfigHelper(false),
   },
   gossipsubMcacheLength: {
     env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
@@ -313,8 +328,13 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   gossipsubMcacheGossip: {
     env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
-    description: 'How many message cache windows to include when gossiping with other pears.',
+    description: 'How many message cache windows to include when gossiping with other peers.',
     ...numberConfigHelper(3),
+  },
+  gossipsubSeenTTL: {
+    env: 'P2P_GOSSIPSUB_SEEN_TTL',
+    description: 'How long to keep message IDs in the seen cache.',
+    ...numberConfigHelper(20 * 60 * 1000),
   },
   gossipsubTxTopicWeight: {
     env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',
@@ -357,7 +377,14 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   trustedPeers: {
     env: 'P2P_TRUSTED_PEERS',
     parseEnv: (val: string) => val.split(','),
-    description: 'A list of trusted peers ENRs. Separated by commas.',
+    description: 'A list of trusted peer ENRs that will always be persisted. Separated by commas.',
+    defaultValue: [],
+  },
+  privatePeers: {
+    env: 'P2P_PRIVATE_PEERS',
+    parseEnv: (val: string) => val.split(','),
+    description:
+      'A list of private peer ENRs that will always be persisted and not be used for discovery. Separated by commas.',
     defaultValue: [],
   },
   p2pStoreMapSizeKb: {
@@ -376,6 +403,16 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MAX_TX_POOL_SIZE',
     description: 'The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs.',
     ...numberConfigHelper(100_000_000), // 100MB
+  },
+  txPoolOverflowFactor: {
+    env: 'P2P_TX_POOL_OVERFLOW_FACTOR',
+    description: 'How much the tx pool can overflow before it starts evicting txs. Must be greater than 1',
+    ...floatConfigHelper(1.1), // 10% overflow
+  },
+  seenMessageCacheSize: {
+    env: 'P2P_SEEN_MSG_CACHE_SIZE',
+    description: 'The number of messages to keep in the seen message cache',
+    ...numberConfigHelper(100_000), // 100K
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
@@ -398,7 +435,13 @@ export function getP2PDefaultConfig(): P2PConfig {
  */
 export type BootnodeConfig = Pick<
   P2PConfig,
-  'p2pIp' | 'p2pPort' | 'peerIdPrivateKey' | 'peerIdPrivateKeyPath' | 'bootstrapNodes' | 'listenAddress'
+  | 'p2pIp'
+  | 'p2pPort'
+  | 'p2pBroadcastPort'
+  | 'peerIdPrivateKey'
+  | 'peerIdPrivateKeyPath'
+  | 'bootstrapNodes'
+  | 'listenAddress'
 > &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
@@ -407,6 +450,7 @@ export type BootnodeConfig = Pick<
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'p2pIp',
   'p2pPort',
+  'p2pBroadcastPort',
   'listenAddress',
   'peerIdPrivateKey',
   'peerIdPrivateKeyPath',

@@ -13,14 +13,10 @@ import { AvmContractCallResult } from './avm_contract_call_result.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import type { Gas } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
-import {
-  AvmExecutionError,
-  AvmRevertReason,
-  InvalidProgramCounterError,
-  revertReasonFromExceptionalHalt,
-  revertReasonFromExplicitRevert,
-} from './errors.js';
+import type { AvmSimulatorInterface } from './avm_simulator_interface.js';
+import { AvmExecutionError, AvmRevertReason, InvalidProgramCounterError } from './errors.js';
 import type { Instruction } from './opcodes/instruction.js';
+import { revertReasonFromExceptionalHalt, revertReasonFromExplicitRevert } from './revert_reason.js';
 import {
   INSTRUCTION_SET,
   type InstructionSet,
@@ -32,7 +28,7 @@ type OpcodeTally = {
   gas: Gas;
 };
 
-export class AvmSimulator {
+export class AvmSimulator implements AvmSimulatorInterface {
   private log: Logger;
   private bytecode: Buffer | undefined;
   private opcodeTallies: Map<string, OpcodeTally> = new Map();
@@ -83,6 +79,7 @@ export class AvmSimulator {
     isStaticCall: boolean,
     calldata: Fr[],
     allocatedGas: Gas,
+    clientInitiatedSimulation: boolean = false,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
@@ -92,6 +89,7 @@ export class AvmSimulator {
       globals,
       isStaticCall,
       calldata,
+      clientInitiatedSimulation,
     );
 
     const avmMachineState = new AvmMachineState(allocatedGas);
@@ -112,7 +110,7 @@ export class AvmSimulator {
         throw err;
       }
       return await this.handleFailureToRetrieveBytecode(
-        `Bytecode retrieval for contract '${this.context.environment.address}' failed with ${err}. Reverting...`,
+        `Bytecode retrieval for contract '${this.context.environment.address}' failed with ${err.message}. Reverting...`,
       );
     }
 

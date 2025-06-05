@@ -1,6 +1,4 @@
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -17,6 +15,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { readAvmMinimalPublicTxInputsFromFile } from '@aztec/simulator/public/fixtures';
 import { L2Block } from '@aztec/stdlib/block';
 import type {
   EpochProver,
@@ -26,7 +25,6 @@ import type {
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
 import { BaseParityInputs } from '@aztec/stdlib/parity';
-import { makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
   EmptyBlockRootRollupInputs,
@@ -37,7 +35,6 @@ import {
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import { type BlockHeader, type GlobalVariables, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/stdlib/tx';
-import { VerificationKeyData } from '@aztec/stdlib/vks';
 import {
   Attributes,
   type TelemetryClient,
@@ -50,11 +47,12 @@ import {
 import { inspect } from 'util';
 
 import {
-  buildBaseRollupHints,
   buildHeaderAndBodyFromTxs,
+  getLastSiblingPath,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
+  insertSideEffectsAndBuildBaseRollupHints,
   validatePartialState,
   validateTx,
 } from './block-building-helpers.js';
@@ -152,6 +150,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     // Get archive snapshot before this block lands
     const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
+    const lastArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, db);
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
 
     const blockProvingState = this.provingState!.startNewBlock(
@@ -160,6 +159,7 @@ export class ProvingOrchestrator implements EpochProver {
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       lastArchive,
+      lastArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
     );
@@ -489,7 +489,7 @@ export class ProvingOrchestrator implements EpochProver {
     // We build the base rollup inputs using a mock proof and verification key.
     // These will be overwritten later once we have proven the tube circuit and any public kernels
     const [ms, hints] = await elapsed(
-      buildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState),
+      insertSideEffectsAndBuildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState),
     );
 
     this.metrics.recordBaseRollupInputs(ms);
@@ -670,12 +670,21 @@ export class ProvingOrchestrator implements EpochProver {
       ),
       async result => {
         provingState.setBlockRootRollupProof(result);
-        const header = await provingState.buildHeaderFromProvingOutputs(logger);
+        const header = await provingState.buildHeaderFromProvingOutputs();
         if (!(await header.hash()).equals(await provingState.block!.header.hash())) {
           logger.error(
-            `Block header mismatch\nCircuit:${inspect(header)}\nComputed:${inspect(provingState.block!.header)}`,
+            `Block header mismatch.\nCircuit: ${inspect(header)}\nComputed: ${inspect(provingState.block!.header)}`,
           );
-          provingState.reject(`Block header hash mismatch`);
+          provingState.reject(`Block header hash mismatch.`);
+        }
+
+        const dbArchiveRoot = provingState.block!.archive.root;
+        const circuitArchiveRoot = result.inputs.newArchive.root;
+        if (!dbArchiveRoot.equals(circuitArchiveRoot)) {
+          logger.error(
+            `New archive root mismatch.\nCircuit: ${result.inputs.newArchive.root}\nComputed: ${dbArchiveRoot}`,
+          );
+          provingState.reject(`New archive root mismatch.`);
         }
 
         logger.debug(`Completed ${rollupType} proof for block ${provingState.block!.number}`);
@@ -921,21 +930,26 @@ export class ProvingOrchestrator implements EpochProver {
       async (signal: AbortSignal) => {
         const inputs = txProvingState.getAvmInputs();
         try {
-          return await this.prover.getAvmProof(inputs, signal, provingState.epochNumber);
+          // TODO(#14234)[Unconditional PIs validation]: Remove the whole try-catch logic and
+          // just keep the next line but removing the second argument (false).
+          return await this.prover.getAvmProof(inputs, false, signal, provingState.epochNumber);
         } catch (err) {
           if (process.env.AVM_PROVING_STRICT) {
             logger.error(`Error thrown when proving AVM circuit with AVM_PROVING_STRICT on`, err);
             throw err;
           } else {
             logger.warn(
-              `Error thrown when proving AVM circuit but AVM_PROVING_STRICT is off. Faking AVM proof and carrying on. ${inspect(
-                err,
-              )}.`,
+              `Error thrown when proving AVM circuit but AVM_PROVING_STRICT is off. Use snapshotted
+               AVM inputs and carrying on. ${inspect(err)}.`,
             );
-            return {
-              proof: makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),
-              verificationKey: VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-            };
+
+            try {
+              const snapshotAvmPrivateInputs = readAvmMinimalPublicTxInputsFromFile();
+              return await this.prover.getAvmProof(snapshotAvmPrivateInputs, true, signal, provingState.epochNumber);
+            } catch (err) {
+              logger.error(`Error thrown when proving snapshotted AVM inputs.`, err);
+              throw err;
+            }
           }
         }
       },

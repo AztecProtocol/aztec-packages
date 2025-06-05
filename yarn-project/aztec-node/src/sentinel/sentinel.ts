@@ -5,39 +5,55 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
+import type { SlasherConfig, WantToSlashArgs, Watcher, WatcherEmitter } from '@aztec/slasher/config';
+import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   L2BlockStream,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
+  getAttestationsFromPublishedL2Block,
 } from '@aztec/stdlib/block';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   ValidatorStats,
   ValidatorStatusHistory,
   ValidatorStatusInSlot,
   ValidatorStatusType,
+  ValidatorsEpochPerformance,
   ValidatorsStats,
 } from '@aztec/stdlib/validators';
 
+import EventEmitter from 'node:events';
+
 import { SentinelStore } from './store.js';
 
-export class Sentinel implements L2BlockStreamEventHandler {
+export class Sentinel extends (EventEmitter as new () => WatcherEmitter) implements L2BlockStreamEventHandler, Watcher {
   protected runningPromise: RunningPromise;
   protected blockStream!: L2BlockStream;
   protected l2TipsStore: L2TipsStore;
 
   protected initialSlot: bigint | undefined;
   protected lastProcessedSlot: bigint | undefined;
-  protected slotNumberToArchive: Map<bigint, string> = new Map();
+  protected slotNumberToBlock: Map<bigint, { blockNumber: number; archive: string; attestors: EthAddress[] }> =
+    new Map();
 
   constructor(
     protected epochCache: EpochCache,
     protected archiver: L2BlockSource,
     protected p2p: P2PClient,
     protected store: SentinelStore,
+    protected config: Pick<
+      SlasherConfig,
+      | 'slashInactivityCreateTargetPercentage'
+      | 'slashInactivityCreatePenalty'
+      | 'slashInactivitySignalTargetPercentage'
+      | 'slashInactivityMaxPenalty'
+      | 'slashPayloadTtlSeconds'
+    >,
     protected logger = createLogger('node:sentinel'),
   ) {
+    super();
     this.l2TipsStore = new L2TipsMemoryStore();
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
@@ -63,22 +79,129 @@ export class Sentinel implements L2BlockStreamEventHandler {
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     await this.l2TipsStore.handleBlockStreamEvent(event);
     if (event.type === 'blocks-added') {
-      // Store mapping from slot to archive
+      // Store mapping from slot to archive, block number, and attestors
       for (const block of event.blocks) {
-        this.slotNumberToArchive.set(block.block.header.getSlot(), block.block.archive.root.toString());
+        this.slotNumberToBlock.set(block.block.header.getSlot(), {
+          blockNumber: block.block.number,
+          archive: block.block.archive.root.toString(),
+          attestors: getAttestationsFromPublishedL2Block(block).map(att => att.getSender()),
+        });
       }
 
       // Prune the archive map to only keep at most N entries
       const historyLength = this.store.getHistoryLength();
-      if (this.slotNumberToArchive.size > historyLength) {
-        const toDelete = Array.from(this.slotNumberToArchive.keys())
+      if (this.slotNumberToBlock.size > historyLength) {
+        const toDelete = Array.from(this.slotNumberToBlock.keys())
           .sort((a, b) => Number(a - b))
-          .slice(0, this.slotNumberToArchive.size - historyLength);
+          .slice(0, this.slotNumberToBlock.size - historyLength);
         for (const key of toDelete) {
-          this.slotNumberToArchive.delete(key);
+          this.slotNumberToBlock.delete(key);
         }
       }
+    } else if (event.type === 'chain-proven') {
+      await this.handleChainProven(event);
     }
+  }
+
+  protected async handleChainProven(event: L2BlockStreamEvent) {
+    if (event.type !== 'chain-proven') {
+      return;
+    }
+    const blockNumber = event.block.number;
+    const block = await this.archiver.getBlock(blockNumber);
+    if (!block) {
+      this.logger.error(`Failed to get block ${blockNumber}`, { block });
+      return;
+    }
+
+    const epoch = getEpochAtSlot(block.header.getSlot(), await this.archiver.getL1Constants());
+    this.logger.info(`Computing proven performance for epoch ${epoch}`);
+    const performance = await this.computeProvenPerformance(epoch);
+    this.logger.info(`Proven performance for epoch ${epoch}`, performance);
+
+    await this.updateProvenPerformance(epoch, performance);
+    this.handleProvenPerformance(performance);
+  }
+
+  protected async computeProvenPerformance(epoch: bigint) {
+    const headers = await this.archiver.getBlockHeadersForEpoch(epoch);
+    const provenSlots = headers.map(h => h.getSlot());
+    const fromSlot = provenSlots[0];
+    const toSlot = provenSlots[provenSlots.length - 1];
+    const { committee } = await this.epochCache.getCommittee(fromSlot);
+    const stats = await this.computeStats({ fromSlot, toSlot });
+    this.logger.debug(`Stats for epoch ${epoch}`, stats);
+
+    const performance: ValidatorsEpochPerformance = {};
+    for (const validator of Object.keys(stats.stats)) {
+      let address;
+      try {
+        address = EthAddress.fromString(validator);
+      } catch (e) {
+        this.logger.error(`Invalid validator address ${validator}`, e);
+        continue;
+      }
+      if (!committee.find(v => v.equals(address))) {
+        continue;
+      }
+      let missed = 0;
+      for (const history of stats.stats[validator].history) {
+        if (provenSlots.includes(history.slot) && history.status === 'attestation-missed') {
+          missed++;
+        }
+      }
+      performance[address.toString()] = { missed, total: provenSlots.length };
+    }
+    return performance;
+  }
+
+  protected updateProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
+    return this.store.updateProvenPerformance(epoch, performance);
+  }
+
+  protected handleProvenPerformance(performance: ValidatorsEpochPerformance) {
+    const criminals = Object.entries(performance)
+      .filter(([_, { missed, total }]) => {
+        return missed / total >= this.config.slashInactivityCreateTargetPercentage;
+      })
+      .map(([address]) => address as `0x${string}`);
+
+    const args = criminals.map(address => ({
+      validator: EthAddress.fromString(address),
+      amount: this.config.slashInactivityCreatePenalty,
+      offense: Offense.INACTIVITY,
+    }));
+
+    this.logger.info(`Criminals: ${criminals.length}`, { args });
+
+    if (criminals.length > 0) {
+      this.emit(WANT_TO_SLASH_EVENT, args);
+    }
+  }
+
+  public async shouldSlash({ validator, amount }: WantToSlashArgs): Promise<boolean> {
+    const l1Constants = this.epochCache.getL1Constants();
+    const ttlL2Slots = this.config.slashPayloadTtlSeconds / l1Constants.slotDuration;
+    const ttlEpochs = BigInt(Math.ceil(ttlL2Slots / l1Constants.epochDuration));
+
+    const currentEpoch = this.epochCache.getEpochAndSlotNow().epoch;
+    const performance = await this.store.getProvenPerformance(validator);
+    const isCriminal =
+      performance
+        .filter(p => p.epoch >= currentEpoch - ttlEpochs)
+        .findIndex(p => p.missed / p.total >= this.config.slashInactivitySignalTargetPercentage) !== -1;
+    if (isCriminal) {
+      if (amount <= this.config.slashInactivityMaxPenalty) {
+        return true;
+      } else {
+        this.logger.warn(`Validator ${validator} is a criminal but the penalty is too high`, {
+          amount,
+          maxPenalty: this.config.slashInactivityMaxPenalty,
+        });
+        return false;
+      }
+    }
+    return false;
   }
 
   /**
@@ -171,16 +294,21 @@ export class Sentinel implements L2BlockStreamEventHandler {
 
     // Here we get all attestations for the block mined at the given slot,
     // or all attestations for all proposals in the slot if no block was mined.
-    const archive = this.slotNumberToArchive.get(slot);
-    const attested = await this.p2p.getAttestationsForSlot(slot, archive);
-    const attestors = new Set(await Promise.all(attested.map(a => a.getSender().then(a => a.toString()))));
+    // We gather from both p2p (contains the ones seen on the p2p layer) and archiver
+    // (contains the ones synced from mined blocks, which we may have missed from p2p).
+    const block = this.slotNumberToBlock.get(slot);
+    const p2pAttested = await this.p2p.getAttestationsForSlot(slot, block?.archive);
+    const attestors = new Set([
+      ...p2pAttested.map(a => a.getSender().toString()),
+      ...(block?.attestors.map(a => a.toString()) ?? []),
+    ]);
 
     // We assume that there was a block proposal if at least one of the validators attested to it.
     // It could be the case that every single validator failed, and we could differentiate it by having
     // this node re-execute every block proposal it sees and storing it in the attestation pool.
     // But we'll leave that corner case out to reduce pressure on the node.
-    const blockStatus = archive ? 'mined' : attestors.size > 0 ? 'proposed' : 'missed';
-    this.logger.debug(`Block for slot ${slot} was ${blockStatus}`, { archive, slot });
+    const blockStatus = block ? 'mined' : attestors.size > 0 ? 'proposed' : 'missed';
+    this.logger.debug(`Block for slot ${slot} was ${blockStatus}`, { ...block, slot });
 
     // Get attestors that failed their duties for this block, but only if there was a block proposed
     const missedAttestors = new Set(
@@ -192,7 +320,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     this.logger.debug(`Retrieved ${attestors.size} attestors out of ${committee.length} for slot ${slot}`, {
       blockStatus,
       proposer: proposer.toString(),
-      archive,
+      ...block,
       slot,
       attestors: [...attestors],
       missedAttestors: [...missedAttestors],
@@ -221,14 +349,18 @@ export class Sentinel implements L2BlockStreamEventHandler {
   }
 
   /** Computes stats to be returned based on stored data. */
-  public async computeStats(): Promise<ValidatorsStats> {
+  public async computeStats({
+    fromSlot: _fromSlot,
+    toSlot: _toSlot,
+  }: { fromSlot?: bigint; toSlot?: bigint } = {}): Promise<ValidatorsStats> {
     const histories = await this.store.getHistories();
     const slotNow = this.epochCache.getEpochAndSlotNow().slot;
-    const fromSlot = (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
+    const fromSlot = _fromSlot ?? (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
+    const toSlot = _toSlot ?? this.lastProcessedSlot ?? slotNow;
     const result: Record<`0x${string}`, ValidatorStats> = {};
     for (const [address, history] of Object.entries(histories)) {
       const validatorAddress = address as `0x${string}`;
-      result[validatorAddress] = this.computeStatsForValidator(validatorAddress, history, fromSlot);
+      result[validatorAddress] = this.computeStatsForValidator(validatorAddress, history, fromSlot, toSlot);
     }
     return {
       stats: result,
@@ -242,8 +374,10 @@ export class Sentinel implements L2BlockStreamEventHandler {
     address: `0x${string}`,
     allHistory: ValidatorStatusHistory,
     fromSlot?: bigint,
+    toSlot?: bigint,
   ): ValidatorStats {
-    const history = fromSlot ? allHistory.filter(h => h.slot >= fromSlot) : allHistory;
+    let history = fromSlot ? allHistory.filter(h => h.slot >= fromSlot) : allHistory;
+    history = toSlot ? history.filter(h => h.slot <= toSlot) : history;
     return {
       address: EthAddress.fromString(address),
       lastProposal: this.computeFromSlot(
@@ -266,7 +400,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     const filteredHistory = relevantHistory.filter(h => h.status === filter);
     return {
       currentStreak: countWhile([...relevantHistory].reverse(), h => h.status === filter),
-      rate: filteredHistory.length / relevantHistory.length,
+      rate: relevantHistory.length === 0 ? undefined : filteredHistory.length / relevantHistory.length,
       count: filteredHistory.length,
     };
   }

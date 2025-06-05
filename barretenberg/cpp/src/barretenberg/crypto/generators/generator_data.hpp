@@ -1,8 +1,16 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/groups/group.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 #include <array>
 #include <map>
 #include <optional>
@@ -47,20 +55,12 @@ template <typename Curve> class generator_data {
     static inline constexpr std::string_view DEFAULT_DOMAIN_SEPARATOR = "DEFAULT_DOMAIN_SEPARATOR";
     inline constexpr generator_data() = default;
 
-    static inline constexpr std::array<AffineElement, DEFAULT_NUM_GENERATORS> make_precomputed_generators()
-    {
-        std::array<AffineElement, DEFAULT_NUM_GENERATORS> output;
-        std::vector<AffineElement> res = Group::derive_generators(DEFAULT_DOMAIN_SEPARATOR, DEFAULT_NUM_GENERATORS, 0);
-        std::copy(res.begin(), res.end(), output.begin());
-        return output;
-    }
-
     /**
-     * @brief Precompute a small number of generators at compile time. For small pedersen commitments + pedersen hashes,
-     * this prevents us from having to derive generators at runtime
+     * @brief We precompute and hard-code a small number of generators. For small pedersen commitments + pedersen
+     * hashes, this prevents us from having to derive generators at runtime
      */
-    static inline constexpr std::array<AffineElement, DEFAULT_NUM_GENERATORS> precomputed_generators =
-        make_precomputed_generators();
+    static constexpr std::span<const AffineElement> precomputed_generators =
+        get_precomputed_generators<Group, "DEFAULT_DOMAIN_SEPARATOR", DEFAULT_NUM_GENERATORS, 0>();
 
     [[nodiscard]] inline GeneratorView get(const size_t num_generators,
                                            const size_t generator_offset = 0,

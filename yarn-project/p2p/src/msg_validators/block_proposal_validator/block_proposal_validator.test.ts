@@ -19,12 +19,12 @@ describe('BlockProposalValidator', () => {
 
   it('returns high tolerance error if slot number is not current or next slot', async () => {
     // Create a block proposal for slot 97
-    const mockProposal = await makeBlockProposal({
+    const mockProposal = makeBlockProposal({
       header: makeHeader(1, 97, 97),
     });
 
     // Mock epoch cache to return different slot numbers
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 98n,
       nextSlot: 99n,
       currentProposer: Fr.random(),
@@ -41,13 +41,13 @@ describe('BlockProposalValidator', () => {
     const invalidProposer = Secp256k1Signer.random();
 
     // Create a block proposal with correct slot but wrong proposer
-    const mockProposal = await makeBlockProposal({
+    const mockProposal = makeBlockProposal({
       header: makeHeader(1, 100, 100),
       signer: invalidProposer,
     });
 
     // Mock epoch cache to return valid slots but different proposers
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
       currentProposer: currentProposer.address,
@@ -63,13 +63,13 @@ describe('BlockProposalValidator', () => {
     const nextProposer = Secp256k1Signer.random();
 
     // Create a block proposal for current slot with correct proposer
-    const mockProposal = await makeBlockProposal({
+    const mockProposal = makeBlockProposal({
       header: makeHeader(1, 100, 100),
       signer: currentProposer,
     });
 
     // Mock epoch cache for valid case
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
       currentProposer: currentProposer.address,
@@ -85,13 +85,13 @@ describe('BlockProposalValidator', () => {
     const nextProposer = Secp256k1Signer.random();
 
     // Create a block proposal for next slot with correct proposer
-    const mockProposal = await makeBlockProposal({
+    const mockProposal = makeBlockProposal({
       header: makeHeader(1, 101, 101),
       signer: nextProposer,
     });
 
     // Mock epoch cache for valid case
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
       currentProposer: currentProposer.address,

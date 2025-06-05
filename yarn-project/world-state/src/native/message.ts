@@ -16,6 +16,7 @@ export enum WorldStateMessageType {
 
   FIND_LEAF_INDICES,
   FIND_LOW_LEAF,
+  FIND_SIBLING_PATHS,
 
   APPEND_LEAVES,
   BATCH_INSERT,
@@ -40,6 +41,8 @@ export enum WorldStateMessageType {
   CREATE_CHECKPOINT,
   COMMIT_CHECKPOINT,
   REVERT_CHECKPOINT,
+  COMMIT_ALL_CHECKPOINTS,
+  REVERT_ALL_CHECKPOINTS,
 
   COPY_STORES,
 
@@ -96,6 +99,8 @@ export interface DBStats {
 export interface TreeDBStats {
   /** The configured max size of the DB mapping file (effectively the max possible size of the DB) */
   mapSize: bigint;
+  /** The physical file size of the database on disk */
+  physicalFileSize: bigint;
   /** Stats for the 'blocks' DB */
   blocksDBStats: DBStats;
   /** Stats for the 'nodes' DB */
@@ -151,6 +156,7 @@ export function buildEmptyDBStats() {
 export function buildEmptyTreeDBStats() {
   return {
     mapSize: 0n,
+    physicalFileSize: 0n,
     blocksDBStats: buildEmptyDBStats(),
     nodesDBStats: buildEmptyDBStats(),
     leafIndicesDBStats: buildEmptyDBStats(),
@@ -242,6 +248,7 @@ export function sanitiseTreeDBStats(stats: TreeDBStats) {
   stats.blockIndicesDBStats = sanitiseDBStats(stats.blockIndicesDBStats);
   stats.nodesDBStats = sanitiseDBStats(stats.nodesDBStats);
   stats.mapSize = BigInt(stats.mapSize);
+  stats.physicalFileSize = BigInt(stats.physicalFileSize);
   return stats;
 }
 
@@ -346,6 +353,11 @@ interface FindLeafIndicesResponse {
   indices: bigint[];
 }
 
+interface FindSiblingPathsRequest extends WithTreeId, WithLeafValues, WithWorldStateRevision {}
+interface FindSiblingPathsResponse {
+  paths: Buffer[][];
+}
+
 interface FindLowLeafRequest extends WithTreeId, WithWorldStateRevision {
   key: Fr;
 }
@@ -442,6 +454,7 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.FIND_LEAF_INDICES]: FindLeafIndicesRequest;
   [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafRequest;
+  [WorldStateMessageType.FIND_SIBLING_PATHS]: FindSiblingPathsRequest;
 
   [WorldStateMessageType.APPEND_LEAVES]: AppendLeavesRequest;
   [WorldStateMessageType.BATCH_INSERT]: BatchInsertRequest;
@@ -466,6 +479,8 @@ export type WorldStateRequest = {
   [WorldStateMessageType.CREATE_CHECKPOINT]: WithForkId;
   [WorldStateMessageType.COMMIT_CHECKPOINT]: WithForkId;
   [WorldStateMessageType.REVERT_CHECKPOINT]: WithForkId;
+  [WorldStateMessageType.COMMIT_ALL_CHECKPOINTS]: WithForkId;
+  [WorldStateMessageType.REVERT_ALL_CHECKPOINTS]: WithForkId;
 
   [WorldStateMessageType.COPY_STORES]: CopyStoresRequest;
 
@@ -484,6 +499,7 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.FIND_LEAF_INDICES]: FindLeafIndicesResponse;
   [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafResponse;
+  [WorldStateMessageType.FIND_SIBLING_PATHS]: FindSiblingPathsResponse;
 
   [WorldStateMessageType.APPEND_LEAVES]: void;
   [WorldStateMessageType.BATCH_INSERT]: BatchInsertResponse;
@@ -508,6 +524,8 @@ export type WorldStateResponse = {
   [WorldStateMessageType.CREATE_CHECKPOINT]: void;
   [WorldStateMessageType.COMMIT_CHECKPOINT]: void;
   [WorldStateMessageType.REVERT_CHECKPOINT]: void;
+  [WorldStateMessageType.COMMIT_ALL_CHECKPOINTS]: void;
+  [WorldStateMessageType.REVERT_ALL_CHECKPOINTS]: void;
 
   [WorldStateMessageType.COPY_STORES]: void;
 

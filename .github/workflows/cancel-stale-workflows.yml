@@ -1,0 +1,53 @@
+# Adapted from https://stackoverflow.com/a/76318991
+name: Cancel stale workflow runs on PR close or draft
+
+on:
+  pull_request:
+    types: [closed, converted_to_draft]
+
+concurrency:
+  group: "cancel-stale-${{ github.event.pull_request.number }}"
+
+jobs:
+  cancel:
+    if: ${{ !github.event.pull_request.merged }}
+
+    permissions:
+      actions: write
+      contents: read
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        workflow_id:
+          - '.github/workflows/ci3.yaml'
+          - '.github/workflows/ci3-external.yaml'
+
+    steps:
+      - name: Cancel active PR runs for ${{ matrix.workflow_id }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const headBranch = context.payload.pull_request.head.ref;
+
+            // Gather runs on the PR branch. We expect the first (thus newest) result to be the only relevant run.
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: '${{ matrix.workflow_id }}',
+              branch: headBranch,
+              event: 'pull_request'
+            });
+
+            for (const run of runs.data.workflow_runs) {
+              if (run.status === 'queued' || run.status === 'in_progress') {
+                core.info(`Cancelling workflow run ${run.id} …`);
+                await github.rest.actions.cancelWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: run.id,
+                });
+              }
+            }

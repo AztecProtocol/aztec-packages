@@ -1,0 +1,37 @@
+name: Docs Scraper
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run the workflow every night at 3:00 AM UTC, after nightly release
+    - cron: "0 4 * * *"
+  push:
+    branches:
+      - master
+    paths:
+      - docs/**
+
+jobs:
+  docs-scraper:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reindex with Typesense docsearch-scraper
+        run: |
+          docker run \
+            -e "TYPESENSE_API_KEY=${{ secrets.TYPESENSE_API_KEY }}" \
+            -e "TYPESENSE_HOST=${{ secrets.TYPESENSE_HOST }}" \
+            -e "TYPESENSE_PORT=443" \
+            -e "TYPESENSE_PROTOCOL=https" \
+            -e "CONFIG=$(cat docs/typesense.config.json | jq -r tostring)" \
+            typesense/docsearch-scraper:0.11.0

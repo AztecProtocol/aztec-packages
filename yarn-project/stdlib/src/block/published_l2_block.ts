@@ -1,45 +1,51 @@
-import { Buffer32 } from '@aztec/foundation/buffer';
-import { times } from '@aztec/foundation/collection';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Signature } from '@aztec/foundation/eth-signature';
+// Ignoring import issue to fix portable inferred type issue in zod schema
 import { schemas } from '@aztec/foundation/schemas';
-import { L2Block } from '@aztec/stdlib/block';
 
 import { z } from 'zod';
 
-export type L1PublishedData = {
-  blockNumber: bigint;
-  timestamp: bigint;
-  blockHash: string;
-};
+import { BlockAttestation } from '../p2p/block_attestation.js';
+import { ConsensusPayload } from '../p2p/consensus_payload.js';
+import { L2Block } from './l2_block.js';
+import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
-export type PublishedL2Block = {
-  block: L2Block;
-  l1: L1PublishedData;
-  signatures: Signature[];
-};
+export class L1PublishedData {
+  constructor(
+    public blockNumber: bigint,
+    public timestamp: bigint,
+    public blockHash: string,
+  ) {}
 
-export const PublishedL2BlockSchema = z.object({
-  block: L2Block.schema,
-  l1: z.object({
-    blockNumber: schemas.BigInt,
-    timestamp: schemas.BigInt,
-    blockHash: z.string(),
-  }),
-  signatures: z.array(Signature.schema),
-});
+  static get schema() {
+    return z.object({
+      blockNumber: schemas.BigInt,
+      timestamp: schemas.BigInt,
+      blockHash: z.string(),
+    });
+  }
+}
 
-export async function randomPublishedL2Block(l2BlockNumber: number): Promise<PublishedL2Block> {
-  const block = await L2Block.random(l2BlockNumber);
-  const l1 = {
-    blockNumber: BigInt(block.number),
-    timestamp: block.header.globalVariables.timestamp.toBigInt(),
-    blockHash: Buffer32.random().toString(),
-  };
-  // Create valid signatures
-  const signers = times(3, () => Secp256k1Signer.random());
-  const signatures = await Promise.all(
-    times(3, async i => signers[i].signMessage(Buffer32.fromField(await block.hash()))),
-  );
-  return { block, l1, signatures };
+export class PublishedL2Block {
+  constructor(
+    public block: L2Block,
+    public l1: L1PublishedData,
+    public attestations: CommitteeAttestation[],
+  ) {}
+
+  static get schema() {
+    return z.object({
+      block: L2Block.schema,
+      l1: L1PublishedData.schema,
+      attestations: z.array(CommitteeAttestation.schema),
+    });
+  }
+}
+
+export function getAttestationsFromPublishedL2Block(block: PublishedL2Block) {
+  const payload = ConsensusPayload.fromBlock(block.block);
+  return block.attestations
+    .filter(attestation => !attestation.signature.isEmpty())
+    .map(
+      attestation =>
+        new BlockAttestation(block.block.header.globalVariables.blockNumber, payload, attestation.signature),
+    );
 }

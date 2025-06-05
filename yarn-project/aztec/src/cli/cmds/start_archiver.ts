@@ -6,14 +6,9 @@ import {
   getArchiverConfigFromEnv,
 } from '@aztec/archiver';
 import { createLogger } from '@aztec/aztec.js';
-import {
-  type BlobSinkConfig,
-  blobSinkConfigMapping,
-  createBlobSinkClient,
-  getBlobSinkConfigFromEnv,
-} from '@aztec/blob-sink/client';
+import { type BlobSinkConfig, blobSinkConfigMapping, createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { ArchiverApiSchema } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
@@ -29,7 +24,7 @@ export async function startArchiver(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
 ): Promise<{ config: ArchiverConfig & DataStoreConfig }> {
-  const envConfig = { ...getArchiverConfigFromEnv(), ...getDataConfigFromEnv(), ...getBlobSinkConfigFromEnv() };
+  const envConfig = getArchiverConfigFromEnv();
   const cliOptions = extractRelevantOptions<ArchiverConfig & DataStoreConfig & BlobSinkConfig>(
     options,
     { ...archiverConfigMappings, ...dataConfigMappings, ...blobSinkConfigMapping },
@@ -57,7 +52,7 @@ export async function startArchiver(
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
-  const blobSinkClient = createBlobSinkClient(archiverConfig);
+  const blobSinkClient = createBlobSinkClient(archiverConfig, { logger: createLogger('archiver:blob-sink:client') });
   const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, { telemetry, blobSinkClient }, true);
   services.archiver = [archiver, ArchiverApiSchema];
   signalHandlers.push(archiver.stop);

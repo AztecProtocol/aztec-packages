@@ -23,7 +23,7 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {};
 
 template <class Builder> using byte_array_ct = byte_array<Builder>;
 
-using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
+using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
 
 STANDARD_TESTING_TAGS
 
@@ -36,6 +36,11 @@ TYPED_TEST(ByteArrayTest, test_reverse)
 
     std::vector<uint8_t> expected = { 0x04, 0x03, 0x02, 0x01 };
     byte_array_ct arr(&builder, std::vector<uint8_t>{ 0x01, 0x02, 0x03, 0x04 });
+
+    // Unset the free witness tag, so it doesn't interfere
+    for (const auto& byte : arr.bytes()) {
+        byte.unset_free_witness_tag();
+    }
 
     // Set tag on the first byte
     arr.bytes()[0].set_origin_tag(submitted_value_origin_tag);
@@ -116,6 +121,11 @@ TYPED_TEST(ByteArrayTest, get_bit)
 
     byte_array_ct arr(&builder, std::vector<uint8_t>{ 0x01, 0x02, 0x03, 0x04 });
 
+    // Unset the free witness tag, so it doesn't interfere
+    for (const auto& byte : arr.bytes()) {
+        byte.unset_free_witness_tag();
+    }
+
     // The order is little endian in bits and big-endian in bytes
     arr.bytes()[3].set_origin_tag(submitted_value_origin_tag);
     arr.bytes()[2].set_origin_tag(challenge_origin_tag);
@@ -154,17 +164,29 @@ TYPED_TEST(ByteArrayTest, set_bit)
     auto builder = Builder();
 
     byte_array_ct arr(&builder, std::vector<uint8_t>{ 0x01, 0x02, 0x03, 0x04 });
+
+    // Unset the free witness tag, so it doesn't interfere
+    for (const auto& byte : arr.bytes()) {
+        byte.unset_free_witness_tag();
+    }
+
+    auto bit_0 = bool_ct(witness_ct(&builder, true));
+    auto bit_16 = bool_ct(witness_ct(&builder, true));
     auto bit_18 = bool_ct(witness_ct(&builder, true));
     auto bit_19 = bool_ct(witness_ct(&builder, false));
+    auto bit_24 = bool_ct(witness_ct(&builder, false));
 
     bit_18.set_origin_tag(submitted_value_origin_tag);
     bit_19.set_origin_tag(challenge_origin_tag);
+    bit_0.unset_free_witness_tag();
+    bit_16.unset_free_witness_tag();
+    bit_24.unset_free_witness_tag();
 
-    arr.set_bit(16, bool_ct(witness_ct(&builder, true)));
+    arr.set_bit(16, bit_16);
     arr.set_bit(18, bit_18);
     arr.set_bit(19, bit_19);
-    arr.set_bit(24, bool_ct(witness_ct(&builder, false)));
-    arr.set_bit(0, bool_ct(witness_ct(&builder, true)));
+    arr.set_bit(24, bit_24);
+    arr.set_bit(0, bit_0);
 
     // Tags are merged
     EXPECT_EQ(arr.bytes()[0].get_origin_tag(), clear_tag);

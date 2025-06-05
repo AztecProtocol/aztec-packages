@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/memory/twin_rom_table.hpp"
@@ -23,7 +29,7 @@ using plookup::MultiTableId;
  * @return std::array<twin_rom_table<C>, 5>
  */
 template <typename C, class Fq, class Fr, class G>
-template <size_t num_elements, typename>
+template <size_t num_elements>
 std::array<twin_rom_table<C>, 5> element<C, Fq, Fr, G>::create_group_element_rom_tables(
     const std::array<element, num_elements>& rom_data, std::array<uint256_t, 8>& limb_max)
 {
@@ -64,7 +70,7 @@ std::array<twin_rom_table<C>, 5> element<C, Fq, Fr, G>::create_group_element_rom
 }
 
 template <typename C, class Fq, class Fr, class G>
-template <size_t, typename>
+template <size_t>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::read_group_element_rom_tables(
     const std::array<twin_rom_table<C>, 5>& tables, const field_t<C>& index, const std::array<uint256_t, 8>& limb_max)
 {
@@ -91,8 +97,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::read_group_element_rom_tables(
 }
 
 template <typename C, class Fq, class Fr, class G>
-template <typename X>
-element<C, Fq, Fr, G>::four_bit_table_plookup<X>::four_bit_table_plookup(const element& input)
+element<C, Fq, Fr, G>::four_bit_table_plookup::four_bit_table_plookup(const element& input)
 {
     element d2 = input.dbl();
 
@@ -108,15 +113,13 @@ element<C, Fq, Fr, G>::four_bit_table_plookup<X>::four_bit_table_plookup(const e
 }
 
 template <typename C, class Fq, class Fr, class G>
-template <typename X>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::four_bit_table_plookup<X>::operator[](const field_t<C>& index) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::four_bit_table_plookup::operator[](const field_t<C>& index) const
 {
     return read_group_element_rom_tables<16>(coordinates, index, limb_max);
 }
 
 template <class C, class Fq, class Fr, class G>
-template <typename X>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table<X>::operator[](const field_t<C>& index) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table::operator[](const field_t<C>& index) const
 {
     const auto get_plookup_tags = [this]() {
         switch (curve_type) {
@@ -171,8 +174,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table<X>::oper
 }
 
 template <typename C, class Fq, class Fr, class G>
-template <typename X>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table<X>::operator[](const size_t index) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table::operator[](const size_t index) const
 {
     return operator[](field_t<C>(index));
 }
@@ -181,8 +183,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table<X>::oper
  * lookup_table_plookup
  **/
 template <typename C, class Fq, class Fr, class G>
-template <size_t length, typename X>
-element<C, Fq, Fr, G>::lookup_table_plookup<length, X>::lookup_table_plookup(const std::array<element, length>& inputs)
+template <size_t length>
+element<C, Fq, Fr, G>::lookup_table_plookup<length>::lookup_table_plookup(const std::array<element, length>& inputs)
 {
     if constexpr (length == 2) {
         auto [A0, A1] = inputs[1].checked_unconditional_add_sub(inputs[0]);
@@ -411,8 +413,8 @@ element<C, Fq, Fr, G>::lookup_table_plookup<length, X>::lookup_table_plookup(con
 }
 
 template <typename C, class Fq, class Fr, class G>
-template <size_t length, typename X>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::lookup_table_plookup<length, X>::get(
+template <size_t length>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::lookup_table_plookup<length>::get(
     const std::array<bool_ct, length>& bits) const
 {
     std::vector<field_t<C>> accumulators;
