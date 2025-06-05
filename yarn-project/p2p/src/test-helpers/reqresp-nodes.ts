@@ -225,11 +225,17 @@ export const connectToPeers = async (nodes: ReqRespNode[]): Promise<void> => {
 
 // Mock circuit verifier for testing - reimplementation from bb to avoid dependency
 export class AlwaysTrueCircuitVerifier implements ClientProtocolCircuitVerifier {
+  stop(): Promise<void> {
+    return Promise.resolve();
+  }
   verifyProof(_tx: Tx): Promise<boolean> {
     return Promise.resolve(true);
   }
 }
 export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier {
+  stop(): Promise<void> {
+    return Promise.resolve();
+  }
   verifyProof(_tx: Tx): Promise<boolean> {
     return Promise.resolve(false);
   }
