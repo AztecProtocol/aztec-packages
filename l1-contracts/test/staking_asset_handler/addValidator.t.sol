@@ -168,6 +168,8 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.assume(
       _attester != address(0) && _secondAttester != address(0) && _thirdAttester != address(0)
     );
+    vm.assume(_attester != _secondAttester && _attester != _thirdAttester && _secondAttester != _thirdAttester);
+
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval + mintInterval;
     vm.warp(revertTimestamp);
 
