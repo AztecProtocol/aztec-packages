@@ -309,16 +309,16 @@ namespace tx;
     pol commit num_l2_l1_msg_emitted;
 
     #[READ_L2_L1_MSG]
-    is_l2_l1_msg_phase { read_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, /* l2_l1_counter=*/precomputed.zero, l2_l1_msg_contract_address } in
-    public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2], public_inputs.cols[3] };
+    is_l2_l1_msg_phase { read_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
+    public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 
     pol commit successful_msg_emit;
     // A msg emit phase must be successful if it didnt revert or isnt a padded row
     sel * ((1 - reverted - is_padded) * is_l2_l1_msg_phase - successful_msg_emit) = 0;
 
     #[WRITE_L2_L1_MSG]
-    successful_msg_emit { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, /* l2_l1_counter=*/precomputed.zero, l2_l1_msg_contract_address } in
-    public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2], public_inputs.cols[3] };
+    successful_msg_emit { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
+    public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 
     // Collect Gas
     pol commit is_collect_fee;

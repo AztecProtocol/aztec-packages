@@ -32,7 +32,6 @@ use dep::types::{
     merkle_tree::{
         append_only_tree, calculate_empty_tree_root, calculate_subtree_root, MembershipWitness,
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
     partial_state_reference::PartialStateReference,
     traits::{Empty, Hash},
 };
@@ -104,16 +103,11 @@ impl PrivateBaseRollupInputs {
         all_public_data_update_requests[0] = fee_public_data_write;
 
         // Silo the L2 to L1 messages and compute the out hash.
-        let siloed_l2_to_l1_msgs = self
-            .tube_data
-            .public_inputs
-            .end
-            .l2_to_l1_msgs
-            .map(|message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                message,
-                self.tube_data.public_inputs.constants.tx_context.version,
-                self.tube_data.public_inputs.constants.tx_context.chain_id,
-            ));
+        let siloed_l2_to_l1_msgs = self.tube_data.public_inputs.end.l2_to_l1_msgs.map(|message| silo_l2_to_l1_message(
+            message,
+            self.tube_data.public_inputs.constants.tx_context.version,
+            self.tube_data.public_inputs.constants.tx_context.chain_id,
+        ));
 
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
 
@@ -218,7 +212,9 @@ impl PrivateBaseRollupInputs {
 
 mod tests {
     use crate::{
-        abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
+        abis::{
+            base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs, tx_effect::TxEffect,
+        },
         base::{
             components::fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             private_base_rollup::PrivateBaseRollupInputs,
@@ -228,7 +224,6 @@ mod tests {
             append_tx_effects_for_blob, encode_blob_prefix, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
         },
     };
-    use crate::abis::tx_effect::TxEffect;
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
@@ -252,7 +247,6 @@ mod tests {
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
         merkle_tree::MembershipWitness,
-        messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
         tests::{
             fixture_builder::FixtureBuilder,
@@ -975,7 +969,7 @@ mod tests {
         offset += 1;
         for i in 0..NUM_MSGS {
             reconstructed_tx_effects[offset + i] = silo_l2_to_l1_message(
-                builder.tube_data.l2_to_l1_msgs.storage()[i],
+                builder.tube_data.l2_to_l1_msgs.get(i).expose_to_public(),
                 builder.tube_data.tx_context.version,
                 builder.tube_data.tx_context.chain_id,
             );
@@ -1052,14 +1046,11 @@ mod tests {
 
         let out_hash = builder.execute().out_hash;
 
-        let siloed_l2_to_l1_msgs = builder
-            .tube_data
-            .l2_to_l1_msgs
-            .map(|l2_to_l1_message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                l2_to_l1_message,
-                builder.constants.global_variables.version,
-                builder.constants.global_variables.chain_id,
-            ));
+        let siloed_l2_to_l1_msgs = builder.tube_data.l2_to_l1_msgs.map(|l2_to_l1_message| silo_l2_to_l1_message(
+            l2_to_l1_message.expose_to_public(),
+            builder.constants.global_variables.version,
+            builder.constants.global_variables.chain_id,
+        ));
 
         // Since we fill the tree completely, we know to expect a full tree as below
         let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());

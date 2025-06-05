@@ -177,7 +177,7 @@ using lookup_tx_write_tree_insert_value_relation =
 struct lookup_tx_read_l2_l1_msg_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_L2_L1_MSG";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
     static constexpr Column SRC_SELECTOR = Column::tx_is_l2_l1_msg_phase;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_read_l2_l1_msg_counts;
@@ -186,15 +186,13 @@ struct lookup_tx_read_l2_l1_msg_settings_ {
         ColumnAndShifts::tx_read_pi_offset,
         ColumnAndShifts::tx_l2_l1_msg_recipient,
         ColumnAndShifts::tx_l2_l1_msg_content,
-        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::tx_l2_l1_msg_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk,
         ColumnAndShifts::public_inputs_cols_0_,
         ColumnAndShifts::public_inputs_cols_1_,
-        ColumnAndShifts::public_inputs_cols_2_,
-        ColumnAndShifts::public_inputs_cols_3_
+        ColumnAndShifts::public_inputs_cols_2_
     };
 };
 
@@ -207,7 +205,7 @@ using lookup_tx_read_l2_l1_msg_relation = lookup_relation_base<FF_, lookup_tx_re
 struct lookup_tx_write_l2_l1_msg_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_WRITE_L2_L1_MSG";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
     static constexpr Column SRC_SELECTOR = Column::tx_successful_msg_emit;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_write_l2_l1_msg_counts;
@@ -216,15 +214,13 @@ struct lookup_tx_write_l2_l1_msg_settings_ {
         ColumnAndShifts::tx_write_pi_offset,
         ColumnAndShifts::tx_l2_l1_msg_recipient,
         ColumnAndShifts::tx_l2_l1_msg_content,
-        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::tx_l2_l1_msg_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk,
         ColumnAndShifts::public_inputs_cols_0_,
         ColumnAndShifts::public_inputs_cols_1_,
-        ColumnAndShifts::public_inputs_cols_2_,
-        ColumnAndShifts::public_inputs_cols_3_
+        ColumnAndShifts::public_inputs_cols_2_
     };
 };
 

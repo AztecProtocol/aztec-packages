@@ -72,11 +72,10 @@ struct ContractClass {
 struct L2ToL1Message {
     EthAddress recipient;
     FF content;
-    uint32_t counter;
 
     bool operator==(const L2ToL1Message& other) const = default;
 
-    MSGPACK_FIELDS(recipient, content, counter);
+    MSGPACK_FIELDS(recipient, content);
 };
 
 struct ScopedL2ToL1Message {

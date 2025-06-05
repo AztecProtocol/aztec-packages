@@ -70,8 +70,7 @@ void set_l2_to_l1_msg_array_in_cols(const std::array<ScopedL2ToL1Message, SIZE>&
         size_t row = array_start_row_idx + i;
         cols[0][row] = arr[i].message.recipient;
         cols[1][row] = arr[i].message.content;
-        cols[2][row] = arr[i].message.counter;
-        cols[3][row] = arr[i].contractAddress;
+        cols[2][row] = arr[i].contractAddress;
     }
 }
 
