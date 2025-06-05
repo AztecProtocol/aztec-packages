@@ -18,6 +18,7 @@ namespace bb::stdlib::recursion {
  * @details The points may represent the output of a single partial recursive verification or the linear combination of
  * multiple sets of pairing points.
  *
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1421): Proper tests for `PairingPoints`
  * @tparam Builder_
  */
 template <typename Builder_> struct PairingPoints {

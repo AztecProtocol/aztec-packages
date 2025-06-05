@@ -154,6 +154,8 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         PairingPoints pairing_points =
             perform_recursive_verification_and_databus_consistency_checks(circuit, verifier_input);
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems we
+        // can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
         points_accumulator.aggregate(pairing_points);
     }
     stdlib_verification_queue.clear();
