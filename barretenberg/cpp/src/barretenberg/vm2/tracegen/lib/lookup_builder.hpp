@@ -141,7 +141,7 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
             }
 
             if (!found) {
-                info(
+                vinfo(
                     "Failed computing counts for ",
                     std::string(LookupSettings::NAME),
                     " with src tuple: {",

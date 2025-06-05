@@ -1,7 +1,5 @@
 #include "barretenberg/vm2/tracegen/internal_call_stack_trace.hpp"
 
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
-
 namespace bb::avm2::tracegen {
 
 void InternalCallStackBuilder::process(
@@ -14,12 +12,12 @@ void InternalCallStackBuilder::process(
     for (const auto& event : events) {
         trace.set(row,
                   { {
-                      { C::call_stack_sel, 1 },
-                      { C::call_stack_context_id, event.context_id },
-                      { C::call_stack_entered_call_id, event.call_ptr.entered_call_id },
-                      { C::call_stack_id, event.call_ptr.id },
-                      { C::call_stack_return_id, event.call_ptr.return_id },
-                      { C::call_stack_return_pc, event.call_ptr.return_pc },
+                      { C::internal_call_stack_sel, 1 },
+                      { C::internal_call_stack_context_id, event.context_id },
+                      { C::internal_call_stack_entered_call_id, event.entered_call_id },
+                      { C::internal_call_stack_id, event.id },
+                      { C::internal_call_stack_return_id, event.return_id },
+                      { C::internal_call_stack_return_pc, event.return_pc },
                   } });
         row++;
     }

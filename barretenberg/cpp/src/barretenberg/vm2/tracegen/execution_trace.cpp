@@ -251,7 +251,6 @@ void ExecutionTraceBuilder::process(
                       { C::execution_context_id, ex_event.after_context_event.id },
                       { C::execution_parent_id, ex_event.after_context_event.parent_id },
                       { C::execution_pc, ex_event.before_context_event.pc },
-                      { C::execution_next_pc, ex_event.after_context_event.pc },
                       { C::execution_is_static, ex_event.after_context_event.is_static },
                       { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
                       { C::execution_contract_address, ex_event.after_context_event.contract_addr },
@@ -274,9 +273,9 @@ void ExecutionTraceBuilder::process(
         // Internal stack
         trace.set(row,
                   { {
-                      { C::execution_internal_call_id, ex_event.internal_call_id },
-                      { C::execution_internal_call_return_id, ex_event.internal_call_return_id },
-                      { C::execution_next_internal_call_id, ex_event.next_internal_call_id },
+                      { C::execution_internal_call_id, ex_event.before_context_event.internal_call_id },
+                      { C::execution_internal_call_return_id, ex_event.before_context_event.internal_call_return_id },
+                      { C::execution_next_internal_call_id, ex_event.before_context_event.next_internal_call_id },
                   } });
 
         /**************************************************************************************************
@@ -304,6 +303,8 @@ void ExecutionTraceBuilder::process(
                           { C::execution_ex_opcode, static_cast<uint8_t>(*exec_opcode) },
                           { C::execution_indirect, ex_event.wire_instruction.indirect },
                           { C::execution_instr_length, ex_event.wire_instruction.size_in_bytes() },
+                          { C::execution_next_pc,
+                            ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes() },
                       } });
 
             // At this point we can assume instruction fetching succeeded.
@@ -330,6 +331,17 @@ void ExecutionTraceBuilder::process(
                           { C::execution_base_da_gas, ex_event.gas_event.base_gas.daGas },
                           { C::execution_dynamic_l2_gas, ex_event.gas_event.dynamic_gas.l2Gas },
                           { C::execution_dynamic_da_gas, ex_event.gas_event.dynamic_gas.daGas },
+                      } });
+            // Since instruction fetching succeeded we should put the selectors here
+            bool is_internal_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::INTERNALCALL;
+            bool is_internal_return = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::INTERNALRETURN;
+            trace.set(row,
+                      { {
+                          { C::execution_sel_internal_call, is_internal_call ? 1 : 0 },
+                          { C::execution_sel_internal_return, is_internal_return ? 1 : 0 },
+                          // TEMP ERRORS - todo(ilyas): these should be moved lower in the group order
+                          { C::execution_internal_ret_err, 0 },
+                          { C::execution_internal_call_id_inv, 0 },
                       } });
         }
 
@@ -520,13 +532,6 @@ void ExecutionTraceBuilder::process(
                               { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
-                              // Internal Stack
-                              { C::execution_internal_call_id, ex_event.internal_call_ptr.id },
-                              { C::execution_internal_call_return_id, ex_event.internal_call_ptr.return_id },
-                              { C::execution_internal_call_return_pc, ex_event.internal_call_ptr.return_pc },
-                              { C::execution_next_internal_call_id, ex_event.next_internal_call_id },
-                              { C::execution_internal_ret_err, 0 },     // TODO
-                              { C::execution_internal_call_id_inv, 0 }, // TODO
                           } });
             }
         }
@@ -770,7 +775,7 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_6_settings>>(),
         // Internal Call Stack
         std::make_unique<LookupIntoDynamicTableSequential<lookup_internal_call_push_call_stack_settings_>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_internal_call_unwind_call_stack_settings_>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_internal_call_unwind_call_stack_settings_>>(),
         // Gas
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),

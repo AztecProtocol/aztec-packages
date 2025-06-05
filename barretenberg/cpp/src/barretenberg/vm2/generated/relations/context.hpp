@@ -138,7 +138,7 @@ template <typename FF_> class contextImpl {
         { // PC_NEXT_ROW_INT_CALL
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_internal_call) *
-                       (in.get(C::execution_pc_shift) - in.get(C::execution_op_0_));
+                       (in.get(C::execution_pc_shift) - in.get(C::execution_rop_0_));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }

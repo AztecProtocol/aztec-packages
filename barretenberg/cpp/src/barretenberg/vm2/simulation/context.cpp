@@ -64,6 +64,10 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .gas_limit = get_gas_limit(),
         .parent_gas_used = get_parent_gas_used(),
         .parent_gas_limit = get_parent_gas_limit(),
+        // internal call stack
+        .internal_call_id = get_internal_call_stack_manager().get_call_id(),
+        .internal_call_return_id = get_internal_call_stack_manager().get_return_call_id(),
+        .next_internal_call_id = get_internal_call_stack_manager().get_next_call_id(),
     };
 };
 
@@ -103,6 +107,10 @@ ContextEvent NestedContext::serialize_context_event()
         .gas_limit = get_gas_limit(),
         .parent_gas_used = get_parent_gas_used(),
         .parent_gas_limit = get_parent_gas_limit(),
+        // internal call stack
+        .internal_call_id = get_internal_call_stack_manager().get_call_id(),
+        .internal_call_return_id = get_internal_call_stack_manager().get_return_call_id(),
+        .next_internal_call_id = get_internal_call_stack_manager().get_next_call_id(),
     };
 };
 

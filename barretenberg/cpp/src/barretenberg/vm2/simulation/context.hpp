@@ -14,7 +14,7 @@
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
-#include "barretenberg/vm2/simulation/internal_callstack_manager.hpp"
+#include "barretenberg/vm2/simulation/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 
 namespace bb::avm2::simulation {
@@ -26,7 +26,7 @@ class ContextInterface {
     // Machine state.
     virtual MemoryInterface& get_memory() = 0;
     virtual BytecodeManagerInterface& get_bytecode_manager() = 0;
-    virtual InternalCallStackManager& get_internal_call_stack_manager() = 0;
+    virtual InternalCallStackManagerInterface& get_internal_call_stack_manager() = 0;
     virtual uint32_t get_pc() const = 0;
     virtual void set_pc(uint32_t new_pc) = 0;
     virtual uint32_t get_next_pc() const = 0;
@@ -86,7 +86,7 @@ class BaseContext : public ContextInterface {
                 Gas gas_used,
                 std::unique_ptr<BytecodeManagerInterface> bytecode,
                 std::unique_ptr<MemoryInterface> memory,
-                std::unique_ptr<InternalCallStackManager> internal_call_stack_manager)
+                std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager)
         : address(address)
         , msg_sender(msg_sender)
         , is_static(is_static)
@@ -102,7 +102,11 @@ class BaseContext : public ContextInterface {
     // Machine state.
     MemoryInterface& get_memory() override { return *memory; }
     BytecodeManagerInterface& get_bytecode_manager() override { return *bytecode; }
-    InternalCallStackManager& get_internal_call_stack_manager() override { return *internal_call_stack_manager; }
+    InternalCallStackManagerInterface& get_internal_call_stack_manager() override
+    {
+        return *internal_call_stack_manager;
+    }
+
     uint32_t get_pc() const override { return pc; }
     void set_pc(uint32_t new_pc) override { pc = new_pc; }
     uint32_t get_next_pc() const override { return next_pc; }
@@ -158,7 +162,7 @@ class BaseContext : public ContextInterface {
     Gas gas_limit;
     std::unique_ptr<BytecodeManagerInterface> bytecode;
     std::unique_ptr<MemoryInterface> memory;
-    std::unique_ptr<InternalCallStackManager> internal_call_stack_manager;
+    std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager;
 
     // Output
     std::unique_ptr<ContextInterface> child_context = nullptr;
@@ -178,7 +182,7 @@ class EnqueuedCallContext : public BaseContext {
                         Gas gas_used,
                         std::unique_ptr<BytecodeManagerInterface> bytecode,
                         std::unique_ptr<MemoryInterface> memory,
-                        std::unique_ptr<InternalCallStackManager> internal_call_stack_manager,
+                        std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
                         std::span<const FF> calldata)
         : BaseContext(context_id,
                       address,
@@ -220,7 +224,7 @@ class NestedContext : public BaseContext {
                   Gas gas_limit,
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
                   std::unique_ptr<MemoryInterface> memory,
-                  std::unique_ptr<InternalCallStackManager> internal_call_stack_manager,
+                  std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
                   ContextInterface& parent_context,
                   MemoryAddress cd_offset_address, /* This is a direct mem address */
                   MemoryAddress cd_size)
