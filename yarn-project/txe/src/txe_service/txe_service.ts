@@ -874,14 +874,15 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  async emitOffchainMessage(_message: ForeignCallArray, _recipient: ForeignCallSingle) {
+  emitOffchainMessage(_message: ForeignCallArray, _recipient: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    // Offchain messages are discarded in the TXE tests.
+    // Offchain messages are currently discarded in the TXE tests.
+    // TODO: Expose this to the tests.
 
     return toForeignCallResult([]);
   }
