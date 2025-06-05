@@ -38,12 +38,12 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     await crossChainTestHarness.mintTokensPublicOnL2(mintAmountToOwner);
 
     const withdrawAmount = 9n;
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
     // Should fail as owner has not given approval to bridge burn their funds.
     await expect(
       l2Bridge
         .withWallet(user1Wallet)
-        .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
+        .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
         .simulate(),
     ).rejects.toThrow(/unauthorized/);
   }, 60_000);
