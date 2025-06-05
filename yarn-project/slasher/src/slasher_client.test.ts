@@ -22,7 +22,7 @@ import { foundry } from 'viem/chains';
 
 import {
   DefaultSlasherConfig,
-  Offence,
+  Offense,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
@@ -146,7 +146,7 @@ describe('SlasherClient', () => {
     expect(slashAmount).toBeLessThan(depositAmount);
     const committee = await rollup.getCurrentEpochCommittee();
     const amounts = Array.from({ length: committee.length }, () => slashAmount);
-    const offenses = Array.from({ length: committee.length }, () => Offence.UNKNOWN);
+    const offenses = Array.from({ length: committee.length }, () => Offense.UNKNOWN);
 
     const args = committee.map((validator, index) => ({
       validator: EthAddress.fromString(validator),
@@ -219,7 +219,7 @@ describe('SlasherClient', () => {
       {
         validator: EthAddress.random(),
         amount: depositAmount,
-        offense: Offence.UNKNOWN,
+        offense: Offense.UNKNOWN,
       },
     ]);
 
@@ -239,7 +239,7 @@ describe('SlasherClient', () => {
       {
         validator: EthAddress.random(),
         amount: depositAmount,
-        offense: Offence.UNKNOWN,
+        offense: Offense.UNKNOWN,
       },
     ]);
 
@@ -263,7 +263,7 @@ describe('SlasherClient', () => {
       {
         validator: EthAddress.random(),
         amount: depositAmount,
-        offense: Offence.UNKNOWN,
+        offense: Offense.UNKNOWN,
       },
     ]);
 
@@ -279,17 +279,17 @@ describe('SlasherClient', () => {
       {
         validator: EthAddress.fromString('0x0000000000000000000000000000000000000003'),
         amount: 100n,
-        offense: Offence.UNKNOWN,
+        offense: Offense.UNKNOWN,
       },
       {
         validator: EthAddress.fromString('0x0000000000000000000000000000000000000001'),
         amount: 200n,
-        offense: Offence.EPOCH_PRUNE,
+        offense: Offense.EPOCH_PRUNE,
       },
       {
         validator: EthAddress.fromString('0x0000000000000000000000000000000000000002'),
         amount: 300n,
-        offense: Offence.INACTIVITY,
+        offense: Offense.INACTIVITY,
       },
     ]);
 
@@ -302,7 +302,7 @@ describe('SlasherClient', () => {
       EthAddress.fromString('0x0000000000000000000000000000000000000002'),
       EthAddress.fromString('0x0000000000000000000000000000000000000003'),
     ]);
-    expect(payloadActions[0].offenses).toEqual([Offence.EPOCH_PRUNE, Offence.INACTIVITY, Offence.UNKNOWN]);
+    expect(payloadActions[0].offenses).toEqual([Offense.EPOCH_PRUNE, Offense.INACTIVITY, Offense.UNKNOWN]);
     expect(payloadActions[0].amounts).toEqual([200n, 300n, 100n]);
   });
 
@@ -321,7 +321,7 @@ describe('SlasherClient', () => {
       {
         validator,
         amount: depositAmount,
-        offense: Offence.UNKNOWN,
+        offense: Offense.UNKNOWN,
       },
     ]);
 
@@ -332,7 +332,7 @@ describe('SlasherClient', () => {
       {
         validator,
         amount: depositAmount,
-        offense: Offence.UNKNOWN,
+        offense: Offense.UNKNOWN,
       },
     ]);
 
@@ -341,13 +341,13 @@ describe('SlasherClient', () => {
     expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
     expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
-    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offence.UNKNOWN]);
+    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
 
     dummyWatcher.triggerSlash([
       {
         validator,
         amount: depositAmount,
-        offense: Offence.UNKNOWN,
+        offense: Offense.UNKNOWN,
       },
     ]);
 
@@ -359,7 +359,7 @@ describe('SlasherClient', () => {
     expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
     expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
-    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offence.UNKNOWN]);
+    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
   });
 
   function awaitNonEmptyMonitoredPayloads(slasherClient: SlasherClient) {

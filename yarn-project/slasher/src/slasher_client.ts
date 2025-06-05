@@ -21,19 +21,19 @@ import {
 } from 'viem';
 
 import {
-  Offence,
+  Offense,
   type SlasherConfig,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
-  bigIntToOffence,
+  bigIntToOffense,
 } from './config.js';
 
 type MonitoredSlashPayload = {
   payloadAddress: EthAddress;
   validators: readonly EthAddress[];
   amounts: readonly bigint[];
-  offenses: readonly Offence[];
+  offenses: readonly Offense[];
   observedAtSeconds: number;
   totalAmount: bigint;
 };
@@ -45,9 +45,9 @@ type MonitoredSlashPayload = {
  *
  * How it works:
  *
- * The constructor accepts instances of Watcher classes that correspond to specific offences. These "watchers" do two things:
- * - watch for their offence conditions and emit an event when they are detected
- * - confirm/deny whether they agree with a proposed offence
+ * The constructor accepts instances of Watcher classes that correspond to specific offenses. These "watchers" do two things:
+ * - watch for their offense conditions and emit an event when they are detected
+ * - confirm/deny whether they agree with a proposed offense
  *
  * The SlasherClient class is responsible for:
  * - listening for events from the watchers and creating a corresponding payload
@@ -247,7 +247,7 @@ export class SlasherClient {
           payloadAddress: address.toString(),
           validators: sortedArgs.map(a => a.validator.toString()),
           amounts: sortedArgs.map(a => a.amount),
-          offences: sortedArgs.map(a => BigInt(a.offense)),
+          offenses: sortedArgs.map(a => BigInt(a.offense)),
         });
         if (!payload) {
           this.log.error('Invalid payload', { address, salt });
@@ -316,14 +316,14 @@ export class SlasherClient {
   private slashPayloadToMonitoredPayload(
     payload: GetContractEventsReturnType<typeof SlashFactoryAbi, 'SlashPayloadCreated'>[number]['args'],
   ): MonitoredSlashPayload | undefined {
-    if (!payload.payloadAddress || !payload.validators || !payload.amounts || !payload.offences) {
+    if (!payload.payloadAddress || !payload.validators || !payload.amounts || !payload.offenses) {
       return undefined;
     }
     return {
       payloadAddress: EthAddress.fromString(payload.payloadAddress),
       validators: payload.validators.map(EthAddress.fromString),
       amounts: payload.amounts,
-      offenses: payload.offences.map(offense => bigIntToOffence(offense)),
+      offenses: payload.offenses.map(offense => bigIntToOffense(offense)),
       observedAtSeconds: this.dateProvider.now() / 1000,
       totalAmount: payload.amounts.reduce((acc, amount) => acc + amount, BigInt(0)),
     };

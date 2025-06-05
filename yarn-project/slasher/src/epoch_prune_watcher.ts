@@ -10,7 +10,7 @@ import {
 import EventEmitter from 'node:events';
 import type { Hex } from 'viem';
 
-import { Offence, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './config.js';
+import { Offense, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './config.js';
 
 export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   private log: Logger = createLogger('epoch-prune-watcher');
@@ -82,7 +82,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     return validators.map(v => ({
       validator: EthAddress.fromString(v),
       amount: this.penalty,
-      offense: Offence.EPOCH_PRUNE,
+      offense: Offense.EPOCH_PRUNE,
     }));
   }
 
