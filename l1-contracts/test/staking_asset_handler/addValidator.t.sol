@@ -157,13 +157,17 @@ contract AddValidatorTest is StakingAssetHandlerBase {
   function test_GivenTheDepositCallFails(
     address _caller,
     address _attester,
-    address _secondAttester
+    address _secondAttester,
+    address _thirdAttester
   ) external whenCallerIsNotUnhinged(_caller) {
     // it deposits into the rollup
     // it does not revert if the deposit call fails
-    // it emits a {ValidatorAdded} event
+    // it emits a {ValidatorAdded} event for the first attester
+    // it emits a {ValidatorAdded} event for the third attester
 
-    vm.assume(_attester != address(0) && _secondAttester != address(0));
+    vm.assume(
+      _attester != address(0) && _secondAttester != address(0) && _thirdAttester != address(0)
+    );
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval + mintInterval;
     vm.warp(revertTimestamp);
 
@@ -176,17 +180,24 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.prank(_caller);
     stakingAssetHandler.addValidator(_attester);
 
-    // later we will mock that this deposit call fails, with a swapped attester and proposer
+    // later we will mock that this deposit call fails
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_secondAttester);
     vm.prank(_caller);
     stakingAssetHandler.addValidator(_secondAttester);
+
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.AddedToQueue(_thirdAttester);
+    vm.prank(_caller);
+    stakingAssetHandler.addValidator(_thirdAttester);
 
     // Expected successful events
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * _depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), _thirdAttester, WITHDRAWER);
 
     // Mock that the second add validator call will fail
     vm.mockCallRevert(
@@ -207,5 +218,11 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     // Check that the _secondAttester is not added
     AttesterView memory secondAttesterView = staking.getAttesterView(_secondAttester);
     assertTrue(secondAttesterView.status == Status.NONE);
+
+    // Check that the _thirdAttester is added
+    AttesterView memory thirdAttesterView = staking.getAttesterView(_thirdAttester);
+    assertEq(thirdAttesterView.config.withdrawer, WITHDRAWER);
+    assertEq(thirdAttesterView.effectiveBalance, MINIMUM_STAKE);
+    assertTrue(thirdAttesterView.status == Status.VALIDATING);
   }
 }

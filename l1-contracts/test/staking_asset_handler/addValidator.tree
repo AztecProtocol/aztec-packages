@@ -20,5 +20,7 @@ AddValidatorTest
     └── given the deposit call fails
             ├── it deposits into the rollup
             ├── it does not revert if the deposit call fails
-            └── it emits a {ValidatorAdded} event
+            ├──  it emits a {ValidatorAdded} event for the first attester
+            └── it emits a {ValidatorAdded} event for the third attester
+
 
