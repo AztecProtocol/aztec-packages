@@ -1289,18 +1289,69 @@ bitwise.start {bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic};
 (1 - last) * (state_in_44' - state_chi_44) = 0;
 
 //#############################################################################
-//                  Read-Write to memory slice
+//                  Read-Write to memory slice and error handling
 //#############################################################################
 pol commit src_addr;
 pol commit dst_addr;
-pol commit tag_error;
+pol commit tag_error; // Constrained to be boolean in keccak_memory.pil
+pol commit src_out_of_range_error;
+pol commit dst_out_of_range_error;
+pol commit error;
+
+// Note that errors are only relevant at row where start == 1.
+// On the other rows, they are underconstrained.
+
+#[SRC_OUT_OF_RANGE_ERROR_BOOLEAN]
+src_out_of_range_error * (1 - src_out_of_range_error) = 0;
+#[DST_OUT_OF_RANGE_ERROR_BOOLEAN]
+dst_out_of_range_error * (1 - dst_out_of_range_error) = 0;
+
+// start == 1 ==> [src_out_of_range_error == 1 && src_addr > 2^32 - 25]
+pol commit src_abs_diff;
+#[SRC_OUT_OF_RANGE_TOGGLE]
+src_abs_diff = start * ((2 * src_out_of_range_error - 1) * (src_addr - 2**32 + 25) - src_out_of_range_error);
+
+// start == 1 ==> [dst_out_of_range_error == 1 && dst_addr > 2^32 - 25]
+pol commit dst_abs_diff;
+#[DST_OUT_OF_RANGE_TOGGLE]
+dst_abs_diff = start * ((2 * dst_out_of_range_error - 1) * (dst_addr - 2**32 + 25) - dst_out_of_range_error);
+
+// TODO: remove this column when we support constants in lookup tuples.
+pol commit thirty_two;
+sel * (thirty_two - 32) = 0;
+
+#[SRC_ABS_DIFF_POSITIVE]
+start { src_abs_diff, thirty_two} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+#[DST_ABS_DIFF_POSITIVE]
+start { dst_abs_diff, thirty_two} in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+// error = src_out_of_range_error || dst_out_of_range_error || tag_error
+// boolean by definition
+// Even though tag_error is constrained to be boolean in keccak_memory.pil,
+// there is no read/write slice permutation whenever src_out_of_range_error == 1
+// or dst_out_of_range_error == 1. In this case, tag_error could take any value.
+// It does not affect the value of error though.
+#[ERROR]
+error = 1 - (1 - src_out_of_range_error) * (1 - dst_out_of_range_error) * (1 - tag_error);
 
 #[DST_ADDR_PROPAGATION]
 (1 - last) * (dst_addr' - dst_addr) = 0;
 
+// We disable slice read and write whenever the read or write slice is out of range.
+// This means that state_in_ij's on start row are completely unconstrained. This does not
+// matter as we return an error anyway. In this case, witness generation will fill these
+// values with zeros.
+pol commit sel_slice_read;
+pol commit sel_slice_write;
+#[SEL_SLICE_READ]
+sel_slice_read = start * (1 - src_out_of_range_error) * (1 - dst_out_of_range_error);
+#[SEL_SLICE_WRITE]
+sel_slice_write = sel * last * (1 - src_out_of_range_error) * (1 - dst_out_of_range_error);
+
 // rw boolean is set to last as we have the guarantee that start == 1 ==> last == 0.
 #[READ_TO_SLICE]
-start {state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
+sel_slice_read {state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
        state_in_10, state_in_11, state_in_12, state_in_13, state_in_14,
        state_in_20, state_in_21, state_in_22, state_in_23, state_in_24,
        state_in_30, state_in_31, state_in_32, state_in_33, state_in_34,
@@ -1316,7 +1367,7 @@ keccak_memory.start {keccak_memory.val00, keccak_memory.val01, keccak_memory.val
 
 // rw boolean is set to last as we have the guarantee that last == 1 here.
 #[WRITE_TO_SLICE]
-last {state_iota_00, state_chi_01, state_chi_02, state_chi_03, state_chi_04,
+sel_slice_write {state_iota_00, state_chi_01, state_chi_02, state_chi_03, state_chi_04,
       state_chi_10,  state_chi_11, state_chi_12, state_chi_13, state_chi_14,
       state_chi_20,  state_chi_21, state_chi_22, state_chi_23, state_chi_24,
       state_chi_30,  state_chi_31, state_chi_32, state_chi_33, state_chi_34,
