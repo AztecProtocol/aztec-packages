@@ -30,6 +30,11 @@ struct KeccakF1600Event {
     uint32_t space_id;
     KeccakF1600StateMemValues src_mem_values;
     std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds;
+    bool dst_out_of_range = false;
+    bool src_out_of_range = false;
+    MemoryAddress dst_abs_diff;
+    MemoryAddress src_abs_diff;
+    bool tag_error = false;
 };
 
 } // namespace bb::avm2::simulation

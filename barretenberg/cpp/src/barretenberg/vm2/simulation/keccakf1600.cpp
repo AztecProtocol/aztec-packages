@@ -58,25 +58,53 @@ template <size_t N> std::array<uint64_t, N> array_to_uint64(const std::array<Mem
  */
 void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
 {
+    // We need to perform two range checks to determine whether dst_addr and src_addr correspond to
+    // a memory slice which is out-of-range. This is a clear circuit leakage into simulation.
+    bool src_out_of_range = src_addr > HIGHEST_MEM_ADDRESS - 24;
+    bool dst_out_of_range = dst_addr > HIGHEST_MEM_ADDRESS - 24;
+
+    MemoryAddress src_abs_diff =
+        src_out_of_range ? src_addr - HIGHEST_MEM_ADDRESS + 23 : HIGHEST_MEM_ADDRESS - 24 - src_addr;
+    MemoryAddress dst_abs_diff =
+        dst_out_of_range ? dst_addr - HIGHEST_MEM_ADDRESS + 23 : HIGHEST_MEM_ADDRESS - 24 - dst_addr;
+
+    range_check.assert_range(src_abs_diff, MEMORY_NUM_BITS);
+    range_check.assert_range(dst_abs_diff, MEMORY_NUM_BITS);
+
+    const bool out_of_range = src_out_of_range || dst_out_of_range;
+
+    bool tag_error = false;
+    KeccakF1600StateMemValues state_input_values;
+    KeccakF1600StateMemValues src_mem_values;
+
     // We work with MemoryValue as this type is required for bitwise operations handled
     // by the bitwise sub-trace simulator. We continue by operating over Memory values and convert
     // them back only at the end (event emission).
     auto& memory = context.get_memory();
 
-    // Slice read
-    KeccakF1600StateMemValues state_input_values;
-    KeccakF1600StateMemValues src_mem_values;
-    for (size_t i = 0; i < 5; i++) {
-        for (size_t j = 0; j < 5; j++) {
-            src_mem_values[i][j] = memory.get(src_addr + static_cast<MemoryAddress>((i * 5) + j));
-            const bool tag_valid = src_mem_values[i][j].get_tag() == MemoryTag::U64;
-            // If there is a tag mismatch, we continue the whole simulation as we nevertheless
-            // build a full keccak permutation trace to satisfy constraints. We just replace
-            // the values with the wrong tag by zero.
-            state_input_values[i][j] = tag_valid ? src_mem_values[i][j] : MemoryValue::from<uint64_t>(0);
+    // If out_of_range is true, we not read slice and set state_input_values = 0.
+    if (out_of_range) {
+        // We read zero values into the state and do not read from memory.
+        for (size_t i = 0; i < 5; i++) {
+            for (size_t j = 0; j < 5; j++) {
+                state_input_values[i][j] = MemoryValue::from<uint64_t>(0);
+                src_mem_values[i][j] = MemoryValue::from<uint64_t>(0);
+            }
+        }
+    } else {
+        // Slice read
+        for (size_t i = 0; i < 5; i++) {
+            for (size_t j = 0; j < 5; j++) {
+                src_mem_values[i][j] = memory.get(src_addr + static_cast<MemoryAddress>((i * 5) + j));
+                const bool tag_valid = src_mem_values[i][j].get_tag() == MemoryTag::U64;
+                // If there is a tag mismatch, we continue the whole simulation as we nevertheless
+                // build a full keccak permutation trace to satisfy constraints. We just replace
+                // the values with the wrong tag by zero.
+                state_input_values[i][j] = tag_valid ? src_mem_values[i][j] : MemoryValue::from<uint64_t>(0);
+                tag_error = tag_error || !tag_valid;
+            }
         }
     }
-
     std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds_data;
 
     for (uint8_t round = 1; round <= AVM_KECCAKF1600_NUM_ROUNDS; round++) {
@@ -185,9 +213,11 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
     }
 
     // Slice write
-    for (size_t i = 0; i < 5; i++) {
-        for (size_t j = 0; j < 5; j++) {
-            memory.set(dst_addr + static_cast<MemoryAddress>((i * 5) + j), state_input_values[i][j]);
+    if (!out_of_range) {
+        for (size_t i = 0; i < 5; i++) {
+            for (size_t j = 0; j < 5; j++) {
+                memory.set(dst_addr + static_cast<MemoryAddress>((i * 5) + j), state_input_values[i][j]);
+            }
         }
     }
 
@@ -197,6 +227,11 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
         .space_id = memory.get_space_id(),
         .src_mem_values = src_mem_values,
         .rounds = rounds_data,
+        .dst_out_of_range = dst_out_of_range,
+        .src_out_of_range = src_out_of_range,
+        .dst_abs_diff = dst_abs_diff,
+        .src_abs_diff = src_abs_diff,
+        .tag_error = tag_error,
     });
 }
 

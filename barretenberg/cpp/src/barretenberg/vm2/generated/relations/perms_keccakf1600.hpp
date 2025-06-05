@@ -21,20 +21,21 @@ class perm_keccakf1600_read_to_slice_settings {
     constexpr static size_t COLUMNS_PER_SET = 28;
 
     // Columns using the Column enum.
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_start;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_slice_read;
     static constexpr Column DST_SELECTOR = Column::keccak_memory_start;
     static constexpr Column INVERSES = Column::perm_keccakf1600_read_to_slice_inv;
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.get(ColumnAndShifts::keccakf1600_start) == 1 || in.get(ColumnAndShifts::keccak_memory_start) == 1);
+        return (in.get(ColumnAndShifts::keccakf1600_sel_slice_read) == 1 ||
+                in.get(ColumnAndShifts::keccak_memory_start) == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
         return std::forward_as_tuple(in.get(ColumnAndShifts::perm_keccakf1600_read_to_slice_inv),
-                                     in.get(ColumnAndShifts::keccakf1600_start),
-                                     in.get(ColumnAndShifts::keccakf1600_start),
+                                     in.get(ColumnAndShifts::keccakf1600_sel_slice_read),
+                                     in.get(ColumnAndShifts::keccakf1600_sel_slice_read),
                                      in.get(ColumnAndShifts::keccak_memory_start),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_00),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_01),
@@ -97,8 +98,8 @@ class perm_keccakf1600_read_to_slice_settings {
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
         return std::forward_as_tuple(in.get(ColumnAndShifts::perm_keccakf1600_read_to_slice_inv),
-                                     in.get(ColumnAndShifts::keccakf1600_start),
-                                     in.get(ColumnAndShifts::keccakf1600_start),
+                                     in.get(ColumnAndShifts::keccakf1600_sel_slice_read),
+                                     in.get(ColumnAndShifts::keccakf1600_sel_slice_read),
                                      in.get(ColumnAndShifts::keccak_memory_start),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_00),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_01),
@@ -194,20 +195,21 @@ class perm_keccakf1600_write_to_slice_settings {
     constexpr static size_t COLUMNS_PER_SET = 27;
 
     // Columns using the Column enum.
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_last;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_slice_write;
     static constexpr Column DST_SELECTOR = Column::keccak_memory_start;
     static constexpr Column INVERSES = Column::perm_keccakf1600_write_to_slice_inv;
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.get(ColumnAndShifts::keccakf1600_last) == 1 || in.get(ColumnAndShifts::keccak_memory_start) == 1);
+        return (in.get(ColumnAndShifts::keccakf1600_sel_slice_write) == 1 ||
+                in.get(ColumnAndShifts::keccak_memory_start) == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
         return std::forward_as_tuple(in.get(ColumnAndShifts::perm_keccakf1600_write_to_slice_inv),
-                                     in.get(ColumnAndShifts::keccakf1600_last),
-                                     in.get(ColumnAndShifts::keccakf1600_last),
+                                     in.get(ColumnAndShifts::keccakf1600_sel_slice_write),
+                                     in.get(ColumnAndShifts::keccakf1600_sel_slice_write),
                                      in.get(ColumnAndShifts::keccak_memory_start),
                                      in.get(ColumnAndShifts::keccakf1600_state_iota_00),
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_01),
@@ -268,8 +270,8 @@ class perm_keccakf1600_write_to_slice_settings {
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
         return std::forward_as_tuple(in.get(ColumnAndShifts::perm_keccakf1600_write_to_slice_inv),
-                                     in.get(ColumnAndShifts::keccakf1600_last),
-                                     in.get(ColumnAndShifts::keccakf1600_last),
+                                     in.get(ColumnAndShifts::keccakf1600_sel_slice_write),
+                                     in.get(ColumnAndShifts::keccakf1600_sel_slice_write),
                                      in.get(ColumnAndShifts::keccak_memory_start),
                                      in.get(ColumnAndShifts::keccakf1600_state_iota_00),
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_01),

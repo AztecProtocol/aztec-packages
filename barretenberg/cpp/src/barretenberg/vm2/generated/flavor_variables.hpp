@@ -116,9 +116,10 @@ struct AvmFlavorVariables {
 =======
 >>>>>>> 209278ea42 (Remove dummy columns in keccak)
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 75;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 1728;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 1740;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 209;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -161,10 +162,25 @@ struct AvmFlavorVariables {
 =======
     static constexpr size_t NUM_ALL_ENTITIES = 2012;
 >>>>>>> 2df79011ef (Add permutations between keccak permutation and slice gadget)
+<<<<<<< HEAD
 >>>>>>> 2f900345fa (Add permutations between keccak permutation and slice gadget)
+<<<<<<< HEAD
 >>>>>>> c39ba6e655 (Add permutations between keccak permutation and slice gadget)
+<<<<<<< HEAD
 >>>>>>> c7041eda54 (Add permutations between keccak permutation and slice gadget)
+<<<<<<< HEAD
 >>>>>>> 922a8fb91a (Add permutations between keccak permutation and slice gadget)
+=======
+=======
+=======
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2024;
+>>>>>>> 58cdead42d (Add error handling for keccak gadget)
+>>>>>>> 92a719bd44 (Add error handling for keccak gadget)
+>>>>>>> 0b09ab172c (Add error handling for keccak gadget)
+>>>>>>> d429633777 (Add error handling for keccak gadget)
+>>>>>>> 2ba9d9fe70 (Add error handling for keccak gadget)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -288,8 +304,13 @@ struct AvmFlavorVariables {
 >>>>>>> cd68b98ec7 (Pil relations for keccak slice memory gadget)
 =======
         lookup_keccak_memory_slice_to_mem_relation<FF_>,
+<<<<<<< HEAD
 >>>>>>> 3e308602cf (Activate lookup to memory sub-trace)
+=======
+        lookup_keccakf1600_dst_abs_diff_positive_relation<FF_>,
+>>>>>>> 2ba9d9fe70 (Add error handling for keccak gadget)
         lookup_keccakf1600_round_cst_relation<FF_>,
+        lookup_keccakf1600_src_abs_diff_positive_relation<FF_>,
         lookup_keccakf1600_state_chi_00_relation<FF_>,
         lookup_keccakf1600_state_chi_01_relation<FF_>,
         lookup_keccakf1600_state_chi_02_relation<FF_>,

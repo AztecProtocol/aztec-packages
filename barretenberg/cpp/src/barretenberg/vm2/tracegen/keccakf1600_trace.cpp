@@ -480,14 +480,27 @@ void KeccakF1600TraceBuilder::process_permutation(
             trace.set(C::keccakf1600_bitwise_and_op_id, row, static_cast<uint8_t>(BitwiseOperation::AND));
             trace.set(C::keccakf1600_round, row, round_data.round);
             trace.set(C::keccakf1600_round_cst, row, simulation::keccak_round_constants[round_idx]);
+            trace.set(C::keccakf1600_thirty_two, row, MEMORY_NUM_BITS);
+
+            const bool out_of_range = event.src_out_of_range || event.dst_out_of_range;
 
             // Selectors start and last.
             // src_address required on first row
             if (round_data.round == 1) {
                 trace.set(C::keccakf1600_start, row, 1);
                 trace.set(C::keccakf1600_src_addr, row, event.src_addr);
+                trace.set(C::keccakf1600_src_out_of_range_error, row, event.src_out_of_range ? 1 : 0);
+                trace.set(C::keccakf1600_dst_out_of_range_error, row, event.dst_out_of_range ? 1 : 0);
+                trace.set(C::keccakf1600_src_abs_diff, row, event.src_abs_diff);
+                trace.set(C::keccakf1600_dst_abs_diff, row, event.dst_abs_diff);
+                trace.set(C::keccakf1600_tag_error, row, event.tag_error ? 1 : 0);
+                trace.set(C::keccakf1600_sel_slice_read, row, out_of_range ? 0 : 1);
+
+                const bool error = out_of_range || event.tag_error;
+                trace.set(C::keccakf1600_error, row, error ? 1 : 0);
             } else if (round_data.round == AVM_KECCAKF1600_NUM_ROUNDS) {
                 trace.set(C::keccakf1600_last, row, 1);
+                trace.set(C::keccakf1600_sel_slice_write, row, out_of_range ? 0 : 1);
             };
 
             // dst_address required at every row as we propagate
