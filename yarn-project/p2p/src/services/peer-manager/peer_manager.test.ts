@@ -11,12 +11,12 @@ import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 import { type ENR, SignableENR } from '@chainsafe/enr';
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
-import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
+import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import { multiaddr } from '@multiformats/multiaddr';
 
 import { getP2PDefaultConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
-import type { PubSubLibp2p } from '../../util.js';
+import { type PubSubLibp2p, createSecp256k1PeerId, createSecp256k1PrivateKey } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason } from '../reqresp/protocols/index.js';
 import { PeerManager } from './peer_manager.js';
@@ -66,8 +66,8 @@ describe('PeerManager', () => {
   });
 
   const createMockENR = async () => {
-    const peerId = await createSecp256k1PeerId();
-    const enr = SignableENR.createFromPeerId(peerId);
+    const privateKey = await createSecp256k1PrivateKey();
+    const enr = SignableENR.createFromPrivateKey(privateKey);
     // Add required TCP multiaddr
     enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
     return enr.toENR();
@@ -250,7 +250,7 @@ describe('PeerManager', () => {
 
     it('should include timed out peers in getPeers when includePending is true', async () => {
       const enr = await createMockENR();
-      const peerId = await enr.peerId();
+      const peerId = await enr.peerId;
       mockLibP2PNode.dial.mockRejectedValue(new Error('Connection failed'));
 
       // Fail three times to trigger timeout
@@ -267,8 +267,8 @@ describe('PeerManager', () => {
     it('should handle multiple peer discoveries and timeouts', async () => {
       const enr1 = await createMockENR();
       const enr2 = await createMockENR();
-      const peerId1 = await enr1.peerId();
-      const peerId2 = await enr2.peerId();
+      const peerId1 = await enr1.peerId;
+      const peerId2 = await enr2.peerId;
       mockLibP2PNode.dial.mockRejectedValue(new Error('Connection failed'));
 
       // Fail peer1 three times
@@ -775,8 +775,9 @@ describe('PeerManager', () => {
     });
 
     it('should initialize private peers from config', async () => {
-      const peerId = await createSecp256k1PeerId();
-      const enr = SignableENR.createFromPeerId(peerId);
+      const privateKey = await createSecp256k1PrivateKey();
+      const peerId = peerIdFromPrivateKey(privateKey);
+      const enr = SignableENR.createFromPrivateKey(privateKey);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
       const newPeerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [enr]);

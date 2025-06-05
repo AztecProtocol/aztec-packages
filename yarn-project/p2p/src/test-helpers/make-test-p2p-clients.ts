@@ -7,6 +7,8 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 
+import type { PrivateKey } from '@libp2p/interface';
+
 import { createP2PClient } from '../client/index.js';
 import type { P2PClient } from '../client/p2p_client.js';
 import type { P2PConfig } from '../config.js';
@@ -37,7 +39,7 @@ interface MakeTestP2PClientOptions {
  * @returns The created and already started client.
  */
 export async function makeAndStartTestP2PClient(
-  peerIdPrivateKey: string,
+  peerIdPrivateKey: PrivateKey,
   port: number,
   peers: string[],
   options: MakeTestP2PClientOptions,
@@ -57,7 +59,7 @@ export async function makeAndStartTestP2PClient(
  * @returns The created client.
  */
 export async function makeTestP2PClient(
-  peerIdPrivateKey: string,
+  peerIdPrivateKey: PrivateKey,
   port: number,
   peers: string[],
   {

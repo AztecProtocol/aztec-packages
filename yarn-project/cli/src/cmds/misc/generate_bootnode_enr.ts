@@ -1,4 +1,5 @@
 import type { LogFn } from '@aztec/foundation/log';
+import { privateKeyFromHex } from '@aztec/p2p';
 import { createBootnodeENRandPeerId } from '@aztec/p2p/enr';
 
 export async function generateEncodedBootnodeENR(
@@ -8,6 +9,6 @@ export async function generateEncodedBootnodeENR(
   l1ChainId: number,
   log: LogFn,
 ) {
-  const { enr } = await createBootnodeENRandPeerId(privateKey, p2pIp, p2pPort, l1ChainId);
+  const { enr } = await createBootnodeENRandPeerId(privateKeyFromHex(privateKey), p2pIp, p2pPort, l1ChainId);
   log(`ENR: ${enr.encodeTxt()}`);
 }

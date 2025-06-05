@@ -214,7 +214,7 @@ describe('p2p client integration', () => {
         })
       ).map(x => x.client);
       const [client1, client2] = clients;
-      const client2PeerId = await client2.getEnr()!.peerId();
+      const client2PeerId = await client2.getEnr()!.peerId;
 
       // Give the nodes time to discover each other
       await sleep(6000);
@@ -255,7 +255,7 @@ describe('p2p client integration', () => {
         })
       ).map(x => x.client);
       const [client1, client2] = clients;
-      const client2PeerId = (await client2.getEnr()?.peerId())!;
+      const client2PeerId = (await client2.getEnr()?.peerId)!;
 
       // Give the nodes time to discover each other
       await sleep(6000);

@@ -75,7 +75,6 @@
     "@aztec/stdlib": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@iarna/toml": "^2.2.5",
-    "@libp2p/peer-id-factory": "^3.0.4",
     "commander": "^12.1.0",
     "lodash.chunk": "^4.2.0",
     "lodash.groupby": "^4.6.0",
