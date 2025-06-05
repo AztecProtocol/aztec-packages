@@ -20,6 +20,8 @@ class LMDBCursor {
     ~LMDBCursor();
 
     MDB_cursor* underlying() const;
+    const MDB_dbi& underlying_db() const;
+    MDB_txn* underlying_tx() const;
 
     uint64_t id() const;
 

@@ -24,6 +24,16 @@ MDB_cursor* LMDBCursor::underlying() const
     return _cursor;
 }
 
+const MDB_dbi& LMDBCursor::underlying_db() const
+{
+    return _db->underlying();
+}
+
+MDB_txn* LMDBCursor::underlying_tx() const
+{
+    return _tx->underlying();
+}
+
 uint64_t LMDBCursor::id() const
 {
     return _id;

@@ -180,11 +180,13 @@ bool count_until_next(const LMDBCursor& cursor, const Key& targetKey, uint64_t& 
     count = 0;
     MDB_val dbKey;
     MDB_val dbVal;
-    Key currentKey;
+    MDB_val dbTargetKey;
+    dbTargetKey.mv_size = targetKey.size();
+    dbTargetKey.mv_data = (void*)targetKey.data();
     int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_GET_CURRENT);
     while (code == MDB_SUCCESS) {
-        copy_to_vector(dbKey, currentKey);
-        if (currentKey == targetKey) {
+        int result = mdb_cmp(cursor.underlying_tx(), cursor.underlying_db(), &dbKey, &dbTargetKey);
+        if ((result >= 0 && op == MDB_NEXT) || (result <= 0 && op == MDB_PREV)) {
             return false;
         }
         ++count;
@@ -239,14 +241,17 @@ bool count_until_next_dup(const LMDBCursor& cursor, const Key& targetKey, uint64
     MDB_val dbVal;
     Key currentKey;
     bool newKey = true;
+    MDB_val dbTargetKey;
+    dbTargetKey.mv_size = targetKey.size();
+    dbTargetKey.mv_data = (void*)targetKey.data();
 
     // ensure we are positioned at first data item of current key
     int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_FIRST_DUP);
     while (code == MDB_SUCCESS) {
         code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_GET_CURRENT);
         if (newKey) {
-            copy_to_vector(dbKey, currentKey);
-            if (currentKey == targetKey) {
+            int result = mdb_cmp(cursor.underlying_tx(), cursor.underlying_db(), &dbKey, &dbTargetKey);
+            if ((result >= 0 && op == MDB_NEXT_NODUP) || (result <= 0 && op == MDB_PREV_NODUP)) {
                 return false;
             }
             newKey = false;
