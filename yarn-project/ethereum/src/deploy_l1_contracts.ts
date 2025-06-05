@@ -573,6 +573,7 @@ export const deployRollup = async (
 
   const rollupContract = new RollupContract(extendedClient, rollupAddress);
 
+  await deployer.waitForDeployments();
   // Debug the rollup state immediately after deployment
   logger.info(`=== ROLLUP STATE DEBUG AFTER DEPLOYMENT ===`);
   try {
@@ -589,7 +590,6 @@ export const deployRollup = async (
   }
   logger.info(`=== END ROLLUP STATE DEBUG AFTER DEPLOYMENT ===`);
 
-  await deployer.waitForDeployments();
   logger.verbose(`All core contracts have been deployed`);
 
   // Debug the rollup state after waiting for deployments
@@ -717,6 +717,7 @@ export const deployRollup = async (
         deployer,
         rollupAddress.toString(),
         addresses.stakingAssetAddress.toString(),
+        addresses.gseAddress.toString(),
         args.initialValidators,
         args.acceleratedTestDeployments,
         logger,
@@ -821,6 +822,7 @@ export const addMultipleValidators = async (
   deployer: L1Deployer,
   rollupAddress: Hex,
   stakingAssetAddress: Hex,
+  gseAddress: Hex,
   validators: Operator[],
   acceleratedTestDeployments: boolean | undefined,
   logger: Logger,
@@ -935,6 +937,11 @@ export const addMultipleValidators = async (
         );
       }
 
+      if (gseFromRollup!.toLowerCase() !== gseAddress.toLowerCase()) {
+        logger.error(`❌ Rollup GSE mismatch: expected ${gseAddress}, got ${gseFromRollup}`);
+        throw new Error(`Rollup GSE mismatch: expected ${gseAddress}, got ${gseFromRollup}`);
+      }
+
       logger.info(
         `✅ Rollup initialization verified with staking asset: ${stakingAssetFromRollup} and GSE: ${gseFromRollup}`,
       );
@@ -957,26 +964,18 @@ export const addMultipleValidators = async (
       logger.info(`Total stake needed: ${stakeNeeded.toString()}`);
 
       logger.info(`Minting ${stakeNeeded.toString()} tokens to MultiAdder...`);
-      const mintResults = await Promise.all(
-        [
-          await deployer.sendTransaction({
-            to: stakingAssetAddress,
-            data: encodeFunctionData({
-              abi: l1Artifacts.stakingAsset.contractAbi,
-              functionName: 'mint',
-              args: [multiAdder.toString(), stakeNeeded],
-            }),
-          }),
-        ].map(tx => {
-          logger.info(`Waiting for mint transaction: ${tx.txHash}`);
-          return extendedClient.waitForTransactionReceipt({ hash: tx.txHash });
-        }),
-      );
 
-      logger.info(`Mint transactions completed: ${mintResults.length}`);
-      mintResults.forEach((receipt, i) => {
-        logger.verbose(`Mint receipt ${i}: block ${receipt.blockNumber}, status ${receipt.status}`);
+      const mintResults = await deployer.sendTransaction({
+        to: stakingAssetAddress,
+        data: encodeFunctionData({
+          abi: l1Artifacts.stakingAsset.contractAbi,
+          functionName: 'mint',
+          args: [multiAdder.toString(), stakeNeeded],
+        }),
       });
+      const receipt = await extendedClient.waitForTransactionReceipt({ hash: mintResults.txHash });
+
+      logger.verbose(`Mint receipt: block ${receipt.blockNumber}, status ${receipt.status}`);
 
       logger.info(`Calling addValidators on MultiAdder...`);
       const addValidatorsTxHash = await deployer.client.writeContract({
