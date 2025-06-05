@@ -115,12 +115,6 @@ describe('full_prover', () => {
       await expect(t.circuitProofVerifier?.verifyProof(publicProvenTx)).resolves.not.toThrow();
       await expect(t.circuitProofVerifier?.verifyProof(privateProvenTx)).resolves.not.toThrow();
 
-      // TODO: Remove this check when the AVM is enabled on ARM.
-      if (process.env.DISABLE_AZTEC_VM === '1') {
-        logger.warn(`Ending test early and not sending txs because AVM is disabled, so they can't be proven.`);
-        return;
-      }
-
       // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
       // and we have more than one block in the epoch we end up proving
       logger.info(`Sending private tx`);
@@ -297,12 +291,6 @@ describe('full_prover', () => {
   it(
     'should prevent large influxes of txs with invalid proofs from causing ddos attacks',
     async () => {
-      // TODO: Remove this check when the AVM is enabled on ARM.
-      if (process.env.DISABLE_AZTEC_VM === '1') {
-        logger.warn(`Ending test early and not sending txs because AVM is disabled, so they can't be proven.`);
-        return;
-      }
-
       if (!REAL_PROOFS) {
         t.logger.warn(`Skipping test with fake proofs`);
         return;

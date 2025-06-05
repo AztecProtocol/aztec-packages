@@ -3,9 +3,9 @@ import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { AvmProvingTester, describeUnlessAvmDisabled } from './avm_proving_tester.js';
+import { AvmProvingTester } from './avm_proving_tester.js';
 
-describeUnlessAvmDisabled('AVM bulk test', () => {
+describe('AVM bulk test', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;

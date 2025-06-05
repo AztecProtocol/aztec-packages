@@ -10,8 +10,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-// WARNING: when re-enabled, if AVM is still disabled for ARM, use describeUnlessAvmDisabled
-describe.skip('AVM Witgen & Circuit apps tests: TokenContract', () => {
+describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
   jest.setTimeout(TIMEOUT);
   const admin = AztecAddress.fromNumber(42);
   const sender = AztecAddress.fromNumber(111);
@@ -41,7 +40,7 @@ describe.skip('AVM Witgen & Circuit apps tests: TokenContract', () => {
     );
   });
 
-  it('token mint, transfer, burn', async () => {
+  it.skip('token mint, transfer, burn', async () => {
     const mintAmount = 100n;
     const transferAmount = 50n;
     const nonce = new Fr(0);

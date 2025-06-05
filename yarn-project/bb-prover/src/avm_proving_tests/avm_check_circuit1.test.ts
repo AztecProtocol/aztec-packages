@@ -14,7 +14,6 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-// WARNING: when re-enabled, if AVM is still disabled for ARM, use describeUnlessAvmDisabled
 describe.skip('AVM WitGen & Circuit – check circuit', () => {
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;

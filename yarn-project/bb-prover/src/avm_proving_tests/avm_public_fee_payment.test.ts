@@ -7,8 +7,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-// WARNING: when re-enabled, if AVM is still disabled for ARM, use describeUnlessAvmDisabled
-describe.skip('AVM WitGen & Circuit – public fee payment', () => {
+describe('AVM WitGen & Circuit – public fee payment', () => {
   const sender = AztecAddress.fromNumber(42);
   const feePayer = sender;
 
@@ -28,7 +27,7 @@ describe.skip('AVM WitGen & Circuit – public fee payment', () => {
       AvmTestContractArtifact,
     );
   });
-  it(
+  it.skip(
     'fee payment',
     async () => {
       await tester.simProveVerify(

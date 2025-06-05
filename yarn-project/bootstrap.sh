@@ -111,6 +111,11 @@ function test_cmds {
   # kv-store: Uses mocha so will need different treatment.
   # noir-bb-bench: A slow pain. Figure out later.
   for test in !(end-to-end|kv-store|noir-bb-bench|aztec)/src/**/*.test.ts; do
+    # If DISABLE_AZTEC_VM, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
+    if [[ "${DISABLE_AZTEC_VM:-0}" -eq 1 && "$test" =~ (avm_proving_tests|avm_integration) ]]; then
+      continue
+    fi
+
     local prefix=$hash
     local cmd_env=""
 

@@ -11,9 +11,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 const TIMEOUT = 300_000;
 const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
 
-// TODO(dbanks12): add tester support for authwit and finish implementing this test
-// WARNING: when re-enabled, if AVM is still disabled for ARM, use describeUnlessAvmDisabled
-describe.skip('AVM Witgen & Circuit apps tests: AMM', () => {
+describe('AVM Witgen & Circuit apps tests: AMM', () => {
   jest.setTimeout(TIMEOUT);
   const admin = AztecAddress.fromNumber(42);
   const liquidityProvider = AztecAddress.fromNumber(111);
@@ -30,7 +28,8 @@ describe.skip('AVM Witgen & Circuit apps tests: AMM', () => {
     tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
   });
 
-  it('amm operations', async () => {
+  // TODO(dbanks12): add tester support for authwit and finish implementing this test
+  it.skip('amm operations', async () => {
     token0 = await deployToken(/*seed=*/ 0);
     token1 = await deployToken(/*seed=*/ 1);
     liquidityToken = await deployToken(/*seed=*/ 2);
