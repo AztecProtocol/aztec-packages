@@ -56,5 +56,6 @@ TEST(stdlib_blake3s, test_too_large_input_plookup)
     std::vector<uint8_t> input_v(1025, 0);
 
     byte_array_plookup input_arr(&builder, input_v);
-    EXPECT_DEATH(stdlib::blake3s(input_arr), "ASSERTION");
+    EXPECT_DEATH(stdlib::blake3s(input_arr),
+                 "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
 }
