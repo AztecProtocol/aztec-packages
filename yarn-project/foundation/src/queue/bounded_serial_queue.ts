@@ -10,7 +10,10 @@ export class BoundedSerialQueue {
   private readonly queue = new SerialQueue();
   private semaphore: Semaphore;
 
-  constructor(maxQueueSize: number, private log = createLogger('foundation:bounded_serial_queue')) {
+  constructor(
+    maxQueueSize: number,
+    private log = createLogger('foundation:bounded_serial_queue'),
+  ) {
     this.semaphore = new Semaphore(maxQueueSize);
   }
 

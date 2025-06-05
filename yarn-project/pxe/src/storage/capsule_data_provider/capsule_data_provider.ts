@@ -75,23 +75,68 @@ export class CapsuleDataProvider implements DataProvider {
    * All operations are performed in a single transaction.
    * @param contractAddress - The contract address that owns the capsule array
    * @param baseSlot - The slot where the array length is stored
-   * @param capsules - Array of capsule data to append
+   * @param content - Array of capsule data to append
    */
-  appendToCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, capsules: Fr[][]): Promise<void> {
+  appendToCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][]): Promise<void> {
     return this.#store.transactionAsync(async () => {
       // Load current length, defaulting to 0 if not found
       const lengthData = await this.loadCapsule(contractAddress, baseSlot);
-      const currentLength = lengthData ? lengthData[0].toBigInt() : 0n;
+      const currentLength = lengthData ? lengthData[0].toNumber() : 0;
 
       // Store each capsule at consecutive slots after baseSlot + 1 + currentLength
-      for (let i = 0; i < capsules.length; i++) {
-        const nextSlot = baseSlot.add(new Fr(1)).add(new Fr(currentLength + BigInt(i)));
-        await this.storeCapsule(contractAddress, nextSlot, capsules[i]);
+      for (let i = 0; i < content.length; i++) {
+        const nextSlot = arraySlot(baseSlot, currentLength + i);
+        await this.storeCapsule(contractAddress, nextSlot, content[i]);
       }
 
       // Update length to include all new capsules
-      const newLength = currentLength + BigInt(capsules.length);
+      const newLength = currentLength + content.length;
       await this.storeCapsule(contractAddress, baseSlot, [new Fr(newLength)]);
+    });
+  }
+
+  readCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr): Promise<Fr[][]> {
+    return this.#store.transactionAsync(async () => {
+      // Load length, defaulting to 0 if not found
+      const maybeLength = await this.loadCapsule(contractAddress, baseSlot);
+      const length = maybeLength ? maybeLength[0].toBigInt() : 0n;
+
+      const values: Fr[][] = [];
+
+      // Read each capsule at consecutive slots after baseSlot
+      for (let i = 0; i < length; i++) {
+        const currentValue = await this.loadCapsule(contractAddress, arraySlot(baseSlot, i));
+        if (currentValue == undefined) {
+          throw new Error(
+            `Expected non-empty value at capsule array in base slot ${baseSlot} at index ${i} for contract ${contractAddress}`,
+          );
+        }
+
+        values.push(currentValue);
+      }
+
+      return values;
+    });
+  }
+
+  resetCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][]) {
+    return this.#store.transactionAsync(async () => {
+      // Load current length, defaulting to 0 if not found
+      const maybeLength = await this.loadCapsule(contractAddress, baseSlot);
+      const originalLength = maybeLength ? maybeLength[0].toNumber() : 0;
+
+      // Set the new length
+      await this.storeCapsule(contractAddress, baseSlot, [new Fr(content.length)]);
+
+      // Store the new content, possibly overwriting existing values
+      for (let i = 0; i < content.length; i++) {
+        await this.storeCapsule(contractAddress, arraySlot(baseSlot, i), content[i]);
+      }
+
+      // Clear any stragglers
+      for (let i = content.length; i < originalLength; i++) {
+        await this.deleteCapsule(contractAddress, arraySlot(baseSlot, i));
+      }
     });
   }
 
@@ -105,4 +150,8 @@ export class CapsuleDataProvider implements DataProvider {
 
 function dbSlotToKey(contractAddress: AztecAddress, slot: Fr): string {
   return `${contractAddress.toString()}:${slot.toString()}`;
+}
+
+function arraySlot(baseSlot: Fr, index: number) {
+  return baseSlot.add(new Fr(1)).add(new Fr(index));
 }

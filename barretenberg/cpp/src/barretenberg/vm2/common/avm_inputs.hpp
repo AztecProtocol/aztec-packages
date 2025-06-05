@@ -31,7 +31,9 @@ struct PublicInputs {
     TreeSnapshots startTreeSnapshots;
     Gas startGasUsed;
     GasSettings gasSettings;
+    GasFees effectiveGasFees;
     AztecAddress feePayer;
+    PublicCallRequestArrayLengths publicCallRequestArrayLengths;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests;
     PublicCallRequest publicTeardownCallRequest;
@@ -43,6 +45,7 @@ struct PublicInputs {
     // Outputs
     TreeSnapshots endTreeSnapshots;
     Gas endGasUsed;
+    AvmAccumulatedDataArrayLengths accumulatedDataArrayLengths;
     AvmAccumulatedData accumulatedData;
     FF transactionFee;
     bool reverted;
@@ -86,7 +89,9 @@ struct PublicInputs {
                    startTreeSnapshots,
                    startGasUsed,
                    gasSettings,
+                   effectiveGasFees,
                    feePayer,
+                   publicCallRequestArrayLengths,
                    publicSetupCallRequests,
                    publicAppLogicCallRequests,
                    publicTeardownCallRequest,
@@ -96,6 +101,7 @@ struct PublicInputs {
                    previousRevertibleAccumulatedData,
                    endTreeSnapshots,
                    endGasUsed,
+                   accumulatedDataArrayLengths,
                    accumulatedData,
                    transactionFee,
                    reverted);
@@ -289,10 +295,11 @@ struct AccumulatedData {
     // TODO: add as needed.
     std::vector<FF> noteHashes;
     std::vector<FF> nullifiers;
+    std::vector<ScopedL2ToL1Message> l2ToL1Messages;
 
     bool operator==(const AccumulatedData& other) const = default;
 
-    MSGPACK_FIELDS(noteHashes, nullifiers);
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Messages);
 };
 
 // We are currently using this structure as the input to TX simulation.
@@ -300,21 +307,24 @@ struct AccumulatedData {
 struct Tx {
     std::string hash;
     GlobalVariables globalVariables;
+    GasSettings gasSettings;
     AccumulatedData nonRevertibleAccumulatedData;
     AccumulatedData revertibleAccumulatedData;
     std::vector<EnqueuedCallHint> setupEnqueuedCalls;
     std::vector<EnqueuedCallHint> appLogicEnqueuedCalls;
     std::optional<EnqueuedCallHint> teardownEnqueuedCall;
-
+    Gas gasUsedByPrivate;
     bool operator==(const Tx& other) const = default;
 
     MSGPACK_FIELDS(hash,
                    globalVariables,
+                   gasSettings,
                    nonRevertibleAccumulatedData,
                    revertibleAccumulatedData,
                    setupEnqueuedCalls,
                    appLogicEnqueuedCalls,
-                   teardownEnqueuedCall);
+                   teardownEnqueuedCall,
+                   gasUsedByPrivate);
 };
 
 struct ExecutionHints {

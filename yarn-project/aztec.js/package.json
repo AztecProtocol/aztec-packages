@@ -92,7 +92,7 @@
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
-    "@types/node": "^18.7.23",
+    "@types/node": "^22.15.17",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "jest": "^29.5.0",
@@ -102,7 +102,7 @@
     "stream-browserify": "^3.0.0",
     "ts-loader": "^9.4.4",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4",
+    "typescript": "^5.3.3",
     "util": "^0.12.5"
   },
   "files": [
@@ -112,6 +112,6 @@
   ],
   "types": "./dest/index.d.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

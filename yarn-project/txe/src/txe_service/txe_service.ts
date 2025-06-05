@@ -1,17 +1,17 @@
-import { type ContractInstanceWithAddress, Fr, Point, TxHash } from '@aztec/aztec.js';
+import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { enrichPublicSimulationError } from '@aztec/pxe/server';
-import type { TypedOracle } from '@aztec/simulator/client';
-import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import type { TypedOracle } from '@aztec/pxe/simulator';
+import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import { LogWithTxData } from '@aztec/stdlib/logs';
+import { PrivateLogWithTxData, PublicLogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -19,6 +19,7 @@ import {
   type ForeignCallArray,
   type ForeignCallSingle,
   addressFromSingle,
+  arrayOfArraysToBoundedVecOfArrays,
   arrayToBoundedVec,
   bufferToU8Array,
   fromArray,
@@ -35,7 +36,10 @@ import { ExpectedFailureError } from '../util/expected_failure_error.js';
 export class TXEService {
   public oraclesEnabled = true;
 
-  constructor(private logger: Logger, private typedOracle: TypedOracle) {}
+  constructor(
+    private logger: Logger,
+    private typedOracle: TypedOracle,
+  ) {}
 
   static async init(logger: Logger, protocolContracts: ProtocolContract[]) {
     logger.debug(`TXE service initialized`);
@@ -328,7 +332,8 @@ export class TXEService {
     limit: ForeignCallSingle,
     offset: ForeignCallSingle,
     status: ForeignCallSingle,
-    returnSize: ForeignCallSingle,
+    maxNotes: ForeignCallSingle,
+    packedRetrievedNoteLength: ForeignCallSingle,
   ) {
     if (!this.oraclesEnabled) {
       throw new Error(
@@ -352,32 +357,39 @@ export class TXEService {
       fromSingle(offset).toNumber(),
       fromSingle(status).toNumber(),
     );
-    const noteLength = noteDatas?.[0]?.note.items.length ?? 0;
-    if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
-      throw new Error('Notes should all be the same length.');
+
+    if (noteDatas.length > 0) {
+      const noteLength = noteDatas[0].note.items.length;
+      if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
+        throw new Error('Notes should all be the same length.');
+      }
     }
 
-    const contractAddress = noteDatas[0]?.contractAddress ?? Fr.ZERO;
+    // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
+    // array is structured as [contract_address, note_nonce, nonzero_note_hash_counter, ...packed_note].
 
-    // Values indicates whether the note is settled or transient.
-    const noteTypes = {
-      isSettled: new Fr(0),
-      isTransient: new Fr(1),
-    };
-    const flattenData = noteDatas.flatMap(({ nonce, note, index }) => [
-      nonce,
-      index === undefined ? noteTypes.isTransient : noteTypes.isSettled,
-      ...note.items,
-    ]);
+    const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, noteNonce, index, note }) => {
+      // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
+      const noteIsTransient = index === undefined;
+      const nonzeroNoteHashCounter = noteIsTransient ? true : false;
+      // If you change the array on the next line you have to change the `unpack_retrieved_note` function in
+      // `aztec/src/note/retrieved_note.nr`
+      return [contractAddress, noteNonce, nonzeroNoteHashCounter, ...note.items];
+    });
 
-    const returnFieldSize = fromSingle(returnSize).toNumber();
-    const returnData = [noteDatas.length, contractAddress.toField(), ...flattenData].map(v => new Fr(v));
-    if (returnData.length > returnFieldSize) {
-      throw new Error(`Return data size too big. Maximum ${returnFieldSize} fields. Got ${flattenData.length}.`);
-    }
+    // Now we convert each sub-array to an array of ForeignCallSingles
+    const returnDataAsArrayOfForeignCallSingleArrays = returnDataAsArrayOfArrays.map(subArray =>
+      subArray.map(toSingle),
+    );
 
-    const paddedZeros = Array(returnFieldSize - returnData.length).fill(new Fr(0));
-    return toForeignCallResult([toArray([...returnData, ...paddedZeros])]);
+    // At last we convert the array of arrays to a bounded vec of arrays
+    return toForeignCallResult(
+      arrayOfArraysToBoundedVecOfArrays(
+        returnDataAsArrayOfForeignCallSingleArrays,
+        fromSingle(maxNotes).toNumber(),
+        fromSingle(packedRetrievedNoteLength).toNumber(),
+      ),
+    );
   }
 
   notifyCreatedNote(
@@ -581,14 +593,16 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
+  public async notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    this.typedOracle.notifySetMinRevertibleSideEffectCounter(fromSingle(minRevertibleSideEffectCounter).toNumber());
+    await this.typedOracle.notifySetMinRevertibleSideEffectCounter(
+      fromSingle(minRevertibleSideEffectCounter).toNumber(),
+    );
     return toForeignCallResult([]);
   }
 
@@ -675,27 +689,21 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  async syncNotes(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
+  async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    await this.typedOracle.syncNotes(fromSingle(pendingTaggedLogArrayBaseSlot));
+    await this.typedOracle.fetchTaggedLogs(fromSingle(pendingTaggedLogArrayBaseSlot));
     return toForeignCallResult([]);
   }
 
-  public async deliverNote(
+  public async validateEnqueuedNotesAndEvents(
     contractAddress: ForeignCallSingle,
-    storageSlot: ForeignCallSingle,
-    nonce: ForeignCallSingle,
-    content: ForeignCallArray,
-    contentLength: ForeignCallSingle,
-    noteHash: ForeignCallSingle,
-    nullifier: ForeignCallSingle,
-    txHash: ForeignCallSingle,
-    recipient: ForeignCallSingle,
+    noteValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    eventValidationRequestsArrayBaseSlot: ForeignCallSingle,
   ) {
     if (!this.oraclesEnabled) {
       throw new Error(
@@ -703,32 +711,50 @@ export class TXEService {
       );
     }
 
-    await this.typedOracle.deliverNote(
+    await this.typedOracle.validateEnqueuedNotesAndEvents(
       AztecAddress.fromField(fromSingle(contractAddress)),
-      fromSingle(storageSlot),
-      fromSingle(nonce),
-      fromArray(content.slice(0, Number(BigInt(contentLength)))),
-      fromSingle(noteHash),
-      fromSingle(nullifier),
-      new TxHash(fromSingle(txHash)),
-      AztecAddress.fromField(fromSingle(recipient)),
+      fromSingle(noteValidationRequestsArrayBaseSlot),
+      fromSingle(eventValidationRequestsArrayBaseSlot),
     );
 
-    return toForeignCallResult([toSingle(Fr.ONE)]);
+    return toForeignCallResult([]);
   }
 
-  async getLogByTag(tag: ForeignCallSingle) {
+  async getPublicLogByTag(tag: ForeignCallSingle, contractAddress: ForeignCallSingle) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    // TODO(AD): this was warning that getLogByTag did not return a promise.
-    const log = await Promise.resolve(this.typedOracle.getLogByTag(fromSingle(tag)));
+    // TODO(AD): this was warning that getPublicLogByTag did not return a promise.
+    const log = await Promise.resolve(
+      this.typedOracle.getPublicLogByTag(fromSingle(tag), AztecAddress.fromField(fromSingle(contractAddress))),
+    );
 
     if (log == null) {
-      return toForeignCallResult([toSingle(Fr.ZERO), ...LogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray)]);
+      return toForeignCallResult([
+        toSingle(Fr.ZERO),
+        ...PublicLogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray),
+      ]);
+    } else {
+      return toForeignCallResult([toSingle(Fr.ONE), ...log.toNoirSerialization().map(toSingleOrArray)]);
+    }
+  }
+
+  async getPrivateLogByTag(siloedTag: ForeignCallSingle) {
+    if (!this.oraclesEnabled) {
+      throw new Error(
+        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+      );
+    }
+
+    const log = await this.typedOracle.getPrivateLogByTag(fromSingle(siloedTag));
+    if (log == null) {
+      return toForeignCallResult([
+        toSingle(Fr.ZERO),
+        ...PrivateLogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray),
+      ]);
     } else {
       return toForeignCallResult([toSingle(Fr.ONE), ...log.toNoirSerialization().map(toSingleOrArray)]);
     }
@@ -846,33 +872,6 @@ export class TXEService {
       Point.fromFields([fromSingle(ephPKField0), fromSingle(ephPKField1), fromSingle(ephPKField2)]),
     );
     return toForeignCallResult(secret.toFields().map(toSingle));
-  }
-
-  async storePrivateEventLog(
-    contractAddress: ForeignCallSingle,
-    recipient: ForeignCallSingle,
-    eventSelector: ForeignCallSingle,
-    logContent: ForeignCallArray,
-    txHash: ForeignCallSingle,
-    logIndexInTx: ForeignCallSingle,
-    txIndexInBlock: ForeignCallSingle,
-  ) {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
-    }
-
-    await this.typedOracle.storePrivateEventLog(
-      AztecAddress.fromField(fromSingle(contractAddress)),
-      AztecAddress.fromField(fromSingle(recipient)),
-      EventSelector.fromField(fromSingle(eventSelector)),
-      fromArray(logContent),
-      new TxHash(fromSingle(txHash)),
-      fromSingle(logIndexInTx).toNumber(),
-      fromSingle(txIndexInBlock).toNumber(),
-    );
-    return toForeignCallResult([]);
   }
 
   // AVM opcodes
@@ -1207,5 +1206,22 @@ export class TXEService {
     );
 
     return toForeignCallResult([toSingle(result)]);
+  }
+
+  async publicCallNewFlow(
+    from: ForeignCallSingle,
+    address: ForeignCallSingle,
+    _length: ForeignCallSingle,
+    calldata: ForeignCallArray,
+    isStaticCall: ForeignCallSingle,
+  ) {
+    const result = await (this.typedOracle as TXE).publicCallNewFlow(
+      addressFromSingle(from),
+      addressFromSingle(address),
+      fromArray(calldata),
+      fromSingle(isStaticCall).toBool(),
+    );
+
+    return toForeignCallResult([toArray([result.returnsHash, result.txHash])]);
   }
 }

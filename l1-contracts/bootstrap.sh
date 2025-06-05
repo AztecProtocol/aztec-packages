@@ -48,14 +48,17 @@ function build {
       --optimizer-runs 1 \
       --no-metadata
 
-    cache_upload $artifact out
+    cache_upload $artifact out generated
   fi
 }
 
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
+  echo "$hash cd l1-contracts && forge test"
+  if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" ]]; then
+    echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest"
+  fi
 }
 
 function test {
@@ -116,7 +119,6 @@ function gas_report {
     --match-contract "^RollupTest$" \
     --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)" \
     --fuzz-seed 42 \
-    --isolate \
     --json \
     > gas_report.new.tmp
   jq '.' gas_report.new.tmp > gas_report.new.json
@@ -131,11 +133,12 @@ function gas_report {
   mv gas_report.new.json gas_report.json
 }
 
+function bench_cmds {
+  echo "$hash l1-contracts/bootstrap.sh bench"
+}
+
 function bench {
   rm -rf bench-out && mkdir -p bench-out
-  if cache_download l1-gas-bench-results-$hash.tar.gz; then
-    return
-  fi
 
   # Run the gas benchmark to generate the markdown file
   gas_benchmark
@@ -203,14 +206,11 @@ function bench {
   }
   END {
     print "]";
-  }' gas_benchmark.md > ./bench-out/l1-gas-bench.json
-
-  cache_upload l1-gas-bench-results-$hash.tar.gz ./bench-out/l1-gas-bench.json
+  }' gas_benchmark.md > ./bench-out/l1-gas.bench.json
 }
 
 function gas_benchmark {
   check=${1:-"no"}
-  echo_header "Benchmarking gas"
 
   validator_costs
 
@@ -225,7 +225,6 @@ function gas_benchmark {
 }
 
 function validator_costs {
-  echo_header "Comparing gas costs with and without validators"
   forge --version
 
   # Run test without validators
@@ -234,7 +233,6 @@ function validator_costs {
     --match-contract "BenchmarkRollupTest" \
     --match-test "test_no_validators" \
     --fuzz-seed 42 \
-    --isolate \
     > no_validators.tmp
 
   # Run test with 100 validators
@@ -243,15 +241,14 @@ function validator_costs {
     --match-contract "BenchmarkRollupTest" \
     --match-test "test_100_validators" \
     --fuzz-seed 42 \
-    --isolate \
     > with_validators.tmp
 
   file_no="no_validators.tmp"          # without validators
   file_yes="with_validators.tmp"       # with    validators
-  report="gas_benchmark.new.md"       # will be overwritten each run
+  report="gas_benchmark.new.md"        # will be overwritten each run
 
   # keep ONLY these functions, in this order
-  wanted_funcs="forward setupEpoch submitEpochRootProof"
+  wanted_funcs="propose setupEpoch submitEpochRootProof"
 
   # one label per numeric column (use | to separate)
   labels='Min|Avg|Median|Max|# Calls'
@@ -313,7 +310,7 @@ function validator_costs {
   END{
       for (k = 1; k <= nf; k++) {
           fn = order[k]
-          div = (fn == "forward" ? 360 : 11520)   # change 11520→720 if desired
+          div = (fn == "propose" ? 360 : 11520)   # change 11520→720 if desired
 
           for (j = 1; j <= cols[fn]; j++) {
               idx    = j + 2
@@ -440,14 +437,11 @@ case "$cmd" in
     shift
     gas_benchmark "$@"
     ;;
-  test|test_cmds|inspect|release)
+  test|test_cmds|bench|bench_cmds|inspect|release)
     $cmd
     ;;
   "hash")
     echo $hash
-    ;;
-  "bench")
-    bench
     ;;
   *)
     echo "Unknown command: $cmd"

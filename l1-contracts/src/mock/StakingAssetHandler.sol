@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {IStaking, Status} from "@aztec/core/interfaces/IStaking.sol";
+import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -27,9 +27,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
  */
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
-  event ValidatorAdded(
-    address indexed _rollup, address indexed _attester, address _proposer, address _withdrawer
-  );
+  event ValidatorAdded(address indexed _rollup, address indexed _attester, address _withdrawer);
   event IntervalUpdated(uint256 _interval);
   event DepositsPerMintUpdated(uint256 _depositsPerMint);
   event WithdrawerUpdated(address indexed _withdrawer);
@@ -40,7 +38,7 @@ interface IStakingAssetHandler {
   error CannotMintZeroAmount();
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
 
-  function addValidator(address _attester, address _proposer) external;
+  function addValidator(address _attester) external;
   function setMintInterval(uint256 _interval) external;
   function setDepositsPerMint(uint256 _depositsPerMint) external;
   function setWithdrawer(address _withdrawer) external;
@@ -93,10 +91,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit UnhingedAdded(_owner);
   }
 
-  function addValidator(address _attester, address _proposer)
-    external
-    override(IStakingAssetHandler)
-  {
+  function addValidator(address _attester) external override(IStakingAssetHandler) {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
     uint256 depositAmount = rollup.getMinimumStake();
 
@@ -117,13 +112,13 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
 
     // If the attester is currently exiting, we finalize the exit for him.
-    if (rollup.getInfo(_attester).status == Status.EXITING) {
+    if (rollup.getExit(_attester).exists) {
       rollup.finaliseWithdraw(_attester);
     }
 
     STAKING_ASSET.approve(address(rollup), depositAmount);
-    rollup.deposit(_attester, _proposer, withdrawer, depositAmount);
-    emit ValidatorAdded(address(rollup), _attester, _proposer, withdrawer);
+    rollup.deposit(_attester, withdrawer, true);
+    emit ValidatorAdded(address(rollup), _attester, withdrawer);
   }
 
   function setMintInterval(uint256 _interval) external override(IStakingAssetHandler) onlyOwner {

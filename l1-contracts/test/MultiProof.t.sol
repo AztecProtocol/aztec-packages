@@ -24,6 +24,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 import {RollupBase, IInstance, IRollup} from "./base/RollupBase.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -138,6 +139,18 @@ contract MultiProofTest is RollupBase {
     assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 2, bob));
 
     assertEq(rollup.getProvenBlockNumber(), 2, "Block not proven");
+
+    {
+      // Ensure that we cannot claim rewards when not toggled yet
+      vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__RewardsNotClaimable.selector));
+      rollup.claimSequencerRewards(sequencer);
+
+      vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__RewardsNotClaimable.selector));
+      rollup.claimProverRewards(alice, new Epoch[](1));
+
+      vm.prank(Ownable(address(rollup)).owner());
+      rollup.setRewardsClaimable(true);
+    }
 
     {
       uint256 sequencerRewards = rollup.getSequencerRewards(sequencer);

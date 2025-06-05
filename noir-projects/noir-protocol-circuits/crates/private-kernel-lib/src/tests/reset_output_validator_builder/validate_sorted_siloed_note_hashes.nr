@@ -31,7 +31,7 @@ fn validate_sorted_siloed_note_hashes_unordered_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with = "incorrect siloed note hashes")]
+#[test(should_fail_with = "incorrect transformed value")]
 fn validate_sorted_siloed_note_hashes_mismatch_sorted_hash_fails() {
     let mut builder = ResetOutputValidatorBuilder::new_with_note_hash_siloing();
 
@@ -50,7 +50,7 @@ fn validate_sorted_siloed_note_hashes_mismatch_sorted_hash_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "unexpected non-empty item")]
+#[test(should_fail_with = "incorrect transformed value")]
 fn validate_sorted_siloed_note_hashes_extra_item_fails() {
     let mut builder = ResetOutputValidatorBuilder::new_with_note_hash_siloing();
 
@@ -74,6 +74,28 @@ fn validate_sorted_siloed_note_hashes_repeat_siloing_fails() {
     builder.previous_kernel.append_note_hashes(2);
 
     builder.output.append_siloed_note_hashes(3);
+
+    builder.validate();
+}
+
+/////////////////////////////
+// With padded note hashes.
+/////////////////////////////
+
+#[test]
+fn validate_sorted_siloed_note_hashes_with_padded_succeeds() {
+    let mut builder = ResetOutputValidatorBuilder::new_with_note_hash_siloing();
+
+    builder.previous_kernel.append_note_hashes(6);
+
+    // Pop the last two note hashes and use them as padded note hashes.
+    builder.padded_side_effects.note_hashes[5] =
+        builder.previous_kernel.note_hashes.pop().note_hash.value;
+    builder.padded_side_effects.note_hashes[4] =
+        builder.previous_kernel.note_hashes.pop().note_hash.value;
+
+    builder.output.append_siloed_note_hashes(4);
+    builder.output.append_padded_note_hashes(2);
 
     builder.validate();
 }

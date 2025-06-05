@@ -23,11 +23,11 @@ import { promises as fs } from 'fs';
 // TODO(#12613) This means of sharing test code is not ideal.
 // eslint-disable-next-line import/no-relative-packages
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { buildBlock } from '../block_builder/light.js';
+import { buildBlockWithCleanDB } from '../block-factory/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { TestBroker } from '../test/mock_prover.js';
-import { getEnvironmentConfig, getSimulationProvider, makeGlobals, updateExpectedTreesFromTxs } from './fixtures.js';
+import { getEnvironmentConfig, getSimulator, makeGlobals, updateExpectedTreesFromTxs } from './fixtures.js';
 
 export class TestContext {
   private headers: Map<number, BlockHeader> = new Map();
@@ -59,7 +59,7 @@ export class TestContext {
     logger: Logger,
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = async (bbConfig: BBProverConfig) =>
-      new TestCircuitProver(await getSimulationProvider(bbConfig, logger)),
+      new TestCircuitProver(await getSimulator(bbConfig, logger)),
     blockNumber = 1,
   ) {
     const directoriesToCleanup: string[] = [];
@@ -193,7 +193,7 @@ export class TestContext {
     );
     await this.setTreeRoots(txs);
 
-    const block = await buildBlock(txs, globalVariables, msgs, db);
+    const block = await buildBlockWithCleanDB(txs, globalVariables, msgs, db);
     this.headers.set(blockNum, block.header);
     await this.worldState.handleL2BlockAndMessages(block, msgs);
     return { block, txs, msgs };

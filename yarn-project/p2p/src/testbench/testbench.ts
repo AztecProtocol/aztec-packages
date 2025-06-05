@@ -21,7 +21,7 @@ async function main() {
     }
 
     const configPath = path.join(__dirname, '../../testbench/configurations', configFile);
-    const config = await import(configPath, { assert: { type: 'json' } });
+    const config = await import(configPath, { with: { type: 'json' } });
     const testConfig = { ...testChainConfig, ...config.default };
     const numberOfClients = config.default.numberOfClients;
 

@@ -12,7 +12,7 @@ import { mockTx } from '@aztec/stdlib/testing';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
-import { buildBlock } from '../block_builder/light.js';
+import { buildBlockWithCleanDB } from '../block-factory/light.js';
 import { makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
@@ -74,7 +74,7 @@ describe('prover/bb_prover/full-rollup', () => {
         await context.orchestrator.setBlockCompleted(blockNum);
 
         log.info(`Updating world state with new block`);
-        const block = await buildBlock(processed, globals, l1ToL2Messages, await context.worldState.fork());
+        const block = await buildBlockWithCleanDB(processed, globals, l1ToL2Messages, await context.worldState.fork());
         previousBlockHeader = block.header;
         await context.worldState.handleL2BlockAndMessages(block, l1ToL2Messages);
       }

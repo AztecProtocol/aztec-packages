@@ -9,7 +9,7 @@ import {
 import {
   type DeployL1ContractsReturnType,
   type L1ContractsConfig,
-  RegistryContract,
+  type Operator,
   RollupContract,
 } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
@@ -51,7 +51,7 @@ export async function deployAztecContracts(
   mnemonic: string,
   mnemonicIndex: number,
   salt: number | undefined,
-  initialValidators: EthAddress[],
+  initialValidators: Operator[],
   genesisArchiveRoot: Fr,
   feeJuicePortalInitialBalance: bigint,
   acceleratedTestDeployments: boolean,
@@ -95,7 +95,7 @@ export async function deployNewRollupContracts(
   mnemonic: string,
   mnemonicIndex: number,
   salt: number | undefined,
-  initialValidators: EthAddress[],
+  initialValidators: Operator[],
   genesisArchiveRoot: Fr,
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
@@ -112,9 +112,9 @@ export async function deployNewRollupContracts(
   const client = createExtendedL1Client(rpcUrls, account, chain.chainInfo, undefined, mnemonicIndex);
 
   if (!initialValidators || initialValidators.length === 0) {
-    const registry = new RegistryContract(client, registryAddress);
-    const rollup = new RollupContract(client, await registry.getCanonicalAddress());
-    initialValidators = (await rollup.getAttesters()).map(str => EthAddress.fromString(str));
+    // initialize the new rollup with Amin's validator address.
+    const amin = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
+    initialValidators = [{ attester: amin, withdrawer: amin }];
     logger.info('Initializing new rollup with old attesters', { initialValidators });
   }
 

@@ -179,6 +179,16 @@ export interface MerkleTreeReadOperations {
   ): Promise<(bigint | undefined)[]>;
 
   /**
+   * Returns the sibling paths for the given leaf values
+   * @param treeId - The tree for which the index should be returned.
+   * @param values - The values to search for in the tree.
+   */
+  findSiblingPaths<ID extends MerkleTreeId, N extends number>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+  ): Promise<(SiblingPath<N> | undefined)[]>;
+
+  /**
    * Returns the first index containing a leaf value after `startIndex`.
    * @param treeId - The tree for which the index should be returned.
    * @param value - The value to search for in the tree.
@@ -226,6 +236,16 @@ export interface MerkleTreeCheckpointOperations {
    * Reverts the current checkpoint
    */
   revertCheckpoint(): Promise<void>;
+
+  /**
+   * Commits all checkpoints
+   */
+  commitAllCheckpoints(): Promise<void>;
+
+  /**
+   * Reverts all checkpoints
+   */
+  revertAllCheckpoints(): Promise<void>;
 }
 
 export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations, MerkleTreeCheckpointOperations {

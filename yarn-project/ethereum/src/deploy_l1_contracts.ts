@@ -10,8 +10,8 @@ import {
   FeeAssetHandlerBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
-  ForwarderAbi,
-  ForwarderBytecode,
+  GSEAbi,
+  GSEBytecode,
   GovernanceAbi,
   GovernanceBytecode,
   GovernanceProposerAbi,
@@ -74,6 +74,11 @@ import {
 import type { ExtendedViemWalletClient } from './types.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
+
+export type Operator = {
+  attester: EthAddress;
+  withdrawer: EthAddress;
+};
 
 /**
  * Return type of the deployL1Contract function.
@@ -199,6 +204,10 @@ export const l1Artifacts = {
     contractAbi: MultiAdderAbi,
     contractBytecode: MultiAdderBytecode as Hex,
   },
+  gse: {
+    contractAbi: GSEAbi,
+    contractBytecode: GSEBytecode as Hex,
+  },
 };
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
@@ -211,7 +220,7 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   /** The salt for CREATE2 deployment. */
   salt: number | undefined;
   /** The initial validators for the rollup contract. */
-  initialValidators?: EthAddress[];
+  initialValidators?: Operator[];
   /** Configuration for the L1 tx utils module. */
   l1TxConfig?: Partial<L1TxUtilsConfig>;
   /** Enable fast mode for deployments (fire and forget transactions) */
@@ -242,6 +251,12 @@ export const deploySharedContracts = async (
   ]);
   logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
+  const gseAddress = await deployer.deploy(l1Artifacts.gse, [
+    l1Client.account.address.toString(),
+    stakingAssetAddress.toString(),
+  ]);
+  logger.verbose(`Deployed GSE at ${gseAddress}`);
+
   const registryAddress = await deployer.deploy(l1Artifacts.registry, [
     l1Client.account.address.toString(),
     feeAssetAddress.toString(),
@@ -250,6 +265,7 @@ export const deploySharedContracts = async (
 
   const governanceProposerAddress = await deployer.deploy(l1Artifacts.governanceProposer, [
     registryAddress.toString(),
+    gseAddress.toString(),
     args.governanceProposerQuorum,
     args.governanceProposerRoundSize,
   ]);
@@ -260,8 +276,41 @@ export const deploySharedContracts = async (
   const governanceAddress = await deployer.deploy(l1Artifacts.governance, [
     stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
+    gseAddress.toString(),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);
+
+  let needToSetGovernance = false;
+
+  const existingCode = await l1Client.getCode({ address: gseAddress.toString() });
+  if (!existingCode || existingCode === '0x') {
+    needToSetGovernance = true;
+  } else {
+    const gseContract = getContract({
+      address: getAddress(gseAddress.toString()),
+      abi: l1Artifacts.gse.contractAbi,
+      client: l1Client,
+    });
+    const existingGovernance = await gseContract.read.getGovernance();
+    if (EthAddress.fromString(existingGovernance).equals(EthAddress.ZERO)) {
+      needToSetGovernance = true;
+    }
+  }
+
+  if (needToSetGovernance) {
+    const { txHash } = await deployer.sendTransaction({
+      to: gseAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.gse.contractAbi,
+        functionName: 'setGovernance',
+        args: [governanceAddress.toString()],
+      }),
+      ...(args.acceleratedTestDeployments ? { gasLimit: 1_000_000n } : {}),
+    });
+
+    logger.verbose(`Set governance on GSE in ${txHash}`);
+    txHashes.push(txHash);
+  }
 
   const coinIssuerAddress = await deployer.deploy(l1Artifacts.coinIssuer, [
     feeAssetAddress.toString(),
@@ -410,6 +459,7 @@ export const deploySharedContracts = async (
     stakingAssetAddress,
     stakingAssetHandlerAddress,
     registryAddress,
+    gseAddress,
     governanceAddress,
     governanceProposerAddress,
     coinIssuerAddress,
@@ -427,7 +477,7 @@ export const deploySharedContracts = async (
  */
 export const deployRollupForUpgrade = async (
   extendedClient: ExtendedViemWalletClient,
-  args: Omit<DeployL1ContractsArgs, 'governanceProposerQuorum' | 'governanceProposerRoundSize'>,
+  args: Omit<DeployL1ContractsArgs, 'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake'>,
   registryAddress: EthAddress,
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
@@ -467,13 +517,17 @@ export const deployUpgradePayload = async (
 export const deployRollup = async (
   extendedClient: ExtendedViemWalletClient,
   deployer: L1Deployer,
-  args: Omit<DeployL1ContractsArgs, 'governanceProposerQuorum' | 'governanceProposerRoundSize'>,
+  args: Omit<DeployL1ContractsArgs, 'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake'>,
   addresses: Pick<
     L1ContractAddresses,
-    'feeJuiceAddress' | 'registryAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'
+    'feeJuiceAddress' | 'registryAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress' | 'gseAddress'
   >,
   logger: Logger,
 ) => {
+  if (!addresses.gseAddress) {
+    throw new Error('GSE address is required when deploying');
+  }
+
   const txHashes: Hex[] = [];
 
   const rollupConfigArgs = {
@@ -481,7 +535,6 @@ export const deployRollup = async (
     aztecEpochDuration: args.aztecEpochDuration,
     targetCommitteeSize: args.aztecTargetCommitteeSize,
     aztecProofSubmissionWindow: args.aztecProofSubmissionWindow,
-    minimumStake: args.minimumStake,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
     manaTarget: args.manaTarget,
@@ -497,6 +550,7 @@ export const deployRollup = async (
     addresses.feeJuiceAddress.toString(),
     addresses.rewardDistributorAddress.toString(),
     addresses.stakingAssetAddress.toString(),
+    addresses.gseAddress.toString(),
     extendedClient.account.address.toString(),
     genesisStateArgs,
     rollupConfigArgs,
@@ -509,18 +563,6 @@ export const deployRollup = async (
 
   await deployer.waitForDeployments();
   logger.verbose(`All core contracts have been deployed`);
-
-  if (args.initialValidators) {
-    await cheat_initializeValidatorSet(
-      extendedClient,
-      deployer,
-      rollupAddress.toString(),
-      addresses.stakingAssetAddress.toString(),
-      args.initialValidators.map(v => v.toString()),
-      args.acceleratedTestDeployments,
-      logger,
-    );
-  }
 
   if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
     const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
@@ -556,7 +598,7 @@ export const deployRollup = async (
     try {
       const retrievedRollupAddress = await registryContract.read.getRollup([version]);
       logger.verbose(`Rollup ${retrievedRollupAddress} already exists in registry`);
-    } catch (e) {
+    } catch {
       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
         to: addresses.registryAddress.toString(),
         data: encodeFunctionData({
@@ -575,6 +617,44 @@ export const deployRollup = async (
     logger.verbose(`Not the owner of the registry, skipping rollup addition`);
   }
 
+  // We need to call a function on the registry to set the various contract addresses.
+  const gseContract = getContract({
+    address: getAddress(addresses.gseAddress.toString()),
+    abi: l1Artifacts.gse.contractAbi,
+    client: extendedClient,
+  });
+  if ((await gseContract.read.owner()) === getAddress(extendedClient.account.address)) {
+    if (!(await gseContract.read.isRollupRegistered([rollupContract.address]))) {
+      const { txHash: addRollupTxHash } = await deployer.sendTransaction({
+        to: addresses.gseAddress.toString(),
+        data: encodeFunctionData({
+          abi: l1Artifacts.gse.contractAbi,
+          functionName: 'addRollup',
+          args: [getAddress(rollupContract.address)],
+        }),
+      });
+      logger.verbose(`Adding rollup ${rollupContract.address} to GSE ${addresses.gseAddress} in tx ${addRollupTxHash}`);
+
+      txHashes.push(addRollupTxHash);
+    } else {
+      logger.verbose(`Rollup ${rollupContract.address} is already registered in GSE ${addresses.gseAddress}`);
+    }
+  } else {
+    logger.verbose(`Not the owner of the gse, skipping rollup addition`);
+  }
+
+  if (args.initialValidators && (await gseContract.read.isRollupRegistered([rollupContract.address]))) {
+    await addMultipleValidators(
+      extendedClient,
+      deployer,
+      rollupAddress.toString(),
+      addresses.stakingAssetAddress.toString(),
+      args.initialValidators,
+      args.acceleratedTestDeployments,
+      logger,
+    );
+  }
+
   await deployer.waitForDeployments();
   await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
   logger.verbose(`Rollup deployed`);
@@ -586,6 +666,7 @@ export const handoverToGovernance = async (
   extendedClient: ExtendedViemWalletClient,
   deployer: L1Deployer,
   registryAddress: EthAddress,
+  gseAddress: EthAddress,
   governanceAddress: EthAddress,
   logger: Logger,
   acceleratedTestDeployments: boolean | undefined,
@@ -594,6 +675,12 @@ export const handoverToGovernance = async (
   const registryContract = getContract({
     address: getAddress(registryAddress.toString()),
     abi: l1Artifacts.registry.contractAbi,
+    client: extendedClient,
+  });
+
+  const gseContract = getContract({
+    address: getAddress(gseAddress.toString()),
+    abi: l1Artifacts.gse.contractAbi,
     client: extendedClient,
   });
 
@@ -619,14 +706,30 @@ export const handoverToGovernance = async (
     txHashes.push(transferOwnershipTxHash);
   }
 
+  // If the owner is not the Governance contract, transfer ownership to the Governance contract
+  if (acceleratedTestDeployments || (await gseContract.read.owner()) !== getAddress(governanceAddress.toString())) {
+    // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
+    const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
+      to: gseContract.address,
+      data: encodeFunctionData({
+        abi: l1Artifacts.gse.contractAbi,
+        functionName: 'transferOwnership',
+        args: [getAddress(governanceAddress.toString())],
+      }),
+    });
+    logger.verbose(
+      `Transferring the ownership of the gse contract at ${gseAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
+    );
+    txHashes.push(transferOwnershipTxHash);
+  }
+
   // Wait for all actions to be mined
   await deployer.waitForDeployments();
   await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
 };
 
 /*
- * Initialize the validator set for the rollup using a cheat function.
- * @note This function will only be used when the chain is local anvil node soon (#12050)
+ * Adds multiple validators to the rollup
  *
  * @param extendedClient - The L1 clients.
  * @param deployer - The L1 deployer.
@@ -636,13 +739,12 @@ export const handoverToGovernance = async (
  * @param acceleratedTestDeployments - Whether to use accelerated test deployments.
  * @param logger - The logger.
  */
-// eslint-disable-next-line camelcase
-export const cheat_initializeValidatorSet = async (
+export const addMultipleValidators = async (
   extendedClient: ExtendedViemWalletClient,
   deployer: L1Deployer,
   rollupAddress: Hex,
   stakingAssetAddress: Hex,
-  validators: Hex[],
+  validators: Operator[],
   acceleratedTestDeployments: boolean | undefined,
   logger: Logger,
 ) => {
@@ -651,22 +753,22 @@ export const cheat_initializeValidatorSet = async (
   if (validators && validators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
     if (!acceleratedTestDeployments) {
-      const validatorsInfo = await Promise.all(
-        validators.map(async address => ({
-          address,
-          ...(await rollup.getInfo(address)),
+      const enrichedValidators = await Promise.all(
+        validators.map(async operator => ({
+          operator,
+          status: await rollup.getStatus(operator.attester),
         })),
       );
-      const existingValidators = validatorsInfo.filter(v => v.status !== 0);
+      const existingValidators = enrichedValidators.filter(v => v.status !== 0);
       if (existingValidators.length > 0) {
         logger.warn(
           `Validators ${existingValidators
-            .map(v => v.address)
+            .map(v => v.operator.attester)
             .join(', ')} already exist. Skipping from initialization.`,
         );
       }
 
-      validators = validatorsInfo.filter(v => v.status === 0).map(v => v.address);
+      validators = enrichedValidators.filter(v => v.status === 0).map(v => v.operator);
     }
 
     if (validators.length > 0) {
@@ -676,10 +778,8 @@ export const cheat_initializeValidatorSet = async (
       ]);
 
       const validatorsTuples = validators.map(v => ({
-        attester: v,
-        proposer: getExpectedAddress(ForwarderAbi, ForwarderBytecode, [v], v).address,
-        withdrawer: v,
-        amount: minimumStake,
+        attester: getAddress(v.attester.toString()),
+        withdrawer: getAddress(v.withdrawer.toString()),
       }));
 
       // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
@@ -697,16 +797,16 @@ export const cheat_initializeValidatorSet = async (
         ].map(tx => extendedClient.waitForTransactionReceipt({ hash: tx.txHash })),
       );
 
-      const initiateValidatorSetTxHash = await deployer.client.writeContract({
+      const addValidatorsTxHash = await deployer.client.writeContract({
         address: multiAdder.toString(),
         abi: l1Artifacts.multiAdder.contractAbi,
         functionName: 'addValidators',
         args: [validatorsTuples],
       });
-      await extendedClient.waitForTransactionReceipt({ hash: initiateValidatorSetTxHash });
+      await extendedClient.waitForTransactionReceipt({ hash: addValidatorsTxHash });
       logger.info(`Initialized validator set`, {
         validators,
-        txHash: initiateValidatorSetTxHash,
+        txHash: addValidatorsTxHash,
       });
     }
   }
@@ -799,6 +899,7 @@ export const deployL1Contracts = async (
     stakingAssetAddress,
     stakingAssetHandlerAddress,
     registryAddress,
+    gseAddress,
     rewardDistributorAddress,
   } = await deploySharedContracts(l1Client, deployer, args, logger);
   const { rollup, slashFactoryAddress } = await deployRollup(
@@ -808,6 +909,7 @@ export const deployL1Contracts = async (
     {
       feeJuiceAddress: feeAssetAddress,
       registryAddress,
+      gseAddress,
       rewardDistributorAddress,
       stakingAssetAddress,
     },
@@ -821,6 +923,8 @@ export const deployL1Contracts = async (
   const l1Contracts = await RegistryContract.collectAddresses(l1Client, registryAddress, 'canonical');
 
   logger.info(`Aztec L1 contracts initialized`, l1Contracts);
+
+  logger.info(`Handing over to governance`);
 
   if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.

@@ -8,14 +8,17 @@ import type { ExecutionPayload } from './payload.js';
  * Default implementation of the entrypoint interface. It calls a function on a contract directly
  */
 export class DefaultEntrypoint implements EntrypointInterface {
-  constructor(private chainId: number, private rollupVersion: number) {}
+  constructor(
+    private chainId: number,
+    private rollupVersion: number,
+  ) {}
 
   async createTxExecutionRequest(
     exec: ExecutionPayload,
     fee: FeeOptions,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    if (options.nonce || options.cancellable !== undefined) {
+    if (options.txNonce || options.cancellable !== undefined) {
       throw new Error('TxExecutionOptions are not supported in DefaultEntrypoint');
     }
     // Initial request with calls, authWitnesses and capsules

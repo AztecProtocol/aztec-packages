@@ -6,7 +6,7 @@ import {DecoderBase} from "./base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -43,6 +43,7 @@ import {FeeLib, L1_GAS_PER_EPOCH_VERIFIED} from "@aztec/core/libraries/rollup/Fe
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -208,7 +209,7 @@ contract RollupTest is RollupBase {
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0]));
-    rollup.propose(args, signatures, data.blobInputs);
+    rollup.propose(args, attestations, data.blobInputs);
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {
@@ -236,7 +237,7 @@ contract RollupTest is RollupBase {
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHashes[0]));
-    rollup.propose(args, signatures, blobInput);
+    rollup.propose(args, attestations, blobInput);
   }
 
   function testRevertPrune() public setUpFor("mixed_block_1") {
@@ -300,7 +301,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.blobInputs);
+    rollup.propose(args, attestations, data.blobInputs);
   }
 
   function testInvalidL2Fee() public setUpFor("mixed_block_1") {
@@ -330,16 +331,18 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.blobInputs);
+    rollup.propose(args, attestations, data.blobInputs);
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
     // We need to mint some fee asset to the portal to cover the 2M mana spent.
     deal(address(testERC20), address(feeJuicePortal), 2e6 * 1e18);
 
+    vm.prank(Ownable(address(rollup)).owner());
     rollup.setProvingCostPerMana(EthValue.wrap(1000));
     _proposeBlock("mixed_block_1", 1, 1e6);
 
+    vm.prank(Ownable(address(rollup)).owner());
     rollup.setProvingCostPerMana(EthValue.wrap(2000));
     _proposeBlock("mixed_block_2", 2, 1e6);
 
@@ -437,7 +440,7 @@ contract RollupTest is RollupBase {
         oracleInput: OracleInput(0),
         txHashes: new bytes32[](0)
       });
-      rollup.propose(args, signatures, data.blobInputs);
+      rollup.propose(args, attestations, data.blobInputs);
       assertEq(testERC20.balanceOf(data.decodedHeader.coinbase), 0, "invalid coinbase balance");
     }
 
@@ -588,8 +591,6 @@ contract RollupTest is RollupBase {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: blockLog.archive,
       endArchive: data.archive,
-      endTimestamp: Timestamp.wrap(0),
-      outHash: bytes32(0),
       proverId: address(0)
     });
 
@@ -705,7 +706,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, new bytes(144));
+    rollup.propose(args, attestations, new bytes(144));
   }
 
   function testSubmitProofNonExistentBlock() public setUpFor("empty_block_1") {
@@ -781,13 +782,8 @@ contract RollupTest is RollupBase {
     address _coinbase,
     uint256 _fee
   ) internal {
-    PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: _prevArchive,
-      endArchive: _archive,
-      endTimestamp: Timestamp.wrap(0),
-      outHash: bytes32(0),
-      proverId: _prover
-    });
+    PublicInputArgs memory args =
+      PublicInputArgs({previousArchive: _prevArchive, endArchive: _archive, proverId: _prover});
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     fees[0] = bytes32(uint256(uint160(bytes20(_coinbase)))); // Need the address to be left padded within the bytes32

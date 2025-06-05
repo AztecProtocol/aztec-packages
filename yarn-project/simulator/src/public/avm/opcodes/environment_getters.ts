@@ -61,7 +61,11 @@ export class GetEnvVar extends Instruction {
     OperandType.UINT8, // variable enum (immediate)
   ];
 
-  constructor(private indirect: number, private dstOffset: number, private varEnum: number) {
+  constructor(
+    private indirect: number,
+    private dstOffset: number,
+    private varEnum: number,
+  ) {
     super();
   }
 
@@ -69,7 +73,9 @@ export class GetEnvVar extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     if (!(this.varEnum in EnvironmentVariable)) {
       throw new InstructionExecutionError(`Invalid GETENVVAR var enum ${this.varEnum}`);

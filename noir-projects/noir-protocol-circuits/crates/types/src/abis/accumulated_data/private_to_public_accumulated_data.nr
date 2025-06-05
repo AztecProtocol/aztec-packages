@@ -3,7 +3,7 @@ use crate::{
         log_hash::LogHash, private_log::PrivateLog, public_call_request::PublicCallRequest,
         side_effect::scoped::Scoped,
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
@@ -16,7 +16,7 @@ use crate::constants::{
 pub struct PrivateToPublicAccumulatedData {
     pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
-    pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub l2_to_l1_msgs: [Scoped<L2ToL1Message>; MAX_L2_TO_L1_MSGS_PER_TX],
     pub private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
     pub contract_class_logs_hashes: [Scoped<LogHash>; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     pub public_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
@@ -27,7 +27,7 @@ impl Empty for PrivateToPublicAccumulatedData {
         PrivateToPublicAccumulatedData {
             note_hashes: [0; MAX_NOTE_HASHES_PER_TX],
             nullifiers: [0; MAX_NULLIFIERS_PER_TX],
-            l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
+            l2_to_l1_msgs: [Scoped::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             private_logs: [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX],
             contract_class_logs_hashes: [Scoped::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
             public_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
@@ -82,8 +82,8 @@ impl Deserialize<PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH> for PrivateToPublicA
             note_hashes: reader.read_array(),
             nullifiers: reader.read_array(),
             l2_to_l1_msgs: reader.read_struct_array(
-                ScopedL2ToL1Message::deserialize,
-                [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
+                Scoped::deserialize,
+                [Scoped::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             ),
             private_logs: reader.read_struct_array(
                 PrivateLog::deserialize,

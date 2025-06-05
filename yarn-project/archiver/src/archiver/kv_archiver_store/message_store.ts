@@ -21,7 +21,10 @@ import {
 } from '../structs/inbox_message.js';
 
 export class MessageStoreError extends Error {
-  constructor(message: string, public readonly inboxMessage: InboxMessage) {
+  constructor(
+    message: string,
+    public readonly inboxMessage: InboxMessage,
+  ) {
     super(message);
     this.name = 'MessageStoreError';
   }

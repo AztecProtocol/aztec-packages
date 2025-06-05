@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
 

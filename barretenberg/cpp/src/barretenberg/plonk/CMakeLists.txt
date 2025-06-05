@@ -1,1 +1,0 @@
-barretenberg_module(plonk crypto_blake3s circuit_checker)
