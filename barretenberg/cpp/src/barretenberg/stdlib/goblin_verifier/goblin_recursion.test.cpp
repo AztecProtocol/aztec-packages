@@ -26,7 +26,7 @@ class GoblinRecursionTests : public ::testing::Test {
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
         auto honk_verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
         auto decider_verification_key = std::make_shared<DeciderVerificationKey>(honk_verification_key);
-        MegaProver prover(proving_key);
+        MegaProver prover(proving_key, honk_verification_key);
         auto ultra_proof = prover.construct_proof();
         return { ultra_proof, decider_verification_key->verification_key };
     }

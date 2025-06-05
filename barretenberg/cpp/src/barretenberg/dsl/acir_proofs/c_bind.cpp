@@ -47,10 +47,11 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
 
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
-    UltraProver prover{ builder };
+    auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(builder);
+    auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
+    UltraProver prover{ proving_key, verification_key };
     auto proof = prover.construct_proof();
 
-    auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(prover.proving_key->proving_key);
     UltraVerifier verifier{ verification_key };
 
     *result = verifier.verify_proof(proof);
@@ -68,10 +69,11 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
 
     auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
 
-    MegaProver prover{ builder };
+    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder);
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
+    MegaProver prover{ proving_key, verification_key };
     auto proof = prover.construct_proof();
 
-    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
     MegaVerifier verifier{ verification_key };
 
     *result = verifier.verify_proof(proof);
@@ -127,8 +129,11 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* w
             acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
-
-        return UltraProver(builder);
+        auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(builder);
+        // WORKTODO: compute vk
+        info("WARNING: computing vk in acir_prove_ultra_honk, but a precomputed vk should be passed in.");
+        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
+        return UltraProver(proving_key, verification_key);
     }();
 
     auto proof = prover.construct_proof();
@@ -146,7 +151,11 @@ WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t c
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
-        return UltraKeccakProver(builder);
+        auto proving_key = std::make_shared<DeciderProvingKey_<UltraKeccakFlavor>>(builder);
+        // WORKTODO: compute vk
+        info("WARNING: computing vk in acir_prove_ultra_keccak_honk, but a precomputed vk should be passed in.");
+        auto verification_key = std::make_shared<UltraKeccakFlavor::VerificationKey>(proving_key->proving_key);
+        return UltraKeccakProver(proving_key, verification_key);
     }();
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer(proof));
@@ -163,7 +172,11 @@ WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec, uint8_
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
-        return UltraKeccakZKProver(builder);
+        auto proving_key = std::make_shared<DeciderProvingKey_<UltraKeccakZKFlavor>>(builder);
+        // WORKTODO: compute vk
+        info("WARNING: computing vk in acir_prove_ultra_keccak_zk_honk, but a precomputed vk should be passed in.");
+        auto verification_key = std::make_shared<UltraKeccakZKFlavor::VerificationKey>(proving_key->proving_key);
+        return UltraKeccakZKProver(proving_key, verification_key);
     }();
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer(proof));

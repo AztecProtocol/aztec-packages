@@ -217,7 +217,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     if (!initialized) {
         // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink
         // proof
-        MegaOinkProver oink_prover{ proving_key };
+        MegaOinkProver oink_prover{ proving_key, honk_vk };
         vinfo("computing oink proof...");
         HonkProof oink_proof = oink_prover.prove();
         vinfo("oink proof constructed");
@@ -343,9 +343,10 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
     // Create a transcript to be shared by final merge prover, ECCVM, Translator, and Hiding Circuit provers.
     goblin.transcript = std::make_shared<Goblin::Transcript>();
-    auto decider_pk = construct_hiding_circuit_key();
+    std::shared_ptr<DeciderZKProvingKey> hiding_decider_pk = construct_hiding_circuit_key();
+    auto hiding_circuit_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->proving_key);
     // Hiding circuit is proven by a MegaZKProver
-    MegaZKProver prover(decider_pk, goblin.transcript);
+    MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, goblin.transcript);
     HonkProof proof = prover.construct_proof();
 
     return proof;

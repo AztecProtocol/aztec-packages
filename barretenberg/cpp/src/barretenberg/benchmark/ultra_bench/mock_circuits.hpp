@@ -56,7 +56,11 @@ Prover get_prover(void (*test_circuit_function)(typename Prover::Flavor::Circuit
 
     PROFILE_THIS_NAME("creating prover");
 
-    return Prover(builder);
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    // WORKTODO
+    info("WARNING: computing vk in mock_circuits get_prover, but a precomputed vk should be passed in.");
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    return Prover(proving_key, verification_key);
 };
 
 /**
@@ -78,6 +82,7 @@ void construct_proof_with_specified_num_iterations(
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     for (auto _ : state) {
+        // Why is this not being included?
         // Construct circuit and prover; don't include this part in measurement
         state.PauseTiming();
         Prover prover = get_prover<Prover>(test_circuit_function, num_iterations);
