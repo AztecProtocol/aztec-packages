@@ -279,22 +279,22 @@ template <typename Flavor> class SumcheckProverRound {
 
     /**
      * @brief In the de-facto mode of of operation for ZK, we add a randomising contribution via the Libra technique to
-     * hide the actual round univariate and also ensure the total contirbution is amended to take into account
-     * relatin execution is diabled on the last rows of the trace.
+     * hide the actual round univariate and also ensure the total contribution is amended to take into account
+     * that relation execution is disabled on the last rows of the trace.
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_hiding_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                                      const RowDisablingPolynomial<FF> row_disabling_polynomial,
                                                       const bb::RelationParameters<FF>& relation_parameters,
                                                       const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                                       const RelationSeparator& alpha,
                                                       const ZKData& zk_sumcheck_data,
+                                                      const RowDisablingPolynomial<FF> row_disabling_polynomial,
                                                       const size_t round_idx)
         requires Flavor::HasZK
 
     {
         auto hiding_univariate = compute_libra_univariate(zk_sumcheck_data, round_idx);
-        if constexpr (DisablesLastRows<Flavor>) {
+        if constexpr (UseRowDisablingPolynomial<Flavor>) {
 
             hiding_univariate -= compute_disabled_contribution(
                 polynomials, relation_parameters, gate_separators, alpha, round_idx, row_disabling_polynomial);
@@ -316,7 +316,7 @@ template <typename Flavor> class SumcheckProverRound {
         const RelationSeparator alpha,
         const size_t round_idx,
         const RowDisablingPolynomial<FF> row_disabling_polynomial)
-        requires DisablesLastRows<Flavor>
+        requires UseRowDisablingPolynomial<Flavor>
     {
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator;
         ExtendedEdges extended_edges;

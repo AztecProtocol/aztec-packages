@@ -1144,6 +1144,60 @@ void WorldState::revert_checkpoint(const uint64_t& forkId)
     }
 }
 
+void WorldState::commit_all_checkpoints(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->commit_all_checkpoints([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+}
+
+void WorldState::revert_all_checkpoints(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->revert_all_checkpoints([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+}
+
 WorldStateStatusFull WorldState::attempt_tree_resync()
 {
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
+// solhint-disable imports-order
 pragma solidity >=0.8.27;
 
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
@@ -21,7 +22,6 @@ import {CheatLib} from "@aztec/core/libraries/rollup/CheatLib.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
 import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -149,7 +149,7 @@ contract RollupCore is
   }
 
   function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
-    StakingLib.setSlasher(_slasher);
+    ExtRollupLib.setSlasher(_slasher);
   }
 
   function setProvingCostPerMana(EthValue _provingCostPerMana)
@@ -166,7 +166,7 @@ contract RollupCore is
     returns (uint256)
   {
     require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimSequencerRewards(_recipient);
+    return ExtRollupLib.claimSequencerRewards(_recipient);
   }
 
   function claimProverRewards(address _recipient, Epoch[] memory _epochs)
@@ -175,14 +175,18 @@ contract RollupCore is
     returns (uint256)
   {
     require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimProverRewards(_recipient, _epochs);
+    return ExtRollupLib.claimProverRewards(_recipient, _epochs);
+  }
+
+  function vote(uint256 _proposalId) external override(IStakingCore) {
+    ExtRollupLib.vote(_proposalId);
   }
 
   function deposit(address _attester, address _withdrawer, bool _onCanonical)
     external
     override(IStakingCore)
   {
-    StakingLib.deposit(_attester, _withdrawer, _onCanonical);
+    ExtRollupLib.deposit(_attester, _withdrawer, _onCanonical);
   }
 
   function initiateWithdraw(address _attester, address _recipient)
@@ -190,7 +194,7 @@ contract RollupCore is
     override(IStakingCore)
     returns (bool)
   {
-    return StakingLib.initiateWithdraw(_attester, _recipient);
+    return ExtRollupLib.initiateWithdraw(_attester, _recipient);
   }
 
   function finaliseWithdraw(address _attester) external override(IStakingCore) {

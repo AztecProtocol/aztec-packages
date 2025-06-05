@@ -16,6 +16,12 @@ template <typename FF_> class gasImpl {
     static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 5, 5, 5, 5, 5, 5, 3, 3,
                                                                             3, 3, 3, 3, 3, 3, 5, 5, 4, 4 };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        using C = ColumnAndShifts;
+        return (in.get(C::execution_sel_should_check_gas)).is_zero();
+    }
+
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
@@ -46,7 +52,7 @@ template <typename FF_> class gasImpl {
         const auto execution_LIMIT_GTE_USED_DA = (in.get(C::execution_da_gas_limit) - execution_PREV_GAS_PLUS_USAGE_DA);
         const auto execution_LIMIT_LT_USED_DA =
             ((execution_PREV_GAS_PLUS_USAGE_DA - in.get(C::execution_da_gas_limit)) - FF(1));
-        const auto execution_OUT_OF_GAS =
+        const auto execution_SEL_GAS_FAILURE =
             in.get(C::execution_out_of_gas_base) + in.get(C::execution_out_of_gas_dynamic);
 
         {
@@ -163,13 +169,13 @@ template <typename FF_> class gasImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel) * (FF(64) - in.get(C::execution_constant_64));
+            auto tmp = in.get(C::execution_sel_should_check_gas) * (FF(64) - in.get(C::execution_constant_64));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel) *
+            auto tmp = in.get(C::execution_sel_should_check_gas) *
                        (((execution_LIMIT_LT_USED_L2 - execution_LIMIT_GTE_USED_L2) * execution_OUT_OF_GAS_L2 +
                          execution_LIMIT_GTE_USED_L2) -
                         in.get(C::execution_limit_used_l2_cmp_diff));
@@ -178,7 +184,7 @@ template <typename FF_> class gasImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel) *
+            auto tmp = in.get(C::execution_sel_should_check_gas) *
                        (((execution_LIMIT_LT_USED_DA - execution_LIMIT_GTE_USED_DA) * execution_OUT_OF_GAS_DA +
                          execution_LIMIT_GTE_USED_DA) -
                         in.get(C::execution_limit_used_da_cmp_diff));
@@ -187,17 +193,19 @@ template <typename FF_> class gasImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = (((in.get(C::execution_l2_gas_limit) - execution_PREV_GAS_PLUS_USAGE_L2) * execution_OUT_OF_GAS +
-                         execution_PREV_GAS_PLUS_USAGE_L2) -
-                        in.get(C::execution_l2_gas_used));
+            auto tmp =
+                (((in.get(C::execution_l2_gas_limit) - execution_PREV_GAS_PLUS_USAGE_L2) * execution_SEL_GAS_FAILURE +
+                  execution_PREV_GAS_PLUS_USAGE_L2) -
+                 in.get(C::execution_l2_gas_used));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = (((in.get(C::execution_da_gas_limit) - execution_PREV_GAS_PLUS_USAGE_DA) * execution_OUT_OF_GAS +
-                         execution_PREV_GAS_PLUS_USAGE_DA) -
-                        in.get(C::execution_da_gas_used));
+            auto tmp =
+                (((in.get(C::execution_da_gas_limit) - execution_PREV_GAS_PLUS_USAGE_DA) * execution_SEL_GAS_FAILURE +
+                  execution_PREV_GAS_PLUS_USAGE_DA) -
+                 in.get(C::execution_da_gas_used));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }

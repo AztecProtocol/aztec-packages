@@ -35,7 +35,7 @@ function mockTxPool(): TxPool {
   // Mock all methods
   return {
     isEmpty: () => Promise.resolve(false),
-    addTxs: () => Promise.resolve(),
+    addTxs: () => Promise.resolve(1),
     getTxByHash: () => Promise.resolve(undefined),
     getArchivedTxByHash: () => Promise.resolve(undefined),
     markAsMined: () => Promise.resolve(),
@@ -49,7 +49,7 @@ function mockTxPool(): TxPool {
     getTxStatus: () => Promise.resolve(TxStatus.PENDING),
     getTxsByHash: () => Promise.resolve([]),
     hasTxs: () => Promise.resolve([]),
-    setMaxTxPoolSize: () => Promise.resolve(),
+    updateConfig: () => {},
     markTxsAsNonEvictable: () => Promise.resolve(),
   };
 }
@@ -82,6 +82,21 @@ function mockEpochCache(): EpochCacheInterface {
       }),
     isInCommittee: () => Promise.resolve(false),
   };
+}
+
+function mockWorldStateSynchronizer(): WorldStateSynchronizer {
+  return {
+    status: () =>
+      Promise.resolve({
+        syncSummary: {
+          latestBlockNumber: 0,
+          latestBlockHash: '',
+          finalisedBlockNumber: 0,
+          treesAreSynched: false,
+          oldestHistoricBlockNumber: 0,
+        },
+      }),
+  } as WorldStateSynchronizer;
 }
 
 class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends LibP2PService<T> {
@@ -154,13 +169,12 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 process.on('message', async msg => {
   const { type, config, clientIndex } = msg as { type: string; config: P2PConfig; clientIndex: number };
-
   try {
     if (type === 'START') {
       const txPool = mockTxPool();
       const attestationPool = mockAttestationPool();
       const epochCache = mockEpochCache();
-      const worldState = {} as WorldStateSynchronizer;
+      const worldState = mockWorldStateSynchronizer();
       const l2BlockSource = new MockL2BlockSource();
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();

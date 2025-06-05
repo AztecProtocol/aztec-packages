@@ -27,11 +27,16 @@
           "feePerL2Gas": "0x0000000000000000000000000000000000000000000000000000000000000000"
         }
       },
+      "effectiveGasFees": {
+        "feePerDaGas": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "feePerL2Gas": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      },
       "nonRevertibleAccumulatedData": {
         "noteHashes": [],
-        "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"]
+        "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"],
+        "l2ToL1Messages": []
       },
-      "revertibleAccumulatedData": { "noteHashes": [], "nullifiers": [] },
+      "revertibleAccumulatedData": { "noteHashes": [], "nullifiers": [], "l2ToL1Messages": [] },
       "setupEnqueuedCalls": [],
       "appLogicEnqueuedCalls": [
         {
@@ -906,6 +911,10 @@
         "feePerDaGas": "0x0000000000000000000000000000000000000000000000000000000000000000",
         "feePerL2Gas": "0x0000000000000000000000000000000000000000000000000000000000000000"
       }
+    },
+    "effectiveGasFees": {
+      "feePerDaGas": "0x0000000000000000000000000000000000000000000000000000000000000002",
+      "feePerL2Gas": "0x0000000000000000000000000000000000000000000000000000000000000003"
     },
     "feePayer": "0x000000000000000000000000000000000000000000000000000000000000002a",
     "publicCallRequestArrayLengths": { "setupCalls": 0, "appLogicCalls": 1, "teardownCall": false },
