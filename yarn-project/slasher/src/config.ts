@@ -3,8 +3,6 @@ import { bigintConfigHelper, booleanConfigHelper, numberConfigHelper } from '@az
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 
-import type { Offense } from './index.js';
-
 export enum Offense {
   UNKNOWN = 0,
   EPOCH_PRUNE = 1,
