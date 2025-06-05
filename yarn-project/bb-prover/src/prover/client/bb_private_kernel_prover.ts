@@ -16,7 +16,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types/client';
 import type { ArtifactProvider, ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import type { Abi, WitnessMap } from '@aztec/noir-types';
-import type { SimulationProvider } from '@aztec/simulator/client';
+import type { CircuitSimulator } from '@aztec/simulator/client';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionStep,
@@ -37,7 +37,7 @@ import { mapProtocolArtifactNameToCircuitName } from '../../stats.js';
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {
   constructor(
     protected artifactProvider: ArtifactProvider,
-    protected simulationProvider: SimulationProvider,
+    protected simulator: CircuitSimulator,
     protected log = createLogger('bb-prover'),
   ) {}
 
@@ -164,7 +164,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
 
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
 
-    const outputWitness = await this.simulationProvider
+    const outputWitness = await this.simulator
       .executeProtocolCircuit(witnessMap, compiledCircuit, foreignCallHandler)
       .catch((err: Error) => {
         this.log.debug(`Failed to simulate ${circuitType}`, {
@@ -196,16 +196,11 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     convertOutputs: (outputs: WitnessMap, abi: Abi) => O,
   ): Promise<PrivateKernelSimulateOutput<O>> {
     this.log.debug(`Generating witness for ${circuitType}`);
-    const compiledCircuit: NoirCompiledCircuitWithName = await this.artifactProvider.getClientCircuitArtifactByName(
-      circuitType,
-    );
+    const compiledCircuit: NoirCompiledCircuitWithName =
+      await this.artifactProvider.getClientCircuitArtifactByName(circuitType);
 
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
-    const outputWitness = await this.simulationProvider.executeProtocolCircuit(
-      witnessMap,
-      compiledCircuit,
-      foreignCallHandler,
-    );
+    const outputWitness = await this.simulator.executeProtocolCircuit(witnessMap, compiledCircuit, foreignCallHandler);
     const output = convertOutputs(outputWitness.witness, compiledCircuit.abi);
 
     this.log.debug(`Generated witness for ${circuitType}`, {

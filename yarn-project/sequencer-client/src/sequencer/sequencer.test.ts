@@ -1,24 +1,22 @@
 import { Body, L2Block } from '@aztec/aztec.js';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
-import { Buffer32 } from '@aztec/foundation/buffer';
-import { times, timesParallel } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
-import { toArray } from '@aztec/foundation/iterable';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { TestDateProvider, type Timer } from '@aztec/foundation/timer';
+import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
-import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
-import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import type { SlasherClient } from '@aztec/slasher';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockSource } from '@aztec/stdlib/block';
-import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
-  type BlockBuilder,
+  type BuildBlockOptions,
+  type IFullNodeBlockBuilder,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   WorldStateRunningState,
@@ -30,16 +28,14 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockAttestation, BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { MerkleTreeId } from '@aztec/stdlib/trees';
-import { type Tx, TxHash, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
-import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, type Tx, TxHash, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
-import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
+import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import type { SlasherClient } from '../slasher/index.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 
@@ -50,19 +46,16 @@ describe('sequencer', () => {
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let fork: MockProxy<MerkleTreeWriteOperations>;
-  let blockBuilder: MockProxy<BlockBuilder>;
+  let blockBuilder: MockProxy<IFullNodeBlockBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
-  let publicProcessor: MockProxy<PublicProcessor>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
-  let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
 
   let initialBlockHeader: BlockHeader;
   let lastBlockNumber: number;
   let newBlockNumber: number;
   let newSlotNumber: number;
   let hash: string;
-  let logger: Logger;
 
   let block: L2Block;
   let globalVariables: GlobalVariables;
@@ -77,10 +70,12 @@ describe('sequencer', () => {
   let feeRecipient: AztecAddress;
   const gasFees = GasFees.empty();
 
-  const mockedSig = new Signature(Buffer32.fromField(Fr.random()), Buffer32.fromField(Fr.random()), 27);
-  const committee = [EthAddress.random()];
+  const signer = Secp256k1Signer.random();
+  const mockedSig = Signature.random();
+  const mockedAttestation = new CommitteeAttestation(signer.address, mockedSig);
+  const committee = [signer.address];
 
-  const getSignatures = () => [mockedSig];
+  const getSignatures = () => [mockedAttestation];
 
   const getAttestations = () => {
     const attestation = new BlockAttestation(
@@ -147,7 +142,6 @@ describe('sequencer', () => {
     newBlockNumber = lastBlockNumber + 1;
     newSlotNumber = newBlockNumber;
     hash = Fr.ZERO.toString();
-    logger = createLogger('sequencer:test');
 
     globalVariables = new GlobalVariables(
       chainId,
@@ -160,7 +154,11 @@ describe('sequencer', () => {
       gasFees,
     );
 
-    publisher = mock<SequencerPublisher>();
+    const epochCache = mockDeep<EpochCache>();
+    epochCache.getEpochAndSlotInNextSlot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1n }));
+
+    publisher = mockDeep<SequencerPublisher>();
+    publisher.epochCache = epochCache;
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
     publisher.getForwarderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
@@ -171,9 +169,6 @@ describe('sequencer', () => {
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
-
-    blockBuilder = mock<BlockBuilder>();
-    blockBuilder.setBlockCompleted.mockImplementation(() => Promise.resolve(block));
 
     merkleTreeOps = mock<MerkleTreeReadOperations>();
     merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
@@ -209,17 +204,19 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus),
     });
 
-    publicProcessor = mock<PublicProcessor>();
-    publicProcessor.process.mockImplementation(async txsIter => {
-      const txs = await toArray(txsIter);
-      const processed = await processTxs(txs);
-      logger.verbose(`Processed ${txs.length} txs`, { txHashes: await Promise.all(txs.map(tx => tx.getTxHash())) });
-      return [processed, [], txs, []];
-    });
-
-    publicProcessorFactory = mock<PublicProcessorFactory>({
-      create: (_a, _b) => publicProcessor,
-    });
+    blockBuilder = mock<IFullNodeBlockBuilder>();
+    blockBuilder.buildBlock.mockImplementation(() =>
+      Promise.resolve({
+        block,
+        publicGas: Gas.empty(),
+        publicProcessorDuration: 0,
+        numMsgs: 0,
+        numTxs: block.body.txEffects.length,
+        blockBuildingTimer: new Timer(),
+        usedTxs: [],
+        failedTxs: [],
+      }),
+    );
 
     l2BlockSource = mock<L2BlockSource>({
       getBlock: mockFn().mockResolvedValue(L2Block.empty()),
@@ -231,16 +228,6 @@ describe('sequencer', () => {
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
-    });
-
-    // all txs use the same allowed FPC class
-    const fpcClassId = Fr.random();
-    const contractSource = mock<ContractDataSource>({
-      getContractClass: mockFn().mockResolvedValue(fpcClassId),
-    });
-
-    const blockBuilderFactory = mock<BlockBuilderFactory>({
-      create: () => blockBuilder,
     });
 
     validatorClient = mock<ValidatorClient>();
@@ -259,11 +246,9 @@ describe('sequencer', () => {
       p2p,
       worldState,
       slasherClient,
-      blockBuilderFactory,
       l2BlockSource,
       l1ToL2MessageSource,
-      publicProcessorFactory,
-      contractSource,
+      blockBuilder,
       l1Constants,
       new TestDateProvider(),
     );
@@ -278,36 +263,7 @@ describe('sequencer', () => {
     mockPendingTxs([tx]);
     await sequencer.doRealWork();
 
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      globalVariables,
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
-      initialBlockHeader,
-    );
-
     expectPublisherProposeL2Block([txHash]);
-  });
-
-  it('builds a block for proposal setting limits', async () => {
-    const txs = await timesParallel(5, i => makeTx(i * 0x10000));
-    await sequencer.buildBlock(txs, globalVariables, { validateOnly: false });
-
-    expect(publicProcessor.process).toHaveBeenCalledWith(
-      txs,
-      {
-        deadline: expect.any(Date),
-        maxTransactions: 4,
-        maxBlockSize: expect.any(Number),
-        maxBlockGas: expect.anything(),
-      },
-      expect.anything(),
-    );
-  });
-
-  it('builds a block for validation ignoring limits', async () => {
-    const txs = await timesParallel(5, i => makeTx(i * 0x10000));
-    await sequencer.buildBlock(txs, globalVariables, { validateOnly: true });
-
-    expect(publicProcessor.process).toHaveBeenCalledWith(txs, { deadline: expect.any(Date) }, expect.anything());
   });
 
   it('does not build a block if it does not have enough time left in the slot', async () => {
@@ -327,7 +283,7 @@ describe('sequencer', () => {
       }),
     );
 
-    expect(blockBuilder.startNewBlock).not.toHaveBeenCalled();
+    expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
     expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
   });
 
@@ -343,7 +299,7 @@ describe('sequencer', () => {
     publisher.validateBlockForSubmission.mockRejectedValue(new Error());
 
     await sequencer.doRealWork();
-    expect(blockBuilder.startNewBlock).not.toHaveBeenCalled();
+    expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
     // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
     publisher.canProposeAtNextEthBlock.mockResolvedValue([
@@ -352,45 +308,15 @@ describe('sequencer', () => {
     ]);
 
     await sequencer.doRealWork();
-    expect(blockBuilder.startNewBlock).not.toHaveBeenCalled();
+    expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
     // Now it is!
     publisher.validateBlockForSubmission.mockClear();
     publisher.validateBlockForSubmission.mockResolvedValue(1n);
 
     await sequencer.doRealWork();
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      globalVariables,
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
-      initialBlockHeader,
-    );
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
     expectPublisherProposeL2Block([txHash]);
-  });
-
-  it('builds a block out of several txs rejecting invalid txs', async () => {
-    const txs = await Promise.all([makeTx(0x10000), makeTx(0x20000), makeTx(0x30000)]);
-    const validTxs = [txs[0], txs[2]];
-    const invalidTx = txs[1];
-    const validTxHashes = await Promise.all(validTxs.map(tx => tx.getTxHash()));
-
-    mockPendingTxs(txs);
-    block = await makeBlock([txs[0], txs[2]]);
-    publicProcessor.process.mockResolvedValue([
-      await processTxs(validTxs),
-      [{ tx: invalidTx, error: new Error() }],
-      validTxs,
-      [],
-    ]);
-
-    await sequencer.doRealWork();
-
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      globalVariables,
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
-      initialBlockHeader,
-    );
-    expectPublisherProposeL2Block(validTxHashes);
-    expect(p2p.deleteTxs).toHaveBeenCalledWith([await invalidTx.getTxHash()]);
   });
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
@@ -400,13 +326,13 @@ describe('sequencer', () => {
     // block is not built with 0 txs
     mockPendingTxs([]);
     await sequencer.doRealWork();
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
     mockPendingTxs(txs.slice(0, 3));
 
     await sequencer.doRealWork();
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // block is built with 4 txs
     const neededTxs = txs.slice(0, 4);
@@ -415,11 +341,7 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
 
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      globalVariables,
-      times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.zero),
-      initialBlockHeader,
-    );
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
 
     expectPublisherProposeL2Block(await Promise.all(neededTxs.map(tx => tx.getTxHash())));
   });
@@ -432,12 +354,12 @@ describe('sequencer', () => {
     // block is not built with 0 txs
     mockPendingTxs([]);
     await sequencer.doRealWork();
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
     mockPendingTxs(txs.slice(0, 3));
     await sequencer.doRealWork();
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // flush the sequencer and it should build a block
     sequencer.flush();
@@ -448,13 +370,7 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
 
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      globalVariables,
-      times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.zero),
-      initialBlockHeader,
-    );
-    expect(blockBuilder.addTxs).toHaveBeenCalledWith([]);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
     expectPublisherProposeL2Block([]);
   });
 
@@ -466,12 +382,12 @@ describe('sequencer', () => {
     // block is not built with 0 txs
     mockPendingTxs([]);
     await sequencer.doRealWork();
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
     mockPendingTxs(txs.slice(0, 3));
     await sequencer.doRealWork();
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
     // flush the sequencer and it should build a block
     sequencer.flush();
@@ -483,12 +399,8 @@ describe('sequencer', () => {
     const postFlushTxHashes = await Promise.all(postFlushTxs.map(tx => tx.getTxHash()));
 
     await sequencer.doRealWork();
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
-    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      globalVariables,
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
-      initialBlockHeader,
-    );
+    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(1);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
 
     expectPublisherProposeL2Block(postFlushTxHashes);
   });
@@ -532,16 +444,13 @@ describe('sequencer', () => {
       n === -1
         ? L2Block.random(currentTip.number + 1)
         : n === currentTip.number
-        ? Promise.resolve(currentTip)
-        : Promise.resolve(undefined),
+          ? Promise.resolve(currentTip)
+          : Promise.resolve(undefined),
     );
 
     publisher.canProposeAtNextEthBlock.mockResolvedValueOnce(undefined);
     await sequencer.doRealWork();
     expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
-    // even though the chain tip moved, the sequencer should still have tried to build a block against the old archive
-    // this should get caught by the rollup
-    expect(publisher.canProposeAtNextEthBlock).toHaveBeenCalledWith(currentTip.archive.root.toBuffer());
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {
@@ -598,20 +507,7 @@ class TestSubject extends Sequencer {
     return super.doRealWork();
   }
 
-  public override buildBlock(
-    pendingTxs: Iterable<Tx> | AsyncIterableIterator<Tx>,
-    newGlobalVariables: GlobalVariables,
-    opts?: { validateOnly?: boolean | undefined },
-  ): Promise<{
-    block: L2Block;
-    publicGas: Gas;
-    publicProcessorDuration: number;
-    numMsgs: number;
-    numTxs: number;
-    numFailedTxs: number;
-    blockBuildingTimer: Timer;
-    usedTxs: Tx[];
-  }> {
-    return super.buildBlock(pendingTxs, newGlobalVariables, opts);
+  public override getDefaultBlockBuilderOptions(slot: number): BuildBlockOptions {
+    return super.getDefaultBlockBuilderOptions(slot);
   }
 }

@@ -11,7 +11,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
+import { ScopedCountedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { ScopedCountedLogHash } from './log_hash.js';
 import { ScopedNoteHash } from './note_hash.js';
 import { ScopedNullifier } from './nullifier.js';
@@ -36,7 +36,7 @@ export class PrivateAccumulatedData {
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public l2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
+    public l2ToL1Msgs: Tuple<ScopedCountedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
     /**
      * Accumulated logs from all the previous kernel iterations.
      */
@@ -82,7 +82,7 @@ export class PrivateAccumulatedData {
     return new PrivateAccumulatedData(
       reader.readArray(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash),
       reader.readArray(MAX_NULLIFIERS_PER_TX, ScopedNullifier),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedCountedL2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_TX, ScopedPrivateLogData),
       reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedCountedLogHash),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest),
@@ -103,7 +103,7 @@ export class PrivateAccumulatedData {
     return new PrivateAccumulatedData(
       makeTuple(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash.empty),
       makeTuple(MAX_NULLIFIERS_PER_TX, ScopedNullifier.empty),
-      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
+      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedCountedL2ToL1Message.empty),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, ScopedPrivateLogData.empty),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedCountedLogHash.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest.empty),

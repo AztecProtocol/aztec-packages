@@ -7,13 +7,16 @@ import { isAztecAddressStruct, parseSignedInt } from './utils.js';
 /**
  * The type of our decoded ABI.
  */
-export type AbiDecoded = bigint | boolean | AztecAddress | AbiDecoded[] | { [key: string]: AbiDecoded };
+export type AbiDecoded = bigint | boolean | string | AztecAddress | AbiDecoded[] | { [key: string]: AbiDecoded };
 
 /**
  * Decodes values using a provided ABI.
  */
 class AbiDecoder {
-  constructor(private types: AbiType[], private flattened: Fr[]) {}
+  constructor(
+    private types: AbiType[],
+    private flattened: Fr[],
+  ) {}
 
   /**
    * Decodes a single return value from field to the given type.
@@ -55,11 +58,12 @@ class AbiDecoder {
         return struct;
       }
       case 'string': {
-        const array = [];
+        let str = '';
         for (let i = 0; i < abiType.length; i += 1) {
-          array.push(this.getNextField().toBigInt());
+          const charCode = Number(this.getNextField().toBigInt());
+          str += String.fromCharCode(charCode);
         }
-        return array;
+        return str;
       }
       case 'tuple': {
         const array = [];
@@ -116,7 +120,11 @@ export function decodeFromAbi(typ: AbiType[], buffer: Fr[]) {
  */
 export class FunctionSignatureDecoder {
   private separator: string;
-  constructor(private name: string, private parameters: ABIParameter[], private includeNames = false) {
+  constructor(
+    private name: string,
+    private parameters: ABIParameter[],
+    private includeNames = false,
+  ) {
     this.separator = includeNames ? ', ' : ',';
   }
 
@@ -143,7 +151,7 @@ export class FunctionSignatureDecoder {
       case 'struct':
         return `(${param.fields.map(field => `${this.decodeParameter(field)}`).join(this.separator)})`;
       default:
-        throw new Error(`Unsupported type: ${param}`);
+        throw new Error(`Unsupported type: ${param.kind}`);
     }
   }
 

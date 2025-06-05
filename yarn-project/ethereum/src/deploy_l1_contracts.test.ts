@@ -2,13 +2,14 @@ import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createEthereumChain } from './chain.js';
 import { DefaultL1ContractsConfig } from './config.js';
 import { RollupContract } from './contracts/rollup.js';
-import { type DeployL1ContractsArgs, deployL1Contracts } from './deploy_l1_contracts.js';
+import { type DeployL1ContractsArgs, type Operator, deployL1Contracts } from './deploy_l1_contracts.js';
 import { startAnvil } from './test/start_anvil.js';
 
 describe('deploy_l1_contracts', () => {
@@ -18,7 +19,7 @@ describe('deploy_l1_contracts', () => {
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
   let genesisArchiveRoot: Fr;
-  let initialValidators: EthAddress[];
+  let initialValidators: Operator[];
 
   // Use these environment variables to run against a live node. Eg to test against spartan's eth-devnet:
   // BLOCK_TIME=1 spartan/aztec-network/eth-devnet/run-locally.sh
@@ -33,7 +34,11 @@ describe('deploy_l1_contracts', () => {
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
     genesisArchiveRoot = Fr.random();
-    initialValidators = times(3, EthAddress.random);
+
+    initialValidators = times(3, () => ({
+      attester: EthAddress.random(),
+      withdrawer: EthAddress.random(),
+    }));
 
     if (!rpcUrl) {
       ({ stop, rpcUrl } = await startAnvil());
@@ -72,8 +77,15 @@ describe('deploy_l1_contracts', () => {
     const deployed = await deploy({ initialValidators });
     const rollup = getRollup(deployed);
     for (const validator of initialValidators) {
-      const { status } = await rollup.getInfo(validator);
-      expect(status).toBeGreaterThan(0);
+      await retryUntil(
+        async () => {
+          const view = await rollup.getAttesterView(validator.attester);
+          return view.status > 0;
+        },
+        'attester is attesting',
+        DefaultL1ContractsConfig.ethereumSlotDuration * 3,
+        1,
+      );
     }
   });
 
@@ -99,8 +111,15 @@ describe('deploy_l1_contracts', () => {
 
     const rollup = getRollup(first);
     for (const validator of initialValidators) {
-      const { status } = await rollup.getInfo(validator);
-      expect(status).toBeGreaterThan(0);
+      await retryUntil(
+        async () => {
+          const view = await rollup.getAttesterView(validator.attester);
+          return view.status > 0;
+        },
+        'attester is attesting',
+        DefaultL1ContractsConfig.ethereumSlotDuration * 3,
+        1,
+      );
     }
   });
 });

@@ -42,7 +42,7 @@
  * class as being:
  *  - A std::array<DataType, N> instance called _data.
  *  - An informative name for each entry of _data that is fixed at compile time.
- *  - Some classic metadata like we'd see in plonk (e.g., a circuit size, a reference string, an evaluation domain).
+ *  - Some classic metadata (e.g., a circuit size, a reference string, an evaluation domain).
  *  - A collection of getters that record subsets of the array that are of interest in the Honk variant.
  *
  * Each getter returns a container of HandleType's, where a HandleType is a value type that is inexpensive to create and
@@ -77,8 +77,8 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
-#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -359,12 +359,6 @@ template <typename BuilderType> class AvmRecursiveFlavor_;
 
 } // namespace bb
 
-// Forward declare plonk flavors
-namespace bb::plonk::flavor {
-class Standard;
-class Ultra;
-} // namespace bb::plonk::flavor
-
 // Establish concepts for testing flavor attributes
 namespace bb {
 /**
@@ -374,9 +368,6 @@ namespace bb {
  * @tparam U A parameter pack of types being checked against T.
  */
 // clang-format off
-
-template <typename T>
-concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template <typename T>
@@ -389,10 +380,6 @@ template <typename T>
 concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra> || IsUltraOrMegaHonk<T>;
-
-
-template <typename T>
 concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>,
@@ -401,6 +388,12 @@ concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
 
 template <typename T>
 concept HasDataBus = IsMegaFlavor<T>;
+
+// Whether the Flavor has randomness at the end of its trace to randomise commitments and evaluations of its polynomials
+// hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.
+// This is not the case for Translator, where randomness resides in different parts of the trace and the locations will
+// be reflected via Translator relations.
+template <typename T> concept UseRowDisablingPolynomial = !IsAnyOf<T,TranslatorFlavor, TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
 
 template <typename T>
 concept HasIPAAccumulator = IsAnyOf<T, UltraRollupFlavor, UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;

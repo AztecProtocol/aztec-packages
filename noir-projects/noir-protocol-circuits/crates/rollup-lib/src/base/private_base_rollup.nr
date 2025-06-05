@@ -6,16 +6,16 @@ use crate::{
     base::{
         components::{
             archive::perform_archive_membership_check,
-            fees::compute_fee_payer_fee_juice_balance_leaf_slot,
+            constants::validate_tx_constant_data,
+            fees::{compute_fee_payer_fee_juice_balance_leaf_slot, compute_transaction_fee},
             nullifier_tree::nullifier_tree_batch_insert,
-            private_base_rollup_output_composer::compute_transaction_fee, PrivateTubeDataValidator,
+            PrivateTubeDataValidator,
             public_data_tree::public_data_tree_insert,
         },
         state_diff_hints::PrivateBaseStateDiffHints,
     },
     components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
-use super::components::constants::validate_tx_constant_data;
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
@@ -28,11 +28,10 @@ use dep::types::{
         NOTE_HASH_SUBTREE_HEIGHT, TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
-    hash::{silo_contract_class_log, silo_l2_to_l1_message},
+    hash::silo_l2_to_l1_message,
     merkle_tree::{
         append_only_tree, calculate_empty_tree_root, calculate_subtree_root, MembershipWitness,
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
     partial_state_reference::PartialStateReference,
     traits::{Empty, Hash},
 };
@@ -49,14 +48,14 @@ pub struct PrivateBaseRollupInputs {
     fee_payer_fee_juice_balance_read_hint: PublicDataHint,
 
     archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
-    contract_class_logs_preimages: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     constants: ConstantRollupData,
 }
 
 impl PrivateBaseRollupInputs {
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let tube_data_validator = PrivateTubeDataValidator::new(self.tube_data);
-        tube_data_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        tube_data_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
         tube_data_validator.validate_with_rollup_data(self.constants);
 
         validate_tx_constant_data(self.tube_data.public_inputs.constants, self.constants);
@@ -104,35 +103,27 @@ impl PrivateBaseRollupInputs {
         all_public_data_update_requests[0] = fee_public_data_write;
 
         // Silo the L2 to L1 messages and compute the out hash.
-        let siloed_l2_to_l1_msgs = self
-            .tube_data
-            .public_inputs
-            .end
-            .l2_to_l1_msgs
-            .map(|message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                message,
-                self.tube_data.public_inputs.constants.tx_context.version,
-                self.tube_data.public_inputs.constants.tx_context.chain_id,
-            ));
+        let siloed_l2_to_l1_msgs = self.tube_data.public_inputs.end.l2_to_l1_msgs.map(|message| silo_l2_to_l1_message(
+            message,
+            self.tube_data.public_inputs.constants.tx_context.version,
+            self.tube_data.public_inputs.constants.tx_context.chain_id,
+        ));
 
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
 
-        // TODO(#13914): Don't need to silo the contract class logs.
-        // Silo and validate the contract class logs.
-        let mut siloed_contract_class_logs =
-            [ContractClassLog::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX];
+        // Validate the contract class log hashes.
+        let mut contract_class_logs = [ContractClassLog::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX];
         let contract_class_logs_hashes =
             self.tube_data.public_inputs.end.contract_class_logs_hashes;
         for i in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
             let log_hash = contract_class_logs_hashes[i];
-            let log_preimage = self.contract_class_logs_preimages[i];
-            validate_contract_class_log(log_hash, log_preimage);
+            let log_fields = self.contract_class_log_fields[i];
+            validate_contract_class_log(log_hash, log_fields);
 
-            let log = ContractClassLog {
-                log: Log::new(self.contract_class_logs_preimages[i], log_hash.inner.length),
+            contract_class_logs[i] = ContractClassLog {
+                log: Log::new(log_fields, log_hash.inner.length),
                 contract_address: log_hash.contract_address,
             };
-            siloed_contract_class_logs[i] = silo_contract_class_log(log);
         }
 
         // Append the tx effects for blob(s).
@@ -146,7 +137,7 @@ impl PrivateBaseRollupInputs {
             public_data_writes: all_public_data_update_requests,
             private_logs: self.tube_data.public_inputs.end.private_logs,
             public_logs: [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
-            contract_class_logs: siloed_contract_class_logs,
+            contract_class_logs,
         };
         let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
 
@@ -221,7 +212,9 @@ impl PrivateBaseRollupInputs {
 
 mod tests {
     use crate::{
-        abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
+        abis::{
+            base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs, tx_effect::TxEffect,
+        },
         base::{
             components::fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             private_base_rollup::PrivateBaseRollupInputs,
@@ -231,7 +224,6 @@ mod tests {
             append_tx_effects_for_blob, encode_blob_prefix, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
         },
     };
-    use crate::abis::tx_effect::TxEffect;
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
@@ -240,7 +232,7 @@ mod tests {
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
             side_effect::OrderedValue, sponge_blob::SpongeBlob,
         },
-        address::{AztecAddress, EthAddress},
+        address::AztecAddress,
         constants::{
             ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
             L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
@@ -253,9 +245,8 @@ mod tests {
             TX_START_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-        hash::{compute_siloed_contract_class_log_field, poseidon2_hash, silo_l2_to_l1_message},
+        hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
         merkle_tree::MembershipWitness,
-        messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
         tests::{
             fixture_builder::FixtureBuilder,
@@ -333,7 +324,7 @@ mod tests {
         // Used for building the public data hint read for the payment update request.
         fee_payer_balance_leaf_index: u32,
 
-        contract_class_logs_preimages: BoundedVec<[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS], MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+        contract_class_log_fields: BoundedVec<[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS], MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     }
 
     impl PrivateBaseRollupInputsBuilder {
@@ -389,7 +380,7 @@ mod tests {
                 constants,
                 fee_payer,
                 fee_payer_balance_leaf_index,
-                contract_class_logs_preimages: BoundedVec::new(),
+                contract_class_log_fields: BoundedVec::new(),
             }
         }
 
@@ -529,9 +520,9 @@ mod tests {
         unconstrained fn append_contract_class_log<let N: u32>(&mut self, log_fields: [Field; N]) {
             let padded_log_fields: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
                 array_concat(log_fields, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
-            self.contract_class_logs_preimages.push(padded_log_fields);
+            self.contract_class_log_fields.push(padded_log_fields);
 
-            let log_hash = poseidon2_hash(padded_log_fields);
+            let log_hash = compute_contract_class_log_hash(padded_log_fields);
             self.tube_data.add_contract_class_log_hash(log_hash, N);
         }
 
@@ -652,7 +643,7 @@ mod tests {
                 },
                 constants: self.constants,
                 fee_payer_fee_juice_balance_read_hint,
-                contract_class_logs_preimages: self.contract_class_logs_preimages.storage(),
+                contract_class_log_fields: self.contract_class_log_fields.storage(),
             }
         }
 
@@ -978,7 +969,7 @@ mod tests {
         offset += 1;
         for i in 0..NUM_MSGS {
             reconstructed_tx_effects[offset + i] = silo_l2_to_l1_message(
-                builder.tube_data.l2_to_l1_msgs.storage()[i],
+                builder.tube_data.l2_to_l1_msgs.get(i).expose_to_public(),
                 builder.tube_data.tx_context.version,
                 builder.tube_data.tx_context.chain_id,
             );
@@ -1018,14 +1009,8 @@ mod tests {
             offset += 1;
             reconstructed_tx_effects[offset] = builder.tube_data.contract_address.to_field();
             offset += 1;
-            let log_fields = builder.contract_class_logs_preimages.get(i);
-            let siloed_tag = compute_siloed_contract_class_log_field(
-                builder.tube_data.contract_address,
-                log_fields[0],
-            );
-            reconstructed_tx_effects[offset] = siloed_tag;
-            offset += 1;
-            for j in 1..log_len {
+            let log_fields = builder.contract_class_log_fields.get(i);
+            for j in 0..log_len {
                 reconstructed_tx_effects[offset] = log_fields[j];
                 offset += 1;
             }
@@ -1057,22 +1042,15 @@ mod tests {
     unconstrained fn nonempty_block_out_hash() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
 
-        for i in 0..MAX_L2_TO_L1_MSGS_PER_TX {
-            builder.tube_data.add_exposed_l2_to_l1_message(
-                i as Field,
-                EthAddress::from_field(1 + i as Field),
-            );
-        }
+        builder.tube_data.append_l2_to_l1_msgs(MAX_L2_TO_L1_MSGS_PER_TX);
 
         let out_hash = builder.execute().out_hash;
-        let siloed_l2_to_l1_msgs = builder
-            .tube_data
-            .l2_to_l1_msgs
-            .map(|l2_to_l1_message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                l2_to_l1_message,
-                builder.constants.global_variables.version,
-                builder.constants.global_variables.chain_id,
-            ));
+
+        let siloed_l2_to_l1_msgs = builder.tube_data.l2_to_l1_msgs.map(|l2_to_l1_message| silo_l2_to_l1_message(
+            l2_to_l1_message.expose_to_public(),
+            builder.constants.global_variables.version,
+            builder.constants.global_variables.chain_id,
+        ));
 
         // Since we fill the tree completely, we know to expect a full tree as below
         let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());

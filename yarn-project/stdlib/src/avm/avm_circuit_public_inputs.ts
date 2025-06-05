@@ -9,15 +9,15 @@ import { inspect } from 'util';
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import { Gas, GasSettings } from '../gas/index.js';
+import { Gas, GasFees, GasSettings } from '../gas/index.js';
 import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
 } from '../kernel/private_to_avm_accumulated_data.js';
-import { PublicCallRequest } from '../kernel/public_call_request.js';
+import { PublicCallRequest, PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
-import { AvmAccumulatedData } from './avm_accumulated_data.js';
+import { AvmAccumulatedData, AvmAccumulatedDataArrayLengths } from './avm_accumulated_data.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
 // Note: the {from,to}{Buffer,Fields,String} methods are needed by AvmProofData and PublicBaseRollupInputs.
@@ -30,7 +30,9 @@ export class AvmCircuitPublicInputs {
     public startTreeSnapshots: TreeSnapshots,
     public startGasUsed: Gas,
     public gasSettings: GasSettings,
+    public effectiveGasFees: GasFees,
     public feePayer: AztecAddress,
+    public publicCallRequestArrayLengths: PublicCallRequestArrayLengths,
     public publicSetupCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public publicAppLogicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public publicTeardownCallRequest: PublicCallRequest,
@@ -42,6 +44,7 @@ export class AvmCircuitPublicInputs {
     // Outputs.
     public endTreeSnapshots: TreeSnapshots,
     public endGasUsed: Gas,
+    public accumulatedDataArrayLengths: AvmAccumulatedDataArrayLengths,
     public accumulatedData: AvmAccumulatedData,
     public transactionFee: Fr,
     public reverted: boolean,
@@ -54,7 +57,9 @@ export class AvmCircuitPublicInputs {
         startTreeSnapshots: TreeSnapshots.schema,
         startGasUsed: Gas.schema,
         gasSettings: GasSettings.schema,
+        effectiveGasFees: GasFees.schema,
         feePayer: AztecAddress.schema,
+        publicCallRequestArrayLengths: PublicCallRequestArrayLengths.schema,
         publicSetupCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
         publicAppLogicCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
         publicTeardownCallRequest: PublicCallRequest.schema,
@@ -64,6 +69,7 @@ export class AvmCircuitPublicInputs {
         previousRevertibleAccumulatedData: PrivateToAvmAccumulatedData.schema,
         endTreeSnapshots: TreeSnapshots.schema,
         endGasUsed: Gas.schema,
+        accumulatedDataArrayLengths: AvmAccumulatedDataArrayLengths.schema,
         accumulatedData: AvmAccumulatedData.schema,
         transactionFee: schemas.Fr,
         reverted: z.boolean(),
@@ -74,7 +80,9 @@ export class AvmCircuitPublicInputs {
           startTreeSnapshots,
           startGasUsed,
           gasSettings,
+          effectiveGasFees,
           feePayer,
+          publicCallRequestArrayLengths,
           publicSetupCallRequests,
           publicAppLogicCallRequests,
           publicTeardownCallRequest,
@@ -84,6 +92,7 @@ export class AvmCircuitPublicInputs {
           previousRevertibleAccumulatedData,
           endTreeSnapshots,
           endGasUsed,
+          accumulatedDataArrayLengths,
           accumulatedData,
           transactionFee,
           reverted,
@@ -93,7 +102,9 @@ export class AvmCircuitPublicInputs {
             startTreeSnapshots,
             startGasUsed,
             gasSettings,
+            effectiveGasFees,
             feePayer,
+            publicCallRequestArrayLengths,
             assertLength(publicSetupCallRequests, MAX_ENQUEUED_CALLS_PER_TX),
             assertLength(publicAppLogicCallRequests, MAX_ENQUEUED_CALLS_PER_TX),
             publicTeardownCallRequest,
@@ -103,6 +114,7 @@ export class AvmCircuitPublicInputs {
             previousRevertibleAccumulatedData,
             endTreeSnapshots,
             endGasUsed,
+            accumulatedDataArrayLengths,
             accumulatedData,
             transactionFee,
             reverted,
@@ -117,7 +129,9 @@ export class AvmCircuitPublicInputs {
       reader.readObject(TreeSnapshots),
       reader.readObject(Gas),
       reader.readObject(GasSettings),
+      reader.readObject(GasFees),
       reader.readObject(AztecAddress),
+      reader.readObject(PublicCallRequestArrayLengths),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readObject(PublicCallRequest),
@@ -127,6 +141,7 @@ export class AvmCircuitPublicInputs {
       reader.readObject(PrivateToAvmAccumulatedData),
       reader.readObject(TreeSnapshots),
       reader.readObject(Gas),
+      reader.readObject(AvmAccumulatedDataArrayLengths),
       reader.readObject(AvmAccumulatedData),
       reader.readObject(Fr),
       reader.readBoolean(),
@@ -139,7 +154,9 @@ export class AvmCircuitPublicInputs {
       this.startTreeSnapshots,
       this.startGasUsed,
       this.gasSettings,
+      this.effectiveGasFees,
       this.feePayer,
+      this.publicCallRequestArrayLengths,
       this.publicSetupCallRequests,
       this.publicAppLogicCallRequests,
       this.publicTeardownCallRequest,
@@ -149,6 +166,7 @@ export class AvmCircuitPublicInputs {
       this.previousRevertibleAccumulatedData,
       this.endTreeSnapshots,
       this.endGasUsed,
+      this.accumulatedDataArrayLengths,
       this.accumulatedData,
       this.transactionFee,
       this.reverted,
@@ -170,7 +188,9 @@ export class AvmCircuitPublicInputs {
       TreeSnapshots.fromFields(reader),
       Gas.fromFields(reader),
       GasSettings.fromFields(reader),
+      GasFees.fromFields(reader),
       AztecAddress.fromFields(reader),
+      PublicCallRequestArrayLengths.fromFields(reader),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       PublicCallRequest.fromFields(reader),
@@ -180,6 +200,7 @@ export class AvmCircuitPublicInputs {
       PrivateToAvmAccumulatedData.fromFields(reader),
       TreeSnapshots.fromFields(reader),
       Gas.fromFields(reader),
+      AvmAccumulatedDataArrayLengths.fromFields(reader),
       AvmAccumulatedData.fromFields(reader),
       reader.readField(),
       reader.readBoolean(),
@@ -192,7 +213,9 @@ export class AvmCircuitPublicInputs {
       ...this.startTreeSnapshots.toFields(),
       ...this.startGasUsed.toFields(),
       ...this.gasSettings.toFields(),
+      ...this.effectiveGasFees.toFields(),
       this.feePayer,
+      ...this.publicCallRequestArrayLengths.toFields(),
       ...this.publicSetupCallRequests.map(request => request.toFields()),
       ...this.publicAppLogicCallRequests.map(request => request.toFields()),
       ...this.publicTeardownCallRequest.toFields(),
@@ -202,6 +225,7 @@ export class AvmCircuitPublicInputs {
       ...this.previousRevertibleAccumulatedData.toFields(),
       ...this.endTreeSnapshots.toFields(),
       ...this.endGasUsed.toFields(),
+      ...this.accumulatedDataArrayLengths.toFields(),
       ...this.accumulatedData.toFields(),
       this.transactionFee,
       this.reverted,
@@ -214,7 +238,9 @@ export class AvmCircuitPublicInputs {
       TreeSnapshots.empty(),
       Gas.empty(),
       GasSettings.empty(),
+      GasFees.empty(),
       AztecAddress.zero(),
+      PublicCallRequestArrayLengths.empty(),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       PublicCallRequest.empty(),
@@ -224,6 +250,7 @@ export class AvmCircuitPublicInputs {
       PrivateToAvmAccumulatedData.empty(),
       TreeSnapshots.empty(),
       Gas.empty(),
+      AvmAccumulatedDataArrayLengths.empty(),
       AvmAccumulatedData.empty(),
       Fr.zero(),
       false,
@@ -240,7 +267,9 @@ export class AvmCircuitPublicInputs {
       startTreeSnapshots: ${inspect(this.startTreeSnapshots)},
       startGasUsed: ${inspect(this.startGasUsed)},
       gasSettings: ${inspect(this.gasSettings)},
+      effectiveGasFees: ${inspect(this.effectiveGasFees)},
       feePayer: ${inspect(this.feePayer)},
+      publicCallRequestArrayLengths: ${inspect(this.publicCallRequestArrayLengths)},
       publicSetupCallRequests: [${this.publicSetupCallRequests
         .filter(x => !x.isEmpty())
         .map(h => inspect(h))
@@ -258,6 +287,7 @@ export class AvmCircuitPublicInputs {
       previousRevertibleAccumulatedData: ${inspect(this.previousRevertibleAccumulatedData)},
       endTreeSnapshots: ${inspect(this.endTreeSnapshots)},
       endGasUsed: ${inspect(this.endGasUsed)},
+      accumulatedDataArrayLengths: ${inspect(this.accumulatedDataArrayLengths)},
       accumulatedData: ${inspect(this.accumulatedData)},
       transactionFee: ${inspect(this.transactionFee)},
       reverted: ${this.reverted},

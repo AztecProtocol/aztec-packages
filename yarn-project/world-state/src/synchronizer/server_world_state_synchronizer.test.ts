@@ -1,10 +1,9 @@
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
+import { SHA256Trunc, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
-import { SHA256Trunc } from '@aztec/merkle-tree';
 import { L2Block, type L2BlockSource, type L2BlockStream, type PublishedL2Block } from '@aztec/stdlib/block';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -97,7 +96,7 @@ describe('ServerWorldStateSynchronizer', () => {
       type: 'blocks-added',
       blocks: await timesParallel(
         to - from + 1,
-        async i => ({ block: await L2Block.random(i + from, 4, 3, 1, inHash) } as PublishedL2Block),
+        async i => ({ block: await L2Block.random(i + from, 4, 3, 1, inHash) }) as PublishedL2Block,
       ),
     });
     server.latest.number = to;

@@ -5,8 +5,8 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/relation_checker.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
@@ -109,6 +109,27 @@ TYPED_TEST(MegaHonkTests, MegaProofSizeCheck)
     UltraProver_<Flavor> prover(proving_key);
     HonkProof mega_proof = prover.construct_proof();
     EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE);
+}
+
+/**
+ * @brief Check that size of a ultra honk proof matches the corresponding constant
+ * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - VK length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
+ * - ultra_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, lib.nr in
+ * bb_proof_verification/src, main.nr of recursive acir_tests programs. with recursive verification circuits
+ */
+TYPED_TEST(MegaHonkTests, MegaVKSizeCheck)
+{
+    using Flavor = TypeParam;
+
+    auto builder = typename Flavor::CircuitBuilder{};
+    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
+
+    // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    typename Flavor::VerificationKey verification_key(proving_key->proving_key);
+    EXPECT_EQ(verification_key.to_field_elements().size(), Flavor::VerificationKey::VERIFICATION_KEY_LENGTH);
 }
 
 /**

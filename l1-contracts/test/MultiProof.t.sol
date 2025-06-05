@@ -23,7 +23,8 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 import {RollupBase, IInstance, IRollup} from "./base/RollupBase.sol";
-
+import {RollupBuilder} from "./builder/RollupBuilder.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -61,35 +62,19 @@ contract MultiProofTest is RollupBase {
    */
   modifier setUpFor(string memory _name) {
     {
-      testERC20 = new TestERC20("test", "TEST", address(this));
-
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.slotNumber;
       uint256 initialTime = full.block.decodedHeader.timestamp - slotNumber * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
-    registry = new Registry(address(this), IERC20(address(testERC20)));
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
 
-    testERC20.mint(address(rewardDistributor), 1e6 ether);
-
-    rollup = IInstance(
-      address(
-        new Rollup(
-          testERC20,
-          rewardDistributor,
-          testERC20,
-          address(this),
-          TestConstants.getGenesisState(),
-          TestConstants.getRollupConfigInput()
-        )
-      )
-    );
+    rollup = IInstance(address(builder.getConfig().rollup));
+    testERC20 = builder.getConfig().testERC20;
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
-
-    registry.addRollup(IRollup(address(rollup)));
 
     _;
   }
@@ -154,6 +139,18 @@ contract MultiProofTest is RollupBase {
     assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 2, bob));
 
     assertEq(rollup.getProvenBlockNumber(), 2, "Block not proven");
+
+    {
+      // Ensure that we cannot claim rewards when not toggled yet
+      vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__RewardsNotClaimable.selector));
+      rollup.claimSequencerRewards(sequencer);
+
+      vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__RewardsNotClaimable.selector));
+      rollup.claimProverRewards(alice, new Epoch[](1));
+
+      vm.prank(Ownable(address(rollup)).owner());
+      rollup.setRewardsClaimable(true);
+    }
 
     {
       uint256 sequencerRewards = rollup.getSequencerRewards(sequencer);

@@ -10,11 +10,11 @@
   },
   "devDependencies": {
     "@aztec/bb.js": "portal:../../ts",
-    "@types/debug": "^4.1.12",
     "@types/pako": "^2.0.3",
-    "debug": "^4.3.4",
+    "buffer": "^6.0.3",
     "html-webpack-plugin": "^5.6.0",
     "pako": "^2.1.0",
+    "pino": "^9.5.0",
     "serve": "^14.2.1",
     "ts-loader": "^9.5.1",
     "typescript": "^5.4.2",

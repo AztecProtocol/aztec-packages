@@ -17,6 +17,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicContractsDB } from '../public_db_sources.js';
 import type { PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
+import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
@@ -72,7 +73,7 @@ describe('public_processor', () => {
 
     processor = new PublicProcessor(
       globalVariables,
-      merkleTree,
+      new GuardedMerkleTreeOperations(merkleTree),
       contractsDB,
       publicTxSimulator,
       new TestDateProvider(),

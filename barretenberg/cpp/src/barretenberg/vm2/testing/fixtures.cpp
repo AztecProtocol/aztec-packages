@@ -38,6 +38,38 @@ std::vector<uint8_t> random_bytes(size_t n)
     return bytes;
 }
 
+std::vector<ScopedL2ToL1Message> random_l2_to_l1_messages(size_t n)
+{
+    std::vector<ScopedL2ToL1Message> messages;
+    messages.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        messages.push_back(ScopedL2ToL1Message{
+            .message =
+                L2ToL1Message{
+                    .recipient = FF::random_element(),
+                    .content = FF::random_element(),
+                },
+            .contractAddress = FF::random_element(),
+        });
+    }
+    return messages;
+}
+
+std::vector<EnqueuedCallHint> random_enqueued_calls(size_t n)
+{
+    std::vector<EnqueuedCallHint> calls;
+    calls.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        calls.push_back(EnqueuedCallHint{
+            .msgSender = FF::random_element(),
+            .contractAddress = FF::random_element(),
+            .calldata = random_fields(5),
+            .isStaticCall = rand() % 2 == 0,
+        });
+    }
+    return calls;
+}
+
 Operand random_operand(OperandType operand_type)
 {
     const auto rand_bytes = random_bytes(simulation::testonly::get_operand_type_sizes().at(operand_type));
