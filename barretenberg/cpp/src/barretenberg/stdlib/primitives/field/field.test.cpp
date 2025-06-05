@@ -419,9 +419,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         EXPECT_EQ(b.get_value(), 10);
         EXPECT_EQ(a.get_value(), 11);
+        EXPECT_TRUE(!b.is_constant());
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     static void test_prefix_increment()
@@ -772,7 +772,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         // Check that attempting to slice a full uint256_t value leads to a circuit failure.
-        a = witness_ct(&builder, engine.get_random_uint256());
+        while (static_cast<uint256_t>(a.get_value()).get_msb() < grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH + 1) {
+            a = witness_ct(&builder, engine.get_random_uint256());
+        }
+        info(static_cast<uint256_t>(a.get_value()).get_msb());
         slice = a.slice(msb, lsb);
         EXPECT_FALSE(CircuitChecker::check(builder));
         EXPECT_TRUE(builder.err() == "slice: hi value too large.");

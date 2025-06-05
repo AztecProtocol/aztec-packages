@@ -1158,6 +1158,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     total.tag = new_tag;
     return total.normalize();
 }
+
 /**
  * Slices a `field_t` at given indices (msb, lsb) both included in the slice,
  * returns three parts: [low, slice, high].
@@ -1245,11 +1246,12 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
     field_t<Builder> sum(context, 0);
     field_t<Builder> shifted_high_limb(context, 0); // will equal high 128 bits, left shifted by 128 bits
     for (size_t i = 0; i < num_bits; ++i) {
+        // Create a witness `bool_t` bit
         bool_t<Builder> bit = get_bit(context, num_bits - 1 - i, val_u256);
         bit.set_origin_tag(tag);
         result[num_bits - 1 - i] = bit;
-        bb::fr scaling_factor_value = uint256_t(1) << (num_bits - 1 - i);
-        field_t<Builder> scaling_factor(context, scaling_factor_value);
+        const bb::fr scaling_factor_value = uint256_t(1) << (num_bits - 1 - i);
+        const field_t<Builder> scaling_factor(context, scaling_factor_value);
 
         sum = sum + (scaling_factor * bit);
         if (i == midpoint) {
@@ -1257,39 +1259,36 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
         }
     }
 
-    this->assert_equal(sum); // `this` and `sum` are both normalized here.
+    assert_equal(sum); // `this` and `sum` are both normalized here.
 
     // If value can be larger than modulus we must enforce unique representation
     static constexpr uint256_t modulus_minus_one = fr::modulus - 1;
-    auto modulus_bits = modulus_minus_one.get_msb() + 1;
-    if (num_bits >= modulus_bits) {
-        // r - 1 = p_lo + 2**128 * p_hi
-        static constexpr fr p_lo = modulus_minus_one.slice(0, 128);
-        static constexpr fr p_hi = modulus_minus_one.slice(128, 256);
+    // r - 1 = p_lo + 2**128 * p_hi
+    static constexpr fr p_lo = modulus_minus_one.slice(0, 128);
+    static constexpr fr p_hi = modulus_minus_one.slice(128, 256);
 
-        // `shift` is used to shift high limbs. It has the dual purpose of representing a borrowed bit.
-        static constexpr fr shift = fr(uint256_t(1) << 128);
-        // We always borrow from 2**128*p_hi. We handle whether this was necessary later.
-        // y_lo = (2**128 + p_lo) - sum_lo
-        field_t<Builder> y_lo = (-sum) + (p_lo + shift);
-        y_lo += shifted_high_limb;
+    // `shift` is used to shift high limbs. It has the dual purpose of representing a borrowed bit.
+    static constexpr fr shift = fr(uint256_t(1) << 128);
+    // We always borrow from 2**128*p_hi. We handle whether this was necessary later.
+    // y_lo = (2**128 + p_lo) - sum_lo
+    field_t<Builder> y_lo = (-sum) + (p_lo + shift);
+    y_lo += shifted_high_limb;
 
-        // A carry was necessary if and only if the 128th bit y_lo_hi of y_lo is 0.
-        auto [y_lo_lo, y_lo_hi, zeros] = y_lo.slice(128, 128);
-        // This copy constraint, along with the constraints of field_t::slice, imposes that y_lo has bit length 129.
-        // Since the integer y_lo is at least -2**128+1, which has more than 129 bits in `Fr`, the implicit range
-        // constraint shows that y_lo is non-negative.
-        context->assert_equal(
-            zeros.witness_index, context->zero_idx, "field_t: bit decomposition_fails: high limb non-zero");
-        // y_borrow is the boolean "a carry was necessary"
-        field_t<Builder> y_borrow = -(y_lo_hi - 1);
-        // If a carry was necessary, subtract that carry from p_hi
-        // y_hi = (p_hi - y_borrow) - sum_hi
-        field_t<Builder> y_hi = -(shifted_high_limb / shift) + (p_hi);
-        y_hi -= y_borrow;
-        // As before, except that now the range constraint is explicit, this shows that y_hi is non-negative.
-        y_hi.create_range_constraint(128, "field_t: bit decomposition fails: y_hi is too large.");
-    }
+    // A carry was necessary if and only if the 128th bit y_lo_hi of y_lo is 0.
+    auto [y_lo_lo, y_lo_hi, zeros] = y_lo.slice(128, 128);
+    // This copy constraint, along with the constraints of field_t::slice, imposes that y_lo has bit length 129.
+    // Since the integer y_lo is at least -2**128+1, which has more than 129 bits in `Fr`, the implicit range
+    // constraint shows that y_lo is non-negative.
+    context->assert_equal(
+        zeros.witness_index, context->zero_idx, "field_t: bit decomposition_fails: high limb non-zero");
+    // y_borrow is the boolean "a carry was necessary"
+    field_t<Builder> y_borrow = -(y_lo_hi - 1);
+    // If a carry was necessary, subtract that carry from p_hi
+    // y_hi = (p_hi - y_borrow) - sum_hi
+    field_t<Builder> y_hi = -(shifted_high_limb / shift) + (p_hi);
+    y_hi -= y_borrow;
+    // As before, except that now the range constraint is explicit, this shows that y_hi is non-negative.
+    y_hi.create_range_constraint(128, "field_t: bit decomposition fails: y_hi is too large.");
 
     return result;
 }

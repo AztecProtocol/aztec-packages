@@ -36,37 +36,34 @@ template <typename Builder> class field_t {
 
     field_t(const int value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+    {}
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long long value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+    {}
 
     field_t(const unsigned int value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+
+    {}
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+    {}
 
     // Construct a constant circuit element from a native field element
     field_t(const bb::fr& value)
