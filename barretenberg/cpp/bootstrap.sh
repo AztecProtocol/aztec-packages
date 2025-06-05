@@ -285,10 +285,10 @@ case "$cmd" in
     # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
     git fetch origin master
 
-    # # build the benchmarked benches
-    # parallel --line-buffered --tag -v denoise ::: \
-    #   "build_preset $native_preset --target bb_cli_bench" \
-    #   "build_preset wasm-threads --target bb_cli_bench"
+    # build the benchmarked benches
+    parallel --line-buffered --tag -v denoise ::: \
+      "build_preset $native_preset --target bb_cli_bench" \
+      "build_preset wasm-threads --target bb_cli_bench"
 
     if [ -n "${1:-}" ]; then
       echo "Downloading inputs from commit $1."

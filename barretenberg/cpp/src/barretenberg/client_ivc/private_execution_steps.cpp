@@ -11,7 +11,7 @@ std::vector<uint8_t> decompress(const void* compressed, std::size_t comp_size)
     const int gz_footer_size = 8;
 
     if (comp_size < gz_header_size + gz_footer_size) {
-        throw std::invalid_argument("truncated gzip");
+        THROW std::invalid_argument("truncated gzip");
     }
 
     const std::uint8_t* in = static_cast<const std::uint8_t*>(compressed);

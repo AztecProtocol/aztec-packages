@@ -33,6 +33,7 @@
 #include "barretenberg/serialize/msgpack_apply.hpp"
 #include <array>
 #include <cassert>
+#include <cstdint>
 #include <deque>
 #include <iostream>
 #include <map>
@@ -480,16 +481,16 @@ template <bool include_size = false, typename T> std::vector<uint8_t> to_buffer(
     }
     return buf;
 }
-
-template <typename T, bool include_size = false> std::vector<uint8_t> to_buffer(std::deque<T> const& value)
+template <bool include_size = false, typename T> std::vector<uint8_t> to_buffer(std::deque<T> const& value)
 {
     using serialize::write;
     std::vector<uint8_t> buf;
-    if (include_size) {
-        write(buf, value.size());
+    if constexpr (include_size) {
+        buf.resize(sizeof(uint32_t));
+        uint8_t* ptr = &*buf.end() - sizeof(uint32_t);
+        write(ptr, static_cast<uint32_t>(value.size()));
     }
-
-    for (auto e : value) {
+    for (const auto& e : value) {
         write(buf, e);
     }
     return buf;

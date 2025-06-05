@@ -25,6 +25,7 @@
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
+#include <cstdlib>
 
 namespace bb {
 // This is updated in-place by bootstrap.sh during the release process. This prevents
