@@ -144,6 +144,10 @@ tests:
   - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
+  - regex: "src/e2e_token_contract/access_control"
+    error_regex: "HttpRequestError: HTTP request failed."
+    owners:
+      - *charlie
   # http://ci.aztec-labs.com/7a5104e136578d64
   # The "loop that wastes 5m" thing.
   - regex: "src/e2e_fees/failures"
@@ -218,13 +222,10 @@ tests:
     owners:
       - *sean
   # http://ci.aztec-labs.com/dbd1f6d89d783fe6
-  - regex: "p2p/src/client/p2p_client.integration.test.ts"
-    error_regex: "CodeError: writable end state is .writing. not .ready."
-    owners:
-      - *palla
+  # http://ci.aztec-labs.com/2edd22a1ffa9edea
   # http://ci.aztec-labs.com/ef728e7bedb2710b
+  # http://ci.aztec-labs.com/2edd22a1ffa9edea
   - regex: "p2p/src/client/p2p_client.integration.test.ts"
-    error_regex: "Expected number of calls: 0"
     owners:
       - *palla
   - regex: "yarn-project/kv-store"
@@ -241,6 +242,10 @@ tests:
       - *alex
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
     error_regex: "BlockOutOfRangeError"
+    owners:
+      - *palla
+  - regex: "ethereum/src/deploy_l1_contracts.test.ts"
+    error_regex: "Expected: > 0"
     owners:
       - *palla
   - regex: "ethereum/src/l1_tx_utils.test.ts"
