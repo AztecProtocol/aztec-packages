@@ -1,5 +1,4 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { AbortError } from '@aztec/foundation/error';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -892,10 +891,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param messageValidators - The message validators to run.
    * @returns The validation outcome.
    */
-  private async runValidations(
-    tx: Tx,
-    messageValidators: Record<string, MessageValidator>,
-  ): Promise<ValidationOutcome> {
+  private runValidations(tx: Tx, messageValidators: Record<string, MessageValidator>): Promise<ValidationOutcome> {
     return validateInParallel(tx, messageValidators, this.logger);
   }
 
