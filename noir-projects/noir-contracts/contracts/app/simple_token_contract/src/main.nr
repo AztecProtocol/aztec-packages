@@ -105,11 +105,11 @@ pub contract SimpleToken {
     }
 
     #[public]
-    fn public_transfer(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
+    fn public_transfer(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
@@ -118,11 +118,11 @@ pub contract SimpleToken {
     }
 
     #[public]
-    fn burn_public(from: AztecAddress, amount: u128, nonce: Field) {
+    fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
@@ -135,12 +135,12 @@ pub contract SimpleToken {
         from: AztecAddress,
         to: AztecAddress,
         amount: u128,
-        nonce: Field,
+        authwit_nonce: Field,
     ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
@@ -185,11 +185,11 @@ pub contract SimpleToken {
     }
 
     #[private]
-    fn burn_private(from: AztecAddress, amount: u128, nonce: Field) {
+    fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
             &mut context,

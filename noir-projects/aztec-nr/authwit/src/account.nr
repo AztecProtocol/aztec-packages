@@ -51,8 +51,10 @@ impl AccountActions<&mut PrivateContext> {
         self.context.end_setup();
         app_payload.execute_calls(self.context);
         if cancellable {
-            let tx_nullifier =
-                poseidon2_hash_with_separator([app_payload.nonce], GENERATOR_INDEX__TX_NULLIFIER);
+            let tx_nullifier = poseidon2_hash_with_separator(
+                [app_payload.tx_nonce],
+                GENERATOR_INDEX__TX_NULLIFIER,
+            );
             self.context.push_nullifier(tx_nullifier);
         }
     }

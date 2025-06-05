@@ -30,9 +30,9 @@ describe('hash', () => {
   });
 
   it('computes unique note hash', async () => {
-    const nonce = new Fr(123n);
+    const noteNonce = new Fr(123n);
     const noteHash = new Fr(456);
-    const res = await computeUniqueNoteHash(nonce, noteHash);
+    const res = await computeUniqueNoteHash(noteNonce, noteHash);
     expect(res).toMatchSnapshot();
   });
 

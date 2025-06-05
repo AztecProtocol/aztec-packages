@@ -78,7 +78,7 @@ pub contract Orderbook {
         ask_token: AztecAddress,
         bid_amount: u128,
         ask_amount: u128,
-        nonce: Field,
+        authwit_nonce: Field,
     ) -> Field {
         let config = storage.config.read();
 
@@ -89,7 +89,7 @@ pub contract Orderbook {
 
         // Transfer tokens from maker to the public balance of this contract.
         Token::at(bid_token)
-            .transfer_to_public(maker, context.this_address(), bid_amount, nonce)
+            .transfer_to_public(maker, context.this_address(), bid_amount, authwit_nonce)
             .call(&mut context);
 
         // Prepare a partial note that will get completed once the order is fulfilled. Note that only the Orderbook
@@ -121,7 +121,7 @@ pub contract Orderbook {
     /// Privately fulfills an existing order in the orderbook
     /// The taker provides the order ID they want to fulfill
     #[private]
-    fn fulfill_order(order_id: Field, nonce: Field) {
+    fn fulfill_order(order_id: Field, authwit_nonce: Field) {
         let config = storage.config.read();
         let order = storage.orders.at(order_id).read();
         let taker = context.msg_sender();
@@ -138,7 +138,7 @@ pub contract Orderbook {
                 taker,
                 maker_partial_note,
                 order.ask_amount,
-                nonce,
+                authwit_nonce,
             )
             .call(&mut context);
 

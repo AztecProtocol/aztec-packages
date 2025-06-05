@@ -60,7 +60,7 @@ pub(crate) unconstrained fn get_private_logs(
 pub(crate) unconstrained fn enqueue_note_for_validation(
     contract_address: AztecAddress,
     storage_slot: Field,
-    nonce: Field,
+    note_nonce: Field,
     packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
     note_hash: Field,
     nullifier: Field,
@@ -73,7 +73,7 @@ pub(crate) unconstrained fn enqueue_note_for_validation(
         NoteValidationRequest {
             contract_address,
             storage_slot,
-            nonce,
+            note_nonce,
             packed_note,
             note_hash,
             nullifier,

@@ -45,7 +45,7 @@ unconstrained fn burn_private_failure_more_than_balance() {
     Token::at(token_contract_address).burn_private(owner, burn_amount, 0).call(&mut env.private());
 }
 
-#[test(should_fail_with = "invalid nonce")]
+#[test(should_fail_with = "invalid authwit nonce")]
 unconstrained fn burn_private_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, token_contract_address, owner, _, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);

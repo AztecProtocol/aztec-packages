@@ -77,7 +77,7 @@ pub unconstrained fn attempt_note_discovery<Env>(
         enqueue_note_for_validation(
             contract_address,
             storage_slot,
-            discovered_note.nonce,
+            discovered_note.note_nonce,
             packed_note,
             discovered_note.note_hash,
             discovered_note.inner_nullifier,

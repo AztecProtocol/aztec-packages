@@ -27,6 +27,7 @@ names:
   - spyros: &spyros "U03FCET0DQE"
   - jan: &jan "U03FGA0BWNR"
   - esau: &esau "U067FJ9A4Q1"
+  - saleel: &saleel "U07KJ0AV20J"
 
 tests:
   # barretenberg
@@ -286,6 +287,12 @@ tests:
     error_regex: "code: 124"
     owners:
       - *esau
+
+  # boxes
+  - regex: "boxes/boxes/vanilla/tests/e2e.spec.ts"
+    error_regex: "Error: Timed out 20000ms waiting for expect(locator).toHaveText(expected)"
+    owners:
+      - *saleel
 
   # Slack testing.
   - regex: "nonsense to match"
