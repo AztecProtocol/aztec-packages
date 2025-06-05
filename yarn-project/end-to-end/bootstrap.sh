@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
-	export DISABLE_AZTEC_VM=1
+  export DISABLE_AZTEC_VM=1
 fi
 
 hash=$(../bootstrap.sh hash)

@@ -17,7 +17,7 @@ cmd=${1:-}
 [ -n "$cmd" ] && shift
 
 if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
-	export DISABLE_AZTEC_VM=1
+  export DISABLE_AZTEC_VM=1
 fi
 
 if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
