@@ -64,12 +64,12 @@ describe('e2e_token_contract transfer public', () => {
     const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
 
     // docs:start:authwit_public_transfer_example
     const action = asset
       .withWallet(wallets[1])
-      .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
+      .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
 
     const validateActionInteraction = await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true);
     await validateActionInteraction.send().wait();
@@ -84,7 +84,7 @@ describe('e2e_token_contract transfer public', () => {
     await expect(
       asset
         .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce)
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce)
         .simulate(),
     ).rejects.toThrow(/unauthorized/);
   });
@@ -93,29 +93,29 @@ describe('e2e_token_contract transfer public', () => {
     it('transfer more than balance', async () => {
       const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
       const amount = balance0 + 1n;
-      const nonce = 0;
+      const authwitNonce = 0;
       await expect(
-        asset.methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
+        asset.methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce).simulate(),
       ).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
 
     it('transfer on behalf of self with non-zero nonce', async () => {
       const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
       const amount = balance0 - 1n;
-      const nonce = 1;
+      const authwitNonce = 1;
       await expect(
-        asset.methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
-      ).rejects.toThrow('Assertion failed: invalid nonce');
+        asset.methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce).simulate(),
+      ).rejects.toThrow('Assertion failed: invalid authwit nonce');
     });
 
     it('transfer on behalf of other without "approval"', async () => {
       const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
       const amount = balance0 + 1n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       await expect(
         asset
           .withWallet(wallets[1])
-          .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce)
+          .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce)
           .simulate(),
       ).rejects.toThrow(/unauthorized/);
     });
@@ -124,12 +124,12 @@ describe('e2e_token_contract transfer public', () => {
       const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
       const balance1 = await asset.methods.balance_of_public(accounts[1].address).simulate();
       const amount = balance0 + 1n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
 
       const intent = { caller: accounts[1].address, action };
       // We need to compute the message we want to sign and add it to the wallet as approved
@@ -154,13 +154,13 @@ describe('e2e_token_contract transfer public', () => {
       const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
       const balance1 = await asset.methods.balance_of_public(accounts[1].address).simulate();
       const amount = balance0 + 2n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
 
       const validateActionInteraction = await wallets[0].setPublicAuthWit(
         { caller: accounts[0].address, action },
@@ -179,13 +179,13 @@ describe('e2e_token_contract transfer public', () => {
       const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
       const balance1 = await asset.methods.balance_of_public(accounts[1].address).simulate();
       const amount = balance0 + 2n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
       const validateActionInteraction = await wallets[0].setPublicAuthWit(
         { caller: accounts[0].address, action },
         true,
@@ -203,11 +203,11 @@ describe('e2e_token_contract transfer public', () => {
       const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
 
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
 
       const validateActionInteraction = await wallets[0].setPublicAuthWit(
         { caller: accounts[1].address, action },
@@ -221,7 +221,7 @@ describe('e2e_token_contract transfer public', () => {
       await expect(
         asset
           .withWallet(wallets[1])
-          .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce)
+          .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce)
           .simulate(),
       ).rejects.toThrowError(/unauthorized/);
     });
@@ -230,11 +230,11 @@ describe('e2e_token_contract transfer public', () => {
       const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
 
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
 
       const validateActionInteraction = await wallets[0].setPublicAuthWit(
         { caller: accounts[1].address, action },
@@ -249,12 +249,12 @@ describe('e2e_token_contract transfer public', () => {
     });
 
     it('transfer on behalf of other, invalid spend_public_authwit on "from"', async () => {
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
 
       await expect(
         asset
           .withWallet(wallets[1])
-          .methods.transfer_in_public(badAccount.address, accounts[1].address, 0, nonce)
+          .methods.transfer_in_public(badAccount.address, accounts[1].address, 0, authwitNonce)
           .simulate(),
       ).rejects.toThrow(/unauthorized/);
     });
