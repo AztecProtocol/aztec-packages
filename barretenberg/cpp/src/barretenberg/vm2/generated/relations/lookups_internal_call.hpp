@@ -18,7 +18,7 @@ struct lookup_internal_call_push_call_stack_settings_ {
     static constexpr std::string_view RELATION_NAME = "internal_call";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_internal_call;
-    static constexpr Column DST_SELECTOR = Column::call_stack_sel;
+    static constexpr Column DST_SELECTOR = Column::internal_call_stack_sel;
     static constexpr Column COUNTS = Column::lookup_internal_call_push_call_stack_counts;
     static constexpr Column INVERSES = Column::lookup_internal_call_push_call_stack_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -29,11 +29,11 @@ struct lookup_internal_call_push_call_stack_settings_ {
         ColumnAndShifts::execution_next_pc
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::call_stack_context_id,
-        ColumnAndShifts::call_stack_entered_call_id,
-        ColumnAndShifts::call_stack_id,
-        ColumnAndShifts::call_stack_return_id,
-        ColumnAndShifts::call_stack_return_pc
+        ColumnAndShifts::internal_call_stack_context_id,
+        ColumnAndShifts::internal_call_stack_entered_call_id,
+        ColumnAndShifts::internal_call_stack_id,
+        ColumnAndShifts::internal_call_stack_return_id,
+        ColumnAndShifts::internal_call_stack_return_pc
     };
 };
 
@@ -49,7 +49,7 @@ struct lookup_internal_call_unwind_call_stack_settings_ {
     static constexpr std::string_view RELATION_NAME = "internal_call";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_internal_return;
-    static constexpr Column DST_SELECTOR = Column::call_stack_sel;
+    static constexpr Column DST_SELECTOR = Column::internal_call_stack_sel;
     static constexpr Column COUNTS = Column::lookup_internal_call_unwind_call_stack_counts;
     static constexpr Column INVERSES = Column::lookup_internal_call_unwind_call_stack_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -60,11 +60,11 @@ struct lookup_internal_call_unwind_call_stack_settings_ {
         ColumnAndShifts::execution_pc_shift
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::call_stack_context_id,
-        ColumnAndShifts::call_stack_entered_call_id,
-        ColumnAndShifts::call_stack_id,
-        ColumnAndShifts::call_stack_return_id,
-        ColumnAndShifts::call_stack_return_pc
+        ColumnAndShifts::internal_call_stack_context_id,
+        ColumnAndShifts::internal_call_stack_entered_call_id,
+        ColumnAndShifts::internal_call_stack_id,
+        ColumnAndShifts::internal_call_stack_return_id,
+        ColumnAndShifts::internal_call_stack_return_pc
     };
 };
 

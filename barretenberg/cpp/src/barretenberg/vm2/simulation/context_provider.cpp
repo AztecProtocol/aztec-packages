@@ -22,7 +22,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
         gas_limit,
         std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
         memory_provider.make_memory(context_id),
-        std::make_unique<InternalCallStackManager>(context_id, internal_call_stack_events),
+        internal_call_stack_manager_provider.make_internal_call_stack_manager(context_id),
         parent_context,
         cd_offset_address,
         cd_size_address);
@@ -48,7 +48,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAd
         gas_used,
         std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
         memory_provider.make_memory(context_id),
-        std::make_unique<InternalCallStackManager>(context_id, internal_call_stack_events),
+        internal_call_stack_manager_provider.make_internal_call_stack_manager(context_id),
         calldata);
 }
 

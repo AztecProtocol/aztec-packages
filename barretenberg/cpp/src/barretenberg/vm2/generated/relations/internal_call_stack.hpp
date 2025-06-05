@@ -18,7 +18,7 @@ template <typename FF_> class internal_call_stackImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
-        return (in.get(C::call_stack_sel)).is_zero();
+        return (in.get(C::internal_call_stack_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -31,7 +31,7 @@ template <typename FF_> class internal_call_stackImpl {
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::call_stack_sel) * (FF(1) - in.get(C::call_stack_sel));
+            auto tmp = in.get(C::internal_call_stack_sel) * (FF(1) - in.get(C::internal_call_stack_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }

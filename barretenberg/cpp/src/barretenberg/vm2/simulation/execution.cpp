@@ -154,15 +154,15 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
 void Execution::internal_call(ContextInterface& context, uint32_t loc)
 {
 
-    auto internal_call_stack_manager = context.get_internal_call_stack_manager();
-    // todo: range check loc
+    auto& internal_call_stack_manager = context.get_internal_call_stack_manager();
+    // The next pc is pushed onto the internal call stack. This will become return_pc later.
     internal_call_stack_manager.push(context.get_next_pc());
     context.set_next_pc(loc);
 }
 
 void Execution::internal_return(ContextInterface& context)
 {
-    auto internal_call_stack_manager = context.get_internal_call_stack_manager();
+    auto& internal_call_stack_manager = context.get_internal_call_stack_manager();
     try {
         auto next_pc = internal_call_stack_manager.pop();
         context.set_next_pc(next_pc);
@@ -226,10 +226,6 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             // Execute the opcode.
             ex_event.error = ExecutionError::DISPATCHING; // Set preemptively.
             dispatch_opcode(instruction.get_exec_opcode(), context, resolved_operands);
-            // Certain opcodes might modify the execution internal call stack and change our call pointer
-            auto internal_call_stack_manager = context.get_internal_call_stack_manager();
-            ex_event.internal_call_ptr = internal_call_stack_manager.top();
-            ex_event.next_internal_call_id = internal_call_stack_manager.get_next_call_id();
 
             // If we made it this far, there was no error.
             ex_event.error = ExecutionError::NONE;

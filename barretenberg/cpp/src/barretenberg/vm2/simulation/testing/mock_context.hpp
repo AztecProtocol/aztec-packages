@@ -19,7 +19,7 @@ class MockContext : public ContextInterface {
     // Machine state.
     MOCK_METHOD(MemoryInterface&, get_memory, (), (override));
     MOCK_METHOD(BytecodeManagerInterface&, get_bytecode_manager, (), (override));
-    MOCK_METHOD(InternalCallStackManager&, get_internal_call_stack_manager, (), (override));
+    MOCK_METHOD(InternalCallStackManagerInterface&, get_internal_call_stack_manager, (), (override));
     MOCK_METHOD(uint32_t, get_pc, (), (const, override));
     MOCK_METHOD(void, set_pc, (uint32_t new_pc), (override));
     MOCK_METHOD(uint32_t, get_next_pc, (), (const, override));

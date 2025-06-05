@@ -1,13 +1,16 @@
 // Virtual to execution.pil but specifically to house the constraints for internal call / return
 
+// Internal call and return both interact with the internal call stack (see the pil file for more details)
+// The internal call context information (next id, id and return id) are reset at the start of each new context
+
 namespace execution;
     // sel_internal_call and sel_internal_return selectors defined in execution.pil
 
     #[skippable_if]
-    sel_internal_call + sel_internal_return = 0;
+    sel = 0;
 
     pol SWITCH_CALL_ID = sel_internal_call + sel_internal_return;
-    pol DEFAULT_INT_CALL_ROW = (1 - SWITCH_CALL_ID) * (1 - enqueued_call_start);
+    pol PROPAGATE_CALL_ID = (1 - SWITCH_CALL_ID) * (1 - enqueued_call_start);
 
     // =============================
     // === Internal Call Pointer ===
@@ -21,14 +24,14 @@ namespace execution;
     // If we encounter a sel_internal_call, the next internal_call_id is the current next_internal_call_id
     #[NEW_CALL_ID_ON_CALL]
     sel_internal_call * (internal_call_id' - next_internal_call_id) = 0;
-    // If we encounter a sel_return_call, the next internal call id is the currnet inter_call_return_id
+    // If we encounter a sel_return_call, the next internal call id is the current inter_call_return_id
     #[RESTORE_INTERNAL_ID_ON_RETURN]
-    sel_internal_return * (internal_call_id' -  internal_call_return_id) = 0;
+    sel_internal_return * (internal_call_id' - internal_call_return_id) = 0;
     // Otherwise it's propagated down
     #[DEFAULT_PROPAGATE_CALL_ID]
-    NOT_LAST_EXEC * DEFAULT_INT_CALL_ROW * (internal_call_id' - internal_call_id) = 0;
+    NOT_LAST_EXEC * PROPAGATE_CALL_ID * (internal_call_id' - internal_call_id) = 0;
     
-    // The call id when the next Internal_return is invoked, constrained to be 0 at the start of an enqueued call
+    // The call id when the next internal return is invoked, constrained to be 0 at the start of an enqueued call
     pol commit internal_call_return_id; 
     #[RET_ID_STARTS_ZERO]
     enqueued_call_start * internal_call_return_id = 0;
@@ -37,15 +40,7 @@ namespace execution;
     sel_internal_call * (internal_call_return_id' - internal_call_id) = 0;
     // Otherwise it's propagated down
     #[DEFAULT_PROPAGATE_RET_ID]
-    NOT_LAST_EXEC * DEFAULT_INT_CALL_ROW * (internal_call_return_id' - internal_call_return_id) = 0;
-
-    // pc is set to this value when InternalReturn is called, constrained to be zero at the start of an enqueued call
-    pol commit internal_call_return_pc;
-    #[RET_PC_STARTS_ZERO]
-    enqueued_call_start * internal_call_return_pc = 0;
-    // Otherwise it's propagated down
-    #[DEFAULT_PROPAGATE_RET_PC]
-    NOT_LAST_EXEC * DEFAULT_INT_CALL_ROW * (internal_call_return_pc' - internal_call_return_pc) = 0;
+    NOT_LAST_EXEC * PROPAGATE_CALL_ID * (internal_call_return_id' - internal_call_return_id) = 0;
 
     // The internal_call_id value of the next InternalCall invocation
     // Constrained to start at 2 at the start of an enqueued call
@@ -55,9 +50,6 @@ namespace execution;
     // If we encounter a sel_internal_call, we increment the next next_internal_call_id
     #[INCR_NEXT_INT_CALL_ID]
     NOT_LAST_EXEC * (next_internal_call_id' - (next_internal_call_id + sel_internal_call)) = 0;
-    // It is propagated down if we don't encounter a SWITCH_CALL_ID
-    #[DEFAULT_PROPAGATE_NEXT_INT_CALL_ID]
-    NOT_LAST_EXEC * DEFAULT_INT_CALL_ROW * (internal_call_id' - internal_call_id) = 0;
     
     // =============================
     // === Error Handling ====
@@ -70,8 +62,9 @@ namespace execution;
     pol CALL_ID_ZERO_CHECK = internal_call_id * (internal_ret_err * (1 - internal_call_id_inv) + internal_call_id_inv) - 1 + internal_ret_err;
 
     // Guard the zero check with sel_internal_return so we dont compute the inverses when we dont need to
-    #[INTERNAL_RET_ERROR]
-    sel_internal_return * CALL_ID_ZERO_CHECK = 0;
+    // Enable once error handling is done
+    // #[INTERNAL_RET_ERROR]
+    // sel_internal_return * CALL_ID_ZERO_CHECK = 0;
 
     // =============================
     // === Pushing to Call Stack ===
@@ -80,7 +73,7 @@ namespace execution;
     #[PUSH_CALL_STACK]
     sel_internal_call { context_id, next_internal_call_id, internal_call_id, internal_call_return_id, next_pc }
     in
-    call_stack.sel    { call_stack.context_id, call_stack.entered_call_id, call_stack.id, call_stack.return_id, call_stack.return_pc };
+    internal_call_stack.sel    { internal_call_stack.context_id, internal_call_stack.entered_call_id, internal_call_stack.id, internal_call_stack.return_id, internal_call_stack.return_pc };
 
     // =============================
     // === Popping from Call Stack ===
@@ -89,7 +82,7 @@ namespace execution;
     #[UNWIND_CALL_STACK]
     sel_internal_return { context_id, internal_call_id, internal_call_id', internal_call_return_id', pc' }
     in
-    call_stack.sel      { call_stack.context_id, call_stack.entered_call_id, call_stack.id, call_stack.return_id, call_stack.return_pc };
+    internal_call_stack.sel      { internal_call_stack.context_id, internal_call_stack.entered_call_id, internal_call_stack.id, internal_call_stack.return_id, internal_call_stack.return_pc };
 
 
 

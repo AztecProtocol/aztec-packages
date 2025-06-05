@@ -261,28 +261,3 @@ sel_error * (1 - sel_error) = 0;
 // This implies mutual exclusivity of the failure selectors.
 // sel_error = sel_gas_failure + sel_instruction_fetching_failure;
 
-// === Internal Call / Return === 
-pol commit internal_call_id;
-pol commit internal_call_return_id; // Constrain to be 0 at the start
-// TODO: For internal call we need to include the next_internal_call_id, finding a good place to do this
-// in the simulator is hard atm
-pol commit next_internal_call_id; // Can be replaced by clk
-// The initial next_internal_call_id = 2, in row = 1
-#[INCR_NEXT_INT_CALL_ID]
-NOT_LAST_EXEC * (next_internal_call_id' - (next_internal_call_id + sel_internal_call)) = 0;
-
-// === Pushing to Call Stack ===
-sel_internal_call * (internal_call_id' - next_internal_call_id) = 0;
-sel_internal_call * (internal_call_return_id' - internal_call_id) = 0;
-#[PUSH_CALL_STACK]
-sel_internal_call { internal_call_id, internal_call_return_id, next_pc }
-in
-call_stack.sel    { call_stack.id, call_stack.return_id, call_stack.return_pc };
-
-// === Popping from Call Stack ===
-sel_internal_return * (internal_call_id' -  internal_call_return_id) = 0;
-#[UNWIND_CALL_STACK]
-sel_internal_return { internal_call_id', internal_call_return_id', pc' }
-in
-call_stack.sel      { call_stack.id, call_stack.return_id, call_stack.return_pc };
-

@@ -111,131 +111,131 @@ namespace execution;
     #[INCR_NEXT_CONTEXT_ID]
     NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call)) = 0;
 
-    // nested_exit_call = 1 <==> context_id' = parent_id
-    // sel_enter_call   = 1 <==> context_id' = next_context_id
-    // otherwise        = 0 <==> context_id' = context_id
+    // nested_exit_call = 1 ==> context_id' = parent_id
+    // sel_enter_call   = 1 ==> context_id' = next_context_id
+    // otherwise        = 0 ==> context_id' = context_id
     #[CONTEXT_ID_CALL_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (context_id' - context_id) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (context_id' - next_context_id) = 0;
     NOT_LAST_EXEC * nested_exit_call   * (context_id' - parent_id) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_id' = context_id
-    // otherwise        = 0 <==> parent_id' = parent_id
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_id' = context_id
+    // otherwise        = 0 ==> parent_id' = parent_id
     #[PARENT_ID_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_id' - parent_id) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_id' - context_id) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> pc' = 0
-    // internal_call    = 1 <==> pc' = operand 0
-    // internal_return  = 1 <==> pc' = internal_call_return_pc (from internal_call.pil)
-    // otherwise        = 0 <==> pc' = next_pc
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> pc' = 0
+    // internal_call    = 1 ==> pc' = resolved operand 0
+    // internal_return  = 1 ==> pc' = internal_call_return_pc (from internal_call.pil)
+    // otherwise        = 0 ==> pc' = next_pc
     #[PC_NEXT_ROW_DEFAULT]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
     #[PC_NEXT_ROW_INT_CALL]
-    NOT_LAST_EXEC * sel_internal_call * (pc' - op[0]) = 0;
+    NOT_LAST_EXEC * sel_internal_call * (pc' - rop[0]) = 0;
     #[PC_NEXT_ROW_EXT_CALL]
     NOT_LAST_EXEC * sel_enter_call  * pc' = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> msg_sender' = contract_address
-    // otherwise        = 0 <==> msg_sender' = msg_sender
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> msg_sender' = contract_address
+    // otherwise        = 0 ==> msg_sender' = msg_sender
     #[MSG_SENDER_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (msg_sender' - msg_sender) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (msg_sender' - contract_address) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> contract_address' = register[2] (intermediate register 3 from execution trace)
-    // otherwise        = 0 <==> contract_address' = contract_address
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> contract_address' = register[2] (intermediate register 3 from execution trace)
+    // otherwise        = 0 ==> contract_address' = contract_address
     #[CONTRACT_ADDR_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (contract_address' - contract_address) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (contract_address' - register[2]) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 && static_call = 1 <==> is_static' = 1
-    // sel_enter_call   = 1 && static_call = 0 <==> is_static' = 0
-    // otherwise        = 0 <==> is_static' = is_static
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 && static_call = 1 ==> is_static' = 1
+    // sel_enter_call   = 1 && static_call = 0 ==> is_static' = 0
+    // otherwise        = 0 ==> is_static' = is_static
     #[IS_STATIC_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_static_call) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_calldata_addr' = rop[3] (resolved operand 4 from execution trace)
-    // otherwise        = 0 <==> parent_calldata_addr' = parent_calldata_addr
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_calldata_addr' = rop[3] (resolved operand 4 from execution trace)
+    // otherwise        = 0 ==> parent_calldata_addr' = parent_calldata_addr
     #[CD_OFFSET_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_addr' - rop[3]) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_calldata_size' = rop[4] (resolved operand 5 from execution trace)
-    // otherwise        = 0 <==> parent_calldata_siz' = parent_calldata_size
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_calldata_size' = rop[4] (resolved operand 5 from execution trace)
+    // otherwise        = 0 ==> parent_calldata_siz' = parent_calldata_size
     #[CD_SIZE_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size' - parent_calldata_size) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size' - rop[4]) = 0;
 
     pol NESTED_RET_REV_ONLY = nested_exit_call * (1 - sel_error);
-    // NESTED_RET_REV_ONLY = 1 <==> rop[1] (resolved operand 2 from execution trace)
-    // sel_error           = 1 <==> last_child_returndata_size' = 0;
-    // sel_enter_call      = 1 <==> last_child_returndata_addr' = 0;
-    // otherwise           = 0 <==> last_child_returndata_addr' = last_child_returndata_addr
+    // NESTED_RET_REV_ONLY = 1 ==> rop[1] (resolved operand 2 from execution trace)
+    // sel_error           = 1 ==> last_child_returndata_size' = 0;
+    // sel_enter_call      = 1 ==> last_child_returndata_addr' = 0;
+    // otherwise           = 0 ==> last_child_returndata_addr' = last_child_returndata_addr
     #[RD_OFFSET_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_addr' - last_child_returndata_addr) = 0;
     NOT_LAST_EXEC * NESTED_RET_REV_ONLY * (last_child_returndata_addr' - rop[1]) = 0;
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_addr' = 0;
 
-    // NESTED_RET_REV_ONLY = 1 <==> register[0] (intermediate register 1 from execution trace)
-    // sel_error               = 1 <==> last_child_returndata_size' = 0;
-    // sel_enter_call          = 1 <==> last_child_returndata_size' = 0;
-    // otherwise               = 0 <==> last_child_returndata_size' = last_child_returndata_size
+    // NESTED_RET_REV_ONLY = 1 ==> register[0] (intermediate register 1 from execution trace)
+    // sel_error               = 1 ==> last_child_returndata_size' = 0;
+    // sel_enter_call          = 1 ==> last_child_returndata_size' = 0;
+    // otherwise               = 0 ==> last_child_returndata_size' = last_child_returndata_size
     #[RD_SIZE_OFFSET_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
     NOT_LAST_EXEC * NESTED_RET_REV_ONLY  * (last_child_returndata_size' - register[0]) = 0;
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
 
-    // nested_exit_call = 1 <==> l2_gas_limit' = parent_l2_gas_limit
-    // sel_enter_call   = 1 <==> constraints come from call logic
-    // otherwise        = 0 <==> l2_gas_limit' = l2_gas_limit
+    // nested_exit_call = 1 ==> l2_gas_limit' = parent_l2_gas_limit
+    // sel_enter_call   = 1 ==> constraints come from call logic
+    // otherwise        = 0 ==> l2_gas_limit' = l2_gas_limit
     #[L2_GAS_LIMIT_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_limit' - l2_gas_limit) = 0;
     #[L2_GAS_LIMIT_RESTORE_ON_EXIT]
     NOT_LAST_EXEC * nested_exit_call * (l2_gas_limit' - parent_l2_gas_limit) = 0;
 
-    // nested_exit_call = 1 <==> da_gas_limit' = parent_da_gas_limit
-    // sel_enter_call   = 1 <==> constraints come from call logic
-    // otherwise        = 0 <==> da_gas_limit' = da_gas_limit
+    // nested_exit_call = 1 ==> da_gas_limit' = parent_da_gas_limit
+    // sel_enter_call   = 1 ==> constraints come from call logic
+    // otherwise        = 0 ==> da_gas_limit' = da_gas_limit
     #[DA_GAS_LIMIT_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (da_gas_limit' - da_gas_limit) = 0;
     #[DA_GAS_LIMIT_RESTORE_ON_EXIT]
     NOT_LAST_EXEC * nested_exit_call * (da_gas_limit' - parent_da_gas_limit) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_l2_gas_limit' = l2_gas_limit
-    // otherwise        = 0 <==> parent_l2_gas_limit' = parent_l2_gas_limit
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_l2_gas_limit' = l2_gas_limit
+    // otherwise        = 0 ==> parent_l2_gas_limit' = parent_l2_gas_limit
     #[PARENT_L2_GAS_LIMIT_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_l2_gas_limit' - parent_l2_gas_limit) = 0;
     #[PARENT_L2_GAS_LIMIT_STORE_ON_ENTER]
     NOT_LAST_EXEC * sel_enter_call * (parent_l2_gas_limit' - l2_gas_limit) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_da_gas_limit' = da_gas_limit
-    // otherwise        = 0 <==> parent_da_gas_limit' = parent_da_gas_limit
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_da_gas_limit' = da_gas_limit
+    // otherwise        = 0 ==> parent_da_gas_limit' = parent_da_gas_limit
     #[PARENT_DA_GAS_LIMIT_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_da_gas_limit' - parent_da_gas_limit) = 0;
     #[PARENT_DA_GAS_LIMIT_STORE_ON_ENTER]
     NOT_LAST_EXEC * sel_enter_call * (parent_da_gas_limit' - da_gas_limit) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_l2_gas_used' = l2_gas_used
-    // otherwise        = 0 <==> parent_l2_gas_used' = parent_l2_gas_used
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_l2_gas_used' = l2_gas_used
+    // otherwise        = 0 ==> parent_l2_gas_used' = parent_l2_gas_used
     #[PARENT_L2_GAS_USED_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_l2_gas_used' - parent_l2_gas_used) = 0;
     #[PARENT_L2_GAS_USED_STORE_ON_ENTER]
     NOT_LAST_EXEC * sel_enter_call * (parent_l2_gas_used' - l2_gas_used) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_da_gas_used' = da_gas_used
-    // otherwise        = 0 <==> parent_da_gas_used' = parent_da_gas_used
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_da_gas_used' = da_gas_used
+    // otherwise        = 0 ==> parent_da_gas_used' = parent_da_gas_used
     #[PARENT_DA_GAS_USED_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_da_gas_used' - parent_da_gas_used) = 0;
     #[PARENT_DA_GAS_USED_STORE_ON_ENTER]

@@ -139,17 +139,17 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     MemoryProvider memory_provider(range_check, execution_id_manager, memory_emitter);
     CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
-    InternalCallStackManager internal_call_stack_manager(internal_call_stack_emitter);
+    InternalCallStackManagerProvider internal_call_stack_manager_provider(internal_call_stack_emitter);
     ContextProvider context_provider(
-        bytecode_manager, memory_provider, calldata_hashing_provider, internal_call_stack_emitter));
+        bytecode_manager, memory_provider, calldata_hashing_provider, internal_call_stack_manager_provider);
     DataCopy data_copy(execution_id_manager, data_copy_emitter);
+
     Execution execution(alu,
                         data_copy,
                         execution_components,
                         context_provider,
                         instruction_info_db,
                         execution_id_manager,
-                        internal_call_stack_manager,
                         execution_emitter,
                         context_stack_emitter);
     TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
