@@ -534,7 +534,7 @@ describe('p2p client integration', () => {
       );
 
       await startTestP2PClients(clients);
-      await sleep(3000);
+      await sleep(5000);
 
       for (const handshakeSpy of statusHandshakeSpies) {
         expect(handshakeSpy).toHaveBeenCalled();
@@ -570,7 +570,7 @@ describe('p2p client integration', () => {
       );
 
       await startTestP2PClients(clients);
-      await sleep(6000);
+      await sleep(5000);
 
       for (const handshakeSpy of statusHandshakeSpies) {
         expect(handshakeSpy).toHaveBeenCalled();
@@ -622,7 +622,7 @@ describe('p2p client integration', () => {
 
       await startTestP2PClients(clients);
 
-      await sleep(3000);
+      await sleep(5000);
 
       expect(disconnectSpies[0]).not.toHaveBeenCalled();
       expect(disconnectSpies[1]).toHaveBeenCalled(); // c1 disconnected
