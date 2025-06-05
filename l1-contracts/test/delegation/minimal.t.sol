@@ -12,6 +12,8 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+import {Fakerollup} from "../governance/governance-proposer/mocks/Fakerollup.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 // Collection of minimal test suite to get some idea
 // Not to be seen as full tests
@@ -34,7 +36,15 @@ contract MinimalDelegationTest is GSEBase {
 
     address proposer = governance.governanceProposer();
     vm.prank(proposer);
-    governance.propose(IPayload(address(ROLLUP))); // Useless payload, just to get it in there.
+    uint256 proposalId = governance.propose(IPayload(address(ROLLUP))); // Useless payload, just to get it in there.
+
+    // Fake it till you make it
+    stdstore.target(address(governance.governanceProposer())).sig("getProposalProposer(uint256)")
+      .with_key(proposalId).checked_write(proposer);
+
+    assertEq(
+      GovernanceProposer(governance.governanceProposer()).getProposalProposer(proposalId), proposer
+    );
 
     uint256 votingTime =
       Timestamp.unwrap(ProposalLib.pendingThroughMemory(governance.getProposal(0)));
@@ -77,12 +87,18 @@ contract MinimalDelegationTest is GSEBase {
 
     vm.warp(ts5);
 
+    Fakerollup dead = new Fakerollup();
+
     // From the view of the GSE we make a new version canonical.
     // Beware that the registry don't have the same, and that we are abusing this
     // since the governance proposer still believe the old rollup is canonical
     // This setup is contrived, but let us test a lot very concisely.
     vm.prank(gse.owner());
-    gse.addRollup(address(0xdead));
+    gse.addRollup(address(dead));
+
+    // When we pass along this, we
+    //  vm.prank(registry.owner());
+    //    registry.addRollup(IRollup(address(dead)));
 
     vm.warp(ts6);
 
@@ -101,22 +117,22 @@ contract MinimalDelegationTest is GSEBase {
 
     // Check power at different points in time.
     _checkInstanceCanonical(address(ROLLUP), 0, depositAmount, Timestamp.wrap(ts1));
-    _checkInstanceNonCanonical(address(0xdead), 0, Timestamp.wrap(ts1));
+    _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts1));
 
     _checkInstanceCanonical(address(ROLLUP), depositAmount, depositAmount, Timestamp.wrap(ts2));
-    _checkInstanceNonCanonical(address(0xdead), 0, Timestamp.wrap(ts2));
+    _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts2));
 
     _checkInstanceCanonical(address(ROLLUP), depositAmount, depositAmount * 2, Timestamp.wrap(ts3));
-    _checkInstanceNonCanonical(address(0xdead), 0, Timestamp.wrap(ts3));
+    _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts3));
 
     _checkInstanceCanonical(address(ROLLUP), depositAmount, depositAmount, Timestamp.wrap(ts4));
-    _checkInstanceNonCanonical(address(0xdead), 0, Timestamp.wrap(ts4));
+    _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts4));
 
     _checkInstanceNonCanonical(address(ROLLUP), depositAmount, Timestamp.wrap(ts5));
-    _checkInstanceCanonical(address(0xdead), 0, depositAmount, Timestamp.wrap(ts5));
+    _checkInstanceCanonical(address(dead), 0, depositAmount, Timestamp.wrap(ts5));
 
     _checkInstanceNonCanonical(address(ROLLUP), 0, Timestamp.wrap(ts6));
-    _checkInstanceCanonical(address(0xdead), 0, depositAmount, Timestamp.wrap(ts6));
+    _checkInstanceCanonical(address(dead), 0, depositAmount, Timestamp.wrap(ts6));
 
     assertEq(gse.getVotingPower(WITHDRAWER), depositAmount, "voting power user");
 
@@ -193,8 +209,8 @@ contract MinimalDelegationTest is GSEBase {
     internal
     view
   {
-    uint256 porposalId = 0;
-    assertEq(gse.getPowerUsed(_delegatee, porposalId), _used, "power used");
+    uint256 proposalId = 0;
+    assertEq(gse.getPowerUsed(_delegatee, proposalId), _used, "power used");
     assertEq(gse.getVotingPowerAt(_delegatee, Timestamp.wrap(_votingTime)), _power, "voting power");
   }
 

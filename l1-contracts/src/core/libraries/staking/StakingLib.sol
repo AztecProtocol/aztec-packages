@@ -88,13 +88,14 @@ library StakingLib {
     // We need to check if we made the proposal. We are assuming an honest gov, because if dishonest
     // this vote don't matter anyway.
     // We must be the current canonical instance. Because we only want to vote on our own proposals.
-    address govProposer = gov.governanceProposer();
+    GovernanceProposer govProposer = GovernanceProposer(gov.governanceProposer());
+    require(address(this) == govProposer.getInstance(), Errors.Staking__NotCanonical(address(this)));
     require(
-      address(this) == GovernanceProposer(govProposer).getInstance(),
-      Errors.Staking__NotCanonical(address(this))
+      address(this) == govProposer.getProposalProposer(_proposalId),
+      Errors.Staking__NotOurProposal(_proposalId)
     );
     DataStructures.Proposal memory proposal = gov.getProposal(_proposalId);
-    require(proposal.proposer == govProposer, Errors.Staking__NotOurProposal(_proposalId));
+    require(proposal.proposer == address(govProposer), Errors.Staking__NotOurProposal(_proposalId));
 
     Timestamp ts = proposal.pendingThroughMemory();
 
