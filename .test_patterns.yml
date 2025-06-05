@@ -191,10 +191,13 @@ tests:
     error_regex: "Could not retrieve body for block"
     owners:
       - *palla
-  - regex: "src/composed/integration_l1_publisher"
+  # TODO: a fix for this flake has been merged to Foundry
+  # Remove this flake pattern once we update to an Anvil version newer than 2025-06-05
+  - regex: "yarn-project/end-to-end" # basically any test using anvil could flake with this error
     error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
+      - *alex
   - regex: "src/e2e_sequencer_config"
     error_regex: "Anvil failed to stop in time"
     owners:
