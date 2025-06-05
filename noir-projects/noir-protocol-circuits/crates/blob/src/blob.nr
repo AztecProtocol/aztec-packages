@@ -430,7 +430,7 @@ mod tests {
         let hashed_blob = sponge_blob.squeeze();
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
 
-        // y is a BLS field with value 0x0365 494e66a289c4509ecf97af4ff92aa7 ecc38f478ced014b6ae860502a1b1c
+        // y is a BLS field with value 0x0365494e66a289c4509ecf97af4ff92aa7ecc38f478ced014b6ae860502a1b1c
         let expected_y: F = F::from_limbs([
             0xecc38f478ced014b6ae860502a1b1c,
             0x494e66a289c4509ecf97af4ff92aa7,

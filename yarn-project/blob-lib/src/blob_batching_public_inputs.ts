@@ -115,6 +115,21 @@ export class BlobAccumulatorPublicInputs {
       BLS12Fr.fromNoirBigNum({ limbs: reader.readFieldArray(BLS12_FR_LIMBS).map(f => f.toString()) }),
     );
   }
+
+  /**
+   * Converts from an accumulator to a struct for the public inputs of our rollup circuits.
+   * @returns A BlobAccumulatorPublicInputs instance.
+   */
+  static fromBatchedBlobAccumulator(accumulator: BatchedBlobAccumulator) {
+    return new BlobAccumulatorPublicInputs(
+      accumulator.blobCommitmentsHashAcc,
+      accumulator.zAcc,
+      accumulator.yAcc,
+      accumulator.cAcc,
+      accumulator.gammaAcc,
+      accumulator.gammaPow,
+    );
+  }
 }
 
 /**
@@ -183,6 +198,16 @@ export class FinalBlobAccumulatorPublicInputs {
     return new FinalBlobAccumulatorPublicInputs(Fr.random(), Fr.random(), BLS12Fr.random(), BLS12Point.random());
   }
 
+  // Warning: MUST be final accumulator state.
+  static fromBatchedBlobAccumulator(accumulator: BatchedBlobAccumulator) {
+    return new FinalBlobAccumulatorPublicInputs(
+      accumulator.blobCommitmentsHashAcc,
+      accumulator.zAcc,
+      accumulator.yAcc,
+      accumulator.cAcc,
+    );
+  }
+
   [inspect.custom]() {
     return `FinalBlobAccumulatorPublicInputs {
       blobCommitmentsHash: ${inspect(this.blobCommitmentsHash)},
@@ -233,8 +258,8 @@ export class BlockBlobPublicInputs {
   static async fromBlobs(startBlobAccumulator: BatchedBlobAccumulator, blobs: Blob[]): Promise<BlockBlobPublicInputs> {
     const endBlobAccumulator = await startBlobAccumulator.accumulateBlobs(blobs);
     return new BlockBlobPublicInputs(
-      startBlobAccumulator.toBlobAccumulatorPublicInputs(),
-      endBlobAccumulator.toBlobAccumulatorPublicInputs(),
+      BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(startBlobAccumulator),
+      BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(endBlobAccumulator),
       startBlobAccumulator.finalBlobChallenges,
     );
   }

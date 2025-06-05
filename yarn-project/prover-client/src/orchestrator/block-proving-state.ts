@@ -1,4 +1,4 @@
-import { BatchedBlobAccumulator, SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlobAccumulator, BlobAccumulatorPublicInputs, SpongeBlob } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
   BLOBS_PER_BLOCK,
@@ -269,7 +269,7 @@ export class BlockProvingState {
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader: newBlockHeader,
-      startBlobAccumulator: this.endBlobAccumulator.toBlobAccumulatorPublicInputs(),
+      startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(this.endBlobAccumulator),
       finalBlobChallenges: this.endBlobAccumulator.finalBlobChallenges,
       proverId,
     });
@@ -378,7 +378,7 @@ export class BlockProvingState {
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader: this.previousBlockHeader,
-      startBlobAccumulator: this.startBlobAccumulator!.toBlobAccumulatorPublicInputs(),
+      startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(this.startBlobAccumulator!),
       finalBlobChallenges: this.startBlobAccumulator!.finalBlobChallenges,
       proverId,
     });

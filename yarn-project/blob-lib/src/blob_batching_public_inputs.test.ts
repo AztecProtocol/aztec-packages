@@ -44,7 +44,9 @@ describe('BlockBlobPublicInputs', () => {
     const startBlobAccumulator = makeBatchedBlobAccumulator(randomInt(1000));
     const converted = await BlockBlobPublicInputs.fromBlobs(startBlobAccumulator, blobs);
     const expectedEndBlobAccumulator = await startBlobAccumulator.accumulateBlobs(blobs);
-    expect(converted.endBlobAccumulator).toEqual(expectedEndBlobAccumulator.toBlobAccumulatorPublicInputs());
+    expect(converted.endBlobAccumulator).toEqual(
+      BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(expectedEndBlobAccumulator),
+    );
   });
 });
 
@@ -52,7 +54,7 @@ describe('BlobAccumulatorPublicInputs', () => {
   let blobPI: BlobAccumulatorPublicInputs;
 
   beforeAll(() => {
-    blobPI = makeBatchedBlobAccumulator(randomInt(1000)).toBlobAccumulatorPublicInputs();
+    blobPI = BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(randomInt(1000)));
   });
 
   it('serializes to buffer and deserializes it back', () => {
@@ -73,7 +75,7 @@ describe('FinalBlobAccumulatorPublicInputs', () => {
   let blobPI: FinalBlobAccumulatorPublicInputs;
 
   beforeAll(() => {
-    blobPI = makeBatchedBlobAccumulator(randomInt(1000)).toFinalBlobAccumulatorPublicInputs();
+    blobPI = FinalBlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(randomInt(1000)));
   });
 
   it('serializes to buffer and deserializes it back', () => {

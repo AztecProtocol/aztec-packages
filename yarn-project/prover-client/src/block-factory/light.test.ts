@@ -1,5 +1,5 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
-import { BatchedBlob, Blob, SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlob, Blob, BlobAccumulatorPublicInputs, SpongeBlob } from '@aztec/blob-lib';
 import {
   BLOBS_PER_BLOCK,
   FIELDS_PER_BLOB,
@@ -371,7 +371,7 @@ describe('LightBlockBuilder', () => {
       previousArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
-      startBlobAccumulator: startBlobAccumulator.toBlobAccumulatorPublicInputs(),
+      startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(startBlobAccumulator),
       finalBlobChallenges: startBlobAccumulator.finalBlobChallenges,
       proverId: Fr.ZERO,
     });
