@@ -1,3 +1,4 @@
+import { toBufferBE } from '../bigint-buffer/index.js';
 import { Fr } from '../fields/fields.js';
 import type { Tuple } from './types.js';
 
@@ -67,6 +68,17 @@ export function bigintToUInt64BE(n: bigint, bufferSize = 8) {
   const buf = Buffer.alloc(bufferSize);
   buf.writeBigUInt64BE(n, bufferSize - 8);
   return buf;
+}
+
+/**
+ * Convert a bigint to a big-endian unsigned 128-bit integer Buffer.
+ *
+ * @param n - The bigint to be converted to a big-endian unsigned 128-bit integer Buffer.
+ * @param bufferSize - Optional, the size of the output Buffer (default is 16).
+ * @returns A Buffer containing the big-endian unsigned 128-bit integer representation of the input number.
+ */
+export function bigintToUInt128BE(n: bigint, bufferSize = 16) {
+  return toBufferBE(n, bufferSize);
 }
 
 /**

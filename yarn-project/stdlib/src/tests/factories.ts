@@ -603,13 +603,13 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
     timestamp: new Fr(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
     feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
-    gasFees: new GasFees(new Fr(seed + 7), new Fr(seed + 8)),
+    gasFees: new GasFees(seed + 7, seed + 8),
     ...compact(overrides),
   });
 }
 
 export function makeGasFees(seed = 1) {
-  return new GasFees(fr(seed), fr(seed + 1));
+  return new GasFees(seed, seed + 1);
 }
 
 export function makeFeeRecipient(seed = 1) {
