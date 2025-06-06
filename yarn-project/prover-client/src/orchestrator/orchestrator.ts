@@ -145,12 +145,8 @@ export class ProvingOrchestrator implements EpochProver {
     this.dbs.set(globalVariables.blockNumber.toNumber(), db);
 
     // we start the block by enqueueing all of the base parity circuits
-    const {
-      l1ToL2MessageTreeSnapshot,
-      l1ToL2MessageSubtreeSiblingPath,
-      l1ToL2MessageTreeSnapshotAfterInsertion,
-      baseParityInputs,
-    } = await this.prepareBaseParityInputs(l1ToL2Messages, db);
+    const { l1ToL2MessageSubtreeSiblingPath, l1ToL2MessageTreeSnapshotAfterInsertion, baseParityInputs } =
+      await this.prepareBaseParityInputs(l1ToL2Messages, db);
 
     // Get archive snapshot before this block lands
     const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
@@ -160,7 +156,6 @@ export class ProvingOrchestrator implements EpochProver {
     const blockProvingState = this.provingState!.startNewBlock(
       globalVariables,
       l1ToL2Messages,
-      l1ToL2MessageTreeSnapshot,
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       lastArchive,
@@ -189,7 +184,7 @@ export class ProvingOrchestrator implements EpochProver {
       logger.warn(`Provided no txs to orchestrator addTxs.`);
       return;
     }
-    const blockNumber = txs[0].globalVariables.blockNumber.toNumber();
+    const blockNumber = txs[0].constants.globalVariables.blockNumber.toNumber();
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber!);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
@@ -460,8 +455,6 @@ export class ProvingOrchestrator implements EpochProver {
       BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i, getVKTreeRoot()),
     );
 
-    const l1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
-
     const l1ToL2MessageSubtreeSiblingPath = assertLength(
       await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, db),
       L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -472,7 +465,6 @@ export class ProvingOrchestrator implements EpochProver {
     const l1ToL2MessageTreeSnapshotAfterInsertion = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
 
     return {
-      l1ToL2MessageTreeSnapshot,
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       baseParityInputs,
@@ -497,13 +489,7 @@ export class ProvingOrchestrator implements EpochProver {
     // We build the base rollup inputs using a mock proof and verification key.
     // These will be overwritten later once we have proven the tube circuit and any public kernels
     const [ms, hints] = await elapsed(
-      insertSideEffectsAndBuildBaseRollupHints(
-        tx,
-        provingState.globalVariables,
-        provingState.l1ToL2MessageTreeSnapshot,
-        db,
-        provingState.spongeBlobState,
-      ),
+      insertSideEffectsAndBuildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState),
     );
 
     this.metrics.recordBaseRollupInputs(ms);
@@ -839,7 +825,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     logger.debug(`Preparing root rollup`);
 
-    const inputs = provingState.getRootRollupInputs();
+    const inputs = provingState.getRootRollupInputs(this.proverId);
 
     this.deferredProving(
       provingState,

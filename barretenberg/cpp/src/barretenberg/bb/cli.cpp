@@ -676,15 +676,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 api.prove(flags, ivc_inputs_path, output_path);
                 return 0;
             }
-            if (write_vk->parsed() && flags.verifier_type == "ivc") {
-                if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort(
-                        "The write_vk command for ClientIVC expect a valid file passed with --ivc_inputs_path "
-                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
-                }
-                api.write_ivc_vk(ivc_inputs_path, output_path);
-                return 0;
-            }
             if (check->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "

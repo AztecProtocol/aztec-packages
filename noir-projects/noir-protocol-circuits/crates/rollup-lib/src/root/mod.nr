@@ -34,14 +34,14 @@ mod tests {
         assert_eq(outputs.version, left.start_global_variables.version);
         assert_eq(outputs.version, right.end_global_variables.version);
 
-        assert_eq(outputs.vk_tree_root, left.constants.vk_tree_root);
-        assert_eq(outputs.vk_tree_root, right.constants.vk_tree_root);
+        assert_eq(outputs.vk_tree_root, left.vk_tree_root);
+        assert_eq(outputs.vk_tree_root, right.vk_tree_root);
 
-        assert_eq(outputs.protocol_contract_tree_root, left.constants.protocol_contract_tree_root);
-        assert_eq(outputs.protocol_contract_tree_root, right.constants.protocol_contract_tree_root);
+        assert_eq(outputs.protocol_contract_tree_root, left.protocol_contract_tree_root);
+        assert_eq(outputs.protocol_contract_tree_root, right.protocol_contract_tree_root);
 
-        assert_eq(outputs.prover_id, left.constants.prover_id);
-        assert_eq(outputs.prover_id, right.constants.prover_id);
+        assert_eq(outputs.prover_id, left.prover_id);
+        assert_eq(outputs.prover_id, right.prover_id);
 
         assert_array_eq(
             outputs.blob_public_inputs,

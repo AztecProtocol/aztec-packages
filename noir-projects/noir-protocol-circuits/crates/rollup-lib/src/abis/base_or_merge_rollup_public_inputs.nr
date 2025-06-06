@@ -1,5 +1,5 @@
 use dep::types::{
-    abis::{block_constant_data::BlockConstantData, sponge_blob::SpongeBlob},
+    abis::{constant_rollup_data::ConstantRollupData, sponge_blob::SpongeBlob},
     constants::BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH,
     partial_state_reference::PartialStateReference,
     traits::{Deserialize, Empty, Serialize},
@@ -14,7 +14,7 @@ pub struct BaseOrMergeRollupPublicInputs {
     // TODO(Kev): Why is this a u32 instead of a u8/u16?
     pub(crate) rollup_type: u32,
     pub(crate) num_txs: u32,
-    pub(crate) constants: BlockConstantData,
+    pub(crate) constants: ConstantRollupData,
 
     pub(crate) start: PartialStateReference,
     pub(crate) end: PartialStateReference,
@@ -39,7 +39,7 @@ impl Empty for BaseOrMergeRollupPublicInputs {
         BaseOrMergeRollupPublicInputs {
             rollup_type: 0 as u32,
             num_txs: 0 as u32,
-            constants: BlockConstantData::empty(),
+            constants: ConstantRollupData::empty(),
             start: PartialStateReference::empty(),
             end: PartialStateReference::empty(),
             start_sponge_blob: SpongeBlob::empty(),
@@ -94,7 +94,7 @@ impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublic
         let item = Self {
             rollup_type: reader.read() as u32,
             num_txs: reader.read() as u32,
-            constants: reader.read_struct(BlockConstantData::deserialize),
+            constants: reader.read_struct(ConstantRollupData::deserialize),
             start: reader.read_struct(PartialStateReference::deserialize),
             end: reader.read_struct(PartialStateReference::deserialize),
             start_sponge_blob: reader.read_struct(SpongeBlob::deserialize),

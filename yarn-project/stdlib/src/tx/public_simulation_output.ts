@@ -7,8 +7,8 @@ import { z } from 'zod';
 import { SimulationError } from '../errors/simulation_error.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
+import { CombinedConstantData } from '../kernel/combined_constant_data.js';
 import { TxEffect } from '../tx/tx_effect.js';
-import { GlobalVariables } from './global_variables.js';
 
 /** Return values of simulating a circuit. */
 export type ProcessReturnValues = Fr[] | undefined;
@@ -50,7 +50,7 @@ export class NestedProcessReturnValues {
 export class PublicSimulationOutput {
   constructor(
     public revertReason: SimulationError | undefined,
-    public globalVariables: GlobalVariables,
+    public constants: CombinedConstantData,
     public txEffect: TxEffect,
     public publicReturnValues: NestedProcessReturnValues[],
     public gasUsed: GasUsed,
@@ -60,7 +60,7 @@ export class PublicSimulationOutput {
     return z
       .object({
         revertReason: SimulationError.schema.optional(),
-        globalVariables: GlobalVariables.schema,
+        constants: CombinedConstantData.schema,
         txEffect: TxEffect.schema,
         publicReturnValues: z.array(NestedProcessReturnValues.schema),
         gasUsed: z.object({
@@ -74,7 +74,7 @@ export class PublicSimulationOutput {
         fields =>
           new PublicSimulationOutput(
             fields.revertReason,
-            fields.globalVariables,
+            fields.constants,
             fields.txEffect,
             fields.publicReturnValues,
             fields.gasUsed,
@@ -85,7 +85,7 @@ export class PublicSimulationOutput {
   static async random() {
     return new PublicSimulationOutput(
       await SimulationError.random(),
-      GlobalVariables.empty(),
+      CombinedConstantData.empty(),
       TxEffect.empty(),
       times(2, NestedProcessReturnValues.random),
       { teardownGas: Gas.random(), totalGas: Gas.random(), publicGas: Gas.random(), billedGas: Gas.random() },

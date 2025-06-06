@@ -3,8 +3,8 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { BlockConstantData } from './block_constant_data.js';
 import { BlockRootRollupData } from './block_root_rollup.js';
+import { ConstantRollupData } from './constant_rollup_data.js';
 
 /**
  * Represents inputs of the empty block root rollup circuit.
@@ -12,7 +12,7 @@ import { BlockRootRollupData } from './block_root_rollup.js';
 export class EmptyBlockRootRollupInputs {
   constructor(
     public readonly data: BlockRootRollupData,
-    public readonly constants: BlockConstantData,
+    public readonly constants: ConstantRollupData,
     public readonly isPadding: boolean,
   ) {}
 
@@ -59,7 +59,7 @@ export class EmptyBlockRootRollupInputs {
     const reader = BufferReader.asReader(buffer);
     return new EmptyBlockRootRollupInputs(
       reader.readObject(BlockRootRollupData),
-      reader.readObject(BlockConstantData),
+      reader.readObject(ConstantRollupData),
       reader.readBoolean(),
     );
   }

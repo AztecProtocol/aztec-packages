@@ -38,7 +38,7 @@ export class BlockRootRollupData {
      */
     public previousBlockHeader: BlockHeader,
     /**
-     * Identifier of the prover.
+     * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
      */
     public proverId: Fr,
   ) {}

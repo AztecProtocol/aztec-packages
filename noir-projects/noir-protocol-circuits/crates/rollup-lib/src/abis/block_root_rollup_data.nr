@@ -23,7 +23,7 @@ pub struct BlockRootRollupData {
     // Its hash is checked against the previous archive.
     pub previous_block_header: BlockHeader,
 
-    // Identifier of the prover.
+    // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     pub prover_id: Field,
 }
 

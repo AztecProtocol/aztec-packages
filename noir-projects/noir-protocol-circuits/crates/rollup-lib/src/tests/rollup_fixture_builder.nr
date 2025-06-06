@@ -8,7 +8,7 @@ use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use std::test::OracleMock;
 use types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
         global_variables::GlobalVariables, sponge_blob::SpongeBlob,
     },
     address::EthAddress,
@@ -57,11 +57,11 @@ impl RollupFixtureBuilder {
             previous_rollup_data: [PreviousRollupData::empty(); 2],
             previous_block_header: BlockHeader::empty(),
             previous_block_hash: 0,
-            last_l1_to_l2: AppendOnlyTreeSnapshot::empty(),
+            last_l1_to_l2: AppendOnlyTreeSnapshot::zero(),
             last_l1_to_l2_subtree_sibling_path: [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
-            last_archive: AppendOnlyTreeSnapshot::empty(),
+            last_archive: AppendOnlyTreeSnapshot::zero(),
             last_archive_sibling_path: [0; ARCHIVE_HEIGHT],
-            new_archive: AppendOnlyTreeSnapshot::empty(),
+            new_archive: AppendOnlyTreeSnapshot::zero(),
             new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
             blobs_fields: [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
             blob_commitments: [BlobCommitment::empty(); BLOBS_PER_BLOCK],
@@ -88,8 +88,8 @@ impl RollupFixtureBuilder {
         let mut rollup_0 = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
         let mut rollup_1 = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
 
-        rollup_0.constants = self.to_block_constant_data();
-        rollup_1.constants = self.to_block_constant_data();
+        rollup_0.constants = self.to_constant_rollup_data();
+        rollup_1.constants = self.to_constant_rollup_data();
 
         let vk_index = if rollup_type == BASE_ROLLUP_TYPE {
             PUBLIC_BASE_ROLLUP_VK_INDEX
@@ -239,10 +239,9 @@ impl RollupFixtureBuilder {
         *self
     }
 
-    pub fn to_block_constant_data(self) -> BlockConstantData {
-        BlockConstantData {
+    pub fn to_constant_rollup_data(self) -> ConstantRollupData {
+        ConstantRollupData {
             last_archive: self.last_archive,
-            last_l1_to_l2: self.last_l1_to_l2,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,

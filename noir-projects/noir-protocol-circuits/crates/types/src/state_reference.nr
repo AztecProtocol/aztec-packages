@@ -49,7 +49,7 @@ impl Deserialize<STATE_REFERENCE_LENGTH> for StateReference {
 impl Empty for StateReference {
     fn empty() -> Self {
         Self {
-            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::empty(),
+            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::zero(),
             partial: PartialStateReference::empty(),
         }
     }

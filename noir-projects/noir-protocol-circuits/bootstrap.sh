@@ -24,9 +24,11 @@ export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-project
 
 # Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 readarray -t ivc_patterns < <(jq -r '.[]' "../client_ivc_circuits.json")
+readarray -t ivc_tail_patterns < <(jq -r '.[]' "../client_ivc_tail_circuits.json")
 readarray -t rollup_honk_patterns < <(jq -r '.[]' "../rollup_honk_circuits.json")
 # Convert to regex string here and export for use in exported functions.
 export ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
+export private_tail_regex=$(IFS="|"; echo "${ivc_tail_patterns[*]}")
 export rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 
 function on_exit {
@@ -66,7 +68,11 @@ function compile {
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
-  if echo "$name" | grep -qE "${ivc_regex}"; then
+  if echo "$name" | grep -qE "${private_tail_regex}"; then
+    local proto="client_ivc_tail"
+    # We still need the standalone IVC vk. We also create the final IVC vk from the tail (specifically, the number of public inputs is used from it).
+    local write_vk_cmd="write_vk --scheme client_ivc --verifier_type standalone"
+  elif echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"
     local write_vk_cmd="write_vk --scheme client_ivc --verifier_type standalone"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
@@ -82,7 +88,6 @@ function compile {
     local proto="ultra_honk"
     local write_vk_cmd="write_vk --scheme ultra_honk --init_kzg_accumulator --honk_recursion 1"
   fi
-
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
 
@@ -105,6 +110,7 @@ function compile {
     jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
     if echo "$name" | grep -qE "rollup_root"; then
+      # If we are a rollup root circuit, we also need to generate the solidity verifier.
       local verifier_path="$key_dir/${name}_verifier.sol"
       SECONDS=0
       # Generate solidity verifier for this contract.
@@ -112,6 +118,15 @@ function compile {
       echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
+    elif echo "$name" | grep -qE "${private_tail_regex}"; then
+      # If we are a tail kernel circuit, we also need to generate the ivc vk.
+      SECONDS=0
+      local ivc_vk_path="$key_dir/${name}.ivc.vk"
+      echo_stderr "Generating ivc vk for function: $name..."
+      jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type ivc -b - -o $outdir
+      mv $outdir/vk $ivc_vk_path
+      echo_stderr "IVC tail key output at: $ivc_vk_path (${SECONDS}s)"
+      cache_upload vk-$hash.tar.gz $key_path $ivc_vk_path &> /dev/null
     else
       cache_upload vk-$hash.tar.gz $key_path &> /dev/null
     fi

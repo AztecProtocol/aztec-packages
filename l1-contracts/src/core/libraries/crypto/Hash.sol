@@ -30,15 +30,7 @@ library Hash {
    * @return The hash of the provided message as a field element
    */
   function sha256ToField(DataStructures.L2ToL1Msg memory _message) internal pure returns (bytes32) {
-    return sha256ToField(
-      abi.encodePacked(
-        _message.sender.actor,
-        _message.sender.version,
-        _message.recipient.actor,
-        _message.recipient.chainId,
-        _message.content
-      )
-    );
+    return sha256ToField(abi.encode(_message.sender, _message.recipient, _message.content));
   }
 
   /**
