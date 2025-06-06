@@ -4,6 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
+if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
+  export DISABLE_AZTEC_VM=1
+fi
+
 function hash {
   hash_str \
     $(../noir/bootstrap.sh hash) \
@@ -107,6 +111,12 @@ function test_cmds {
   # kv-store: Uses mocha so will need different treatment.
   # noir-bb-bench: A slow pain. Figure out later.
   for test in !(end-to-end|kv-store|noir-bb-bench|aztec)/src/**/*.test.ts; do
+    # If DISABLE_AZTEC_VM, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
+    # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
+    if [[ "${DISABLE_AZTEC_VM:-0}" -eq 1 && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
+      continue
+    fi
+
     local prefix=$hash
     local cmd_env=""
 
