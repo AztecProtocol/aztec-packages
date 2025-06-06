@@ -186,6 +186,7 @@ export class ConnectionSampler {
    *
    * @param peerId - The peer id
    * @param protocol - The protocol
+   * @param timeout - Abort connection if it takes too long
    * @returns The stream
    */
   async dialProtocol(peerId: PeerId, protocol: string, timeout?: number): Promise<Stream> {

@@ -1,11 +1,13 @@
 // @attribution: lodestar impl for inspiration
 import { compactArray } from '@aztec/foundation/collection';
+import { AbortError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import type { IncomingStreamData, PeerId, Stream } from '@libp2p/interface';
+import { abortableDuplex, abortableSink } from 'abortable-iterator';
 import { pipe } from 'it-pipe';
 import type { Libp2p } from 'libp2p';
 import type { Uint8ArrayList } from 'uint8arraylist';
@@ -174,7 +176,7 @@ export class ReqResp {
     const responseValidator = this.subProtocolValidators[subProtocol];
     const requestBuffer = request.toBuffer();
 
-    const requestFunction = async () => {
+    const requestFunction = async (signal: AbortSignal) => {
       // Attempt to ask all of our peers, but sampled in a random order
       // This function is wrapped in a timeout, so we will exit the loop if we have not received a response
       const numberOfPeers = this.libp2p.getPeers().length;
@@ -186,6 +188,9 @@ export class ReqResp {
 
       const attemptedPeers: Map<string, boolean> = new Map();
       for (let i = 0; i < numberOfPeers; i++) {
+        if (signal.aborted) {
+          throw new AbortError('Request has been aborted');
+        }
         // Sample a peer to make a request to
         const peer = this.connectionSampler.getPeer(attemptedPeers);
         this.logger.trace(`Attempting to send request to peer: ${peer?.toString()}`);
@@ -273,7 +278,7 @@ export class ReqResp {
     const responses: (InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[] = new Array(requests.length);
     const requestBuffers = requests.map(req => req.toBuffer());
 
-    const requestFunction = async () => {
+    const requestFunction = async (signal: AbortSignal) => {
       // Track which requests still need to be processed
       const pendingRequestIndices = new Set(requestBuffers.map((_, i) => i));
 
@@ -300,6 +305,9 @@ export class ReqResp {
 
       let retryAttempts = 0;
       while (pendingRequestIndices.size > 0 && batchSampler.activePeerCount > 0 && retryAttempts < maxRetryAttempts) {
+        if (signal.aborted) {
+          throw new AbortError('Batch request aborted');
+        }
         // Process requests in parallel for each available peer
         type BatchEntry = { peerId: PeerId; indices: number[] };
         const requestBatches = new Map<string, BatchEntry>();
@@ -418,6 +426,7 @@ export class ReqResp {
    * @param peerId - The peer to send the request to
    * @param subProtocol - The protocol to use to request
    * @param payload - The payload to send
+   * @param dialTimeout - If establishing a stream takes longer than this an error will be thrown
    * @returns If the request is successful, the response is returned, otherwise undefined
    *
    * @description
@@ -440,7 +449,7 @@ export class ReqResp {
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
-    dialTimeout?: number,
+    dialTimeout: number = 500,
   ): Promise<ReqRespResponse> {
     let stream: Stream | undefined;
     try {
@@ -450,7 +459,8 @@ export class ReqResp {
 
       // Open the stream with a timeout
       const result = await executeTimeout<ReqRespResponse>(
-        (): Promise<ReqRespResponse> => pipe([payload], stream!, this.readMessage.bind(this)),
+        (signal): Promise<ReqRespResponse> =>
+          pipe([payload], abortableDuplex(stream!, signal), abortableSink(this.readMessage.bind(this), signal)),
         this.individualRequestTimeoutMs,
         () => new IndividualReqRespTimeoutError(),
       );
