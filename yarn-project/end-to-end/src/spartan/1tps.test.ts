@@ -129,7 +129,7 @@ describe('token transfer test', () => {
         }
       }
 
-      const clonedTx = new ProvenTx(wallet, clonedTxData);
+      const clonedTx = new ProvenTx(wallet, clonedTxData, []);
       txs.push(clonedTx);
     }
     await Promise.all(

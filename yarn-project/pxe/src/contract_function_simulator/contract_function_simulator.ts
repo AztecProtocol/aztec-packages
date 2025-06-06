@@ -82,7 +82,7 @@ export class ContractFunctionSimulator {
     const txRequestHash = await request.toTxRequest().hash();
     const noteCache = new ExecutionNoteCache(txRequestHash);
 
-    const context = new PrivateExecutionOracle(
+    const privateExecutionOracle = new PrivateExecutionOracle(
       request.firstCallArgsHash,
       request.txContext,
       callContext,
@@ -104,7 +104,7 @@ export class ContractFunctionSimulator {
     try {
       const executionResult = await executePrivateFunction(
         this.simulator,
-        context,
+        privateExecutionOracle,
         entryPointArtifact,
         contractAddress,
         request.functionSelector,
@@ -119,7 +119,7 @@ export class ContractFunctionSimulator {
       ]).filter(r => !r.isEmpty());
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
-          const calldata = await context.loadFromExecutionCache(r.calldataHash);
+          const calldata = await privateExecutionOracle.loadFromExecutionCache(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
         }),
       );
