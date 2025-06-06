@@ -1,13 +1,13 @@
 #!/bin/bash
 source $(git rev-parse --show-toplevel)/ci3/source
-
+cd ../scripts
 rm -rf artifacts
 mkdir -p artifacts
 
 # Copy from noir-projects. Bootstrap must have ran in noir-projects.
 private_tail_vk=../../../noir-projects/noir-protocol-circuits/target/keys/private_kernel_tail.ivc.vk
 private_to_public_tail_vk=../../../noir-projects/noir-protocol-circuits/target/keys/private_kernel_tail_to_public.ivc.vk
-if [ -f "$private_tail_vk" ] && [ -f "$private_to_public_tail_vk" ]; then
+if [[ -f "$private_tail_vk" ] && [ -f "$private_to_public_tail_vk" ]; then
   cp "$private_tail_vk" artifacts/private-civc-vk
   cp "$private_to_public_tail_vk" artifacts/public-civc-vk
 else
