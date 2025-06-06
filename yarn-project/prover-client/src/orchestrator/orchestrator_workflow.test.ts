@@ -109,7 +109,7 @@ describe('prover/orchestrator', () => {
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
         const txs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
-        const blobs = await Blob.getBlobs(txs.map(tx => tx.txEffect.toBlobFields()).flat());
+        const blobs = await Blob.getBlobsPerBlock(txs.map(tx => tx.txEffect.toBlobFields()).flat());
         const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
         orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
         await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
@@ -129,7 +129,7 @@ describe('prover/orchestrator', () => {
       it('can start tube proofs before adding processed txs', async () => {
         const getTubeSpy = jest.spyOn(prover, 'getTubeProof');
         const processedTxs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
-        const blobs = await Blob.getBlobs(processedTxs.map(tx => tx.txEffect.toBlobFields()).flat());
+        const blobs = await Blob.getBlobsPerBlock(processedTxs.map(tx => tx.txEffect.toBlobFields()).flat());
         const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
         orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
 

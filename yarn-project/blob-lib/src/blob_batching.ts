@@ -7,7 +7,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import cKzg from 'c-kzg';
 
 import { Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
-import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from './blob_batching_public_inputs.js';
 
 const { computeKzgProof, verifyKzgProof } = cKzg;
 
@@ -264,7 +263,6 @@ export class BatchedBlobAccumulator {
   /**
    * Given blob i, accumulate all state.
    * We assume the input blob has not been evaluated at z.
-   * TODO(MW): Currently returning new accumulator. May be better to mutate in future?
    * @returns An updated blob accumulator.
    */
   async accumulate(blob: Blob) {
@@ -294,8 +292,8 @@ export class BatchedBlobAccumulator {
    * @returns An updated blob accumulator.
    */
   async accumulateBlobs(blobs: Blob[]) {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    let acc: BatchedBlobAccumulator = this; // TODO(MW): this.clone()
+    // Initialise the acc to iterate over:
+    let acc: BatchedBlobAccumulator = Object.create(this);
     for (let i = 0; i < blobs.length; i++) {
       acc = await acc.accumulate(blobs[i]);
     }
@@ -334,30 +332,6 @@ export class BatchedBlobAccumulator {
     }
 
     return new BatchedBlob(this.blobCommitmentsHashAcc, this.zAcc, this.yAcc, this.cAcc, this.qAcc);
-  }
-
-  /**
-   * Converts to a struct for the public inputs of our rollup circuits.
-   * @returns A BlobAccumulatorPublicInputs instance.
-   */
-  toBlobAccumulatorPublicInputs() {
-    return new BlobAccumulatorPublicInputs(
-      this.blobCommitmentsHashAcc,
-      this.zAcc,
-      this.yAcc,
-      this.cAcc,
-      this.gammaAcc,
-      this.gammaPow,
-    );
-  }
-
-  /**
-   * Converts to a struct for the public inputs of our root rollup circuit.
-   * Warning: MUST be final accumulator state.
-   * @returns A FinalBlobAccumulatorPublicInputs instance.
-   */
-  toFinalBlobAccumulatorPublicInputs() {
-    return new FinalBlobAccumulatorPublicInputs(this.blobCommitmentsHashAcc, this.zAcc, this.yAcc, this.cAcc);
   }
 
   isEmptyState() {

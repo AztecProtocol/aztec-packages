@@ -4,7 +4,7 @@ import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 
 import { Blob } from './blob.js';
 import { BatchedBlobAccumulator, FinalBlobBatchingChallenges } from './blob_batching.js';
-import { BlockBlobPublicInputs } from './blob_batching_public_inputs.js';
+import { BlobAccumulatorPublicInputs, BlockBlobPublicInputs } from './blob_batching_public_inputs.js';
 import { TX_START_PREFIX, TX_START_PREFIX_BYTES_LENGTH } from './encoding.js';
 import { Poseidon2Sponge, SpongeBlob } from './sponge_blob.js';
 
@@ -55,8 +55,8 @@ export function makeBatchedBlobAccumulator(seed = 1): BatchedBlobAccumulator {
 export function makeBlockBlobPublicInputs(seed = 1): BlockBlobPublicInputs {
   const startBlobAccumulator = makeBatchedBlobAccumulator(seed);
   return new BlockBlobPublicInputs(
-    startBlobAccumulator.toBlobAccumulatorPublicInputs(),
-    makeBatchedBlobAccumulator(seed + 1).toBlobAccumulatorPublicInputs(),
+    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(startBlobAccumulator),
+    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 1)),
     startBlobAccumulator.finalBlobChallenges,
   );
 }

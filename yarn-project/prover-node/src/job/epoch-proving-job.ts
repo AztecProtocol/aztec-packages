@@ -115,7 +115,7 @@ export class EpochProvingJob implements Traceable {
 
     try {
       const allBlobs = (
-        await Promise.all(this.blocks.map(async block => await Blob.getBlobs(block.body.toBlobFields())))
+        await Promise.all(this.blocks.map(async block => await Blob.getBlobsPerBlock(block.body.toBlobFields())))
       ).flat();
 
       const finalBlobBatchingChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(allBlobs);

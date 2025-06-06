@@ -249,7 +249,7 @@ impl BlobAccumulatorPublicInputs {
             gamma == bigint::bignum::to_field(injected.gamma),
             "Final blob challenge gamma mismatch.",
         );
-        // TODO(MW): Refactor BlobBatchingCommitment once BlobCommitment can be safely deleted
+        // Compress to 2 fields to reduce number of public inputs to the root rollup:
         let c = compress_to_blob_commitment(self.c_acc).to_compressed_fields();
         FinalBlobAccumulatorPublicInputs {
             blob_commitments_hash: self.blob_commitments_hash_acc,

@@ -91,7 +91,7 @@ describe('prover/orchestrator/public-functions', () => {
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
 
-        const blobs = await Blob.getBlobs(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+        const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
         const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
         context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
         await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());

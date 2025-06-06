@@ -29,7 +29,7 @@ describe('prover/orchestrator/errors', () => {
     it('throws if adding too many transactions', async () => {
       const txs = await timesParallel(4, i => context.makeProcessedTx(i + 1));
       await context.setTreeRoots(txs);
-      const blobs = await Blob.getBlobs(txs.map(tx => tx.txEffect.toBlobFields()).flat());
+      const blobs = await Blob.getBlobsPerBlock(txs.map(tx => tx.txEffect.toBlobFields()).flat());
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
       orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);

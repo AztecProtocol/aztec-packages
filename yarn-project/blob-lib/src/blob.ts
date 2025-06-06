@@ -261,52 +261,17 @@ export class Blob {
   }
 
   /**
-   * Returns a proof of opening of the blob to verify on L1 using the point evaluation precompile:
-   *
-   * input[:32]     - versioned_hash
-   * input[32:64]   - z
-   * input[64:96]   - y
-   * input[96:144]  - commitment C
-   * input[144:192] - proof (a commitment to the quotient polynomial q(X))
-   *
-   * See https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
+   * @param blobs - The blobs to emit
+   * @returns The blobs' compressed commitments in hex prefixed by the number of blobs
+   * @dev Used for proposing blocks to validate injected blob commitments match real broadcast blobs:
+   * One byte for the number blobs + 48 bytes per blob commitment
    */
-  getEthBlobEvaluationInputs(): `0x${string}` {
-    const buf = Buffer.concat([
-      this.getEthVersionedBlobHash(),
-      this.challengeZ.toBuffer(),
-      this.evaluationY,
-      this.commitment,
-      this.proof,
-    ]);
-    return `0x${buf.toString('hex')}`;
-  }
-
-  static getEthBlobEvaluationInputs(blobs: Blob[]): `0x${string}` {
-    let buf = Buffer.alloc(0);
-    blobs.forEach(blob => {
-      buf = Buffer.concat([
-        buf,
-        blob.getEthVersionedBlobHash(),
-        blob.challengeZ.toBuffer(),
-        blob.evaluationY,
-        blob.commitment,
-        blob.proof,
-      ]);
-    });
-    // For multiple blobs, we prefix the number of blobs:
-    const lenBuf = Buffer.alloc(1);
-    lenBuf.writeUint8(blobs.length);
-    buf = Buffer.concat([lenBuf, buf]);
-    return `0x${buf.toString('hex')}`;
-  }
-
   static getPrefixedEthBlobCommitments(blobs: Blob[]): `0x${string}` {
     let buf = Buffer.alloc(0);
     blobs.forEach(blob => {
       buf = Buffer.concat([buf, blob.commitment]);
     });
-    // For multiple blobs, we prefix the number of blobs:
+    // We prefix the number of blobs:
     const lenBuf = Buffer.alloc(1);
     lenBuf.writeUint8(blobs.length);
     buf = Buffer.concat([lenBuf, buf]);
@@ -320,11 +285,12 @@ export class Blob {
     };
   }
 
-  // Returns as many blobs as we require to broadcast the given fields
-  // Assumes we share the fields hash between all blobs
-  // TODO(MW): Rename to more accurate getBlobsPerBlock() - the items here share a fields hash,
-  // which can only be done for one block because the hash is calculated in block root.
-  static async getBlobs(fields: Fr[]): Promise<Blob[]> {
+  /**
+   * @param fields - Fields to broadcast in the blob(s)
+   * @returns As many blobs as we require to broadcast the given fields for a block
+   * @dev Assumes we share the fields hash between all blobs which can only be done for ONE BLOCK because the hash is calculated in block root.
+   */
+  static async getBlobsPerBlock(fields: Fr[]): Promise<Blob[]> {
     const numBlobs = Math.max(Math.ceil(fields.length / FIELD_ELEMENTS_PER_BLOB), 1);
     const multiBlobFieldsHash = await poseidon2Hash(fields);
     const res = [];

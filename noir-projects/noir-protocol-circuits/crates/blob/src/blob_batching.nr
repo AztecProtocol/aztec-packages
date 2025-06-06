@@ -1,18 +1,15 @@
 use crate::{
-    blob::{
-        barycentric_evaluate_blob_at_z, check_block_blob_sponge, compute_challenge,
-        convert_blob_fields,
-    },
+    blob::barycentric_evaluate_blob_at_z,
     blob_batching_public_inputs::{
         BatchingBlobCommitment, BlobAccumulationInputs, BlobAccumulatorPublicInputs, BLSPoint,
         compress_to_blob_commitment, FinalBlobBatchingChallenges,
     },
-    blob_public_inputs::BlobCommitment,
 };
 use bigint::{BigNum, BLS12_381_Fr as F};
 use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+    hash::poseidon2_hash_subarray,
     traits::is_empty,
     utils::arrays::array_splice,
 };
@@ -27,16 +24,21 @@ fn evaluate_blob_for_batching(
     challenge_z: Field,
 ) -> (Field, F) {
     let challenge_z_as_bignum = F::from(challenge_z);
-    let blob = convert_blob_fields(blob_as_fields);
+    let blob = blob_as_fields.map(|b| F::from(b));
 
     let y_i: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
-    let z_i: Field = compute_challenge(
-        hashed_blobs_fields,
-        // TODO(MW): At some point BatchingBlobCommitment will replace BlobCommitment and we won't need this silly conversion
-        BlobCommitment { inner: kzg_commitment.to_compressed_fields() },
-    );
+    let z_i: Field =
+        compute_blob_challenge(hashed_blobs_fields, kzg_commitment.to_compressed_fields());
 
     (z_i, y_i)
+}
+
+// Computes challenge for a single blob:
+// - z_i (= H(H(blob_i), C_i)), where C_i = kzg_commitment, and blob_i = blob_as_fields[i].
+fn compute_blob_challenge(hashed_blobs_fields: Field, kzg_commitment: [Field; 2]) -> Field {
+    let preimage = [hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1]];
+    let challenge = poseidon::poseidon2::Poseidon2::hash(preimage, 3);
+    challenge
 }
 
 // Evaluates each blob required for a block:
@@ -94,14 +96,38 @@ pub fn evaluate_blobs_and_batch(
     end_accumulator
 }
 
+// Validates this block's injected blob fields against the validated sponge propagated from the previous circuits:
+// - Checks that we haven't accumulated too many fields over the rollup
+// - Checks that we have absorbed the exact number of fields we claim to have accumulated
+// - Checks that the injected fields match the tx effects absorbed over the rollup
+// - Checks that any fields above expected_fields are empty (inside poseidon2_hash_subarray())
+fn check_block_blob_sponge(
+    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
+    mut sponge_blob: SpongeBlob,
+) -> Field {
+    // Check that we haven't overfilled the blobs
+    assert(
+        sponge_blob.expected_fields <= FIELDS_PER_BLOB * BLOBS_PER_BLOCK,
+        "Attempted to overfill blobs",
+    );
+    // Check that the blob is full
+    assert(
+        sponge_blob.expected_fields == sponge_blob.fields,
+        "Incorrect number of tx effects added to blob",
+    );
+    let sponge_hash = sponge_blob.squeeze();
+    let hash = poseidon2_hash_subarray(blobs_as_fields, sponge_blob.fields);
+    assert(hash == sponge_hash, "Mismatched hashed tx effects");
+
+    sponge_hash
+}
+
 mod tests {
-    use crate::{
-        blob_batching::evaluate_blobs_and_batch,
-        blob_batching_public_inputs::{
-            BatchingBlobCommitment, BlobAccumulatorPublicInputs, compress_to_blob_commitment,
-        },
+    use crate::blob_batching_public_inputs::{
+        BatchingBlobCommitment, BlobAccumulatorPublicInputs, compress_to_blob_commitment,
+        FinalBlobBatchingChallenges,
     };
-    use crate::blob_batching_public_inputs::FinalBlobBatchingChallenges;
+    use super::{check_block_blob_sponge, evaluate_blobs_and_batch};
     use bigcurve::{BigCurveTrait, curves::bls12_381::BLS12_381 as BLSPoint};
     use bigint::{BigNum, BLS12_381_Fr as F};
     use types::{
@@ -308,5 +334,46 @@ mod tests {
         assert_eq(final_acc.y, expected_y);
         assert_eq(final_acc.c, expected_c.to_compressed_fields());
         assert_eq(final_acc.blob_commitments_hash, expected_blob_commitments_hash);
+    }
+
+    #[test(should_fail_with = "Found non-zero field after breakpoint")]
+    unconstrained fn test_no_extra_blob_fields() {
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        // Fill fields with 50 inputs...
+        for i in 0..50 {
+            blob[i] = 3;
+        }
+        // ...but the rollup's sponge is only expecting 45...
+        let mut sponge_blob = SpongeBlob::new(45);
+        sponge_blob.absorb(blob, 45);
+
+        // ...so the below should fail as it detects we are adding effects which did not come from the rollup.
+        let padded_blob_fields = pad_end(blob, 0);
+        let _ = super::check_block_blob_sponge(padded_blob_fields, sponge_blob);
+    }
+
+    #[test(should_fail_with = "Incorrect number of tx effects added to blob")]
+    unconstrained fn test_absorbed_too_few_blob_fields() {
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        // Fill fields with 50 inputs...
+        for i in 0..50 {
+            blob[i] = 3;
+        }
+        // ...but the rollup's sponge is expecting 100...
+        let mut sponge_blob = SpongeBlob::new(100);
+        sponge_blob.absorb(blob, 50);
+
+        // ...so the below should fail as it detects we have not added all the tx effects.
+        let padded_blob_fields = pad_end(blob, 0);
+        let _ = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+    }
+
+    #[test]
+    unconstrained fn test_empty_blob() {
+        let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
+            [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
+        let mut sponge_blob = SpongeBlob::new(0);
+        // The below should not throw
+        let _ = check_block_blob_sponge(blob, sponge_blob);
     }
 }
