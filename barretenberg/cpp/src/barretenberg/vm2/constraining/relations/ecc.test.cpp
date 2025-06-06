@@ -86,6 +86,7 @@ TEST(EccAddConstrainingTest, EccAdd)
         .ecc_result_infinity = 0,
 
         .ecc_sel = 1,
+        .ecc_use_computed_result = 1,
         .ecc_x_match = 0,
         .ecc_y_match = 0,
 
@@ -129,6 +130,7 @@ TEST(EccAddConstrainingTest, EccDouble)
         .ecc_result_infinity = 0,
 
         .ecc_sel = 1,
+        .ecc_use_computed_result = 1,
         .ecc_x_match = 1,
         .ecc_y_match = 1,
 
@@ -340,6 +342,7 @@ TEST(EccAddConstrainingTest, EccTwoOps)
                                                      .ecc_result_infinity = 0,
 
                                                      .ecc_sel = 1,
+                                                     .ecc_use_computed_result = 1,
                                                      .ecc_x_match = 0,
                                                      .ecc_y_match = 0,
 
@@ -372,6 +375,7 @@ TEST(EccAddConstrainingTest, EccTwoOps)
                                                      .ecc_result_infinity = 0,
 
                                                      .ecc_sel = 1,
+                                                     .ecc_use_computed_result = 1,
                                                      .ecc_x_match = 1,
                                                      .ecc_y_match = 1,
 

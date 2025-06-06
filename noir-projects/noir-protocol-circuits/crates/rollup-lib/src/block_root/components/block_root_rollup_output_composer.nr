@@ -9,7 +9,8 @@ use crate::{
 use blob::{blob::evaluate_blobs, blob_public_inputs::{BlobPublicInputs, BlockBlobPublicInputs}};
 use types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
+        epoch_constant_data::EpochConstantData,
     },
     block_header::BlockHeader,
     constants::{AZTEC_MAX_EPOCH_DURATION, L1_TO_L2_MSG_SUBTREE_HEIGHT},
@@ -73,7 +74,7 @@ impl BlockRootRollupOutputComposer {
 
     pub fn finish_empty(
         self,
-        constants: ConstantRollupData,
+        constants: BlockConstantData,
         empty_effect_blobs_hash: Field,
         empty_effect_blob_public_input: BlobPublicInputs,
         is_padding: bool,
@@ -110,7 +111,7 @@ impl BlockRootRollupOutputComposer {
 
     fn finish_with_new_values(
         self,
-        constants: ConstantRollupData,
+        constants: BlockConstantData,
         new_archive: AppendOnlyTreeSnapshot,
         proposed_block_header_hash: Field,
         out_hash: Field,
@@ -130,6 +131,11 @@ impl BlockRootRollupOutputComposer {
         blob_public_inputs[0] = block_blob_public_inputs;
 
         BlockRootOrBlockMergePublicInputs {
+            constants: EpochConstantData {
+                vk_tree_root: constants.vk_tree_root,
+                protocol_contract_tree_root: constants.protocol_contract_tree_root,
+                prover_id: self.data.prover_id,
+            },
             previous_archive: constants.last_archive, // archive before this block was added
             new_archive, // archive once this block was added
             start_global_variables: constants.global_variables, // we have asserted that left.constants == right.constants => ...
@@ -137,16 +143,13 @@ impl BlockRootRollupOutputComposer {
             out_hash,
             proposed_block_header_hashes,
             fees,
-            vk_tree_root: constants.vk_tree_root,
-            protocol_contract_tree_root: constants.protocol_contract_tree_root,
-            prover_id: self.data.prover_id,
             blob_public_inputs,
         }
     }
 
     fn create_new_block_header(
         self,
-        constants: ConstantRollupData,
+        constants: BlockConstantData,
         end_partial_state: PartialStateReference,
         blobs_hash: Field,
     ) -> BlockHeader {
