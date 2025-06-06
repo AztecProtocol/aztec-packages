@@ -4,8 +4,10 @@ use aztec::macros::aztec;
 #[aztec]
 contract OffchainMessage {
     use aztec::{
-        macros::functions::private, oracle::offchain_message::emit_offchain_message,
-        prelude::AztecAddress, protocol_types::traits::Serialize,
+        macros::functions::{private, utility},
+        oracle::offchain_message::emit_offchain_message,
+        prelude::AztecAddress,
+        protocol_types::traits::Serialize,
     };
 
     #[derive(Serialize)]
@@ -28,5 +30,10 @@ contract OffchainMessage {
                     .call(&mut context);
             }
         }
+    }
+
+    #[utility]
+    unconstrained fn emitting_offchain_message_from_utility_reverts() {
+        emit_offchain_message([0; 5], AztecAddress::zero());
     }
 }

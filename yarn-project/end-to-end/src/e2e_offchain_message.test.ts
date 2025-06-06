@@ -76,4 +76,10 @@ describe('e2e_offchain_message', () => {
     const provenTx = await contract1.methods.emit_offchain_message_for_recipient(toBoundedVec([], 6)).prove();
     expect(provenTx.offchainMessages).toEqual([]);
   });
+
+  it('should revert when emitting offchain message from utility function', async () => {
+    await expect(contract1.methods.emitting_offchain_message_from_utility_reverts().simulate()).rejects.toThrow(
+      'Cannot emit offchain message from a utility function',
+    );
+  });
 });
