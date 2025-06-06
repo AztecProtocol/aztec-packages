@@ -16,8 +16,12 @@ import {
   GovernanceBytecode,
   GovernanceProposerAbi,
   GovernanceProposerBytecode,
+  HonkVerifierAbi,
+  HonkVerifierBytecode,
   InboxAbi,
   InboxBytecode,
+  MockVerifierAbi,
+  MockVerifierBytecode,
   MultiAdderAbi,
   MultiAdderBytecode,
   OutboxAbi,
@@ -209,6 +213,14 @@ export const l1Artifacts = {
     contractAbi: GSEAbi,
     contractBytecode: GSEBytecode as Hex,
   },
+  honkVerifier: {
+    contractAbi: HonkVerifierAbi,
+    contractBytecode: HonkVerifierBytecode as Hex,
+  },
+  mockVerifier: {
+    contractAbi: MockVerifierAbi,
+    contractBytecode: MockVerifierBytecode as Hex,
+  },
 };
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
@@ -228,6 +240,8 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   acceleratedTestDeployments?: boolean;
   /** The initial balance of the fee juice portal. This is the amount of fee juice that is prefunded to accounts */
   feeJuicePortalInitialBalance?: bigint;
+  /** Whether to deploy the real verifier or the mock verifier */
+  realVerifier: boolean;
 }
 
 export const deploySharedContracts = async (
@@ -535,6 +549,16 @@ export const deployRollup = async (
 
   const txHashes: Hex[] = [];
 
+  let epochProofVerifier = EthAddress.ZERO;
+
+  if (args.realVerifier) {
+    epochProofVerifier = await deployer.deploy(l1Artifacts.honkVerifier);
+    logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
+  } else {
+    epochProofVerifier = await deployer.deploy(l1Artifacts.mockVerifier);
+    logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
+  }
+
   const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
@@ -551,11 +575,13 @@ export const deployRollup = async (
     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
   };
   logger.verbose(`Rollup config args`, rollupConfigArgs);
+
   const rollupArgs = [
     addresses.feeJuiceAddress.toString(),
     addresses.rewardDistributorAddress.toString(),
     addresses.stakingAssetAddress.toString(),
     addresses.gseAddress.toString(),
+    epochProofVerifier.toString(),
     extendedClient.account.address.toString(),
     genesisStateArgs,
     rollupConfigArgs,
@@ -1143,7 +1169,6 @@ export async function deployL1Contract(
       logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${resultingAddress}`);
     }
   } else {
-    // Regular deployment path
     const deployData = encodeDeployData({ abi, bytecode, args });
     const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
       to: null,

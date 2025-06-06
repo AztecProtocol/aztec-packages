@@ -98,6 +98,7 @@ describe('spartan_upgrade_rollup_version', () => {
           manaTarget: BigInt(100e6),
           provingCostPerMana: BigInt(100),
           feeJuicePortalInitialBalance: fundingNeeded,
+          realVerifier: false,
         },
         originalL1ContractAddresses.registryAddress,
         debugLogger,
