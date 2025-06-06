@@ -84,10 +84,9 @@ import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
-import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, createNonceManager, getContract } from 'viem';
+import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
-import { jsonRpc } from 'viem/nonce';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
@@ -419,16 +418,11 @@ export async function setup(
     let publisherHdAccount = undefined;
 
     if (config.publisherPrivateKey && config.publisherPrivateKey != NULL_KEY) {
-      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey, {
-        nonceManager: createNonceManager({ source: jsonRpc() }),
-      });
+      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey);
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
     } else {
-      publisherHdAccount = mnemonicToAccount(MNEMONIC, {
-        addressIndex: 0,
-        nonceManager: createNonceManager({ source: jsonRpc() }),
-      });
+      publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
       publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
       config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
