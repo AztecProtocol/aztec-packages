@@ -317,7 +317,7 @@ export const deploySharedContracts = async (
           args: [governanceAddress.toString()],
         }),
       },
-      { gasLimit: 1_000_000n },
+      { gasLimit: 100_000n },
     ); // Always set adequate gas limit for setGovernance
 
     logger.verbose(`Set governance on GSE in ${txHash}`);
