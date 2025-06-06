@@ -73,7 +73,6 @@ export class Addressing {
     const resolved: number[] = new Array(offsets.length);
     // These will be read (once) if we have any relative operands.
     let baseAddr: MemoryValue | undefined;
-    let baseAddrTag: TypeTag | undefined;
 
     for (const [i, offset] of offsets.entries()) {
       const mode = this.modePerOperand[i];
@@ -82,10 +81,10 @@ export class Addressing {
       if (mode & AddressingMode.RELATIVE) {
         if (!baseAddr) {
           baseAddr = mem.get(0);
-          baseAddrTag = baseAddr.getTag();
-        }
-        if (!TaggedMemory.isValidMemoryAddressTag(baseAddrTag!)) {
-          throw TagCheckError.forOffset(0, TypeTag[baseAddrTag!], TypeTag[TypeTag.UINT32]);
+          const baseAddrTag = baseAddr.getTag();
+          if (!TaggedMemory.isValidMemoryAddressTag(baseAddrTag!)) {
+            throw TagCheckError.forOffset(0, TypeTag[baseAddrTag!], TypeTag[TypeTag.UINT32]);
+          }
         }
         // Here we know that resolved[i] is at most 32 bits and baseAddr is at most 32 bits.
         // Therefore, the addition is safe since the `number` type fits more than 33 bits.

@@ -66,7 +66,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             // Then, we process relative addressing for all the addresses.
             // That is, if relative addressing is used, after_relative[i] = base_address + operands[i].
             // We fist store the operands as is, and then we'll update them if they are relative.
-            resolution_info.after_relative = instruction.operands[i];
+            resolution_info.after_relative = instruction.operands[i]; // default value if not relative.
             if (is_operand_relative(instruction.indirect, i)) {
                 // Load the base address if we haven't already.
                 if (!base_address) {
