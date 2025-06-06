@@ -84,41 +84,41 @@ impl Packable<FIELD_PACKED_LEN> for Field {
 
 impl Packable<I8_PACKED_LEN> for i8 {
     fn pack(self) -> [Field; I8_PACKED_LEN] {
-        [self as Field]
+        [self as u8 as Field]
     }
 
     fn unpack(fields: [Field; I8_PACKED_LEN]) -> Self {
-        fields[0] as i8
+        fields[0] as u8 as i8
     }
 }
 
 impl Packable<I16_PACKED_LEN> for i16 {
     fn pack(self) -> [Field; I16_PACKED_LEN] {
-        [self as Field]
+        [self as u16 as Field]
     }
 
     fn unpack(fields: [Field; I16_PACKED_LEN]) -> Self {
-        fields[0] as i16
+        fields[0] as u16 as i16
     }
 }
 
 impl Packable<I32_PACKED_LEN> for i32 {
     fn pack(self) -> [Field; I32_PACKED_LEN] {
-        [self as Field]
+        [self as u32 as Field]
     }
 
     fn unpack(fields: [Field; I32_PACKED_LEN]) -> Self {
-        fields[0] as i32
+        fields[0] as u32 as i32
     }
 }
 
 impl Packable<I64_PACKED_LEN> for i64 {
     fn pack(self) -> [Field; I64_PACKED_LEN] {
-        [self as Field]
+        [self as u64 as Field]
     }
 
     fn unpack(fields: [Field; I64_PACKED_LEN]) -> Self {
-        fields[0] as i64
+        fields[0] as u64 as i64
     }
 }
 
