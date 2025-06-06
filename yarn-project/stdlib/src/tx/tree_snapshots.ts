@@ -84,19 +84,19 @@ export class TreeSnapshots {
 
   static empty(): TreeSnapshots {
     return new TreeSnapshots(
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.zero(),
+      AppendOnlyTreeSnapshot.zero(),
+      AppendOnlyTreeSnapshot.zero(),
+      AppendOnlyTreeSnapshot.zero(),
     );
   }
 
   isEmpty(): boolean {
     return (
-      this.l1ToL2MessageTree.isEmpty() &&
-      this.noteHashTree.isEmpty() &&
-      this.nullifierTree.isEmpty() &&
-      this.publicDataTree.isEmpty()
+      this.l1ToL2MessageTree.isZero() &&
+      this.noteHashTree.isZero() &&
+      this.nullifierTree.isZero() &&
+      this.publicDataTree.isZero()
     );
   }
 

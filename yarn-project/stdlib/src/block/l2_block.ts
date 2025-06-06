@@ -103,7 +103,7 @@ export class L2Block {
    * @returns The L2 block.
    */
   static empty(): L2Block {
-    return new L2Block(AppendOnlyTreeSnapshot.empty(), BlockHeader.empty(), Body.empty());
+    return new L2Block(AppendOnlyTreeSnapshot.zero(), BlockHeader.empty(), Body.empty());
   }
 
   get number(): number {

@@ -99,6 +99,7 @@ import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation
 import { ReadRequest } from '../kernel/hints/read_request.js';
 import { RollupValidationRequests } from '../kernel/hints/rollup_validation_requests.js';
 import {
+  CombinedConstantData,
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
   PrivateKernelTailCircuitPublicInputs,
@@ -144,9 +145,8 @@ import {
   BlockRootRollupInputs,
   SingleTxBlockRootRollupInputs,
 } from '../rollup/block_root_rollup.js';
+import { ConstantRollupData } from '../rollup/constant_rollup_data.js';
 import { EmptyBlockRootRollupInputs } from '../rollup/empty_block_root_rollup_inputs.js';
-import { EpochConstantData } from '../rollup/epoch_constant_data.js';
-import { BlockConstantData } from '../rollup/index.js';
 import { MergeRollupInputs } from '../rollup/merge_rollup.js';
 import { PreviousRollupBlockData } from '../rollup/previous_rollup_block_data.js';
 import { PreviousRollupData } from '../rollup/previous_rollup_data.js';
@@ -312,6 +312,16 @@ export function makeRollupValidationRequests(seed = 1) {
 
 function makeTxConstantData(seed = 1) {
   return new TxConstantData(makeHeader(seed), makeTxContext(seed + 0x100), new Fr(seed + 0x200), new Fr(seed + 0x201));
+}
+
+export function makeCombinedConstantData(seed = 1): CombinedConstantData {
+  return new CombinedConstantData(
+    makeHeader(seed),
+    makeTxContext(seed + 0x100),
+    new Fr(seed + 0x200),
+    new Fr(seed + 0x201),
+    makeGlobalVariables(seed + 0x300),
+  );
 }
 
 /**
@@ -617,6 +627,24 @@ export function makeFeeRecipient(seed = 1) {
 }
 
 /**
+ * Makes constant base rollup data.
+ * @param seed - The seed to use for generating the constant base rollup data.
+ * @param blockNumber - The block number to use for generating the global variables.
+ * @returns A constant base rollup data.
+ */
+export function makeConstantRollupData(
+  seed = 1,
+  globalVariables: GlobalVariables | undefined = undefined,
+): ConstantRollupData {
+  return ConstantRollupData.from({
+    lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x300),
+    vkTreeRoot: fr(seed + 0x401),
+    protocolContractTreeRoot: fr(seed + 0x402),
+    globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x500),
+  });
+}
+
+/**
  * Makes arbitrary append only tree snapshot.
  * @param seed - The seed to use for generating the append only tree snapshot.
  * @returns An append only tree snapshot.
@@ -662,16 +690,6 @@ export function makeSchnorrSignature(seed = 1): SchnorrSignature {
   return new SchnorrSignature(Buffer.alloc(SchnorrSignature.SIZE, seed));
 }
 
-function makeBlockConstantData(seed = 1, globalVariables?: GlobalVariables) {
-  return new BlockConstantData(
-    makeAppendOnlyTreeSnapshot(seed + 0x100),
-    makeAppendOnlyTreeSnapshot(seed + 0x200),
-    fr(seed + 0x300),
-    fr(seed + 0x400),
-    globalVariables ?? makeGlobalVariables(seed + 0x500),
-  );
-}
-
 /**
  * Makes arbitrary base or merge rollup circuit public inputs.
  * @param seed - The seed to use for generating the base rollup circuit public inputs.
@@ -685,7 +703,7 @@ export function makeBaseOrMergeRollupPublicInputs(
   return new BaseOrMergeRollupPublicInputs(
     RollupTypes.Base,
     1,
-    makeBlockConstantData(seed + 0x200, globalVariables),
+    makeConstantRollupData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
     makePartialStateReference(seed + 0x400),
     makeSpongeBlob(seed + 0x500),
@@ -694,10 +712,6 @@ export function makeBaseOrMergeRollupPublicInputs(
     fr(seed + 0x902),
     fr(seed + 0x903),
   );
-}
-
-function makeEpochConstantData(seed = 1) {
-  return new EpochConstantData(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
 /**
@@ -711,7 +725,6 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
   globalVariables: GlobalVariables | undefined = undefined,
 ): BlockRootOrBlockMergePublicInputs {
   return new BlockRootOrBlockMergePublicInputs(
-    makeEpochConstantData(seed + 0x100),
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeAppendOnlyTreeSnapshot(seed + 0x300),
     globalVariables ?? makeGlobalVariables(seed + 0x400),
@@ -719,6 +732,9 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     fr(seed + 0x600),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x650),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
+    fr(seed + 0x800),
+    fr(seed + 0x801),
+    fr(seed + 0x900),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x100),
   );
 }
@@ -770,10 +786,10 @@ export function makePreviousRollupBlockData(
  * @returns A root rollup inputs.
  */
 export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): RootRollupInputs {
-  return new RootRollupInputs([
-    makePreviousRollupBlockData(seed, globalVariables),
-    makePreviousRollupBlockData(seed + 0x1000, globalVariables),
-  ]);
+  return new RootRollupInputs(
+    [makePreviousRollupBlockData(seed, globalVariables), makePreviousRollupBlockData(seed + 0x1000, globalVariables)],
+    fr(seed + 0x2000),
+  );
 }
 
 function makeBlockRootRollupData(seed = 0) {
@@ -829,7 +845,7 @@ export function makeEmptyBlockRootRollupInputs(
 ): EmptyBlockRootRollupInputs {
   return new EmptyBlockRootRollupInputs(
     makeBlockRootRollupData(seed + 0x1000),
-    makeBlockConstantData(0x2500, globalVariables),
+    makeConstantRollupData(0x2500, globalVariables),
     true,
   );
 }
@@ -1097,7 +1113,7 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const contractClassLogsFields = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x800);
 
-  const constants = makeBlockConstantData(0x100);
+  const constants = makeConstantRollupData(0x100);
 
   const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
 
@@ -1113,11 +1129,19 @@ function makePrivateBaseRollupHints(seed = 1) {
 }
 
 function makePublicBaseRollupHints(seed = 1) {
+  const startSpongeBlob = makeSpongeBlob(seed + 0x200);
+
+  const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
+
+  const contractClassLogsFields = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x800);
+
+  const constants = makeConstantRollupData(0x100);
+
   return PublicBaseRollupHints.from({
-    startSpongeBlob: makeSpongeBlob(seed),
-    lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x1000),
-    archiveRootMembershipWitness: makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x2000),
-    contractClassLogsFields: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x3000),
+    startSpongeBlob,
+    archiveRootMembershipWitness,
+    contractClassLogsFields,
+    constants,
   });
 }
 

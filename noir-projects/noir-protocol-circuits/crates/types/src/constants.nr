@@ -438,33 +438,26 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + NUM_AVM_ACCUMULATED_DATA_ARRAYS /* accumulated_data_array_lengths */
     + 1 /* reverted */;
 
-pub global BLOCK_CONSTANT_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_archive */
-    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_l1_to_l2_message_tree */
+pub global CONSTANT_ROLLUP_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + GLOBAL_VARIABLES_LENGTH;
-pub global EPOCH_CONSTANT_DATA_LENGTH: u32 = 1 /* vk_tree_root */
-    + 1 /* protocol_contract_tree_root */
-    + 1 /* prover_id */;
 
 // + 5 for rollup_type, num_txs, out_hash, accumulated_fees, accumulated_mana_used
-pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
-    + PARTIAL_STATE_REFERENCE_LENGTH /* start_state_reference */
-    + PARTIAL_STATE_REFERENCE_LENGTH /* end_state_reference */
-    + SPONGE_BLOB_LENGTH /* start_sponge_blob */
-    + SPONGE_BLOB_LENGTH /* end_sponge_blob */
-    + 1 /* rollup_type */
-    + 1 /* num_txs */
-    + 1 /* out_hash */
-    + 1 /* accumulated_fees */
-    + 1 /* accumulated_mana_used */
-;
-pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LENGTH
-    + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
+pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH
+    + PARTIAL_STATE_REFERENCE_LENGTH
+    + PARTIAL_STATE_REFERENCE_LENGTH
+    + 2 * SPONGE_BLOB_LENGTH
+    + 5;
+pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
+    * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 2 * GLOBAL_VARIABLES_LENGTH
     + 1 /* out_hash */
     + AZTEC_MAX_EPOCH_DURATION /* proposedBlockHeaderHashes */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
+    + 1 /* vk_tree_root */
+    + 1 /* protocol_contract_tree_root */
+    + 1 /* prover_id */
     + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + 1 /* end_archive_root */
