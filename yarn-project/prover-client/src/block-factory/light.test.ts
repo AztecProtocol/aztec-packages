@@ -27,10 +27,10 @@ import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs
 import { type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BaseOrMergeRollupPublicInputs,
-  BlockConstantData,
   BlockRootRollupBlobData,
   BlockRootRollupData,
   BlockRootRollupInputs,
+  ConstantRollupData,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
   PreviousRollupData,
@@ -237,9 +237,9 @@ describe('LightBlockBuilder', () => {
       getTopMerges = rollupOutputs => Promise.resolve(rollupOutputs);
     }
 
-    const l1ToL2Snapshot = await getL1ToL2Snapshot(l1ToL2Messages);
-    const rollupOutputs = await getPrivateBaseRollupOutputs(txs, l1ToL2Snapshot.messageTreeSnapshot);
+    const rollupOutputs = await getPrivateBaseRollupOutputs(txs);
     const previousRollups = await getTopMerges!(rollupOutputs);
+    const l1ToL2Snapshot = await getL1ToL2Snapshot(l1ToL2Messages);
     const parityOutput = await getParityOutput(l1ToL2Messages);
     const rootOutput = await getBlockRootOutput(previousRollups, parityOutput, l1ToL2Snapshot, txs);
 
@@ -277,7 +277,7 @@ describe('LightBlockBuilder', () => {
     return { messageTreeSnapshot, l1ToL2MessageSubtreeSiblingPath, l1ToL2Messages };
   };
 
-  const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[], l1ToL2Snapshot: AppendOnlyTreeSnapshot) => {
+  const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[]) => {
     const rollupOutputs = [];
     const spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
@@ -289,13 +289,7 @@ describe('LightBlockBuilder', () => {
         emptyRollupProof,
         vkData,
       );
-      const hints = await insertSideEffectsAndBuildBaseRollupHints(
-        tx,
-        globalVariables,
-        l1ToL2Snapshot,
-        expectsFork,
-        spongeBlobState,
-      );
+      const hints = await insertSideEffectsAndBuildBaseRollupHints(tx, globalVariables, expectsFork, spongeBlobState);
       const inputs = new PrivateBaseRollupInputs(tubeData, hints as PrivateBaseRollupHints);
       const result = await simulator.getPrivateBaseRollupProof(inputs);
       // Update `expectedTxFee` if the fee changes.
@@ -372,9 +366,8 @@ describe('LightBlockBuilder', () => {
     });
 
     if (previousRollupData.length === 0) {
-      const constants = BlockConstantData.from({
+      const constants = ConstantRollupData.from({
         lastArchive: startArchiveSnapshot,
-        lastL1ToL2: l1ToL2Snapshot.messageTreeSnapshot,
         globalVariables,
         vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,

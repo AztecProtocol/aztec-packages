@@ -19,11 +19,15 @@ global ALLOWED_PREVIOUS_CIRCUITS: [u32; 4] = [
 
 pub struct RootRollupInputs {
     pub previous_rollup_data: [PreviousRollupBlockData; 2],
+    pub prover_id: Field,
 }
 
 impl Empty for RootRollupInputs {
     fn empty() -> Self {
-        RootRollupInputs { previous_rollup_data: [PreviousRollupBlockData::empty(); 2] }
+        RootRollupInputs {
+            previous_rollup_data: [PreviousRollupBlockData::empty(); 2],
+            prover_id: 0,
+        }
     }
 }
 
@@ -75,9 +79,9 @@ impl RootRollupInputs {
             fees,
             chain_id: right.end_global_variables.chain_id,
             version: right.end_global_variables.version,
-            vk_tree_root: left.constants.vk_tree_root,
-            protocol_contract_tree_root: left.constants.protocol_contract_tree_root,
-            prover_id: left.constants.prover_id,
+            vk_tree_root: left.vk_tree_root,
+            protocol_contract_tree_root: left.protocol_contract_tree_root,
+            prover_id: self.prover_id,
             blob_public_inputs,
         }
     }

@@ -21,6 +21,8 @@ export class RootRollupInputs {
      * from 2 block merge circuits.
      */
     public previousRollupData: [PreviousRollupBlockData, PreviousRollupBlockData],
+    /** Identifier of the prover for this root rollup. */
+    public proverId: Fr,
   ) {}
 
   /**
@@ -54,7 +56,7 @@ export class RootRollupInputs {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<RootRollupInputs>) {
-    return [fields.previousRollupData] as const;
+    return [fields.previousRollupData, fields.proverId] as const;
   }
 
   /**
@@ -64,10 +66,10 @@ export class RootRollupInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader): RootRollupInputs {
     const reader = BufferReader.asReader(buffer);
-    return new RootRollupInputs([
-      reader.readObject(PreviousRollupBlockData),
-      reader.readObject(PreviousRollupBlockData),
-    ]);
+    return new RootRollupInputs(
+      [reader.readObject(PreviousRollupBlockData), reader.readObject(PreviousRollupBlockData)],
+      Fr.fromBuffer(reader),
+    );
   }
 
   /**
