@@ -42,17 +42,6 @@ struct ChainTips {
   uint256 provenBlockNumber;
 }
 
-struct SubEpochRewards {
-  uint256 summedCount;
-  mapping(address prover => bool proofSubmitted) hasSubmitted;
-}
-
-struct EpochRewards {
-  uint256 longestProvenLength;
-  uint256 rewards;
-  mapping(uint256 length => SubEpochRewards) subEpoch;
-}
-
 /**
  * @notice Struct for storing flags for block header validation
  * @param ignoreDA - True will ignore DA check, otherwise checks
@@ -99,11 +88,6 @@ struct RollupStore {
   ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => BlockLog log) blocks;
   mapping(uint256 blockNumber => bytes32) blobPublicInputsHashes;
-  mapping(address => uint256) sequencerRewards;
-  mapping(Epoch => EpochRewards) epochRewards;
-  // @todo Below can be optimised with a bitmap as we can benefit from provers likely proving for epochs close
-  // to one another.
-  mapping(address prover => mapping(Epoch epoch => bool claimed)) proverClaimed;
   RollupConfig config;
 }
 
@@ -215,6 +199,7 @@ interface IRollup is IRollupCore {
     external
     view
     returns (bool);
+  function getHasClaimed(address _prover, Epoch _epoch) external view returns (bool);
 
   function getProofSubmissionWindow() external view returns (uint256);
   function getManaTarget() external view returns (uint256);
