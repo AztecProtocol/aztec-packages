@@ -27,11 +27,13 @@ import {
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { tryRmDir } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -264,24 +266,19 @@ async function teardown(context: SubsystemsContext | undefined) {
   if (!context) {
     return;
   }
+  const logger = getLogger();
   try {
-    getLogger().info('Tearing down subsystems');
-    await context.proverNode?.stop();
-    await context.aztecNode.stop();
+    logger.info('Tearing down subsystems');
+    await tryStop(context.proverNode);
+    await tryStop(context.aztecNode);
     await context.acvmConfig?.cleanup();
     await context.bbConfig?.cleanup();
-    await context.anvil.stop();
-    await context.watcher.stop();
-    await context.blobSink.stop();
-    if (context.directoryToCleanup) {
-      try {
-        await fs.rm(context.directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
-      } catch (err) {
-        getLogger().warn(`Failed to delete tmp directory ${context.directoryToCleanup}: ${err}`);
-      }
-    }
+    await tryStop(context.anvil);
+    await tryStop(context.watcher);
+    await tryStop(context.blobSink);
+    await tryRmDir(context.directoryToCleanup, logger);
   } catch (err) {
-    getLogger().error('Error during teardown', err);
+    logger.error('Error during teardown', err);
   }
 }
 

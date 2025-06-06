@@ -565,16 +565,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * Method to stop the aztec node.
    */
   public async stop() {
-    this.log.info(`Stopping`);
+    this.log.info(`Stopping Aztec Node`);
     await this.txQueue.end();
-    // await this.validatorsSentinel?.stop(); <- The slasher client will stop this
-    await this.proofVerifier.stop();
-    await this.sequencer?.stop();
-    await this.p2pClient.stop();
-    await this.worldStateSynchronizer.stop();
+    await tryStop(this.validatorsSentinel);
+    await tryStop(this.proofVerifier);
+    await tryStop(this.sequencer);
+    await tryStop(this.p2pClient);
+    await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
-    await this.telemetry.stop();
-    this.log.info(`Stopped`);
+    await tryStop(this.telemetry);
+    this.log.info(`Stopped Aztec Node`);
   }
 
   /**
