@@ -71,11 +71,11 @@ export class AppendOnlyTreeSnapshot {
     return new AppendOnlyTreeSnapshot(reader.readField(), Number(reader.readField().toBigInt()));
   }
 
-  static zero() {
+  static empty() {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
   }
 
-  isZero(): boolean {
+  isEmpty(): boolean {
     return this.root.isZero() && this.nextAvailableLeafIndex === 0;
   }
 

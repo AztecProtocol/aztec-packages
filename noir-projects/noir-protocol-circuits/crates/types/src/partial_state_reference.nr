@@ -48,9 +48,9 @@ impl Deserialize<PARTIAL_STATE_REFERENCE_LENGTH> for PartialStateReference {
 impl Empty for PartialStateReference {
     fn empty() -> Self {
         Self {
-            note_hash_tree: AppendOnlyTreeSnapshot::zero(),
-            nullifier_tree: AppendOnlyTreeSnapshot::zero(),
-            public_data_tree: AppendOnlyTreeSnapshot::zero(),
+            note_hash_tree: AppendOnlyTreeSnapshot::empty(),
+            nullifier_tree: AppendOnlyTreeSnapshot::empty(),
+            public_data_tree: AppendOnlyTreeSnapshot::empty(),
         }
     }
 }

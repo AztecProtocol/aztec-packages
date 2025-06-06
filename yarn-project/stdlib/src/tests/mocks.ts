@@ -41,7 +41,7 @@ import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { TxSimulationResult, accumulatePrivateReturnValues } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { makeCombinedConstantData, makeGas, makeHeader, makePublicCallRequest } from './factories.js';
+import { makeGas, makeGlobalVariables, makeHeader, makePublicCallRequest } from './factories.js';
 
 export const randomTxHash = (): TxHash => TxHash.random();
 
@@ -190,7 +190,7 @@ export const mockSimulatedTx = async (seed = 1) => {
   const tx = await mockTx(seed);
   const output = new PublicSimulationOutput(
     undefined,
-    makeCombinedConstantData(),
+    makeGlobalVariables(),
     await TxEffect.random(),
     [accumulatePrivateReturnValues(privateExecutionResult)],
     {

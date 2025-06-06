@@ -79,7 +79,7 @@ impl Deserialize<BLOCK_HEADER_LENGTH> for BlockHeader {
 impl Empty for BlockHeader {
     fn empty() -> Self {
         Self {
-            last_archive: AppendOnlyTreeSnapshot::zero(),
+            last_archive: AppendOnlyTreeSnapshot::empty(),
             content_commitment: ContentCommitment::empty(),
             state: StateReference::empty(),
             global_variables: GlobalVariables::empty(),

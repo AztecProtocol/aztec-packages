@@ -140,6 +140,9 @@ fn public_tube_validate_with_avm_data_mismatch_gas_limits_fails(avm_gas_settings
     if !builder.equal_default_avm_gas_limits(avm_gas_settings) {
         builder.avm_data.tx_context.gas_settings = avm_gas_settings;
         builder.validate_with_avm_data();
+    } else {
+        // Fail with the expected error message if we are not testing the input.
+        assert(false, "unexpected gas settings used in the AVM");
     }
 }
 
@@ -181,6 +184,9 @@ fn public_tube_validate_with_avm_data_mismatch_clamped_gas_limits_fails(
     if !builder.equal_default_avm_gas_limits(avm_gas_settings) {
         builder.avm_data.tx_context.gas_settings = avm_gas_settings;
         builder.validate_with_avm_data();
+    } else {
+        // Fail with the expected error message if we are not testing the input.
+        assert(false, "unexpected gas settings used in the AVM");
     }
 }
 

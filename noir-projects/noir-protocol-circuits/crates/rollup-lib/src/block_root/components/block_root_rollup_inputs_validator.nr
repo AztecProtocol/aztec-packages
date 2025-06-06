@@ -3,7 +3,7 @@ use crate::{
     merge::utils::validate_consecutive_rollups::validate_consecutive_rollups,
 };
 use types::{
-    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, sponge_blob::SpongeBlob},
+    abis::{block_constant_data::BlockConstantData, sponge_blob::SpongeBlob},
     merkle_tree::membership::check_membership,
     proof::traits::Verifiable,
     traits::Hash,
@@ -31,9 +31,8 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
         self.validate_rollup_proofs();
         self.validate_first_rollup();
 
-        let previous_archive =
-            self.previous_rollups[0].base_or_merge_rollup_public_inputs.constants.last_archive;
-        self.validate_previous_block_header(previous_archive);
+        let constants = self.previous_rollups[0].base_or_merge_rollup_public_inputs.constants;
+        self.validate_with_previous_block(constants);
 
         if NUM_ROLLUPS == 1 {
             assert_eq(
@@ -51,16 +50,12 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
         }
     }
 
-    pub fn validate_without_previous_rollups(
-        self,
-        is_padding: bool,
-        previous_archive: AppendOnlyTreeSnapshot,
-    ) {
+    pub fn validate_without_previous_rollups(self, is_padding: bool, constants: BlockConstantData) {
         assert(NUM_ROLLUPS == 0);
 
         if !is_padding {
             self.validate_root_parity_proof();
-            self.validate_previous_block_header(previous_archive);
+            self.validate_with_previous_block(constants);
         }
     }
 
@@ -98,19 +93,29 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
         );
     }
 
-    fn validate_previous_block_header(self, previous_archive: AppendOnlyTreeSnapshot) {
-        // Makes sure the hash of the previous block header is the last leaf in the previous archive.
-        let previous_block_hash = self.data.previous_block_header.hash();
-        let last_leaf_index = previous_archive.next_available_leaf_index - 1;
+    fn validate_with_previous_block(self, constants: BlockConstantData) {
+        let previous_block_header = self.data.previous_block_header;
 
+        // Validate last_archive.
+        // Makes sure the hash of the previous block header is the last leaf in the previous archive.
+        let last_archive = constants.last_archive;
+        let last_leaf_index = last_archive.next_available_leaf_index - 1;
+        let previous_block_hash = previous_block_header.hash();
         assert(
             check_membership(
                 previous_block_hash,
                 last_leaf_index as Field,
                 self.data.previous_archive_sibling_path,
-                previous_archive.root,
+                last_archive.root,
             ),
             "hash of the previous block header is not the last leaf in the archive tree",
+        );
+
+        // Validate last_l1_to_l2.
+        assert_eq(
+            constants.last_l1_to_l2,
+            previous_block_header.state.l1_to_l2_message_tree,
+            "last_l1_to_l2 in constants does not match the value in the previous block header",
         );
     }
 }
