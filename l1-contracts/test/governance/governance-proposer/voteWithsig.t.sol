@@ -2,7 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
+import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {GovernanceProposerBase} from "./Base.t.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
@@ -164,7 +164,7 @@ contract VoteWithSigTest is GovernanceProposerBase {
 
     vm.prank(proposer);
     vm.expectEmit(true, true, true, true, address(governanceProposer));
-    emit IGovernanceProposer.VoteCast(proposal, freshRound, proposer);
+    emit IEmpire.VoteCast(proposal, freshRound, proposer);
     assertTrue(governanceProposer.vote(proposal));
 
     // Check the new instance
@@ -235,7 +235,7 @@ contract VoteWithSigTest is GovernanceProposerBase {
 
     vm.prank(proposer);
     vm.expectEmit(true, true, true, true, address(governanceProposer));
-    emit IGovernanceProposer.VoteCast(proposal, round, proposer);
+    emit IEmpire.VoteCast(proposal, round, proposer);
     assertTrue(governanceProposer.vote(proposal));
 
     (Slot lastVote, IPayload leader, bool executed) =
@@ -270,7 +270,7 @@ contract VoteWithSigTest is GovernanceProposerBase {
 
     vm.prank(proposer);
     vm.expectEmit(true, true, true, true, address(governanceProposer));
-    emit IGovernanceProposer.VoteCast(IPayload(address(validatorSelection)), round, proposer);
+    emit IEmpire.VoteCast(IPayload(address(validatorSelection)), round, proposer);
     assertTrue(governanceProposer.vote(IPayload(address(validatorSelection))));
 
     (Slot lastVote, IPayload leader, bool executed) =
@@ -314,7 +314,7 @@ contract VoteWithSigTest is GovernanceProposerBase {
     for (uint256 i = 0; i < leaderYeaBefore + 1; i++) {
       vm.prank(proposer);
       vm.expectEmit(true, true, true, true, address(governanceProposer));
-      emit IGovernanceProposer.VoteCast(IPayload(address(validatorSelection)), round, proposer);
+      emit IEmpire.VoteCast(IPayload(address(validatorSelection)), round, proposer);
       assertTrue(governanceProposer.vote(IPayload(address(validatorSelection))));
 
       vm.warp(
