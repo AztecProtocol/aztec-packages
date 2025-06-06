@@ -1,4 +1,5 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import type { EthAddress } from '@aztec/aztec.js';
 import { type Operator, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -17,7 +18,7 @@ export async function deployL1Contracts(
   sponsoredFPC: boolean,
   acceleratedTestDeployments: boolean,
   json: boolean,
-  initialValidators: Operator[],
+  initialValidators: EthAddress[],
   log: LogFn,
   debugLogger: Logger,
 ) {
@@ -28,6 +29,11 @@ export async function deployL1Contracts(
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
   const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
 
+  const initialValidatorOperators = initialValidators.map(a => ({
+    attester: a,
+    withdrawer: a,
+  })) as Operator[];
+
   const { l1ContractAddresses } = await deployAztecContracts(
     rpcUrls,
     chainId,
@@ -35,7 +41,7 @@ export async function deployL1Contracts(
     mnemonic,
     mnemonicIndex,
     salt,
-    initialValidators,
+    initialValidatorOperators,
     genesisArchiveRoot,
     fundingNeeded,
     acceleratedTestDeployments,
