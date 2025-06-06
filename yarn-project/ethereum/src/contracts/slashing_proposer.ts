@@ -125,7 +125,10 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     );
   }
 
-  public async executeRound(txUtils: L1TxUtils, round: bigint | number): Promise<void> {
+  public async executeRound(
+    txUtils: L1TxUtils,
+    round: bigint | number,
+  ): ReturnType<typeof txUtils.sendAndMonitorTransaction> {
     if (typeof round === 'number') {
       round = BigInt(round);
     }
@@ -142,8 +145,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
           data,
         },
         {
-          // Gas estimation is more than 20% off for this tx.
-          gasLimitBufferPercentage: 100,
+          // Gas estimation is way off for this, likely because we are creating the contract/selector to call
+          // for the actual slashing dynamically.
+          gasLimitBufferPercentage: 1000,
         },
       )
       .catch(err => {
@@ -166,7 +170,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
       if (error?.includes('ProposalAlreadyExecuted')) {
         throw new ProposalAlreadyExecutedError(round);
       }
-      throw new Error(error ?? 'Unknown error');
+      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${error ?? 'Unknown error'}`;
+      throw new Error(errorMessage);
     }
+    return response;
   }
 }

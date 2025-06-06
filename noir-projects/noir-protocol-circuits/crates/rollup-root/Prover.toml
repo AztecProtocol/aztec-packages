@@ -1,7 +1,4 @@
-[inputs]
-prover_id = "0x0000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc"
-
-  [[inputs.previous_rollup_data]]
+[[inputs.previous_rollup_data]]
 [inputs.previous_rollup_data.block_root_or_block_merge_public_inputs]
 out_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 proposed_block_header_hashes = [
@@ -1142,7 +1139,7 @@ sibling_path = [
 ]
   hash = "0x1bc5b5533809ebb4a3d043c7a2e8eeaab5e525ae11203d1d8f5e61950431848f"
 
-  [[inputs.previous_rollup_data]]
+[[inputs.previous_rollup_data]]
 [inputs.previous_rollup_data.block_root_or_block_merge_public_inputs]
 out_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 proposed_block_header_hashes = [

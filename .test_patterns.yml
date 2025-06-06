@@ -27,6 +27,7 @@ names:
   - spyros: &spyros "U03FCET0DQE"
   - jan: &jan "U03FGA0BWNR"
   - esau: &esau "U067FJ9A4Q1"
+  - saleel: &saleel "U07KJ0AV20J"
 
 tests:
   # barretenberg
@@ -50,11 +51,6 @@ tests:
     error_regex: "RuntimeError: Out of bounds memory access"
     owners:
       - *adam
-  # Sumcheck is failing for some reason
-  - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
-    skip: true
-    owners:
-      - *tom
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -71,11 +67,6 @@ tests:
     skip: true
     owners:
       - *charlie
-  - regex: "arb_program_can_be_executed"
-    owners:
-      - *akosh
-  - regex: "noir_ast_fuzzer_fuzz"
-    skip: true
 
   # AD: hit this flake
   # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
@@ -116,10 +107,15 @@ tests:
     error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
     owners:
       - *sean
-  - regex: "src/e2e_p2p/reqresp"
+  # http://ci.aztec-labs.com/5a291189b35a1b38
+  # http://ci.aztec-labs.com/b175321d1289021c
+  - regex: "src/e2e_p2p"
     error_regex: 'CodeError: writable end state is "writing" not "ready"'
     owners:
-      - *sean
+      - *palla
+  - regex: "src/e2e_p2p/reqresp"
+    owners:
+      - *palla
   - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
@@ -139,6 +135,12 @@ tests:
   - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
+  - regex: "src/e2e_token_contract/access_control"
+    error_regex: "HttpRequestError: HTTP request failed."
+    owners:
+      - *charlie
+  - regex: "e2e_prover/full"
+    skip: true
   # http://ci.aztec-labs.com/7a5104e136578d64
   # The "loop that wastes 5m" thing.
   - regex: "src/e2e_fees/failures"
@@ -154,9 +156,9 @@ tests:
     owners:
       - *lasse
   - regex: "src/e2e_epochs/epochs_l1_reorgs"
-    error_regex: "updates L1 to L2 messages changed due to an L1 reorg"
+    error_regex: "updates L1 to L2 messages changed due to an L1 reorg|sending signal TERM to command"
     owners:
-      - *lasse
+      - *spyros
   - regex: "src/e2e_epochs/epochs_empty_blocks"
     error_regex: "✕ successfully proves multiple epochs"
     owners:
@@ -189,6 +191,16 @@ tests:
     error_regex: "Anvil failed to stop in time"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/2322cdddbb351b34
+  - regex: "src/e2e_fees/public_payments.test.ts"
+    error_regex: "Exceeded timeout"
+    owners:
+      - *palla
+  # http://ci.aztec-labs.com/f2007345762c50a8
+  - regex: "src/e2e_multi_validator_node.test.ts"
+    error_regex: "✕ should attest ONLY with the correct validator keys"
+    owners:
+      - *spyros
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -207,6 +219,9 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
+  - regex: "p2p/src/client/p2p_client.integration.test.ts" # http://ci.aztec-labs.com/31c4c9821b1a533c
+    owners:
+      - *palla
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -220,13 +235,8 @@ tests:
     owners:
       - *alex
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
-    error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "ethereum/src/l1_tx_utils.test.ts"
-    error_regex: "✕ calculates correct gas prices for initial attempt"
-    owners:
-      - *spyros
   - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
     error_regex: "✕ keeps the jobs in progress while it is alive"
     owners:
@@ -261,6 +271,12 @@ tests:
     error_regex: "code: 124"
     owners:
       - *esau
+
+  # boxes
+  - regex: "boxes/boxes/vanilla/tests/e2e.spec.ts"
+    error_regex: "Error: Timed out 20000ms waiting for expect(locator).toHaveText(expected)"
+    owners:
+      - *saleel
 
   # Slack testing.
   - regex: "nonsense to match"

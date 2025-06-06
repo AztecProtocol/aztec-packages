@@ -1,14 +1,38 @@
 #!/usr/bin/env -S node --no-warnings
+import { type SafeJsonRpcServerOptions, createNamespacedSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { createLogger } from '@aztec/foundation/log';
-import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
+import { type PXE, PXESchema, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
+
+import http from 'http';
 
 import { getPXEServiceConfig } from '../config/index.js';
 import { createPXEService } from '../entrypoints/server/utils.js';
-import { startPXEHttpServer } from '../pxe_http/index.js';
 
 const { PXE_PORT = 8080, AZTEC_NODE_URL = 'http://localhost:8079' } = process.env;
 
 const logger = createLogger('pxe:service');
+
+/**
+ * Creates an http server that forwards calls to the PXE and starts it on the given port.
+ * @param pxeService - PXE that answers queries to the created HTTP server.
+ * @param port - Port to listen in.
+ * @param maxBatchSize - Maximum allowed batch size for JSON RPC batch requests.
+ * @returns A running http server.
+ */
+function startPXEHttpServer(
+  pxeService: PXE,
+  port: string | number,
+  opts: Pick<SafeJsonRpcServerOptions, 'maxBatchSize'> = {},
+): http.Server {
+  const rpcServer = createNamespacedSafeJsonRpcServer({ pxe: [pxeService, PXESchema] }, opts);
+
+  const app = rpcServer.getApp();
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  const httpServer = http.createServer(app.callback());
+  httpServer.listen(port);
+
+  return httpServer;
+}
 
 /**
  * Create and start a new PXE HTTP Server

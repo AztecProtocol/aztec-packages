@@ -144,11 +144,16 @@ pub contract NFT {
 
     // docs:start:transfer_in_public
     #[public]
-    fn transfer_in_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
+    fn transfer_in_public(
+        from: AztecAddress,
+        to: AztecAddress,
+        token_id: Field,
+        authwit_nonce: Field,
+    ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         let public_owners_storage = storage.public_owners.at(token_id);
@@ -290,11 +295,16 @@ pub contract NFT {
 
     // docs:start:transfer_in_private
     #[private]
-    fn transfer_in_private(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
+    fn transfer_in_private(
+        from: AztecAddress,
+        to: AztecAddress,
+        token_id: Field,
+        authwit_nonce: Field,
+    ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         let nfts = storage.private_nfts;
@@ -312,11 +322,16 @@ pub contract NFT {
 
     // docs:start:transfer_to_public
     #[private]
-    fn transfer_to_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
+    fn transfer_to_public(
+        from: AztecAddress,
+        to: AztecAddress,
+        token_id: Field,
+        authwit_nonce: Field,
+    ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         let notes = storage.private_nfts.at(from).pop_notes(NoteGetterOptions::new()
