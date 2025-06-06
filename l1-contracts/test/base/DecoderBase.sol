@@ -203,7 +203,12 @@ contract DecoderBase is TestBase {
     returns (bytes memory)
   {
     assembly {
-      mstore(add(_header, add(0x10, 0x00fc)), _fee)
+      let ptr := add(_header, add(0x20, 0x00fc))
+      // Da fee per gas is only 16 bytes, so we need to keep the the other 16 bytes.
+      let prev := mload(ptr)
+      let mask := shr(mul(16, 8), not(0))
+      let updated := or(and(prev, mask), shl(mul(16, 8), _fee))
+      mstore(ptr, updated)
     }
     return _header;
   }
@@ -214,7 +219,12 @@ contract DecoderBase is TestBase {
     returns (bytes memory)
   {
     assembly {
-      mstore(add(_header, add(0x10, 0x010c)), _baseFee)
+      let ptr := add(_header, add(0x20, 0x010c))
+      // Base fee per gas is only 16 bytes, so we need to keep the the other 16 bytes.
+      let prev := mload(ptr)
+      let mask := shr(mul(16, 8), not(0))
+      let updated := or(and(prev, mask), shl(mul(16, 8), _baseFee))
+      mstore(ptr, updated)
     }
     return _header;
   }
