@@ -12,6 +12,7 @@ import {
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {
   CompressedFeeHeader,
   FeeHeaderLib,
@@ -66,16 +67,19 @@ library EpochProofLib {
    *          - The block number is past the pending chain
    *          - The last archive root of the header does not match the archive root of parent block
    *          - The archive root of the header does not match the archive root of the proposed block
+   *          - The batched blob proof is invalid
+   *          - The batched blob proof does not correspond to the rollup data
    *          - The proof is invalid
    *
    * @dev     We provide the `_archive` even if it could be read from storage itself because it allow for better error
    *          messages. Without passing it, we would just have a proof verification failure.
    *
    * @param _args - The arguments to submit the epoch root proof:
-   *          _epochSize - The size of the epoch (to be promoted to a constant)
+   *          _start - The block number at the start of the epoch
+   *          _end - The block number at the end of the epoch
    *          _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
    *          _fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   *          _blobPublicInputs - The blob public inputs for the proof
+   *          _blobInputs - The batched blob inputs for the EVM point evaluation precompile and as public inputs for the proof
    *          _proof - The proof to verify
    */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) internal {
@@ -152,7 +156,7 @@ library EpochProofLib {
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
     //   prover_id: Field,
-    //   blob_public_inputs: [BlockBlobPublicInputs; Constants.AZTEC_MAX_EPOCH_DURATION], // <--This will be reduced to 1 if/when we implement multi-opening for blob verification
+    //   blob_public_inputs: FinalBlobAccumulatorPublicInputs,
     // }
     {
       // previous_archive.root: the previous archive tree root
@@ -195,36 +199,33 @@ library EpochProofLib {
     publicInputs[offset] = addressToField(_args.proverId);
     offset += 1;
 
-    {
-      BlobVarsTemp memory tmp = BlobVarsTemp({blobOffset: 0, offset: offset, i: 0});
-      // blob_public_inputs
-      for (; tmp.i < numBlocks; tmp.i++) {
-        uint8 blobsInBlock = uint8(_blobPublicInputs[tmp.blobOffset++]);
-        for (uint256 j = 0; j < Constants.BLOBS_PER_BLOCK; j++) {
-          if (j < blobsInBlock) {
-            // z
-            publicInputs[tmp.offset++] =
-              bytes32(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 32]);
-            // y
-            (publicInputs[tmp.offset++], publicInputs[tmp.offset++], publicInputs[tmp.offset++]) =
-              bytes32ToBigNum(bytes32(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 32]));
-            // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
-            // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields()
-            // TODO: The below left pads, possibly inefficiently
-            // c[0]
-            publicInputs[tmp.offset++] = bytes32(
-              uint256(uint248(bytes31(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 31])))
-            );
-            // c[1]
-            publicInputs[tmp.offset++] = bytes32(
-              uint256(uint136(bytes17(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 17])))
-            );
-          } else {
-            tmp.offset += Constants.BLOB_PUBLIC_INPUTS;
-          }
-        }
-      }
-    }
+    // FinalBlobAccumulatorPublicInputs:
+    // The blob public inputs do not require the versioned hash of the batched commitment, which is stored in _blobPublicInputs[0:32]
+    // or the KZG opening 'proof' (commitment Q) stored in _blobPublicInputs[144:]. They are used in validateBatchedBlob().
+    // See BlobLib.sol -> validateBatchedBlob() and calculateBlobCommitmentsHash() for documentation on the below blob related inputs.
+
+    // blobCommitmentsHash
+    publicInputs[offset] = rollupStore.blocks[_end].blobCommitmentsHash;
+    offset += 1;
+
+    // z
+    publicInputs[offset] = bytes32(_blobPublicInputs[32:64]);
+    offset += 1;
+
+    // y
+    (publicInputs[offset], publicInputs[offset + 1], publicInputs[offset + 2]) =
+      bytes32ToBigNum(bytes32(_blobPublicInputs[64:96]));
+    offset += 3;
+
+    // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
+    // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields()
+    // TODO: The below left pads, possibly inefficiently
+    // c[0]
+    publicInputs[offset] = bytes32(uint256(uint248(bytes31((_blobPublicInputs[96:127])))));
+    // c[1]
+    publicInputs[offset + 1] = bytes32(uint256(uint136(bytes17((_blobPublicInputs[127:144])))));
+    offset += 2;
+
     return publicInputs;
   }
 
@@ -326,6 +327,12 @@ library EpochProofLib {
     bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.provenBlockNumber;
     require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
 
+    bool claimedNumBlocksInEpoch = _end - _start + 1 <= Constants.AZTEC_MAX_EPOCH_DURATION;
+    require(
+      claimedNumBlocksInEpoch,
+      Errors.Rollup__TooManyBlocksInEpoch(Constants.AZTEC_MAX_EPOCH_DURATION, _end - _start)
+    );
+
     return endEpoch;
   }
 
@@ -336,22 +343,10 @@ library EpochProofLib {
   {
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    uint256 size = _args.end - _args.start + 1;
+    BlobLib.validateBatchedBlob(_args.blobInputs);
 
-    for (uint256 i = 0; i < size; i++) {
-      uint256 blobOffset = i * Constants.BLOB_PUBLIC_INPUTS_BYTES + i;
-      uint8 blobsInBlock = uint8(_args.blobPublicInputs[blobOffset++]);
-      checkBlobPublicInputsHashes(
-        _args.blobPublicInputs,
-        rollupStore.blobPublicInputsHashes[_args.start + i],
-        blobOffset,
-        blobsInBlock
-      );
-    }
-
-    bytes32[] memory publicInputs = getEpochProofPublicInputs(
-      _args.start, _args.end, _args.args, _args.fees, _args.blobPublicInputs
-    );
+    bytes32[] memory publicInputs =
+      getEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.fees, _args.blobInputs);
 
     require(
       rollupStore.config.epochProofVerifier.verify(_args.proof, publicInputs),
@@ -359,30 +354,6 @@ library EpochProofLib {
     );
 
     return true;
-  }
-
-  /**
-   * Helper fn to prevent stack too deep. Checks blob public input hashes match for a block:
-   * @param _blobPublicInputs - The provided blob public inputs bytes array
-   * @param _blobPublicInputsHash - The stored blob public inputs hash
-   * @param _index - The index to start in _blobPublicInputs
-   * @param _blobsInBlock - The number of blobs in this block
-   */
-  function checkBlobPublicInputsHashes(
-    bytes calldata _blobPublicInputs,
-    bytes32 _blobPublicInputsHash,
-    uint256 _index,
-    uint8 _blobsInBlock
-  ) private pure {
-    bytes32 calcBlobPublicInputsHash = sha256(
-      abi.encodePacked(
-        _blobPublicInputs[_index:_index + Constants.BLOB_PUBLIC_INPUTS_BYTES * _blobsInBlock]
-      )
-    );
-    require(
-      calcBlobPublicInputsHash == _blobPublicInputsHash,
-      Errors.Rollup__InvalidBlobPublicInputsHash(_blobPublicInputsHash, calcBlobPublicInputsHash)
-    );
   }
 
   /**

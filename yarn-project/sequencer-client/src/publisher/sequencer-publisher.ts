@@ -476,7 +476,7 @@ export class SequencerPublisher {
       throw new Error('L1 TX utils needs to be initialized with an account wallet.');
     }
     const kzg = Blob.getViemKzgInstance();
-    const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
+    const blobInput = Blob.getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(

@@ -1,3 +1,4 @@
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
@@ -33,7 +34,10 @@ describe('prover/orchestrator/failures', () => {
       // We generate them and add them as part of the pending chain
       const blocks = await timesAsync(3, i => context.makePendingBlock(3, 1, i + 1, j => ({ privateOnly: j === 1 })));
 
-      orchestrator.startNewEpoch(1, 1, 3);
+      const blobs = (await Promise.all(blocks.map(block => Blob.getBlobs(block.block.body.toBlobFields())))).flat();
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+
+      orchestrator.startNewEpoch(1, 1, 3, finalBlobChallenges);
 
       for (const { block, txs, msgs } of blocks) {
         // these operations could fail if the target circuit fails before adding all blocks or txs

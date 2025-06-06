@@ -50,9 +50,9 @@ export class BlockRootOrBlockMergePublicInputs {
      */
     public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
     /**
-     * Public inputs required to verify a blob (challenge point z, evaluation y = p(z), and the commitment to p() for each blob)
+     * Public inputs required to verify a batch of blobs.
      */
-    public blobPublicInputs: Tuple<BlockBlobPublicInputs, typeof AZTEC_MAX_EPOCH_DURATION>,
+    public blobPublicInputs: BlockBlobPublicInputs,
   ) {}
 
   /**
@@ -71,7 +71,7 @@ export class BlockRootOrBlockMergePublicInputs {
       Fr.fromBuffer(reader),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
-      reader.readArray(AZTEC_MAX_EPOCH_DURATION, BlockBlobPublicInputs),
+      reader.readObject(BlockBlobPublicInputs),
     );
   }
 

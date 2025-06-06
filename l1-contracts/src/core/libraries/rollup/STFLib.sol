@@ -22,8 +22,12 @@ library STFLib {
     rollupStore.config.vkTreeRoot = _genesisState.vkTreeRoot;
     rollupStore.config.protocolContractTreeRoot = _genesisState.protocolContractTreeRoot;
 
-    rollupStore.blocks[0] =
-      BlockLog({archive: _genesisState.genesisArchiveRoot, headerHash: 0, slotNumber: Slot.wrap(0)});
+    rollupStore.blocks[0] = BlockLog({
+      archive: _genesisState.genesisArchiveRoot,
+      headerHash: 0,
+      blobCommitmentsHash: 0,
+      slotNumber: Slot.wrap(0)
+    });
   }
 
   function prune() internal {

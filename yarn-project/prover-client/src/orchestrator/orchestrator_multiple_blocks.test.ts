@@ -1,3 +1,4 @@
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { timesAsync } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -29,9 +30,11 @@ describe('prover/orchestrator/multi-block', () => {
       logger.info(`Seeding world state with ${numBlocks} blocks`);
       const txCount = 2;
       const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
+      const blobs = (await Promise.all(blocks.map(block => Blob.getBlobs(block.block.body.toBlobFields())))).flat();
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
       logger.info(`Starting new epoch with ${numBlocks}`);
-      context.orchestrator.startNewEpoch(1, 1, numBlocks);
+      context.orchestrator.startNewEpoch(1, 1, numBlocks, finalBlobChallenges);
       for (const { block, txs } of blocks) {
         await context.orchestrator.startNewBlock(
           block.header.globalVariables,
@@ -54,9 +57,11 @@ describe('prover/orchestrator/multi-block', () => {
         logger.info(`Seeding world state with ${numBlocks} blocks`);
         const txCount = 2;
         const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
+        const blobs = (await Promise.all(blocks.map(block => Blob.getBlobs(block.block.body.toBlobFields())))).flat();
+        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
         logger.info(`Starting new epoch with ${numBlocks}`);
-        context.orchestrator.startNewEpoch(1, 1, numBlocks);
+        context.orchestrator.startNewEpoch(1, 1, numBlocks, finalBlobChallenges);
         await Promise.all(
           blocks.map(async ({ block, txs }) => {
             await context.orchestrator.startNewBlock(
@@ -83,9 +88,11 @@ describe('prover/orchestrator/multi-block', () => {
         logger.info(`Seeding world state with ${numBlocks} blocks`);
         const txCount = 2;
         const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
+        const blobs = (await Promise.all(blocks.map(block => Blob.getBlobs(block.block.body.toBlobFields())))).flat();
+        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
         logger.info(`Starting new epoch with ${numBlocks}`);
-        context.orchestrator.startNewEpoch(1, 1, numBlocks);
+        context.orchestrator.startNewEpoch(1, 1, numBlocks, finalBlobChallenges);
         await Promise.all(
           blocks.map(async ({ block, txs }) => {
             await context.orchestrator.startNewBlock(
@@ -117,10 +124,19 @@ describe('prover/orchestrator/multi-block', () => {
 
         for (let epochIndex = 0; epochIndex < numEpochs; epochIndex++) {
           logger.info(`Starting epoch ${epochIndex + 1} with ${numBlocks} blocks`);
-          context.orchestrator.startNewEpoch(epochIndex + 1, epochIndex * numBlocks + 1, numBlocks);
-          const blockInEpoch = blocks.slice(epochIndex * numBlocks, (epochIndex + 1) * numBlocks);
+          const blocksInEpoch = blocks.slice(epochIndex * numBlocks, (epochIndex + 1) * numBlocks);
+          const blobs = (
+            await Promise.all(blocksInEpoch.map(block => Blob.getBlobs(block.block.body.toBlobFields())))
+          ).flat();
+          const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+          context.orchestrator.startNewEpoch(
+            epochIndex + 1,
+            epochIndex * numBlocks + 1,
+            numBlocks,
+            finalBlobChallenges,
+          );
           await Promise.all(
-            blockInEpoch.map(async ({ block, txs }) => {
+            blocksInEpoch.map(async ({ block, txs }) => {
               await context.orchestrator.startNewBlock(
                 block.header.globalVariables,
                 [],
@@ -136,7 +152,7 @@ describe('prover/orchestrator/multi-block', () => {
           const numProposedBlocks = countProposedBlocks(epoch.publicInputs.proposedBlockHeaderHashes);
           expect(numProposedBlocks).toEqual(numBlocks);
           expect(epoch.publicInputs.proposedBlockHeaderHashes.slice(0, numProposedBlocks)).toEqual(
-            blockInEpoch.map(b => b.block.header.toPropose().hash()),
+            blocksInEpoch.map(b => b.block.header.toPropose().hash()),
           );
           expect(epoch.proof).toBeDefined();
         }

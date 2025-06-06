@@ -1,4 +1,4 @@
-import { SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlobAccumulator, SpongeBlob } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
   BLOBS_PER_BLOCK,
@@ -9,7 +9,7 @@ import {
   type RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -34,7 +34,7 @@ import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/stdlib/tx';
 import { VkData } from '@aztec/stdlib/vks';
 
-import { buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
+import { accumulateBlobs, buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
 import type { EpochProvingState } from './epoch-proving-state.js';
 import type { TxProvingState } from './tx-proving-state.js';
 
@@ -56,6 +56,9 @@ export class BlockProvingState {
   public blockRootRollupStarted: boolean = false;
   public block: L2Block | undefined;
   public spongeBlobState: SpongeBlob | undefined;
+  public startBlobAccumulator: BatchedBlobAccumulator | undefined;
+  public endBlobAccumulator: BatchedBlobAccumulator | undefined;
+  public blobsHash: Buffer | undefined;
   public totalNumTxs: number;
   private txs: TxProvingState[] = [];
   public error: string | undefined;
@@ -75,6 +78,9 @@ export class BlockProvingState {
   ) {
     this.baseParityProvingOutputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }).map(_ => undefined);
     this.totalNumTxs = 0;
+    if (this.blockNumber == parentEpoch.firstBlockNumber) {
+      this.startBlobAccumulator = BatchedBlobAccumulator.newWithChallenges(parentEpoch.finalBlobBatchingChallenges);
+    }
   }
 
   public get blockNumber() {
@@ -98,7 +104,6 @@ export class BlockProvingState {
     if (!this.spongeBlobState) {
       throw new Error(`Invalid block proving state, call startNewBlock before adding transactions.`);
     }
-
     const txIndex = this.txs.length;
     this.txs[txIndex] = tx;
     return txIndex;
@@ -145,6 +150,30 @@ export class BlockProvingState {
     >,
   ) {
     this.blockRootProvingOutput = provingOutput;
+  }
+
+  public setBlock(block: L2Block) {
+    this.block = block;
+  }
+
+  public setStartBlobAccumulator(accumulator: BatchedBlobAccumulator) {
+    this.startBlobAccumulator = accumulator;
+  }
+
+  public setEndBlobAccumulator(accumulator: BatchedBlobAccumulator) {
+    this.endBlobAccumulator = accumulator;
+  }
+
+  public async accumulateBlobs() {
+    if (!this.block || !this.startBlobAccumulator) {
+      // We only want to accumulate once we have all txs, so we wait until the block is set.
+      return;
+    }
+    const endBlobAccumulator = await accumulateBlobs(
+      this.allTxs.map(t => t.processedTx),
+      this.startBlobAccumulator,
+    );
+    this.setEndBlobAccumulator(endBlobAccumulator);
   }
 
   // Returns the complete set of transaction proving state objects
@@ -204,6 +233,7 @@ export class BlockProvingState {
 
     const previousRollupData = await Promise.all(nonEmptyProofs.map(p => this.#getPreviousRollupData(p!)));
     const blobData = await this.#getBlockRootRollupBlobData();
+    this.blobsHash = blobData.blobsHash.toBuffer();
 
     if (previousRollupData.length === 1) {
       return {
@@ -227,6 +257,10 @@ export class BlockProvingState {
       throw new Error('Root parity is not ready.');
     }
 
+    if (!this.blockRootProvingOutput || !this.endBlobAccumulator) {
+      throw new Error('Block root not ready for padding.');
+    }
+
     // Use the new block header, archive and l1toL2 of the current block as the previous header, archive and l1toL2 of the next padding block.
     const previousBlockHeader = await this.buildHeaderFromProvingOutputs();
     const lastArchive = this.blockRootProvingOutput!.inputs.newArchive;
@@ -238,6 +272,8 @@ export class BlockProvingState {
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader,
+      startBlobAccumulator: this.endBlobAccumulator.toBlobAccumulatorPublicInputs(),
+      finalBlobChallenges: this.endBlobAccumulator.finalBlobChallenges,
       proverId,
     });
 
@@ -289,10 +325,18 @@ export class BlockProvingState {
     }
     const endState = new StateReference(this.l1ToL2MessageTreeSnapshotAfterInsertion, endPartialState);
 
+    // TODO(MW): cleanup
+    if (!this.blobsHash) {
+      this.blobsHash = (
+        await buildBlobHints(this.txs.map(txProvingState => txProvingState.processedTx.txEffect))
+      ).blobsHash.toBuffer();
+    }
+
     return buildHeaderFromCircuitOutputs(
       previousRollupData.map(d => d.baseOrMergeRollupPublicInputs),
       this.rootParityProvingOutput!.inputs,
       this.blockRootProvingOutput!.inputs,
+      this.blobsHash,
       endState,
     );
   }
@@ -304,7 +348,12 @@ export class BlockProvingState {
   // Returns true if we have sufficient inputs to execute the block root rollup
   public isReadyForBlockRootRollup() {
     const childProofs = this.#getChildProofsForBlockRoot();
-    return this.block !== undefined && this.rootParityProvingOutput !== undefined && childProofs.every(p => !!p);
+    return (
+      this.block !== undefined &&
+      this.rootParityProvingOutput !== undefined &&
+      this.endBlobAccumulator !== undefined &&
+      childProofs.every(p => !!p)
+    );
   }
 
   // Returns true if we have sufficient root parity inputs to execute the root parity circuit
@@ -333,6 +382,8 @@ export class BlockProvingState {
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader: this.previousBlockHeader,
+      startBlobAccumulator: this.startBlobAccumulator!.toBlobAccumulatorPublicInputs(),
+      finalBlobChallenges: this.startBlobAccumulator!.finalBlobChallenges,
       proverId,
     });
   }
@@ -342,7 +393,7 @@ export class BlockProvingState {
     const { blobFields, blobCommitments, blobsHash } = await buildBlobHints(txEffects);
     return BlockRootRollupBlobData.from({
       blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
-      blobCommitments: padArrayEnd(blobCommitments, [Fr.ZERO, Fr.ZERO], BLOBS_PER_BLOCK),
+      blobCommitments: padArrayEnd(blobCommitments, BLS12Point.ZERO, BLOBS_PER_BLOCK),
       blobsHash,
     });
   }

@@ -138,6 +138,10 @@ export class TestContext {
     return blockNumber === 0 ? this.worldState.getCommitted().getInitialHeader() : this.headers.get(blockNumber);
   }
 
+  public setBlockHeader(header: BlockHeader, blockNumber: number) {
+    this.headers.set(blockNumber, header);
+  }
+
   public getPreviousBlockHeader(currentBlockNumber = this.blockNumber): BlockHeader {
     return this.getBlockHeader(currentBlockNumber - 1)!;
   }

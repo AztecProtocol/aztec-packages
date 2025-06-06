@@ -1,4 +1,4 @@
-import { Blob, type SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlobAccumulator, Blob, type SpongeBlob } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -15,7 +15,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -254,9 +254,25 @@ export const buildBlobHints = runInSpan(
   async (_span: Span, txEffects: TxEffect[]) => {
     const blobFields = txEffects.flatMap(tx => tx.toBlobFields());
     const blobs = await Blob.getBlobs(blobFields);
-    const blobCommitments = blobs.map(b => b.commitmentToFields());
+    // TODO(#13430): The blobsHash is confusingly similar to blobCommitmentsHash, calculated from below blobCommitments:
+    // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs inserted into the header, exists so a user can cross check blobs.
+    // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
+    //   exists so we can validate injected commitments to the rollup circuits correspond to the correct real blobs.
+    // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0), blobshash_1) ... blobshash_l) for an epoch with l+1 blocks.
+    const blobCommitments = blobs.map(b => BLS12Point.decompress(b.commitment));
     const blobsHash = new Fr(getBlobsHashFromBlobs(blobs));
     return { blobFields, blobCommitments, blobs, blobsHash };
+  },
+);
+
+export const accumulateBlobs = runInSpan(
+  'BlockBuilderHelpers',
+  'accumulateBlobs',
+  async (_span: Span, txs: ProcessedTx[], startBlobAccumulator: BatchedBlobAccumulator) => {
+    const blobFields = txs.flatMap(tx => tx.txEffect.toBlobFields());
+    const blobs = await Blob.getBlobs(blobFields);
+    const endBlobAccumulator = startBlobAccumulator.accumulateBlobs(blobs);
+    return endBlobAccumulator;
   },
 );
 
@@ -268,13 +284,13 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
     previousRollupData: BaseOrMergeRollupPublicInputs[],
     parityPublicInputs: ParityPublicInputs,
     rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
+    blobsHash: Buffer,
     endState: StateReference,
   ) => {
     if (previousRollupData.length > 2) {
       throw new Error(`There can't be more than 2 previous rollups. Received ${previousRollupData.length}.`);
     }
 
-    const blobsHash = rootRollupOutputs.blobPublicInputs[0].getBlobsHash();
     const numTxs = previousRollupData.reduce((sum, d) => sum + d.numTxs, 0);
     const outHash =
       previousRollupData.length === 0
@@ -370,6 +386,7 @@ export function getBlobsHashFromBlobs(inputs: Blob[]): Buffer {
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation
+// TODO: does this get called?
 export async function validateBlockRootOutput(
   blockRootOutput: BlockRootOrBlockMergePublicInputs,
   blockHeader: BlockHeader,
