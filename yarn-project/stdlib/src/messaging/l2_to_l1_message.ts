@@ -8,7 +8,10 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 
 export class L2ToL1Message {
-  constructor(public recipient: EthAddress, public content: Fr) {}
+  constructor(
+    public recipient: EthAddress,
+    public content: Fr,
+  ) {}
 
   static get schema() {
     return z
@@ -86,7 +89,10 @@ export class L2ToL1Message {
 }
 
 export class CountedL2ToL1Message {
-  constructor(public message: L2ToL1Message, public counter: number) {}
+  constructor(
+    public message: L2ToL1Message,
+    public counter: number,
+  ) {}
 
   static get schema() {
     return z
@@ -125,7 +131,10 @@ export class CountedL2ToL1Message {
 }
 
 export class ScopedL2ToL1Message {
-  constructor(public message: L2ToL1Message, public contractAddress: AztecAddress) {}
+  constructor(
+    public message: L2ToL1Message,
+    public contractAddress: AztecAddress,
+  ) {}
 
   static get schema() {
     return z
@@ -164,7 +173,10 @@ export class ScopedL2ToL1Message {
 }
 
 export class ScopedCountedL2ToL1Message {
-  constructor(public inner: CountedL2ToL1Message, public contractAddress: AztecAddress) {}
+  constructor(
+    public inner: CountedL2ToL1Message,
+    public contractAddress: AztecAddress,
+  ) {}
 
   static get schema() {
     return z

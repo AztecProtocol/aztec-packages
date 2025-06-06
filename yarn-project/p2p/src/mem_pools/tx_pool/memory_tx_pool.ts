@@ -24,7 +24,10 @@ export class InMemoryTxPool implements TxPool {
    * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
    * @param log - A logger.
    */
-  constructor(telemetry: TelemetryClient = getTelemetryClient(), private log = createLogger('p2p:tx_pool')) {
+  constructor(
+    telemetry: TelemetryClient = getTelemetryClient(),
+    private log = createLogger('p2p:tx_pool'),
+  ) {
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();

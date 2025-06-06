@@ -25,7 +25,10 @@ export class ProposalAlreadyExecutedError extends Error {
 export class SlashingProposerContract extends EventEmitter implements IEmpireBase {
   private readonly proposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
 
-  constructor(public readonly client: ViemClient, address: Hex) {
+  constructor(
+    public readonly client: ViemClient,
+    address: Hex,
+  ) {
     super();
     this.proposer = getContract({ address, abi: SlashingProposerAbi, client });
   }
