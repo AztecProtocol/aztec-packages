@@ -27,6 +27,10 @@ contract ZKPassportBase is Test {
   bytes32 constant CERTIFICATE_REGISTRY_ROOT =
     bytes32(uint256(0x130b5775fe59204b0490bdfcdd02bd7cc2bbf5fe3f3fee34cee13c3a3f9b7bbb));
 
+  // From fixtures - see lib/circuits/src/solidity/test/SampleContract.t.sol
+  string constant CORRECT_SCOPE = "zkpassport.id";
+  string constant CORRECT_SUBSCOPE = "bigproof";
+
   // Using this base contract will make a zkpassport verifier and proof available for testing purposes
   constructor() {
     // Root registry for the zk passport verifier
