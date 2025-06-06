@@ -892,28 +892,38 @@ void field_t<Builder>::assert_is_in_set(const std::vector<field_t>& set, std::st
     product.assert_is_zero(msg);
 }
 
+/**
+ * @brief Given a table T of size 4, outputs the monomial coefficients of the multilinear polynomial in `t0, t1` that
+ * on a input binary string `b` of length 2, equals T_b.
+ * In the Lagrange basis, the desired polynomial is given by the formula
+ *      (1 - t0)(1 - t1).T0 + t0(1 - t1).T1 + (1 - t0)t1.T2 + t0.t1.T3
+ *
+ * Expand the coefficients to obtain the coefficients in the monomial basis.
+ *
+ * @param T0
+ * @param T1
+ * @param T2
+ * @param T3
+ * @return template <typename Builder>
+ */
 template <typename Builder>
 std::array<field_t<Builder>, 4> field_t<Builder>::preprocess_two_bit_table(const field_t& T0,
                                                                            const field_t& T1,
                                                                            const field_t& T2,
                                                                            const field_t& T3)
 {
-    // (1 - t0)(1 - t1).T0 + t0(1 - t1).T1 + (1 - t0)t1.T2 + t0.t1.T3
 
-    // -t0.t1.T0 - t0.t1.T1 -t0.t1.T2 + t0.t1.T3 => t0.t1(T3 - T2 - T1 + T0)
-    // -t0.T0 + t0.T1 => t0(T1 - T0)
-    // -t1.T0 - t1.T2 => t1(T2 - T0)
-    // T0 = constant term
     std::array<field_t, 4> table;
-    table[0] = T0;
-    table[1] = T1 - T0;
-    table[2] = T2 - T0;
-    table[3] = T3 - T2 - T1 + T0;
+    table[0] = T0;                         // const coeff
+    table[1] = T1 - T0;                    // t0 coeff
+    table[2] = T2 - T0;                    // t1 coeff
+    table[3] = T3.add_two(-table[2], -T1); // t0t1 coeff
     return table;
 }
 
-// Given T, stores the coefficients of the multilinear polynomial in t0,t1,t2, that on input a binary string b of
-// length 3, equals T_b
+/** @brief Given a table T of size 8, outputs the monomial coefficients of the multilinear polynomial in t0, t1, t2,
+ * that on a input binary string `b` of length 3, equals T_b.
+ */
 template <typename Builder>
 std::array<field_t<Builder>, 8> field_t<Builder>::preprocess_three_bit_table(const field_t& T0,
                                                                              const field_t& T1,
@@ -925,14 +935,14 @@ std::array<field_t<Builder>, 8> field_t<Builder>::preprocess_three_bit_table(con
                                                                              const field_t& T7)
 {
     std::array<field_t, 8> table;
-    table[0] = T0;                                    // const coeff
-    table[1] = T1 - T0;                               // t0 coeff
-    table[2] = T2 - T0;                               // t1 coeff
-    table[3] = T4 - T0;                               // t2 coeff
-    table[4] = T3 - T2 - T1 + T0;                     // t0t1 coeff
-    table[5] = T5 - T4 - T1 + T0;                     // t0t2 coeff
-    table[6] = T6 - T4 - T2 + T0;                     // t1t2 coeff
-    table[7] = T7 - T6 - T5 + T4 - T3 + T2 + T1 - T0; // t0t1t2 coeff
+    table[0] = T0;                                  // const coeff
+    table[1] = T1 - T0;                             // t0 coeff
+    table[2] = T2 - T0;                             // t1 coeff
+    table[3] = T4 - T0;                             // t2 coeff
+    table[4] = T3.add_two(-table[2], -T1);          // t0t1 coeff
+    table[5] = T5.add_two(-table[3], -T1);          // t0t2 coeff
+    table[6] = T6.add_two(-table[3], -T2);          // t1t2 coeff
+    table[7] = T7.add_two(-T6 - T5, T4 - table[4]); // t0t1t2 coeff
     return table;
 }
 
@@ -941,31 +951,31 @@ field_t<Builder> field_t<Builder>::select_from_two_bit_table(const std::array<fi
                                                              const bool_t<Builder>& t1,
                                                              const bool_t<Builder>& t0)
 {
-    field_t R0 = static_cast<field_t>(t1).madd(table[3], table[1]);
-    field_t R1 = R0.madd(static_cast<field_t>(t0), table[0]);
-    field_t R2 = static_cast<field_t>(t1).madd(table[2], R1);
+    field_t R0 = field_t(t1).madd(table[3], table[1]);
+    field_t R1 = R0.madd(field_t(t0), table[0]);
+    field_t R2 = field_t(t1).madd(table[2], R1);
     return R2;
 }
 
-// we wish to compute the multilinear polynomial stored at point (t0,t1,t2) in a minimal number of gates.
+// Compute the multilinear polynomial stored at point (t0,t1,t2) in a minimal number of gates.
 // The straightforward thing would be eight multiplications to get the monomials and several additions between them
-// It turns out you can do it in 7 multadd gates using the formula
-// X:= ((t0*a012+a12)*t1+a2)*t2+a_const  - 3 gates
-// Y:= (t0*a01+a1)*t1+X - 2 gates
-// Z:= (t2*a02 + a0)*t0 + Y - 2 gates
+// It turns out you can do it in 7 `madd` gates using the formula
+//      X:= ((t0*a_012 + a12)*t1 + a2)*t2 + a_cons  t  - 3 gates
+//      Y:= (t0*a01 + a1)*t1 + X                       - 2 gates
+//      Z:= (t2*a02 + a0)*t0 + Y                       - 2 gates
 template <typename Builder>
 field_t<Builder> field_t<Builder>::select_from_three_bit_table(const std::array<field_t, 8>& table,
                                                                const bool_t<Builder>& t2,
                                                                const bool_t<Builder>& t1,
                                                                const bool_t<Builder>& t0)
 {
-    field_t R0 = static_cast<field_t>(t0).madd(table[7], table[6]);
-    field_t R1 = static_cast<field_t>(t1).madd(R0, table[3]);
-    field_t R2 = static_cast<field_t>(t2).madd(R1, table[0]);
-    field_t R3 = static_cast<field_t>(t0).madd(table[4], table[2]);
-    field_t R4 = static_cast<field_t>(t1).madd(R3, R2);
-    field_t R5 = static_cast<field_t>(t2).madd(table[5], table[1]);
-    field_t R6 = static_cast<field_t>(t0).madd(R5, R4);
+    field_t R0 = field_t(t0).madd(table[7], table[6]);
+    field_t R1 = field_t(t1).madd(R0, table[3]);
+    field_t R2 = field_t(t2).madd(R1, table[0]);
+    field_t R3 = field_t(t0).madd(table[4], table[2]);
+    field_t R4 = field_t(t1).madd(R3, R2);
+    field_t R5 = field_t(t2).madd(table[5], table[1]);
+    field_t R6 = field_t(t0).madd(R5, R4);
     return R6;
 }
 
@@ -1001,7 +1011,17 @@ void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t&
         q_c,
     });
 }
-
+/**
+ * @brief Given a, b, c, d, constrain
+ *            a * b + c + d = 0
+ * by creating a `big_mul_gate`.
+ *
+ * @tparam Builder
+ * @param a
+ * @param b
+ * @param c
+ * @param d
+ */
 template <typename Builder>
 void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
                                                     const field_t& b,
@@ -1015,7 +1035,6 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
         return;
     }
 
-    // validate that a * b + c + d = 0
     bb::fr q_m = a.multiplicative_constant * b.multiplicative_constant;
     bb::fr q_1 = a.multiplicative_constant * b.additive_constant;
     bb::fr q_2 = b.multiplicative_constant * a.additive_constant;
@@ -1228,7 +1247,12 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
  *            -                   |
  *                  sum_hi        |             sum_lo
  *         -------------------------------------------------
- *     y_lo := p_hi - b - sum_hi  |  y_hi :=  p_lo + b*2**128 - sum_lo
+ *     y_hi := p_hi - b - sum_hi  |  y_lo :=  p_lo + 2**128 - sum_lo
+ *  We show that
+ *                            y_hi < 2^128
+ *      y_lo =  p_lo + 2**128 - sum_lo = < 2^129
+ * therefore
+ *      y_hi * 2^128 + y_lo =
  *
  * Here `b` is the boolean "a carry is necessary". Each of the resulting values can be checked for underflow by imposing
  * a small range constraint, since the negative of a small value in `Fr` is a large value in `Fr`.
@@ -1243,50 +1267,75 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
     std::vector<bool_t<Builder>> result(num_bits);
 
     const uint256_t val_u256 = static_cast<uint256_t>(get_value());
-    field_t<Builder> sum(context, 0);
-    field_t<Builder> shifted_high_limb(context, 0); // will equal high 128 bits, left shifted by 128 bits
+    info("get value () ", val_u256);
+    field_t sum(bb::fr::zero());
+    field_t shifted_high_limb; // =: sum_hi, needed to compute sum_lo
     for (size_t i = 0; i < num_bits; ++i) {
         // Create a witness `bool_t` bit
-        bool_t<Builder> bit = get_bit(context, num_bits - 1 - i, val_u256);
+        bool_t bit = get_bit(context, num_bits - 1 - i, val_u256);
         bit.set_origin_tag(tag);
         result[num_bits - 1 - i] = bit;
-        const bb::fr scaling_factor_value = uint256_t(1) << (num_bits - 1 - i);
-        const field_t<Builder> scaling_factor(context, scaling_factor_value);
+        const bb::fr scaling_factor_value(uint256_t(1) << (num_bits - 1 - i));
+        const field_t scaling_factor(context, scaling_factor_value);
 
         sum = sum + (scaling_factor * bit);
+
         if (i == midpoint) {
             shifted_high_limb = sum;
         }
     }
 
-    assert_equal(sum); // `this` and `sum` are both normalized here.
-
-    // If value can be larger than modulus we must enforce unique representation
+    assert_equal(sum,
+                 "field_t: bit decomposition_fails: copy constraint"); // `this` and `sum` are both normalized here.
+    // The value can be larger than the modulus, hence we must enforce unique representation
     static constexpr uint256_t modulus_minus_one = fr::modulus - 1;
-    // r - 1 = p_lo + 2**128 * p_hi
+    info(modulus_minus_one);
+    // Split r-1 into limbs
+    //      r - 1 = p_lo + 2**128 * p_hi
     static constexpr fr p_lo = modulus_minus_one.slice(0, 128);
     static constexpr fr p_hi = modulus_minus_one.slice(128, 256);
 
-    // `shift` is used to shift high limbs. It has the dual purpose of representing a borrowed bit.
+    // `shift` is used to shift high limbs. It also represents a borrowed bit.
     static constexpr fr shift = fr(uint256_t(1) << 128);
     // We always borrow from 2**128*p_hi. We handle whether this was necessary later.
-    // y_lo = (2**128 + p_lo) - sum_lo
-    field_t<Builder> y_lo = (-sum) + (p_lo + shift);
-    y_lo += shifted_high_limb;
+    //
+    // Compute
+    //
+    //   y_lo := (2**128 + p_lo) - sum + shifted_high_limb =
+    //            = (2**128 + p_lo) - sum_lo
+    //            = y_lo_lo + y_lo_hi * 2^128 + zeros * 2^129
+    //
+    // p_lo - sum_lo = y_lo_lo + (y_lo_hi - 1) * 2^128 + zeros * 2^129
+    //
+    // Here      0 <= y_lo_lo < 2^128            enforced in field_t::slice
+    //           0 <= y_lo_hi < 2                enforced in field_t::slice
+    //           0 <= zeros < 2^{256-129}        enforced in field_t::slice
+    //
+    // Assert that `zeros` = 0 => p_lo - sum_lo has at most 129 bits
+    //
+    // If y_lo_hi == 1:
+    //      p_lo - sum_lo = y_lo_lo < 2^128
+    //      p_lo - sum_lo
+    // if y_lo_hi == 0:
+    //      1 - 2^128 < p_lo - sum_lo = y_lo_lo - 2^128 < 0
+    // but then `zeros` can't be equal to zero, since p_lo - sum_lo is small negative value in Fr.
 
-    // A carry was necessary if and only if the 128th bit y_lo_hi of y_lo is 0.
+    const field_t y_lo = (-sum).add_two(p_lo + shift, shifted_high_limb);
+
     auto [y_lo_lo, y_lo_hi, zeros] = y_lo.slice(128, 128);
-    // This copy constraint, along with the constraints of field_t::slice, imposes that y_lo has bit length 129.
-    // Since the integer y_lo is at least -2**128+1, which has more than 129 bits in `Fr`, the implicit range
-    // constraint shows that y_lo is non-negative.
-    context->assert_equal(
-        zeros.witness_index, context->zero_idx, "field_t: bit decomposition_fails: high limb non-zero");
-    // y_borrow is the boolean "a carry was necessary"
-    field_t<Builder> y_borrow = -(y_lo_hi - 1);
+
+    zeros.assert_is_zero("field_t: bit decomposition_fails: high limb non-zero");
+
+    // although `y_lo_hi` is a `field_t`, it satisfies the range constraint
+    //  	y_lo_hi < 2^{128+1 - 128} = 2
+    // enforced inside the `slice` method, which implicitly turns it into a bool,
+    // then y_borrow  "a carry was necessary"
+    const field_t y_borrow = -(y_lo_hi - 1);
     // If a carry was necessary, subtract that carry from p_hi
     // y_hi = (p_hi - y_borrow) - sum_hi
-    field_t<Builder> y_hi = -(shifted_high_limb / shift) + (p_hi);
-    y_hi -= y_borrow;
+    const field_t y_hi = (-(shifted_high_limb / shift)).add_two(p_hi, -y_borrow);
+    info("y_hi ", y_hi);
+    info("y_hi + y_borrow ", y_hi + y_borrow);
     // As before, except that now the range constraint is explicit, this shows that y_hi is non-negative.
     y_hi.create_range_constraint(128, "field_t: bit decomposition fails: y_hi is too large.");
 

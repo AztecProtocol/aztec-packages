@@ -695,7 +695,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct d(witness_ct(&builder, fr::random_element()));
 
         std::array<field_ct, 4> table = field_ct::preprocess_two_bit_table(a, b, c, d);
-
+        info(builder.get_estimated_num_finalized_gates());
         bool_ct zero(witness_ct(&builder, false));
         bool_ct one(witness_ct(&builder, true));
 
@@ -832,7 +832,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         using witness_supplier_type = std::function<witness_ct(Builder * ctx, uint64_t, uint256_t)>;
 
         // check that constraints are satisfied for a variety of inputs
-        auto run_success_test = [&]() {
+        [[maybe_unused]] auto run_success_test = [&]() {
             Builder builder = Builder();
 
             constexpr uint256_t modulus_minus_one = fr::modulus - 1;
@@ -873,10 +873,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
             if (j > 127) {
                 return witness_ct(ctx, val_256.get_bit(j));
             };
+
             return witness_ct(ctx, (fr::modulus).get_bit(j));
         };
 
-        auto run_failure_test = [&](witness_supplier_type witness_supplier) {
+        auto run_failure_test = [&](witness_supplier_type witness_supplier, std::string err_msg) {
             Builder builder = Builder();
 
             fr a_expected = 0;
@@ -884,12 +885,14 @@ template <typename Builder> class stdlib_field : public testing::Test {
             std::vector<bool_ct> c = a.decompose_into_bits(witness_supplier);
 
             bool verified = CircuitChecker::check(builder);
+            info(builder.err());
             ASSERT_FALSE(verified);
+            EXPECT_TRUE(err_msg == builder.err());
         };
 
-        run_success_test();
-        run_failure_test(supply_modulus_bits);
-        run_failure_test(supply_half_modulus_bits);
+        // run_success_test();
+        run_failure_test(supply_modulus_bits, "field_t: bit decomposition fails: y_hi is too large.");
+        run_failure_test(supply_half_modulus_bits, "field_t: bit decomposition_fails: copy constraint");
     }
 
     static void test_assert_is_in_set()

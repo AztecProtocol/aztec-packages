@@ -218,8 +218,9 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
     uint32_t a_real_idx = real_variable_index[a_variable_idx];
     uint32_t b_real_idx = real_variable_index[b_variable_idx];
     // If a==b is already enforced, exit method
-    if (a_real_idx == b_real_idx)
+    if (a_real_idx == b_real_idx) {
         return;
+    }
     // Otherwise update the real_idx of b-chain members to that of a
 
     auto b_start_idx = get_first_variable_in_class(b_variable_idx);
