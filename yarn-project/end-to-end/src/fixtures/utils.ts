@@ -51,6 +51,8 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import type { P2PClientDeps } from '@aztec/p2p';
+import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import {
@@ -66,6 +68,7 @@ import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -250,6 +253,8 @@ async function setupWithRemoteEnvironment(
     wallets: wallets.slice(0, numberOfAccounts),
     logger,
     cheatCodes,
+    prefilledPublicData: undefined,
+    mockGossipSubNetwork: undefined,
     watcher: undefined,
     dateProvider: undefined,
     blobSink: undefined,
@@ -292,6 +297,12 @@ export type SetupOptions = {
   genesisPublicData?: PublicDataTreeLeaf[];
   /** Specific config for the prover node, if set. */
   proverNodeConfig?: Partial<ProverNodeConfig>;
+  /** Whether to use a mock gossip sub network for p2p clients. */
+  mockGossipSubNetwork?: boolean;
+  /** Whether to disable the anvil test watcher (can still be manually started) */
+  disableAnvilTestWatcher?: boolean;
+  /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
+  automineL1Setup?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -328,6 +339,10 @@ export type EndToEndContext = {
   blobSink: BlobSinkServer | undefined;
   /** Telemetry client */
   telemetryClient: TelemetryClient | undefined;
+  /** Mock gossip sub network used for gossipping messages (only if mockGossipSubNetwork was set to true in opts) */
+  mockGossipSubNetwork: MockGossipSubNetwork | undefined;
+  /** Prefilled public data used for setting up nodes. */
+  prefilledPublicData: PublicDataTreeLeaf[] | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -427,6 +442,12 @@ export async function setup(
       opts.genesisPublicData,
     );
 
+    const wasAutomining = await ethCheatCodes.isAutoMining();
+    const enableAutomine = opts.automineL1Setup && !wasAutomining && isAnvilTestChain(chain.id);
+    if (enableAutomine) {
+      await ethCheatCodes.setAutomine(true);
+    }
+
     const deployL1ContractsValues =
       opts.deployL1ContractsValues ??
       (await setupL1Contracts(
@@ -468,6 +489,11 @@ export async function setup(
       logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
     }
 
+    if (enableAutomine) {
+      await ethCheatCodes.setAutomine(false);
+      await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
+    }
+
     if (opts.l2StartTime) {
       // This should only be used in synching test or when you need to have a stable
       // timestamp for the first l2 block.
@@ -475,6 +501,7 @@ export async function setup(
     }
 
     const dateProvider = new TestDateProvider();
+    dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
 
     const watcher = new AnvilTestWatcher(
       new EthCheatCodesWithState(config.l1RpcUrls),
@@ -482,8 +509,9 @@ export async function setup(
       deployL1ContractsValues.l1Client,
       dateProvider,
     );
-
-    await watcher.start();
+    if (!opts.disableAnvilTestWatcher) {
+      await watcher.start();
+    }
 
     const telemetry = getTelemetryClient(opts.telemetryConfig);
 
@@ -519,9 +547,20 @@ export async function setup(
     config.l1PublishRetryIntervalMS = 100;
 
     const blobSinkClient = createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
+
+    let mockGossipSubNetwork: MockGossipSubNetwork | undefined;
+    let p2pClientDeps: P2PClientDeps<P2PClientType.Full> | undefined = undefined;
+
+    if (opts.mockGossipSubNetwork) {
+      mockGossipSubNetwork = new MockGossipSubNetwork();
+      p2pClientDeps = { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) };
+    }
+
+    const p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
+    const p2pIp = opts.p2pIp ?? '127.0.0.1';
     const aztecNode = await AztecNodeService.createAndSync(
-      config,
-      { dateProvider, blobSinkClient, telemetry },
+      { ...config, p2pEnabled, p2pIp },
+      { dateProvider, blobSinkClient, telemetry, p2pClientDeps },
       { prefilledPublicData },
     );
     const sequencer = aztecNode.getSequencer();
@@ -595,6 +634,8 @@ export async function setup(
       deployL1ContractsValues,
       initialFundedAccounts,
       logger,
+      mockGossipSubNetwork,
+      prefilledPublicData,
       proverNode,
       pxe,
       sequencer,

@@ -25,6 +25,7 @@ import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
+  type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
@@ -55,7 +56,7 @@ import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqResp
  *
  * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
-export class ReqResp {
+export class ReqResp implements ReqRespInterface {
   protected readonly logger: Logger;
 
   private overallRequestTimeoutMs: number;

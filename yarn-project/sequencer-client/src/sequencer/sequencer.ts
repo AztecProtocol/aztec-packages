@@ -7,6 +7,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
+import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClient } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -42,8 +43,10 @@ import {
 } from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
 
+import EventEmitter from 'node:events';
+
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
+import { type Action, type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
@@ -52,6 +55,15 @@ import { SequencerState, orderAttestations } from './utils.js';
 export { SequencerState };
 
 type SequencerRollupConstants = Pick<L1RollupConstants, 'ethereumSlotDuration' | 'l1GenesisTime' | 'slotDuration'>;
+
+export type SequencerEvents = {
+  ['state-changed']: (args: { oldState: SequencerState; newState: SequencerState }) => void;
+  ['proposer-rollup-check-failed']: (args: { reason: string }) => void;
+  ['tx-count-check-failed']: (args: { minTxs: number; availableTxs: number }) => void;
+  ['block-build-failed']: (args: { reason: string }) => void;
+  ['block-publish-failed']: (args: { validActions?: Action[]; expiredActions?: Action[] }) => void;
+  ['block-published']: (args: { blockNumber: number; slot: number }) => void;
+};
 
 /**
  * Sequencer client
@@ -62,7 +74,7 @@ type SequencerRollupConstants = Pick<L1RollupConstants, 'ethereumSlotDuration' |
  * - Receives results to those proofs from the network (repeats as necessary) (not for this milestone).
  * - Publishes L1 tx(s) to the rollup contract via RollupPublisher.
  */
-export class Sequencer {
+export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<SequencerEvents>) {
   private runningPromise?: RunningPromise;
   private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
@@ -99,6 +111,8 @@ export class Sequencer {
     protected telemetry: TelemetryClient = getTelemetryClient(),
     protected log = createLogger('sequencer'),
   ) {
+    super();
+
     this.metrics = new SequencerMetrics(
       telemetry,
       () => this.state,
@@ -218,7 +232,7 @@ export class Sequencer {
   /**
    * Starts a previously stopped sequencer.
    */
-  public restart() {
+  public resume() {
     this.log.info('Restarting sequencer');
     this.publisher.restart();
     this.runningPromise!.start();
@@ -305,18 +319,21 @@ export class Sequencer {
     const slotAndBlock = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
     if (slotAndBlock === undefined) {
       this.log.warn(`Cannot propose block ${newBlockNumber} at slot ${slot} due to failed rollup contract check`);
+      this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed' });
       return;
     } else if (slotAndBlock[0] !== slot) {
       this.log.warn(
         `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot} but got ${slotAndBlock[0]}.`,
         { rollup: slotAndBlock, newBlockNumber, expectedSlot: slot },
       );
+      this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch' });
       return;
     } else if (slotAndBlock[1] !== BigInt(newBlockNumber)) {
       this.log.warn(
         `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${slotAndBlock[1]}.`,
         { rollup: slotAndBlock, newBlockNumber, expectedSlot: slot },
       );
+      this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch' });
       return;
     }
 
@@ -361,28 +378,36 @@ export class Sequencer {
     });
 
     let finishedFlushing = false;
+    let block: L2Block | undefined;
+
     const pendingTxCount = await this.p2pClient.getPendingTxCount();
     if (pendingTxCount >= this.minTxsPerBlock || this.isFlushing) {
       // We don't fetch exactly maxTxsPerBlock txs here because we may not need all of them if we hit a limit before,
       // and also we may need to fetch more if we don't have enough valid txs.
       const pendingTxs = this.p2pClient.iteratePendingTxs();
-
-      await this.buildBlockAndEnqueuePublish(pendingTxs, proposalHeader, newGlobalVariables, proposerInNextSlot).catch(
-        err => {
-          if (err instanceof FormattedViemError) {
-            this.log.verbose(`Unable to build/enqueue block ${err.message}`);
-            return;
-          } else {
-            this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
-          }
-        },
-      );
-      finishedFlushing = true;
+      try {
+        block = await this.buildBlockAndEnqueuePublish(
+          pendingTxs,
+          proposalHeader,
+          newGlobalVariables,
+          proposerInNextSlot,
+        );
+      } catch (err: any) {
+        this.emit('block-build-failed', { reason: err.message });
+        if (err instanceof FormattedViemError) {
+          this.log.verbose(`Unable to build/enqueue block ${err.message}`);
+        } else {
+          this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
+        }
+      } finally {
+        finishedFlushing = true;
+      }
     } else {
       this.log.verbose(
         `Not enough txs to build block ${newBlockNumber} at slot ${slot} (got ${pendingTxCount} txs, need ${this.minTxsPerBlock})`,
         { chainTipArchive, blockNumber: newBlockNumber, slot },
       );
+      this.emit('tx-count-check-failed', { minTxs: this.minTxsPerBlock, availableTxs: pendingTxCount });
     }
 
     await enqueueGovernanceVotePromise.catch(err => {
@@ -392,15 +417,19 @@ export class Sequencer {
       this.log.error(`Error enqueuing slashing vote`, err, { blockNumber: newBlockNumber, slot });
     });
 
-    const resp = await this.publisher.sendRequests();
-    if (resp) {
-      const proposedBlock = resp.validActions.find(a => a === 'propose');
-      if (proposedBlock) {
-        this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString());
-        if (finishedFlushing) {
-          this.isFlushing = false;
-        }
+    const l1Response = await this.publisher.sendRequests();
+    const proposedBlock = l1Response?.validActions.find(a => a === 'propose');
+    if (proposedBlock) {
+      this.emit('block-published', { blockNumber: newBlockNumber, slot: Number(slot) });
+      this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString());
+      if (finishedFlushing) {
+        this.isFlushing = false;
       }
+    } else if (block) {
+      this.emit('block-publish-failed', {
+        validActions: l1Response?.validActions,
+        expiredActions: l1Response?.expiredActions,
+      });
     }
 
     this.setState(SequencerState.IDLE, 0n);
@@ -443,6 +472,7 @@ export class Sequencer {
     const secondsIntoSlot = this.getSecondsIntoSlot(currentSlotNumber);
     this.timetable.assertTimeLeft(proposedState, secondsIntoSlot);
     this.log.debug(`Transitioning from ${this.state} to ${proposedState}`);
+    this.emit('state-changed', { oldState: this.state, newState: proposedState });
     this.state = proposedState;
   }
 
@@ -492,7 +522,7 @@ export class Sequencer {
     proposalHeader: ProposedBlockHeader,
     newGlobalVariables: GlobalVariables,
     proposerAddress: EthAddress | undefined,
-  ): Promise<void> {
+  ): Promise<L2Block> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
     const blockNumber = newGlobalVariables.blockNumber;
@@ -555,7 +585,8 @@ export class Sequencer {
       }
       stopCollectingAttestationsTimer();
 
-      return this.enqueuePublishL2Block(block, attestations, txHashes);
+      await this.enqueuePublishL2Block(block, attestations, txHashes);
+      return block;
     } catch (err) {
       this.metrics.recordFailedBlock();
       throw err;

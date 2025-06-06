@@ -1,5 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
+import { createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -8,6 +9,7 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
+import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { SignableENR } from '@chainsafe/enr';
@@ -28,7 +30,8 @@ import type { BootnodeConfig, P2PConfig } from '../config.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
-import type { PeerScoring } from '../services/peer-manager/peer_scoring.js';
+import { PeerManager } from '../services/peer-manager/peer_manager.js';
+import { PeerScoring } from '../services/peer-manager/peer_scoring.js';
 import type { P2PReqRespConfig } from '../services/reqresp/config.js';
 import {
   ReqRespSubProtocol,
@@ -39,7 +42,8 @@ import {
 } from '../services/reqresp/interface.js';
 import { pingHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
-import { type PubSubLibp2p, convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
+import { type FullLibp2p, type PubSubLibp2p, convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
+import { getVersions } from '../versioning.js';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -52,7 +56,7 @@ export async function createLibp2pNode(
   port?: number,
   enableGossipSub: boolean = false,
   start: boolean = true,
-): Promise<Libp2p> {
+): Promise<FullLibp2p> {
   port = port ?? (await getPort());
   const options: Libp2pOptions = {
     start,
@@ -88,7 +92,7 @@ export async function createLibp2pNode(
     });
   }
 
-  return await createLibp2p(options);
+  return (await createLibp2p(options)) as FullLibp2p;
 }
 
 /**
@@ -127,11 +131,33 @@ export async function createTestLibP2PService<T extends P2PClientType>(
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
   const p2pNode = await createLibp2pNode([], peerId, port, /*enable gossip */ true, /**start */ false);
 
+  // Duplicated setup code from Libp2pService.new
+  const peerScoring = new PeerScoring(config);
+  const reqresp = new ReqResp(config, p2pNode, peerScoring);
+  const versions = getVersions(config);
+  const protocolVersion = compressComponentVersions(versions);
+  const peerManager = new PeerManager(
+    p2pNode,
+    discoveryService,
+    config,
+    telemetry,
+    createLogger(`p2p:peer_manager`),
+    peerScoring,
+    reqresp,
+    worldStateSynchronizer,
+    protocolVersion,
+  );
+
+  p2pNode.services.pubsub.score.params.appSpecificWeight = 10;
+  p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) => peerManager.getPeerScore(peerId);
+
   return new LibP2PService<T>(
     clientType,
     config,
     p2pNode as PubSubLibp2p,
     discoveryService,
+    reqresp,
+    peerManager,
     mempools,
     archiver,
     epochCache,
