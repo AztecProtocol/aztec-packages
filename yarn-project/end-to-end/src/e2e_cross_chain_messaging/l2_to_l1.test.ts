@@ -1,10 +1,9 @@
 import { BatchCall, EthAddress, Fr, SiblingPath, TxReceipt, type Wallet } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
-import { SHA256 } from '@aztec/foundation/crypto';
+import { SHA256, sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
@@ -595,12 +594,12 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   }
 
   function computeMessageLeaf(message: ReturnType<typeof makeL2ToL1Message>) {
-    return computeL2ToL1MessageHash({
-      l2Sender: contract.address,
-      l1Recipient: EthAddress.fromString(message.recipient.actor),
-      content: Fr.fromString(message.content),
-      rollupVersion: new Fr(message.sender.version),
-      chainId: new Fr(message.recipient.chainId),
-    });
+    return sha256ToField([
+      contract.address,
+      new Fr(message.sender.version),
+      EthAddress.fromString(message.recipient.actor).toBuffer32(),
+      new Fr(message.recipient.chainId),
+      Fr.fromString(message.content),
+    ]);
   }
 });
