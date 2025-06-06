@@ -125,6 +125,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
+    protected readonly slasherClient: SlasherClient | undefined,
     protected readonly validatorsSentinel: Sentinel | undefined,
     protected readonly l1ChainId: number,
     protected readonly version: number,
@@ -293,13 +294,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     log.verbose(`All Aztec Node subsystems synced`);
 
     let sequencer: SequencerClient | undefined;
+    let slasherClient: SlasherClient | undefined;
 
     // Validator enabled, create/start relevant service
     if (!config.disableValidator) {
       const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
       const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
 
-      const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
+      slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
       await slasherClient.start();
 
       sequencer = await SequencerClient.new(config, {
@@ -323,7 +325,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       // we can still run a slasher client if a private key is provided
       const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
       const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
-      const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
+      slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
       await slasherClient.start();
     }
 
@@ -336,6 +338,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver,
       worldStateSynchronizer,
       sequencer,
+      slasherClient,
       validatorsSentinel,
       ethereumChain.chainInfo.id,
       config.rollupVersion,
@@ -575,7 +578,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async stop() {
     this.log.info(`Stopping`);
     await this.txQueue.end();
-    // await this.validatorsSentinel?.stop(); <- The slasher client will stop this
+    await this.validatorsSentinel?.stop();
+    await this.slasherClient?.stop();
     await this.proofVerifier.stop();
     await this.sequencer?.stop();
     await this.p2pClient.stop();

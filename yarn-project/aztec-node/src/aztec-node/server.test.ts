@@ -137,6 +137,7 @@ describe('aztec node', () => {
       worldState,
       undefined,
       undefined,
+      undefined,
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
