@@ -1,5 +1,6 @@
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { ITxCollector } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -9,9 +10,8 @@ import type { PeerId } from '@libp2p/interface';
 import type { P2PClient } from '../client/p2p_client.js';
 import { TxCollectorInstrumentation } from './tx_collect_instrumentation.js';
 
-export class TxCollector {
+export class TxCollector implements ITxCollector {
   private instrumentation: TxCollectorInstrumentation;
-
   constructor(
     private p2pClient: Pick<
       P2PClient,
@@ -93,7 +93,13 @@ export class TxCollector {
 
     // Now get the txs we need, either from the pool or the p2p network
     const txHashes: TxHash[] = proposal.payload.txHashes;
+    return this.collectTransactions(txHashes, peerWhoSentTheProposal);
+  }
 
+  async collectTransactions(
+    txHashes: TxHash[],
+    peerWhoSentTheProposal: PeerId | undefined,
+  ): Promise<{ txs: Tx[]; missing?: TxHash[] }> {
     // This will request from the network any txs that are missing
     // NOTE: this could still return missing txs so we need to (1) be careful to handle undefined and (2) keep the txs in the correct order for re-execution
     const maybeRetrievedTxs = await this.p2pClient.getTxsByHash(txHashes, peerWhoSentTheProposal);
