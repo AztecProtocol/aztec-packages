@@ -73,7 +73,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, realProof);
 
@@ -105,7 +105,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, realProof);
 
@@ -154,7 +154,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, proof);
 
@@ -185,7 +185,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, proof);
 
@@ -266,7 +266,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     stakingAssetHandler.setDepositsPerMint(_depositsPerMint);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, realProof);
 
@@ -275,14 +275,14 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     // later we will mock that this deposit call fails, with a swapped attester
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_secondAttester);
+    emit IStakingAssetHandler.AddedToQueue(_secondAttester, 2);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_secondAttester, realProof);
 
     mockZKPassportVerifier.incrementUniqueIdentifier();
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_thirdAttester);
+    emit IStakingAssetHandler.AddedToQueue(_thirdAttester, 3);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_thirdAttester, realProof);
 
