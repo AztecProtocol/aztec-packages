@@ -10,6 +10,15 @@
 
 namespace bb::stdlib::recursion::honk {
 
+// Run the recursive verifier tests with conventional Ultra builder and Goblin builder
+using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
+                               MegaRecursiveFlavor_<UltraCircuitBuilder>,
+                               UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                               UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                               UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
+                               MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                               MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+
 /**
  * @brief Test suite for recursive verification of  Honk proofs for both Ultra and Mega arithmetisation.
  * @details `Inner*` types describe the type of circuits (and everything else required to generate a proof) that we aim
@@ -346,15 +355,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         }
     }
 };
-
-// Run the recursive verifier tests with conventional Ultra builder and Goblin builder
-using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                               MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                               UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                               MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                               MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, Flavors);
 

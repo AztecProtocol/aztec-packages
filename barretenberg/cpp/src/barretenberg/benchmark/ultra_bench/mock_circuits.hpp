@@ -57,7 +57,7 @@ Prover get_prover(void (*test_circuit_function)(typename Prover::Flavor::Circuit
     PROFILE_THIS_NAME("creating prover");
 
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    // WORKTODO
+    // WORKTODO: compute vk
     info("WARNING: computing vk in mock_circuits get_prover, but a precomputed vk should be passed in.");
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
     return Prover(proving_key, verification_key);
