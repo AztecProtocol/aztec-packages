@@ -1,6 +1,7 @@
 import { type AccountWalletWithSecretKey, type AztecAddress, Contract } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
+import type { TxReceipt } from '@aztec/stdlib/tx';
 
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
@@ -12,7 +13,7 @@ export async function authorizeAction(
   contractArtifactPath: string,
   contractAddress: AztecAddress,
   log: LogFn,
-) {
+): Promise<TxReceipt> {
   const { functionArgs, contractArtifact, isPrivate } = await prepTx(
     contractArtifactPath,
     functionName,

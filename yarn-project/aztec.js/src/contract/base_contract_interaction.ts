@@ -81,11 +81,18 @@ export abstract class BaseContractInteraction {
    */
   public send(options: SendMethodOptions = {}): SentTx {
     // docs:end:send
-    const promise = (async () => {
-      const txProvingResult = await this.proveInternal(options);
-      return this.wallet.sendTx(txProvingResult.toTx());
-    })();
-    return new SentTx(this.wallet, promise);
+    const provingResultPromise = this.proveInternal(options);
+    const offchainMessagesPromise = provingResultPromise.then(result => {
+      const offchainMessages = result.getOffchainMessages();
+      // // Note that the following does not wait for the tx to be sent as the tx hash can be computed straight away from
+      // // the public inputs of the private kernel tail circuit.
+      // const txHash = result.toTx().getTxHash();
+      // // We pass the offchain messages along with tx hash to the wallet before sending the tx to the network.
+      // await this.wallet.handleOffchainMessages(txHash, offchainMessages);
+      return offchainMessages;
+    });
+    const txHashPromise = provingResultPromise.then(result => this.wallet.sendTx(result.toTx()));
+    return new SentTx(this.wallet, txHashPromise, offchainMessagesPromise);
   }
 
   // docs:start:estimateGas

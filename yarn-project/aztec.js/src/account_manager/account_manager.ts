@@ -242,9 +242,10 @@ export class AccountManager {
           universalDeploy: true,
           fee,
         });
-      })
-      .then(tx => tx.getTxHash());
-    return new DeployAccountSentTx(this.pxe, sentTx, this.getWallet());
+      });
+    const txHashPromise = sentTx.then(tx => tx.getTxHash());
+    const offchainMessagesPromise = sentTx.then(tx => tx.getOffchainMessages());
+    return new DeployAccountSentTx(this.pxe, txHashPromise, offchainMessagesPromise, this.getWallet());
   }
 
   /**

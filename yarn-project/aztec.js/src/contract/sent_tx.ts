@@ -1,7 +1,7 @@
 import { retryUntil } from '@aztec/foundation/retry';
 import type { FieldsOf } from '@aztec/foundation/types';
 import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
-import { type TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import { type OffchainMessage, type TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 
@@ -31,6 +31,7 @@ export class SentTx {
   constructor(
     protected pxeWalletOrNode: Wallet | AztecNode | PXE,
     protected txHashPromise: Promise<TxHash>,
+    protected offchainMessagesPromise: Promise<OffchainMessage[]>,
   ) {}
 
   /**
@@ -42,6 +43,15 @@ export class SentTx {
    */
   public getTxHash(): Promise<TxHash> {
     return this.txHashPromise;
+  }
+
+  /**
+   * Retrieves the offchain messages sent in the transaction.
+   *
+   * @returns The offchain messages sent in the transaction.
+   */
+  public getOffchainMessages(): Promise<OffchainMessage[]> {
+    return this.offchainMessagesPromise;
   }
 
   /**
@@ -59,16 +69,22 @@ export class SentTx {
   /**
    * Awaits for a tx to be mined and returns the receipt. Throws if tx is not mined.
    * @param opts - Options for configuring the waiting for the tx to be mined.
-   * @returns The transaction receipt.
+   * @returns The transaction receipt and the offchain messages.
    */
-  public async wait(opts?: WaitOpts): Promise<FieldsOf<TxReceipt>> {
+  public async wait(opts?: WaitOpts): Promise<
+    FieldsOf<TxReceipt> & {
+      /** The offchain messages emitted during the execution of the transaction. */ offchainMessages: OffchainMessage[];
+    }
+  > {
     const receipt = await this.waitForReceipt(opts);
     if (receipt.status !== TxStatus.SUCCESS && !opts?.dontThrowOnRevert) {
       throw new Error(
         `Transaction ${await this.getTxHash()} was ${receipt.status}. Reason: ${receipt.error ?? 'unknown'}`,
       );
     }
-    return receipt;
+
+    const offchainMessages = await this.getOffchainMessages();
+    return { ...receipt, offchainMessages };
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {

@@ -3,7 +3,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
-import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import type { OffchainMessage, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import type { Contract } from './contract.js';
@@ -31,11 +31,12 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   constructor(
     wallet: Wallet,
     txHashPromise: Promise<TxHash>,
+    offchainMessagesPromise: Promise<OffchainMessage[]>,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     /** A getter for the deployed contract instance */
     public instanceGetter: () => Promise<ContractInstanceWithAddress>,
   ) {
-    super(wallet, txHashPromise);
+    super(wallet, txHashPromise, offchainMessagesPromise);
   }
 
   /**
@@ -55,7 +56,11 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
    * @param opts - Options for configuring the waiting for the tx to be mined.
    * @returns The transaction receipt with the deployed contract instance.
    */
-  public override async wait(opts?: DeployedWaitOpts): Promise<DeployTxReceipt<TContract>> {
+  public override async wait(opts?: DeployedWaitOpts): Promise<
+    DeployTxReceipt<TContract> & {
+      /** The offchain messages emitted during the execution of the transaction. */ offchainMessages: OffchainMessage[];
+    }
+  > {
     const receipt = await super.wait(opts);
     const contract = await this.getContractObject(opts?.wallet);
     return { ...receipt, contract };
