@@ -174,7 +174,7 @@ function track_test {
   fi
 
   local key=$1
-  local line=$2
+  local line=$(pr_link "$2")
 
   redis_cli LPUSH $key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
   # Keeps only the last 1000 lines.
