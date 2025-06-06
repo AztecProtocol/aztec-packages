@@ -15,10 +15,11 @@ import {Epoch, Timestamp, Slot, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
+import {BitMaps} from "@oz/utils/structs/BitMaps.sol";
 
 struct SubEpochRewards {
-  uint256 summedCount;
-  mapping(address prover => bool proofSubmitted) hasSubmitted;
+  uint256 summedShares;
+  mapping(address prover => uint256 shares) shares;
 }
 
 struct EpochRewards {
@@ -30,9 +31,7 @@ struct EpochRewards {
 struct RewardStorage {
   mapping(address => uint256) sequencerRewards;
   mapping(Epoch => EpochRewards) epochRewards;
-  // @todo Below can be optimised with a bitmap as we can benefit from provers likely proving for epochs close
-  // to one another.
-  mapping(address prover => mapping(Epoch epoch => bool claimed)) proverClaimed;
+  mapping(address prover => BitMaps.BitMap claimed) proverClaimed;
 }
 
 struct Values {
@@ -50,6 +49,7 @@ struct Totals {
 
 library RewardLib {
   using SafeERC20 for IERC20;
+  using BitMaps for BitMaps.BitMap;
 
   using TimeLib for Timestamp;
   using TimeLib for Epoch;
@@ -89,14 +89,17 @@ library RewardLib {
 
       // We can use fancier bitmaps for performance
       require(
-        !rewardStorage.proverClaimed[msg.sender][_epochs[i]],
+        !rewardStorage.proverClaimed[msg.sender].get(Epoch.unwrap(_epochs[i])),
         Errors.Rollup__AlreadyClaimed(msg.sender, _epochs[i])
       );
-      rewardStorage.proverClaimed[msg.sender][_epochs[i]] = true;
+      rewardStorage.proverClaimed[msg.sender].set(Epoch.unwrap(_epochs[i]));
 
       EpochRewards storage e = rewardStorage.epochRewards[_epochs[i]];
-      if (e.subEpoch[e.longestProvenLength].hasSubmitted[msg.sender]) {
-        accumulatedRewards += (e.rewards / e.subEpoch[e.longestProvenLength].summedCount);
+      SubEpochRewards storage se = e.subEpoch[e.longestProvenLength];
+      uint256 shares = se.shares[msg.sender];
+      if (shares > 0) {
+        accumulatedRewards += (shares * e.rewards / se.summedShares);
+        se.shares[msg.sender] = 0;
       }
     }
 
@@ -118,12 +121,12 @@ library RewardLib {
 
     {
       address prover = _args.args.proverId;
-      require(
-        !$sr.hasSubmitted[prover], Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch)
-      );
-      $sr.hasSubmitted[prover] = true;
+      uint256 shares = $sr.shares[prover];
+
+      require(shares == 0, Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch));
+      $sr.shares[prover] = 1;
     }
-    $sr.summedCount += 1;
+    $sr.summedShares += 1;
 
     if (length > $er.longestProvenLength) {
       Values memory v;
@@ -190,7 +193,11 @@ library RewardLib {
     view
     returns (bool)
   {
-    return getStorage().epochRewards[_epoch].subEpoch[_length].hasSubmitted[_prover];
+    return getStorage().epochRewards[_epoch].subEpoch[_length].shares[_prover] > 0;
+  }
+
+  function getHasClaimed(address _prover, Epoch _epoch) internal view returns (bool) {
+    return getStorage().proverClaimed[_prover].get(Epoch.unwrap(_epoch));
   }
 
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)
@@ -200,18 +207,14 @@ library RewardLib {
   {
     RewardStorage storage rewardStorage = getStorage();
 
-    if (rewardStorage.proverClaimed[_prover][_epoch]) {
+    if (rewardStorage.proverClaimed[_prover].get(Epoch.unwrap(_epoch))) {
       return 0;
     }
 
     EpochRewards storage er = rewardStorage.epochRewards[_epoch];
-    uint256 length = er.longestProvenLength;
+    SubEpochRewards storage se = er.subEpoch[er.longestProvenLength];
 
-    if (er.subEpoch[length].hasSubmitted[_prover]) {
-      return er.rewards / er.subEpoch[length].summedCount;
-    }
-
-    return 0;
+    return (se.shares[_prover] * er.rewards / se.summedShares);
   }
 
   function getStorage() internal pure returns (RewardStorage storage storageStruct) {

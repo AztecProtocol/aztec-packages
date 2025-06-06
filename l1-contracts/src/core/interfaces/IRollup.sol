@@ -199,6 +199,7 @@ interface IRollup is IRollupCore {
     external
     view
     returns (bool);
+  function getHasClaimed(address _prover, Epoch _epoch) external view returns (bool);
 
   function getProofSubmissionWindow() external view returns (uint256);
   function getManaTarget() external view returns (uint256);

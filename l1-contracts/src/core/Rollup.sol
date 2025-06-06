@@ -533,6 +533,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return RewardLib.getHasSubmitted(_epoch, _length, _prover);
   }
 
+  function getHasClaimed(address _prover, Epoch _epoch)
+    external
+    view
+    override(IRollup)
+    returns (bool)
+  {
+    return RewardLib.getHasClaimed(_prover, _epoch);
+  }
+
   function getProvingCostPerManaInEth() external view override(IRollup) returns (EthValue) {
     return FeeLib.getStorage().provingCostPerMana;
   }
