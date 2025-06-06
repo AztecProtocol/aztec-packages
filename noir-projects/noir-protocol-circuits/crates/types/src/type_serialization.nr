@@ -98,49 +98,49 @@ impl Deserialize<FIELD_SERIALIZED_LEN> for Field {
 
 impl Serialize<I8_SERIALIZED_LEN> for i8 {
     fn serialize(self) -> [Field; I8_SERIALIZED_LEN] {
-        [self as Field]
+        [self as u8 as Field]
     }
 }
 
 impl Deserialize<I8_SERIALIZED_LEN> for i8 {
     fn deserialize(fields: [Field; I8_SERIALIZED_LEN]) -> Self {
-        fields[0] as i8
+        fields[0] as u8 as i8
     }
 }
 
 impl Serialize<I16_SERIALIZED_LEN> for i16 {
     fn serialize(self) -> [Field; I16_SERIALIZED_LEN] {
-        [self as Field]
+        [self as u16 as Field]
     }
 }
 
 impl Deserialize<I16_SERIALIZED_LEN> for i16 {
     fn deserialize(fields: [Field; I16_SERIALIZED_LEN]) -> Self {
-        fields[0] as i16
+        fields[0] as u16 as i16
     }
 }
 
 impl Serialize<I32_SERIALIZED_LEN> for i32 {
     fn serialize(self) -> [Field; I32_SERIALIZED_LEN] {
-        [self as Field]
+        [self as u32 as Field]
     }
 }
 
 impl Deserialize<I32_SERIALIZED_LEN> for i32 {
     fn deserialize(fields: [Field; I32_SERIALIZED_LEN]) -> Self {
-        fields[0] as i32
+        fields[0] as u32 as i32
     }
 }
 
 impl Serialize<I64_SERIALIZED_LEN> for i64 {
     fn serialize(self) -> [Field; I64_SERIALIZED_LEN] {
-        [self as Field]
+        [self as u64 as Field]
     }
 }
 
 impl Deserialize<I64_SERIALIZED_LEN> for i64 {
     fn deserialize(fields: [Field; I64_SERIALIZED_LEN]) -> Self {
-        fields[0] as i64
+        fields[0] as u64 as i64
     }
 }
 
