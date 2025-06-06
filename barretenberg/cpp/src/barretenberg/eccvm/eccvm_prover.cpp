@@ -88,8 +88,10 @@ void ECCVMProver::execute_log_derivative_commitments_round()
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
     // Compute inverse polynomial for our logarithmic-derivative lookup method
-    compute_logderivative_inverse<typename Flavor::FF, typename Flavor::LookupRelation>(
-        key->polynomials, relation_parameters, unmasked_witness_size);
+    compute_logderivative_inverse<typename Flavor::FF,
+                                  typename Flavor::LookupRelation,
+                                  typename Flavor::ProverPolynomials,
+                                  true>(key->polynomials, relation_parameters, unmasked_witness_size);
     commit_to_witness_polynomial(key->polynomials.lookup_inverses, commitment_labels.lookup_inverses);
 }
 
