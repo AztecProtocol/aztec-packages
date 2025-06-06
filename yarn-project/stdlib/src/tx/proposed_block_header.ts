@@ -188,8 +188,8 @@ export class ProposedBlockHeader {
       coinbase: this.coinbase.toString(),
       feeRecipient: `0x${this.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
       gasFees: {
-        feePerDaGas: this.gasFees.feePerDaGas.toBigInt(),
-        feePerL2Gas: this.gasFees.feePerL2Gas.toBigInt(),
+        feePerDaGas: this.gasFees.feePerDaGas,
+        feePerL2Gas: this.gasFees.feePerL2Gas,
       },
       totalManaUsed: this.totalManaUsed.toBigInt(),
     };

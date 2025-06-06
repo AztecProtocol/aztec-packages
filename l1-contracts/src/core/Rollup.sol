@@ -205,7 +205,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
-    address proposer = ValidatorSelectionLib.getProposerAt(slot, slot.epochFromSlot());
+    address proposer = ValidatorSelectionLib.getProposerAt(slot);
     require(
       proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
     );
@@ -638,9 +638,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The address of the proposer
    */
   function getProposerAt(Timestamp _ts) public override(IValidatorSelection) returns (address) {
-    Slot slot = _ts.slotFromTimestamp();
-    Epoch epochNumber = slot.epochFromSlot();
-    return ValidatorSelectionLib.getProposerAt(slot, epochNumber);
+    return ValidatorSelectionLib.getProposerAt(_ts.slotFromTimestamp());
   }
 
   /**

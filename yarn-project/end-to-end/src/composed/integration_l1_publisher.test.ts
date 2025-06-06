@@ -10,7 +10,6 @@ import {
   type L1ContractAddresses,
   RollupContract,
   SlashingProposerContract,
-  type ViemHeader,
   createEthereumChain,
   createExtendedL1Client,
 } from '@aztec/ethereum';
@@ -279,42 +278,45 @@ describe('L1Publisher integration', () => {
     // Path relative to the package.json in the end-to-end folder
     const path = `../../l1-contracts/test/fixtures/${fileName}.json`;
 
+    const asHex = (value: Fr | Buffer | EthAddress | AztecAddress, size = 64) => {
+      const buffer = Buffer.isBuffer(value) ? value : value.toBuffer();
+      return `0x${buffer.toString('hex').padStart(size, '0')}`;
+    };
+
     const jsonObject = {
       populate: {
-        l1ToL2Content: l1ToL2Content.map(c => `0x${c.toBuffer().toString('hex').padStart(64, '0')}`),
-        recipient: `0x${recipientAddress.toBuffer().toString('hex').padStart(64, '0')}`,
+        l1ToL2Content: l1ToL2Content.map(asHex),
+        recipient: asHex(recipientAddress.toField()),
         sender: deployerAddress,
       },
       messages: {
-        l2ToL1Messages: block.body.txEffects
-          .flatMap(txEffect => txEffect.l2ToL1Msgs)
-          .map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
+        l2ToL1Messages: block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs).map(asHex),
       },
       block: {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
-        archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+        archive: asHex(block.archive.root),
         blobInputs: Blob.getEthBlobEvaluationInputs(blobs),
         blockNumber: block.number,
         body: `0x${block.body.toBuffer().toString('hex')}`,
         header: {
-          lastArchiveRoot: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+          lastArchiveRoot: asHex(block.header.lastArchive.root),
           contentCommitment: {
-            blobsHash: `0x${block.header.contentCommitment.blobsHash.toString('hex').padStart(64, '0')}`,
-            inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
-            outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
-            numTxs: block.header.contentCommitment.numTxs.toBigInt(),
+            blobsHash: asHex(block.header.contentCommitment.blobsHash),
+            inHash: asHex(block.header.contentCommitment.inHash),
+            outHash: asHex(block.header.contentCommitment.outHash),
+            numTxs: block.header.contentCommitment.numTxs.toNumber(),
           },
-          slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
-          timestamp: block.header.globalVariables.timestamp.toBigInt(),
-          coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
-          feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
+          slotNumber: block.header.globalVariables.slotNumber.toNumber(),
+          timestamp: block.header.globalVariables.timestamp.toNumber(),
+          coinbase: asHex(block.header.globalVariables.coinbase, 40),
+          feeRecipient: asHex(block.header.globalVariables.feeRecipient),
           gasFees: {
-            feePerDaGas: block.header.globalVariables.gasFees.feePerDaGas.toBigInt(),
-            feePerL2Gas: block.header.globalVariables.gasFees.feePerL2Gas.toBigInt(),
+            feePerDaGas: Number(block.header.globalVariables.gasFees.feePerDaGas),
+            feePerL2Gas: Number(block.header.globalVariables.gasFees.feePerL2Gas),
           },
-          totalManaUsed: block.header.totalManaUsed.toBigInt(),
-        } as ViemHeader,
+          totalManaUsed: block.header.totalManaUsed.toNumber(),
+        },
         numTxs: block.body.txEffects.length,
       },
     };
