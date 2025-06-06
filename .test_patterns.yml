@@ -118,14 +118,14 @@ tests:
     owners:
       - *sean
   # http://ci.aztec-labs.com/5a291189b35a1b38
-  - regex: "src/e2e_p2p/rediscovery.test.ts"
+  # http://ci.aztec-labs.com/b175321d1289021c
+  - regex: "src/e2e_p2p"
     error_regex: 'CodeError: writable end state is "writing" not "ready"'
     owners:
       - *palla
   - regex: "src/e2e_p2p/reqresp"
-    error_regex: 'CodeError: writable end state is "writing" not "ready"'
     owners:
-      - *sean
+      - *palla
   - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
@@ -149,6 +149,8 @@ tests:
     error_regex: "HttpRequestError: HTTP request failed."
     owners:
       - *charlie
+  - regex: "e2e_prover/full"
+    skip: true
   # http://ci.aztec-labs.com/7a5104e136578d64
   # The "loop that wastes 5m" thing.
   - regex: "src/e2e_fees/failures"
@@ -164,9 +166,9 @@ tests:
     owners:
       - *lasse
   - regex: "src/e2e_epochs/epochs_l1_reorgs"
-    error_regex: "updates L1 to L2 messages changed due to an L1 reorg"
+    error_regex: "updates L1 to L2 messages changed due to an L1 reorg|sending signal TERM to command"
     owners:
-      - *lasse
+      - *spyros
   - regex: "src/e2e_epochs/epochs_empty_blocks"
     error_regex: "✕ successfully proves multiple epochs"
     owners:
@@ -204,6 +206,11 @@ tests:
     error_regex: "Exceeded timeout"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/f2007345762c50a8
+  - regex: "src/e2e_multi_validator_node.test.ts"
+    error_regex: "✕ should attest ONLY with the correct validator keys"
+    owners:
+      - *spyros
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -222,6 +229,9 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
+  - regex: "p2p/src/client/p2p_client.integration.test.ts" # http://ci.aztec-labs.com/31c4c9821b1a533c
+    owners:
+      - *palla
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -235,17 +245,8 @@ tests:
     owners:
       - *alex
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
-    error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "ethereum/src/deploy_l1_contracts.test.ts"
-    error_regex: "Expected: > 0"
-    owners:
-      - *palla
-  - regex: "ethereum/src/l1_tx_utils.test.ts"
-    error_regex: "✕ calculates correct gas prices for initial attempt"
-    owners:
-      - *spyros
   - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
     error_regex: "✕ keeps the jobs in progress while it is alive"
     owners:

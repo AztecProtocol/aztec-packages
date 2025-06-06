@@ -103,6 +103,10 @@ function createProver(config: PXEServiceConfig, simulator: CircuitSimulator, log
   } else {
     const bbConfig = config as Required<Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>> &
       PXEServiceConfig;
-    return BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, simulator, logger);
+    return BBNativePrivateKernelProver.new(
+      { bbSkipCleanup: false, numConcurrentIVCVerifiers: 1, ...bbConfig },
+      simulator,
+      logger,
+    );
   }
 }

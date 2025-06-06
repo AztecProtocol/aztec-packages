@@ -37,6 +37,10 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     private logger: Logger,
   ) {}
 
+  public stop(): Promise<void> {
+    return Promise.resolve();
+  }
+
   public static async new(config: BBConfig, logger = createLogger('bb-prover:verifier')) {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     return new BBCircuitVerifier(config, logger);

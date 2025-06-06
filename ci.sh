@@ -100,7 +100,7 @@ case "$cmd" in
     }
     export -f run
     # We perform two full runs of all tests on x86, and a single fast run on arm64 (allowing use of test cache).
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full' \
       'run x2-full amd64 ci-full' \
       'run x3-full amd64 ci-full' \

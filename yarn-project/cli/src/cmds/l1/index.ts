@@ -15,7 +15,7 @@ import {
   pxeOption,
 } from '../../utils/commands.js';
 
-export { addL1Validator } from './update_l1_validators.js';
+export { addL1Validator, dripQueue } from './update_l1_validators.js';
 
 const l1RpcUrlsOption = new Option(
   '--l1-rpc-urls <string>',
