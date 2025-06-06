@@ -12,6 +12,8 @@ import {
 } from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Strings} from "@oz/utils/Strings.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {
@@ -146,8 +148,9 @@ contract RollupBase is DecoderBase {
       header = DecoderBase.updateHeaderSlot(header, slotNumber);
     }
 
-    uint256 baseFee =
-      rollup.getManaBaseFeeAt(Timestamp.wrap(full.block.decodedHeader.timestamp), true);
+    uint128 baseFee = SafeCast.toUint128(
+      rollup.getManaBaseFeeAt(Timestamp.wrap(full.block.decodedHeader.timestamp), true)
+    );
     header = DecoderBase.updateHeaderBaseFee(header, baseFee);
     header = DecoderBase.updateHeaderManaUsed(header, _manaUsed);
 
