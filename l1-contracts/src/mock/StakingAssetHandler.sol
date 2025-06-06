@@ -106,7 +106,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     uint256 _mintInterval,
     uint256 _depositsPerMint,
     ZKPassportVerifier _zkPassportVerifier,
-    address[] memory _unhinged
+    address[] memory _unhinged,
+    string memory _scope,
+    string memory _subscope
   ) Ownable(_owner) {
     require(_depositsPerMint > 0, CannotMintZeroAmount());
 
@@ -132,8 +134,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     zkPassportVerifier = _zkPassportVerifier;
     emit ZKPassportVerifierUpdated(address(_zkPassportVerifier));
 
-    validScope = "sequencer.alpha-testnet.aztec.network";
-    validSubscope = "personhood";
+    validScope = _scope;
+    validSubscope = _subscope;
 
     entryQueue.init();
   }

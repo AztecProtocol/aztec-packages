@@ -48,7 +48,9 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
       mintInterval,
       depositsPerMint,
       zkPassportVerifier,
-      new address[](0)
+      new address[](0),
+      CORRECT_SCOPE,
+      CORRECT_SUBSCOPE
     );
     stakingAsset.addMinter(address(stakingAssetHandler));
   }

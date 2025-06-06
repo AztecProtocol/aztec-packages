@@ -424,6 +424,10 @@ export const deploySharedContracts = async (
         BigInt(10), // depositsPerMint,
         zkPassportVerifierAddress.toString(),
         [AMIN.toString()], // isUnhinged,
+        // Scopes
+        // These are hardcoded to expected testnet values, but can be set after deployment
+        'testnet.aztec.network',
+        'personhood',
       ]);
       logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
 

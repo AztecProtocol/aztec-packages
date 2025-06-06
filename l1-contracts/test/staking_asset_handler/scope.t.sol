@@ -10,10 +10,6 @@ import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAsse
 // solhint-disable private-vars-leading-underscore
 
 contract ScopeTest is StakingAssetHandlerBase {
-  // From fixtures - see lib/circuits/src/solidity/test/SampleContract.t.sol
-  string constant CORRECT_SCOPE = "zkpassport.id";
-  string constant CORRECT_SUBSCOPE = "bigproof";
-
   string constant INCORRECT_SCOPE = "aint nuffin but a peanut";
   string constant INCORRECT_SUBSCOPE = "LIGHTWEIGHT BABY";
 
