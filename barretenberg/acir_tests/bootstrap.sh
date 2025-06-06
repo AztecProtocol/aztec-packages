@@ -75,7 +75,7 @@ function regenerate_recursive_inputs {
   local program=$1
   # Compile the assert_statement test as it's used for the recursive tests.
   COMPILE=2 ./scripts/run_test.sh assert_statement
-  parallel 'run_proof_generation {}' ::: $(ls internal_test_programs)
+  parallel 'run_proof_generation {}' ::: "double_verify_honk_proof" "verify_honk_proof" "verify_rollup_honk_proof"
 }
 
 export -f regenerate_recursive_inputs run_proof_generation generate_toml
