@@ -8,6 +8,7 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
@@ -394,7 +395,7 @@ contract RollupTest is RollupBase {
   struct TestBlockFeeStruct {
     EthValue provingCostPerManaInEth;
     FeeAssetValue provingCostPerManaInFeeAsset;
-    uint256 baseFee;
+    uint128 baseFee;
     uint256 feeAmount;
     uint256 portalBalance;
     uint256 manaUsed;
@@ -426,7 +427,8 @@ contract RollupTest is RollupBase {
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
       skipBlobCheck(address(rollup));
-      interim.baseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+      interim.baseFee =
+        SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
       header = DecoderBase.updateHeaderBaseFee(header, interim.baseFee);
       header = DecoderBase.updateHeaderManaUsed(header, interim.manaUsed);
       // We mess up the fees and say that someone is paying a massive priority which surpass the amount available.

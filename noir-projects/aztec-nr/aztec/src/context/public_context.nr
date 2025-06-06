@@ -194,13 +194,13 @@ impl PublicContext {
             timestamp()
         }
     }
-    pub fn fee_per_l2_gas(_self: Self) -> Field {
+    pub fn fee_per_l2_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             fee_per_l2_gas()
         }
     }
-    pub fn fee_per_da_gas(_self: Self) -> Field {
+    pub fn fee_per_da_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             fee_per_da_gas()
@@ -277,10 +277,10 @@ unconstrained fn block_number() -> Field {
 unconstrained fn timestamp() -> u64 {
     timestamp_opcode()
 }
-unconstrained fn fee_per_l2_gas() -> Field {
+unconstrained fn fee_per_l2_gas() -> u128 {
     fee_per_l2_gas_opcode()
 }
-unconstrained fn fee_per_da_gas() -> Field {
+unconstrained fn fee_per_da_gas() -> u128 {
     fee_per_da_gas_opcode()
 }
 unconstrained fn l2_gas_left() -> u32 {
@@ -397,10 +397,10 @@ unconstrained fn block_number_opcode() -> Field {}
 unconstrained fn timestamp_opcode() -> u64 {}
 
 #[oracle(avmOpcodeFeePerL2Gas)]
-unconstrained fn fee_per_l2_gas_opcode() -> Field {}
+unconstrained fn fee_per_l2_gas_opcode() -> u128 {}
 
 #[oracle(avmOpcodeFeePerDaGas)]
-unconstrained fn fee_per_da_gas_opcode() -> Field {}
+unconstrained fn fee_per_da_gas_opcode() -> u128 {}
 
 #[oracle(avmOpcodeL2GasLeft)]
 unconstrained fn l2_gas_left_opcode() -> u32 {}
