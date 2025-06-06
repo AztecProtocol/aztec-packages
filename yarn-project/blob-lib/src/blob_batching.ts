@@ -263,7 +263,6 @@ export class BatchedBlobAccumulator {
   /**
    * Given blob i, accumulate all state.
    * We assume the input blob has not been evaluated at z.
-   * TODO(MW): Currently returning new accumulator. May be better to mutate in future?
    * @returns An updated blob accumulator.
    */
   async accumulate(blob: Blob) {
@@ -293,8 +292,8 @@ export class BatchedBlobAccumulator {
    * @returns An updated blob accumulator.
    */
   async accumulateBlobs(blobs: Blob[]) {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    let acc: BatchedBlobAccumulator = this; // TODO(MW): this.clone()
+    // Initialise the acc to iterate over:
+    let acc: BatchedBlobAccumulator = Object.create(this);
     for (let i = 0; i < blobs.length; i++) {
       acc = await acc.accumulate(blobs[i]);
     }

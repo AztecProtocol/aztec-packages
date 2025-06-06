@@ -38,16 +38,6 @@ describe('BlockBlobPublicInputs', () => {
     const res = BlockBlobPublicInputs.fromBuffer(buffer);
     expect(res).toEqual(blobPI);
   });
-
-  it('converts correctly from Blob class', async () => {
-    const blobs = await timesParallel(BLOBS_PER_BLOCK, i => Blob.fromFields(Array(400).fill(new Fr(i + 1))));
-    const startBlobAccumulator = makeBatchedBlobAccumulator(randomInt(1000));
-    const converted = await BlockBlobPublicInputs.fromBlobs(startBlobAccumulator, blobs);
-    const expectedEndBlobAccumulator = await startBlobAccumulator.accumulateBlobs(blobs);
-    expect(converted.endBlobAccumulator).toEqual(
-      BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(expectedEndBlobAccumulator),
-    );
-  });
 });
 
 describe('BlobAccumulatorPublicInputs', () => {

@@ -34,7 +34,12 @@ import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/stdlib/tx';
 import { VkData } from '@aztec/stdlib/vks';
 
-import { accumulateBlobs, buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
+import {
+  accumulateBlobs,
+  buildBlobHints,
+  buildHeaderFromCircuitOutputs,
+  getEmptyBlockBlobsHash,
+} from './block-building-helpers.js';
 import type { EpochProvingState } from './epoch-proving-state.js';
 import type { TxProvingState } from './tx-proving-state.js';
 
@@ -219,6 +224,8 @@ export class BlockProvingState {
         protocolContractTreeRoot,
       });
 
+      this.blobsHash = await getEmptyBlockBlobsHash();
+
       return {
         rollupType: 'empty-block-root-rollup' satisfies CircuitName,
         inputs: EmptyBlockRootRollupInputs.from({
@@ -321,18 +328,11 @@ export class BlockProvingState {
     }
     const endState = new StateReference(this.l1ToL2MessageTreeSnapshotAfterInsertion, endPartialState);
 
-    // TODO(MW): cleanup
-    if (!this.blobsHash) {
-      this.blobsHash = (
-        await buildBlobHints(this.txs.map(txProvingState => txProvingState.processedTx.txEffect))
-      ).blobsHash.toBuffer();
-    }
-
     return buildHeaderFromCircuitOutputs(
       previousRollupData.map(d => d.baseOrMergeRollupPublicInputs),
       this.rootParityProvingOutput!.inputs,
       this.blockRootProvingOutput!.inputs,
-      this.blobsHash,
+      this.blobsHash!,
       endState,
     );
   }
