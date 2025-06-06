@@ -230,8 +230,10 @@ pub global SPONGE_BLOB_LENGTH: u32 = 11;
 pub global BLOB_PUBLIC_INPUTS: u32 = 6;
 pub global BLOB_PUBLIC_INPUTS_BYTES: u32 = 112; // = commitment (48) + z (32) + y (32)
 pub global L1_TO_L2_MESSAGE_LENGTH: u32 = 6;
-pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 3;
+pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
+pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
+pub global SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = COUNTED_L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global MAX_BLOCK_NUMBER_LENGTH: u32 = 2; // 1 for the option flag, 1 for the value
 pub global KEY_VALIDATION_REQUEST_LENGTH: u32 = 4;
 pub global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 = KEY_VALIDATION_REQUEST_LENGTH + 1;
@@ -329,7 +331,7 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + (PRIVATE_CALL_REQUEST_LENGTH * MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL)
     + (COUNTED_PUBLIC_CALL_REQUEST_LENGTH * MAX_ENQUEUED_CALLS_PER_CALL)
     + PUBLIC_CALL_REQUEST_LENGTH
-    + (L2_TO_L1_MESSAGE_LENGTH * MAX_L2_TO_L1_MSGS_PER_CALL)
+    + (COUNTED_L2_TO_L1_MESSAGE_LENGTH * MAX_L2_TO_L1_MSGS_PER_CALL)
     + 2
     + (PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_CALL)
     + (COUNTED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_CALL)
@@ -364,7 +366,7 @@ pub global COMBINED_CONSTANT_DATA_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH + GLOBAL
 
 pub global PRIVATE_ACCUMULATED_DATA_LENGTH: u32 = (SCOPED_NOTE_HASH_LENGTH * MAX_NOTE_HASHES_PER_TX)
     + (SCOPED_NULLIFIER_LENGTH * MAX_NULLIFIERS_PER_TX)
-    + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
+    + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH)
     + (SCOPED_PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_TX)
     + (SCOPED_COUNTED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX)
     + (PRIVATE_CALL_REQUEST_LENGTH * MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX)
@@ -416,6 +418,7 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + TREE_SNAPSHOTS_LENGTH /* start_tree_snapshots */
     + GAS_LENGTH /* start_gas_used */
     + GAS_SETTINGS_LENGTH
+    + GAS_FEES_LENGTH /* effective_gas_fees */
     + 1 /* fee_payer */
     + NUM_PUBLIC_CALL_REQUEST_ARRAYS /* public_call_request_array_lengths */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_setup_call_requests */
@@ -432,26 +435,33 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + NUM_AVM_ACCUMULATED_DATA_ARRAYS /* accumulated_data_array_lengths */
     + 1 /* reverted */;
 
-pub global CONSTANT_ROLLUP_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
+pub global BLOCK_CONSTANT_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_archive */
+    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_l1_to_l2_message_tree */
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + GLOBAL_VARIABLES_LENGTH;
+pub global EPOCH_CONSTANT_DATA_LENGTH: u32 = 1 /* vk_tree_root */
+    + 1 /* protocol_contract_tree_root */
+    + 1 /* prover_id */;
 
 // + 5 for rollup_type, num_txs, out_hash, accumulated_fees, accumulated_mana_used
-pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH
-    + PARTIAL_STATE_REFERENCE_LENGTH
-    + PARTIAL_STATE_REFERENCE_LENGTH
-    + 2 * SPONGE_BLOB_LENGTH
-    + 5;
-pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
-    * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
+pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
+    + PARTIAL_STATE_REFERENCE_LENGTH /* start_state_reference */
+    + PARTIAL_STATE_REFERENCE_LENGTH /* end_state_reference */
+    + SPONGE_BLOB_LENGTH /* start_sponge_blob */
+    + SPONGE_BLOB_LENGTH /* end_sponge_blob */
+    + 1 /* rollup_type */
+    + 1 /* num_txs */
+    + 1 /* out_hash */
+    + 1 /* accumulated_fees */
+    + 1 /* accumulated_mana_used */
+;
+pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LENGTH
+    + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 2 * GLOBAL_VARIABLES_LENGTH
     + 1 /* out_hash */
     + AZTEC_MAX_EPOCH_DURATION /* proposedBlockHeaderHashes */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
-    + 1 /* vk_tree_root */
-    + 1 /* protocol_contract_tree_root */
-    + 1 /* prover_id */
     + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + 1 /* end_archive_root */
@@ -557,6 +567,7 @@ pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 55;
 pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
 pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
 pub global GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 58;
+pub global GENERATOR_INDEX__EVENT_COMMITMENT: u32 = 59;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;
@@ -626,9 +637,13 @@ pub global AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX: u32
     AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX + 1;
 // Note: each of these gas settings ^, despite being 2 entries each, are split across 2 columns. So we only bump by 1 for each.
 
+// Effective Gas Fees
+pub global AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX + 1;
+
 // Fee Payer
 pub global AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX + 1;
+    AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX + 1;
 
 // Public Call Request Array Lengths
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX: u32 =

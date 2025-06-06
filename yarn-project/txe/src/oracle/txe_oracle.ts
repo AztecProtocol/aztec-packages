@@ -62,7 +62,6 @@ import {
 } from '@aztec/simulator/server';
 import {
   type ContractArtifact,
-  EventSelector,
   type FunctionAbi,
   FunctionSelector,
   FunctionType,
@@ -102,6 +101,7 @@ import {
   ContractClassLog,
   IndexedTaggingSecret,
   PrivateLog,
+  PrivateLogWithTxData,
   type PublicLog,
   PublicLogWithTxData,
 } from '@aztec/stdlib/logs';
@@ -631,7 +631,7 @@ export class TXE implements TypedOracle {
 
     this.logger.debug(
       `Returning ${notes.length} notes for ${this.contractAddress} at ${storageSlot}: ${notes
-        .map(n => `${n.nonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
+        .map(n => `${n.noteNonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
     );
 
@@ -644,7 +644,7 @@ export class TXE implements TypedOracle {
       {
         contractAddress: this.contractAddress,
         storageSlot,
-        nonce: Fr.ZERO, // Nonce cannot be known during private execution.
+        noteNonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
         noteHash,
@@ -1174,15 +1174,24 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
-  public async validateEnqueuedNotes(
+  public async validateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
-    notePendingValidationArrayBaseSlot: Fr,
+    noteValidationRequestsArrayBaseSlot: Fr,
+    eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
-    await this.pxeOracleInterface.validateEnqueuedNotes(contractAddress, notePendingValidationArrayBaseSlot);
+    await this.pxeOracleInterface.validateEnqueuedNotesAndEvents(
+      contractAddress,
+      noteValidationRequestsArrayBaseSlot,
+      eventValidationRequestsArrayBaseSlot,
+    );
   }
 
   async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
     return await this.pxeOracleInterface.getPublicLogByTag(tag, contractAddress);
+  }
+
+  async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
+    return await this.pxeOracleInterface.getPrivateLogByTag(siloedTag);
   }
 
   // AVM oracles
@@ -1319,26 +1328,6 @@ export class TXE implements TypedOracle {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  storePrivateEventLog(
-    contractAddress: AztecAddress,
-    recipient: AztecAddress,
-    eventSelector: EventSelector,
-    logContent: Fr[],
-    txHash: TxHash,
-    logIndexInTx: number,
-    txIndexInBlock: number,
-  ): Promise<void> {
-    return this.pxeOracleInterface.storePrivateEventLog(
-      contractAddress,
-      recipient,
-      eventSelector,
-      logContent,
-      txHash,
-      logIndexInTx,
-      txIndexInBlock,
-    );
-  }
-
   async privateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
@@ -1448,11 +1437,11 @@ export class TXE implements TypedOracle {
         execution.publicInputs.noteHashes
           .filter(noteHash => !noteHash.isEmpty())
           .map(async noteHash => {
-            const nonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
+            const noteNonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
             const siloedNoteHash = await siloNoteHash(contractAddress, noteHash.value);
 
             // We could defer this to the public processor, and pass this in as non-revertible.
-            return computeUniqueNoteHash(nonce, siloedNoteHash);
+            return computeUniqueNoteHash(noteNonce, siloedNoteHash);
           }),
       );
 
@@ -1471,7 +1460,7 @@ export class TXE implements TypedOracle {
       l2ToL1Messages.push(
         ...execution.publicInputs.l2ToL1Msgs
           .filter(l2ToL1Message => !l2ToL1Message.isEmpty())
-          .map(message => message.scope(contractAddress)),
+          .map(message => message.message.scope(contractAddress)),
       );
       contractClassLogsHashes.push(
         ...execution.publicInputs.contractClassLogsHashes

@@ -15,7 +15,7 @@ import {
   pxeOption,
 } from '../../utils/commands.js';
 
-export { addL1Validator } from './update_l1_validators.js';
+export { addL1Validator, dripQueue } from './update_l1_validators.js';
 
 const l1RpcUrlsOption = new Option(
   '--l1-rpc-urls <string>',
@@ -436,6 +436,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
+    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
     .requiredOption('--verifier <verifier>', 'Either mock or real', 'real')
     .action(async options => {
       const { deployMockVerifier, deployUltraHonkVerifier } = await import('./deploy_l1_verifier.js');
@@ -457,6 +458,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
           options.l1ChainId,
           options.l1PrivateKey,
           options.mnemonic,
+          options.mnemonicIndex,
           options.rpcUrl,
           log,
           debugLogger,

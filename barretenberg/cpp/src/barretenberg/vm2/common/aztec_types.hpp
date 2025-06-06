@@ -15,6 +15,19 @@ using AffinePoint = grumpkin::g1::affine_element;
 // it's represented as a field element for simplicity
 using EthAddress = FF;
 
+enum TransactionPhase {
+    NR_NULLIFIER_INSERTION = 1,
+    NR_NOTE_INSERTION = 2,
+    NR_L2_TO_L1_MESSAGE = 3,
+    SETUP = 4,
+    R_NULLIFIER_INSERTION = 5,
+    R_NOTE_INSERTION = 6,
+    R_L2_TO_L1_MESSAGE = 7,
+    APP_LOGIC = 8,
+    TEARDOWN = 9,
+    COLLECT_GAS_FEES = 10,
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Keys, Instances, Classes
 ////////////////////////////////////////////////////////////////////////////
@@ -59,11 +72,10 @@ struct ContractClass {
 struct L2ToL1Message {
     EthAddress recipient;
     FF content;
-    uint32_t counter;
 
     bool operator==(const L2ToL1Message& other) const = default;
 
-    MSGPACK_FIELDS(recipient, content, counter);
+    MSGPACK_FIELDS(recipient, content);
 };
 
 struct ScopedL2ToL1Message {
@@ -250,6 +262,22 @@ struct TreeSnapshots {
     bool operator==(const TreeSnapshots& other) const = default;
 
     MSGPACK_FIELDS(l1ToL2MessageTree, noteHashTree, nullifierTree, publicDataTree);
+};
+
+struct TreeState {
+    AppendOnlyTreeSnapshot tree;
+    uint32_t counter;
+
+    bool operator==(const TreeState& other) const = default;
+};
+
+struct TreeStates {
+    TreeState noteHashTree;
+    TreeState nullifierTree;
+    TreeState l1ToL2MessageTree;
+    TreeState publicDataTree;
+
+    bool operator==(const TreeStates& other) const = default;
 };
 
 } // namespace bb::avm2

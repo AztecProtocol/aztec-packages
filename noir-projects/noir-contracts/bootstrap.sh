@@ -31,12 +31,9 @@ export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
 export tmp_dir=./target/tmp
 
-# Create our tmp working directory, ensure it's removed on exit.
-function on_exit {
-  rm -rf $tmp_dir
-  rm -f joblog.txt
-}
-trap on_exit EXIT
+# Remove our tmp dir from last run.
+# Note: This can use BASH 'trap' for better cleanliness, but the script has been hitting edge-cases so is (temporarily?) simplified.
+rm -rf $tmp_dir
 mkdir -p $tmp_dir
 
 # Set common flags for parallel.
@@ -76,19 +73,19 @@ function process_function {
     bytecode_b64=$(echo "$func" | jq -r '.bytecode')
     hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
 
-    if ! cache_download vk-$hash.tar.gz >&2; then
+    if ! cache_download vk-$contract_hash-$hash.tar.gz >&2; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
 
       local outdir=$(mktemp -d -p $tmp_dir)
       echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir -v
-      mv $outdir/vk $tmp_dir/$hash
+      mv $outdir/vk $tmp_dir/$contract_hash/$hash
 
-      cache_upload vk-$hash.tar.gz $tmp_dir/$hash
+      cache_upload vk-$contract_hash-$hash.tar.gz $tmp_dir/$contract_hash/$hash
     fi
 
     # Return (echo) json containing the base64 encoded verification key.
-    vk=$(cat $tmp_dir/$hash | base64 -w 0)
+    vk=$(cat $tmp_dir/$contract_hash/$hash | base64 -w 0)
     echo "$func" | jq -c --arg vk "$vk" '. + {verification_key: $vk}'
   else
     echo_stderr "Function $name is neither public nor unconstrained, skipping."
@@ -158,6 +155,10 @@ function compile {
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
+
+  # We segregate equivalent vk's created by processs_function. This was done to narrow down potential edge cases with identical VKs
+  # reading from cache at the same time. Create this folder up-front.
+  mkdir -p $tmp_dir/$contract_hash
 
   # Pipe each contract function, one per line (jq -c), into parallel calls of process_function.
   # The returned jsons from process_function are converted back to a json array in the second jq -s call.

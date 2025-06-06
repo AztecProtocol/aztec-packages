@@ -180,15 +180,20 @@ describe('e2e_fees dapp_subscription', () => {
   });
 
   async function subscribe(paymentMethod: FeePaymentMethod, blockDelta: number = 5, txCount: number = 4) {
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
     // This authwit is made because the subscription recipient is Bob, so we are approving the contract to send funds
     // to him, on our behalf, as part of the subscription process.
-    const action = bananaCoin.methods.transfer_in_private(aliceAddress, bobAddress, t.SUBSCRIPTION_AMOUNT, nonce);
+    const action = bananaCoin.methods.transfer_in_private(
+      aliceAddress,
+      bobAddress,
+      t.SUBSCRIPTION_AMOUNT,
+      authwitNonce,
+    );
     const witness = await aliceWallet.createAuthWit({ caller: subscriptionContract.address, action });
 
     return subscriptionContract
       .withWallet(aliceWallet)
-      .methods.subscribe(aliceAddress, nonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
+      .methods.subscribe(aliceAddress, authwitNonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
       .send({ authWitnesses: [witness], fee: { paymentMethod } })
       .wait();
   }

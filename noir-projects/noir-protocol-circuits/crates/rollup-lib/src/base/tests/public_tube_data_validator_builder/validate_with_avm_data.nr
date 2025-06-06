@@ -1,7 +1,10 @@
 use crate::base::components::PublicTubeDataValidator;
 use super::PublicTubeDataValidatorBuilder;
 use dep::types::{
-    abis::{avm_circuit_public_inputs::AvmCircuitPublicInputs, gas_settings::GasSettings},
+    abis::{
+        avm_circuit_public_inputs::AvmCircuitPublicInputs, gas_fees::GasFees,
+        gas_settings::GasSettings,
+    },
     constants::MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
 };
 
@@ -17,6 +20,17 @@ impl PublicTubeDataValidatorBuilder {
 
         builder.tube_data.tx_context.gas_settings.teardown_gas_limits.l2_gas = 333;
         builder.avm_data.tx_context.gas_settings.teardown_gas_limits.l2_gas = 333;
+
+        builder.avm_data.global_variables.gas_fees = GasFees::new(100, 100);
+
+        builder.tube_data.tx_context.gas_settings.max_fees_per_gas = GasFees::new(150, 150);
+        builder.avm_data.tx_context.gas_settings.max_fees_per_gas = GasFees::new(150, 150);
+
+        builder.tube_data.tx_context.gas_settings.max_priority_fees_per_gas =
+            GasFees::new(100, 100);
+        builder.avm_data.tx_context.gas_settings.max_priority_fees_per_gas = GasFees::new(100, 100);
+
+        builder.avm_data.effective_gas_fees = GasFees::new(150, 150);
 
         builder.tube_data.append_note_hashes(2);
         builder.avm_data.append_note_hashes(2);
@@ -76,6 +90,12 @@ impl PublicTubeDataValidatorBuilder {
             )
     }
 
+    pub fn equal_default_avm_effective_gas_fees(self, effective_gas_fees: GasFees) -> bool {
+        let default_effective_gas_fees = self.avm_data.effective_gas_fees;
+        (effective_gas_fees.fee_per_l2_gas == default_effective_gas_fees.fee_per_l2_gas)
+            & (effective_gas_fees.fee_per_da_gas == default_effective_gas_fees.fee_per_da_gas)
+    }
+
     pub fn validate_with_tweaked_avm_data(self, avm_data: AvmCircuitPublicInputs) {
         let tube_data = self.tube_data.to_public_tube_data();
         PublicTubeDataValidator::new(tube_data).validate_with_avm_data(avm_data);
@@ -120,12 +140,30 @@ fn public_tube_validate_with_avm_data_mismatch_gas_limits_fails(avm_gas_settings
     if !builder.equal_default_avm_gas_limits(avm_gas_settings) {
         builder.avm_data.tx_context.gas_settings = avm_gas_settings;
         builder.validate_with_avm_data();
+    } else {
+        // Fail with the expected error message if we are not testing the input.
+        assert(false, "unexpected gas settings used in the AVM");
+    }
+}
+
+#[test(should_fail_with = "unexpected effective gas fees used in the AVM")]
+fn public_tube_validate_with_avm_data_mismatch_effective_gas_fees_fails(
+    effective_gas_fees: GasFees,
+) {
+    let mut builder = PublicTubeDataValidatorBuilder::new_with_full_data();
+
+    if !builder.equal_default_avm_effective_gas_fees(effective_gas_fees) {
+        builder.avm_data.effective_gas_fees = effective_gas_fees;
+        builder.validate_with_avm_data();
+    } else {
+        // Fail with the expected error message if we are not testing the input.
+        assert(false, "unexpected effective gas fees used in the AVM");
     }
 }
 
 #[test]
 fn public_tube_validate_with_avm_data_clamped_gas_limits_succeeds() {
-    let builder = PublicTubeDataValidatorBuilder::new_with_full_data().with_clamped_gas_limits();
+    let builder = PublicTubeDataValidatorBuilder::new_with_full_data();
 
     // Make sure equal_default_avm_gas_limits returns true for the default clamped avm gas settings.
     // Values not equal to the default will be tested in the next test.
@@ -146,6 +184,9 @@ fn public_tube_validate_with_avm_data_mismatch_clamped_gas_limits_fails(
     if !builder.equal_default_avm_gas_limits(avm_gas_settings) {
         builder.avm_data.tx_context.gas_settings = avm_gas_settings;
         builder.validate_with_avm_data();
+    } else {
+        // Fail with the expected error message if we are not testing the input.
+        assert(false, "unexpected gas settings used in the AVM");
     }
 }
 
@@ -253,7 +294,7 @@ fn public_tube_validate_with_avm_data_mismatch_non_revertible_l2_to_l1_msgs_fail
     let builder = PublicTubeDataValidatorBuilder::new_with_full_data();
 
     let mut avm_data = builder.avm_data.to_avm_circuit_public_inputs();
-    avm_data.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content += 1;
+    avm_data.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].inner.content += 1;
 
     builder.validate_with_tweaked_avm_data(avm_data);
 }
@@ -313,7 +354,7 @@ fn public_tube_validate_with_avm_data_mismatch_revertible_l2_to_l1_msgs_fails() 
     let builder = PublicTubeDataValidatorBuilder::new_with_full_data();
 
     let mut avm_data = builder.avm_data.to_avm_circuit_public_inputs();
-    avm_data.previous_revertible_accumulated_data.l2_to_l1_msgs[0].message.content += 1;
+    avm_data.previous_revertible_accumulated_data.l2_to_l1_msgs[0].inner.content += 1;
 
     builder.validate_with_tweaked_avm_data(avm_data);
 }

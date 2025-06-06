@@ -445,6 +445,14 @@ class MegaFlavor {
      */
     class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        // Serialized Verification Key length in fields
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
+            /* 2. Pairing point PI start index */ (1 * num_frs_fr) +
+            /* 3. Databus commitments PI start index */ (2 * num_frs_fr) +
+            /* 4. is_kernel bool */ (1 * num_frs_fr) +
+            /* 5. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
         DatabusPropagationData databus_propagation_data;
 
@@ -508,6 +516,10 @@ class MegaFlavor {
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
             }
+
+            BB_ASSERT_EQ(elements.size(),
+                         VERIFICATION_KEY_LENGTH,
+                         "Verification key length did not match expected length from formula.");
 
             return elements;
         }
