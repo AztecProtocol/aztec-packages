@@ -22,6 +22,8 @@ import {
   InboxBytecode,
   MockVerifierAbi,
   MockVerifierBytecode,
+  MockZKPassportVerifierAbi,
+  MockZKPassportVerifierBytecode,
   MultiAdderAbi,
   MultiAdderBytecode,
   OutboxAbi,
@@ -77,6 +79,7 @@ import {
   getL1TxUtilsConfigEnvVars,
 } from './l1_tx_utils.js';
 import type { ExtendedViemWalletClient } from './types.js';
+import { ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
@@ -221,6 +224,10 @@ export const l1Artifacts = {
     contractAbi: MockVerifierAbi,
     contractBytecode: MockVerifierBytecode as Hex,
   },
+  mockZkPassportVerifier: {
+    contractAbi: MockZKPassportVerifierAbi,
+    contractBytecode: MockZKPassportVerifierBytecode as Hex,
+  },
 };
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
@@ -242,6 +249,8 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   feeJuicePortalInitialBalance?: bigint;
   /** Whether to deploy the real verifier or the mock verifier */
   realVerifier: boolean;
+  /** Whether to use the mock zk passport verifier */
+  mockZkPassportVerifier?: boolean;
 }
 
 export const deploySharedContracts = async (
@@ -374,6 +383,7 @@ export const deploySharedContracts = async (
 
   let feeAssetHandlerAddress: EthAddress | undefined = undefined;
   let stakingAssetHandlerAddress: EthAddress | undefined = undefined;
+  let zkPassportVerifierAddress: EthAddress | undefined = undefined;
 
   // Only if not on mainnet will we deploy the handlers
   if (l1Client.chain.id !== 1) {
@@ -403,6 +413,7 @@ export const deploySharedContracts = async (
     // Should not be deployed to devnet since it would cause caos with sequencers there etc.
     if ([11155111, foundry.id].includes(l1Client.chain.id)) {
       const AMIN = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
+      zkPassportVerifierAddress = await getZkPassportVerifierAddress(deployer, args);
 
       stakingAssetHandlerAddress = await deployer.deploy(l1Artifacts.stakingAssetHandler, [
         l1Client.account.address,
@@ -411,6 +422,7 @@ export const deploySharedContracts = async (
         AMIN.toString(), // withdrawer,
         BigInt(60 * 60 * 24), // mintInterval,
         BigInt(10), // depositsPerMint,
+        zkPassportVerifierAddress.toString(),
         [AMIN.toString()], // isUnhinged,
       ]);
       logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
@@ -477,6 +489,7 @@ export const deploySharedContracts = async (
     feeAssetHandlerAddress,
     stakingAssetAddress,
     stakingAssetHandlerAddress,
+    zkPassportVerifierAddress,
     registryAddress,
     gseAddress,
     governanceAddress,
@@ -484,6 +497,13 @@ export const deploySharedContracts = async (
     coinIssuerAddress,
     rewardDistributorAddress: await registry.getRewardDistributor(),
   };
+};
+
+const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1ContractsArgs): Promise<EthAddress> => {
+  if (args.mockZkPassportVerifier) {
+    return await deployer.deploy(l1Artifacts.mockZkPassportVerifier);
+  }
+  return ZK_PASSPORT_VERIFIER_ADDRESS;
 };
 
 /**
@@ -934,6 +954,7 @@ export const deployL1Contracts = async (
     registryAddress,
     gseAddress,
     rewardDistributorAddress,
+    zkPassportVerifierAddress,
   } = await deploySharedContracts(l1Client, deployer, args, logger);
   const { rollup, slashFactoryAddress } = await deployRollup(
     l1Client,
@@ -989,6 +1010,7 @@ export const deployL1Contracts = async (
       slashFactoryAddress,
       feeAssetHandlerAddress,
       stakingAssetHandlerAddress,
+      zkPassportVerifierAddress,
     },
   };
 };
