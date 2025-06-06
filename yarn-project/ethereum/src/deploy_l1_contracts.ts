@@ -66,6 +66,7 @@ import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import {
   type GasPrice,
+  type L1GasConfig,
   type L1TxRequest,
   L1TxUtils,
   type L1TxUtilsConfig,
@@ -298,15 +299,17 @@ export const deploySharedContracts = async (
   }
 
   if (needToSetGovernance) {
-    const { txHash } = await deployer.sendTransaction({
-      to: gseAddress.toString(),
-      data: encodeFunctionData({
-        abi: l1Artifacts.gse.contractAbi,
-        functionName: 'setGovernance',
-        args: [governanceAddress.toString()],
-      }),
-      ...(args.acceleratedTestDeployments ? { gasLimit: 1_000_000n } : {}),
-    });
+    const { txHash } = await deployer.sendTransaction(
+      {
+        to: gseAddress.toString(),
+        data: encodeFunctionData({
+          abi: l1Artifacts.gse.contractAbi,
+          functionName: 'setGovernance',
+          args: [governanceAddress.toString()],
+        }),
+      },
+      { gasLimit: 100_000n },
+    );
 
     logger.verbose(`Set governance on GSE in ${txHash}`);
     txHashes.push(txHash);
@@ -329,15 +332,17 @@ export const deploySharedContracts = async (
   await deployer.waitForDeployments();
 
   if (args.acceleratedTestDeployments || !(await feeAsset.read.minters([coinIssuerAddress.toString()]))) {
-    const { txHash } = await deployer.sendTransaction({
-      to: feeAssetAddress.toString(),
-      data: encodeFunctionData({
-        abi: l1Artifacts.feeAsset.contractAbi,
-        functionName: 'addMinter',
-        args: [coinIssuerAddress.toString()],
-      }),
-      ...(args.acceleratedTestDeployments ? { gasLimit: 1_000_000n } : {}),
-    });
+    const { txHash } = await deployer.sendTransaction(
+      {
+        to: feeAssetAddress.toString(),
+        data: encodeFunctionData({
+          abi: l1Artifacts.feeAsset.contractAbi,
+          functionName: 'addMinter',
+          args: [coinIssuerAddress.toString()],
+        }),
+      },
+      { gasLimit: 100_000n },
+    );
     logger.verbose(`Added coin issuer ${coinIssuerAddress} as minter on fee asset in ${txHash}`);
     txHashes.push(txHash);
   }
@@ -785,18 +790,19 @@ export const addMultipleValidators = async (
 
       // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
       const stakeNeeded = minimumStake * BigInt(validators.length);
-      await Promise.all(
-        [
-          await deployer.sendTransaction({
-            to: stakingAssetAddress,
-            data: encodeFunctionData({
-              abi: l1Artifacts.stakingAsset.contractAbi,
-              functionName: 'mint',
-              args: [multiAdder.toString(), stakeNeeded],
-            }),
-          }),
-        ].map(tx => extendedClient.waitForTransactionReceipt({ hash: tx.txHash })),
-      );
+      const { txHash } = await deployer.sendTransaction({
+        to: stakingAssetAddress,
+        data: encodeFunctionData({
+          abi: l1Artifacts.stakingAsset.contractAbi,
+          functionName: 'mint',
+          args: [multiAdder.toString(), stakeNeeded],
+        }),
+      });
+      const receipt = await extendedClient.waitForTransactionReceipt({ hash: txHash });
+
+      if (receipt.status !== 'success') {
+        throw new Error(`Failed to mint staking assets for validators: ${receipt.status}`);
+      }
 
       const addValidatorsTxHash = await deployer.client.writeContract({
         address: multiAdder.toString(),
@@ -1009,8 +1015,11 @@ export class L1Deployer {
     this.logger.info('All transactions mined successfully');
   }
 
-  sendTransaction(tx: L1TxRequest): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
-    return this.l1TxUtils.sendTransaction(tx);
+  sendTransaction(
+    tx: L1TxRequest,
+    options?: L1GasConfig,
+  ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
+    return this.l1TxUtils.sendTransaction(tx, options);
   }
 }
 
