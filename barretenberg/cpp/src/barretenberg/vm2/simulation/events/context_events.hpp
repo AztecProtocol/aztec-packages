@@ -10,6 +10,8 @@ struct ContextEvent {
     uint32_t id;
     uint32_t parent_id;
 
+    TransactionPhase phase;
+
     // State
     uint32_t pc;
     AztecAddress msg_sender;

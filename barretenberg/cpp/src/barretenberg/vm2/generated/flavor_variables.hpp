@@ -14,6 +14,7 @@
 #include "relations/context_stack.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
+#include "relations/execution_discard.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
 #include "relations/instr_fetching.hpp"
@@ -59,10 +60,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2285;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 159;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2295;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 161;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2531;
+    static constexpr size_t NUM_ALL_ENTITIES = 2543;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -80,6 +81,7 @@ struct AvmFlavorVariables {
         avm2::context_stack<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
+        avm2::execution_discard<FF_>,
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
         avm2::instr_fetching<FF_>,
