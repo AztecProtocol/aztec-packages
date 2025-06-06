@@ -372,7 +372,7 @@ constexpr std::array<std::array<C, 5>, 5> state_chi_cols = {
 };
 
 // Mapping 1-dimensional array indices of read/write memory slice values to columns.
-constexpr std::array<C, 25> mem_val_cols = {
+constexpr std::array<C, AVM_KECCAKF1600_STATE_SIZE> mem_val_cols = {
     {
         C::keccak_memory_val00, C::keccak_memory_val01, C::keccak_memory_val02, C::keccak_memory_val03,
         C::keccak_memory_val04, C::keccak_memory_val10, C::keccak_memory_val11, C::keccak_memory_val12,
@@ -387,10 +387,10 @@ constexpr std::array<C, 25> mem_val_cols = {
 // Populate a memory slice read or write operation for the Keccak permutation.
 void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, uint32_t start_row, TraceContainer& trace)
 {
-    std::array<bool, 25> single_tag_errors;
+    std::array<bool, AVM_KECCAKF1600_STATE_SIZE> single_tag_errors;
     single_tag_errors.fill(false);
-    std::array<FF, 25> values; // Read values in the slice.
-    std::array<MemoryTag, 25> tags;
+    std::array<FF, AVM_KECCAKF1600_STATE_SIZE> values; // Read values in the slice.
+    std::array<MemoryTag, AVM_KECCAKF1600_STATE_SIZE> tags;
     tags.fill(MemoryTag::U64);
 
     // The relevant state depending on read/write boolean.
@@ -423,16 +423,17 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
         }
     }
 
-    std::array<bool, 25> tag_errors;
-    tag_errors[24] = single_tag_errors[24];
+    std::array<bool, AVM_KECCAKF1600_STATE_SIZE> tag_errors;
+    tag_errors[AVM_KECCAKF1600_STATE_SIZE - 1] = single_tag_errors[AVM_KECCAKF1600_STATE_SIZE - 1];
 
-    for (size_t i = 1; i < 25; i++) {
-        tag_errors[24 - i] = tag_errors[24 - i + 1] || single_tag_errors[24 - i];
+    for (size_t i = 1; i < AVM_KECCAKF1600_STATE_SIZE; i++) {
+        tag_errors[AVM_KECCAKF1600_STATE_SIZE - 1 - i] =
+            tag_errors[AVM_KECCAKF1600_STATE_SIZE - i] || single_tag_errors[AVM_KECCAKF1600_STATE_SIZE - 1 - i];
     }
 
     MemoryAddress addr = rw ? event.dst_addr : event.src_addr;
 
-    for (size_t i = 0; i < 25; i++) {
+    for (size_t i = 0; i < AVM_KECCAKF1600_STATE_SIZE; i++) {
         const auto row = start_row + static_cast<uint32_t>(i);
 
         trace.set(row,
@@ -440,9 +441,10 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
                       { C::keccak_memory_sel, 1 },
                       { C::keccak_memory_ctr, i + 1 },
                       { C::keccak_memory_ctr_inv, FF(i + 1).invert() },
-                      { C::keccak_memory_ctr_min_num_25_inv, i == 24 ? 1 : (FF(i) - 24).invert() },
+                      { C::keccak_memory_ctr_min_state_size_inv,
+                        i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : (FF(i) - AVM_KECCAKF1600_STATE_SIZE + 1).invert() },
                       { C::keccak_memory_start, i == 0 ? 1 : 0 },
-                      { C::keccak_memory_last, i == 24 ? 1 : 0 },
+                      { C::keccak_memory_last, i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : 0 },
                       { C::keccak_memory_rw, rw ? 1 : 0 },
                       { C::keccak_memory_addr, addr + i },
                       { C::keccak_memory_space_id, event.space_id },
@@ -457,7 +459,7 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
                   } });
 
         // We get a "triangle" when shifting values to their columns from val00 bottom-up.
-        for (size_t j = i; j < 25; j++) {
+        for (size_t j = i; j < AVM_KECCAKF1600_STATE_SIZE; j++) {
             trace.set(mem_val_cols[j - i], row, state[j / 5][j % 5]);
         }
     }
@@ -480,7 +482,7 @@ void KeccakF1600TraceBuilder::process_permutation(
             trace.set(C::keccakf1600_bitwise_and_op_id, row, static_cast<uint8_t>(BitwiseOperation::AND));
             trace.set(C::keccakf1600_round, row, round_data.round);
             trace.set(C::keccakf1600_round_cst, row, simulation::keccak_round_constants[round_idx]);
-            trace.set(C::keccakf1600_thirty_two, row, MEMORY_NUM_BITS);
+            trace.set(C::keccakf1600_thirty_two, row, AVM_MEMORY_NUM_BITS);
 
             const bool out_of_range = event.src_out_of_range || event.dst_out_of_range;
 
@@ -611,9 +613,9 @@ void KeccakF1600TraceBuilder::process_memory_slices(
     uint32_t row = 1;
     for (const auto& event : events) {
         process_single_slice(event, false, row, trace);
-        row += 25;
+        row += AVM_KECCAKF1600_STATE_SIZE;
         process_single_slice(event, true, row, trace);
-        row += 25;
+        row += AVM_KECCAKF1600_STATE_SIZE;
     }
 }
 

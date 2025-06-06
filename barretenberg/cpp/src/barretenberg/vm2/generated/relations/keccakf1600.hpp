@@ -35,9 +35,11 @@ template <typename FF_> class keccakf1600Impl {
     {
         using C = ColumnAndShifts;
 
+        const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
         const auto constants_AVM_BITWISE_AND_OP_ID = FF(0);
         const auto constants_AVM_BITWISE_XOR_OP_ID = FF(2);
         const auto constants_AVM_KECCAKF1600_NUM_ROUNDS = FF(24);
+        const auto constants_AVM_KECCAKF1600_STATE_SIZE = FF(25);
         const auto keccakf1600_ROT_LEN_01 = FF(36);
         const auto keccakf1600_POW_ROT_LEN_01 = FF(68719476736UL);
         const auto keccakf1600_POW_ROT_64_MIN_LEN_01 = FF(268435456);
@@ -137,6 +139,8 @@ template <typename FF_> class keccakf1600Impl {
         const auto keccakf1600_STATE_PI_43 = in.get(C::keccakf1600_state_rho_34);
         const auto keccakf1600_STATE_PI_44 = in.get(C::keccakf1600_state_rho_14);
         const auto keccakf1600_POW_64_MIN_1 = FF(uint256_t{ 18446744073709551615UL, 0UL, 0UL, 0UL });
+        const auto keccakf1600_HIGHEST_SLICE_ADDRESS =
+            (constants_AVM_HIGHEST_MEM_ADDRESS - constants_AVM_KECCAKF1600_STATE_SIZE) + FF(1);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -1227,21 +1231,21 @@ template <typename FF_> class keccakf1600Impl {
         }
         { // SRC_OUT_OF_RANGE_TOGGLE
             using Accumulator = typename std::tuple_element_t<148, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::keccakf1600_src_abs_diff) -
-                 in.get(C::keccakf1600_start) * ((FF(2) * in.get(C::keccakf1600_src_out_of_range_error) - FF(1)) *
-                                                     ((in.get(C::keccakf1600_src_addr) - FF(4294967296UL)) + FF(25)) -
-                                                 in.get(C::keccakf1600_src_out_of_range_error)));
+            auto tmp = (in.get(C::keccakf1600_src_abs_diff) -
+                        in.get(C::keccakf1600_start) *
+                            ((FF(2) * in.get(C::keccakf1600_src_out_of_range_error) - FF(1)) *
+                                 (in.get(C::keccakf1600_src_addr) - keccakf1600_HIGHEST_SLICE_ADDRESS) -
+                             in.get(C::keccakf1600_src_out_of_range_error)));
             tmp *= scaling_factor;
             std::get<148>(evals) += typename Accumulator::View(tmp);
         }
         { // DST_OUT_OF_RANGE_TOGGLE
             using Accumulator = typename std::tuple_element_t<149, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::keccakf1600_dst_abs_diff) -
-                 in.get(C::keccakf1600_start) * ((FF(2) * in.get(C::keccakf1600_dst_out_of_range_error) - FF(1)) *
-                                                     ((in.get(C::keccakf1600_dst_addr) - FF(4294967296UL)) + FF(25)) -
-                                                 in.get(C::keccakf1600_dst_out_of_range_error)));
+            auto tmp = (in.get(C::keccakf1600_dst_abs_diff) -
+                        in.get(C::keccakf1600_start) *
+                            ((FF(2) * in.get(C::keccakf1600_dst_out_of_range_error) - FF(1)) *
+                                 (in.get(C::keccakf1600_dst_addr) - keccakf1600_HIGHEST_SLICE_ADDRESS) -
+                             in.get(C::keccakf1600_dst_out_of_range_error)));
             tmp *= scaling_factor;
             std::get<149>(evals) += typename Accumulator::View(tmp);
         }

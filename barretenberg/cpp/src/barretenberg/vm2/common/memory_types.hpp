@@ -10,8 +10,7 @@ using MemoryTag = ValueTag;
 using MemoryValue = TaggedValue;
 using MemoryAddress = uint32_t;
 constexpr auto MemoryAddressTag = MemoryTag::U32;
-constexpr MemoryAddress HIGHEST_MEM_ADDRESS = UINT32_MAX;
-constexpr uint8_t MEMORY_NUM_BITS = 32;
+// Related constants are AVM_HIGHEST_MEM_ADDRESS and AVM_MEMORY_NUM_BITS
 
 uint8_t integral_tag_length(MemoryTag tag);
 

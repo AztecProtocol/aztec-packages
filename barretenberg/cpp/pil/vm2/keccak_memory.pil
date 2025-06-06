@@ -35,7 +35,7 @@ namespace keccak_memory;
 // Each column value val{ij} is shifted to the right going bottom-up and finally are laid out
 // horizontally in the first row.
 // For a read operation, single_tag_error is toggled whenever tag is not U64. To consolidate
-// all the single_tag_error values, we accumulate them in tag_error. The accumulation is not a sum 
+// all the single_tag_error values, we accumulate them in tag_error. The accumulation is not a sum
 // but tag_error is set to 1 whenever the next row is 1 or single_tag_error == 1, basically
 // tag_error = tag_error' OR single_tag_error.
 
@@ -80,10 +80,10 @@ sel * (1 - last) * (ctr' - ctr - 1) = 0;
 pol commit last;
 last * (1 - last) = 0;
 
-// We define last == 1 <==> ctr == 25
-pol commit ctr_min_num_25_inv;
+// We define last == 1 <==> ctr == AVM_KECCAKF1600_STATE_SIZE (25)
+pol commit ctr_min_state_size_inv;
 #[LAST]
-sel * ((ctr - 25) * (last * (1 - ctr_min_num_25_inv) + ctr_min_num_25_inv) + last - 1) = 0;
+sel * ((ctr - constants.AVM_KECCAKF1600_STATE_SIZE) * (last * (1 - ctr_min_state_size_inv) + ctr_min_state_size_inv) + last - 1) = 0;
 
 pol commit rw;
 rw * (1 - rw) = 0; // TODO: Not needed if constrained in memory trace

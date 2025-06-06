@@ -1306,15 +1306,16 @@ src_out_of_range_error * (1 - src_out_of_range_error) = 0;
 #[DST_OUT_OF_RANGE_ERROR_BOOLEAN]
 dst_out_of_range_error * (1 - dst_out_of_range_error) = 0;
 
-// start == 1 ==> [src_out_of_range_error == 1 && src_addr > 2^32 - 25]
+pol HIGHEST_SLICE_ADDRESS = constants.AVM_HIGHEST_MEM_ADDRESS - constants.AVM_KECCAKF1600_STATE_SIZE + 1;
+// start == 1 ==> [src_out_of_range_error == 1 && src_addr > HIGHEST_SLICE_ADDRESS]
 pol commit src_abs_diff;
 #[SRC_OUT_OF_RANGE_TOGGLE]
-src_abs_diff = start * ((2 * src_out_of_range_error - 1) * (src_addr - 2**32 + 25) - src_out_of_range_error);
+src_abs_diff = start * ((2 * src_out_of_range_error - 1) * (src_addr - HIGHEST_SLICE_ADDRESS) - src_out_of_range_error);
 
-// start == 1 ==> [dst_out_of_range_error == 1 && dst_addr > 2^32 - 25]
+// start == 1 ==> [dst_out_of_range_error == 1 && dst_addr > HIGHEST_SLICE_ADDRESS]
 pol commit dst_abs_diff;
 #[DST_OUT_OF_RANGE_TOGGLE]
-dst_abs_diff = start * ((2 * dst_out_of_range_error - 1) * (dst_addr - 2**32 + 25) - dst_out_of_range_error);
+dst_abs_diff = start * ((2 * dst_out_of_range_error - 1) * (dst_addr - HIGHEST_SLICE_ADDRESS) - dst_out_of_range_error);
 
 // TODO: remove this column when we support constants in lookup tuples.
 pol commit thirty_two;

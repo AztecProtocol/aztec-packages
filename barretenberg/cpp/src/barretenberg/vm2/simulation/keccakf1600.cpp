@@ -60,16 +60,17 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
 {
     // We need to perform two range checks to determine whether dst_addr and src_addr correspond to
     // a memory slice which is out-of-range. This is a clear circuit leakage into simulation.
-    bool src_out_of_range = src_addr > HIGHEST_MEM_ADDRESS - 24;
-    bool dst_out_of_range = dst_addr > HIGHEST_MEM_ADDRESS - 24;
+    constexpr MemoryAddress HIGHEST_SLICE_ADDRESS = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1;
+    bool src_out_of_range = src_addr > HIGHEST_SLICE_ADDRESS;
+    bool dst_out_of_range = dst_addr > HIGHEST_SLICE_ADDRESS;
 
     MemoryAddress src_abs_diff =
-        src_out_of_range ? src_addr - HIGHEST_MEM_ADDRESS + 23 : HIGHEST_MEM_ADDRESS - 24 - src_addr;
+        src_out_of_range ? src_addr - HIGHEST_SLICE_ADDRESS - 1 : HIGHEST_SLICE_ADDRESS - src_addr;
     MemoryAddress dst_abs_diff =
-        dst_out_of_range ? dst_addr - HIGHEST_MEM_ADDRESS + 23 : HIGHEST_MEM_ADDRESS - 24 - dst_addr;
+        dst_out_of_range ? dst_addr - HIGHEST_SLICE_ADDRESS - 1 : HIGHEST_SLICE_ADDRESS - dst_addr;
 
-    range_check.assert_range(src_abs_diff, MEMORY_NUM_BITS);
-    range_check.assert_range(dst_abs_diff, MEMORY_NUM_BITS);
+    range_check.assert_range(src_abs_diff, AVM_MEMORY_NUM_BITS);
+    range_check.assert_range(dst_abs_diff, AVM_MEMORY_NUM_BITS);
 
     const bool out_of_range = src_out_of_range || dst_out_of_range;
 
