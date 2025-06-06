@@ -9,14 +9,6 @@
 
 namespace bb::avm2::simulation {
 
-bool Memory::is_valid_address(const FF& address)
-{
-    // FIXME(fcarreiro): do not assert, do a boolean check.
-    // address fits in 32 bits
-    range_check.assert_range(static_cast<uint128_t>(address), 32);
-    return true;
-}
-
 void Memory::set(MemoryAddress index, MemoryValue value)
 {
     // TODO: validate address?
