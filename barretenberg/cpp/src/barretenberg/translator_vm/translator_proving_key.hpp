@@ -24,8 +24,12 @@ class TranslatorProvingKey {
     static constexpr size_t mini_circuit_dyadic_size = Flavor::MINI_CIRCUIT_SIZE;
     // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
     // to bring the degree of relations down, while extending the length.
-
     static constexpr size_t dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
+
+    // Real mini and full circuit sizes i.e. the number of rows excluding those reserved for randomness (to achieve
+    // hiding of polynomial commitments and evaluation). Bound to change, but it has to be even as translator works two
+    // rows at a time
+    static constexpr size_t real_mini_circuit_size = mini_circuit_dyadic_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
     static constexpr size_t real_circuit_size =
         dyadic_circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
 
@@ -49,11 +53,9 @@ class TranslatorProvingKey {
 
         proving_key = std::make_shared<ProvingKey>(std::move(commitment_key));
         auto wires = proving_key->polynomials.get_wires();
-        // this was of parallelising is silly
         for (auto [wire_poly_, wire_] : zip_view(wires, circuit.wires)) {
             auto& wire_poly = wire_poly_;
             const auto& wire = wire_;
-            // this was of parallelising is silly
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1383)
             parallel_for_range(circuit.num_gates, [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
@@ -66,7 +68,9 @@ class TranslatorProvingKey {
             });
         }
 
-        for (size_t idx = 4; idx < wires.size(); idx++) {
+        // Iterate over all circuit wire polynomials, except the ones representing the op queue, and add random values
+        // at the end.
+        for (size_t idx = Flavor::NUM_OP_QUEUE_WIRES; idx < wires.size(); idx++) {
             auto& wire = wires[idx];
             for (size_t i = wire.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < wire.end_index(); i++) {
                 wire.at(i) = FF::random_element();
@@ -74,13 +78,6 @@ class TranslatorProvingKey {
         }
 
         // First and last lagrange polynomials (in the full circuit size)
-        proving_key->polynomials.lagrange_first.at(0) = 1;
-        proving_key->polynomials.lagrange_real_last.at(real_circuit_size - 1) = 1;
-        proving_key->polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
-        for (size_t i = real_circuit_size; i < dyadic_circuit_size; i++) {
-            proving_key->polynomials.lagrange_masking.at(i) = 1;
-        }
-
         // Construct polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
         // polynomials at second and second to last indices in the minicircuit
         compute_lagrange_polynomials();
@@ -95,7 +92,7 @@ class TranslatorProvingKey {
 
         // Construct the ordered polynomials, containing the values of the interleaved polynomials + enough values to
         // bridge the range from 0 to 3 (3 is the maximum allowed range defined by the range constraint).
-        compute_translator_range_constraint_ordered_polynomials(true);
+        compute_translator_range_constraint_ordered_polynomials();
 
         // Populate the first 4 ordered polynomials with the random values from the interleaved polynomials
         for (size_t i = 0; i < 4; i++) {
@@ -106,13 +103,13 @@ class TranslatorProvingKey {
             }
         }
 
-        // TODO: mask the last ordered range constraint polynomial
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341)
     };
 
     /**
      * @brief Create the array of steps inserted in each ordered range constraint to ensure they respect the
      * appropriate structure for applying the DeltaRangeConstraint relation
-     * @details The delta range relation enforces values of a polynomial are within a certain range ([0, 2¹⁴ - 1] for
+     * @details The delta range relat;ion enforces values of a polynomial are within a certain range ([0, 2¹⁴ - 1] for
      * translator). It achieves this efficiently  by sorting the polynomial and checking that the difference between two
      * adjacent values is no more than 3. In the event that the distribution of a polynomial is not uniform across the
      * range (e.g. p_1(x) = {0, 2^14 - 1, 2^14 - 1, 2^14 - 1}), to ensure the relation is still satisfied, we
@@ -142,7 +139,7 @@ class TranslatorProvingKey {
 
     void compute_extra_range_constraint_numerator();
 
-    void compute_translator_range_constraint_ordered_polynomials(bool masking = false);
+    void compute_translator_range_constraint_ordered_polynomials();
 
     void compute_interleaved_polynomials();
 };

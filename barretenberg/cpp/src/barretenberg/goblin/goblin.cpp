@@ -103,11 +103,11 @@ bool Goblin::verify(const GoblinProof& proof, const std::shared_ptr<Transcript>&
     bool op_queue_consistency_verified =
         translator_verifier.verify_consistency_with_final_merge(merge_verifier.T_commitments);
 
-    info("merge verified?: ", merge_verified);
-    info("eccvm verified?: ", eccvm_verified);
-    info("accumulator construction_verified?: ", accumulator_construction_verified);
-    info("translation verified?: ", translation_verified);
-    info("consistency verified?: ", op_queue_consistency_verified);
+    vinfo("merge verified?: ", merge_verified);
+    vinfo("eccvm verified?: ", eccvm_verified);
+    vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
+    vinfo("translation verified?: ", translation_verified);
+    vinfo("consistency verified?: ", op_queue_consistency_verified);
 
     return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
            op_queue_consistency_verified;

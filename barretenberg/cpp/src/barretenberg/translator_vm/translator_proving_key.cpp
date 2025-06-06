@@ -76,19 +76,11 @@ void TranslatorProvingKey::compute_interleaved_polynomials()
  * values that couldn't go in + ( max_range / 3 +  1 ) connecting values. To counteract the extra ( k + 1 ) ⋅
  * ⋅ (max_range / 3 + 1 ) values needed for denominator sort constraints we need a polynomial in the numerator. So we
  * can construct a proof when ( k + 1 ) ⋅ ( max_range/ 3 + 1 ) < interleaved size
- *
- * @param masking if operating in zero-knowledge the real sizes of the polynomial should be adjusted to make space for
- * the random values.
  */
-void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomials(bool masking)
+void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomials()
 {
     // Get constants
     constexpr size_t num_interleaved_wires = Flavor::NUM_INTERLEAVED_WIRES;
-
-    const size_t mini_NUM_DISABLED_ROWS_IN_SUMCHECK = masking ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
-    // const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK =
-    //     masking ? mini_NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE : 0;
-    // const size_t real_circuit_size = dyadic_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     RefArray ordered_constraint_polynomials{ proving_key->polynomials.ordered_range_constraints_0,
                                              proving_key->polynomials.ordered_range_constraints_1,
@@ -117,10 +109,10 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         for (size_t j = 0; j < Flavor::INTERLEAVING_GROUP_SIZE; j++) {
 
             // Calculate the offset in the target vector
-            auto current_offset = j * (mini_circuit_dyadic_size - mini_NUM_DISABLED_ROWS_IN_SUMCHECK);
+            auto current_offset = j * real_mini_circuit_size;
+            ;
             // For each element in the polynomial
-            for (size_t k = group[j].start_index(); k < group[j].end_index() - mini_NUM_DISABLED_ROWS_IN_SUMCHECK;
-                 k++) {
+            for (size_t k = group[j].start_index(); k < group[j].end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {
@@ -159,15 +151,12 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 
     // Add steps to the extra denominator polynomial to fill it
     std::copy(sorted_elements.cbegin(), sorted_elements.cend(), extra_denominator_it);
-
-    ASSERT(extra_denominator_uint.size() == real_circuit_size);
     // Sort it
 #ifdef NO_PAR_ALGOS
     std::sort(extra_denominator_uint.begin(), extra_denominator_uint.end());
 #else
     std::sort(std::execution::par_unseq, extra_denominator_uint.begin(), extra_denominator_uint.end());
 #endif
-    ASSERT(extra_denominator_uint.size() == real_circuit_size);
 
     // Copy the values into the actual polynomial
     proving_key->polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);
@@ -176,15 +165,21 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 void TranslatorProvingKey::compute_lagrange_polynomials()
 {
 
-    for (size_t i = 2; i < mini_circuit_dyadic_size - NUM_DISABLED_ROWS_IN_SUMCHECK; i += 2) {
+    proving_key->polynomials.lagrange_first.at(0) = 1;
+    proving_key->polynomials.lagrange_real_last.at(real_circuit_size - 1) = 1;
+    proving_key->polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
+    for (size_t i = real_circuit_size; i < dyadic_circuit_size; i++) {
+        proving_key->polynomials.lagrange_masking.at(i) = 1;
+    }
+
+    for (size_t i = 2; i < real_mini_circuit_size; i += 2) {
         proving_key->polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         proving_key->polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
     proving_key->polynomials.lagrange_result_row.at(2) = 1;
-    proving_key->polynomials.lagrange_last_in_minicircuit.at(mini_circuit_dyadic_size - NUM_DISABLED_ROWS_IN_SUMCHECK -
-                                                             1) = 1;
-    for (size_t i = 0; i < NUM_DISABLED_ROWS_IN_SUMCHECK; i++) {
-        proving_key->polynomials.lagrange_mini_masking.at(mini_circuit_dyadic_size - i - 1) = 1;
+    proving_key->polynomials.lagrange_last_in_minicircuit.at(real_mini_circuit_size - 1) = 1;
+    for (size_t i = real_mini_circuit_size; i < mini_circuit_dyadic_size; i++) {
+        proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
     }
 }
 
