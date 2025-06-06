@@ -8,7 +8,7 @@ use crate::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     traits::Empty,
     utils::arrays::array_to_bounded_vec,
 };
@@ -16,7 +16,7 @@ use crate::{
 pub struct PrivateToPublicAccumulatedDataBuilder {
     pub note_hashes: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     pub nullifiers: BoundedVec<Field, MAX_NULLIFIERS_PER_TX>,
-    pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
+    pub l2_to_l1_msgs: BoundedVec<Scoped<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_TX>,
     pub private_logs: BoundedVec<PrivateLog, MAX_PRIVATE_LOGS_PER_TX>,
     pub contract_class_logs_hashes: BoundedVec<Scoped<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub public_call_requests: BoundedVec<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX>,
