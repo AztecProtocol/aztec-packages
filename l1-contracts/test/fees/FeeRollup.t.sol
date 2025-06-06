@@ -57,7 +57,7 @@ import {
 } from "./FeeModelTestPoints.t.sol";
 
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
-import {Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
@@ -78,7 +78,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
   struct Block {
     bytes32 archive;
-    Header header;
+    ProposedHeader header;
     bytes body;
     bytes blobInputs;
     bytes32[] txHashes;
@@ -143,7 +143,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
 
     bytes memory body = full.block.body;
-    Header memory header = full.block.header;
+    ProposedHeader memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
     TestPoint memory point = points[slotNumber.unwrap() - 1];

@@ -85,7 +85,7 @@ export class ProposedBlockHeader {
   }
 
   toBuffer() {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return serializeToBuffer([
       this.lastArchiveRoot,
       this.contentCommitment,
@@ -96,31 +96,6 @@ export class ProposedBlockHeader {
       this.gasFees,
       this.totalManaUsed,
     ]);
-  }
-
-  /**
-   * To Abi Buffer
-   * @returns A header buffer encoded as abi params
-   */
-  toAbiBuffer() {
-    return serializeToBuffer([
-      this.lastArchiveRoot,
-      this.contentCommitment,
-      this.slotNumber,
-      this.timestamp,
-      this.coinbase.toBuffer32(),
-      this.feeRecipient,
-      this.gasFees,
-      this.totalManaUsed,
-    ]);
-  }
-
-  /**
-   * Abi hash
-   * @returns the same value that would be returned by sha256ToField(abi.encode(header)) in solidity
-   */
-  toAbiHash(): Fr {
-    return sha256ToField([this.toAbiBuffer()]);
   }
 
   hash(): Fr {

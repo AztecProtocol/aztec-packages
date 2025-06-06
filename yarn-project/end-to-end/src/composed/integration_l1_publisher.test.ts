@@ -119,11 +119,7 @@ describe('L1Publisher integration', () => {
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
-    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {
-      // Match TestConstants.sol to generate correct jsons for solidity tests
-      aztecSlotDuration: 24,
-      aztecEpochDuration: 16,
-    }));
+    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger));
 
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
 
@@ -317,6 +313,7 @@ describe('L1Publisher integration', () => {
           },
           totalManaUsed: block.header.totalManaUsed.toNumber(),
         },
+        headerHash: asHex(block.header.toPropose().hash()),
         numTxs: block.body.txEffects.length,
       },
     };

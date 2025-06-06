@@ -54,7 +54,7 @@ export class ConsensusPayload implements Signable {
     const archiveRoot = this.archive.toString();
     const stateReference = this.stateReference.toAbi();
 
-    const headerHash = this.header.toAbiHash().toString();
+    const headerHash = this.header.hash().toString();
     const txArray = this.txHashes.map(tx => tx.toString());
     const encodedData = encodeAbiParameters(abi, [
       domainSeparator,

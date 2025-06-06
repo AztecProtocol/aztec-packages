@@ -82,7 +82,7 @@ library Errors {
   error Rollup__ManaLimitExceeded();
   error Rollup__RewardsNotClaimable();
 
-  // HeaderLib
+  // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
   error HeaderLib__InvalidSlotNumber(Slot expected, Slot actual); // 0x09ba91ff
 

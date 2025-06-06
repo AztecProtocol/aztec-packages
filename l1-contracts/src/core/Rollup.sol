@@ -23,7 +23,7 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet
@@ -104,7 +104,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _flags - The flags to validate
    */
   function validateHeader(
-    Header calldata _header,
+    ProposedHeader calldata _header,
     CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
     Timestamp _currentTime,
