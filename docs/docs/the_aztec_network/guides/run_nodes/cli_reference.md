@@ -363,7 +363,10 @@ If two subsystems can contain the same configuration option, only one needs to b
     --archiver.aztecProofSubmissionWindow <value>                  (default: 31)                                                        ($AZTEC_PROOF_SUBMISSION_WINDOW)
           The number of L2 slots that a proof for an epoch can be submitted in, starting from the beginning of the epoch.
 
-    --archiver.minimumStake <value>                                (default: 100000000000000000000)                                     ($AZTEC_MINIMUM_STAKE)
+    --archiver.depositAmount <value>                                (default: 100000000000000000000)                                    ($AZTEC_DEPOSIT_AMOUNT)
+          The deposit amount for a validator.
+
+    --archiver.minimumStake <value>                                (default: 50000000000000000000)                                      ($AZTEC_MINIMUM_STAKE)
           The minimum stake for a validator.
 
     --archiver.slashingQuorum <value>                              (default: 6)                                                         ($AZTEC_SLASHING_QUORUM)

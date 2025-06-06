@@ -13,7 +13,7 @@ contract DepositTest is StakingBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientAllowance.selector, address(staking), 0, MINIMUM_STAKE
+        IERC20Errors.ERC20InsufficientAllowance.selector, address(staking), 0, DEPOSIT_AMOUNT
       )
     );
 
@@ -21,7 +21,7 @@ contract DepositTest is StakingBase {
   }
 
   modifier givenCallerHasSufficientAllowance() {
-    stakingAsset.approve(address(staking), MINIMUM_STAKE);
+    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
     _;
   }
 
@@ -30,7 +30,7 @@ contract DepositTest is StakingBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, MINIMUM_STAKE
+        IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, DEPOSIT_AMOUNT
       )
     );
 
@@ -38,7 +38,7 @@ contract DepositTest is StakingBase {
   }
 
   modifier givenCallerHasSufficientFunds() {
-    stakingAsset.mint(address(this), MINIMUM_STAKE);
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
     _;
   }
 
@@ -51,7 +51,7 @@ contract DepositTest is StakingBase {
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
-    stakingAsset.mint(address(this), MINIMUM_STAKE);
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), type(uint256).max);
 
     address magicAddress = address(staking.getGSE().CANONICAL_MAGIC_ADDRESS());
@@ -62,7 +62,7 @@ contract DepositTest is StakingBase {
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
     vm.prank(SLASHER);
-    staking.slash(ATTESTER, MINIMUM_STAKE / 2);
+    staking.slash(ATTESTER, DEPOSIT_AMOUNT - MINIMUM_STAKE + 1);
     assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.LIVING));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
@@ -108,10 +108,10 @@ contract DepositTest is StakingBase {
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
-    assertEq(stakingAsset.balanceOf(address(staking.getGSE().getGovernance())), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(address(staking.getGSE().getGovernance())), DEPOSIT_AMOUNT);
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
-    assertEq(attesterView.effectiveBalance, MINIMUM_STAKE, "effective balance");
+    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT, "effective balance");
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
     assertTrue(attesterView.status == Status.VALIDATING);
   }

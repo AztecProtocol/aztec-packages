@@ -32,7 +32,7 @@ describe('e2e_p2p_slashing', () => {
 
   const slashingQuorum = 3;
   const slashingRoundSize = 5;
-  const slashingAmount = 10n ** 18n;
+  const slashingAmount = 1n + 50n * 10n ** 18n;
   const aztecSlotDuration = 12;
 
   beforeEach(async () => {
@@ -158,6 +158,7 @@ describe('e2e_p2p_slashing', () => {
 
     t.logger.info(`Waiting for slash payload to be deployed`);
     const expectedSlashes = Array.from({ length: committee.length }, () => slashingAmount);
+    t.logger.info(`Expected slashes: ${expectedSlashes}`);
     const sortedCommittee = [...committee].sort((a, b) => a.localeCompare(b));
     await retryUntil(
       async () => {
