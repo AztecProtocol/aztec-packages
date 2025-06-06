@@ -31,6 +31,12 @@ export function describeAztecMultiMap(
         : await (sut as AztecAsyncMultiMap<any, any>).getAsync(key);
     }
 
+    async function size(sut: AztecAsyncMultiMap<any, any> | AztecMultiMap<any, any> = multiMap) {
+      return isSyncStore(store) && !forceAsync
+        ? (sut as AztecMultiMap<any, any>).size()
+        : await (sut as AztecAsyncMultiMap<any, any>).sizeAsync();
+    }
+
     async function entries() {
       return isSyncStore(store) && !forceAsync
         ? await toArray((multiMap as AztecMultiMap<any, any>).entries())
@@ -79,6 +85,16 @@ export function describeAztecMultiMap(
 
       expect(await get('foo')).to.equal(undefined);
       expect(await get('baz')).to.equal('qux');
+    });
+
+    it('should be able to get size of the map', async () => {
+      await multiMap.set('foo', 'bar');
+      expect(await size()).to.equal(1);
+      await multiMap.set('baz', 'qux');
+      expect(await size()).to.equal(2);
+
+      await multiMap.delete('foo');
+      expect(await size()).to.equal(1);
     });
 
     it('should be able to iterate over entries when there are no keys', async () => {
@@ -131,6 +147,21 @@ export function describeAztecMultiMap(
       await multiMap.deleteValue('foo', '2');
 
       expect(await getValues('foo')).to.deep.equal(['1', '3']);
+    });
+
+    it('should be able to get size of the map with duplicate keys', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      await multiMap.set('foo', '3');
+      expect(await size()).to.equal(3);
+
+      await multiMap.set('bar', '1');
+      await multiMap.set('bar', '2');
+      await multiMap.set('bar', '3');
+      expect(await size()).to.equal(6);
+
+      await multiMap.deleteValue('foo', '2');
+      expect(await size()).to.equal(5);
     });
 
     it('should be able to delete the last and first values for a key', async () => {
