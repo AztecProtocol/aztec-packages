@@ -123,9 +123,8 @@ pol commit num_relative_operands_inv;
 pol NUM_RELATIVE_X = NUM_RELATIVE_OPERANDS;
 pol NUM_RELATIVE_Y = num_relative_operands_inv;
 pol NUM_RELATIVE_E = 1 - sel_do_base_check;
-pol NUM_RELATIVE_EQ = NUM_RELATIVE_X * (NUM_RELATIVE_E * (1 - NUM_RELATIVE_Y) + NUM_RELATIVE_Y) - 1 + NUM_RELATIVE_E;
 #[NUM_RELATIVE_INV_CHECK]
-sel_should_resolve_address * NUM_RELATIVE_EQ = 0;
+NUM_RELATIVE_X * (NUM_RELATIVE_E * (1 - NUM_RELATIVE_Y) + NUM_RELATIVE_Y) - 1 + NUM_RELATIVE_E = 0;
 
 // TODO: complete this lookup once we get memory done. In particular, clk and space id.
 // FIXME: this should eventually be a permutation.
@@ -146,9 +145,8 @@ pol commit base_address_tag_diff_inv;
 pol BASE_CHECK_X = sel_do_base_check * (base_address_tag - constants.MEM_TAG_U32);
 pol BASE_CHECK_Y = base_address_tag_diff_inv;
 pol BASE_CHECK_E = 1 - sel_base_address_failure;
-pol BASE_CHECK_EQ = BASE_CHECK_X * (BASE_CHECK_E * (1 - BASE_CHECK_Y) + BASE_CHECK_Y) - 1 + BASE_CHECK_E;
 #[BASE_ADDRESS_CHECK]
-sel_should_resolve_address * BASE_CHECK_EQ = 0;
+BASE_CHECK_X * (BASE_CHECK_E * (1 - BASE_CHECK_Y) + BASE_CHECK_Y) - 1 + BASE_CHECK_E = 0;
 
 /**************************************************************************************************
  *  Relative Resolution
