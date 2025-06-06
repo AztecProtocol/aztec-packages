@@ -11,7 +11,7 @@ import { OutboxAbi } from '@aztec/l1-artifacts/OutboxAbi';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TokenPortalAbi } from '@aztec/l1-artifacts/TokenPortalAbi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computeL2ToL1MessageHash, computeSecretHash } from '@aztec/stdlib/hash';
+import { computeSecretHash } from '@aztec/stdlib/hash';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import { type Hex, getContract, toFunctionSelector } from 'viem';
@@ -446,13 +446,14 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       new Fr(amount).toBuffer(),
       callerOnL1.toBuffer32(),
     ]);
+    const leaf = sha256ToField([
+      l2Bridge.toBuffer(),
+      new Fr(version).toBuffer(), // aztec version
+      EthAddress.fromString(this.portal.address).toBuffer32() ?? Buffer.alloc(32, 0),
+      new Fr(this.extendedClient.chain.id).toBuffer(), // chain id
+      content.toBuffer(),
+    ]);
 
-    return computeL2ToL1MessageHash({
-      l2Sender: l2Bridge,
-      l1Recipient: EthAddress.fromString(this.portal.address),
-      content,
-      rollupVersion: new Fr(version),
-      chainId: new Fr(this.extendedClient.chain.id),
-    });
+    return leaf;
   }
 }
