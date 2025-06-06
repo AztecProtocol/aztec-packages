@@ -6,11 +6,16 @@ source $ci3/source_redis
 status=${1:-RUNNING}
 key=${2:-}
 
-# CI runs are grouped either by the merge queue they enter, or in the release group if tagged with a semver.
+# CI runs are grouped by:
+# - The 'release' group if tagged with a semver.
+# - Or by the target branch of the merge queue they enter.
+# - Or in the 'prs' group.
 if semver check "$REF_NAME"; then
   range_key="ci-run-releases"
-else
+elif [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
   range_key="ci-run-$TARGET_BRANCH"
+else
+  range_key="ci-run-prs"
 fi
 
 if [ -z "$key" ]; then
