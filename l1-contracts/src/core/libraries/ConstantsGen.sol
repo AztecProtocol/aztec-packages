@@ -25,7 +25,7 @@ library Constants {
   uint256 internal constant FEE_JUICE_ADDRESS = 5;
   uint256 internal constant BLOB_PUBLIC_INPUTS = 6;
   uint256 internal constant BLOB_PUBLIC_INPUTS_BYTES = 112;
-  uint256 internal constant PROPOSED_BLOCK_HEADER_LENGTH_BYTES = 348;
+  uint256 internal constant PROPOSED_BLOCK_HEADER_LENGTH_BYTES = 316;
   uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 1015;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;

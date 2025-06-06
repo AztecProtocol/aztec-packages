@@ -174,12 +174,12 @@ std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation
 
         // TODO compute fee
 
-        { Column::tx_fee_per_da_gas, event.fee_per_da_gas },
-        { Column::tx_fee_per_l2_gas, event.fee_per_l2_gas },
-        { Column::tx_max_fee_per_da_gas, event.max_fee_per_da_gas },
-        { Column::tx_max_fee_per_l2_gas, event.max_fee_per_l2_gas },
-        { Column::tx_max_priority_fees_per_l2_gas, event.max_priority_fees_per_l2_gas },
-        { Column::tx_max_priority_fees_per_da_gas, event.max_priority_fees_per_da_gas },
+        { Column::tx_fee_per_da_gas, uint256_t::from_uint128(event.fee_per_da_gas) },
+        { Column::tx_fee_per_l2_gas, uint256_t::from_uint128(event.fee_per_l2_gas) },
+        { Column::tx_max_fee_per_da_gas, uint256_t::from_uint128(event.max_fee_per_da_gas) },
+        { Column::tx_max_fee_per_l2_gas, uint256_t::from_uint128(event.max_fee_per_l2_gas) },
+        { Column::tx_max_priority_fees_per_l2_gas, uint256_t::from_uint128(event.max_priority_fees_per_l2_gas) },
+        { Column::tx_max_priority_fees_per_da_gas, uint256_t::from_uint128(event.max_priority_fees_per_da_gas) },
     };
 }
 

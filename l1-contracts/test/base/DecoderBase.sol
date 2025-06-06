@@ -52,8 +52,8 @@ contract DecoderBase is TestBase {
   }
 
   struct GasFees {
-    uint256 feePerDaGas;
-    uint256 feePerL2Gas;
+    uint128 feePerDaGas;
+    uint128 feePerL2Gas;
   }
 
   struct ContentCommitment {
@@ -197,24 +197,34 @@ contract DecoderBase is TestBase {
     return _header;
   }
 
-  function updateHeaderDaFee(bytes memory _header, uint256 _fee)
+  function updateHeaderDaFee(bytes memory _header, uint128 _fee)
     internal
     pure
     returns (bytes memory)
   {
     assembly {
-      mstore(add(_header, add(0x20, 0x00fc)), _fee)
+      let ptr := add(_header, add(0x20, 0x00fc))
+      // Da fee per gas is only 16 bytes, so we need to keep the the other 16 bytes.
+      let prev := mload(ptr)
+      let mask := shr(mul(16, 8), not(0))
+      let updated := or(and(prev, mask), shl(mul(16, 8), _fee))
+      mstore(ptr, updated)
     }
     return _header;
   }
 
-  function updateHeaderBaseFee(bytes memory _header, uint256 _baseFee)
+  function updateHeaderBaseFee(bytes memory _header, uint128 _baseFee)
     internal
     pure
     returns (bytes memory)
   {
     assembly {
-      mstore(add(_header, add(0x20, 0x011c)), _baseFee)
+      let ptr := add(_header, add(0x20, 0x010c))
+      // Base fee per gas is only 16 bytes, so we need to keep the the other 16 bytes.
+      let prev := mload(ptr)
+      let mask := shr(mul(16, 8), not(0))
+      let updated := or(and(prev, mask), shl(mul(16, 8), _baseFee))
+      mstore(ptr, updated)
     }
     return _header;
   }
@@ -225,7 +235,7 @@ contract DecoderBase is TestBase {
     returns (bytes memory)
   {
     assembly {
-      mstore(add(_header, add(0x20, 0x013c)), _manaUsed)
+      mstore(add(_header, add(0x20, 0x011c)), _manaUsed)
     }
     return _header;
   }

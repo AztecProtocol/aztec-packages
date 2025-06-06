@@ -9,8 +9,8 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 struct GasFees {
-  uint256 feePerDaGas;
-  uint256 feePerL2Gas;
+  uint128 feePerDaGas;
+  uint128 feePerL2Gas;
 }
 
 struct ContentCommitment {
@@ -56,9 +56,9 @@ struct Header {
  *  | 0x00c0                                                                           | 0x08         | timestamp
  *  | 0x00c8                                                                           | 0x14         | coinbase
  *  | 0x00dc                                                                           | 0x20         | feeRecipient
- *  | 0x00fc                                                                           | 0x20         | gasFees.feePerDaGas
- *  | 0x011c                                                                           | 0x20         | gasFees.feePerL2Gas
- *  | 0x013c                                                                           | 0x20         | totalManaUsed
+ *  | 0x00fc                                                                           | 0x10         | gasFees.feePerDaGas
+ *  | 0x010c                                                                           | 0x10         | gasFees.feePerL2Gas
+ *  | 0x011c                                                                           | 0x20         | totalManaUsed
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
@@ -91,11 +91,11 @@ library HeaderLib {
     header.timestamp = Timestamp.wrap(uint256(uint64(bytes8(_header[0x00c0:0x00c8]))));
     header.coinbase = address(bytes20(_header[0x00c8:0x00dc]));
     header.feeRecipient = bytes32(_header[0x00dc:0x00fc]);
-    header.gasFees.feePerDaGas = uint256(bytes32(_header[0x00fc:0x011c]));
-    header.gasFees.feePerL2Gas = uint256(bytes32(_header[0x011c:0x013c]));
+    header.gasFees.feePerDaGas = uint128(bytes16(_header[0x00fc:0x010c]));
+    header.gasFees.feePerL2Gas = uint128(bytes16(_header[0x010c:0x011c]));
 
     // Reading totalManaUsed
-    header.totalManaUsed = uint256(bytes32(_header[0x013c:0x015c]));
+    header.totalManaUsed = uint256(bytes32(_header[0x011c:0x013c]));
 
     return header;
   }

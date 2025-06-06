@@ -111,8 +111,8 @@ struct PublicDataWrite {
 ////////////////////////////////////////////////////////////////////////////
 
 struct GasFees {
-    FF feePerDaGas;
-    FF feePerL2Gas;
+    uint128_t feePerDaGas;
+    uint128_t feePerL2Gas;
 
     bool operator==(const GasFees& other) const = default;
 

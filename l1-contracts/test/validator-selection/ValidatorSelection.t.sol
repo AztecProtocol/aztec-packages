@@ -11,6 +11,8 @@ import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
 import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
@@ -313,7 +315,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     bytes32[] memory txHashes = new bytes32[](0);
 
     {
-      uint256 manaBaseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+      uint128 manaBaseFee =
+        SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
       bytes32 inHash = inbox.getRoot(full.block.blockNumber);
       header = DecoderBase.updateHeaderInboxRoot(header, inHash);
       header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);

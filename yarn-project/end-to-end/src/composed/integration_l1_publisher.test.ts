@@ -119,7 +119,11 @@ describe('L1Publisher integration', () => {
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
-    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {}));
+    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {
+      // Match TestConstants.sol to generate correct jsons for solidity tests
+      aztecSlotDuration: 24,
+      aztecEpochDuration: 16,
+    }));
 
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
 
@@ -305,8 +309,8 @@ describe('L1Publisher integration', () => {
           coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
           feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
           gasFees: {
-            feePerDaGas: block.header.globalVariables.gasFees.feePerDaGas.toNumber(),
-            feePerL2Gas: block.header.globalVariables.gasFees.feePerL2Gas.toNumber(),
+            feePerDaGas: Number(block.header.globalVariables.gasFees.feePerDaGas),
+            feePerL2Gas: Number(block.header.globalVariables.gasFees.feePerL2Gas),
           },
           totalManaUsed: `0x${block.header.totalManaUsed.toBuffer().toString('hex').padStart(64, '0')}`,
         },
@@ -381,7 +385,7 @@ describe('L1Publisher integration', () => {
           new Fr(timestamp),
           coinbase,
           feeRecipient,
-          new GasFees(Fr.ZERO, new Fr(await rollup.getManaBaseFeeAt(timestamp, true))),
+          new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
         );
 
         const block = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
@@ -518,7 +522,7 @@ describe('L1Publisher integration', () => {
         new Fr(timestamp),
         coinbase,
         feeRecipient,
-        new GasFees(Fr.ZERO, new Fr(await rollup.getManaBaseFeeAt(timestamp, true))),
+        new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
       );
       const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;

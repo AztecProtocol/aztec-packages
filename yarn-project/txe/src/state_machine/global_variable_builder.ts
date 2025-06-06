@@ -15,7 +15,7 @@ export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
   constructor() {}
 
   public getCurrentBaseFees(): Promise<GasFees> {
-    return Promise.resolve(new GasFees(Fr.ZERO, Fr.ZERO));
+    return Promise.resolve(new GasFees(0, 0));
   }
 
   /**
@@ -32,7 +32,7 @@ export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
   ): Promise<GlobalVariables> {
-    const gasFees = new GasFees(Fr.ZERO, Fr.ZERO);
+    const gasFees = new GasFees(0, 0);
 
     slotNumber ??= this.slotNumber;
 
