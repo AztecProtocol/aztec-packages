@@ -58,7 +58,8 @@ export enum VoteType {
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+export type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+
 interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
