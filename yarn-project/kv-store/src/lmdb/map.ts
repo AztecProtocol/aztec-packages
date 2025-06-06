@@ -131,6 +131,15 @@ export class LmdbAztecMap<K extends Key, V extends Value> implements AztecMap<K,
     }
   }
 
+  size(): number {
+    const iterator = this.db.getRange({ start: this.startSentinel, end: this.endSentinel });
+    return iterator.asArray.length;
+  }
+
+  sizeAsync(): Promise<number> {
+    return Promise.resolve(this.size());
+  }
+
   *keys(range: Range<K> = {}): IterableIterator<K> {
     for (const [key, _] of this.entries(range)) {
       yield key;
