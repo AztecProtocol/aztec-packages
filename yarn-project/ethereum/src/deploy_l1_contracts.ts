@@ -223,6 +223,7 @@ export const l1Artifacts = {
   mockVerifier: {
     contractAbi: MockVerifierAbi,
     contractBytecode: MockVerifierBytecode as Hex,
+  },
   mockZkPassportVerifier: {
     contractAbi: MockZKPassportVerifierAbi,
     contractBytecode: MockZKPassportVerifierBytecode as Hex,
