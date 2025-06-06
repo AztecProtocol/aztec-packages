@@ -247,10 +247,6 @@ tests:
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
     owners:
       - *palla
-  - regex: "ethereum/src/l1_tx_utils.test.ts"
-    error_regex: "✕ calculates correct gas prices for initial attempt"
-    owners:
-      - *spyros
   - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
     error_regex: "✕ keeps the jobs in progress while it is alive"
     owners:
