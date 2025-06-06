@@ -220,7 +220,6 @@ TEST(AddressingConstrainingTest, RelativeAddressPropagation)
             { C::execution_sel_op_is_address_5_, 1 },
             { C::execution_sel_op_is_address_6_, 1 },
             // Selectors that enable the subrelation.
-            { C::execution_sel_should_resolve_address, 1 },
             { C::execution_sel_op_is_relative_wire_0_, 1 },
             { C::execution_sel_op_is_relative_wire_1_, 0 },
             { C::execution_sel_op_is_relative_wire_2_, 1 },
@@ -265,9 +264,52 @@ TEST(AddressingConstrainingTest, RelativeAddressPropagation)
                               "RELATIVE_RESOLUTION_5");
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_RESOLUTION_6),
                               "RELATIVE_RESOLUTION_6");
+}
 
-    // Propagation is unconstrained if sel_should_resolve_address is 0.
-    trace.set(C::execution_sel_should_resolve_address, /*row=*/0, /*value=*/0);
+TEST(AddressingConstrainingTest, RelativeAddressPropagationWhenBaseAddressIsInvalid)
+{
+    FF base_address_val = 0x123456789012345ULL;
+
+    TestTraceContainer trace({
+        {
+            { C::execution_base_address_val, base_address_val },
+            { C::execution_sel_base_address_failure, 1 },
+            // Original operands.
+            { C::execution_op_0_, 123 },
+            { C::execution_op_1_, 456 },
+            { C::execution_op_2_, 0xFFFFFFFF /*2^32 - 1*/ },
+            { C::execution_op_3_, 101112 },
+            { C::execution_op_4_, 131415 },
+            { C::execution_op_5_, 161718 },
+            { C::execution_op_6_, 192021 },
+            // After relative step. Base address was not added.
+            { C::execution_op_after_relative_0_, 123 },
+            { C::execution_op_after_relative_1_, 456 },
+            { C::execution_op_after_relative_2_, 0xFFFFFFFF },
+            { C::execution_op_after_relative_3_, 101112 },
+            { C::execution_op_after_relative_4_, 131415 },
+            { C::execution_op_after_relative_5_, 161718 },
+            { C::execution_op_after_relative_6_, 192021 },
+            // From spec.
+            { C::execution_sel_op_is_address_0_, 1 },
+            { C::execution_sel_op_is_address_1_, 1 },
+            { C::execution_sel_op_is_address_2_, 1 },
+            { C::execution_sel_op_is_address_3_, 1 },
+            { C::execution_sel_op_is_address_4_, 1 },
+            { C::execution_sel_op_is_address_5_, 1 },
+            { C::execution_sel_op_is_address_6_, 1 },
+            // Selectors that enable the subrelation.
+            { C::execution_sel_should_resolve_address, 1 },
+            { C::execution_sel_op_is_relative_wire_0_, 1 },
+            { C::execution_sel_op_is_relative_wire_1_, 0 },
+            { C::execution_sel_op_is_relative_wire_2_, 1 },
+            { C::execution_sel_op_is_relative_wire_3_, 0 },
+            { C::execution_sel_op_is_relative_wire_4_, 1 },
+            { C::execution_sel_op_is_relative_wire_5_, 0 },
+            { C::execution_sel_op_is_relative_wire_6_, 1 },
+        },
+    });
+
     check_relation<addressing>(trace,
                                addressing::SR_RELATIVE_RESOLUTION_0,
                                addressing::SR_RELATIVE_RESOLUTION_1,
@@ -276,6 +318,11 @@ TEST(AddressingConstrainingTest, RelativeAddressPropagation)
                                addressing::SR_RELATIVE_RESOLUTION_4,
                                addressing::SR_RELATIVE_RESOLUTION_5,
                                addressing::SR_RELATIVE_RESOLUTION_6);
+
+    // If I try to add the base address, the relation should fail.
+    trace.set(C::execution_op_after_relative_0_, /*row=*/0, /*value=*/FF(123) + base_address_val);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_RESOLUTION_0),
+                              "RELATIVE_RESOLUTION_0");
 }
 
 TEST(AddressingConstrainingTest, RelativeOverflow)

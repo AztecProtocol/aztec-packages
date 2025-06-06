@@ -157,23 +157,26 @@ pol commit op_after_relative[7];
 // Whether relative resolution overflowed the address space.
 pol commit sel_relative_overflow[7];
 
+// Note that we will not add the base address if there was a failure.
 #[RELATIVE_RESOLUTION_0]
-sel_should_resolve_address * (op[0] + SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * base_address_val - op_after_relative[0]) = 0;
+op_after_relative[0] = op[0] + SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * (1 - sel_base_address_failure) * base_address_val;
 #[RELATIVE_RESOLUTION_1]
-sel_should_resolve_address * (op[1] + SEL_OP_IS_RELATIVE_EFFECTIVE_1_ * base_address_val - op_after_relative[1]) = 0;
+op_after_relative[1] = op[1] + SEL_OP_IS_RELATIVE_EFFECTIVE_1_ * (1 - sel_base_address_failure) * base_address_val;
 #[RELATIVE_RESOLUTION_2]
-sel_should_resolve_address * (op[2] + SEL_OP_IS_RELATIVE_EFFECTIVE_2_ * base_address_val - op_after_relative[2]) = 0;
+op_after_relative[2] = op[2] + SEL_OP_IS_RELATIVE_EFFECTIVE_2_ * (1 - sel_base_address_failure) * base_address_val;
 #[RELATIVE_RESOLUTION_3]
-sel_should_resolve_address * (op[3] + SEL_OP_IS_RELATIVE_EFFECTIVE_3_ * base_address_val - op_after_relative[3]) = 0;
+op_after_relative[3] = op[3] + SEL_OP_IS_RELATIVE_EFFECTIVE_3_ * (1 - sel_base_address_failure) * base_address_val;
 #[RELATIVE_RESOLUTION_4]
-sel_should_resolve_address * (op[4] + SEL_OP_IS_RELATIVE_EFFECTIVE_4_ * base_address_val - op_after_relative[4]) = 0;
+op_after_relative[4] = op[4] + SEL_OP_IS_RELATIVE_EFFECTIVE_4_ * (1 - sel_base_address_failure) * base_address_val;
 #[RELATIVE_RESOLUTION_5]
-sel_should_resolve_address * (op[5] + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ * base_address_val - op_after_relative[5]) = 0;
+op_after_relative[5] = op[5] + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ * (1 - sel_base_address_failure) * base_address_val;
 #[RELATIVE_RESOLUTION_6]
-sel_should_resolve_address * (op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * base_address_val - op_after_relative[6]) = 0;
+op_after_relative[6] = op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * (1 - sel_base_address_failure) * base_address_val;
 
 // #[RELATIVE_OVERFLOW_i]
 // FIXME(fcarreiro): Constrain that sel_relative_overflow[i] == (op_after_relative[0] >= 2^32).
+// You can assume that the base address is valid for the purposes of this constraint, because in the above
+// relations the base address will not be used if there was a failure.
 
 /**************************************************************************************************
  *  Indirection Resolution
