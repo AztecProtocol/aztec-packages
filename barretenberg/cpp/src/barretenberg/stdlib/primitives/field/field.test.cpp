@@ -655,7 +655,37 @@ template <typename Builder> class stdlib_field : public testing::Test {
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
+    static void test_conditional_negate()
+    {
+        Builder builder = Builder();
+        std::array<bool_ct, 4> predicates{
+            bool_ct(true), bool_ct(false), bool_ct(&builder, true), bool_ct(&builder, false)
+        };
+        field_ct constant_summand(bb::fr::random_element());
+        field_ct witness_summand(witness_ct(&builder, bb::fr::random_element()));
+        for (auto& predicate : predicates) {
+            size_t num_gates_before = builder.get_estimated_num_finalized_gates();
 
+            auto result = constant_summand.conditional_negate(predicate);
+            auto expected_result = predicate.get_value() ? -constant_summand.get_value() : constant_summand.get_value();
+            EXPECT_TRUE(result.get_value() == expected_result);
+            // Check that result is constant only if both the predicate and (*this) are constant.
+            EXPECT_TRUE(result.is_constant() == predicate.is_constant());
+
+            result = witness_summand.conditional_negate(predicate);
+            expected_result = predicate.get_value() ? -witness_summand.get_value() : witness_summand.get_value();
+            EXPECT_TRUE(result.get_value() == expected_result);
+            // Check that result is constant only if both the predicate and (*this) are constant.
+            EXPECT_FALSE(result.is_constant());
+
+            if (predicate.is_constant()) {
+                EXPECT_TRUE(builder.get_estimated_num_finalized_gates() == num_gates_before);
+            } else {
+                // Each conditional_negate calls `madd` that creates a single gate.
+                EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == 2);
+            }
+        }
+    }
     static void two_bit_table()
     {
         Builder builder = Builder();
@@ -694,13 +724,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
         //
         field_ct a(witness_ct(&builder, fr(126283)));
         auto slice_data = a.slice(10, 3);
-
         EXPECT_EQ(slice_data[0].get_value(), fr(3));
         EXPECT_EQ(slice_data[1].get_value(), fr(169));
         EXPECT_EQ(slice_data[2].get_value(), fr(61));
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     static void test_slice_equal_msb_lsb()
@@ -729,21 +757,25 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         uint8_t lsb = 106;
         uint8_t msb = 189;
-        fr a_ = fr(uint256_t(fr::random_element()) && ((uint256_t(1) << 252) - 1));
+        fr a_ = fr(engine.get_random_uint256() && ((uint256_t(1) << 252) - 1));
         field_ct a(witness_ct(&builder, a_));
         auto slice = a.slice(msb, lsb);
 
-        const uint256_t expected0 = uint256_t(a_) & ((uint256_t(1) << uint64_t(lsb)) - 1);
-        const uint256_t expected1 = (uint256_t(a_) >> lsb) & ((uint256_t(1) << (uint64_t(msb - lsb) + 1)) - 1);
-        const uint256_t expected2 =
-            (uint256_t(a_) >> uint64_t(msb + 1)) & ((uint256_t(1) << (uint64_t(252 - msb) - 1)) - 1);
+        const uint256_t expected0 = uint256_t(a_) & ((uint256_t(1) << lsb) - 1);
+        const uint256_t expected1 = (uint256_t(a_) >> lsb) & ((uint256_t(1) << (msb - lsb + 1)) - 1);
+        const uint256_t expected2 = (uint256_t(a_) >> (msb + 1)) & ((uint256_t(1) << (252 - msb - 1)) - 1);
 
         EXPECT_EQ(slice[0].get_value(), fr(expected0));
         EXPECT_EQ(slice[1].get_value(), fr(expected1));
         EXPECT_EQ(slice[2].get_value(), fr(expected2));
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // Check that attempting to slice a full uint256_t value leads to a circuit failure.
+        a = witness_ct(&builder, engine.get_random_uint256());
+        slice = a.slice(msb, lsb);
+        EXPECT_FALSE(CircuitChecker::check(builder));
+        EXPECT_TRUE(builder.err() == "slice: hi value too large.");
     }
 
     static void three_bit_table()
@@ -1440,6 +1472,11 @@ TYPED_TEST(stdlib_field, test_is_zero)
 TYPED_TEST(stdlib_field, test_fix_witness)
 {
     TestFixture::test_fix_witness();
+}
+
+TYPED_TEST(stdlib_field, test_conditional_negate)
+{
+    TestFixture::test_conditional_negate();
 }
 TYPED_TEST(stdlib_field, madd)
 {

@@ -265,7 +265,7 @@ template <typename Builder> class field_t {
     field_t madd(const field_t& to_mul, const field_t& to_add) const;
 
     // add_two costs 1 constraint in Ultra arithmetization
-    field_t add_two(const field_t& add_a, const field_t& add_b) const;
+    field_t add_two(const field_t& add_b, const field_t& add_c) const;
     bool_t<Builder> operator==(const field_t& other) const;
     bool_t<Builder> operator!=(const field_t& other) const;
 
@@ -289,10 +289,6 @@ template <typename Builder> class field_t {
 
     Builder* get_context() const { return context; }
 
-    /**
-     * Slices a `field_t` at given indices (msb, lsb) both included in the slice,
-     * returns three parts: [low, slice, high].
-     */
     std::array<field_t, 3> slice(uint8_t msb, uint8_t lsb) const;
 
     /**

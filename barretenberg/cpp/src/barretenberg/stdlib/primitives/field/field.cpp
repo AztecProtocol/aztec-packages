@@ -464,7 +464,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
 {
     Builder* ctx = first_non_null<Builder>(context, to_mul.context, to_add.context);
 
-    if (to_mul.is_constant() && to_add.is_constant() && this->is_constant()) {
+    if (to_mul.is_constant() && to_add.is_constant() && is_constant()) {
         return ((*this) * to_mul + to_add);
     }
 
@@ -493,24 +493,24 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
     // Note: the value of a constant field_t is wholly tracked by the field_t's `additive_constant` member, which is
     // accounted for in the above-calculated selectors (`q_`'s). Therefore no witness (`variables[witness_index]`)
     // exists for constants, and so the field_t's corresponding wire value is set to `0` in the gate equation.
-    bb::fr a = witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(witness_index);
-    bb::fr b = to_mul.witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(to_mul.witness_index);
-    bb::fr c = to_add.witness_index == IS_CONSTANT ? bb::fr(0) : ctx->get_variable(to_add.witness_index);
+    bb::fr a = is_constant() ? bb::fr::zero() : ctx->get_variable(witness_index);
+    bb::fr b = to_mul.is_constant() ? bb::fr::zero() : ctx->get_variable(to_mul.witness_index);
+    bb::fr c = to_add.is_constant() ? bb::fr::zero() : ctx->get_variable(to_add.witness_index);
 
     bb::fr out = a * b * q_m + a * q_1 + b * q_2 + c * q_3 + q_c;
 
     field_t<Builder> result(ctx);
     result.witness_index = ctx->add_variable(out);
     ctx->create_big_mul_gate({
-        .a = witness_index == IS_CONSTANT ? ctx->zero_idx : witness_index,
-        .b = to_mul.witness_index == IS_CONSTANT ? ctx->zero_idx : to_mul.witness_index,
-        .c = to_add.witness_index == IS_CONSTANT ? ctx->zero_idx : to_add.witness_index,
+        .a = is_constant() ? ctx->zero_idx : witness_index,
+        .b = to_mul.is_constant() ? ctx->zero_idx : to_mul.witness_index,
+        .c = to_add.is_constant() ? ctx->zero_idx : to_add.witness_index,
         .d = result.witness_index,
         .mul_scaling = q_m,
         .a_scaling = q_1,
         .b_scaling = q_2,
         .c_scaling = q_3,
-        .d_scaling = -bb::fr(1),
+        .d_scaling = bb::fr::neg_one(),
         .const_scaling = q_c,
     });
     result.tag = OriginTag(tag, to_mul.tag, to_add.tag);
@@ -520,47 +520,62 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
 /**
  * @brief Returns (this + a + b)
  *
- * @details Use custom big_mul_gate to save gates.
+ * @details Use `big_mul_gate` to save gates when computing the sum of 3 witnesses.
  *
  * @tparam Builder
  * @param add_a
  * @param add_b
  * @return field_t<Builder>
  */
-template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const field_t& add_a, const field_t& add_b) const
+template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const field_t& add_b, const field_t& add_c) const
 {
-    Builder* ctx = first_non_null<Builder>(context, add_a.context, add_b.context);
-
-    if ((add_a.is_constant()) && (add_b.is_constant()) && (this->is_constant())) {
-        return (*this) + add_a + add_b;
+    if ((add_b.is_constant()) && (add_c.is_constant()) && (is_constant())) {
+        return (*this) + add_b + add_c;
     }
-    bb::fr q_1 = multiplicative_constant;
-    bb::fr q_2 = add_a.multiplicative_constant;
-    bb::fr q_3 = add_b.multiplicative_constant;
-    bb::fr q_c = additive_constant + add_a.additive_constant + add_b.additive_constant;
+    Builder* ctx = first_non_null<Builder>(context, add_b.context, add_c.context);
 
-    bb::fr a = this->is_constant() ? bb::fr(0) : ctx->get_variable(witness_index);
-    bb::fr b = add_a.is_constant() ? bb::fr(0) : ctx->get_variable(add_a.witness_index);
-    bb::fr c = add_b.is_constant() ? bb::fr(0) : ctx->get_variable(add_b.witness_index);
+    // Let  d := a + (b+c), where
+    //      a := *this;
+    //      b := add_b;
+    //      c := add_c;
+    // define selector values by
+    //      q_1 :=  a_mul;
+    //      q_2 :=  b_mul;
+    //      q_3 :=  c_mul;
+    //      q_4 :=  -1;
+    //      q_c := a_add + b_add + c_add;
+    // Create a `big_mul_gate` to constrain
+    //  	a * b * q_m + a * q_1 + b * q_2 + c * q_3 + d * q_4 + q_c = 0
+
+    bb::fr q_1 = multiplicative_constant;
+    bb::fr q_2 = add_b.multiplicative_constant;
+    bb::fr q_3 = add_c.multiplicative_constant;
+    bb::fr q_c = additive_constant + add_b.additive_constant + add_c.additive_constant;
+
+    // Compute the sum of values of all summands
+    bb::fr a = this->is_constant() ? bb::fr::zero() : ctx->get_variable(witness_index);
+    bb::fr b = add_b.is_constant() ? bb::fr::zero() : ctx->get_variable(add_b.witness_index);
+    bb::fr c = add_c.is_constant() ? bb::fr::zero() : ctx->get_variable(add_c.witness_index);
 
     bb::fr out = a * q_1 + b * q_2 + c * q_3 + q_c;
 
     field_t<Builder> result(ctx);
     result.witness_index = ctx->add_variable(out);
 
+    // Constrain the result
     ctx->create_big_mul_gate({
-        .a = this->is_constant() ? ctx->zero_idx : witness_index,
-        .b = add_a.is_constant() ? ctx->zero_idx : add_a.witness_index,
-        .c = add_b.is_constant() ? ctx->zero_idx : add_b.witness_index,
+        .a = is_constant() ? ctx->zero_idx : witness_index,
+        .b = add_b.is_constant() ? ctx->zero_idx : add_b.witness_index,
+        .c = add_c.is_constant() ? ctx->zero_idx : add_c.witness_index,
         .d = result.witness_index,
-        .mul_scaling = bb::fr(0),
+        .mul_scaling = bb::fr::zero(),
         .a_scaling = q_1,
         .b_scaling = q_2,
         .c_scaling = q_3,
-        .d_scaling = -bb::fr(1),
+        .d_scaling = bb::fr::neg_one(),
         .const_scaling = q_c,
     });
-    result.tag = OriginTag(tag, add_a.tag, add_b.tag);
+    result.tag = OriginTag(tag, add_b.tag, add_c.tag);
     return result;
 }
 
@@ -571,15 +586,14 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
  * @details If the element is a constant or it is already normalized, just return the element itself
  *
  * @todo We need to add a mechanism into the circuit builders for caching normalized variants for fields and bigfields.
- *It should make the circuits smaller. https://github.com/AztecProtocol/barretenberg/issues/1052
+ * It should make the circuits smaller. https://github.com/AztecProtocol/barretenberg/issues/1052
  *
  * @tparam Builder
  * @return field_t<Builder>
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 {
-    if (witness_index == IS_CONSTANT ||
-        ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero()))) {
+    if (is_constant() || ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero()))) {
         return *this;
     }
 
@@ -589,11 +603,8 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 
     field_t<Builder> result(context);
     bb::fr value = context->get_variable(witness_index);
-    bb::fr out;
-    out = value * multiplicative_constant;
-    out += additive_constant;
 
-    result.witness_index = context->add_variable(out);
+    result.witness_index = context->add_variable(get_value());
     result.additive_constant = bb::fr::zero();
     result.multiplicative_constant = bb::fr::one();
 
@@ -606,7 +617,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
                                .b = witness_index,
                                .c = result.witness_index,
                                .a_scaling = multiplicative_constant,
-                               .b_scaling = 0,
+                               .b_scaling = bb::fr::zero(),
                                .c_scaling = bb::fr::neg_one(),
                                .const_scaling = additive_constant });
     result.tag = tag;
@@ -753,11 +764,11 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 
 template <typename Builder> bb::fr field_t<Builder>::get_value() const
 {
-    if (witness_index != IS_CONSTANT) {
-        ASSERT(context != nullptr);
+    if (!is_constant()) {
+        ASSERT(context);
         return (multiplicative_constant * context->get_variable(witness_index)) + additive_constant;
     }
-    ASSERT(this->multiplicative_constant == bb::fr::one());
+    ASSERT(multiplicative_constant == bb::fr::one());
     // A constant field_t's value is tracked wholly by its additive_constant member.
     return additive_constant;
 }
@@ -776,13 +787,14 @@ template <typename Builder>
 field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& predicate) const
 {
     if (predicate.is_constant()) {
-        auto result = field_t(predicate.get_value() ? -(*this) : *this);
+        field_t result = predicate.get_value() ? -(*this) : *this;
         result.set_origin_tag(OriginTag(get_origin_tag(), predicate.get_origin_tag()));
         return result;
     }
-    field_t<Builder> predicate_field(predicate);
-    field_t<Builder> multiplicand = -(predicate_field + predicate_field);
-    return multiplicand.madd(*this, *this);
+    // Compute
+    //  `predicate` * (-a) + a.
+    // If predicate's value == true, then the output is `-a`, else it's `a`
+    return field_t(predicate).madd(-*this, *this);
 }
 
 /**
@@ -816,6 +828,10 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
     return (lhs - rhs).madd(predicate, rhs);
 }
 
+/**
+ * @brief Let x = *this.normalize(), constrain x.v < 2^{num_bits}
+ *
+ */
 template <typename Builder>
 void field_t<Builder>::create_range_constraint(const size_t num_bits, std::string const& msg) const
 {
@@ -1142,36 +1158,49 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     total.tag = new_tag;
     return total.normalize();
 }
-
+/**
+ * Slices a `field_t` at given indices (msb, lsb) both included in the slice,
+ * returns three parts: [low, slice, high].
+ *
+ * Note: the value of `*this` is constrained to be < 2^{C - msb}, where `C = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH`.
+ */
 template <typename Builder>
 std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const uint8_t lsb) const
 {
     ASSERT(msb >= lsb);
     ASSERT(msb < grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
-    const field_t lhs = *this;
-    Builder* ctx = lhs.get_context();
+    Builder* ctx = get_context();
+    const uint256_t one(1);
 
-    const uint256_t value = uint256_t(get_value());
-    const auto msb_plus_one = uint32_t(msb) + 1;
-    const auto hi_mask = ((uint256_t(1) << (256 - uint32_t(msb))) - 1);
+    const uint256_t value = static_cast<uint256_t>(get_value());
+    const uint8_t msb_plus_one = msb + 1;
+    // Slice the bits of `*this` in the range [msb + 1, 255]
+    const auto hi_mask = (one << (256 - msb)) - 1;
     const auto hi = (value >> msb_plus_one) & hi_mask;
 
-    const auto lo_mask = (uint256_t(1) << lsb) - 1;
+    // Slice the bits of `*this` in the range [0,lsb - 1]
+    const auto lo_mask = (one << lsb) - 1;
     const auto lo = value & lo_mask;
 
-    const auto slice_mask = ((uint256_t(1) << (uint32_t(msb - lsb) + 1)) - 1);
+    // Slice the bits in the desired range [lsb, msb]
+    const auto slice_mask = (one << (msb_plus_one - lsb)) - 1;
     const auto slice = (value >> lsb) & slice_mask;
 
-    const field_t hi_wit = field_t(witness_t(ctx, hi));
-    const field_t lo_wit = field_t(witness_t(ctx, lo));
-    const field_t slice_wit = field_t(witness_t(ctx, slice));
+    const field_t hi_wit(witness_t(ctx, hi));
+    const field_t lo_wit(witness_t(ctx, lo));
+    const field_t slice_wit(witness_t(ctx, slice));
 
-    hi_wit.create_range_constraint(grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH - uint32_t(msb),
-                                   "slice: hi value too large.");
+    // `hi_wit` contains the bits above bit `msb`, so a priori it fits in at most (255 - msb) bits. We need to ensure
+    // that its value is strictly less than 2^(252 - msb)
+    hi_wit.create_range_constraint(grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH - msb, "slice: hi value too large.");
+    // Ensure that `lo_wit`is in the range [0, lsb - 1]
     lo_wit.create_range_constraint(lsb, "slice: lo value too large.");
+    // Ensure that `slice_wit` is in the range [lsb, msb]
     slice_wit.create_range_constraint(msb_plus_one - lsb, "slice: sliced value too large.");
-    assert_equal(
-        ((hi_wit * field_t(uint256_t(1) << msb_plus_one)) + lo_wit + (slice_wit * field_t(uint256_t(1) << lsb))));
+    // Check that
+    //     *this = lo_wit + slice_wit * 2^{lsb} + hi_wit * 2^{msb + 1}
+    const field_t decomposed = lo_wit.add_two(slice_wit * field_t(one << lsb), hi_wit * field_t(one << msb_plus_one));
+    assert_equal(decomposed);
 
     std::array<field_t, 3> result = { lo_wit, slice_wit, hi_wit };
     for (size_t i = 0; i < 3; i++) {
