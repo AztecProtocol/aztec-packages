@@ -19,9 +19,11 @@ namespace bb::avm2::simulation {
 enum class ExecutionError {
     NONE,
     INSTRUCTION_FETCHING,
+    GAS_BASE,
     ADDRESSING,
-    GAS,
+    REGISTERS,
     DISPATCHING,
+    GAS_DYNAMIC,
 };
 
 struct ExecutionEvent {

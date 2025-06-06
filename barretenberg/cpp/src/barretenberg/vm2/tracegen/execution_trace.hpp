@@ -17,10 +17,20 @@ class ExecutionTraceBuilder final {
     static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs();
 
     // Public for testing.
+    void process_instr_fetching(const simulation::Instruction& instruction, TraceContainer& trace, uint32_t row);
+    void process_execution_spec(const simulation::ExecutionEvent& ex_event, TraceContainer& trace, uint32_t row);
+    void process_gas_base(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row);
     void process_addressing(const simulation::AddressingEvent& addr_event,
                             const simulation::Instruction& instruction,
                             TraceContainer& trace,
                             uint32_t row);
+    void process_registers(ExecutionOpCode exec_opcode,
+                           const std::vector<TaggedValue>& inputs,
+                           const TaggedValue& output,
+                           std::span<TaggedValue> registers,
+                           TraceContainer& trace,
+                           uint32_t row);
+    void process_dynamic_gas(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row);
 };
 
 } // namespace bb::avm2::tracegen
