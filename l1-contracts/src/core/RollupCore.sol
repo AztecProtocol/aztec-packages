@@ -6,7 +6,6 @@ pragma solidity >=0.8.27;
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {
   IRollupCore,
-  ITestRollup,
   RollupStore,
   SubmitEpochRootProofArgs,
   RollupConfigInput
@@ -46,8 +45,7 @@ contract RollupCore is
   Ownable,
   IStakingCore,
   IValidatorSelectionCore,
-  IRollupCore,
-  ITestRollup
+  IRollupCore
 {
   using ProposeLib for ProposeArgs;
 
@@ -119,14 +117,14 @@ contract RollupCore is
   /*                          CHEAT CODES START HERE                            */
   /* -------------------------------------------------------------------------- */
 
-  function updateManaTarget(uint256 _manaTarget) external override(ITestRollup) onlyOwner {
+  function updateManaTarget(uint256 _manaTarget) external override(IRollupCore) onlyOwner {
     uint256 currentManaTarget = FeeLib.getStorage().manaTarget;
     require(
       _manaTarget >= currentManaTarget,
       Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget)
     );
     FeeLib.updateManaTarget(_manaTarget);
-    emit ITestRollup.ManaTargetUpdated(_manaTarget);
+    emit IRollupCore.ManaTargetUpdated(_manaTarget);
   }
 
   /* -------------------------------------------------------------------------- */
