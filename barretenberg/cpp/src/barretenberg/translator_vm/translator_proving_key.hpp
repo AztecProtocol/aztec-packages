@@ -84,6 +84,35 @@ class TranslatorProvingKey {
         compute_translator_range_constraint_ordered_polynomials();
     };
 
+    /**
+     * @brief Create the array of steps inserted in each ordered range constraint to ensure they respect the
+     * appropriate structure for applying the DeltaRangeConstraint relation
+     * @details The delta range relation enforces values of a polynomial are within a certain range ([0, 2¹⁴ - 1] for
+     * translator). It achieves this efficiently  by sorting the polynomial and checking that the difference between two
+     * adjacent values is no more than 3. In the event that the distribution of a polynomial is not uniform across the
+     * range (e.g. p_1(x) = {0, 2^14 - 1, 2^14 - 1, 2^14 - 1}), to ensure the relation is still satisfied, we
+     * concatenate the set of coefficients to a set of steps that span across the desired range.
+     */
+    static std::array<size_t, Flavor::SORTED_STEPS_COUNT> get_sorted_steps()
+    {
+        std::array<size_t, Flavor::SORTED_STEPS_COUNT> sorted_elements;
+        // The value we have to end polynomials with, 2¹⁴ - 1
+        const size_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+
+        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
+        size_t num_threads = bb::calculate_num_threads_pow2(Flavor::SORTED_STEPS_COUNT, min_iterations_per_thread);
+        size_t iterations_per_thread = Flavor::SORTED_STEPS_COUNT / num_threads; // actual iterations per thread
+        size_t leftovers = Flavor::SORTED_STEPS_COUNT % num_threads;
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            size_t start = thread_idx * iterations_per_thread;
+            size_t end = (thread_idx + 1) * iterations_per_thread + (thread_idx == num_threads - 1 ? leftovers : 0);
+            for (size_t idx = start; idx < end; idx++) {
+                sorted_elements[idx] = max_value - Flavor::SORT_STEP * idx;
+            }
+        });
+        return sorted_elements;
+    }
+
     void compute_lagrange_polynomials();
 
     void compute_extra_range_constraint_numerator();
