@@ -12,7 +12,7 @@ import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import type { SlasherClient } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestation, L2BlockSource } from '@aztec/stdlib/block';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
   type AllowedElement,
@@ -256,33 +256,75 @@ export class Sequencer {
    */
   protected async doRealWork() {
     this.setState(SequencerState.SYNCHRONIZING, 0n);
-    // Update state when the previous block has been synced
-    const chainTip = await this.getChainTip();
+
+    // Check all components are synced to latest as seen by the archiver
+    const syncedTo = await this.getChainTip();
+
     // Do not go forward with new block if the previous one has not been mined and processed
-    if (!chainTip) {
+    if (!syncedTo) {
       return;
     }
 
     this.setState(SequencerState.PROPOSER_CHECK, 0n);
 
-    const newBlockNumber = chainTip.blockNumber + 1;
+    const chainTipArchive = syncedTo.archive;
+    const newBlockNumber = syncedTo.blockNumber + 1;
 
-    // If we cannot find a tip archive, assume genesis.
-    const chainTipArchive = chainTip.archive;
-
-    const { slot } = this.publisher.epochCache.getEpochAndSlotInNextSlot();
+    const { slot, ts } = this.publisher.epochCache.getEpochAndSlotInNextL1Slot();
     this.metrics.observeSlotChange(slot, this.publisher.getSenderAddress().toString());
 
+    // Check that the archiver and dependencies have synced to the previous L1 slot at least
+    // TODO(#14766): Archiver reports L1 timestamp based on L1 blocks seen, which means that a missed L1 block will
+    // cause the archiver L1 timestamp to fall behind, and cause this sequencer to start processing one L1 slot later.
+    const syncLogData = {
+      syncedToL1Ts: syncedTo.l1Timestamp,
+      syncedToL2Slot: getSlotAtTimestamp(syncedTo.l1Timestamp, this.l1Constants),
+      nextSlot: slot,
+      nextSlotTs: ts,
+      l1SlotDuration: this.l1Constants.ethereumSlotDuration,
+    };
+    if (syncedTo.l1Timestamp + BigInt(this.l1Constants.ethereumSlotDuration) < ts) {
+      this.log.verbose(
+        `Cannot propose block ${newBlockNumber} at next L2 slot ${slot} due to pending sync from L1`,
+        syncLogData,
+      );
+      return;
+    } else {
+      this.log.debug(`Successfully synced to previous L1 block`, syncLogData);
+    }
+
+    // Check that we are a proposer for the next slot
     const proposerInNextSlot = await this.publisher.epochCache.getProposerAttesterAddressInNextSlot();
     const validatorAddresses = this.validatorClient!.getValidatorAddresses();
 
     // If get proposer in next slot is undefined, then there is no proposer set, and it is in free for all (sandbox) so we continue
     // If we calculate a proposer in the next slot, and it is not us, then stop
     if (proposerInNextSlot !== undefined && !validatorAddresses.some(addr => addr.equals(proposerInNextSlot))) {
-      this.log.debug(`Cannot propose block ${newBlockNumber}`, {
+      this.log.debug(`Cannot propose block ${newBlockNumber} since we are not a proposer`, {
         us: validatorAddresses,
         proposer: proposerInNextSlot,
       });
+      return;
+    }
+
+    // Double check we are good for proposing at the next block before we start operations.
+    // We should never fail this check assuming the logic above is good.
+    const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
+    const slotAndBlock = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
+    if (slotAndBlock === undefined) {
+      this.log.warn(`Cannot propose block ${newBlockNumber} at slot ${slot} due to failed rollup contract check`);
+      return;
+    } else if (slotAndBlock[0] !== slot) {
+      this.log.warn(
+        `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot} but got ${slotAndBlock[0]}.`,
+        { rollup: slotAndBlock, newBlockNumber, expectedSlot: slot },
+      );
+      return;
+    } else if (slotAndBlock[1] !== BigInt(newBlockNumber)) {
+      this.log.warn(
+        `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${slotAndBlock[1]}.`,
+        { rollup: slotAndBlock, newBlockNumber, expectedSlot: slot },
+      );
       return;
     }
 
@@ -300,6 +342,7 @@ export class Sequencer {
       newGlobalVariables.timestamp.toBigInt(),
       VoteType.GOVERNANCE,
     );
+
     const enqueueSlashingVotePromise = this.publisher.enqueueCastVote(
       slot,
       newGlobalVariables.timestamp.toBigInt(),
@@ -307,7 +350,8 @@ export class Sequencer {
     );
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
-    this.log.debug(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
+    this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
+      globalVariables: newGlobalVariables.toInspect(),
       chainTipArchive,
       blockNumber: newBlockNumber,
       slot,
@@ -324,7 +368,6 @@ export class Sequencer {
 
     let finishedFlushing = false;
     const pendingTxCount = await this.p2pClient.getPendingTxCount();
-    this.log.debug(`Pending tx count: ${pendingTxCount}`);
     if (pendingTxCount >= this.minTxsPerBlock || this.isFlushing) {
       // We don't fetch exactly maxTxsPerBlock txs here because we may not need all of them if we hit a limit before,
       // and also we may need to fetch more if we don't have enough valid txs.
@@ -622,7 +665,7 @@ export class Sequencer {
    * We don't check against the previous block submitted since it may have been reorg'd out.
    * @returns Boolean indicating if our dependencies are synced to the latest block.
    */
-  protected async getChainTip(): Promise<{ blockNumber: number; archive: Fr } | undefined> {
+  protected async getChainTip(): Promise<{ blockNumber: number; archive: Fr; l1Timestamp: bigint } | undefined> {
     const syncedBlocks = await Promise.all([
       this.worldState.status().then(({ syncSummary }) => ({
         number: syncSummary.latestBlockNumber,
@@ -631,9 +674,10 @@ export class Sequencer {
       this.l2BlockSource.getL2Tips().then(t => t.latest),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => t.latest),
+      this.l2BlockSource.getL1Timestamp(),
     ] as const);
 
-    const [worldState, l2BlockSource, p2p, l1ToL2MessageSource] = syncedBlocks;
+    const [worldState, l2BlockSource, p2p, l1ToL2MessageSource, l1Timestamp] = syncedBlocks;
 
     // The archiver reports 'undefined' hash for the genesis block
     // because it doesn't have access to world state to compute it (facepalm)
@@ -662,10 +706,10 @@ export class Sequencer {
         return undefined;
       }
 
-      return { blockNumber: block.number, archive: block.archive.root };
+      return { blockNumber: block.number, archive: block.archive.root, l1Timestamp };
     } else {
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
-      return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive };
+      return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive, l1Timestamp };
     }
   }
 
