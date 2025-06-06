@@ -1,4 +1,3 @@
-import { EpochCache } from '@aztec/epoch-cache';
 import {
   type ExtendedViemWalletClient,
   type L1ReaderConfig,
@@ -11,7 +10,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
-import type { L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
 
 import {
   type GetContractEventsReturnType,
@@ -30,7 +28,6 @@ import {
   type Watcher,
   bigIntToOffense,
 } from './config.js';
-import { EpochPruneWatcher } from './epoch_prune_watcher.js';
 
 type MonitoredSlashPayload = {
   payloadAddress: EthAddress;
@@ -74,8 +71,6 @@ export class SlasherClient {
     l1Contracts: Pick<L1ReaderConfig['l1Contracts'], 'rollupAddress' | 'slashFactoryAddress'>,
     l1TxUtils: L1TxUtils,
     watchers: Watcher[],
-    blockSource: L2BlockSourceEventEmitter,
-    epochCache: EpochCache,
     dateProvider: DateProvider,
   ) {
     if (!l1Contracts.rollupAddress) {
@@ -92,25 +87,8 @@ export class SlasherClient {
       abi: SlashFactoryAbi,
       client: l1TxUtils.client,
     });
-    let epochPruneWatcher: EpochPruneWatcher | undefined;
-    if (config.slashPruneEnabled) {
-      epochPruneWatcher = new EpochPruneWatcher(
-        blockSource,
-        epochCache,
-        config.slashPrunePenalty,
-        config.slashPruneMaxPenalty,
-      );
-      watchers.push(epochPruneWatcher);
-    }
-    return new SlasherClient(
-      config,
-      slashFactoryContract,
-      slashingProposer,
-      l1TxUtils,
-      watchers,
-      epochPruneWatcher,
-      dateProvider,
-    );
+
+    return new SlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
   }
 
   constructor(
@@ -119,19 +97,14 @@ export class SlasherClient {
     private slashingProposer: SlashingProposerContract,
     private l1TxUtils: L1TxUtils,
     private watchers: Watcher[],
-    private epochPruneWatcher: EpochPruneWatcher | undefined,
     private dateProvider: DateProvider,
     private log = createLogger('slasher'),
   ) {}
 
   //////////////////// Public methods ////////////////////
 
-  public async start() {
+  public start() {
     this.log.info('Starting Slasher client...');
-
-    if (this.epochPruneWatcher) {
-      await this.epochPruneWatcher.start();
-    }
 
     // detect when new payloads are created
     this.unwatchCallbacks.push(this.watchSlashFactoryEvents());
@@ -154,13 +127,10 @@ export class SlasherClient {
    * Allows consumers to stop the instance of the slasher client.
    * 'ready' will now return 'false' and the running promise that keeps the client synced is interrupted.
    */
-  public async stop() {
+  public stop() {
     this.log.debug('Stopping Slasher client...');
     for (const cb of this.unwatchCallbacks) {
       cb();
-    }
-    if (this.epochPruneWatcher) {
-      await this.epochPruneWatcher.stop();
     }
     this.log.info('Slasher client stopped.');
   }

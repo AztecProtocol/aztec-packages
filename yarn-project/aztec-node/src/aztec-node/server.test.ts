@@ -138,6 +138,7 @@ describe('aztec node', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,

@@ -39,6 +39,7 @@ export class TXEStateMachine {
       undefined,
       undefined,
       undefined,
+      undefined,
       // version and chainId should match the ones in txe oracle
       1,
       1,

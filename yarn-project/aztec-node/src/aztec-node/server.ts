@@ -39,7 +39,7 @@ import {
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import { SlasherClient, type Watcher } from '@aztec/slasher';
+import { EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type {
@@ -128,6 +128,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly sequencer: SequencerClient | undefined,
     protected readonly slasherClient: SlasherClient | undefined,
     protected readonly validatorsSentinel: Sentinel | undefined,
+    protected readonly epochPruneWatcher: EpochPruneWatcher | undefined,
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
@@ -261,6 +262,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       watchers.push(validatorsSentinel);
     }
 
+    let epochPruneWatcher: EpochPruneWatcher | undefined;
+    if (config.slashPruneEnabled) {
+      epochPruneWatcher = new EpochPruneWatcher(
+        archiver,
+        epochCache,
+        config.slashPrunePenalty,
+        config.slashPruneMaxPenalty,
+      );
+      await epochPruneWatcher.start();
+      watchers.push(epochPruneWatcher);
+    }
+
     const blockBuilder = new BlockBuilder(
       {
         l1GenesisTime,
@@ -294,16 +307,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       // we can still run a slasher client if a private key is provided
       l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
       l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
-      slasherClient = await SlasherClient.new(
-        config,
-        config.l1Contracts,
-        l1TxUtils,
-        watchers,
-        archiver,
-        epochCache,
-        dateProvider,
-      );
-      await slasherClient.start();
+      slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
+      slasherClient.start();
     }
 
     // Validator enabled, create/start relevant service
@@ -343,6 +348,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       sequencer,
       slasherClient,
       validatorsSentinel,
+      epochPruneWatcher,
       ethereumChain.chainInfo.id,
       config.rollupVersion,
       new GlobalVariableBuilder(config),
@@ -582,7 +588,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.log.info(`Stopping Aztec Node`);
     await this.txQueue.end();
     await tryStop(this.validatorsSentinel);
-    await tryStop(this.slasherClient);
+    await tryStop(this.epochPruneWatcher);
+    this.slasherClient?.stop();
     await tryStop(this.proofVerifier);
     await tryStop(this.sequencer);
     await tryStop(this.p2pClient);
