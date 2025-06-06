@@ -130,6 +130,7 @@ export const setupL1Contracts = async (
     salt: args.salt,
     initialValidators: args.initialValidators,
     ...getL1ContractsConfigEnvVars(),
+    realVerifier: false,
     ...args,
   });
 

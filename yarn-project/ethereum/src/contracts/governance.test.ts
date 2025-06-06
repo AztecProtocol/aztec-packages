@@ -42,6 +42,7 @@ describe('Governance', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot: Fr.random(),
+      realVerifier: false,
     });
 
     governanceAddress = deployed.l1ContractAddresses.governanceAddress.toString() as `0x${string}`;
