@@ -22,18 +22,46 @@ describe('e2e_offchain_message', () => {
 
   afterAll(() => teardown());
 
+  function toBoundedVec<T>(arr: T[], maxLen: number) {
+    return {
+      len: arr.length,
+      storage: arr.concat(new Array(maxLen - arr.length).fill(null)),
+    };
+  }
+
   it('should emit offchain message', async () => {
     const message = [Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()];
     const recipient = await AztecAddress.random();
+    const nextContract = contract.address;
 
-    const numRecursions = 3;
+    // Create array of message payloads
+    const messages = Array(3)
+      .fill(null)
+      .map(() => ({
+        message,
+        recipient,
+        next_contract: nextContract,
+      }));
+
+    const storage = messages.concat(
+      new Array(5 - messages.length).fill({
+        message: Array(5).fill(Fr.ZERO),
+        recipient: AztecAddress.ZERO,
+        next_contract: AztecAddress.ZERO,
+      }),
+    );
+
+    console.log(storage);
 
     const provenTx = await contract.methods
-      .emit_offchain_message_for_recipient(message, recipient, numRecursions)
+      .emit_offchain_message_for_recipient({
+        storage,
+        len: messages.length,
+      })
       .prove();
 
     const offchainMessages = provenTx.offchainMessages;
-    expect(offchainMessages.length).toBe(4);
+    expect(offchainMessages.length).toBe(3);
     for (let i = 0; i < offchainMessages.length; i++) {
       expect(offchainMessages[i].recipient).toEqual(recipient);
       expect(offchainMessages[i].message).toEqual(message);
