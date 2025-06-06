@@ -7,14 +7,13 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 
-import type { PrivateKey } from '@libp2p/interface';
-
 import { createP2PClient } from '../client/index.js';
 import type { P2PClient } from '../client/p2p_client.js';
 import type { P2PConfig } from '../config.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
+import { privateKeyToHex } from '../util.js';
 import { getPorts } from './get-ports.js';
 import { makeEnrs } from './make-enrs.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from './reqresp-nodes.js';
@@ -39,7 +38,7 @@ interface MakeTestP2PClientOptions {
  * @returns The created and already started client.
  */
 export async function makeAndStartTestP2PClient(
-  peerIdPrivateKey: PrivateKey,
+  peerIdPrivateKey: string,
   port: number,
   peers: string[],
   options: MakeTestP2PClientOptions,
@@ -59,7 +58,7 @@ export async function makeAndStartTestP2PClient(
  * @returns The created client.
  */
 export async function makeTestP2PClient(
-  peerIdPrivateKey: PrivateKey,
+  peerIdPrivateKey: string,
   port: number,
   peers: string[],
   {
@@ -137,7 +136,7 @@ export async function makeAndStartTestP2PClients(numberOfPeers: number, testConf
   const peerEnrs = makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
 
   for (let i = 0; i < numberOfPeers; i++) {
-    const client = await makeAndStartTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {
+    const client = await makeAndStartTestP2PClient(privateKeyToHex(peerIdPrivateKeys[i]), ports[i], peerEnrs, {
       ...testConfig,
       logger: createLogger(`p2p:${i}`),
     });
@@ -178,7 +177,7 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
   const peerEnrs = makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
 
   for (let i = 0; i < numberOfPeers; i++) {
-    const client = await makeTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {
+    const client = await makeTestP2PClient(privateKeyToHex(peerIdPrivateKeys[i]), ports[i], peerEnrs, {
       ...testConfig,
       logger: createLogger(`p2p:${i}`),
     });
