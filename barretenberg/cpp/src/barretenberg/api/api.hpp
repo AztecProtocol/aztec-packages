@@ -10,7 +10,8 @@ class API {
     struct Flags {
         bool verbose{ false };                // more logging
         bool debug{ false };                  // even more logging
-        bool zk{ false };                     // use a zk version of the protocol
+        bool zk{ true };                      // use a zk version of the protocol
+        bool not_zk{ false };                 // use a non-zk version of the protocol
         std::filesystem::path crs_path{ "" }; // the location of reference strings for commitment schemes
         bool recursive{ false };              // deprecated flag indicating that a circuit is to be recursively verified
         bool init_kzg_accumulator{ false };   // stripped down version fo `recursive` in the UltraHonk; also deprecated?
