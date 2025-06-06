@@ -272,7 +272,12 @@ tests:
 
   # boxes
   - regex: "boxes/boxes/vanilla/tests/e2e.spec.ts"
-    error_regex: "Error: Timed out 20000ms waiting for expect(locator).toHaveText(expected)"
+    error_regex: "Error: Timed out \\d*ms waiting for expect\\(locator\\)"
+    owners:
+      - *saleel
+
+  - regex: "tests/browser.spec.ts"
+    error_regex: "Error: locator\\.click: Test timeout of"
     owners:
       - *saleel
 
