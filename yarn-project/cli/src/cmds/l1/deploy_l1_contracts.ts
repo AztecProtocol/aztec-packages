@@ -74,7 +74,7 @@ export async function deployL1Contracts(
     log(`FeeAssetHandler Address: ${l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
     log(`StakingAssetHandler Address: ${l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
     log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-    log(`Initial validators: ${initialValidators.map(a => a.attester.toString()).join(', ')}`);
+    log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
     log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
   }
 }
