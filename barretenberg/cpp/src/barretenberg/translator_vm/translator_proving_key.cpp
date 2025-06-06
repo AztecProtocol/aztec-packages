@@ -162,25 +162,38 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     proving_key->polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);
 }
 
+/**
+ * @brief Set all the precomputed lagrange polynomials used in Translator relations.
+ *
+ */
 void TranslatorProvingKey::compute_lagrange_polynomials()
 {
 
     proving_key->polynomials.lagrange_first.at(0) = 1;
     proving_key->polynomials.lagrange_real_last.at(real_circuit_size - 1) = 1;
     proving_key->polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
+
+    // Location of randomness for the polynomials defined within the large size
     for (size_t i = real_circuit_size; i < dyadic_circuit_size; i++) {
         proving_key->polynomials.lagrange_masking.at(i) = 1;
     }
 
+    // Location of randomness for wires defined within the mini circuit
+    for (size_t i = real_mini_circuit_size; i < mini_circuit_dyadic_size; i++) {
+        proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
+    }
+
+    // Translator VM processes two rows of its execution trace at a time, establishing different relations between
+    // polynomials at even and odd indices, as such we need corresponding lagranges for determining whic relations
+    // should trigger at odd indices and which at even.
     for (size_t i = 2; i < real_mini_circuit_size; i += 2) {
         proving_key->polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         proving_key->polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
-    proving_key->polynomials.lagrange_result_row.at(2) = 1;
+
+    // Position of evaluation result
+    proving_key->polynomials.lagrange_result_row.at(Flavor::RESULT_ROW) = 1;
     proving_key->polynomials.lagrange_last_in_minicircuit.at(real_mini_circuit_size - 1) = 1;
-    for (size_t i = real_mini_circuit_size; i < mini_circuit_dyadic_size; i++) {
-        proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
-    }
 }
 
 /**

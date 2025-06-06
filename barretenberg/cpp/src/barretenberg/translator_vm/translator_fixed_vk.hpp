@@ -35,12 +35,12 @@ struct TranslatorFixedVKCommitments {
                             uint256_t("0x174caee01a8d7fb79e7834367d842900e5893e35054a6cbbc67dfa8b0aa6bea5")),
 
                  // lagrange_odd_in_minicircuit
-                 Commitment(uint256_t("0x2ed8ad78837b766a0cb35fae822e560fa14fdfe081a15a6e22c101691aa6fef6"),
-                            uint256_t("0x05a97ad2f0a22993256bc641674127bd879431c63b16b6e0eca52f0f86ef848d")),
+                 Commitment(uint256_t("0x0591a96bc0c2563ef56776e98c255ce466f557b435e3601f85c40e1124a8f454"),
+                            uint256_t("0x125d3362d8654aebf99e88f68a78224aa6bd5c05ce5246c7fc70445dc5bda9af")),
 
                  // lagrange_even_in_minicircuit
-                 Commitment(uint256_t("0x041e9dfeba1cf088c6cfbe690cc9129289c1f9acdf830635e57981d6392a7478"),
-                            uint256_t("0x0d9142b9a0725ab7f8bfe549f7e3beacdb8376ecae49eb0f7a2adbf38f42496f")),
+                 Commitment(uint256_t("0x08feb8f4803e9da4fae6e23ebf57809b419a2ae2be9fb224c6646a824d30231f"),
+                            uint256_t("0x2e79d6919ccec15895485c12850cb0ec63e0b93d0e920cac07a4175c68a8d0d2")),
 
                  // lagrange_result_row
                  Commitment(uint256_t("0x020ad6e43ccd48a6a39e43897cc85187bd364919be8a3b82d4809715cfe489db"),

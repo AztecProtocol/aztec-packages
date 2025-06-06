@@ -201,7 +201,6 @@ class TranslatorFlavor {
     };
     template <typename DataType> class WireToBeShiftedEntities {
       public:
-        // For now let's put randomness in everything bout the op queue
         DEFINE_FLAVOR_MEMBERS(DataType,
                               x_lo_y_hi,                                    // column 0
                               x_hi_z_1,                                     // column 1
@@ -333,8 +332,6 @@ class TranslatorFlavor {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all());
         };
-
-        RefVector<DataType> get_op_queue() { return { this->op, this->x_lo_y_hi, this->x_hi_z_1, this->y_lo_z_2 }; };
 
         auto get_wires_to_be_shifted() { return WireToBeShiftedEntities<DataType>::get_all(); };
 
@@ -647,6 +644,7 @@ class TranslatorFlavor {
             z_perm = Polynomial{ /*size*/ circuit_size - 1,
                                  /*virtual_size*/ circuit_size,
                                  /*start_index*/ 1 };
+
             // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
             // circuit
             for (auto& poly : get_to_be_shifted()) {

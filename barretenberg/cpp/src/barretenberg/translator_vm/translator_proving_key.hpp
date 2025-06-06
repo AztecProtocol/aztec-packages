@@ -103,7 +103,8 @@ class TranslatorProvingKey {
             }
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341)
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341): Add random values to the last ordered range
+        // constraint
     };
 
     /**
