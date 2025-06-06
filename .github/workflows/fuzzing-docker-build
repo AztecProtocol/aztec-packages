@@ -18,4 +18,4 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -f container-builds/fuzzing-container/Dockerfile -t fuzzing-container:latest .
+          docker build container-builds/fuzzing-container/src/ -t fuzzing-container:latest
