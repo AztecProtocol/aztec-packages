@@ -160,14 +160,14 @@ pub fn compute_l2_to_l1_hash(
     let mut bytes: [u8; 148] = std::mem::zeroed();
     for i in 0..32 {
         bytes[i] = contract_address_bytes[i];
-        bytes[i + 0x20] = rollup_version_id_bytes[i];
-        // 0x40 - 0x54 are for recipient.
-        bytes[i + 0x54] = chain_id_bytes[i];
-        bytes[i + 0x74] = content_bytes[i];
+        bytes[i + 32] = rollup_version_id_bytes[i];
+        // 64 - 84 are for recipient.
+        bytes[i + 84] = chain_id_bytes[i];
+        bytes[i + 116] = content_bytes[i];
     }
 
     for i in 0..20 {
-        bytes[0x40 + i] = recipient_bytes[i];
+        bytes[64 + i] = recipient_bytes[i];
     }
 
     sha256_to_field(bytes)
