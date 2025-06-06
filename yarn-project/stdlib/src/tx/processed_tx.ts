@@ -7,7 +7,6 @@ import type { SimulationError } from '../errors/simulation_error.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { computeL2ToL1MessageHash } from '../hash/hash.js';
-import { CombinedConstantData } from '../kernel/combined_constant_data.js';
 import type { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import type { GlobalVariables } from './global_variables.js';
@@ -43,9 +42,9 @@ export type ProcessedTx = {
    */
   avmProvingRequest: AvmProvingRequest | undefined;
   /**
-   * Combining `TxConstantData` specified by the user, and `GlobalVariables` injected by the sequencer.
+   * `GlobalVariables` injected by the sequencer. It's the same for all the txs in a block.
    */
-  constants: CombinedConstantData;
+  globalVariables: GlobalVariables;
   /**
    * Output data of the tx.
    */
@@ -84,8 +83,6 @@ export async function makeProcessedTxFromPrivateOnlyTx(
   feePaymentPublicDataWrite: PublicDataWrite,
   globalVariables: GlobalVariables,
 ): Promise<ProcessedTx> {
-  const constants = CombinedConstantData.combine(tx.data.constants, globalVariables);
-
   const data = tx.data.forRollup!;
   const txEffect = new TxEffect(
     RevertCode.OK,
@@ -100,8 +97,8 @@ export async function makeProcessedTxFromPrivateOnlyTx(
           l2Sender: msg.contractAddress,
           l1Recipient: msg.message.recipient,
           content: msg.message.content,
-          rollupVersion: constants.txContext.version,
-          chainId: constants.txContext.chainId,
+          rollupVersion: globalVariables.version,
+          chainId: globalVariables.chainId,
         }),
       ),
     [feePaymentPublicDataWrite],
@@ -123,7 +120,7 @@ export async function makeProcessedTxFromPrivateOnlyTx(
     data: tx.data,
     clientIvcProof: tx.clientIvcProof,
     avmProvingRequest: undefined,
-    constants,
+    globalVariables,
     txEffect,
     gasUsed,
     revertCode: RevertCode.OK,
@@ -146,7 +143,7 @@ export async function makeProcessedTxFromTxWithPublicCalls(
 ): Promise<ProcessedTx> {
   const avmPublicInputs = avmProvingRequest.inputs.publicInputs;
 
-  const constants = CombinedConstantData.combine(tx.data.constants, avmPublicInputs.globalVariables);
+  const globalVariables = avmPublicInputs.globalVariables;
 
   const publicDataWrites = avmPublicInputs.accumulatedData.publicDataWrites.filter(w => !w.isEmpty());
 
@@ -172,8 +169,8 @@ export async function makeProcessedTxFromTxWithPublicCalls(
           l2Sender: msg.contractAddress,
           l1Recipient: msg.message.recipient,
           content: msg.message.content,
-          rollupVersion: constants.txContext.version,
-          chainId: constants.txContext.chainId,
+          rollupVersion: globalVariables.version,
+          chainId: globalVariables.chainId,
         }),
       ),
     publicDataWrites,
@@ -187,7 +184,7 @@ export async function makeProcessedTxFromTxWithPublicCalls(
     data: tx.data,
     clientIvcProof: tx.clientIvcProof,
     avmProvingRequest,
-    constants,
+    globalVariables,
     txEffect,
     gasUsed,
     revertCode,

@@ -60,6 +60,10 @@ export class LMDBMultiMap<K extends Key, V extends Value> implements AztecAsyncM
     return execInReadTx(this.store, async tx => (await tx.getIndex(serializeKey(this.prefix, key))).length > 0);
   }
 
+  sizeAsync(): Promise<number> {
+    return execInReadTx(this.store, tx => tx.countEntriesIndex(minKey(this.prefix), maxKey(this.prefix), false));
+  }
+
   /**
    * Iterates over the map's key-value entries in the key's natural order
    * @param range - The range of keys to iterate over
