@@ -788,9 +788,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     } else if (logsForTag.length > 1) {
       // TODO(#11627): handle this case
       throw new Error(
-        `Got ${
-          logsForTag.length
-        } logs for tag ${tag} and contract ${contractAddress.toString()}. getPublicLogByTag currently only supports a single log per tag`,
+        `Got ${logsForTag.length} logs for tag ${tag} and contract ${contractAddress.toString()}. getPublicLogByTag currently only supports a single log per tag`,
       );
     }
 

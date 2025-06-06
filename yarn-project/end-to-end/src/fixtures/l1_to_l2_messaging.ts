@@ -46,9 +46,7 @@ export async function sendL1ToL2Message(
   // Exactly 1 event should be emitted in the transaction
   if (txReceipt.logs.length !== 1) {
     throw new Error(
-      `Wrong number of logs found in ${txHash} transaction (got ${
-        txReceipt.logs.length
-      } expected 1)\n${tryJsonStringify(txReceipt.logs)}`,
+      `Wrong number of logs found in ${txHash} transaction (got ${txReceipt.logs.length} expected 1)\n${tryJsonStringify(txReceipt.logs)}`,
     );
   }
 
