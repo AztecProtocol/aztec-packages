@@ -34,8 +34,8 @@ export interface EpochCacheInterface {
   getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint;
   getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
-    currentProposer: EthAddress;
-    nextProposer: EthAddress;
+    currentProposer: EthAddress | undefined;
+    nextProposer: EthAddress | undefined;
     currentSlot: bigint;
     nextSlot: bigint;
   }>;
@@ -226,8 +226,8 @@ export class EpochCache implements EpochCacheInterface {
   async getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
     currentSlot: bigint;
     nextSlot: bigint;
-    currentProposer: EthAddress;
-    nextProposer: EthAddress;
+    currentProposer: EthAddress | undefined;
+    nextProposer: EthAddress | undefined;
   }> {
     const current = this.getEpochAndSlotNow();
     const next = this.getEpochAndSlotInNextSlot();
@@ -240,7 +240,7 @@ export class EpochCache implements EpochCacheInterface {
     };
   }
 
-  getProposerAttesterAddressInNextSlot(): Promise<EthAddress> {
+  getProposerAttesterAddressInNextSlot(): Promise<EthAddress | undefined> {
     const epochAndSlot = this.getEpochAndSlotInNextSlot();
 
     return this.getProposerAttesterAddressAt(epochAndSlot);
