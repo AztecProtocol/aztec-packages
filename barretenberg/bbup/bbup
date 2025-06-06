@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eo pipefail
+set -e
 
 # Colors and symbols
 RED='\033[0;31m'
