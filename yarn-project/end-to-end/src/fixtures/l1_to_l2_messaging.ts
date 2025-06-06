@@ -37,7 +37,7 @@ export async function sendL1ToL2Message(
   // We check that the message was correctly injected by checking the emitted event
   const txReceipt = await ctx.l1Client.waitForTransactionReceipt({ hash: txHash });
 
-  logger.info(`L1 to L2 message receipt retried for tx ${txReceipt.transactionHash}`);
+  logger.info(`L1 to L2 message receipt retrived for tx ${txReceipt.transactionHash}`);
 
   if (txReceipt.transactionHash !== txHash) {
     throw new Error(`Receipt transaction hash mismatch: ${txReceipt.transactionHash} !== ${txHash}`);

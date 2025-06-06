@@ -3,6 +3,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, type AztecNode, Fr, type Logger, retryUntil } from '@aztec/aztec.js';
 import { Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import type { ChainMonitor, Delayer } from '@aztec/ethereum/test';
 import { timesAsync } from '@aztec/foundation/collection';
 import { hexToBuffer } from '@aztec/foundation/string';
@@ -11,7 +12,8 @@ import type { ProverNode } from '@aztec/prover-node';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
-import { keccak256, parseTransaction } from 'viem';
+import { createWalletClient, formatEther, keccak256, parseTransaction } from 'viem';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../fixtures/utils.js';
@@ -34,6 +36,8 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
   let test: EpochsTestContext;
 
+  let l1ClientForMesssages: ExtendedViemWalletClient;
+
   beforeEach(async () => {
     test = await EpochsTestContext.setup({
       l1PublishRetryIntervalMS: 300_000, // Do not retry l1 txs, we dont want them to land
@@ -44,6 +48,20 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     node = context.aztecNode;
     archiver = (node as AztecNodeService).getBlockSource() as Archiver;
     proverNode = context.proverNode!;
+
+    const account = privateKeyToAccount(generatePrivateKey());
+    l1ClientForMesssages = createExtendedL1Client(
+      [...test.l1Client.chain.rpcUrls.default.http],
+      account,
+      test.l1Client.chain,
+    );
+
+    const fundingTx = await test.l1Client.sendTransaction({
+      to: l1ClientForMesssages.account.address,
+      value: BigInt(1e16),
+    });
+
+    await test.l1Client.waitForTransactionReceipt({ hash: fundingTx });
   });
 
   afterEach(async () => {
@@ -236,7 +254,10 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     const sendMessage = async () =>
       sendL1ToL2Message(
         { recipient: await AztecAddress.random(), content: Fr.random(), secretHash: Fr.random() },
-        context.deployL1ContractsValues,
+        {
+          l1Client: l1ClientForMesssages,
+          l1ContractAddresses: context.deployL1ContractsValues.l1ContractAddresses,
+        },
       );
 
     // Send 3 messages and wait for archiver sync
