@@ -496,7 +496,9 @@ describe('sequencer', () => {
     // Mock that there is no official proposer yet
     publisher.epochCache.getProposerAttesterAddressInNextSlot = jest
       .fn()
-      .mockImplementation(() => Promise.resolve(undefined)) as jest.Mock<() => Promise<EthAddress | undefined>>;
+      .mockImplementationOnce(() => Promise.resolve(undefined)) as jest.Mock<() => Promise<EthAddress | undefined>>;
+
+    publisher.getCurrentEpochCommittee.mockResolvedValueOnce([]);
 
     // Mock that we have some pending transactions
     const txs = [await makeTx(1), await makeTx(2)];
@@ -507,6 +509,10 @@ describe('sequencer', () => {
 
     // Verify that the sequencer attempted to create and broadcast a block proposal
     expect(publisher.enqueueProposeL2Block).toHaveBeenCalled();
+
+    // Verify that the sequencer did not broadcast for attestations since there's no committee
+    expect(validatorClient.createBlockProposal).not.toHaveBeenCalled();
+    expect(validatorClient.broadcastBlockProposal).not.toHaveBeenCalled();
   });
 });
 
