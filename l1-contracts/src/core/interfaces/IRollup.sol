@@ -107,20 +107,12 @@ struct RollupStore {
   RollupConfig config;
 }
 
-interface ITestRollup {
-  event ManaTargetUpdated(uint256 indexed manaTarget);
-
-  function setEpochVerifier(address _verifier) external;
-  function setVkTreeRoot(bytes32 _vkTreeRoot) external;
-  function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
-  function updateManaTarget(uint256 _manaTarget) external;
-}
-
 interface IRollupCore {
   event L2BlockProposed(
     uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
   );
   event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
+  event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
   event RewardsClaimableUpdated(bool isRewardsClaimable);
 
@@ -142,6 +134,8 @@ interface IRollupCore {
   ) external;
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
+
+  function updateManaTarget(uint256 _manaTarget) external;
 
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);

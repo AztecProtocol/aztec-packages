@@ -8,7 +8,6 @@ import {
   MNEMONIC,
   PRIVATE_KEY,
   l1ChainIdOption,
-  makePxeOption,
   parseAztecAddress,
   parseBigint,
   parseEthereumAddress,
@@ -45,6 +44,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .option('--accelerated-test-deployments', 'Fire and forget deployment transactions, use in testing only', false)
+    .option('--real-verifier', 'Deploy the real verifier', false)
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
 
@@ -62,6 +62,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.acceleratedTestDeployments,
         options.json,
         initialValidators,
+        options.realVerifier,
         log,
         debugLogger,
       );
@@ -85,6 +86,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--json', 'Output the contract addresses in JSON format')
     .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
+    .option('--real-verifier', 'Deploy the real verifier', false)
     .action(async options => {
       const { deployNewRollup } = await import('./deploy_new_rollup.js');
 
@@ -102,6 +104,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.sponsoredFpc,
         options.json,
         initialValidators,
+        options.realVerifier,
         log,
         debugLogger,
       );
@@ -423,13 +426,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .description('Deploys the rollup verifier contract')
     .addOption(l1RpcUrlsOption)
     .addOption(l1ChainIdOption)
-    .addOption(makePxeOption(false).conflicts('rollup-address'))
-    .addOption(
-      new Option('--rollup-address <string>', 'The address of the rollup contract')
-        .env('ROLLUP_CONTRACT_ADDRESS')
-        .argParser(parseEthereumAddress)
-        .conflicts('rpc-url'),
-    )
     .option('--l1-private-key <string>', 'The L1 private key to use for deployment', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
@@ -441,27 +437,15 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .action(async options => {
       const { deployMockVerifier, deployUltraHonkVerifier } = await import('./deploy_l1_verifier.js');
       if (options.verifier === 'mock') {
-        await deployMockVerifier(
-          options.rollupAddress?.toString(),
-          options.l1RpcUrls,
-          options.l1ChainId,
-          options.l1PrivateKey,
-          options.mnemonic,
-          options.rpcUrl,
-          log,
-          debugLogger,
-        );
+        await deployMockVerifier(options.l1RpcUrls, options.l1ChainId, options.l1PrivateKey, options.mnemonic, log);
       } else {
         await deployUltraHonkVerifier(
-          options.rollupAddress?.toString(),
           options.l1RpcUrls,
           options.l1ChainId,
           options.l1PrivateKey,
           options.mnemonic,
           options.mnemonicIndex,
-          options.rpcUrl,
           log,
-          debugLogger,
         );
       }
     });

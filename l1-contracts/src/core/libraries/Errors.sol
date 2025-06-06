@@ -78,6 +78,7 @@ library Errors {
   error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
+  error Rollup__InvalidManaTarget(uint256 minimum, uint256 provided);
   error Rollup__ManaLimitExceeded();
   error Rollup__RewardsNotClaimable();
 

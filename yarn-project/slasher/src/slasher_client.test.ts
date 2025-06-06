@@ -78,6 +78,7 @@ describe('SlasherClient', () => {
           withdrawer: EthAddress.fromString(l1Client.account.address),
         },
       ],
+      realVerifier: false,
     };
 
     const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, config);
