@@ -50,6 +50,7 @@ PubInputsProofAndKey<VK> _compute_vk(const std::filesystem::path& bytecode_path,
                                      const std::filesystem::path& witness_path)
 {
     auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
+    plookup::MULTI_TABLES.reset();
     return { PublicInputsVector{}, HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
 }
 
@@ -59,6 +60,7 @@ PubInputsProofAndKey<VK> _prove(const bool compute_vk,
                                 const std::filesystem::path& witness_path)
 {
     auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
+    plookup::MULTI_TABLES.reset();
     HonkProof concat_pi_and_proof = prover.construct_proof();
     size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
     // Loose check that the public inputs contain a pairing point accumulator, doesn't catch everything.

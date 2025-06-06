@@ -130,6 +130,7 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* w
 
         return UltraProver(builder);
     }();
+    plookup::MULTI_TABLES.reset();
 
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer(proof));
