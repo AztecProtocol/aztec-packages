@@ -114,6 +114,7 @@ RUN apt update && \
         curl \
         git \
         wget \
+        time \
         jq \
         gawk \
         unzip \
