@@ -83,6 +83,7 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 
 #include <array>
@@ -348,6 +349,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
+template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class TranslatorRecursiveFlavor_;
 template <typename BuilderType> class ECCVMRecursiveFlavor_;
 template <typename BuilderType> class AvmRecursiveFlavor_;
@@ -406,6 +408,8 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                         MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                         MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                        UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                        UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
                                         TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
                                         TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
                                         ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
@@ -447,6 +451,8 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            MegaZKFlavor,
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                                                           UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                                           UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
                                                            UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<MegaCircuitBuilder>,
