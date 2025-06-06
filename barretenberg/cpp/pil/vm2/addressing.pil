@@ -186,19 +186,19 @@ op_after_relative[6] = op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * (1 - sel_base_a
 // We only do this if the indirect bit is set AND nothing else failed so far (for this operand).
 pol commit sel_should_apply_indirection[7];
 #[INDIRECT_GATING_0]
-sel_should_apply_indirection[0] = SEL_OP_IS_INDIRECT_EFFECTIVE_0_ * (1 - sel_relative_overflow[0]);
+sel_should_apply_indirection[0] = SEL_OP_IS_INDIRECT_EFFECTIVE_0_ * (1 - sel_relative_overflow[0]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_1]
-sel_should_apply_indirection[1] = SEL_OP_IS_INDIRECT_EFFECTIVE_1_ * (1 - sel_relative_overflow[1]);
+sel_should_apply_indirection[1] = SEL_OP_IS_INDIRECT_EFFECTIVE_1_ * (1 - sel_relative_overflow[1]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_2]
-sel_should_apply_indirection[2] = SEL_OP_IS_INDIRECT_EFFECTIVE_2_ * (1 - sel_relative_overflow[2]);
+sel_should_apply_indirection[2] = SEL_OP_IS_INDIRECT_EFFECTIVE_2_ * (1 - sel_relative_overflow[2]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_3]
-sel_should_apply_indirection[3] = SEL_OP_IS_INDIRECT_EFFECTIVE_3_ * (1 - sel_relative_overflow[3]);
+sel_should_apply_indirection[3] = SEL_OP_IS_INDIRECT_EFFECTIVE_3_ * (1 - sel_relative_overflow[3]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_4]
-sel_should_apply_indirection[4] = SEL_OP_IS_INDIRECT_EFFECTIVE_4_ * (1 - sel_relative_overflow[4]);
+sel_should_apply_indirection[4] = SEL_OP_IS_INDIRECT_EFFECTIVE_4_ * (1 - sel_relative_overflow[4]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_5]
-sel_should_apply_indirection[5] = SEL_OP_IS_INDIRECT_EFFECTIVE_5_ * (1 - sel_relative_overflow[5]);
+sel_should_apply_indirection[5] = SEL_OP_IS_INDIRECT_EFFECTIVE_5_ * (1 - sel_relative_overflow[5]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_6]
-sel_should_apply_indirection[6] = SEL_OP_IS_INDIRECT_EFFECTIVE_6_ * (1 - sel_relative_overflow[6]);
+sel_should_apply_indirection[6] = SEL_OP_IS_INDIRECT_EFFECTIVE_6_ * (1 - sel_relative_overflow[6]) * (1 - sel_base_address_failure);
 
 // This is the tag of the operand if it came from an indirection. Otherwise it's unconstrained.
 pol commit rop_tag[7];
