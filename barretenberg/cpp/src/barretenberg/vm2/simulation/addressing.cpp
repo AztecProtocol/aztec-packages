@@ -39,17 +39,8 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
     // Therefore, it is not an error the circuit should be able to prove.
     assert(spec.num_addresses <= instruction.operands.size());
 
-    // We retrieve and cache the base address first.
-    // This simplifies the circuit but the downside is that we always do the memory access (and lookup).
-    // However, most memory accesses are expected to use the relative mode so this should be ok.
-    //
-    // Note that we can't check that the base address is valid* yet! This should be done only if it's used.
-    // This is because the first few instructions might not YET have a valid stack pointer.
-    // *valid = valid_address and valid_tag.
-    //
-    // This memory access is guaranteed to succeed.
-    MemoryValue base_address = memory.get(0);
-    event.base_address = base_address;
+    // We will read the base address only if we have any relative operands.
+    std::optional<MemoryValue> base_address;
 
     // We process each address separately.
     // Even if one fails, we continue processing the other ones.
@@ -69,14 +60,19 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             // We fist store the operands as is, and then we'll update them if they are relative.
             resolution_info.after_relative = instruction.operands[i];
             if (is_operand_relative(instruction.indirect, i)) {
+                // Load the base address if we haven't already.
+                if (!base_address) {
+                    base_address = memory.get(0);
+                    event.base_address = *base_address;
+                }
                 // This does not produce events. We are expected to check the tag to be UINT32.
-                if (!memory.is_valid_address(base_address)) {
+                if (!memory.is_valid_address(*base_address)) {
                     throw AddressingEventError::BASE_ADDRESS_INVALID;
                 }
 
                 // We extend the address to FF to avoid overflows.
                 FF offset = resolution_info.after_relative;
-                offset += base_address;
+                offset += *base_address;
                 // We store the offset as an FF operand. If the circuit needs to prove overflow, it will
                 // need the full value.
                 resolution_info.after_relative = Operand::from<FF>(offset);
