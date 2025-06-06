@@ -391,15 +391,17 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       const pruneFromSlotNumber = header.globalVariables.slotNumber.toBigInt();
       const pruneFromEpochNumber = getEpochAtSlot(pruneFromSlotNumber, this.l1constants);
 
+      const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
+
+      const blocks = await this.getBlocks(Number(provenBlockNumber) + 1, Number(blocksToUnwind));
+
       // Emit an event for listening services to react to the chain prune
       this.emit(L2BlockSourceEvents.L2PruneDetected, {
         type: L2BlockSourceEvents.L2PruneDetected,
-        blockNumber: pruneFrom,
-        slotNumber: pruneFromSlotNumber,
         epochNumber: pruneFromEpochNumber,
+        blocks,
       });
 
-      const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
       this.log.debug(
         `L2 prune from ${provenBlockNumber + 1n} to ${localPendingBlockNumber} will occur on next block submission.`,
       );

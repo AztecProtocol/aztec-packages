@@ -51,7 +51,7 @@ describe('e2e_sequencer_config', () => {
     });
 
     it('respects maxL2BlockGas', async () => {
-      await sequencer!.updateSequencerConfig({
+      sequencer!.updateSequencerConfig({
         maxTxsPerBlock: 1,
         minTxsPerBlock: 0,
       });
@@ -73,7 +73,7 @@ describe('e2e_sequencer_config', () => {
       });
 
       // Set the maxL2BlockGas to the total mana used
-      await sequencer!.updateSequencerConfig({
+      sequencer!.updateSequencerConfig({
         maxL2BlockGas: Number(totalManaUsed),
       });
 
@@ -86,7 +86,7 @@ describe('e2e_sequencer_config', () => {
       expect(receipt2.status).toBe('success');
 
       // Set the maxL2BlockGas to the total mana used - 1
-      await sequencer!.updateSequencerConfig({
+      sequencer!.updateSequencerConfig({
         maxL2BlockGas: Number(totalManaUsed) - 1,
       });
 

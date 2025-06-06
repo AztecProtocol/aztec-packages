@@ -15,10 +15,10 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
-  type BuildBlockOptions,
   type IFullNodeBlockBuilder,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
+  type PublicProcessorLimits,
   WorldStateRunningState,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
@@ -252,7 +252,7 @@ describe('sequencer', () => {
       l1Constants,
       new TestDateProvider(),
     );
-    await sequencer.updateConfig(config);
+    sequencer.updateConfig(config);
   });
 
   it('builds a block out of a single tx', async () => {
@@ -321,7 +321,7 @@ describe('sequencer', () => {
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
     const txs: Tx[] = await timesParallel(8, i => makeTx(i * 0x10000));
-    await sequencer.updateConfig({ minTxsPerBlock: 4 });
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -349,7 +349,7 @@ describe('sequencer', () => {
   it('builds a block that contains zero real transactions once flushed', async () => {
     const txs = await timesParallel(8, i => makeTx(i * 0x10000));
 
-    await sequencer.updateConfig({ minTxsPerBlock: 4 });
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -377,7 +377,7 @@ describe('sequencer', () => {
   it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
     const txs = await timesParallel(8, i => makeTx(i * 0x10000));
 
-    await sequencer.updateConfig({ minTxsPerBlock: 4 });
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -507,7 +507,7 @@ class TestSubject extends Sequencer {
     return super.doRealWork();
   }
 
-  public override getDefaultBlockBuilderOptions(slot: number): BuildBlockOptions {
+  public override getDefaultBlockBuilderOptions(slot: number): PublicProcessorLimits {
     return super.getDefaultBlockBuilderOptions(slot);
   }
 }
