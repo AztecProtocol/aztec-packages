@@ -34,7 +34,7 @@ contract ProposeTest is GovernanceBase {
     emit IGovernance.Proposed(proposalId, _proposal);
 
     vm.prank(address(governanceProposer));
-    assertTrue(governance.propose(IPayload(_proposal)));
+    governance.propose(IPayload(_proposal));
 
     DataStructures.Proposal memory proposal = governance.getProposal(proposalId);
     assertEq(proposal.config.executionDelay, config.executionDelay);
