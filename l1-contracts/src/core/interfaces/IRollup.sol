@@ -11,6 +11,7 @@ import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -143,7 +144,7 @@ interface IRollupCore {
 
 interface IRollup is IRollupCore {
   function validateHeader(
-    bytes calldata _header,
+    ProposedHeader calldata _header,
     CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
     Timestamp _currentTime,

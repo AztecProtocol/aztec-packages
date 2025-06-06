@@ -7,11 +7,31 @@ import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {
   AttesterView, Exit, Status, AttesterConfig
 } from "@aztec/core/libraries/staking/StakingLib.sol";
+import {
+  AppendOnlyTreeSnapshot,
+  PartialStateReference,
+  StateReference
+} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 contract TestBase is Test {
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using stdStorage for StdStorage;
+
+  // Empty values
+  AppendOnlyTreeSnapshot EMPTY_APPENDONLY_TREE_SNAPSHOT =
+    AppendOnlyTreeSnapshot({root: bytes32(0), nextAvailableLeafIndex: 0});
+
+  PartialStateReference EMPTY_PARTIALSTATE_REFERENCE = PartialStateReference({
+    noteHashTree: EMPTY_APPENDONLY_TREE_SNAPSHOT,
+    nullifierTree: EMPTY_APPENDONLY_TREE_SNAPSHOT,
+    publicDataTree: EMPTY_APPENDONLY_TREE_SNAPSHOT
+  });
+
+  StateReference EMPTY_STATE_REFERENCE = StateReference({
+    l1ToL2MessageTree: EMPTY_APPENDONLY_TREE_SNAPSHOT,
+    partialStateReference: EMPTY_PARTIALSTATE_REFERENCE
+  });
 
   function assertGt(Timestamp a, Timestamp b) internal {
     if (a <= b) {

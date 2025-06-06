@@ -8,8 +8,8 @@ import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 
 library TestConstants {
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
-  uint256 internal constant AZTEC_SLOT_DURATION = 24;
-  uint256 internal constant AZTEC_EPOCH_DURATION = 16;
+  uint256 internal constant AZTEC_SLOT_DURATION = 36;
+  uint256 internal constant AZTEC_EPOCH_DURATION = 32;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
   uint256 internal constant AZTEC_PROOF_SUBMISSION_WINDOW = AZTEC_EPOCH_DURATION * 2 - 1;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
