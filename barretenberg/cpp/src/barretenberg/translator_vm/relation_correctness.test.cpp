@@ -13,58 +13,6 @@ class TranslatorRelationCorrectnessTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-/**
- * @brief Test the correctness of GolbinTranslator's Permutation Relation
- *
- */
-TEST_F(TranslatorRelationCorrectnessTests, Permutation)
-{
-    using Flavor = TranslatorFlavor;
-    using FF = typename Flavor::FF;
-    using ProverPolynomials = typename Flavor::ProverPolynomials;
-    auto& engine = numeric::get_debug_randomness();
-
-    // Fill needed relation parameters
-    RelationParameters<FF> params{ .beta = FF::random_element(), .gamma = FF::random_element() };
-
-    // Create storage for polynomials
-    TranslatorProvingKey key;
-    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
-    ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
-
-    // Fill in lagrange polynomials used in the permutation relation
-    prover_polynomials.lagrange_first.at(0) = 1;
-    prover_polynomials.lagrange_last.at(key.dyadic_circuit_size - 1) = 1;
-
-    // Put random values in all the non-interleaved constraint polynomials used to range constrain the values
-    auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        for (size_t i = polynomial.start_index(); i < polynomial.end_index(); i++) {
-            polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        }
-    };
-
-    for (const auto& group : prover_polynomials.get_groups_to_be_interleaved()) {
-        for (auto& poly : group) {
-            fill_polynomial_with_random_14_bit_values(poly);
-        }
-    }
-    // Compute interleaved polynomials (4 polynomials produced from other constraint polynomials by interleaving)
-    key.compute_interleaved_polynomials();
-
-    // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
-    key.compute_translator_range_constraint_ordered_polynomials();
-
-    // Compute the fixed numerator (part of verification key)
-    key.compute_extra_range_constraint_numerator();
-
-    // Compute the grand product polynomial
-    compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);
-
-    // Check that permutation relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(
-        prover_polynomials, params, "TranslatorPermutationRelation");
-}
-
 TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
 {
     using Flavor = TranslatorFlavor;
@@ -683,7 +631,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
 
     key.compute_interleaved_polynomials();
     key.compute_extra_range_constraint_numerator();
-    key.compute_translator_range_constraint_ordered_polynomials(true);
+    key.compute_translator_range_constraint_ordered_polynomials();
 
     // Populate the first 4 ordered polynomials with the random values from the interleaved polynomials
     for (size_t i = 0; i < 4; i++) {
