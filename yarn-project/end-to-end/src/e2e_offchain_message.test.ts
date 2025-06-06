@@ -71,4 +71,9 @@ describe('e2e_offchain_message', () => {
 
     expect(provenTx.offchainMessages).toEqual(expectedOffchainMessages);
   });
+
+  it('should not emit any offchain messages', async () => {
+    const provenTx = await contract1.methods.emit_offchain_message_for_recipient(toBoundedVec([], 6)).prove();
+    expect(provenTx.offchainMessages).toEqual([]);
+  });
 });
