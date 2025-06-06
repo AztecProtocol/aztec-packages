@@ -92,7 +92,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator>>(const si
         coefficient *= shifter;
     }
 
-    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).normalize().get_witness_index();
+    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint_plookup result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
@@ -163,7 +163,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator<<(const si
         coefficient *= shifter;
     }
 
-    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).normalize().get_witness_index();
+    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint_plookup result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
@@ -239,7 +239,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::ror(const size_t ta
     }
     sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, slice_lo_idx) * field_t<Builder>(coefficient));
 
-    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).normalize().get_witness_index();
+    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint_plookup result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
