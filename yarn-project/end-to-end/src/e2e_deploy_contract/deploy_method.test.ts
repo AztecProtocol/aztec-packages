@@ -113,6 +113,16 @@ describe('e2e_deploy_contract deploy method', () => {
     await expect(NoConstructorContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
   });
 
+  it('succeeds in deploying the same contract class twice at the same time', async () => {
+    logger.debug(`Deploying contract with no constructor`);
+    const [contract1, contract2] = await Promise.all([
+      NoConstructorContract.deploy(wallet).send().deployed(),
+      NoConstructorContract.deploy(wallet).send().deployed(),
+    ]);
+    expect(contract1.address).toBeDefined();
+    expect(contract2.address).toBeDefined();
+  });
+
   it('publicly deploys and calls a public contract in the same batched call', async () => {
     const owner = wallet.getAddress();
     // Create a contract instance and make the PXE aware of it
