@@ -62,10 +62,10 @@ export abstract class BaseContractInteraction {
     // docs:end:prove
     const txProvingResult = await this.proveInternal(options);
     return new ProvenTx(
-        this.wallet, 
-        txProvingResult.toTx(), 
-        txProvingResult.getOffchainMessages(), 
-        txProvingResult.stats
+      this.wallet,
+      txProvingResult.toTx(),
+      txProvingResult.getOffchainMessages(),
+      txProvingResult.stats,
     );
   }
 
