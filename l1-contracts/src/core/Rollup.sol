@@ -9,7 +9,6 @@ import {
   L1FeeData,
   ManaBaseFeeComponents,
   FeeAssetPerEthE9,
-  EpochRewards,
   BlockLog,
   BlockHeaderValidationFlags,
   FeeHeader,
@@ -29,8 +28,8 @@ import {
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {GSE} from "@aztec/core/staking/GSE.sol";
-import {EpochProofLib} from "./libraries/rollup/EpochProofLib.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
+import {RewardLib} from "./libraries/rollup/RewardLib.sol";
 import {ValidatorSelectionLib} from "./libraries/validator-selection/ValidatorSelectionLib.sol";
 import {
   RollupCore,
@@ -494,7 +493,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    return STFLib.getStorage().sequencerRewards[_sequencer];
+    return RewardLib.getSequencerRewards(_sequencer);
   }
 
   function getCollectiveProverRewardsForEpoch(Epoch _epoch)
@@ -503,7 +502,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    return STFLib.getStorage().epochRewards[_epoch].rewards;
+    return RewardLib.getCollectiveProverRewardsForEpoch(_epoch);
   }
 
   /**
@@ -522,19 +521,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    if (rollupStore.proverClaimed[_prover][_epoch]) {
-      return 0;
-    }
-
-    EpochRewards storage er = rollupStore.epochRewards[_epoch];
-    uint256 length = er.longestProvenLength;
-
-    if (er.subEpoch[length].hasSubmitted[_prover]) {
-      return er.rewards / er.subEpoch[length].summedCount;
-    }
-
-    return 0;
+    return RewardLib.getSpecificProverRewardsForEpoch(_epoch, _prover);
   }
 
   function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover)
@@ -543,7 +530,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (bool)
   {
-    return STFLib.getStorage().epochRewards[_epoch].subEpoch[_length].hasSubmitted[_prover];
+    return RewardLib.getHasSubmitted(_epoch, _length, _prover);
   }
 
   function getProvingCostPerManaInEth() external view override(IRollup) returns (EthValue) {
@@ -597,7 +584,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getBurnAddress() external pure override(IRollup) returns (address) {
-    return EpochProofLib.BURN_ADDRESS;
+    return RewardLib.BURN_ADDRESS;
   }
 
   /**
