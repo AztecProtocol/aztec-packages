@@ -113,7 +113,7 @@ describe('blob', () => {
       blobItems[i] = new Fr(i + 2);
     }
     const blobItemsHash = await poseidon2Hash(blobItems);
-    const blobs = await Blob.getBlobs(blobItems);
+    const blobs = await Blob.getBlobsPerBlock(blobItems);
     expect(blobs.length).toEqual(1);
     const ourBlob = blobs[0];
     expect(blobItemsHash).toEqual(ourBlob.fieldsHash);

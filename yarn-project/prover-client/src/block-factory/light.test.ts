@@ -351,7 +351,7 @@ describe('LightBlockBuilder', () => {
     const previousArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
-    const blobs = await Blob.getBlobs(blobFields);
+    const blobs = await Blob.getBlobsPerBlock(blobFields);
     const startBlobAccumulator = await BatchedBlob.newAccumulator(blobs);
     blobsHash = getBlobsHashFromBlobs(blobs);
     const rootParityVk = getVkData('RootParityArtifact');

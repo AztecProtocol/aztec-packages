@@ -65,7 +65,7 @@ describe('prover/bb_prover/full-rollup', () => {
         expect(processed.length).toBe(nonEmptyTxs);
         expect(failed.length).toBe(0);
         processedTxs[blockNum] = processed;
-        blobs.push(await Blob.getBlobs(processed.flatMap(tx => tx.txEffect.toBlobFields())));
+        blobs.push(await Blob.getBlobsPerBlock(processed.flatMap(tx => tx.txEffect.toBlobFields())));
       }
 
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs.flat());
@@ -134,7 +134,7 @@ describe('prover/bb_prover/full-rollup', () => {
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);
 
-    const blobs = await Blob.getBlobs(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+    const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
     const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
     context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);

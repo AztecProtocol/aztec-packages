@@ -57,7 +57,7 @@ describe('blob', () => {
     // Initialise 400 fields. This test shows that a single blob works with batching methods.
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr -> test_400_batched
     const blobItems = Array(400).fill(new Fr(3));
-    const blobs = await Blob.getBlobs(blobItems);
+    const blobs = await Blob.getBlobsPerBlock(blobItems);
 
     // Challenge for the final opening (z)
     const zis = blobs.map(b => b.challengeZ);
@@ -114,7 +114,7 @@ describe('blob', () => {
     const items = [new Fr(3), new Fr(4), new Fr(5)].map(f =>
       new Array(FIELDS_PER_BLOB).fill(f).map((elt, i) => elt.mul(new Fr(i + 1))),
     );
-    const blobs = await Blob.getBlobs(items.flat());
+    const blobs = await Blob.getBlobsPerBlock(items.flat());
 
     // Challenge for the final opening (z)
     const zis = blobs.map(b => b.challengeZ);
@@ -178,7 +178,9 @@ describe('blob', () => {
     const blobs = [];
     for (let i = 0; i < blocks; i++) {
       const start = i * FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK;
-      blobs.push(...(await Blob.getBlobs(items.slice(start, start + FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK))));
+      blobs.push(
+        ...(await Blob.getBlobsPerBlock(items.slice(start, start + FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK))),
+      );
     }
     // BatchedBlob.batch() performs a verification check:
     await BatchedBlob.batch(blobs);
