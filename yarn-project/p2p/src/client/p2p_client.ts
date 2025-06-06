@@ -303,7 +303,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug('Stopped block downloader');
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
-    this.log.info('P2P client stopped.');
+    this.log.info('P2P client stopped');
   }
 
   /** Triggers a sync to the archiver. Used for testing. */

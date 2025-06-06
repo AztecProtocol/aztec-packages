@@ -17,6 +17,7 @@ import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -342,8 +343,8 @@ export class P2PNetworkTest {
   }
 
   async teardown() {
-    this.monitor.stop();
-    await this.bootstrapNode?.stop();
+    await this.monitor.stop();
+    await tryStop(this.bootstrapNode, this.logger);
     await this.snapshotManager.teardown();
   }
 }

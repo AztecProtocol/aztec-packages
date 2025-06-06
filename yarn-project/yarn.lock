@@ -702,6 +702,7 @@ __metadata:
     dotenv: "npm:^16.0.3"
     get-port: "npm:^7.1.0"
     jest: "npm:^29.5.0"
+    jest-mock-extended: "npm:^3.0.3"
     lodash.omit: "npm:^4.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"

@@ -16,22 +16,12 @@ export interface Service {
 }
 
 /** Tries to call stop on a given object and awaits it. Logs any errors and does not rethrow. */
-export async function tryStop(service?: Partial<Service>, logger?: Logger): Promise<void> {
+export async function tryStop(service?: Partial<Pick<Service, 'stop'>>, logger?: Logger): Promise<void> {
   try {
     return typeof service === 'object' && service && 'stop' in service && typeof service.stop === 'function'
       ? await service.stop()
       : Promise.resolve();
   } catch (err) {
     logger?.error(`Error stopping service ${(service as object).constructor?.name}: ${err}`);
-  }
-}
-
-export function tryRestart(service?: Partial<Service>, logger?: Logger) {
-  try {
-    return typeof service === 'object' && service && 'restart' in service && typeof service.restart === 'function'
-      ? service.restart()
-      : Promise.resolve();
-  } catch (err) {
-    logger?.error(`Error restarting service ${(service as object).constructor?.name}: ${err}`);
   }
 }
