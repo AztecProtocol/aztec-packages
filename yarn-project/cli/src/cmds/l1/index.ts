@@ -1,5 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
+import { withoutHexPrefix } from '@aztec/foundation/string';
 
 import { type Command, Option } from 'commander';
 
@@ -14,7 +15,7 @@ import {
   pxeOption,
 } from '../../utils/commands.js';
 
-export { addL1Validator, dripQueue } from './update_l1_validators.js';
+export { addL1ValidatorToQueue, dripQueue } from './update_l1_validators.js';
 
 const l1RpcUrlsOption = new Option(
   '--l1-rpc-urls <string>',
@@ -281,7 +282,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
-    .command('add-l1-validator')
+    .command('add-l1-validator-to-queue')
     .description('Adds a validator to the L1 rollup contract.')
     .addOption(l1RpcUrlsOption)
     .option('-pk, --private-key <string>', 'The private key to use sending the transaction', PRIVATE_KEY)
@@ -293,15 +294,19 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .addOption(l1ChainIdOption)
     .option('--attester <address>', 'ethereum address of the attester', parseEthereumAddress)
     .option('--staking-asset-handler <address>', 'ethereum address of the staking asset handler', parseEthereumAddress)
+    .option('--proof <buffer>', 'The proof to use for the attestation', arg =>
+      Buffer.from(withoutHexPrefix(arg), 'hex'),
+    )
     .action(async options => {
-      const { addL1Validator } = await import('./update_l1_validators.js');
-      await addL1Validator({
+      const { addL1ValidatorToQueue } = await import('./update_l1_validators.js');
+      await addL1ValidatorToQueue({
         rpcUrls: options.l1RpcUrls,
         chainId: options.l1ChainId,
         privateKey: options.privateKey,
         mnemonic: options.mnemonic,
         attesterAddress: options.attester,
         stakingAssetHandlerAddress: options.stakingAssetHandler,
+        proofParams: options.proof,
         log,
         debugLogger,
       });
