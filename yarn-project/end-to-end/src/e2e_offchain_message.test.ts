@@ -8,7 +8,9 @@ import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
 const TIMEOUT = 120_000;
 
 describe('e2e_offchain_message', () => {
-  let contract: OffchainMessageContract;
+  let contract1: OffchainMessageContract;
+  let contract2: OffchainMessageContract;
+
   jest.setTimeout(TIMEOUT);
 
   let wallets: AccountWalletWithSecretKey[];
@@ -17,54 +19,56 @@ describe('e2e_offchain_message', () => {
   beforeAll(async () => {
     ({ teardown, wallets } = await setup(2));
     await ensureAccountsPubliclyDeployed(wallets[0], wallets.slice(0, 2));
-    contract = await OffchainMessageContract.deploy(wallets[0]).send().deployed();
+    // TODO(benesjan): The following results in one of the txs being dropped. There seems to be an issue in Aztec.js
+    // deployments.
+    // [contract1, contract2] = await Promise.all([
+    //   OffchainMessageContract.deploy(wallets[0]).send({ contractAddressSalt: Fr.random() }).deployed(),
+    //   OffchainMessageContract.deploy(wallets[0]).send({ contractAddressSalt: Fr.random() }).deployed(),
+    // ]);
+    contract1 = await OffchainMessageContract.deploy(wallets[0]).send().deployed();
+    contract2 = await OffchainMessageContract.deploy(wallets[0]).send().deployed();
   });
 
   afterAll(() => teardown());
 
   function toBoundedVec<T>(arr: T[], maxLen: number) {
+    const paddingMessagePayload = {
+      message: [Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO],
+      recipient: AztecAddress.ZERO,
+      // eslint-disable-next-line camelcase
+      next_contract: AztecAddress.ZERO,
+    };
+
     return {
       len: arr.length,
-      storage: arr.concat(new Array(maxLen - arr.length).fill(null)),
+      storage: arr.concat(new Array(maxLen - arr.length).fill(paddingMessagePayload)),
     };
   }
 
   it('should emit offchain message', async () => {
-    const message = [Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()];
-    const recipient = await AztecAddress.random();
-    const nextContract = contract.address;
-
-    // Create array of message payloads
-    const messages = Array(3)
-      .fill(null)
-      .map(() => ({
-        message,
-        recipient,
-        next_contract: nextContract,
-      }));
-
-    const storage = messages.concat(
-      new Array(5 - messages.length).fill({
-        message: Array(5).fill(Fr.ZERO),
-        recipient: AztecAddress.ZERO,
-        next_contract: AztecAddress.ZERO,
-      }),
+    const messages = await Promise.all(
+      Array(3)
+        .fill(null)
+        .map(async (_, i) => ({
+          message: [Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()],
+          recipient: await AztecAddress.random(),
+          // eslint-disable-next-line camelcase
+          next_contract: i % 2 === 0 ? contract2.address : contract1.address,
+        })),
     );
 
-    console.log(storage);
+    const provenTx = await contract1.methods.emit_offchain_message_for_recipient(toBoundedVec(messages, 6)).prove();
 
-    const provenTx = await contract.methods
-      .emit_offchain_message_for_recipient({
-        storage,
-        len: messages.length,
-      })
-      .prove();
+    // The expected order of offchain messages is the reverse because the messages are popped from the end of the input
+    // BoundedVec.
+    const expectedOffchainMessages = messages
+      .map((message, i) => ({
+        message: message.message,
+        recipient: message.recipient,
+        contractAddress: i % 2 == 0 ? contract1.address : contract2.address,
+      }))
+      .reverse();
 
-    const offchainMessages = provenTx.offchainMessages;
-    expect(offchainMessages.length).toBe(3);
-    for (let i = 0; i < offchainMessages.length; i++) {
-      expect(offchainMessages[i].recipient).toEqual(recipient);
-      expect(offchainMessages[i].message).toEqual(message);
-    }
+    expect(provenTx.offchainMessages).toEqual(expectedOffchainMessages);
   });
 });
