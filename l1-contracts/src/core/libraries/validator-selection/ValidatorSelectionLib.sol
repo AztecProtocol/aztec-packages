@@ -165,18 +165,20 @@ library ValidatorSelectionLib {
     }
   }
 
-  function getProposerAt(Slot _slot, Epoch _epochNumber) internal returns (address) {
+  function getProposerAt(Slot _slot) internal returns (address) {
     // @note this is deliberately "bad" for the simple reason of code reduction.
     //       it does not need to actually return the full committee and then draw from it
     //       it can just return the proposer directly, but then we duplicate the code
     //       which we just don't have room for right now...
-    uint224 sampleSeed = getSampleSeed(_epochNumber);
-    address[] memory committee = sampleValidators(_epochNumber, sampleSeed);
+    Epoch epochNumber = _slot.epochFromSlot();
+
+    uint224 sampleSeed = getSampleSeed(epochNumber);
+    address[] memory committee = sampleValidators(epochNumber, sampleSeed);
     if (committee.length == 0) {
       return address(0);
     }
 
-    return committee[computeProposerIndex(_epochNumber, _slot, sampleSeed, committee.length)];
+    return committee[computeProposerIndex(epochNumber, _slot, sampleSeed, committee.length)];
   }
 
   /**
