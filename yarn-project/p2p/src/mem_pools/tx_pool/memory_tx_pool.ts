@@ -130,7 +130,6 @@ export class InMemoryTxPool implements TxPool {
    * @returns Empty promise.
    */
   public async addTxs(txs: Tx[]): Promise<void> {
-    let pending = 0;
     for (const tx of txs) {
       const txHash = await tx.getTxHash();
       this.log.verbose(`Adding tx ${txHash.toString()} to pool`, {
@@ -141,12 +140,10 @@ export class InMemoryTxPool implements TxPool {
       const key = txHash.toBigInt();
       this.txs.set(key, tx);
       if (!this.minedTxs.has(key)) {
-        pending++;
         this.metrics.recordSize(tx);
         this.pendingTxs.add(key);
       }
     }
-    return pending;
   }
 
   /**
