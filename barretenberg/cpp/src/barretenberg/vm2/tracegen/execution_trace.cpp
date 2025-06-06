@@ -646,7 +646,10 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     bool do_base_check = num_relative_operands != 0;
     bool base_address_invalid = do_base_check && addr_event.base_address.get_tag() != MemoryTag::U32;
     FF base_address_tag_diff_inv =
-        base_address_invalid ? FF(static_cast<uint8_t>(addr_event.base_address.get_tag()) - MEM_TAG_U32).invert() : 0;
+        base_address_invalid
+            ? (FF(static_cast<uint8_t>(addr_event.base_address.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::U32)))
+                  .invert()
+            : 0;
 
     // Tag check after indirection.
     bool some_final_check_failed =

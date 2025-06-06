@@ -31,8 +31,8 @@ inline std::string to_string(AddressingEventError e)
         return "INVALID_ADDRESS_AFTER_INDIRECTION";
     }
 
-    // Only to please the compiler.
-    return "UNKNOWN_ADDRESSING_ERROR";
+    // We should be catching all the cases above.
+    __builtin_unreachable();
 }
 
 struct AddressingException : public std::runtime_error {

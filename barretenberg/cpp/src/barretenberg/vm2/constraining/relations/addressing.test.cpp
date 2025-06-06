@@ -120,7 +120,8 @@ TEST(AddressingConstrainingTest, BaseAddressTagIsU32)
 TEST(AddressingConstrainingTest, BaseAddressTagIsNotU32)
 {
     FF base_address_tag = 1234567;
-    FF base_address_tag_diff_inv = FF(base_address_tag - static_cast<uint8_t>(MemoryTag::U32)).invert();
+    FF u32_tag = static_cast<uint8_t>(MemoryTag::U32);
+    FF base_address_tag_diff_inv = FF(base_address_tag - u32_tag).invert();
 
     TestTraceContainer trace({
         {
@@ -153,7 +154,8 @@ TEST(AddressingConstrainingTest, BaseAddressTagIsNotU32)
 TEST(AddressingConstrainingTest, BaseAddressTagNoCheckImpliesNoError)
 {
     FF base_address_tag = 1234567;
-    FF base_address_tag_diff_inv = FF(base_address_tag - static_cast<uint8_t>(MemoryTag::U32)).invert();
+    FF u32_tag = static_cast<uint8_t>(MemoryTag::U32);
+    FF base_address_tag_diff_inv = FF(base_address_tag - u32_tag).invert();
 
     TestTraceContainer trace({
         {
@@ -474,6 +476,78 @@ TEST(AddressingConstrainingTest, IndirectGating)
     // Bits are still constrained if sel_should_resolve_address is 0.
     // This just simplifies the relation.
     trace.set(C::execution_sel_should_resolve_address, /*row=*/0, /*value=*/0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_0), "INDIRECT_GATING_0");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_1), "INDIRECT_GATING_1");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_2), "INDIRECT_GATING_2");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_3), "INDIRECT_GATING_3");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_4), "INDIRECT_GATING_4");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_5), "INDIRECT_GATING_5");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_6), "INDIRECT_GATING_6");
+}
+
+TEST(AddressingConstrainingTest, IndirectGatingIfBaseAddressIsInvalid)
+{
+    TestTraceContainer trace({
+        {
+            // Selectors that enable the subrelation.
+            { C::execution_sel_should_resolve_address, 1 },
+            { C::execution_sel_base_address_failure, 1 },
+            // From wire.
+            { C::execution_sel_op_is_indirect_wire_0_, 0 },
+            { C::execution_sel_op_is_indirect_wire_1_, 1 },
+            { C::execution_sel_op_is_indirect_wire_2_, 0 },
+            { C::execution_sel_op_is_indirect_wire_3_, 1 },
+            { C::execution_sel_op_is_indirect_wire_4_, 0 },
+            { C::execution_sel_op_is_indirect_wire_5_, 1 },
+            { C::execution_sel_op_is_indirect_wire_6_, 1 },
+            // From spec.
+            { C::execution_sel_op_is_address_0_, 1 },
+            { C::execution_sel_op_is_address_1_, 1 },
+            { C::execution_sel_op_is_address_2_, 1 },
+            { C::execution_sel_op_is_address_3_, 1 },
+            { C::execution_sel_op_is_address_4_, 1 },
+            { C::execution_sel_op_is_address_5_, 1 },
+            { C::execution_sel_op_is_address_6_, 0 },
+            // From relative step.
+            { C::execution_sel_relative_overflow_0_, 0 },
+            { C::execution_sel_relative_overflow_1_, 0 },
+            { C::execution_sel_relative_overflow_2_, 1 },
+            { C::execution_sel_relative_overflow_3_, 1 },
+            { C::execution_sel_relative_overflow_4_, 0 },
+            { C::execution_sel_relative_overflow_5_, 0 },
+            { C::execution_sel_relative_overflow_6_, 0 },
+            // The are all expected to be 0 because the base address is invalid.
+            { C::execution_sel_should_apply_indirection_0_, 0 },
+            { C::execution_sel_should_apply_indirection_1_, 0 },
+            { C::execution_sel_should_apply_indirection_2_, 0 },
+            { C::execution_sel_should_apply_indirection_3_, 0 },
+            { C::execution_sel_should_apply_indirection_4_, 0 },
+            { C::execution_sel_should_apply_indirection_5_, 0 },
+            { C::execution_sel_should_apply_indirection_6_, 0 },
+        },
+    });
+
+    check_relation<addressing>(trace,
+                               addressing::SR_INDIRECT_GATING_0,
+                               addressing::SR_INDIRECT_GATING_1,
+                               addressing::SR_INDIRECT_GATING_2,
+                               addressing::SR_INDIRECT_GATING_3,
+                               addressing::SR_INDIRECT_GATING_4,
+                               addressing::SR_INDIRECT_GATING_5,
+                               addressing::SR_INDIRECT_GATING_6);
+
+    // Expect failures if we switch bits.
+    trace.set(0,
+              { {
+                  // Opposite of above.
+                  { C::execution_sel_should_apply_indirection_0_, 1 },
+                  { C::execution_sel_should_apply_indirection_1_, 1 },
+                  { C::execution_sel_should_apply_indirection_2_, 1 },
+                  { C::execution_sel_should_apply_indirection_3_, 1 },
+                  { C::execution_sel_should_apply_indirection_4_, 1 },
+                  { C::execution_sel_should_apply_indirection_5_, 1 },
+                  { C::execution_sel_should_apply_indirection_6_, 1 },
+              } });
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_0), "INDIRECT_GATING_0");
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_1), "INDIRECT_GATING_1");
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_2), "INDIRECT_GATING_2");

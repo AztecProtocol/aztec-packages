@@ -138,7 +138,7 @@ pol commit sel_base_address_failure;
 
 // We check the TAG of the base address only. This implies that the value is valid.
 // The following bunch of constraints force
-// - sel_base_address_failure = (base_address_tag != U32)  if   SEL_DO_BASE_CHECK
+// - sel_base_address_failure = (base_address_tag != U32)  if   sel_do_base_check
 // - sel_base_address_failure = 0                          otherwise
 pol commit base_address_tag_diff_inv;
 // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
@@ -158,20 +158,21 @@ pol commit op_after_relative[7];
 pol commit sel_relative_overflow[7];
 
 // Note that we will not add the base address if there was a failure.
+pol RELATIVE_RESOLUTION_FILTER = (1 - sel_base_address_failure) * base_address_val;  // Alias for performance.
 #[RELATIVE_RESOLUTION_0]
-op_after_relative[0] = op[0] + SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * (1 - sel_base_address_failure) * base_address_val;
+op_after_relative[0] = op[0] + SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_1]
-op_after_relative[1] = op[1] + SEL_OP_IS_RELATIVE_EFFECTIVE_1_ * (1 - sel_base_address_failure) * base_address_val;
+op_after_relative[1] = op[1] + SEL_OP_IS_RELATIVE_EFFECTIVE_1_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_2]
-op_after_relative[2] = op[2] + SEL_OP_IS_RELATIVE_EFFECTIVE_2_ * (1 - sel_base_address_failure) * base_address_val;
+op_after_relative[2] = op[2] + SEL_OP_IS_RELATIVE_EFFECTIVE_2_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_3]
-op_after_relative[3] = op[3] + SEL_OP_IS_RELATIVE_EFFECTIVE_3_ * (1 - sel_base_address_failure) * base_address_val;
+op_after_relative[3] = op[3] + SEL_OP_IS_RELATIVE_EFFECTIVE_3_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_4]
-op_after_relative[4] = op[4] + SEL_OP_IS_RELATIVE_EFFECTIVE_4_ * (1 - sel_base_address_failure) * base_address_val;
+op_after_relative[4] = op[4] + SEL_OP_IS_RELATIVE_EFFECTIVE_4_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_5]
-op_after_relative[5] = op[5] + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ * (1 - sel_base_address_failure) * base_address_val;
+op_after_relative[5] = op[5] + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_6]
-op_after_relative[6] = op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * (1 - sel_base_address_failure) * base_address_val;
+op_after_relative[6] = op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * RELATIVE_RESOLUTION_FILTER;
 
 // #[RELATIVE_OVERFLOW_i]
 // FIXME(fcarreiro): Constrain that sel_relative_overflow[i] == (op_after_relative[0] >= 2^32).
@@ -186,19 +187,19 @@ op_after_relative[6] = op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * (1 - sel_base_a
 // We only do this if the indirect bit is set AND nothing else failed so far (for this operand).
 pol commit sel_should_apply_indirection[7];
 #[INDIRECT_GATING_0]
-sel_should_apply_indirection[0] = SEL_OP_IS_INDIRECT_EFFECTIVE_0_ * (1 - sel_relative_overflow[0]);
+sel_should_apply_indirection[0] = SEL_OP_IS_INDIRECT_EFFECTIVE_0_ * (1 - sel_relative_overflow[0]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_1]
-sel_should_apply_indirection[1] = SEL_OP_IS_INDIRECT_EFFECTIVE_1_ * (1 - sel_relative_overflow[1]);
+sel_should_apply_indirection[1] = SEL_OP_IS_INDIRECT_EFFECTIVE_1_ * (1 - sel_relative_overflow[1]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_2]
-sel_should_apply_indirection[2] = SEL_OP_IS_INDIRECT_EFFECTIVE_2_ * (1 - sel_relative_overflow[2]);
+sel_should_apply_indirection[2] = SEL_OP_IS_INDIRECT_EFFECTIVE_2_ * (1 - sel_relative_overflow[2]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_3]
-sel_should_apply_indirection[3] = SEL_OP_IS_INDIRECT_EFFECTIVE_3_ * (1 - sel_relative_overflow[3]);
+sel_should_apply_indirection[3] = SEL_OP_IS_INDIRECT_EFFECTIVE_3_ * (1 - sel_relative_overflow[3]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_4]
-sel_should_apply_indirection[4] = SEL_OP_IS_INDIRECT_EFFECTIVE_4_ * (1 - sel_relative_overflow[4]);
+sel_should_apply_indirection[4] = SEL_OP_IS_INDIRECT_EFFECTIVE_4_ * (1 - sel_relative_overflow[4]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_5]
-sel_should_apply_indirection[5] = SEL_OP_IS_INDIRECT_EFFECTIVE_5_ * (1 - sel_relative_overflow[5]);
+sel_should_apply_indirection[5] = SEL_OP_IS_INDIRECT_EFFECTIVE_5_ * (1 - sel_relative_overflow[5]) * (1 - sel_base_address_failure);
 #[INDIRECT_GATING_6]
-sel_should_apply_indirection[6] = SEL_OP_IS_INDIRECT_EFFECTIVE_6_ * (1 - sel_relative_overflow[6]);
+sel_should_apply_indirection[6] = SEL_OP_IS_INDIRECT_EFFECTIVE_6_ * (1 - sel_relative_overflow[6]) * (1 - sel_base_address_failure);
 
 // This is the tag of the operand if it came from an indirection. Otherwise it's unconstrained.
 pol commit rop_tag[7];
@@ -251,7 +252,6 @@ sel_should_apply_indirection[6] { /*address=*/op_after_relative[6], /*value=*/ro
 pol commit sel_some_final_check_failed;
 // Each tag takes at most 3 bits (guaranteed by mem lookup!), we can encode all of them in a field.
 // This diff will be 0 iff all tags are U32.
-// FIXME(fcarreiro): Does (rop_tag[i] - constants.MEM_TAG_U32) really fit in 3 bits?
 pol BATCHED_TAGS_DIFF = sel_should_apply_indirection[0] * 2**0  * (rop_tag[0] - constants.MEM_TAG_U32)
                       + sel_should_apply_indirection[1] * 2**3  * (rop_tag[1] - constants.MEM_TAG_U32)
                       + sel_should_apply_indirection[2] * 2**6  * (rop_tag[2] - constants.MEM_TAG_U32)
