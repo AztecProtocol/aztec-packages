@@ -17,14 +17,16 @@ contract OffchainMessage {
 
     #[private]
     fn emit_offchain_message_for_recipient(messages: BoundedVec<MessagePayload, 6>) {
-        let mut messages = messages;
-        let messagePayload = messages.pop();
-        emit_offchain_message(messagePayload.message, messagePayload.recipient);
-
         if messages.len() > 0 {
-            OffchainMessage::at(messagePayload.next_contract)
-                .emit_offchain_message_for_recipient(messages)
-                .call(&mut context);
+            let mut messages = messages;
+            let messagePayload = messages.pop();
+            emit_offchain_message(messagePayload.message, messagePayload.recipient);
+
+            if messages.len() > 0 {
+                OffchainMessage::at(messagePayload.next_contract)
+                    .emit_offchain_message_for_recipient(messages)
+                    .call(&mut context);
+            }
         }
     }
 }
