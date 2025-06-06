@@ -37,7 +37,7 @@ pub struct BlockRootRollupData {
 
     // -->
 
-    // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+    // Identifier of the prover.
     pub prover_id: Field,
 }
 

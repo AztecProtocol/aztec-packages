@@ -32,7 +32,7 @@ library BlobLib {
    * @notice  Validate an L2 block's blobs and return the blobHashes, the hashed blobHashes, and blob commitments.
    * @notice  We assume that this propose transaction contains only Aztec blobs
    * Input bytes:
-   * input[:1] - num blobs in block
+   * input[0] - num blobs in block
    * input[1:] - blob commitments (48 bytes * num blobs in block)
    * @param _blobsInput - The above bytes to verify our input blob commitments match real blobs
    * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob), exists only to be overriden in tests.

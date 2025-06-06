@@ -271,20 +271,20 @@ export class CrossChainTestHarness {
 
   async withdrawPrivateFromAztecToL1(
     withdrawAmount: bigint,
-    nonce: Fr = Fr.ZERO,
+    authwitNonce: Fr = Fr.ZERO,
     authWitness: AuthWitness,
   ): Promise<FieldsOf<TxReceipt>> {
     const withdrawReceipt = await this.l2Bridge.methods
-      .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
+      .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send({ authWitnesses: [authWitness] })
       .wait();
 
     return withdrawReceipt;
   }
 
-  async withdrawPublicFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
+  async withdrawPublicFromAztecToL1(withdrawAmount: bigint, authwitNonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
     const withdrawReceipt = await this.l2Bridge.methods
-      .exit_to_l1_public(this.ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
+      .exit_to_l1_public(this.ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send()
       .wait();
 
@@ -339,9 +339,12 @@ export class CrossChainTestHarness {
     await this.l2Token.methods.transfer_to_private(this.ownerAddress, shieldAmount).send().wait();
   }
 
-  async transferToPublicOnL2(amount: bigint, nonce = Fr.ZERO) {
+  async transferToPublicOnL2(amount: bigint, authwitNonce = Fr.ZERO) {
     this.logger.info('Transferring tokens to public');
-    await this.l2Token.methods.transfer_to_public(this.ownerAddress, this.ownerAddress, amount, nonce).send().wait();
+    await this.l2Token.methods
+      .transfer_to_public(this.ownerAddress, this.ownerAddress, amount, authwitNonce)
+      .send()
+      .wait();
   }
 
   /**

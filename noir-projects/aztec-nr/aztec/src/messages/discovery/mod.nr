@@ -2,12 +2,15 @@ use protocol_types::{address::AztecAddress, debug_log::debug_log};
 
 pub mod nonce_discovery;
 pub mod partial_notes;
+pub mod private_events;
 pub mod private_logs;
 pub mod private_notes;
 
 use crate::messages::{
     discovery::{private_logs::process_private_log, private_notes::MAX_NOTE_PACKED_LEN},
-    processing::{get_private_logs, pending_tagged_log::PendingTaggedLog, validate_enqueued_notes},
+    processing::{
+        get_private_logs, pending_tagged_log::PendingTaggedLog, validate_enqueued_notes_and_events,
+    },
 };
 
 pub struct NoteHashAndNullifier {
@@ -17,16 +20,16 @@ pub struct NoteHashAndNullifier {
     pub inner_nullifier: Field,
 }
 
-/// A function which takes a note's packed content, address of the emitting contract, nonce, storage slot and note type
-/// ID and attempts to compute its note hash (not siloed by nonce nor address) and inner nullifier (not siloed by
-/// address).
+/// A function which takes a note's packed content, address of the emitting contract, note nonce, storage slot and note
+/// type ID and attempts to compute its note hash (not hashed by note nonce nor siloed by address) and inner nullifier
+/// (not siloed by address).
 ///
 /// This function must be user-provided as its implementation requires knowledge of how note type IDs are allocated in a
 /// contract. The `#[aztec]` macro automatically creates such a contract library method called
 /// `_compute_note_hash_and_nullifier`, which looks something like this:
 ///
 /// ```
-/// |packed_note, contract_address, nonce, storage_slot, note_type_id| {
+/// |packed_note, contract_address, note_nonce, storage_slot, note_type_id| {
 ///     if note_type_id == MyNoteType::get_id() {
 ///         assert(packed_note.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
 ///
@@ -34,7 +37,7 @@ pub struct NoteHashAndNullifier {
 ///
 ///         let note_hash = note.compute_note_hash(storage_slot);
 ///         let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(
-///             RetrievedNote{ note, contract_address, metadata: SettledNoteMetadata::new(nonce).into() },
+///             RetrievedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
 ///             storage_slot
 ///         );
 ///
@@ -52,7 +55,7 @@ pub struct NoteHashAndNullifier {
 ///     };
 /// }
 /// ```
-type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* nonce */ Field) -> Option<NoteHashAndNullifier>;
+type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
 /// Performs the message discovery process, in which private are downloaded and inspected to find new private notes,
 /// partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
@@ -81,7 +84,7 @@ pub unconstrained fn discover_new_messages<Env>(
         compute_note_hash_and_nullifier,
     );
 
-    // Finally we validate all notes that were found as part of the previous processes, resulting in them being added to
-    // PXE's database and retrievable via oracles.
-    validate_enqueued_notes(contract_address);
+    // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
+    // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).
+    validate_enqueued_notes_and_events(contract_address);
 }

@@ -41,7 +41,7 @@ struct SubmitEpochRootProofArgs {
 struct BlockLog {
   bytes32 archive;
   bytes32 headerHash;
-  bytes32 blobCommitmentsHash; // TODO(#14646): Keep a running hash we iteratively overwrite per epoch, instead of per block.
+  bytes32 blobCommitmentsHash; // TODO(#14646): Keep a running hash we iteratively overwrite, instead of per block.
   Slot slotNumber;
 }
 

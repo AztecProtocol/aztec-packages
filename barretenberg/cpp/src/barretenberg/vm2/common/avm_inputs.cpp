@@ -70,8 +70,7 @@ void set_l2_to_l1_msg_array_in_cols(const std::array<ScopedL2ToL1Message, SIZE>&
         size_t row = array_start_row_idx + i;
         cols[0][row] = arr[i].message.recipient;
         cols[1][row] = arr[i].message.content;
-        cols[2][row] = arr[i].message.counter;
-        cols[3][row] = arr[i].contractAddress;
+        cols[2][row] = arr[i].contractAddress;
     }
 }
 
@@ -165,6 +164,9 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     set_gas_fees_in_cols(gasSettings.maxFeesPerGas, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX);
     set_gas_fees_in_cols(
         gasSettings.maxPriorityFeesPerGas, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX);
+
+    // Effective gas fees
+    set_gas_fees_in_cols(effectiveGasFees, cols, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX);
 
     // Fee payer
     cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = feePayer;

@@ -46,7 +46,7 @@ export const getBBConfig = async (
       }
     };
 
-    return { bbSkipCleanup, bbBinaryPath, bbWorkingDirectory, cleanup };
+    return { bbSkipCleanup, bbBinaryPath, bbWorkingDirectory, cleanup, numConcurrentIVCVerifiers: 1 };
   } catch (err) {
     logger.error(`Native BB not available, error: ${err}`);
     return undefined;

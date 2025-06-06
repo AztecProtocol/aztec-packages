@@ -19,11 +19,11 @@ import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/ser
 import { type ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
+  BlockConstantData,
   type BlockRootOrBlockMergePublicInputs,
   BlockRootRollupBlobData,
   BlockRootRollupData,
   BlockRootRollupInputs,
-  ConstantRollupData,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
   PreviousRollupData,
@@ -72,6 +72,7 @@ export class BlockProvingState {
     public readonly index: number,
     public readonly globalVariables: GlobalVariables,
     public readonly newL1ToL2Messages: Fr[],
+    public readonly l1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     private readonly l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     private readonly l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSnapshot: AppendOnlyTreeSnapshot,
@@ -217,8 +218,9 @@ export class BlockProvingState {
     const data = this.#getBlockRootRollupData(proverId);
 
     if (this.totalNumTxs === 0) {
-      const constants = ConstantRollupData.from({
+      const constants = BlockConstantData.from({
         lastArchive: this.lastArchiveSnapshot,
+        lastL1ToL2: this.l1ToL2MessageTreeSnapshot,
         globalVariables: this.globalVariables,
         vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,
@@ -266,23 +268,25 @@ export class BlockProvingState {
       throw new Error('Block root not ready for padding.');
     }
 
-    // Use the new block header and archive of the current block as the previous header and archiver of the next padding block.
-    const newBlockHeader = await this.buildHeaderFromProvingOutputs();
-    const newArchive = this.blockRootProvingOutput!.inputs.newArchive;
+    // Use the new block header, archive and l1toL2 of the current block as the previous header, archive and l1toL2 of the next padding block.
+    const previousBlockHeader = await this.buildHeaderFromProvingOutputs();
+    const lastArchive = this.blockRootProvingOutput!.inputs.newArchive;
+    const lastL1ToL2 = this.l1ToL2MessageTreeSnapshotAfterInsertion;
 
     const data = BlockRootRollupData.from({
       l1ToL2Roots: this.#getRootParityData(this.rootParityProvingOutput!),
       l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
-      previousBlockHeader: newBlockHeader,
+      previousBlockHeader,
       startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(this.endBlobAccumulator),
       finalBlobChallenges: this.endBlobAccumulator.finalBlobChallenges,
       proverId,
     });
 
-    const constants = ConstantRollupData.from({
-      lastArchive: newArchive,
+    const constants = BlockConstantData.from({
+      lastArchive,
+      lastL1ToL2,
       globalVariables: this.globalVariables,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,

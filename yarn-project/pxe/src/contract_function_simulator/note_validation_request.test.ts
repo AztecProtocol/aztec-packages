@@ -33,7 +33,7 @@ describe('NoteValidationRequest', () => {
 
     expect(request.contractAddress).toEqual(AztecAddress.fromBigInt(1n));
     expect(request.storageSlot).toEqual(new Fr(2));
-    expect(request.nonce).toEqual(new Fr(3));
+    expect(request.noteNonce).toEqual(new Fr(3));
     expect(request.content).toEqual([new Fr(4), new Fr(5)]);
     expect(request.noteHash).toEqual(new Fr(6));
     expect(request.nullifier).toEqual(new Fr(7));
