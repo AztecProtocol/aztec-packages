@@ -276,6 +276,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         std::shared_ptr<CommitmentKey> ck = nullptr;
 
         if constexpr (IsGrumpkinFlavor<Flavor>) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
             ck = std::make_shared<CommitmentKey>(BATCHED_RELATION_PARTIAL_LENGTH);
             // Compute the vector {0, 1, \ldots, BATCHED_RELATION_PARTIAL_LENGTH-1} needed to transform the round
             // univariates from Lagrange to monomial basis
