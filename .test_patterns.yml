@@ -51,11 +51,6 @@ tests:
     error_regex: "RuntimeError: Out of bounds memory access"
     owners:
       - *adam
-  # Sumcheck is failing for some reason
-  - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
-    skip: true
-    owners:
-      - *tom
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -72,11 +67,6 @@ tests:
     skip: true
     owners:
       - *charlie
-  - regex: "arb_program_can_be_executed"
-    owners:
-      - *akosh
-  - regex: "noir_ast_fuzzer_fuzz"
-    skip: true
 
   # AD: hit this flake
   # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
