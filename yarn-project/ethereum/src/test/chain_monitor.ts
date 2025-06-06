@@ -1,5 +1,6 @@
 import { InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
 import { createLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { EventEmitter } from 'events';
 
@@ -10,6 +11,7 @@ export class ChainMonitor extends EventEmitter {
   private readonly l1Client: ViemClient;
   private inbox: InboxContract | undefined;
   private handle: NodeJS.Timeout | undefined;
+  private running: Set<Promise<void>> = new Set();
 
   /** Current L1 block number */
   public l1BlockNumber!: number;
@@ -41,11 +43,16 @@ export class ChainMonitor extends EventEmitter {
     return this;
   }
 
-  stop() {
-    this.removeAllListeners();
-    if (this.handle) {
-      clearInterval(this.handle!);
-      this.handle = undefined;
+  async stop() {
+    try {
+      this.removeAllListeners();
+      if (this.handle) {
+        clearInterval(this.handle!);
+        this.handle = undefined;
+      }
+      await Promise.allSettled([...this.running]);
+    } catch (err) {
+      this.logger.error('Error stopping chain monitor', err);
     }
   }
 
@@ -57,10 +64,18 @@ export class ChainMonitor extends EventEmitter {
     return this.inbox;
   }
 
-  private safeRun() {
-    void this.run().catch(error => {
-      this.logger.error('Error in chain monitor loop', error);
-    });
+  protected safeRun() {
+    const running = promiseWithResolvers<void>();
+    this.running.add(running.promise);
+
+    void this.run()
+      .catch(error => {
+        this.logger.error('Error in chain monitor loop', error);
+      })
+      .finally(() => {
+        running.resolve();
+        this.running.delete(running.promise);
+      });
   }
 
   async run(force = false) {
