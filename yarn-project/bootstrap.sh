@@ -112,7 +112,8 @@ function test_cmds {
   # noir-bb-bench: A slow pain. Figure out later.
   for test in !(end-to-end|kv-store|noir-bb-bench|aztec)/src/**/*.test.ts; do
     # If DISABLE_AZTEC_VM, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
-    if [[ "${DISABLE_AZTEC_VM:-0}" -eq 1 && "$test" =~ (avm_proving_tests|avm_integration) ]]; then
+    # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
+    if [[ "${DISABLE_AZTEC_VM:-0}" -eq 1 && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
       continue
     fi
 
