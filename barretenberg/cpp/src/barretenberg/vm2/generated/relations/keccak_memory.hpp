@@ -32,6 +32,7 @@ template <typename FF_> class keccak_memoryImpl {
         using C = ColumnAndShifts;
 
         const auto constants_MEM_TAG_U64 = FF(5);
+        const auto constants_AVM_KECCAKF1600_STATE_SIZE = FF(25);
         const auto keccak_memory_TAG_MIN_U64 = (in.get(C::keccak_memory_tag) - constants_MEM_TAG_U64);
 
         {
@@ -76,12 +77,13 @@ template <typename FF_> class keccak_memoryImpl {
         }
         { // LAST
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = in.get(C::keccak_memory_sel) *
-                       (((in.get(C::keccak_memory_ctr) - FF(25)) *
-                             (in.get(C::keccak_memory_last) * (FF(1) - in.get(C::keccak_memory_ctr_min_num_25_inv)) +
-                              in.get(C::keccak_memory_ctr_min_num_25_inv)) +
-                         in.get(C::keccak_memory_last)) -
-                        FF(1));
+            auto tmp =
+                in.get(C::keccak_memory_sel) *
+                (((in.get(C::keccak_memory_ctr) - constants_AVM_KECCAKF1600_STATE_SIZE) *
+                      (in.get(C::keccak_memory_last) * (FF(1) - in.get(C::keccak_memory_ctr_min_state_size_inv)) +
+                       in.get(C::keccak_memory_ctr_min_state_size_inv)) +
+                  in.get(C::keccak_memory_last)) -
+                 FF(1));
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
