@@ -13,8 +13,8 @@ pub mod nullifier_leaf_preimage;
 pub mod protocol_contract_leaf_preimage;
 
 pub mod tx_constant_data;
-pub mod block_constant_data;
-pub mod epoch_constant_data;
+pub mod combined_constant_data;
+pub mod constant_rollup_data;
 
 pub mod side_effect;
 pub mod read_request;

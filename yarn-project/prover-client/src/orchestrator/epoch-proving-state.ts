@@ -70,7 +70,6 @@ export class EpochProvingState {
   public startNewBlock(
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
-    l1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
     lastArchiveSnapshot: AppendOnlyTreeSnapshot,
@@ -83,7 +82,6 @@ export class EpochProvingState {
       index,
       globalVariables,
       l1ToL2Messages,
-      l1ToL2MessageTreeSnapshot,
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       lastArchiveSnapshot,
@@ -158,7 +156,7 @@ export class EpochProvingState {
     return new BlockMergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
   }
 
-  public getRootRollupInputs() {
+  public getRootRollupInputs(proverId: Fr) {
     const [left, right] = this.#getChildProofsForRoot();
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
@@ -166,6 +164,7 @@ export class EpochProvingState {
 
     return RootRollupInputs.from({
       previousRollupData: [this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)],
+      proverId,
     });
   }
 

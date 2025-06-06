@@ -61,7 +61,6 @@ impl BlockMergeRollupInputs {
         let blob_public_inputs = components::accumulate_blob_public_inputs(left, right);
 
         BlockRootOrBlockMergePublicInputs {
-            constants: left.constants,
             previous_archive: left.previous_archive,
             new_archive: right.new_archive,
             start_global_variables: left.start_global_variables,
@@ -69,6 +68,9 @@ impl BlockMergeRollupInputs {
             out_hash: 0, // Not needed for block merge. This is only required for block root since the value is inserted on L1 per block.
             proposed_block_header_hashes,
             fees,
+            vk_tree_root: left.vk_tree_root,
+            protocol_contract_tree_root: left.protocol_contract_tree_root,
+            prover_id: left.prover_id, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
             blob_public_inputs,
         }
     }

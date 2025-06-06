@@ -57,9 +57,9 @@ export class PartialStateReference {
 
   static empty(): PartialStateReference {
     return new PartialStateReference(
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.zero(),
+      AppendOnlyTreeSnapshot.zero(),
+      AppendOnlyTreeSnapshot.zero(),
     );
   }
 
@@ -82,7 +82,7 @@ export class PartialStateReference {
   }
 
   isEmpty(): boolean {
-    return this.noteHashTree.isEmpty() && this.nullifierTree.isEmpty() && this.publicDataTree.isEmpty();
+    return this.noteHashTree.isZero() && this.nullifierTree.isZero() && this.publicDataTree.isZero();
   }
 
   public equals(other: this): boolean {
