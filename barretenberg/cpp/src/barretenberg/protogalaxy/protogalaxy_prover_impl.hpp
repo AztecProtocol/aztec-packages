@@ -15,13 +15,16 @@
 
 namespace bb {
 template <class DeciderProvingKeys>
-void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_one_incomplete_key(std::shared_ptr<DeciderPK> keys,
+void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_one_incomplete_key(std::shared_ptr<DeciderPK> key,
                                                                                    const std::string& domain_separator)
 {
 
     PROFILE_THIS_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
 
-    OinkProver<Flavor> oink_prover(keys, transcript, domain_separator + '_');
+    // WORKTODO: compute vk
+    info("WARNING: computing vk in run_oink_prover_on_one_incomplete_key, but a precomputed vk should be passed in.");
+    auto honk_vk = std::make_shared<typename DeciderProvingKeys::Flavor::VerificationKey>(key->proving_key);
+    OinkProver<typename DeciderProvingKeys::Flavor> oink_prover(key, honk_vk, transcript, domain_separator + '_');
     oink_prover.prove();
 }
 

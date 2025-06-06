@@ -42,7 +42,12 @@ Circuit _compute_circuit(const std::string& bytecode_path, const std::string& wi
 template <typename Flavor>
 UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path, const std::string& witness_path)
 {
-    return UltraProver_<Flavor>{ _compute_circuit<Flavor>(bytecode_path, witness_path) };
+    typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(bytecode_path, witness_path);
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+
+    return UltraProver_<Flavor>{ proving_key, verification_key };
 }
 
 template <typename Flavor, typename VK = typename Flavor::VerificationKey>
@@ -283,9 +288,10 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
     program.witness = get_witness(witness_path);
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
 
-    Prover prover{ builder };
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    Prover prover{ proving_key, verification_key };
     std::vector<FF> proof = prover.construct_proof();
-    VerificationKey verification_key(prover.proving_key->proving_key);
 
     const std::string toml_content =
         acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key, ipa_accumulation);

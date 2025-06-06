@@ -29,7 +29,7 @@ enum {
  * @param prover - The Goblin ultrahonk prover.
  * @param index - The pass to measure.
  **/
-BB_PROFILE static void test_round_inner(State& state, MegaProver& prover, size_t index) noexcept
+BB_PROFILE void test_round_inner(State& state, MegaProver& prover, size_t index) noexcept
 {
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
@@ -45,7 +45,9 @@ BB_PROFILE static void test_round_inner(State& state, MegaProver& prover, size_t
             BB_REPORT_OP_COUNT_BENCH_CANCEL();
         }
     };
-    OinkProver<MegaFlavor> oink_prover(prover.proving_key, prover.transcript);
+    // why is this mega if the name of file is ultra
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
+    OinkProver<MegaFlavor> oink_prover(prover.proving_key, verification_key, prover.transcript);
     time_if_index(PREAMBLE, [&] { oink_prover.execute_preamble_round(); });
     time_if_index(WIRE_COMMITMENTS, [&] { oink_prover.execute_wire_commitments_round(); });
     time_if_index(SORTED_LIST_ACCUMULATOR, [&] { oink_prover.execute_sorted_list_accumulator_round(); });

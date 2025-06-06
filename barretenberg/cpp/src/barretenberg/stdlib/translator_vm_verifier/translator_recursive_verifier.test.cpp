@@ -123,8 +123,8 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
 
         {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-            OuterProver prover(proving_key);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+            OuterProver prover(proving_key, verification_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
