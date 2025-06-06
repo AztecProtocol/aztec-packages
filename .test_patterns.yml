@@ -216,7 +216,7 @@ tests:
     owners:
       - *sean
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"
-    x: "✕ should stop after max retry attempts"
+    error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
   - regex: "p2p/src/client/p2p_client.integration.test.ts" # http://ci.aztec-labs.com/31c4c9821b1a533c
