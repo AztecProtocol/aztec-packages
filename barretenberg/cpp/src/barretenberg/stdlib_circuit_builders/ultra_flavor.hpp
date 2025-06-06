@@ -372,6 +372,7 @@ class UltraFlavor {
             this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
             if (proving_key.commitment_key == nullptr) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
                 proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
