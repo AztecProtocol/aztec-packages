@@ -76,12 +76,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
     let multiAddrUdp, multiAddrTcp;
     if (p2pIp) {
-      multiAddrTcp = multiaddr(
-        `${convertToMultiaddr(p2pIp!, config.p2pBroadcastPort!, 'tcp')}/p2p/${this.peerId.toString()}`,
-      );
-      multiAddrUdp = multiaddr(
-        `${convertToMultiaddr(p2pIp!, config.p2pBroadcastPort!, 'udp')}/p2p/${this.peerId.toString()}`,
-      );
+      multiAddrTcp = multiaddr(`${convertToMultiaddr(p2pIp!, config.p2pBroadcastPort!, 'tcp')}`);
+      multiAddrUdp = multiaddr(`${convertToMultiaddr(p2pIp!, config.p2pBroadcastPort!, 'udp')}`);
     }
 
     ({ enr: this.enr, versions: this.versions } = createNodeENR(
