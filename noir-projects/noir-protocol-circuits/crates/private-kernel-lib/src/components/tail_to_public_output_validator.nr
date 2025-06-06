@@ -15,7 +15,7 @@ use dep::types::{
         public_call_request::PublicCallRequest,
         side_effect::{Counted, scoped::Scoped},
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     utils::arrays::{
         assert_split_sorted_transformed_value_arrays_asc, assert_split_transformed_padded_arrays,
     },
@@ -112,7 +112,9 @@ impl TailToPublicOutputValidator {
         // l2_to_l1_msgs
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.l2_to_l1_msgs,
-            prev_data.l2_to_l1_msgs.map(|log: ScopedL2ToL1Message| log.expose_to_public()),
+            prev_data.l2_to_l1_msgs.map(|msg: Scoped<Counted<L2ToL1Message>>| {
+                msg.expose_to_public()
+            }),
             split_counter,
             output_non_revertible.l2_to_l1_msgs,
             output_revertible.l2_to_l1_msgs,

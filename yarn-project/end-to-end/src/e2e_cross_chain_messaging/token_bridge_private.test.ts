@@ -71,16 +71,20 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     // docs:start:authwit_to_another_sc
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
     const burnAuthwit = await user1Wallet.createAuthWit({
       caller: l2Bridge.address,
-      action: l2Token.methods.burn_private(ownerAddress, withdrawAmount, nonce),
+      action: l2Token.methods.burn_private(ownerAddress, withdrawAmount, authwitNonce),
     });
     // docs:end:authwit_to_another_sc
 
     // 5. Withdraw owner's funds from L2 to L1
     const l2ToL1Message = await crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
-    const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(withdrawAmount, nonce, burnAuthwit);
+    const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(
+      withdrawAmount,
+      authwitNonce,
+      burnAuthwit,
+    );
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount);
 
     const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(

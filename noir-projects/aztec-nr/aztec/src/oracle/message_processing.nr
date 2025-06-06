@@ -135,12 +135,23 @@ pub unconstrained fn get_log_by_tag<let MAX_LOG_PAYLOAD_LEN: u32>(
     }
 }
 
-pub(crate) unconstrained fn validate_enqueued_notes(
+// This must be a single oracle and not one for notes and one for events because the entire point is to validate
+// all notes and events in one go, minimizing node round-trips.
+pub(crate) unconstrained fn validate_enqueued_notes_and_events(
     contract_address: AztecAddress,
-    base_slot: Field,
+    note_validation_requests_array_base_slot: Field,
+    event_validation_requests_array_base_slot: Field,
 ) {
-    validate_enqueued_notes_oracle(contract_address, base_slot);
+    validate_enqueued_notes_and_events_oracle(
+        contract_address,
+        note_validation_requests_array_base_slot,
+        event_validation_requests_array_base_slot,
+    );
 }
 
-#[oracle(validateEnqueuedNotes)]
-unconstrained fn validate_enqueued_notes_oracle(contract_address: AztecAddress, base_slot: Field) {}
+#[oracle(validateEnqueuedNotesAndEvents)]
+unconstrained fn validate_enqueued_notes_and_events_oracle(
+    contract_address: AztecAddress,
+    note_validation_requests_array_base_slot: Field,
+    event_validation_requests_array_base_slot: Field,
+) {}

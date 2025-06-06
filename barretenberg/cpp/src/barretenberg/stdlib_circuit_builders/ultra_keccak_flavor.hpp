@@ -60,6 +60,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
             if (proving_key.commitment_key == nullptr) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
                 proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {

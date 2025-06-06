@@ -30,7 +30,7 @@ export class EthCheatCodes {
 
   async rpcCall(method: string, params: any[]) {
     const paramsString = jsonStringify(params);
-    this.logger.info(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
+    this.logger.debug(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
     return (await this.publicClient.transport.request({
       method,
       params,
@@ -352,5 +352,9 @@ export class EthCheatCodes {
       throw new Error(`Error reorging: ${err}`);
     }
     this.logger.warn(`Reorged L1 chain with depth ${depth} and ${newBlocks.length} new blocks`, { depth, newBlocks });
+  }
+
+  public traceTransaction(txHash: Hex): Promise<any> {
+    return this.rpcCall('trace_transaction', [txHash]);
   }
 }

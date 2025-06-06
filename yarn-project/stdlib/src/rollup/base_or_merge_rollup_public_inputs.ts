@@ -6,7 +6,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { RollupTypes } from '../types/shared.js';
-import { ConstantRollupData } from './constant_rollup_data.js';
+import { BlockConstantData } from './block_constant_data.js';
 
 /**
  * Output of the base and merge rollup circuits.
@@ -24,7 +24,7 @@ export class BaseOrMergeRollupPublicInputs {
     /**
      * Data which is forwarded through the rollup circuits unchanged.
      */
-    public constants: ConstantRollupData,
+    public constants: BlockConstantData,
     /**
      * Partial state reference at the start of the rollup circuit.
      */
@@ -61,7 +61,7 @@ export class BaseOrMergeRollupPublicInputs {
     return new BaseOrMergeRollupPublicInputs(
       RollupTypes.Base,
       0,
-      ConstantRollupData.empty(),
+      BlockConstantData.empty(),
       PartialStateReference.empty(),
       PartialStateReference.empty(),
       SpongeBlob.empty(),
@@ -83,7 +83,7 @@ export class BaseOrMergeRollupPublicInputs {
     return new BaseOrMergeRollupPublicInputs(
       reader.readNumber(),
       reader.readNumber(),
-      reader.readObject(ConstantRollupData),
+      reader.readObject(BlockConstantData),
       reader.readObject(PartialStateReference),
       reader.readObject(PartialStateReference),
       reader.readObject(SpongeBlob),

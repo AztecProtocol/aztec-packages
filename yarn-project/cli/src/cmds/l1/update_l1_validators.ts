@@ -97,6 +97,42 @@ export async function addL1Validator({
   }
 }
 
+export async function dripQueue({
+  rpcUrls,
+  chainId,
+  privateKey,
+  mnemonic,
+  stakingAssetHandlerAddress,
+  log,
+  debugLogger,
+}: StakingAssetHandlerCommandArgs & LoggerArgs) {
+  const dualLog = makeDualLog(log, debugLogger);
+  const account = getAccount(privateKey, mnemonic);
+  const chain = createEthereumChain(rpcUrls, chainId);
+  const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
+
+  dualLog('Dripping Queue');
+
+  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+
+  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: stakingAssetHandlerAddress.toString(),
+    data: encodeFunctionData({
+      abi: StakingAssetHandlerAbi,
+      functionName: 'dripQueue',
+      args: [],
+    }),
+    abi: StakingAssetHandlerAbi,
+  });
+  dualLog(`Receipt: ${receipt.transactionHash}`);
+
+  if (receipt.status === 'success') {
+    dualLog('Queue dripped successfully');
+  } else {
+    dualLog('Queue drip failed');
+  }
+}
+
 export async function removeL1Validator({
   rpcUrls,
   chainId,
