@@ -230,17 +230,26 @@ describe('GasUtils', () => {
     await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
     await cheatCodes.evmMine();
 
-    const basePriorityFee = await l1Client.estimateMaxPriorityFeePerGas();
-    const gasPrice = await gasUtils['getGasPrice']();
+    // Mock estimateMaxPriorityFeePerGas to return a consistent value (1 gwei)
+    const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+    const mockBasePriorityFee = WEI_CONST; // 1 gwei
+    l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(mockBasePriorityFee);
 
-    // With default config, priority fee should be bumped by 20%
-    const expectedPriorityFee = (basePriorityFee * 120n) / 100n;
+    try {
+      const gasPrice = await gasUtils['getGasPrice']();
 
-    // Base fee should be bumped for potential stalls (1.125^(stallTimeMs/12000) = ~1.125 for default config)
-    const expectedMaxFee = (WEI_CONST * 1125n) / 1000n + expectedPriorityFee;
+      // With default config, priority fee should be bumped by 20%
+      const expectedPriorityFee = (mockBasePriorityFee * 120n) / 100n;
 
-    expect(gasPrice.maxPriorityFeePerGas).toBe(expectedPriorityFee);
-    expect(gasPrice.maxFeePerGas).toBe(expectedMaxFee);
+      // Base fee should be bumped for potential stalls (1.125^(stallTimeMs/12000) = ~1.125 for default config)
+      const expectedMaxFee = (WEI_CONST * 1125n) / 1000n + expectedPriorityFee;
+
+      expect(gasPrice.maxPriorityFeePerGas).toBe(expectedPriorityFee);
+      expect(gasPrice.maxFeePerGas).toBe(expectedMaxFee);
+    } finally {
+      // Restore original method
+      l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+    }
   });
 
   it('calculates correct gas prices for retry attempts', async () => {

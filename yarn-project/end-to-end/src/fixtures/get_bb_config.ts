@@ -1,5 +1,6 @@
 import { type Logger, fileURLToPath } from '@aztec/aztec.js';
 import type { BBConfig } from '@aztec/bb-prover';
+import { tryRmDir } from '@aztec/foundation/fs';
 
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -35,16 +36,7 @@ export const getBBConfig = async (
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
 
     const bbSkipCleanup = ['1', 'true'].includes(BB_SKIP_CLEANUP);
-
-    const cleanup = async () => {
-      if (directoryToCleanup && !bbSkipCleanup) {
-        try {
-          await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
-        } catch (err) {
-          logger.warn(`Failed to delete bb working directory at ${directoryToCleanup}: ${err}`);
-        }
-      }
-    };
+    const cleanup = bbSkipCleanup ? () => Promise.resolve() : () => tryRmDir(directoryToCleanup);
 
     return { bbSkipCleanup, bbBinaryPath, bbWorkingDirectory, cleanup, numConcurrentIVCVerifiers: 1 };
   } catch (err) {

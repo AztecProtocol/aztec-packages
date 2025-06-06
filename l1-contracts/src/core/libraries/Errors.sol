@@ -78,6 +78,7 @@ library Errors {
   error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
+  error Rollup__InvalidManaTarget(uint256 minimum, uint256 provided);
   error Rollup__ManaLimitExceeded();
   error Rollup__RewardsNotClaimable();
 
@@ -128,7 +129,8 @@ library Errors {
   error Staking__InsufficientPower(uint256, uint256);
   error Staking__AlreadyExiting(address);
   error Staking__FatalError(string);
-  error Staking__NotOurProposal(uint256);
+  error Staking__NotOurProposal(uint256, address, address);
+  error Staking__IncorrectGovProposer(uint256);
   error Staking__GovernanceAlreadySet();
 
   // GSE
