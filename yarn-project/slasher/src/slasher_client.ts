@@ -187,7 +187,7 @@ export class SlasherClient {
     }
 
     const selectedPayload = this.monitoredPayloads[0];
-    this.log.info('selectedPayload', selectedPayload);
+    this.log.info(`Selected slash payload at ${selectedPayload.payloadAddress}`, selectedPayload);
 
     return Promise.resolve(selectedPayload.payloadAddress);
   }
