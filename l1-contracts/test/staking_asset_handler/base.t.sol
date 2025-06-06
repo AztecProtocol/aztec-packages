@@ -22,7 +22,7 @@ contract StakingAssetHandlerBase is TestBase {
   address internal constant WITHDRAWER = address(bytes20("WITHDRAWER"));
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));
 
-  uint256 internal MINIMUM_STAKE;
+  uint256 internal DEPOSIT_AMOUNT;
   uint256 internal mintInterval = 1;
   uint256 internal depositsPerMint = 1;
 
@@ -33,7 +33,7 @@ contract StakingAssetHandlerBase is TestBase {
 
     stakingAsset = builder.getConfig().testERC20;
     registry = builder.getConfig().registry;
-    MINIMUM_STAKE = builder.getConfig().rollup.getMinimumStake();
+    DEPOSIT_AMOUNT = builder.getConfig().rollup.getDepositAmount();
     staking = IStaking(address(builder.getConfig().rollup));
 
     stakingAssetHandler = new StakingAssetHandler(
