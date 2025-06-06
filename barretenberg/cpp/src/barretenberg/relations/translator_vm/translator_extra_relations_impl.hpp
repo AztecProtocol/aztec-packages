@@ -79,6 +79,7 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     // circuit
     auto lagrange_last_in_minicircuit = View(in.lagrange_last_in_minicircuit);
 
+    // Locations of randomness in the minicircuit
     auto lagrange_mini_masking = View(in.lagrange_mini_masking);
 
     auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
@@ -135,8 +136,8 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     tmp_8 *= (lagrange_mini_masking + minus_one) * scaling_factor;
     std::get<7>(accumulators) += tmp_8;
 
-    // // Contribution (9) (9-12 ensure the output is as stated, we basically use this to get the result out of the
-    // // // proof)
+    // Contribution (9) (9-12 ensure the output is as stated, we basically use this to get the result out of the
+    // // proof)
     auto tmp_9 = (accumulators_binary_limbs_0 - params.accumulated_result[0]) * lagrange_result_row;
     tmp_9 *= (lagrange_mini_masking + minus_one) * scaling_factor;
     std::get<8>(accumulators) += tmp_9;
