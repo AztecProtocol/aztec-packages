@@ -45,7 +45,8 @@ TEST(TxExecutionConstrainingTest, EmptyRow)
 
 TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
 {
-    auto test_public_inputs = testing::PublicInputsBuilder()
+    auto& engine = bb::numeric::get_debug_randomness();
+    auto test_public_inputs = testing::PublicInputsBuilder(engine)
                                   .rand_public_setup_call_requests(2)
                                   .rand_public_app_logic_call_requests(1)
                                   .build();
@@ -327,7 +328,9 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
 
 TEST(TxExecutionConstrainingTest, WriteTreeValue)
 {
-    auto test_public_inputs = testing::PublicInputsBuilder().rand_previous_non_revertible_accumulated_data(1).build();
+    auto& engine = bb::numeric::get_debug_randomness();
+    auto test_public_inputs =
+        testing::PublicInputsBuilder(engine).rand_previous_non_revertible_accumulated_data(1).build();
 
     auto pub_inputs_col = test_public_inputs.to_columns();
     TestTraceContainer trace({
