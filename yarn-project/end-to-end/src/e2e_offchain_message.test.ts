@@ -3,7 +3,7 @@ import { OffchainMessageContract } from '@aztec/noir-test-contracts.js/OffchainM
 
 import { jest } from '@jest/globals';
 
-import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
@@ -17,8 +17,7 @@ describe('e2e_offchain_message', () => {
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    ({ teardown, wallets } = await setup(2));
-    await ensureAccountsPubliclyDeployed(wallets[0], wallets.slice(0, 2));
+    ({ teardown, wallets } = await setup(1));
     // TODO(benesjan): The following results in one of the txs being dropped. There seems to be an issue in Aztec.js
     // deployments.
     // [contract1, contract2] = await Promise.all([
