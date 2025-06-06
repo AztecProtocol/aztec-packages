@@ -2,7 +2,7 @@ import { AVM_MAX_OPERANDS } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
 
-import { TaggedMemory, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
+import { MemoryValue, TaggedMemory, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
 import { RelativeAddressOutOfRangeError, TagCheckError } from '../errors.js';
 
 export enum AddressingMode {
@@ -71,17 +71,21 @@ export class Addressing {
    */
   public resolve(offsets: number[], mem: TaggedMemoryInterface): number[] {
     const resolved: number[] = new Array(offsets.length);
-    // These memory accesses are guaranteed to succeed.
-    const baseAddr = mem.get(0);
-    const baseAddrTag = baseAddr.getTag();
+    // These will be read (once) if we have any relative operands.
+    let baseAddr: MemoryValue | undefined;
+    let baseAddrTag: TypeTag | undefined;
 
     for (const [i, offset] of offsets.entries()) {
       const mode = this.modePerOperand[i];
       // The given offsets are assumed to be valid addresses.
       resolved[i] = offset;
       if (mode & AddressingMode.RELATIVE) {
-        if (!TaggedMemory.isValidMemoryAddressTag(baseAddrTag)) {
-          throw TagCheckError.forOffset(0, TypeTag[baseAddrTag], TypeTag[TypeTag.UINT32]);
+        if (!baseAddr) {
+          baseAddr = mem.get(0);
+          baseAddrTag = baseAddr.getTag();
+        }
+        if (!TaggedMemory.isValidMemoryAddressTag(baseAddrTag!)) {
+          throw TagCheckError.forOffset(0, TypeTag[baseAddrTag!], TypeTag[TypeTag.UINT32]);
         }
         // Here we know that resolved[i] is at most 32 bits and baseAddr is at most 32 bits.
         // Therefore, the addition is safe since the `number` type fits more than 33 bits.

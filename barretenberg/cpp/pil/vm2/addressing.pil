@@ -92,14 +92,6 @@ pol commit sel_op_is_address[7];
 pol commit base_address_val;
 pol commit base_address_tag;
 
-// We always read the base address from memory.
-// TODO: complete this lookup once we get memory done. In particular, clk and space id.
-// FIXME: this should eventually be a permutation.
-#[BASE_ADDRESS_FROM_MEMORY]
-sel_should_resolve_address { /*address=*/precomputed.zero, /*value=*/base_address_val, /*tag=*/base_address_tag, /*rw=*/precomputed.zero/*(read)*/ }
-in
-memory.sel { memory.address, memory.value, memory.tag, memory.rw };
-
 // If any operand requires relative resolution, we check the base address.
 pol commit sel_do_base_check;
 // We do a bit of extra work to check if the sum of sel_op_is_relative[i] is non-zero.
@@ -113,6 +105,13 @@ pol NUM_RELATIVE_E = 1 - sel_do_base_check;
 pol NUM_RELATIVE_EQ = NUM_RELATIVE_X * (NUM_RELATIVE_E * (1 - NUM_RELATIVE_Y) + NUM_RELATIVE_Y) - 1 + NUM_RELATIVE_E;
 #[NUM_RELATIVE_INV_CHECK]
 sel_should_resolve_address * NUM_RELATIVE_EQ = 0;
+
+// TODO: complete this lookup once we get memory done. In particular, clk and space id.
+// FIXME: this should eventually be a permutation.
+#[BASE_ADDRESS_FROM_MEMORY]
+sel_do_base_check { /*address=*/precomputed.zero, /*value=*/base_address_val, /*tag=*/base_address_tag, /*rw=*/precomputed.zero/*(read)*/ }
+in
+memory.sel { memory.address, memory.value, memory.tag, memory.rw };
 
 // This error will be true iff the base address is not valid AND we did actually check it.
 pol commit sel_base_address_failure;
