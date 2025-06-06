@@ -11,6 +11,7 @@ import {
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  type ExtendedViemWalletClient,
   type L1ContractAddresses,
   RegistryContract,
   RollupContract,
@@ -38,7 +39,7 @@ import {
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import { EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
+import { SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type {
@@ -259,15 +260,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (validatorsSentinel && config.slashInactivityEnabled) {
       watchers.push(validatorsSentinel);
     }
-    if (config.slashPruneEnabled) {
-      const epochPruneWatcher = new EpochPruneWatcher(
-        archiver,
-        epochCache,
-        config.slashPrunePenalty,
-        config.slashPruneMaxPenalty,
-      );
-      watchers.push(epochPruneWatcher);
-    }
 
     const blockBuilder = new BlockBuilder(
       {
@@ -295,14 +287,31 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     let sequencer: SequencerClient | undefined;
     let slasherClient: SlasherClient | undefined;
+    let l1TxUtils: L1TxUtilsWithBlobs | undefined;
+    let l1Client: ExtendedViemWalletClient | undefined;
+
+    if (config.publisherPrivateKey) {
+      // we can still run a slasher client if a private key is provided
+      l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
+      l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
+      slasherClient = await SlasherClient.new(
+        config,
+        config.l1Contracts,
+        l1TxUtils,
+        watchers,
+        archiver,
+        epochCache,
+        dateProvider,
+      );
+      await slasherClient.start();
+    }
 
     // Validator enabled, create/start relevant service
     if (!config.disableValidator) {
-      const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
-      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
-
-      slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
-      await slasherClient.start();
+      // This shouldn't happen, validators need a publisher private key.
+      if (!config.publisherPrivateKey) {
+        throw new Error('A publisher private key is required to run a validator');
+      }
 
       sequencer = await SequencerClient.new(config, {
         // if deps were provided, they should override the defaults,
@@ -313,7 +322,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         validatorClient,
         p2pClient,
         worldStateSynchronizer,
-        slasherClient,
+        slasherClient: slasherClient!,
         blockBuilder,
         l2BlockSource: archiver,
         l1ToL2MessageSource: archiver,
@@ -321,12 +330,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         dateProvider,
         blobSinkClient,
       });
-    } else if (config.publisherPrivateKey) {
-      // we can still run a slasher client if a private key is provided
-      const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
-      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
-      slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
-      await slasherClient.start();
     }
 
     return new AztecNodeService(
