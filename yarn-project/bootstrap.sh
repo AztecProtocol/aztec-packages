@@ -123,7 +123,7 @@ function test_cmds {
     fi
 
     # Add debug logging for tests that require a bit more info
-    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts ]]; then
+    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts || "$test" == p2p/src/client/p2p_client.integration.test.ts ]]; then
       cmd_env+=" LOG_LEVEL=debug"
     elif [[ "$test" =~ e2e_p2p ]]; then
       cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
