@@ -72,16 +72,18 @@ constexpr std::array<Column, NUM_OPERANDS> OPERAND_RELATIVE_OVERFLOW_COLUMNS = {
 
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
 static_assert(NUM_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
-constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_RELATIVE_COLUMNS = {
-    C::execution_sel_op_is_relative_0_, C::execution_sel_op_is_relative_1_, C::execution_sel_op_is_relative_2_,
-    C::execution_sel_op_is_relative_3_, C::execution_sel_op_is_relative_4_, C::execution_sel_op_is_relative_5_,
-    C::execution_sel_op_is_relative_6_, C::execution_sel_op_is_relative_7_,
+constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_RELATIVE_WIRE_COLUMNS = {
+    C::execution_sel_op_is_relative_wire_0_, C::execution_sel_op_is_relative_wire_1_,
+    C::execution_sel_op_is_relative_wire_2_, C::execution_sel_op_is_relative_wire_3_,
+    C::execution_sel_op_is_relative_wire_4_, C::execution_sel_op_is_relative_wire_5_,
+    C::execution_sel_op_is_relative_wire_6_, C::execution_sel_op_is_relative_wire_7_,
 
 };
-constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_INDIRECT_COLUMNS = {
-    C::execution_sel_op_is_indirect_0_, C::execution_sel_op_is_indirect_1_, C::execution_sel_op_is_indirect_2_,
-    C::execution_sel_op_is_indirect_3_, C::execution_sel_op_is_indirect_4_, C::execution_sel_op_is_indirect_5_,
-    C::execution_sel_op_is_indirect_6_, C::execution_sel_op_is_indirect_7_,
+constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_INDIRECT_WIRE_COLUMNS = {
+    C::execution_sel_op_is_indirect_wire_0_, C::execution_sel_op_is_indirect_wire_1_,
+    C::execution_sel_op_is_indirect_wire_2_, C::execution_sel_op_is_indirect_wire_3_,
+    C::execution_sel_op_is_indirect_wire_4_, C::execution_sel_op_is_indirect_wire_5_,
+    C::execution_sel_op_is_indirect_wire_6_, C::execution_sel_op_is_indirect_wire_7_,
 };
 
 constexpr size_t NUM_REGISTERS = 7;
@@ -600,16 +602,17 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     // Gather operand information.
     for (size_t i = 0; i < NUM_OPERANDS; i++) {
         const auto& resolution_info = resolution_info_vec.at(i);
-        is_address[i] = i < ex_spec.num_addresses;
+        bool op_is_address = i < ex_spec.num_addresses;
         relative_oob[i] = resolution_info.error.has_value() &&
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
-        bool is_indirect = is_operand_indirect(instruction.indirect, i);
-        bool is_relative = is_operand_relative(instruction.indirect, i);
-        should_apply_indirection[i] = is_indirect && !relative_oob[i];
+        bool is_indirect_effective = op_is_address && is_operand_indirect(instruction.indirect, i);
+        bool is_relative_effective = op_is_address && is_operand_relative(instruction.indirect, i);
+        is_address[i] = op_is_address;
+        should_apply_indirection[i] = is_indirect_effective && !relative_oob[i];
         resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
         after_relative[i] = resolution_info.after_relative;
         resolved_operand[i] = resolution_info.resolved_operand;
-        if (is_relative) {
+        if (is_relative_effective) {
             num_relative_operands++;
         }
     }
@@ -634,8 +637,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         bool is_indirect = is_operand_indirect(instruction.indirect, i);
         trace.set(row,
                   { {
-                      { OPERAND_IS_RELATIVE_COLUMNS[i], is_relative ? 1 : 0 },
-                      { OPERAND_IS_INDIRECT_COLUMNS[i], is_indirect ? 1 : 0 },
+                      { OPERAND_IS_RELATIVE_WIRE_COLUMNS[i], is_relative ? 1 : 0 },
+                      { OPERAND_IS_INDIRECT_WIRE_COLUMNS[i], is_indirect ? 1 : 0 },
                   } });
     }
 
@@ -688,8 +691,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
             : 0;
 
     trace.set(row,
-              { { { C::execution_fixed_32, 32 },
-                  { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
+              { { { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
                   { C::execution_addressing_error_collection_inv, addressing_error_collection_inv },
                   { C::execution_base_address_val, addr_event.base_address.as_ff() },
                   { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
@@ -709,13 +711,6 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_body_settings>>(),
         // Addressing
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_base_address_from_memory_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_0_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_1_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_3_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_4_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_5_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_6_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_0_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_1_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_2_settings>>(),

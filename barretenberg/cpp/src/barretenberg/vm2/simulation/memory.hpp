@@ -23,8 +23,6 @@ class MemoryInterface {
 
     // This checks the memory tag. It does not produce events.
     virtual bool is_valid_address(const MemoryValue& address) { return address.get_tag() == MemoryAddressTag; }
-    // This range checks the address. It produces range check events.
-    virtual bool is_valid_address(const FF& address) = 0;
 };
 
 class Memory : public MemoryInterface {
@@ -39,8 +37,6 @@ class Memory : public MemoryInterface {
     void set(MemoryAddress index, MemoryValue value) override;
 
     uint32_t get_space_id() const override { return space_id; }
-
-    bool is_valid_address(const FF& address) override;
 
   private:
     uint32_t space_id;
@@ -68,8 +64,6 @@ class MemoryStore : public MemoryInterface {
     }
     void set(MemoryAddress index, MemoryValue value) override { memory[index] = value; }
     uint32_t get_space_id() const override { return space_id; }
-
-    bool is_valid_address(const FF& address) override { return FF(static_cast<uint32_t>(address)) == address; }
 
   private:
     uint32_t space_id;

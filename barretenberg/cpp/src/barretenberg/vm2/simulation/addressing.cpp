@@ -14,6 +14,14 @@
 #include "barretenberg/vm2/simulation/memory.hpp"
 
 namespace bb::avm2::simulation {
+namespace {
+
+bool is_valid_address(const FF& address)
+{
+    return FF(static_cast<uint32_t>(address)) == address;
+}
+
+} // namespace
 
 std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryInterface& memory) const
 {
@@ -50,7 +58,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         try {
             // Simulation and the circuit assume that the operands are valid addresses.
             // This should be guaranteed by instruction fetching and the wire format.
-            assert(memory.is_valid_address(instruction.operands[i].as_ff()));
+            assert(is_valid_address(instruction.operands[i].as_ff()));
 
             // Guarantees by this point:
             // - original operand is a valid address IF interpreted as a MemoryAddress.
@@ -76,8 +84,8 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
                 // We store the offset as an FF operand. If the circuit needs to prove overflow, it will
                 // need the full value.
                 resolution_info.after_relative = Operand::from<FF>(offset);
-                // This produces an event.
-                if (!memory.is_valid_address(offset)) {
+                // FIXME(fcarreiro): do this range check properly calling a gadget.
+                if (!is_valid_address(offset)) {
                     // If this happens, it means that the relative computation overflowed. However both the base and
                     // operand addresses by themselves were valid.
                     throw AddressingEventError::RELATIVE_COMPUTATION_OOB;
