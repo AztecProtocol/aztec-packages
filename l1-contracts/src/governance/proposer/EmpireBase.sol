@@ -4,7 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
+import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slot, SlotLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
@@ -18,7 +18,7 @@ import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
  *          This also means that the implementation here will need to be "updated" if
  *          the interfaces of the sequencer selection changes, for example going optimistic.
  */
-abstract contract EmpireBase is EIP712, IGovernanceProposer {
+abstract contract EmpireBase is EIP712, IEmpire {
   using SlotLib for Slot;
   using SignatureLib for Signature;
 
@@ -60,7 +60,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    *
    * @return True if executed successfully, false otherwise
    */
-  function vote(IPayload _proposal) external override(IGovernanceProposer) returns (bool) {
+  function vote(IPayload _proposal) external override(IEmpire) returns (bool) {
     return _internalVote(_proposal, Signature({v: 0, r: bytes32(0), s: bytes32(0)}));
   }
 
@@ -76,7 +76,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    */
   function voteWithSig(IPayload _proposal, Signature memory _sig)
     external
-    override(IGovernanceProposer)
+    override(IEmpire)
     returns (bool)
   {
     return _internalVote(_proposal, _sig);
@@ -89,11 +89,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    *
    * @return True if executed successfully, false otherwise
    */
-  function executeProposal(uint256 _roundNumber)
-    external
-    override(IGovernanceProposer)
-    returns (bool)
-  {
+  function executeProposal(uint256 _roundNumber) external override(IEmpire) returns (bool) {
     // Need to ensure that the round is not active.
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
@@ -136,7 +132,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
   function yeaCount(address _instance, uint256 _round, IPayload _proposal)
     external
     view
-    override(IGovernanceProposer)
+    override(IEmpire)
     returns (uint256)
   {
     return rounds[_instance][_round].yeaCount[_proposal];
@@ -160,13 +156,13 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    *
    * @return The round number
    */
-  function computeRound(Slot _slot) public view override(IGovernanceProposer) returns (uint256) {
+  function computeRound(Slot _slot) public view override(IEmpire) returns (uint256) {
     return _slot.unwrap() / M;
   }
 
   // Virtual functions
-  function getInstance() public view virtual override(IGovernanceProposer) returns (address);
-  function getExecutor() public view virtual override(IGovernanceProposer) returns (address);
+  function getInstance() public view virtual override(IEmpire) returns (address);
+  function getExecutor() public view virtual override(IEmpire) returns (address);
   function _execute(IPayload _proposal) internal virtual returns (bool);
 
   function _internalVote(IPayload _proposal, Signature memory _sig) internal returns (bool) {

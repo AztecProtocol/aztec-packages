@@ -1460,7 +1460,7 @@ export class TXE implements TypedOracle {
       l2ToL1Messages.push(
         ...execution.publicInputs.l2ToL1Msgs
           .filter(l2ToL1Message => !l2ToL1Message.isEmpty())
-          .map(message => message.scope(contractAddress)),
+          .map(message => message.message.scope(contractAddress)),
       );
       contractClassLogsHashes.push(
         ...execution.publicInputs.contractClassLogsHashes

@@ -3,28 +3,28 @@ import { bigintConfigHelper, booleanConfigHelper, numberConfigHelper } from '@az
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 
-export enum Offence {
+export enum Offense {
   UNKNOWN = 0,
   EPOCH_PRUNE = 1,
   INACTIVITY = 2,
 }
 
-export const OffenceToBigInt: Record<Offence, bigint> = {
-  [Offence.UNKNOWN]: 0n,
-  [Offence.EPOCH_PRUNE]: 1n,
-  [Offence.INACTIVITY]: 2n,
+export const OffenseToBigInt: Record<Offense, bigint> = {
+  [Offense.UNKNOWN]: 0n,
+  [Offense.EPOCH_PRUNE]: 1n,
+  [Offense.INACTIVITY]: 2n,
 };
 
-export function bigIntToOffence(offense: bigint): Offence {
+export function bigIntToOffense(offense: bigint): Offense {
   switch (offense) {
     case 0n:
-      return Offence.UNKNOWN;
+      return Offense.UNKNOWN;
     case 1n:
-      return Offence.EPOCH_PRUNE;
+      return Offense.EPOCH_PRUNE;
     case 2n:
-      return Offence.INACTIVITY;
+      return Offense.INACTIVITY;
     default:
-      throw new Error(`Unknown offence: ${offense}`);
+      throw new Error(`Unknown offense: ${offense}`);
   }
 }
 
@@ -33,7 +33,7 @@ export const WANT_TO_SLASH_EVENT = 'wantToSlash' as const;
 export interface WantToSlashArgs {
   validator: EthAddress;
   amount: bigint;
-  offense: Offence;
+  offense: Offense;
 }
 
 // Event map for specific, known events of a watcher
