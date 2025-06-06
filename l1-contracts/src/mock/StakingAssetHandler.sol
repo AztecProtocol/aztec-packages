@@ -47,6 +47,7 @@ interface IStakingAssetHandler {
   error CannotMintZeroAmount();
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
   error InvalidProof();
+  error InvalidScope();
   error SybilDetected(bytes32 _nullifier);
   error InDepositQueue();
   error AttesterDoesNotExist(address _attester);
@@ -292,9 +293,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(verified, InvalidProof());
     require(!nullifiers[nullifier], SybilDetected(nullifier));
 
-    // TODO(md): re-enforce this flow, it may change underfoot
-    // Note: below appears to be checked within verifyProof
-    // require(zkPassportVerifier.verifyScopes(params.publicInputs, validScope, validSubscope), InvalidProof());
+    // Note: below is checked from user input with proof in verify proof, however, we check here again to enforce scoping
+    require(
+      zkPassportVerifier.verifyScopes(_params.publicInputs, validScope, validSubscope),
+      InvalidScope()
+    );
 
     // Set nullifier to consumed
     nullifiers[nullifier] = true;
