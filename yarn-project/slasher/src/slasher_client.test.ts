@@ -284,7 +284,7 @@ describe('SlasherClient', () => {
       {
         validator: EthAddress.fromString('0x0000000000000000000000000000000000000001'),
         amount: 200n,
-        offense: Offense.EPOCH_PRUNE,
+        offense: Offense.VALID_EPOCH_PRUNED,
       },
       {
         validator: EthAddress.fromString('0x0000000000000000000000000000000000000002'),
@@ -302,7 +302,7 @@ describe('SlasherClient', () => {
       EthAddress.fromString('0x0000000000000000000000000000000000000002'),
       EthAddress.fromString('0x0000000000000000000000000000000000000003'),
     ]);
-    expect(payloadActions[0].offenses).toEqual([Offense.EPOCH_PRUNE, Offense.INACTIVITY, Offense.UNKNOWN]);
+    expect(payloadActions[0].offenses).toEqual([Offense.VALID_EPOCH_PRUNED, Offense.INACTIVITY, Offense.UNKNOWN]);
     expect(payloadActions[0].amounts).toEqual([200n, 300n, 100n]);
   });
 

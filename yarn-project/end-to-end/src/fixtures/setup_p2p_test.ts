@@ -69,6 +69,13 @@ export async function createNodes(
     nodePromises.push(nodePromise);
   }
   const nodes = await Promise.all(nodePromises);
+
+  // Sanity check that we have a sequencer
+  const seqClient = nodes[0].getSequencer();
+  if (!seqClient) {
+    throw new Error('Sequencer not found');
+  }
+
   removeLogNameHandler(logNameHandler);
   return nodes;
 }

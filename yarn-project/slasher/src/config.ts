@@ -5,16 +5,18 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 export enum Offense {
   UNKNOWN = 0,
-  EPOCH_PRUNE = 1,
-  INACTIVITY = 2,
-  INVALID_BLOCK = 3,
+  DATA_WITHHOLDING = 1,
+  VALID_EPOCH_PRUNED = 2,
+  INACTIVITY = 3,
+  INVALID_BLOCK = 4,
 }
 
 export const OffenseToBigInt: Record<Offense, bigint> = {
   [Offense.UNKNOWN]: 0n,
-  [Offense.EPOCH_PRUNE]: 1n,
-  [Offense.INACTIVITY]: 2n,
-  [Offense.INVALID_BLOCK]: 3n,
+  [Offense.DATA_WITHHOLDING]: 1n,
+  [Offense.VALID_EPOCH_PRUNED]: 2n,
+  [Offense.INACTIVITY]: 3n,
+  [Offense.INVALID_BLOCK]: 4n,
 };
 
 export function bigIntToOffense(offense: bigint): Offense {
@@ -22,10 +24,12 @@ export function bigIntToOffense(offense: bigint): Offense {
     case 0n:
       return Offense.UNKNOWN;
     case 1n:
-      return Offense.EPOCH_PRUNE;
+      return Offense.DATA_WITHHOLDING;
     case 2n:
-      return Offense.INACTIVITY;
+      return Offense.VALID_EPOCH_PRUNED;
     case 3n:
+      return Offense.INACTIVITY;
+    case 4n:
       return Offense.INVALID_BLOCK;
     default:
       throw new Error(`Unknown offense: ${offense}`);

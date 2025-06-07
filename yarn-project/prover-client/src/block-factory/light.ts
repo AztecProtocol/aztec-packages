@@ -33,7 +33,7 @@ export class LightweightBlockFactory implements IBlockFactory {
 
   private txs: ProcessedTx[] | undefined;
 
-  private readonly logger = createLogger('prover-client:block_builder');
+  private readonly logger = createLogger('lightweight-block-factory');
 
   constructor(
     private db: MerkleTreeWriteOperations,
@@ -81,6 +81,7 @@ export class LightweightBlockFactory implements IBlockFactory {
       globalVariables: this.globalVariables?.toInspect(),
       archiveRoot: newArchive.root.toString(),
       blockHash: (await block.hash()).toString(),
+      txs: block.body.txEffects.map(tx => tx.txHash.toString()),
     });
 
     return block;
