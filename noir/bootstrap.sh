@@ -160,7 +160,9 @@ function test {
 function test_cmds {
   local test_hash=$NOIR_HASH
   cd noir-repo
-  cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
+
+  NOIR_TEST_FILTER="not package(noir_ast_fuzzer_fuzz)"
+  cargo nextest list --workspace --locked --release -Tjson-pretty -E "$NOIR_TEST_FILTER" 2>/dev/null | \
       jq -r '
         .["rust-suites"][] |
         .testcases as $tests |

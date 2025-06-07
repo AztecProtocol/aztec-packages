@@ -77,6 +77,7 @@ export async function deployContractsToL1(
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
+      realVerifier: false,
     },
   );
 
