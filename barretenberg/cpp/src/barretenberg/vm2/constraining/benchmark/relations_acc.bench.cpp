@@ -83,11 +83,12 @@ int main(int argc, char** argv)
     bb::constexpr_for<0, std::tuple_size_v<typename AvmFlavor::MainRelations>, 1>([&]<size_t i>() {
         using Relation = std::tuple_element_t<i, typename AvmFlavor::MainRelations>;
         BENCHMARK(BM_accumulate_relation<Relation>)->Name(std::string(Relation::NAME) + "_acc")->Unit(kMicrosecond);
-        if (get_interactions_count<Relation>() > 0) {
-            BENCHMARK(BM_accumulate_interactions<Relation>)
-                ->Name(std::string(Relation::NAME) + "_interactions_acc")
-                ->Unit(kMicrosecond);
-        }
+        // FIXME(fcarreiro): Disabled because it's not working.
+        // if (get_interactions_count<Relation>() > 0) {
+        //     BENCHMARK(BM_accumulate_interactions<Relation>)
+        //         ->Name(std::string(Relation::NAME) + "_interactions_acc")
+        //         ->Unit(kMicrosecond);
+        // }
     });
 
     ::benchmark::Initialize(&argc, argv);

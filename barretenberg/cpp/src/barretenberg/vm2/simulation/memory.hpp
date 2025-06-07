@@ -21,8 +21,8 @@ class MemoryInterface {
 
     virtual uint32_t get_space_id() const = 0;
 
-    static bool is_valid_address(const MemoryValue& address);
-    static bool is_valid_address(const FF& address);
+    // This checks the memory tag. It does not produce events.
+    virtual bool is_valid_address(const MemoryValue& address) { return address.get_tag() == MemoryAddressTag; }
 };
 
 class Memory : public MemoryInterface {
