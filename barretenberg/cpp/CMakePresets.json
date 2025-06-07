@@ -339,6 +339,9 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_AZTEC_VM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -834,7 +837,7 @@
     },
     {
       "name": "fuzzing",
-      "inherits": "default",
+      "inherits": "clang16",
       "configurePreset": "fuzzing"
     },
     {
