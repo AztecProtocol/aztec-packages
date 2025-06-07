@@ -69,10 +69,12 @@ function tail_live_instance {
 }
 
 # Used in merge-queue, nightly, and release flows.
-export RUN_ID=${RUN_ID:-$(date +%s%3N)}
-export PARENT_LOG_URL=http://ci.aztec-labs.com/$RUN_ID
-export DENOISE=1
-export DENOISE_WIDTH=32
+function prep_vars {
+  export RUN_ID=${RUN_ID:-$(date +%s%3N)}
+  export PARENT_LOG_URL=http://ci.aztec-labs.com/$RUN_ID
+  export DENOISE=1
+  export DENOISE_WIDTH=32
+}
 
 case "$cmd" in
   "fast")
@@ -94,6 +96,7 @@ case "$cmd" in
     seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --line-buffered --halt now,fail=1  'run $USER-x{}-full amd64 ci-full'
     ;;
   "merge-queue")
+    prep_vars
     # Spin up ec2 instance and run the merge-queue flow.
     run() {
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
@@ -108,6 +111,7 @@ case "$cmd" in
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   "nightly")
+    prep_vars
     # Spin up ec2 instance and run the nightly flow.
     run() {
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-nightly'"
@@ -119,6 +123,7 @@ case "$cmd" in
       'run a-nightly arm64' | DUP=1 cache_log "Nightly CI run" $RUN_ID
     ;;
   "release")
+    prep_vars
     # Spin up ec2 instance and run the release flow.
     run() {
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release'"
