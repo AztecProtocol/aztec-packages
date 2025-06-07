@@ -146,7 +146,6 @@ interface IRollup is IRollupCore {
     bytes calldata _header,
     CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
-    Timestamp _currentTime,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
   ) external;
