@@ -28,4 +28,20 @@ describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
     const avmInputsFromFile = readAvmMinimalPublicTxInputsFromFile();
     expect(inputs).toStrictEqual(avmInputsFromFile);
   });
+
+  // This test makes sure that any TS changes are propagated to the testdata,
+  // which is used by the C++ tests.
+  it('Minimal TX avm inputs serialized for cpp tests', async () => {
+    const result = await createAvmMinimalPublicTx();
+    const buffer = result.avmProvingRequest.inputs.serializeWithMessagePack();
+
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update test data
+    const path = 'barretenberg/cpp/src/barretenberg/vm2/common/minimal_tx.testdata.bin';
+    writeTestData(path, buffer, /*raw=*/ true);
+
+    const expected = readTestData(path);
+    // Note: we use .equals() here to prevent jest from taking forever to
+    // generate the diff. This could otherwise take 10m+ and kill CI.
+    expect(buffer.equals(expected)).toBe(true);
+  });
 });
