@@ -11,6 +11,7 @@ import {
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
+import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { encodeFunctionData, formatEther, getContract } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -47,16 +48,17 @@ export function generateL1Account() {
   };
 }
 
-export async function addL1Validator({
+export async function addL1ValidatorToQueue({
   rpcUrls,
   chainId,
   privateKey,
   mnemonic,
   attesterAddress,
   stakingAssetHandlerAddress,
+  proofParams,
   log,
   debugLogger,
-}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress }) {
+}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress; proofParams: Buffer }) {
   const dualLog = makeDualLog(log, debugLogger);
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
@@ -69,16 +71,17 @@ export async function addL1Validator({
   });
 
   const rollup = await stakingAssetHandler.read.getRollup();
-  dualLog(`Adding validator (${attesterAddress} to rollup ${rollup.toString()}`);
+  dualLog(`Adding validator ${attesterAddress} to rollup ${rollup.toString()}`);
 
   const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const proofParamsObj = ZkPassportProofParams.fromBuffer(proofParams);
 
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
     to: stakingAssetHandlerAddress.toString(),
     data: encodeFunctionData({
       abi: StakingAssetHandlerAbi,
-      functionName: 'addValidator',
-      args: [attesterAddress.toString()],
+      functionName: 'addValidatorToQueue',
+      args: [attesterAddress.toString(), proofParamsObj.toViem()],
     }),
     abi: StakingAssetHandlerAbi,
   });

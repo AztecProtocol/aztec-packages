@@ -73,5 +73,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),
+  getL1Timestamp: z.function().args().returns(schemas.BigInt),
   syncImmediate: z.function().args().returns(z.void()),
 };

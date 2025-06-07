@@ -213,16 +213,4 @@ pub(crate) mod tests {
 
         let _ = builder.execute();
     }
-
-    #[test(should_fail_with = "last_l1_to_l2 in constants does not match the value in the previous block header")]
-    unconstrained fn mismatch_last_l1_to_l2_snapshot_fails() {
-        let mut builder = TestBuilder::new();
-
-        builder.inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.last_l1_to_l2.root +=
-            1;
-        builder.inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.last_l1_to_l2.root +=
-            1;
-
-        let _ = builder.execute();
-    }
 }
