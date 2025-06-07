@@ -107,10 +107,8 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     ASSERT(dyadic_circuit_size > max_tables_size);
 
     // Allocate the polynomials containing the actual table data
-    if constexpr (IsUltraOrMegaHonk<Flavor>) {
-        for (auto& poly : proving_key.polynomials.get_tables()) {
-            poly = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
-        }
+    for (auto& poly : proving_key.polynomials.get_tables()) {
+        poly = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
     }
 
     // Allocate the read counts and tags polynomials

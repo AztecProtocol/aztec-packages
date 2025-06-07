@@ -5,30 +5,41 @@
 
 namespace bb {
 
-std::vector<uint8_t> decompress(const void* bytes, size_t size)
+std::vector<uint8_t> decompress(const void* compressed, std::size_t comp_size)
 {
-    std::vector<uint8_t> content;
-    // initial size guess
-    content.resize(1024ULL * 128ULL);
-    for (;;) {
-        auto decompressor = std::unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)>{
-            libdeflate_alloc_decompressor(), libdeflate_free_decompressor
-        };
-        size_t actual_size = 0;
-        libdeflate_result decompress_result =
-            libdeflate_gzip_decompress(decompressor.get(), bytes, size, content.data(), content.size(), &actual_size);
-        if (decompress_result == LIBDEFLATE_INSUFFICIENT_SPACE) {
-            // need a bigger buffer
-            content.resize(content.size() * 2);
-            continue;
-        }
-        if (decompress_result == LIBDEFLATE_BAD_DATA) {
-            THROW std::invalid_argument("bad gzip data in bb main");
-        }
-        content.resize(actual_size);
-        break;
+    const int gz_header_size = 10;
+    const int gz_footer_size = 8;
+
+    if (comp_size < gz_header_size + gz_footer_size) {
+        THROW std::invalid_argument("truncated gzip");
     }
-    return content;
+
+    const std::uint8_t* in = static_cast<const std::uint8_t*>(compressed);
+
+    // Read the little-endian ISIZE.
+    // Every gzip member ends with an 8-byte footer: four bytes CRC-32 and four bytes ISIZE — the original uncompressed
+    // length modulo 2³². We do not support input files > 4GiB.
+    std::uint32_t isize =
+        static_cast<std::uint32_t>(in[comp_size - 4]) | static_cast<std::uint32_t>(in[comp_size - 3]) << 8 |
+        static_cast<std::uint32_t>(in[comp_size - 2]) << 16 | static_cast<std::uint32_t>(in[comp_size - 1]) << 24;
+
+    std::vector<std::uint8_t> out(isize);
+
+    // Decompress.
+    std::unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)> dec{ libdeflate_alloc_decompressor(),
+                                                                                      libdeflate_free_decompressor };
+
+    size_t written = 0;
+    libdeflate_result r = libdeflate_gzip_decompress(dec.get(), in, comp_size, out.data(), out.size(), &written);
+    if (r != LIBDEFLATE_SUCCESS) {
+        THROW std::invalid_argument("bad gzip data");
+    }
+
+    if (written != isize) {
+        THROW std::runtime_error("gzip size mismatch!");
+    }
+
+    return out;
 }
 
 template <typename T> T unpack_from_file(const std::filesystem::path& filename)
@@ -83,14 +94,17 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
     precomputed_vks.resize(steps.size());
     function_names.resize(steps.size());
 
+    size_t i = 0;
     // https://github.com/AztecProtocol/barretenberg/issues/1395 multithread this once bincode is thread-safe
-    for (size_t i = 0; i < steps.size(); i++) {
-        PrivateExecutionStepRaw step = std::move(steps[i]);
-
+    for (PrivateExecutionStepRaw& step : steps) {
         // TODO(#7371) there is a lot of copying going on in bincode. We need the generated bincode code to
         // use spans instead of vectors.
-        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(step.bytecode));
-        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(std::move(step.witness));
+        // NODE: it is better for fragmentation to do this copy - but bincode really should not require the copy
+        // for performance.
+        acir_format::AcirFormat constraints =
+            acir_format::circuit_buf_to_acir_format(std::vector<uint8_t>{ step.bytecode });
+        acir_format::WitnessVector witness =
+            acir_format::witness_buf_to_witness_data(std::vector<uint8_t>{ step.witness });
 
         folding_stack[i] = { std::move(constraints), std::move(witness) };
         if (step.vk.empty()) {
@@ -101,6 +115,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
             precomputed_vks[i] = vk;
         }
         function_names[i] = step.function_name;
+        i++;
     }
 }
 
@@ -120,12 +135,13 @@ std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
     }
     // Accumulate the entire program stack into the IVC
     for (auto [program, precomputed_vk, function_name] : zip_view(folding_stack, precomputed_vks, function_names)) {
+        PROFILE_THIS_NAME("PrivateExecutionSteps::ivc->accumulate");
+        // Create a tracy zone with the std::string function name.
+        ZoneText(function_name.c_str(), function_name.size());
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-
-        info("ClientIVC: accumulating " + function_name);
-        // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
-        // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
+        MegaCircuitBuilder circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+        info("ClientIVC: accumulating ", function_name, " gates: ", circuit.get_estimated_num_finalized_gates());
+        // Do one step of ivc accumulator
         ivc->accumulate(circuit, precomputed_vk);
     }
 

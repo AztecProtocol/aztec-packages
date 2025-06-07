@@ -44,8 +44,8 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     StdlibProof<Builder> stdlib_ipa_proof = bb::convert_native_proof_to_stdlib(builder, proof.ipa_proof);
     transcript->load_proof(stdlib_proof);
     ipa_transcript = std::make_shared<Transcript>(stdlib_ipa_proof);
-    transcript->enable_manifest();
-    ipa_transcript->enable_manifest();
+    // transcript->enable_manifest();
+    // ipa_transcript->enable_manifest();
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
