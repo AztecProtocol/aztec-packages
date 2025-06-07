@@ -1,6 +1,8 @@
 import {
   DefaultL1ContractsConfig,
   type DeployL1ContractsArgs,
+  type ExtendedViemWalletClient,
+  type L1ReaderConfig,
   L1TxUtils,
   RollupContract,
   SlashingProposerContract,
@@ -14,15 +16,18 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
+import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
 
 import type { Anvil } from '@viem/anvil';
 import EventEmitter from 'node:events';
+import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import {
   DefaultSlasherConfig,
   Offense,
+  type SlasherConfig,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
@@ -43,7 +48,7 @@ describe('SlasherClient', () => {
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
 
-  let slasherClient: SlasherClient;
+  let slasherClient: TestSlasherClient;
   let dummyWatcher: DummyWatcher;
   let rollup: RollupContract;
   let slashingProposer: SlashingProposerContract;
@@ -87,7 +92,7 @@ describe('SlasherClient', () => {
 
     dummyWatcher = new DummyWatcher();
 
-    slasherClient = await SlasherClient.new(
+    slasherClient = await TestSlasherClient.new(
       {
         ...DefaultSlasherConfig,
         slashInactivityCreatePenalty: 5n,
@@ -272,6 +277,18 @@ describe('SlasherClient', () => {
     const slot2 = BigInt(Math.floor(Math.random() * 1000000));
     const payload2 = await slasherClient.getSlashPayload(slot2);
     expect(payload2).toBe(config.slashOverridePayload);
+
+    slasherClient.proposalExecuted({ round: 0n, proposal: config.slashOverridePayload.toString() });
+
+    const slot3 = BigInt(Math.floor(Math.random() * 1000000));
+    const payload3 = await slasherClient.getSlashPayload(slot3);
+    // now we get the payload that was triggered by the watcher
+    expect(payload3).not.toBe(config.slashOverridePayload);
+
+    // but if we update the config we get the override payload again
+    slasherClient.updateConfig(config);
+    const payload4 = await slasherClient.getSlashPayload(slot3);
+    expect(payload4).toBe(config.slashOverridePayload);
   });
 
   it('sorts offenses within payload by validator address', async () => {
@@ -371,6 +388,48 @@ describe('SlasherClient', () => {
     );
   }
 });
+
+class TestSlasherClient extends SlasherClient {
+  static override async new(
+    config: SlasherConfig,
+    l1Contracts: Pick<L1ReaderConfig['l1Contracts'], 'rollupAddress' | 'slashFactoryAddress'>,
+    l1TxUtils: L1TxUtils,
+    watchers: Watcher[],
+    dateProvider: DateProvider,
+  ) {
+    if (!l1Contracts.rollupAddress) {
+      throw new Error('Cannot initialize SlasherClient without a rollup address');
+    }
+    if (!l1Contracts.slashFactoryAddress) {
+      throw new Error('Cannot initialize SlasherClient without a slashFactory address');
+    }
+
+    const rollup = new RollupContract(l1TxUtils.client, l1Contracts.rollupAddress);
+    const slashingProposer = await rollup.getSlashingProposer();
+    const slashFactoryContract = getContract({
+      address: getAddress(l1Contracts.slashFactoryAddress.toString()),
+      abi: SlashFactoryAbi,
+      client: l1TxUtils.client,
+    });
+    return new TestSlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
+  }
+
+  constructor(
+    config: SlasherConfig,
+    slashFactoryContract: GetContractReturnType<typeof SlashFactoryAbi, ExtendedViemWalletClient>,
+    slashingProposer: SlashingProposerContract,
+    l1TxUtils: L1TxUtils,
+    watchers: Watcher[],
+    dateProvider: DateProvider,
+    log = createLogger('slasher'),
+  ) {
+    super(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider, log);
+  }
+
+  public override proposalExecuted(args: { round: bigint; proposal: `0x${string}` }) {
+    super.proposalExecuted(args);
+  }
+}
 
 class DummyWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   constructor() {
