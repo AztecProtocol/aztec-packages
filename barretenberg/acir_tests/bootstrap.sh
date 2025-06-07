@@ -38,7 +38,7 @@ function run_proof_generation {
       adjustment=26
       ipa_accumulation_flag="--ipa_accumulation"
   fi
-  local prove_cmd="$bb prove --scheme ultra_honk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+  local prove_cmd="$bb prove --scheme ultra_honk --not_zk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
   echo_stderr "$prove_cmd"
   dump_fail "$prove_cmd"
 
@@ -72,6 +72,7 @@ function generate_toml {
 }
 
 function regenerate_recursive_inputs {
+  echo "regenerate_recursive_inputs"
   local program=$1
   # Compile the assert_statement test as it's used for the recursive tests.
   COMPILE=2 ./scripts/run_test.sh assert_statement
@@ -128,8 +129,8 @@ function test {
 # Paths are all relative to the repository root.
 function test_cmds {
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof|fold')
-
+    grep -vE 'verify_rollup_honk_proof')
+  echo $honk_tests
   local run_test=$(realpath --relative-to=$root ./scripts/run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./scripts/run_test_browser.sh)
   local bbjs_bin="../ts/dest/node/main.js"
@@ -168,10 +169,11 @@ function test_cmds {
     echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)"
   done
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test assert_statement"
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test double_verify_honk_proof"
+  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify NOT_ZK=true $run_test double_verify_honk_proof"
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement"
   # echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=starknet $run_test assert_statement"
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof"
+  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify NOT_ZK=true $run_test assert_statement"
 
   # prove and verify using bb.js classes
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test 1_mul"

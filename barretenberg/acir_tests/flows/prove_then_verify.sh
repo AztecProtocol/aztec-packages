@@ -18,16 +18,11 @@ case ${SYS:-} in
         -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
   ;;
-  "ultra_plonk_deprecated")
-    # This used to be the default but now it's on its way out.
-    $BIN OLD_API verify $FLAGS \
-        -k <($BIN OLD_API write_vk -o - $FLAGS $BFLAG) \
-        -p <($BIN OLD_API prove -o - $FLAGS $BFLAG)
-  ;;
   "ultra_honk")
     FLAGS+=" --scheme $SYS --oracle_hash ${HASH:-poseidon2}"
     [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
     [ "${RECURSIVE}" = "true" ] && FLAGS+=" --init_kzg_accumulator"
+    [ "${NOT_ZK:-false}" = "true" ] && FLAGS+=" --not_zk"
 
     OUTDIR=$(mktemp -d)
     trap "rm -rf $OUTDIR" EXIT

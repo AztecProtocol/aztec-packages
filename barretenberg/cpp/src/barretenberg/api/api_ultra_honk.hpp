@@ -3,6 +3,7 @@
 #include "barretenberg/api/api.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include <filesystem>
 #include <string>
 

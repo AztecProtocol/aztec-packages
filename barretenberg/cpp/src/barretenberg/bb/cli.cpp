@@ -218,7 +218,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     const auto add_zk_option = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--zk", flags.zk, "Use a zk version of --scheme, if available.");
+        return subcommand->add_flag("--zk",
+                                    flags.zk,
+                                    "Use a zk version of --scheme, if available. This flag is deprecated and will be "
+                                    "removed in the future. It is set to true by default.");
+    };
+
+    const auto add_not_zk_option = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--not_zk", flags.not_zk, "Use a non-zk version of --scheme, if available.");
     };
 
     const auto add_init_kzg_accumulator_option = [&](CLI::App* subcommand) {
@@ -341,6 +348,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_format_option(prove);
     add_write_vk_flag(prove);
     add_zk_option(prove);
+    add_not_zk_option(prove);
     add_init_kzg_accumulator_option(prove);
     add_ipa_accumulation_flag(prove);
     add_recursive_flag(prove);
@@ -372,6 +380,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_honk_recursion_option(write_vk);
     add_recursive_flag(write_vk);
     add_verifier_type_option(write_vk)->default_val("standalone");
+    add_not_zk_option(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify
@@ -388,6 +397,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_crs_path_option(verify);
     add_oracle_hash_option(verify);
     add_zk_option(verify);
+    add_not_zk_option(verify);
     add_ipa_accumulation_flag(verify);
     add_init_kzg_accumulator_option(verify);
     add_honk_recursion_option(verify);
@@ -408,6 +418,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     add_verbose_flag(write_solidity_verifier);
     add_zk_option(write_solidity_verifier);
+    add_not_zk_option(write_solidity_verifier);
     add_crs_path_option(write_solidity_verifier);
 
     /***************************************************************************************************************

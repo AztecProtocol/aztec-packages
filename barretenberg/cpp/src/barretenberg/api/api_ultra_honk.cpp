@@ -19,7 +19,7 @@ template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
 Circuit _compute_circuit(const std::string& bytecode_path, const std::string& witness_path)
 {
     uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
@@ -149,19 +149,20 @@ void UltraHonkAPI::prove(const Flags& flags,
     const auto _write = [&](auto&& _prove_output) {
         write(_prove_output, flags.output_format, flags.write_vk ? "proof_and_vk" : "proof", output_dir);
     };
-
     if (flags.ipa_accumulation) {
         _write(_prove<UltraRollupFlavor>(flags.write_vk, bytecode_path, witness_path));
-    } else if (flags.oracle_hash_type == "poseidon2") {
+    } else if (flags.oracle_hash_type == "poseidon2" && !flags.not_zk) {
+        _write(_prove<UltraZKFlavor>(flags.write_vk, bytecode_path, witness_path));
+    } else if (flags.oracle_hash_type == "poseidon2" && flags.not_zk) {
         _write(_prove<UltraFlavor>(flags.write_vk, bytecode_path, witness_path));
-    } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-        _write(_prove<UltraKeccakFlavor>(flags.write_vk, bytecode_path, witness_path));
-    } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
+    } else if (flags.oracle_hash_type == "keccak" && !flags.not_zk) {
         _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, bytecode_path, witness_path));
+    } else if (flags.oracle_hash_type == "keccak" && flags.not_zk) {
+        _write(_prove<UltraKeccakFlavor>(flags.write_vk, bytecode_path, witness_path));
 #ifdef STARKNET_GARAGA_FLAVORS
-    } else if (flags.oracle_hash_type == "starknet" && !flags.zk) {
+    } else if (flags.oracle_hash_type == "starknet" && flags.not_zk) {
         _write(_prove<UltraStarknetFlavor>(flags.write_vk, bytecode_path, witness_path));
-    } else if (flags.oracle_hash_type == "starknet" && flags.zk) {
+    } else if (flags.oracle_hash_type == "starknet" && !flags.not_zk) {
         _write(_prove<UltraStarknetZKFlavor>(flags.write_vk, bytecode_path, witness_path));
 #endif
     } else {
@@ -178,26 +179,31 @@ bool UltraHonkAPI::verify(const Flags& flags,
     if (ipa_accumulation) {
         return _verify<UltraRollupFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
-    if (flags.zk) {
+
+    if (flags.not_zk) {
+        if (flags.oracle_hash_type == "poseidon2") {
+            return _verify<UltraFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+        }
         if (flags.oracle_hash_type == "keccak") {
-            return _verify<UltraKeccakZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+            return _verify<UltraKeccakFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
         }
 #ifdef STARKNET_GARAGA_FLAVORS
         if (flags.oracle_hash_type == "starknet") {
-            return _verify<UltraStarknetZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+            return _verify<UltraStarknetFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
         }
 #endif
         return false;
     }
-    if (flags.oracle_hash_type == "poseidon2") {
-        return _verify<UltraFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-    }
+
     if (flags.oracle_hash_type == "keccak") {
-        return _verify<UltraKeccakFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+        return _verify<UltraKeccakZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+    }
+    if (flags.oracle_hash_type == "poseidon2") {
+        return _verify<UltraZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
 #ifdef STARKNET_GARAGA_FLAVORS
     if (flags.oracle_hash_type == "starknet") {
-        return _verify<UltraStarknetFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+        return _verify<UltraStarknetZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
 #endif
     return false;
@@ -220,20 +226,29 @@ void UltraHonkAPI::write_vk(const Flags& flags,
     if (flags.ipa_accumulation) {
         _write(_compute_vk<UltraRollupFlavor>(bytecode_path, ""));
     } else if (flags.oracle_hash_type == "poseidon2") {
-        _write(_compute_vk<UltraFlavor>(bytecode_path, ""));
-    } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-        _write(_compute_vk<UltraKeccakFlavor>(bytecode_path, ""));
-#ifdef STARKNET_GARAGA_FLAVORS
-    } else if (flags.oracle_hash_type == "starknet" && !flags.zk) {
-        _write(_compute_vk<UltraStarknetFlavor>(bytecode_path, ""));
-    } else if (flags.oracle_hash_type == "starknet" && flags.zk) {
-        _write(_compute_vk<UltraStarknetZKFlavor>(bytecode_path, ""));
-#endif
-    } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
-        _write(_compute_vk<UltraKeccakZKFlavor>(bytecode_path, ""));
-    } else {
-        throw_or_abort("Invalid proving options specified in _prove");
+        if (flags.not_zk) {
+            _write(_compute_vk<UltraFlavor>(bytecode_path, ""));
+        } else {
+            _write(_compute_vk<UltraZKFlavor>(bytecode_path, ""));
+        }
+    } else if (flags.oracle_hash_type == "keccak") {
+        if (flags.not_zk) {
+            _write(_compute_vk<UltraKeccakFlavor>(bytecode_path, ""));
+        } else {
+            _write(_compute_vk<UltraKeccakZKFlavor>(bytecode_path, ""));
+        }
     }
+#ifdef STARKNET_GARAGA_FLAVORS
+}
+else if (flags.oracle_hash_type == "starknet")
+{
+    if (flags.not_zk) {
+        _write(_compute_vk<UltraStarknetFlavor>(bytecode_path, ""));
+    } else {
+        _write(_compute_vk<UltraStarknetZKFlavor>(bytecode_path, ""));
+    }
+}
+#endif
 }
 
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
@@ -248,7 +263,7 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
 {
     using VK = UltraKeccakFlavor::VerificationKey;
     auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));
-    std::string contract = flags.zk ? get_honk_zk_solidity_verifier(vk) : get_honk_solidity_verifier(vk);
+    std::string contract = flags.not_zk ? get_honk_solidity_verifier(vk) : get_honk_zk_solidity_verifier(vk);
 
     if (output_path == "-") {
         std::cout << contract;
@@ -270,7 +285,7 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
 
     uint32_t honk_recursion = 0;
     bool ipa_accumulation = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
