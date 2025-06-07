@@ -14,13 +14,20 @@ if [ ! -f yarn.lock ]; then
   exit 1
 fi
 
-yarn_lock_path=$(realpath yarn.lock --relative-to=$REPO_PATH)
-package_json_path=$(realpath package.json --relative-to=$REPO_PATH)
+# We always include the `package.json` and `yarn.lock` from the current directory
+# The user can specify additional paths to include in the hash key as arguments.
+content_paths=()
+content_paths+=($(realpath yarn.lock --relative-to=$REPO_PATH))
+content_paths+=($(realpath package.json --relative-to=$REPO_PATH))
+for path in "${@}"; do
+  content_paths+=($(realpath $path/yarn.lock --relative-to=$REPO_PATH))
+  content_paths+=($(realpath $path/package.json --relative-to=$REPO_PATH))
+done
 
 # We only use the node module cache in CI.
 # The checking for ci-started makes sure we really *are* on a CI machine (it's created in bootstrap_ec2).
 if [ "$CI" -eq 1 ] && [ -f $HOME/ci-started ] && [ "${NO_CACHE:-0}" -eq 0 ]; then
-  nm_hash=$(cache_content_hash "^$yarn_lock_path" "^$package_json_path")
+  nm_hash=$(cache_content_hash "${content_paths[*]}")
   if ! cache_download node-modules-$nm_hash.zst; then
     denoise "retry 'find . -type d -iname node_modules -not -path \"*/node_modules/*\" | xargs rm -rf && yarn install --immutable'"
     cache_upload node-modules-$nm_hash.zst $(find . -type d -iname node_modules -not -path "*/node_modules/*")

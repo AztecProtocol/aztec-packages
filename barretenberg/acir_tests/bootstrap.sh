@@ -104,7 +104,7 @@ function build {
     cache_upload $tests_tar acir_tests
   fi
 
-  npm_install_deps
+  npm_install_deps ../ts
   # TODO: Check if still needed.
   # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts"
 
