@@ -28,7 +28,6 @@ template <typename FF> struct non_native_field_witnesses {
     std::array<uint32_t, 4> q;
     std::array<uint32_t, 4> r;
     std::array<FF, 4> neg_modulus;
-    FF modulus;
 };
 
 template <typename ExecutionTrace_>

@@ -2270,7 +2270,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
             remainder_limbs[3].get_normalized_witness_index(),
         },
         { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
-        modulus,
     };
 
     // N.B. this method DOES NOT evaluate the prime field component of the non-native field mul
@@ -2531,7 +2530,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
                     ctx->zero_idx,
                 },
                 { 0, 0, 0, 0 },
-                modulus,
             };
 
             const auto [lo_2_idx, hi_2_idx] = ctx->queue_partial_non_native_field_multiplication(mul_witnesses);
@@ -2623,7 +2621,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
             remainder_limbs[3].get_normalized_witness_index(),
         },
         { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
-        modulus,
     };
 
     const auto [lo_1_idx, hi_1_idx] = ctx->evaluate_non_native_field_multiplication(witnesses);
