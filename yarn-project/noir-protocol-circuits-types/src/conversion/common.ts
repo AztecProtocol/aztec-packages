@@ -110,6 +110,24 @@ export function mapFieldFromNoir(field: NoirField): Fr {
   return Fr.fromHexString(field);
 }
 
+/**
+ * Maps a bigint to a noir field.
+ * @param bigInt - The bigint.
+ * @returns The noir field.
+ */
+export function mapBigIntToNoir(bigInt: bigint): NoirField {
+  return new Fr(bigInt).toString();
+}
+
+/**
+ * Maps a noir field to a bigint.
+ * @param field - The noir field.
+ * @returns The bigint.
+ */
+export function mapBigIntFromNoir(field: NoirField): bigint {
+  return Fr.fromHexString(field).toBigInt();
+}
+
 /** Maps a field to a noir wrapped field type (ie any type implemented as struct with an inner Field). */
 export function mapWrappedFieldToNoir(field: Fr): { inner: NoirField } {
   return { inner: mapFieldToNoir(field) };
@@ -250,13 +268,13 @@ export function mapGasSettingsToNoir(gasSettings: GasSettings): GasSettingsNoir 
 
 export function mapGasFeesToNoir(gasFees: GasFees): GasFeesNoir {
   return {
-    fee_per_da_gas: mapFieldToNoir(gasFees.feePerDaGas),
-    fee_per_l2_gas: mapFieldToNoir(gasFees.feePerL2Gas),
+    fee_per_da_gas: mapBigIntToNoir(gasFees.feePerDaGas),
+    fee_per_l2_gas: mapBigIntToNoir(gasFees.feePerL2Gas),
   };
 }
 
 export function mapGasFeesFromNoir(gasFees: GasFeesNoir): GasFees {
-  return new GasFees(mapFieldFromNoir(gasFees.fee_per_da_gas), mapFieldFromNoir(gasFees.fee_per_l2_gas));
+  return new GasFees(mapBigIntFromNoir(gasFees.fee_per_da_gas), mapBigIntFromNoir(gasFees.fee_per_l2_gas));
 }
 
 export function mapPrivateLogToNoir(log: PrivateLog): LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS> {

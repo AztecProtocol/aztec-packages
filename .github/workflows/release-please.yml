@@ -73,7 +73,8 @@ jobs:
         working-directory: ./docs
         run: |
           COMMIT_TAG=${{ steps.version.outputs.semver }}
-          echo "[]" > versions.json
+          # need to specify at least one version in versions.json for it to build
+          echo "[ \"$(./scripts/get_current_version.sh)\" ]" > versions.json
           yarn
           COMMIT_TAG=$COMMIT_TAG yarn build
           COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}

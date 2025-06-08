@@ -90,6 +90,7 @@
     "@libp2p/prometheus-metrics": "^4.2.4",
     "@libp2p/tcp": "9.0.24",
     "@multiformats/multiaddr": "12.1.14",
+    "abortable-iterator": "^5.1.0",
     "interface-datastore": "^8.2.11",
     "interface-store": "^5.1.8",
     "it-pipe": "^3.0.1",

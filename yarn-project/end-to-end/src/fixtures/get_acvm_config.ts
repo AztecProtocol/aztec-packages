@@ -1,6 +1,7 @@
 import type { Logger } from '@aztec/aztec.js';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { tryRmDir } from '@aztec/foundation/fs';
 
 import { promises as fs } from 'fs';
 
@@ -36,16 +37,7 @@ export async function getACVMConfig(logger: Logger): Promise<
 
     const directoryToCleanup = ACVM_WORKING_DIRECTORY ? undefined : tempWorkingDirectory;
 
-    const cleanup = async () => {
-      if (directoryToCleanup) {
-        try {
-          logger.info(`Cleaning up ACVM temp directory ${directoryToCleanup}`);
-          await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
-        } catch (err) {
-          logger.warn(`Failed to delete ACVM temp directory at ${directoryToCleanup}: ${err}`);
-        }
-      }
-    };
+    const cleanup = () => tryRmDir(directoryToCleanup, logger);
 
     return {
       acvmWorkingDirectory,

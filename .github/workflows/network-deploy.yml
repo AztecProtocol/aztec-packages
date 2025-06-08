@@ -49,6 +49,11 @@ on:
         required: false
         type: string
         default: "false"
+      skip_funding:
+        description: "Whether to skip funding the sepolia accounts (default: false)"
+        required: false
+        type: boolean
+        default: false
       sepolia_accounts_mnemonic_secret_name:
         description: The name of the secret which holds the sepolia accounts mnemonic
         required: false
@@ -90,6 +95,11 @@ on:
         required: false
         type: string
         default: "false"
+      skip_funding:
+        description: "Whether to skip funding the sepolia accounts (default: false)"
+        required: false
+        type: boolean
+        default: false
       sepolia_accounts_mnemonic_secret_name:
         description: The name of the secret which holds the sepolia accounts mnemonic (if not provided, will use '{namespace}-accounts-mnemonic').
         required: false
@@ -97,7 +107,7 @@ on:
 
 jobs:
   fund_sepolia_accounts:
-    if: ${{ inputs.sepolia_deployment == 'true' }}
+    if: ${{ inputs.sepolia_deployment == 'true' && !inputs.skip_funding }}
     uses: ./.github/workflows/fund-sepolia-accounts.yml
     with:
       values_file: ${{ inputs.values_file }}
@@ -111,6 +121,7 @@ jobs:
 
   network_deployment:
     needs: fund_sepolia_accounts
+    if: always() && (needs.fund_sepolia_accounts.result == 'success' || needs.fund_sepolia_accounts.result == 'skipped')
     # This job will run on Ubuntu
     runs-on: ubuntu-latest
     concurrency:
@@ -211,12 +222,16 @@ jobs:
         continue-on-error: true
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
-            if [ -z "${{ inputs.sepolia_accounts_mnemonic_secret_name }}" ]; then
-              SECRET_NAME="${{ env.NAMESPACE }}-accounts-mnemonic"
+            if ${{ inputs.skip_funding }}; then
+              L1_DEPLOYMENT_MNEMONIC="test test test test test test test test test test test junk"
             else
-              SECRET_NAME="${{ inputs.sepolia_accounts_mnemonic_secret_name }}"
+              if [ -z "${{ inputs.sepolia_accounts_mnemonic_secret_name }}" ]; then
+                SECRET_NAME="${{ env.NAMESPACE }}-accounts-mnemonic"
+              else
+                SECRET_NAME="${{ inputs.sepolia_accounts_mnemonic_secret_name }}"
+              fi
+              L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=$SECRET_NAME)
             fi
-            L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=${{ inputs.sepolia_accounts_mnemonic_secret_name }})
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
@@ -247,12 +262,16 @@ jobs:
         working-directory: ./spartan/terraform/deploy-release
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
-            if [ -z "${{ inputs.sepolia_accounts_mnemonic_secret_name }}" ]; then
-              SECRET_NAME="${{ env.NAMESPACE }}-accounts-mnemonic"
+            if ${{ inputs.skip_funding }}; then
+              L1_DEPLOYMENT_MNEMONIC="test test test test test test test test test test test junk"
             else
-              SECRET_NAME="${{ inputs.sepolia_accounts_mnemonic_secret_name }}"
+              if [ -z "${{ inputs.sepolia_accounts_mnemonic_secret_name }}" ]; then
+                SECRET_NAME="${{ env.NAMESPACE }}-accounts-mnemonic"
+              else
+                SECRET_NAME="${{ inputs.sepolia_accounts_mnemonic_secret_name }}"
+              fi
+              L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=$SECRET_NAME)
             fi
-            L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=$SECRET_NAME)
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \

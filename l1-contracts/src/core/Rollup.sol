@@ -19,6 +19,7 @@ import {
   IStaking, AttesterConfig, Exit, AttesterView, Status
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -72,6 +73,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
     GSE _gse,
+    IVerifier _epochProofVerifier,
     address _governance,
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
@@ -81,6 +83,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       _rewardDistributor,
       _stakingAsset,
       _gse,
+      _epochProofVerifier,
       _governance,
       _genesisState,
       _config
