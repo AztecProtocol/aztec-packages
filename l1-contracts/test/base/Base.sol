@@ -11,7 +11,7 @@ import {
   AppendOnlyTreeSnapshot,
   PartialStateReference,
   StateReference
-} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 contract TestBase is Test {
   using SlotLib for Slot;

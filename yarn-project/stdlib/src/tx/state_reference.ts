@@ -34,7 +34,7 @@ export class StateReference {
   }
 
   toBuffer() {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return serializeToBuffer(this.l1ToL2MessageTree, this.partial);
   }
 

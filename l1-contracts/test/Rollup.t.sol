@@ -13,7 +13,7 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
-import {Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {
   IRollupCore,
@@ -327,7 +327,7 @@ contract RollupTest is RollupBase {
   function testNonZeroDaFee() public setUpFor("mixed_block_1") {
     DecoderBase.Full memory full = load("mixed_block_1");
     DecoderBase.Data memory data = full.block;
-    Header memory header = data.header;
+    ProposedHeader memory header = data.header;
     bytes32[] memory txHashes = new bytes32[](0);
 
     // Tweak the da fee.
@@ -352,7 +352,7 @@ contract RollupTest is RollupBase {
   function testInvalidL2Fee() public setUpFor("mixed_block_1") {
     DecoderBase.Full memory full = load("mixed_block_1");
     DecoderBase.Data memory data = full.block;
-    Header memory header = data.header;
+    ProposedHeader memory header = data.header;
     bytes32[] memory txHashes = new bytes32[](0);
 
     // Tweak the base fee.
@@ -450,7 +450,7 @@ contract RollupTest is RollupBase {
     TestBlockFeeStruct memory interim;
 
     DecoderBase.Data memory data = load("mixed_block_1").block;
-    Header memory header = data.header;
+    ProposedHeader memory header = data.header;
     interim.portalBalance = testERC20.balanceOf(address(feeJuicePortal));
     interim.provingCostPerManaInEth = rollup.getProvingCostPerManaInEth();
     interim.provingCostPerManaInFeeAsset = rollup.getProvingCostPerManaInFeeAsset();
@@ -731,7 +731,7 @@ contract RollupTest is RollupBase {
 
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
-    Header memory header = data.header;
+    ProposedHeader memory header = data.header;
     bytes32 archive = data.archive;
     bytes32[] memory txHashes = new bytes32[](0);
 

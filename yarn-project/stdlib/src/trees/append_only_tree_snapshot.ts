@@ -87,7 +87,7 @@ export class AppendOnlyTreeSnapshot {
     return [this.root.toString(), this.nextAvailableLeafIndex];
   }
 
-  static empty() {
+  static zero() {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
   }
 

@@ -5,6 +5,7 @@ pragma solidity >=0.8.27;
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 struct AppendOnlyTreeSnapshot {
   bytes32 root;
@@ -35,7 +36,7 @@ struct ContentCommitment {
   bytes32 outHash;
 }
 
-struct Header {
+struct ProposedHeader {
   bytes32 lastArchiveRoot;
   ContentCommitment contentCommitment;
   Slot slotNumber;
@@ -47,12 +48,38 @@ struct Header {
 }
 
 /**
- * @title Header Library
+ * @title ProposedHeader Library
  * @author Aztec Labs
- * @notice Decoding and validating an L2 block header
+ * @notice Decoding and validating a proposed L2 block header
  */
-library HeaderLib {
-  function hash(Header memory _header) internal pure returns (bytes32) {
-    return Hash.sha256ToField(abi.encode(_header));
+library ProposedHeaderLib {
+  using SafeCast for uint256;
+
+  /**
+   * @notice  Hash the proposed header
+   *
+   * @dev     The hashing here MUST match what is in the proposed_block_header.ts
+   *
+   * @param _header The header to hash
+   *
+   * @return The hash of the header
+   */
+  function hash(ProposedHeader memory _header) internal pure returns (bytes32) {
+    return Hash.sha256ToField(
+      abi.encodePacked(
+        _header.lastArchiveRoot,
+        _header.contentCommitment.numTxs,
+        _header.contentCommitment.blobsHash,
+        _header.contentCommitment.inHash,
+        _header.contentCommitment.outHash,
+        _header.slotNumber,
+        Timestamp.unwrap(_header.timestamp).toUint64(),
+        _header.coinbase,
+        _header.feeRecipient,
+        _header.gasFees.feePerDaGas,
+        _header.gasFees.feePerL2Gas,
+        _header.totalManaUsed
+      )
+    );
   }
 }

@@ -15,7 +15,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
-import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
   ProposeArgs,
   OracleInput,
@@ -29,7 +29,7 @@ import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
-import {Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {GSE} from "@aztec/core/staking/GSE.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
@@ -300,7 +300,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     TestFlags memory _flags
   ) internal {
     DecoderBase.Full memory full = load(_name);
-    Header memory header = full.block.header;
+    ProposedHeader memory header = full.block.header;
 
     StructToAvoidDeepStacks memory ree;
 
@@ -345,7 +345,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         archive: args.archive,
         stateReference: args.stateReference,
         oracleInput: args.oracleInput,
-        headerHash: HeaderLib.hash(header),
+        headerHash: ProposedHeaderLib.hash(header),
         txHashes: args.txHashes
       });
 
