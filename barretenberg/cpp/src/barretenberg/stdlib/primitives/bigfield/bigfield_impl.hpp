@@ -2490,16 +2490,10 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     std::vector<field_t<Builder>> prime_limb_accumulator;
 
     for (size_t i = 0; i < num_multiplications; ++i) {
-        if (i == 0 && left[0].is_constant()) {
-            left[0] = convert_constant_to_fixed_witness(left[0]);
-        }
-        if (i == 0 && right[0].is_constant()) {
-            right[0] = convert_constant_to_fixed_witness(right[0]);
-        }
-        if (i > 0 && left[i].is_constant()) {
+        if (left[i].is_constant()) {
             left[i] = convert_constant_to_fixed_witness(left[i]);
         }
-        if (i > 0 && right[i].is_constant()) {
+        if (right[i].is_constant()) {
             right[i] = convert_constant_to_fixed_witness(right[i]);
         }
 
