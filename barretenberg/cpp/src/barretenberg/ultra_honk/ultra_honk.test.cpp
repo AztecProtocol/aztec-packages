@@ -882,7 +882,7 @@ TYPED_TEST(UltraHonkTests, NonNativeFieldMultiplication)
     const auto r_indices = get_limb_witness_indices(split_into_limbs(uint256_t(r)));
 
     non_native_field_witnesses<fr> inputs{
-        a_indices, b_indices, q_indices, r_indices, modulus_limbs, fr(uint256_t(modulus)),
+        a_indices, b_indices, q_indices, r_indices, modulus_limbs,
     };
     const auto [lo_1_idx, hi_1_idx] = circuit_builder.evaluate_non_native_field_multiplication(inputs);
     circuit_builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
