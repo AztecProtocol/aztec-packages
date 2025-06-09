@@ -22,36 +22,11 @@ describe('e2e_offchain_message', () => {
 
   beforeAll(async () => {
     ({ teardown, wallets, pxe, aztecNode } = await setup(1));
-    // TODO(benesjan): The following results in one of the txs being dropped. There seems to be an issue in Aztec.js
-    // deployments.
-    // [contract1, contract2] = await Promise.all([
-    //   OffchainMessageContract.deploy(wallets[0]).send({ contractAddressSalt: Fr.random() }).deployed(),
-    //   OffchainMessageContract.deploy(wallets[0]).send({ contractAddressSalt: Fr.random() }).deployed(),
-    // ]);
     contract1 = await OffchainMessageContract.deploy(wallets[0]).send().deployed();
     contract2 = await OffchainMessageContract.deploy(wallets[0]).send().deployed();
   });
 
   afterAll(() => teardown());
-
-  function toBoundedVec<T>(arr: T[], maxLen: number) {
-    const paddingMessagePayload = {
-      message: [Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO],
-      recipient: AztecAddress.ZERO,
-      // eslint-disable-next-line camelcase
-      next_contract: AztecAddress.ZERO,
-    };
-
-    return {
-      len: arr.length,
-      storage: arr.concat(new Array(maxLen - arr.length).fill(paddingMessagePayload)),
-    };
-  }
-
-  // TODO: To be nuked soon.
-  function toBoundedVecOfFields(arr: Fr[], maxLen: number) {
-    return { len: arr.length, storage: arr.concat(new Array(maxLen - arr.length).fill(new Fr(0))) };
-  }
 
   it('should emit offchain message', async () => {
     const messages = await Promise.all(
@@ -65,7 +40,7 @@ describe('e2e_offchain_message', () => {
         })),
     );
 
-    const provenTx = await contract1.methods.emit_offchain_message_for_recipient(toBoundedVec(messages, 6)).prove();
+    const provenTx = await contract1.methods.emit_offchain_message_for_recipient(messages).prove();
 
     // The expected order of offchain messages is the reverse because the messages are popped from the end of the input
     // BoundedVec.
@@ -81,7 +56,7 @@ describe('e2e_offchain_message', () => {
   });
 
   it('should not emit any offchain messages', async () => {
-    const provenTx = await contract1.methods.emit_offchain_message_for_recipient(toBoundedVec([], 6)).prove();
+    const provenTx = await contract1.methods.emit_offchain_message_for_recipient([]).prove();
     expect(provenTx.offchainMessages).toEqual([]);
   });
 
@@ -108,12 +83,7 @@ describe('e2e_offchain_message', () => {
     const messageContext = MessageContext.fromTxEffectAndRecipient(txEffect, recipient);
 
     // Process the message
-    await contract1.methods
-      .process_message(
-        toBoundedVecOfFields(offchainMessage.message, PRIVATE_LOG_CIPHERTEXT_LEN),
-        messageContext.toNoirStruct(),
-      )
-      .simulate();
+    await contract1.methods.process_message(offchainMessage.message, messageContext.toNoirStruct()).simulate();
 
     // Get the event from PXE
     const events = await pxe.getPrivateEvents<TestEvent>(
@@ -150,12 +120,7 @@ describe('e2e_offchain_message', () => {
     const messageContext = MessageContext.fromTxEffectAndRecipient(txEffect, recipient);
 
     // Process the message
-    await contract1.methods
-      .process_message(
-        toBoundedVecOfFields(offchainMessage.message, PRIVATE_LOG_CIPHERTEXT_LEN),
-        messageContext.toNoirStruct(),
-      )
-      .simulate();
+    await contract1.methods.process_message(offchainMessage.message, messageContext.toNoirStruct()).simulate();
 
     // Get the note value
     const noteValue = await contract1.methods.get_note_value(owner).simulate();
