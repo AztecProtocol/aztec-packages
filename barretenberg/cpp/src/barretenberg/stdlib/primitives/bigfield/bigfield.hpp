@@ -891,6 +891,20 @@ template <typename Builder, typename T> class bigfield {
 
   private:
     /**
+     * @brief Get the witness indices of the (normalized) binary basis limbs
+     *
+     * @return Witness indices of the binary basis limbs
+     */
+    std::array<uint32_t, NUM_LIMBS> get_binary_basis_limb_witness_indices() const
+    {
+        std::array<uint32_t, NUM_LIMBS> limb_witness_indices;
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            limb_witness_indices[i] = binary_basis_limbs[i].element.get_normalized_witness_index();
+        }
+        return limb_witness_indices;
+    }
+
+    /**
      * @brief Compute the quotient and remainder values for dividing (a * b + (to_add[0] + ... + to_add[-1])) with p
      *
      * @param a Left multiplicand
