@@ -32,7 +32,7 @@ import type { MerkleTreeId } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx, TxHash, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 import type { ValidatorClient } from '@aztec/validator-client';
 
-import { expect } from '@jest/globals';
+import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -510,6 +510,29 @@ describe('sequencer', () => {
 
     // Even though the block publish was not enqueued, we still send any requests
     expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
+  });
+
+  it('should proceed with block proposal when there is no proposer yet', async () => {
+    // Mock that there is no official proposer yet
+    publisher.epochCache.getProposerAttesterAddressInNextSlot = jest
+      .fn()
+      .mockImplementationOnce(() => Promise.resolve(undefined)) as jest.Mock<() => Promise<EthAddress | undefined>>;
+
+    publisher.getCurrentEpochCommittee.mockResolvedValueOnce([]);
+
+    // Mock that we have some pending transactions
+    const txs = [await makeTx(1), await makeTx(2)];
+    mockPendingTxs(txs);
+    block = await makeBlock(txs);
+
+    await sequencer.doRealWork();
+
+    // Verify that the sequencer attempted to create and broadcast a block proposal
+    expect(publisher.enqueueProposeL2Block).toHaveBeenCalled();
+
+    // Verify that the sequencer did not broadcast for attestations since there's no committee
+    expect(validatorClient.createBlockProposal).not.toHaveBeenCalled();
+    expect(validatorClient.broadcastBlockProposal).not.toHaveBeenCalled();
   });
 });
 

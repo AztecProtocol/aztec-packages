@@ -515,4 +515,12 @@ export class Oracle {
     );
     return secret.toFields().map(toACVMField);
   }
+
+  async emitOffchainMessage(message: ACVMField[], [recipient]: ACVMField[]) {
+    await this.typedOracle.emitOffchainMessage(
+      message.map(Fr.fromString),
+      AztecAddress.fromField(Fr.fromString(recipient)),
+    );
+    return [];
+  }
 }

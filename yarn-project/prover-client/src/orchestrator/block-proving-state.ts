@@ -332,6 +332,13 @@ export class BlockProvingState {
     }
     const endState = new StateReference(this.l1ToL2MessageTreeSnapshotAfterInsertion, endPartialState);
 
+    // TODO(MW): cleanup
+    if (!this.blobsHash) {
+      this.blobsHash = (
+        await buildBlobHints(this.txs.map(txProvingState => txProvingState.processedTx.txEffect))
+      ).blobsHash.toBuffer();
+    }
+
     return buildHeaderFromCircuitOutputs(
       previousRollupData.map(d => d.baseOrMergeRollupPublicInputs),
       this.rootParityProvingOutput!.inputs,
