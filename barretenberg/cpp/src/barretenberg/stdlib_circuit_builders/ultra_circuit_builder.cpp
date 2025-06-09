@@ -1921,7 +1921,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 
 template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_native_field_multiplication(
-    const non_native_field_witnesses<FF>& input)
+    const non_native_partial_multiplication_witnesses<FF>& input)
 {
 
     std::array<fr, 4> a{

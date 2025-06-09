@@ -2511,19 +2511,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
                     right[i].binary_basis_limbs[2].element.get_normalized_witness_index(),
                     right[i].binary_basis_limbs[3].element.get_normalized_witness_index(),
                 },
-                {
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                },
-                {
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                },
-                { 0, 0, 0, 0 },
             };
 
             const auto [lo_2_idx, hi_2_idx] = ctx->queue_partial_non_native_field_multiplication(mul_witnesses);
