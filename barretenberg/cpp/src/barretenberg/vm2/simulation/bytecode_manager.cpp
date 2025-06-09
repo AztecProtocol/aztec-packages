@@ -41,6 +41,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     FF bytecode_commitment = bytecode_hasher.compute_public_bytecode_commitment(bytecode_id, klass.packed_bytecode);
     (void)bytecode_commitment; // Avoid GCC unused parameter warning when asserts are disabled.
+    // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
     assert(bytecode_commitment == klass.public_bytecode_commitment);
     // We convert the bytecode to a shared_ptr because it will be shared by some events.
     auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
