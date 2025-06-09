@@ -2245,24 +2245,9 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
     bb::non_native_multiplication_witnesses<bb::fr> witnesses{
-        {
-            left.binary_basis_limbs[0].element.get_normalized_witness_index(),
-            left.binary_basis_limbs[1].element.get_normalized_witness_index(),
-            left.binary_basis_limbs[2].element.get_normalized_witness_index(),
-            left.binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
-        {
-            to_mul.binary_basis_limbs[0].element.get_normalized_witness_index(),
-            to_mul.binary_basis_limbs[1].element.get_normalized_witness_index(),
-            to_mul.binary_basis_limbs[2].element.get_normalized_witness_index(),
-            to_mul.binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
-        {
-            quotient.binary_basis_limbs[0].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[1].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[2].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
+        left.get_binary_basis_limb_witness_indices(),
+        to_mul.get_binary_basis_limb_witness_indices(),
+        quotient.get_binary_basis_limb_witness_indices(),
         {
             remainder_limbs[0].get_normalized_witness_index(),
             remainder_limbs[1].get_normalized_witness_index(),
@@ -2499,18 +2484,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
         if (i > 0) {
             bb::non_native_partial_multiplication_witnesses<bb::fr> mul_witnesses = {
-                {
-                    left[i].binary_basis_limbs[0].element.get_normalized_witness_index(),
-                    left[i].binary_basis_limbs[1].element.get_normalized_witness_index(),
-                    left[i].binary_basis_limbs[2].element.get_normalized_witness_index(),
-                    left[i].binary_basis_limbs[3].element.get_normalized_witness_index(),
-                },
-                {
-                    right[i].binary_basis_limbs[0].element.get_normalized_witness_index(),
-                    right[i].binary_basis_limbs[1].element.get_normalized_witness_index(),
-                    right[i].binary_basis_limbs[2].element.get_normalized_witness_index(),
-                    right[i].binary_basis_limbs[3].element.get_normalized_witness_index(),
-                },
+                left[i].get_binary_basis_limb_witness_indices(),
+                right[i].get_binary_basis_limb_witness_indices(),
             };
 
             const auto [lo_2_idx, hi_2_idx] = ctx->queue_partial_non_native_field_multiplication(mul_witnesses);
@@ -2577,24 +2552,9 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
     bb::non_native_multiplication_witnesses<bb::fr> witnesses{
-        {
-            left[0].binary_basis_limbs[0].element.get_normalized_witness_index(),
-            left[0].binary_basis_limbs[1].element.get_normalized_witness_index(),
-            left[0].binary_basis_limbs[2].element.get_normalized_witness_index(),
-            left[0].binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
-        {
-            right[0].binary_basis_limbs[0].element.get_normalized_witness_index(),
-            right[0].binary_basis_limbs[1].element.get_normalized_witness_index(),
-            right[0].binary_basis_limbs[2].element.get_normalized_witness_index(),
-            right[0].binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
-        {
-            quotient.binary_basis_limbs[0].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[1].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[2].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
+        left[0].get_binary_basis_limb_witness_indices(),
+        right[0].get_binary_basis_limb_witness_indices(),
+        quotient.get_binary_basis_limb_witness_indices(),
         {
             remainder_limbs[0].get_normalized_witness_index(),
             remainder_limbs[1].get_normalized_witness_index(),
