@@ -29,6 +29,13 @@ contract GSEBase is TestBase {
     stakingAsset = builder.getConfig().testERC20;
     gse = builder.getConfig().gse;
     governance = builder.getConfig().governance;
+
+    vm.label(address(governance), "governance");
+    vm.label(address(governance.governanceProposer()), "governance proposer");
+    vm.label(address(gse), "gse");
+    vm.label(address(stakingAsset), "staking asset");
+    vm.label(address(ROLLUP), "rollup");
+    vm.label(address(registry), "registry");
   }
 
   function help__deposit(address _attester, address _withdrawer, bool _onCanonical) internal {

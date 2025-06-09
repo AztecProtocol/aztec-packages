@@ -15,6 +15,8 @@ using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                               UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
+                               UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
                                UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
@@ -377,6 +379,7 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
 {
     if constexpr (IsAnyOf<TypeParam,
                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                          UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
                           UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                           MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         TestFixture::test_independent_vk_hash();

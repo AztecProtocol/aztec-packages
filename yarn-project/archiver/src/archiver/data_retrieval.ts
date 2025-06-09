@@ -4,7 +4,9 @@ import type {
   EpochProofPublicInputArgs,
   ViemClient,
   ViemCommitteeAttestation,
+  ViemHeader,
   ViemPublicClient,
+  ViemStateReference,
 } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
@@ -301,20 +303,21 @@ async function getBlockFromRollupTx(
 
   const [decodedArgs, attestations, _blobInput] = rollupArgs! as readonly [
     {
-      header: Hex;
       archive: Hex;
-      stateReference: Hex;
-      blockHash: Hex;
+      stateReference: ViemStateReference;
       oracleInput: {
         feeAssetPriceModifier: bigint;
       };
-      txHashes: Hex[];
+      header: ViemHeader;
+      txHashes: readonly Hex[];
     },
     ViemCommitteeAttestation[],
     Hex,
   ];
 
-  const header = ProposedBlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
+  // TODO(md): why is the proposed block header different to the actual block header?
+  // This is likely going to be a footgun
+  const header = ProposedBlockHeader.fromViem(decodedArgs.header);
   const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(Number(l2BlockNumber));
@@ -337,7 +340,7 @@ async function getBlockFromRollupTx(
 
   const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
 
-  const stateReference = StateReference.fromBuffer(Buffer.from(hexToBytes(decodedArgs.stateReference)));
+  const stateReference = StateReference.fromViem(decodedArgs.stateReference);
 
   return {
     l2BlockNumber,
