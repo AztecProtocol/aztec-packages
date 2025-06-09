@@ -59,10 +59,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2284;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2297;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 159;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2530;
+    static constexpr size_t NUM_ALL_ENTITIES = 2543;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -185,12 +185,16 @@ struct AvmFlavorVariables {
         lookup_to_radix_limb_less_than_radix_range_relation<FF_>,
         lookup_to_radix_limb_p_diff_range_relation<FF_>,
         lookup_to_radix_limb_range_relation<FF_>,
+        lookup_tx_balance_validation_relation<FF_>,
         lookup_tx_phase_jump_on_revert_relation<FF_>,
+        lookup_tx_read_effective_fee_public_inputs_relation<FF_>,
+        lookup_tx_read_fee_payer_public_inputs_relation<FF_>,
         lookup_tx_read_l2_l1_msg_relation<FF_>,
         lookup_tx_read_phase_length_relation<FF_>,
         lookup_tx_read_phase_table_relation<FF_>,
         lookup_tx_read_public_call_request_phase_relation<FF_>,
         lookup_tx_read_tree_insert_value_relation<FF_>,
+        lookup_tx_write_fee_public_inputs_relation<FF_>,
         lookup_tx_write_l2_l1_msg_relation<FF_>,
         lookup_tx_write_tree_insert_value_relation<FF_>,
         lookup_update_check_block_of_change_cmp_range_relation<FF_>,

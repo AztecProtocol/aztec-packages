@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/tracegen/tx_trace.hpp"
 
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -171,15 +172,24 @@ std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation
 {
     return {
         { Column::tx_is_collect_fee, 1 },
+        { Column::tx_effective_fee_per_da_gas, FF(uint256_t::from_uint128(event.effective_fee_per_da_gas)) },
+        { Column::tx_effective_fee_per_l2_gas, FF(uint256_t::from_uint128(event.effective_fee_per_l2_gas)) },
+        { Column::tx_read_pi_offset, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX },
+        { Column::tx_fee_payer, event.fee_payer },
+        { Column::tx_fee_payer_pi_offset, AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX },
+        {
+            Column::tx_fee,
+            event.fee,
+        },
+        {
+            Column::tx_fee_payer_balance,
+            event.fee_payer_balance,
+        },
+        {
+            Column::tx_write_pi_offset,
+            AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX,
+        },
 
-        // TODO compute fee
-
-        { Column::tx_fee_per_da_gas, event.fee_per_da_gas },
-        { Column::tx_fee_per_l2_gas, event.fee_per_l2_gas },
-        { Column::tx_max_fee_per_da_gas, event.max_fee_per_da_gas },
-        { Column::tx_max_fee_per_l2_gas, event.max_fee_per_l2_gas },
-        { Column::tx_max_priority_fees_per_l2_gas, event.max_priority_fees_per_l2_gas },
-        { Column::tx_max_priority_fees_per_da_gas, event.max_priority_fees_per_da_gas },
     };
 }
 
@@ -362,7 +372,11 @@ std::vector<std::unique_ptr<class InteractionBuilderInterface>> TxTraceBuilder::
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_tree_insert_value_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_tree_insert_value_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_l2_l1_msg_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_l2_l1_msg_settings>>());
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_l2_l1_msg_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_effective_fee_public_inputs_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_fee_payer_public_inputs_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_balance_validation_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_fee_public_inputs_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

@@ -13,8 +13,8 @@ template <typename FF_> class txImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 16> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 7, 6, 3,
-                                                                            5, 6, 4, 6, 6, 2, 4, 4 };
+    static constexpr std::array<size_t, 22> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 7, 6, 3, 5, 6, 4,
+                                                                            6, 6, 3, 4, 4, 4, 4, 2, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -131,28 +131,81 @@ template <typename FF_> class txImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::tx_is_tree_insert_phase) -
-                 (in.get(C::tx_sel_revertible_append_note_hash) + in.get(C::tx_sel_non_revertible_append_note_hash) +
-                  in.get(C::tx_sel_revertible_append_nullifier) + in.get(C::tx_sel_non_revertible_append_nullifier)));
+            auto tmp = in.get(C::tx_is_teardown_phase) * (FF(1) - in.get(C::tx_is_teardown_phase));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (((FF(1) - in.get(C::tx_reverted)) - in.get(C::tx_is_padded)) *
-                                                in.get(C::tx_is_tree_insert_phase) -
-                                            in.get(C::tx_successful_tree_insert));
+            auto tmp = in.get(C::tx_is_public_call_request) *
+                       (((FF(0) - in.get(C::tx_prev_l2_gas_used)) * in.get(C::tx_is_teardown_phase) +
+                         in.get(C::tx_prev_l2_gas_used)) -
+                        in.get(C::tx_prev_l2_gas_used_sent_to_enqueued_call));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_public_call_request) *
+                       (((FF(0) - in.get(C::tx_prev_da_gas_used)) * in.get(C::tx_is_teardown_phase) +
+                         in.get(C::tx_prev_da_gas_used)) -
+                        in.get(C::tx_prev_da_gas_used_sent_to_enqueued_call));
+            tmp *= scaling_factor;
+            std::get<15>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_public_call_request) *
+                       (((in.get(C::tx_prev_l2_gas_used) - in.get(C::tx_next_l2_gas_used_sent_to_enqueued_call)) *
+                             in.get(C::tx_is_teardown_phase) +
+                         in.get(C::tx_next_l2_gas_used_sent_to_enqueued_call)) -
+                        in.get(C::tx_next_l2_gas_used));
+            tmp *= scaling_factor;
+            std::get<16>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_public_call_request) *
+                       (((in.get(C::tx_prev_da_gas_used) - in.get(C::tx_next_da_gas_used_sent_to_enqueued_call)) *
+                             in.get(C::tx_is_teardown_phase) +
+                         in.get(C::tx_next_da_gas_used_sent_to_enqueued_call)) -
+                        in.get(C::tx_next_da_gas_used));
+            tmp *= scaling_factor;
+            std::get<17>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
+            auto tmp =
+                (in.get(C::tx_is_tree_insert_phase) -
+                 (in.get(C::tx_sel_revertible_append_note_hash) + in.get(C::tx_sel_non_revertible_append_note_hash) +
+                  in.get(C::tx_sel_revertible_append_nullifier) + in.get(C::tx_sel_non_revertible_append_nullifier)));
+            tmp *= scaling_factor;
+            std::get<18>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (((FF(1) - in.get(C::tx_reverted)) - in.get(C::tx_is_padded)) *
+                                                in.get(C::tx_is_tree_insert_phase) -
+                                            in.get(C::tx_successful_tree_insert));
+            tmp *= scaling_factor;
+            std::get<19>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp = in.get(C::tx_sel) * (((FF(1) - in.get(C::tx_reverted)) - in.get(C::tx_is_padded)) *
                                                 in.get(C::tx_is_l2_l1_msg_phase) -
                                             in.get(C::tx_successful_msg_emit));
             tmp *= scaling_factor;
-            std::get<15>(evals) += typename Accumulator::View(tmp);
+            std::get<20>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_collect_fee) *
+                       ((in.get(C::tx_effective_fee_per_da_gas) * in.get(C::tx_prev_da_gas_used) +
+                         in.get(C::tx_effective_fee_per_l2_gas) * in.get(C::tx_prev_l2_gas_used)) -
+                        in.get(C::tx_fee));
+            tmp *= scaling_factor;
+            std::get<21>(evals) += typename Accumulator::View(tmp);
         }
     }
 };

@@ -132,7 +132,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     ContextProvider context_provider(bytecode_manager, range_check, memory_emitter);
     Execution execution(
         alu, execution_components, context_provider, instruction_info_db, execution_emitter, context_stack_emitter);
-    TxExecution tx_execution(execution, context_provider, merkle_db, tx_event_emitter);
+    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
     Sha256 sha256(sha256_compression_emitter);
 
     tx_execution.simulate(hints.tx);

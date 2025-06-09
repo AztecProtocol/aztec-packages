@@ -430,6 +430,7 @@ export class AvmTxHint {
     // MessagePack expects for an std::optional.
     public readonly teardownEnqueuedCall: AvmEnqueuedCallHint | null,
     public readonly gasUsedByPrivate: Gas,
+    public readonly feePayer: AztecAddress,
   ) {}
 
   static async fromTx(tx: Tx): Promise<AvmTxHint> {
@@ -487,6 +488,7 @@ export class AvmTxHint {
           )
         : null,
       tx.data.gasUsed,
+      tx.data.feePayer,
     );
   }
 
@@ -502,6 +504,7 @@ export class AvmTxHint {
       [],
       null,
       Gas.empty(),
+      AztecAddress.zero(),
     );
   }
 
@@ -526,6 +529,7 @@ export class AvmTxHint {
         appLogicEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
         teardownEnqueuedCall: AvmEnqueuedCallHint.schema.nullable(),
         gasUsedByPrivate: Gas.schema,
+        feePayer: AztecAddress.schema,
       })
       .transform(
         ({
@@ -539,6 +543,7 @@ export class AvmTxHint {
           appLogicEnqueuedCalls,
           teardownEnqueuedCall,
           gasUsedByPrivate,
+          feePayer,
         }) =>
           new AvmTxHint(
             hash,
@@ -551,6 +556,7 @@ export class AvmTxHint {
             appLogicEnqueuedCalls,
             teardownEnqueuedCall,
             gasUsedByPrivate,
+            feePayer,
           ),
       );
   }

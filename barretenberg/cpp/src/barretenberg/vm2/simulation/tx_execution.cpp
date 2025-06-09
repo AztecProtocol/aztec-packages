@@ -121,20 +121,42 @@ void TxExecution::simulate(const Tx& tx)
             }
         }
 
-        // Fee payment.
+        // Fee payment
+        // TODO: Remove this cast when the PR that switches fee per gas to uint128_t is merged
+        uint128_t fee_per_da_gas = static_cast<uint128_t>(tx.effectiveGasFees.feePerDaGas);
+        uint128_t fee_per_l2_gas = static_cast<uint128_t>(tx.effectiveGasFees.feePerL2Gas);
+        FF fee = FF(uint256_t::from_uint128(fee_per_da_gas)) * FF(gas_used.daGas) +
+                 FF(uint256_t::from_uint128(fee_per_l2_gas)) * FF(gas_used.l2Gas);
+        TreeStates prev_tree_state = merkle_db.get_tree_state();
+
+        FF fee_payer = tx.feePayer;
+
+        FF fee_payer_balance_slot = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ 1, fee_payer });
+        FF fee_payer_balance_leaf_slot = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(
+            { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, FEE_JUICE_ADDRESS, fee_payer_balance_slot });
+
+        FF fee_payer_balance = merkle_db.storage_read(fee_payer_balance_leaf_slot);
+
+        if (field_gt.ff_gt(fee, fee_payer_balance)) {
+            // Unrecoverable error.
+            throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
+        }
+
+        fee_payer_balance -= fee;
+        merkle_db.storage_write(fee_payer_balance_leaf_slot, fee_payer_balance);
+
         events.emit(TxEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,
-                             .prev_tree_state = merkle_db.get_tree_state(),
+                             .prev_tree_state = prev_tree_state,
                              .next_tree_state = merkle_db.get_tree_state(),
                              .prev_gas_used = gas_used,
                              .gas_used = gas_used, // Gas charged outside AVM for private inserts
                              .gas_limit = tx.gasSettings.gasLimits,
                              .event = CollectGasFeeEvent{
-                                 .fee_per_da_gas = 0,
-                                 .fee_per_l2_gas = 0,
-                                 .max_fee_per_da_gas = tx.gasSettings.maxFeesPerGas.feePerDaGas,
-                                 .max_fee_per_l2_gas = tx.gasSettings.maxFeesPerGas.feePerL2Gas,
-                                 .max_priority_fees_per_l2_gas = tx.gasSettings.maxPriorityFeesPerGas.feePerL2Gas,
-                                 .max_priority_fees_per_da_gas = tx.gasSettings.maxPriorityFeesPerGas.feePerDaGas,
+                                 .effective_fee_per_da_gas = fee_per_da_gas,
+                                 .effective_fee_per_l2_gas = fee_per_l2_gas,
+                                 .fee_payer = fee_payer,
+                                 .fee_payer_balance = fee_payer_balance,
+                                 .fee = fee,
                              } });
     } catch (const std::exception& e) {
         // Catastrophic failure.

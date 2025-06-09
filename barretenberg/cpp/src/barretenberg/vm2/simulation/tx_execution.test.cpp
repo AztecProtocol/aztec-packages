@@ -6,6 +6,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
@@ -30,7 +31,8 @@ class TxExecutionTest : public ::testing::Test {
     EventEmitter<TxEvent> tx_event_emitter;
     NiceMock<MockHighLevelMerkleDB> merkle_db;
     NiceMock<MockExecution> execution;
-    TxExecution tx_execution = TxExecution(execution, context_provider, merkle_db, tx_event_emitter);
+    NiceMock<MockFieldGreaterThan> field_gt;
+    TxExecution tx_execution = TxExecution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
 };
 
 TEST_F(TxExecutionTest, simulateTx)

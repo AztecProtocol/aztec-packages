@@ -27,14 +27,11 @@ struct PrivateEmitL2L1MessageEvent {
 };
 
 struct CollectGasFeeEvent {
-    FF fee_per_da_gas;
-    FF fee_per_l2_gas;
-
-    FF max_fee_per_da_gas;
-    FF max_fee_per_l2_gas;
-
-    FF max_priority_fees_per_l2_gas;
-    FF max_priority_fees_per_da_gas;
+    uint128_t effective_fee_per_da_gas;
+    uint128_t effective_fee_per_l2_gas;
+    AztecAddress fee_payer;
+    FF fee_payer_balance;
+    FF fee;
 };
 
 using TxEventType =
