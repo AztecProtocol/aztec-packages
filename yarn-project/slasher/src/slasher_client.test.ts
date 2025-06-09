@@ -102,7 +102,7 @@ describe('SlasherClient', () => {
       new DateProvider(),
     );
 
-    await slasherClient.start();
+    slasherClient.start();
 
     rollup = new RollupContract(l1TxUtils.client, deployed.l1ContractAddresses.rollupAddress);
     slashingProposer = await rollup.getSlashingProposer();
@@ -113,7 +113,7 @@ describe('SlasherClient', () => {
   });
 
   afterAll(async () => {
-    await slasherClient.stop();
+    slasherClient.stop();
     await sleep(500); // let the calls to uninstall the filters resolve
     await anvil.stop().catch(logger.error);
   });

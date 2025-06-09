@@ -87,6 +87,7 @@ export class SlasherClient {
       abi: SlashFactoryAbi,
       client: l1TxUtils.client,
     });
+
     return new SlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
   }
 
@@ -102,7 +103,7 @@ export class SlasherClient {
 
   //////////////////// Public methods ////////////////////
 
-  public async start() {
+  public start() {
     this.log.info('Starting Slasher client...');
 
     // detect when new payloads are created
@@ -117,9 +118,6 @@ export class SlasherClient {
     // start each watcher, who will signal the slasher client when they want to slash
     const wantToSlashCb = this.wantToSlash.bind(this);
     for (const watcher of this.watchers) {
-      if (watcher.start) {
-        await watcher.start();
-      }
       watcher.on(WANT_TO_SLASH_EVENT, wantToSlashCb);
       this.unwatchCallbacks.push(() => watcher.removeListener(WANT_TO_SLASH_EVENT, wantToSlashCb));
     }
@@ -129,15 +127,10 @@ export class SlasherClient {
    * Allows consumers to stop the instance of the slasher client.
    * 'ready' will now return 'false' and the running promise that keeps the client synced is interrupted.
    */
-  public async stop() {
+  public stop() {
     this.log.debug('Stopping Slasher client...');
     for (const cb of this.unwatchCallbacks) {
       cb();
-    }
-    for (const watcher of this.watchers) {
-      if (watcher.stop) {
-        await watcher.stop();
-      }
     }
     this.log.info('Slasher client stopped.');
   }
