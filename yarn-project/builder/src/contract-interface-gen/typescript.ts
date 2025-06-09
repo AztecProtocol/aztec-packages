@@ -8,6 +8,7 @@ import {
   getAllFunctionAbis,
   getDefaultInitializer,
   isAztecAddressStruct,
+  isBoundedVecStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
   isWrappedFieldStruct,
@@ -42,6 +43,11 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
       }
       if (isWrappedFieldStruct(type)) {
         return 'WrappedFieldLike';
+      }
+      if (isBoundedVecStruct(type)) {
+        // To make BoundedVec easier to work with, we expect a simple array on the input and then we encode it
+        // as a BoundedVec in the ArgumentsEncoder.
+        return `${abiTypeToTypescript(type.fields[0].type)}`;
       }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:

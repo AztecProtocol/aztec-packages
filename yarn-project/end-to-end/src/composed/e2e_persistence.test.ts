@@ -7,7 +7,6 @@ import {
   type TxHash,
   computeSecretHash,
 } from '@aztec/aztec.js';
-import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 // We use TokenBlacklist because we want to test the persistence of manually added notes and standard token no longer
@@ -349,10 +348,6 @@ describe('Aztec persistence', () => {
   });
 });
 
-function toBoundedVec(arr: Fr[], maxLen: number) {
-  return { len: arr.length, storage: arr.concat(new Array(maxLen - arr.length).fill(new Fr(0))) };
-}
-
 async function addPendingShieldNoteToPXE(
   contract: TokenBlacklistContract,
   recipient: AztecAddress,
@@ -369,7 +364,7 @@ async function addPendingShieldNoteToPXE(
       amount,
       secretHash,
       txHash.hash,
-      toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
+      txEffects!.data.noteHashes,
       txEffects!.data.nullifiers[0],
       recipient,
     )

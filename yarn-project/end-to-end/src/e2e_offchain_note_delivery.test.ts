@@ -1,5 +1,4 @@
-import { type AztecNode, Fr, type Wallet } from '@aztec/aztec.js';
-import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
+import type { AztecNode, Wallet } from '@aztec/aztec.js';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';
@@ -19,10 +18,6 @@ describe('e2e_offchain_note_delivery', () => {
 
   afterEach(() => teardown());
 
-  function toBoundedVec(arr: Fr[], maxLen: number) {
-    return { len: arr.length, storage: arr.concat(new Array(maxLen - arr.length).fill(new Fr(0))) };
-  }
-
   it('can create a note that is not broadcast, deliver it offchain and read it', async () => {
     const value = 123n;
 
@@ -39,7 +34,7 @@ describe('e2e_offchain_note_delivery', () => {
         contract.address,
         value,
         txHash.hash,
-        toBoundedVec(txEffect!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
+        txEffect!.data.noteHashes,
         txEffect!.data.nullifiers[0],
         wallet.getAddress(),
       )
