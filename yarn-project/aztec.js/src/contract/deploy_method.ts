@@ -247,7 +247,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     const txProvingResult = await this.proveInternal(options);
     return new DeployProvenTx(
       this.wallet,
-      txProvingResult.toTx(),
+      txProvingResult,
       this.postDeployCtor,
       () => this.getInstance(options),
       txProvingResult.stats,
