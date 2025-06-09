@@ -1,10 +1,10 @@
-import { BLOBS_PER_BLOCK } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
+import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 
 import { Blob } from './blob.js';
-import { BlobPublicInputs, BlockBlobPublicInputs } from './blob_public_inputs.js';
+import { BatchedBlobAccumulator, FinalBlobBatchingChallenges } from './blob_batching.js';
+import { BlockBlobPublicInputs } from './blob_batching_public_inputs.js';
 import { TX_START_PREFIX, TX_START_PREFIX_BYTES_LENGTH } from './encoding.js';
 import { Poseidon2Sponge, SpongeBlob } from './sponge_blob.js';
 
@@ -28,16 +28,21 @@ export function makeSpongeBlob(seed = 1): SpongeBlob {
 }
 
 /**
- * Makes arbitrary blob public inputs.
+ * Makes arbitrary blob public accumulator.
  * Note: will not verify inside the circuit.
- * @param seed - The seed to use for generating the blob inputs.
- * @returns A blob public inputs instance.
+ * @param seed - The seed to use for generating the blob accumulator.
+ * @returns A blob accumulator instance.
  */
-export function makeBlobPublicInputs(seed = 1): BlobPublicInputs {
-  return new BlobPublicInputs(
+export function makeBatchedBlobAccumulator(seed = 1): BatchedBlobAccumulator {
+  return new BatchedBlobAccumulator(
     new Fr(seed),
-    BigInt(seed + 1),
-    makeTuple(2, i => new Fr(i)),
+    new Fr(seed + 1),
+    new BLS12Fr(seed + 2),
+    BLS12Point.random(),
+    BLS12Point.random(),
+    new Fr(seed + 3),
+    new BLS12Fr(seed + 4),
+    new FinalBlobBatchingChallenges(new Fr(seed + 5), new BLS12Fr(seed + 6)),
   );
 }
 
@@ -48,7 +53,12 @@ export function makeBlobPublicInputs(seed = 1): BlobPublicInputs {
  * @returns A block blob public inputs instance.
  */
 export function makeBlockBlobPublicInputs(seed = 1): BlockBlobPublicInputs {
-  return new BlockBlobPublicInputs(makeTuple(BLOBS_PER_BLOCK, () => makeBlobPublicInputs(seed)));
+  const startBlobAccumulator = makeBatchedBlobAccumulator(seed);
+  return new BlockBlobPublicInputs(
+    startBlobAccumulator.toBlobAccumulatorPublicInputs(),
+    makeBatchedBlobAccumulator(seed + 1).toBlobAccumulatorPublicInputs(),
+    startBlobAccumulator.finalBlobChallenges,
+  );
 }
 
 // TODO: copied form stdlib tx effect

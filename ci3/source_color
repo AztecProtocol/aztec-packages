@@ -42,6 +42,8 @@ function pr_link {
     pr_number="${BASH_REMATCH[1]}"
     link=$(term_link https://github.com/aztecprotocol/aztec-packages/pull/$pr_number $pr_number)
     echo -e "${line/\(#${pr_number}\)/(#${yellow}${link}${reset})}"
+  else
+    echo -e "$line"
   fi
 }
 export -f term_link ci_term_link pr_link
