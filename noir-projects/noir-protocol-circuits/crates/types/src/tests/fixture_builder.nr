@@ -12,8 +12,9 @@ use crate::{
         },
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::{AvmCircuitPublicInputs, AvmProofData},
-        block_constant_data::BlockConstantData,
         call_context::CallContext,
+        combined_constant_data::CombinedConstantData,
+        constant_rollup_data::ConstantRollupData,
         function_data::FunctionData,
         gas::Gas,
         gas_fees::GasFees,
@@ -50,7 +51,7 @@ use crate::{
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     block_header::BlockHeader,
     constants::{
-        ARCHIVE_HEIGHT, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, DEFAULT_UPDATE_DELAY,
+        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, DEFAULT_UPDATE_DELAY,
         DEPLOYER_CONTRACT_ADDRESS, FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -85,12 +86,9 @@ use crate::{
         shared_mutable_values::SharedMutableValues, with_hash::compute_with_hash_hash_storage_slot,
     },
     storage::map::derive_storage_slot_in_map,
-    tests::{
-        fixtures::{
-            self, contract_functions::ContractFunction, contracts::ContractData,
-            public_data_tree::empty_public_data_tree,
-        },
-        merkle_tree_utils::NonEmptyMerkleTree,
+    tests::fixtures::{
+        self, contract_functions::ContractFunction, contracts::ContractData,
+        public_data_tree::empty_public_data_tree,
     },
     traits::{Deserialize, Empty, FromField, Hash, is_empty, Packable, ToField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
@@ -196,7 +194,6 @@ pub struct FixtureBuilder {
 
     // Tree snapshots.
     pub archive_tree: AppendOnlyTreeSnapshot,
-    pub archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
     pub start_snapshots: TreeSnapshots,
     pub end_snapshots: TreeSnapshots,
 
@@ -219,9 +216,6 @@ impl FixtureBuilder {
 
     pub fn new_from_counter(counter_start: u32) -> Self {
         let mut builder = FixtureBuilder::empty();
-
-        builder.global_variables.chain_id = fixtures::CHAIN_ID;
-        builder.global_variables.version = fixtures::VERSION;
 
         builder.tx_context = TxContext {
             chain_id: fixtures::CHAIN_ID,
@@ -331,28 +325,6 @@ impl FixtureBuilder {
         *self
     }
 
-    pub fn use_last_archive(&mut self) -> Self {
-        let random_block_hash = 38127689;
-        let previous_block_hash = self.historical_header.hash();
-        let pre_existing_block_hashes = [random_block_hash, previous_block_hash];
-        let archive_tree = NonEmptyMerkleTree::new(
-            pre_existing_block_hashes,
-            [0; ARCHIVE_HEIGHT],
-            [0; ARCHIVE_HEIGHT - 1],
-            [0; 1],
-        );
-
-        self.archive_tree = AppendOnlyTreeSnapshot {
-            root: archive_tree.get_root(),
-            next_available_leaf_index: archive_tree.get_next_available_index() as u32,
-        };
-
-        self.archive_root_membership_witness =
-            MembershipWitness { leaf_index: 1, sibling_path: archive_tree.get_sibling_path(1) };
-
-        *self
-    }
-
     pub fn is_static_call(&mut self) -> Self {
         self.is_static_call = true;
         *self
@@ -372,10 +344,19 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_block_constant_data(self) -> BlockConstantData {
-        BlockConstantData {
+    pub fn to_constant_data(self) -> CombinedConstantData {
+        CombinedConstantData {
+            historical_header: self.historical_header,
+            tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            global_variables: self.global_variables,
+        }
+    }
+
+    pub fn to_constant_rollup_data(self) -> ConstantRollupData {
+        ConstantRollupData {
             last_archive: self.archive_tree,
-            last_l1_to_l2: self.start_snapshots.l1_to_l2_message_tree,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,
@@ -1487,8 +1468,7 @@ impl Empty for FixtureBuilder {
             updated_class_id_leaf: PublicDataTreeLeafPreimage::empty(),
             updated_class_id_value_change: ScheduledValueChange::empty(),
             updated_class_id_delay_change: ScheduledDelayChange::empty(),
-            archive_tree: AppendOnlyTreeSnapshot::empty(),
-            archive_root_membership_witness: MembershipWitness::empty(),
+            archive_tree: AppendOnlyTreeSnapshot::zero(),
             start_snapshots: TreeSnapshots::empty(),
             end_snapshots: TreeSnapshots::empty(),
             revert_code: 0,

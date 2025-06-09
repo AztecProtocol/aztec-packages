@@ -96,8 +96,10 @@ impl ProposedBlockHeader {
         let slot_number_bytes: [u8; 32] = self.slot_number.to_be_bytes();
         let coinbase_bytes: [u8; 20] = self.coinbase.to_be_bytes();
         let fee_recipient_bytes: [u8; 32] = self.fee_recipient.to_field().to_be_bytes();
-        let gas_fees_per_da_gas_bytes: [u8; 32] = self.gas_fees.fee_per_da_gas.to_be_bytes();
-        let gas_fees_per_l2_gas_bytes: [u8; 32] = self.gas_fees.fee_per_l2_gas.to_be_bytes();
+        let gas_fees_per_da_gas_bytes: [u8; 16] =
+            (self.gas_fees.fee_per_da_gas as Field).to_be_bytes();
+        let gas_fees_per_l2_gas_bytes: [u8; 16] =
+            (self.gas_fees.fee_per_l2_gas as Field).to_be_bytes();
         let total_mana_used_bytes: [u8; 32] = self.total_mana_used.to_be_bytes();
 
         for i in 0..32 {
@@ -121,9 +123,15 @@ impl ProposedBlockHeader {
 
         for i in 0..32 {
             bytes[i + 0xdc] = fee_recipient_bytes[i];
+        }
+
+        for i in 0..16 {
             bytes[i + 0xfc] = gas_fees_per_da_gas_bytes[i];
-            bytes[i + 0x11c] = gas_fees_per_l2_gas_bytes[i];
-            bytes[i + 0x13c] = total_mana_used_bytes[i];
+            bytes[i + 0x10c] = gas_fees_per_l2_gas_bytes[i];
+        }
+
+        for i in 0..32 {
+            bytes[i + 0x11c] = total_mana_used_bytes[i];
         }
 
         bytes
@@ -150,6 +158,6 @@ fn empty_hash_is_zero() {
     let hash = header.hash();
 
     // Value from proposed_block_header.test.ts "computes empty hash" test
-    let test_data_empty_hash = 0x002e384af86a480f952aa16443fd29646a9063865e62d7c403fc7ed697bb7712;
+    let test_data_empty_hash = 0x007802c95d2f1ade746d97350a18ddbfdb9f5bee2803436917a3cf3d6a685a3a;
     assert_eq(hash, test_data_empty_hash);
 }

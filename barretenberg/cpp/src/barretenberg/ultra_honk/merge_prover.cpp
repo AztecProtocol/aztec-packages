@@ -18,6 +18,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          const std::shared_ptr<CommitmentKey>& commitment_key,
                          const std::shared_ptr<Transcript>& transcript)
     : op_queue(op_queue)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
     , pcs_commitment_key(commitment_key ? commitment_key
                                         : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows()))
     , transcript(transcript){};

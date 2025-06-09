@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+start_time=$(date +%s%3N)
+while IFS= read -r line; do
+  current_time=$(date +%s%3N)
+  elapsed=$((current_time - start_time))
+  printf '%d.%03d %s\n' $((elapsed / 1000)) $((elapsed % 1000)) "$line"
+done
