@@ -12,7 +12,7 @@ import type { ProverNode } from '@aztec/prover-node';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
-import { createWalletClient, formatEther, keccak256, parseTransaction } from 'viem';
+import { keccak256, parseTransaction } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
