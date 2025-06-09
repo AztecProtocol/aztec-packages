@@ -18,10 +18,7 @@
         "maxFeesPerGas": { "feePerDaGas": "10", "feePerL2Gas": "10" },
         "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }
       },
-      "effectiveGasFees": {
-        "feePerDaGas": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "feePerL2Gas": "0x0000000000000000000000000000000000000000000000000000000000000000"
-      },
+      "effectiveGasFees": { "feePerDaGas": "0", "feePerL2Gas": "0" },
       "nonRevertibleAccumulatedData": {
         "noteHashes": [],
         "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"],
@@ -894,10 +891,7 @@
       "maxFeesPerGas": { "feePerDaGas": "10", "feePerL2Gas": "10" },
       "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }
     },
-    "effectiveGasFees": {
-      "feePerDaGas": "0x0000000000000000000000000000000000000000000000000000000000000002",
-      "feePerL2Gas": "0x0000000000000000000000000000000000000000000000000000000000000003"
-    },
+    "effectiveGasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" },
     "feePayer": "0x000000000000000000000000000000000000000000000000000000000000002a",
     "publicCallRequestArrayLengths": { "setupCalls": 0, "appLogicCalls": 1, "teardownCall": false },
     "publicSetupCallRequests": [
