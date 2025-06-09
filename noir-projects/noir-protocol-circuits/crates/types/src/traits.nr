@@ -136,6 +136,7 @@ impl ToField for u128 {
         self as Field
     }
 }
+
 impl<let N: u32> ToField for str<N> {
     #[inline_always]
     fn to_field(self) -> Field {
@@ -275,6 +276,7 @@ where
 // I think this is okay because I don't foresee a unit type being used as input. But leaving this comment as a hint
 // if someone does run into this in the future.
 impl<let N: u32> Deserialize<0> for () {
+    #[inline_always]
     fn deserialize(_fields: [Field; 0]) -> Self {
         ()
     }
