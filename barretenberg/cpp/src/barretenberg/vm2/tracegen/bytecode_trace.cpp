@@ -383,9 +383,10 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> BytecodeTraceBuilder::
         // Bytecode Hashing
         std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_get_packed_field_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_iv_is_len_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_poseidon2_hash_settings>>(),
+        // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
+        // std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_poseidon2_hash_settings>>(),
         // Bytecode Retrieval
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>(),
+        // std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_class_id_derivation_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_address_derivation_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_update_check_settings>>(),

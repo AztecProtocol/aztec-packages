@@ -34,7 +34,7 @@ template <typename FF_> class address_derivationImpl {
             FF(uint256_t{ 9457493854555940652UL, 3253583849847263892UL, 14921373847124204899UL, 2UL });
         const auto constants_GENERATOR_INDEX__CONTRACT_ADDRESS_V1 = FF(15);
         const auto constants_GENERATOR_INDEX__PARTIAL_ADDRESS = FF(27);
-        const auto constants_GENERATOR_INDEX__PUBLIC_KEYS_HASH = FF(52);
+        const auto constants_GENERATOR_INDEX__PUBLIC_KEYS_HASH = FF(53);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
