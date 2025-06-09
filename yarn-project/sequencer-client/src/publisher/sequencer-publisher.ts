@@ -16,6 +16,8 @@ import {
   type SlashingProposerContract,
   type TransactionStats,
   type ViemCommitteeAttestation,
+  type ViemHeader,
+  type ViemStateReference,
   formatViemError,
 } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
@@ -27,7 +29,7 @@ import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { type ProposedBlockHeader, TxHash } from '@aztec/stdlib/tx';
+import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -39,13 +41,11 @@ import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 /** Arguments to the process method of the rollup contract */
 type L1ProcessArgs = {
   /** The L2 block header. */
-  header: Buffer;
-  /** L2 block body */
-  body: Buffer;
+  header: ProposedBlockHeader;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
   /** State reference after the L2 block is applied. */
-  stateReference: Buffer;
+  stateReference: StateReference;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** L2 block tx hashes */
@@ -266,15 +266,17 @@ export class SequencerPublisher {
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public canProposeAtNextEthBlock(tipArchive: Buffer) {
+  public canProposeAtNextEthBlock(tipArchive: Buffer, msgSender: EthAddress) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
     return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive, this.getForwarderAddress().toString(), this.ethereumSlotDuration)
+      .canProposeAtNextEthBlock(tipArchive, msgSender.toString(), this.ethereumSlotDuration)
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
-          this.log.debug(err.message);
+          this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
+            error: err.message,
+          });
         } else {
           this.log.error(err.name, err);
         }
@@ -291,7 +293,7 @@ export class SequencerPublisher {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
     const args = [
-      toHex(header.toBuffer()),
+      header.toViem(),
       [] as ViemCommitteeAttestation[],
       `0x${'0'.repeat(64)}`, // 32 empty bytes
       toHex(header.contentCommitment.blobsHash),
@@ -353,9 +355,9 @@ export class SequencerPublisher {
 
     const args = [
       {
-        header: toHex(block.header.toBuffer()),
+        header: block.header.toPropose().toViem(),
         archive: toHex(block.archive.root.toBuffer()),
-        stateReference: toHex(block.header.state.toBuffer()),
+        stateReference: block.header.state.toViem(),
         txHashes: block.body.txEffects.map(txEffect => txEffect.txHash.toString()),
         oracleInput: {
           feeAssetPriceModifier: 0n,
@@ -475,9 +477,9 @@ export class SequencerPublisher {
 
     const blobs = await Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
-      header: proposedBlockHeader.toBuffer(),
+      header: proposedBlockHeader,
       archive: block.archive.root.toBuffer(),
-      stateReference: block.header.state.toBuffer(),
+      stateReference: block.header.state,
       body: block.body.toBuffer(),
       blobs,
       attestations,
@@ -559,9 +561,9 @@ export class SequencerPublisher {
     const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
     const args = [
       {
-        header: toHex(encodedData.header),
+        header: encodedData.header.toViem(),
         archive: toHex(encodedData.archive),
-        stateReference: toHex(encodedData.stateReference),
+        stateReference: encodedData.stateReference.toViem(),
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
@@ -586,9 +588,9 @@ export class SequencerPublisher {
   private async simulateProposeTx(
     args: readonly [
       {
-        readonly header: `0x${string}`;
+        readonly header: ViemHeader;
         readonly archive: `0x${string}`;
-        readonly stateReference: `0x${string}`;
+        readonly stateReference: ViemStateReference;
         readonly txHashes: `0x${string}`[];
         readonly oracleInput: {
           readonly feeAssetPriceModifier: 0n;

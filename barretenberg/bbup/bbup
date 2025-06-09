@@ -39,7 +39,7 @@ get_bb_version_for_noir() {
 
     if [ "$noir_version" = "stable" ] || [ "$noir_version" = "nightly" ]; then
         # Get releases from GitHub API
-        local releases=$(curl -s "https://api.github.com/repos/noir-lang/noir/releases")
+        local releases=$(curl --fail -s "https://api.github.com/repos/noir-lang/noir/releases")
 
         if [ "$noir_version" = "stable" ]; then
             resolved_version=$(echo "$releases" | grep -o '"tag_name": "[^"]*"' | grep -v "aztec\|nightly" | head -1 | cut -d'"' -f4)
@@ -51,7 +51,7 @@ get_bb_version_for_noir() {
     local lookup_url="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/master/barretenberg/bbup/bb-versions.json"
 
     # Extract BB version from install script
-    local bb_version=$(curl -s "$lookup_url" | jq -r --arg version "$resolved_version" '.[$version]')
+    local bb_version=$(curl --fail -s "$lookup_url" | jq -r --arg version "$resolved_version" '.[$version]')
     echo "$bb_version"
 }
 
@@ -122,7 +122,7 @@ install_bb() {
     fi
     local binary_url="${release_url_base}/${release_tag}/barretenberg-${architecture}-${platform}.tar.gz"
 
-    curl -L "$binary_url" -o "$temp_tar"
+    curl -L --fail "$binary_url" -o "$temp_tar"
     mkdir -p "$BB_PATH"
     tar xzf "$temp_tar" -C "$BB_PATH"
     rm -rf "$temp_dir"
@@ -197,7 +197,7 @@ main() {
         if [ "$noir_version" = "stable" ] || [ "$noir_version" = "nightly" ]; then
             printf "${BLUE}Resolving noir version ${noir_version}...${NC}\n"
             # Get releases from GitHub API to show the resolved version
-            local releases=$(curl -s "https://api.github.com/repos/noir-lang/noir/releases")
+            local releases=$(curl --fail -s "https://api.github.com/repos/noir-lang/noir/releases")
             local resolved_version=""
             if [ "$noir_version" = "stable" ]; then
                 resolved_version=$(echo "$releases" | grep -o '"tag_name": "[^"]*"' | grep -v "aztec\|nightly" | head -1 | cut -d'"' -f4)

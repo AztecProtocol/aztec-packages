@@ -13,6 +13,7 @@ import type { SlasherClient } from '@aztec/slasher';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
   type BuildBlockOptions,
@@ -59,6 +60,7 @@ describe('sequencer', () => {
 
   let block: L2Block;
   let globalVariables: GlobalVariables;
+  let l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
 
   let sequencer: TestSubject;
 
@@ -67,8 +69,9 @@ describe('sequencer', () => {
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
   const coinbase = EthAddress.random();
-  let feeRecipient: AztecAddress;
   const gasFees = GasFees.empty();
+
+  let feeRecipient: AztecAddress;
 
   const signer = Secp256k1Signer.random();
   const mockedSig = Signature.random();
@@ -154,8 +157,11 @@ describe('sequencer', () => {
       gasFees,
     );
 
+    const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
+    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
+
     const epochCache = mockDeep<EpochCache>();
-    epochCache.getEpochAndSlotInNextSlot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1n }));
+    epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1000n }));
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
@@ -188,6 +194,7 @@ describe('sequencer', () => {
     fork = mock<MerkleTreeWriteOperations>({
       getInitialHeader: () => initialBlockHeader,
     });
+
     worldState = mock<WorldStateSynchronizer>({
       fork: () => Promise.resolve(fork),
       syncImmediate: () => Promise.resolve(lastBlockNumber),
@@ -222,6 +229,7 @@ describe('sequencer', () => {
       getBlock: mockFn().mockResolvedValue(L2Block.empty()),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
+      getL1Timestamp: mockFn().mockResolvedValue(1000n),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
@@ -234,8 +242,6 @@ describe('sequencer', () => {
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve(getAttestations()));
     validatorClient.createBlockProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
 
-    const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
-    const l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
     const slasherClient = mock<SlasherClient>();
     const config = { enforceTimeTable: true, maxTxsPerBlock: 4 };
     sequencer = new TestSubject(
@@ -406,7 +412,7 @@ describe('sequencer', () => {
   });
 
   it('settles on the chain tip before it starts building a block', async () => {
-    // this test simulates a synch happening right after the sequencer starts building a bloxk
+    // this test simulates a synch happening right after the sequencer starts building a block
     // simulate every component being synched
     const firstBlock = await L2Block.random(1);
     const currentTip = firstBlock;
@@ -451,6 +457,20 @@ describe('sequencer', () => {
     publisher.canProposeAtNextEthBlock.mockResolvedValueOnce(undefined);
     await sequencer.doRealWork();
     expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
+  });
+
+  it('builds a block only when synced to previous L1 slot', async () => {
+    const tx = await makeTx();
+    mockPendingTxs([tx]);
+    block = await makeBlock([tx]);
+
+    l2BlockSource.getL1Timestamp.mockResolvedValue(1000n - BigInt(ethereumSlotDuration) - 1n);
+    await sequencer.doRealWork();
+    expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
+
+    l2BlockSource.getL1Timestamp.mockResolvedValue(1000n - BigInt(ethereumSlotDuration));
+    await sequencer.doRealWork();
+    expect(publisher.enqueueProposeL2Block).toHaveBeenCalled();
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {

@@ -11,6 +11,7 @@ import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -107,20 +108,12 @@ struct RollupStore {
   RollupConfig config;
 }
 
-interface ITestRollup {
-  event ManaTargetUpdated(uint256 indexed manaTarget);
-
-  function setEpochVerifier(address _verifier) external;
-  function setVkTreeRoot(bytes32 _vkTreeRoot) external;
-  function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
-  function updateManaTarget(uint256 _manaTarget) external;
-}
-
 interface IRollupCore {
   event L2BlockProposed(
     uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
   );
   event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
+  event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
   event RewardsClaimableUpdated(bool isRewardsClaimable);
 
@@ -143,13 +136,15 @@ interface IRollupCore {
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
 
+  function updateManaTarget(uint256 _manaTarget) external;
+
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 }
 
 interface IRollup is IRollupCore {
   function validateHeader(
-    bytes calldata _header,
+    ProposedHeader calldata _header,
     CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
     bytes32 _blobsHash,

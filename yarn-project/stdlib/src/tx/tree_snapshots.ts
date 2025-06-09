@@ -52,7 +52,7 @@ export class TreeSnapshots {
   }
 
   toBuffer() {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return serializeToBuffer(this.l1ToL2MessageTree, this.noteHashTree, this.nullifierTree, this.publicDataTree);
   }
 
