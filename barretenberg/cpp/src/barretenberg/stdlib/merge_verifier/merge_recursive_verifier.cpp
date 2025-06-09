@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
+#include "barretenberg/stdlib/merge_verifier/merge_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::goblin {
 
