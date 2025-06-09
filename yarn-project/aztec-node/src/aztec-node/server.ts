@@ -962,7 +962,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       const [processedTx] = processedTxs;
       return new PublicSimulationOutput(
         processedTx.revertReason,
-        processedTx.globalVariables,
+        processedTx.constants,
         processedTx.txEffect,
         returns,
         processedTx.gasUsed,

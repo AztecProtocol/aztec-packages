@@ -82,6 +82,7 @@ export class P2PNetworkTest {
     // If set enable metrics collection
     private metricsPort?: number,
     startProverNode?: boolean,
+    mockZkPassportVerifier?: boolean,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
@@ -114,6 +115,7 @@ export class P2PNetworkTest {
         aztecProofSubmissionWindow:
           initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
         initialValidators: [],
+        mockZkPassportVerifier,
       },
     );
   }
@@ -125,6 +127,7 @@ export class P2PNetworkTest {
     metricsPort,
     initialConfig,
     startProverNode,
+    mockZkPassportVerifier,
   }: {
     testName: string;
     numberOfNodes: number;
@@ -132,6 +135,7 @@ export class P2PNetworkTest {
     metricsPort?: number;
     initialConfig?: Partial<AztecNodeConfig>;
     startProverNode?: boolean;
+    mockZkPassportVerifier?: boolean;
   }) {
     const port = basePort || (await getPort());
 
@@ -151,6 +155,7 @@ export class P2PNetworkTest {
       initialValidatorConfig,
       metricsPort,
       startProverNode,
+      mockZkPassportVerifier,
     );
   }
 

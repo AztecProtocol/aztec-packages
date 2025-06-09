@@ -9,6 +9,22 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## Adding l1 Validator
+
+Adding `add-l1-validator` has been updated to `add-l1-validator-to-queue` as it no longer adds you directly to the set, but to the deposit queue.
+The command now requires a
+```diff
++ aztec add-l1-validator-to-queue
+- aztec add-l1-validator
++   --staking-asset-handler=0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2 \
++   --l1-rpc-urls $ETHEREUM_HOSTS \
++   --l1-chain-id 11155111 \
++   --private-key "0x<hex value>" \
++   --attester "0x<eth address>" \
++   --proof <buffer of proof>
+-   --proposer-eoa "0x<eth address>"
+```
+
 ## [Aztec.nr] Event API refactorings
 
 Public events are now emitted by calling the `emit_event_in_public_log` function:
