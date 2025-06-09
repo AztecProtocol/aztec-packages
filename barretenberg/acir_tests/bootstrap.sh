@@ -32,13 +32,17 @@ function run_proof_generation {
   local ipa_accumulation_flag=""
 
   cd ./acir_tests/assert_statement
+  local not_zk="--not_zk"
 
   # Adjust settings based on program type
   if [[ $program == *"rollup"* ]]; then
       adjustment=26
       ipa_accumulation_flag="--ipa_accumulation"
   fi
-  local prove_cmd="$bb prove --scheme ultra_honk --not_zk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+  if [[ $program == *"zk"* ]]; then
+    not_zk=""
+  fi
+  local prove_cmd="$bb prove --scheme ultra_honk $not_zk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
   echo_stderr "$prove_cmd"
   dump_fail "$prove_cmd"
 
@@ -130,7 +134,6 @@ function test {
 function test_cmds {
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'verify_rollup_honk_proof')
-  echo $honk_tests
   local run_test=$(realpath --relative-to=$root ./scripts/run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./scripts/run_test_browser.sh)
   local bbjs_bin="../ts/dest/node/main.js"
