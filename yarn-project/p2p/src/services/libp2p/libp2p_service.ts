@@ -250,13 +250,17 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       ],
       datastore,
       peerDiscovery,
-      streamMuxers: [mplex(), yamux()],
+      streamMuxers: [yamux(), mplex()],
       connectionEncrypters: [noise()],
       connectionManager: {
         maxParallelDials: 100,
         dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,
         maxIncomingPendingConnections: 5,
+      },
+      connectionMonitor: {
+        // sends pings to peers to check if they are still alive, every 10 seconds
+        protocolPrefix: 'aztec',
       },
       services: {
         identify: identify({
