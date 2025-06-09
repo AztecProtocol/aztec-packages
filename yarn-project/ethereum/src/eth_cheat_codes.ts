@@ -4,7 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type Hex, createPublicClient, fallback, http, parseTransaction } from 'viem';
+import { type Hex, createPublicClient, fallback, http } from 'viem';
 
 import type { ViemPublicClient } from './types.js';
 
