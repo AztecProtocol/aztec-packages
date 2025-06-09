@@ -168,12 +168,6 @@ export class PublicKeys {
     ];
   }
 
-  // TOOD: This is used in foundation/src/abi/encoder. This is probably non-optimal but I did not want
-  // to spend too much time on the encoder now. It probably needs a refactor.
-  encodeToNoir(): Fr[] {
-    return this.toFields();
-  }
-
   static fromFields(fields: Fr[] | FieldReader): PublicKeys {
     const reader = FieldReader.asReader(fields);
     return new PublicKeys(

@@ -86,12 +86,6 @@ class ArgumentEncoder {
         }
         break;
       case 'struct': {
-        // If the type defines the encoding to noir, we use it
-        if (arg.encodeToNoir !== undefined) {
-          this.flattened.push(...arg.encodeToNoir());
-          break;
-        }
-
         // If the abi expects a struct like { address: Field } and the supplied arg does not have
         // an address field in it, we try to encode it as if it were a field directly.
         const isAddress = isAddressStruct(abiType);
