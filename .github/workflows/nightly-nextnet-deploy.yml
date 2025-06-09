@@ -1,5 +1,5 @@
 # TOOD(#10775): see 'releases'. We want to move away from this and use a bootstrap-oriented flow with our nightly releases.
-name: Nightly masternet deploy
+name: Nightly nextnet deploy
 on:
   schedule:
     # Run the workflow every night at 4:00 AM UTC. After the nightly tag has been created
@@ -25,8 +25,16 @@ jobs:
           # Check if tonight's tag has been published to docker hub
           current_version=$(jq -r '."."' .release-please-manifest.json)
           echo "Current version: $current_version"
-          # Format the tag as: <current_version>-nightly.<YYYYMMDD>
-          nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)-amd64"
+          # Compute the next major version. e.g. if current version is 1.2.3, next major version is 2.0.0.
+          if [[ "$current_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major=$(( ${BASH_REMATCH[1]} + 1 ))
+            next_major_version="${major}.0.0"
+          else
+            echo "Error: Current version format is invalid: $current_version"
+            exit 1
+          fi
+          # Format the tag as: <next_major_version>-nightly.<YYYYMMDD>
+          nightly_tag="${next_major_version}-nightly.$(date -u +%Y%m%d)-amd64"
 
           TAGS=$(curl -s https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags/$nightly_tag)
           if [[ "$TAGS" != *"not found"* ]]; then
@@ -40,9 +48,9 @@ jobs:
     needs: get-latest-tag
     uses: ./.github/workflows/network-deploy.yml
     with:
-      ref: master
+      ref: next
       cluster: aztec-gke-private
-      namespace: master-rc-1
+      namespace: next-rc-1
       values_file: rc-1.yaml
       aztec_docker_image: aztecprotocol/aztec:${{ needs.get-latest-tag.outputs.tag }}
       deployment_mnemonic_secret_name: junk-mnemonic
@@ -50,18 +58,3 @@ jobs:
       run_terraform_destroy: "true"
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-
-  # deploy-network-exp:
-  #   needs: get-latest-commit
-  #   uses: ./.github/workflows/network-deploy.yml
-  #   with:
-  #     ref: master
-  #     cluster: aztec-gke-private
-  #     namespace: master-exp-2
-  #     values_file: exp-2.yaml
-  #     aztec_docker_image: aztecprotocol/aztec@${{ needs.get-latest-commit.outputs.commit }}
-  #     deployment_mnemonic_secret_name: junk-mnemonic
-  #     respect_tf_lock: "false"
-  #     run_terraform_destroy: "true"
-  #   secrets:
-  #     GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
