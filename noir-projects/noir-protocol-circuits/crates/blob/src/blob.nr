@@ -24,7 +24,6 @@ use types::constants::FIELDS_PER_BLOB;
  * @param ys - the many y_i's of the blob.
  *
  * @return y = p(z)
- * TODO(MW): remove pub when fully moved to batching
  */
 pub(crate) fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // Note: it's more efficient (saving 30k constraints) to compute:

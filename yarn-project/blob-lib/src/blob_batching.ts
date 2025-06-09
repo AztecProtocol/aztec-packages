@@ -29,10 +29,6 @@ export class BatchedBlob {
 
   /**
    * Get the final batched opening proof from multiple blobs.
-   *
-   * TODO(MW): Using the old Blob struct means there are ignored values (e.g. blob.evaluationY, because we now evaluate at shared z).
-   * When switching to batching, create new class w/o useless values.
-   *
    * @dev MUST input all blobs to be broadcast. Does not work in multiple calls because z and gamma are calculated
    *      beforehand from ALL blobs.
    *
@@ -221,7 +217,6 @@ export class BatchedBlobAccumulator {
    * - gamma_acc := poseidon2(y_0.limbs)
    * - gamma^(i + 1) = gamma^1 = gamma // denoted gamma_pow_acc
    *
-   * TODO(MW): When moved to batching, we should ONLY evaluate individual blobs at z => won't need finalZ input.
    * @returns An initial blob accumulator.
    */
   static async initialize(

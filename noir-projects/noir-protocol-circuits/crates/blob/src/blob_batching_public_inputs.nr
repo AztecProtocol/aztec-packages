@@ -82,7 +82,6 @@ pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) 
     let (flags, x) = get_flags(point);
     let mut compressed = x.to_be_bytes();
     let most_sig_bits = byte_to_bits_be(compressed[0]);
-    // TODO(MW): May not need to assert this since Bignum may check it's 381 bits?
     for i in 0..3 {
         assert_eq(most_sig_bits[i], 0, "Invalid BLS12-381 x coordinate given to compress().");
     }

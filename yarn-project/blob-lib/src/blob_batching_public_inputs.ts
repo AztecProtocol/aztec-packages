@@ -170,8 +170,7 @@ export class FinalBlobAccumulatorPublicInputs {
       this.blobCommitmentsHash,
       this.z,
       ...this.y.toNoirBigNum().limbs.map(Fr.fromString),
-      // TODO(MW): add conversion when public inputs finalised
-      ...[new Fr(this.c.compress().subarray(0, 31)), new Fr(this.c.compress().subarray(31, 48))],
+      ...this.c.toBN254Fields(),
     ];
   }
 

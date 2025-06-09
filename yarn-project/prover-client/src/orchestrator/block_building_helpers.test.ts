@@ -26,11 +26,7 @@ describe('buildBlobHints', () => {
     const zStr = blobs[0].challengeZ.toString();
     expect(zStr).toMatchInlineSnapshot(`"0x0ac4f3ee53aedc4865073ae7fb664e7401d10eadbe3bbcc266c35059f14826bb"`);
 
-    // TODO(MW): add conversion when public inputs finalised
-    const blobCommitmentsFields = [
-      new Fr(blobCommitments[0].compress().subarray(0, 31)),
-      new Fr(blobCommitments[0].compress().subarray(31, 48)),
-    ];
+    const blobCommitmentsFields = blobCommitments[0].toBN254Fields();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
@@ -80,11 +76,7 @@ describe('buildBlobHints', () => {
     const zStr = blobs[0].challengeZ.toString();
     expect(zStr).toMatchInlineSnapshot(`"0x1f92b871671f27a378d23f1cef10fbd8f0d90dd7172da9e3c3fc1aa745a072c3"`);
 
-    // TODO(MW): add conversion when public inputs finalised
-    const blobCommitmentsFields = [
-      new Fr(blobCommitments[0].compress().subarray(0, 31)),
-      new Fr(blobCommitments[0].compress().subarray(31, 48)),
-    ];
+    const blobCommitmentsFields = blobCommitments[0].toBN254Fields();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
