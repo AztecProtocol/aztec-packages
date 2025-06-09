@@ -144,12 +144,6 @@ tests:
     error_regex: "HttpRequestError: HTTP request failed."
     owners:
       - *charlie
-  # http://ci.aztec-labs.com/7a5104e136578d64
-  # The "loop that wastes 5m" thing.
-  - regex: "src/e2e_fees/failures"
-    error_regex: "Exceeded timeout"
-    owners:
-      - *palla
   - regex: "src/e2e_lending_contract"
     error_regex: "✕ Depositing"
     owners:
@@ -182,21 +176,8 @@ tests:
     error_regex: "✕ Can't claim funds"
     owners:
       - *lasse
-  - regex: "src/e2e_block_building"
-    error_regex: "Could not retrieve body for block"
-    owners:
-      - *palla
   - regex: "src/composed/integration_l1_publisher"
     error_regex: "BlockOutOfRangeError"
-    owners:
-      - *palla
-  - regex: "src/e2e_sequencer_config"
-    error_regex: "Anvil failed to stop in time"
-    owners:
-      - *palla
-  # http://ci.aztec-labs.com/2322cdddbb351b34
-  - regex: "src/e2e_fees/public_payments.test.ts"
-    error_regex: "Exceeded timeout"
     owners:
       - *palla
   # http://ci.aztec-labs.com/f2007345762c50a8
