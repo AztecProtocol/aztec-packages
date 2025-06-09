@@ -15,6 +15,9 @@ pub struct PublicTubeData {
 
 impl Verifiable for PublicTubeData {
     fn verify(self) {
+        // TODO(#7410)
+        // self.vk_data.vk.check_hash();
+
         let inputs = PrivateToPublicKernelCircuitPublicInputs::serialize(self.public_inputs);
         std::verify_proof_with_type(
             self.vk_data.vk.key,
@@ -34,6 +37,9 @@ pub struct PrivateTubeData {
 
 impl Verifiable for PrivateTubeData {
     fn verify(self) {
+        // TODO(#7410)
+        // self.vk_data.vk.check_hash();
+
         let inputs = PrivateToRollupKernelCircuitPublicInputs::serialize(self.public_inputs);
         std::verify_proof_with_type(
             self.vk_data.vk.key,

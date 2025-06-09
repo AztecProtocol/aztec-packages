@@ -42,7 +42,6 @@ describe('full_prover', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    await t.deployVerifier();
 
     ({ provenAssets, accounts, tokenSim, logger, cheatCodes } = t);
     [sender, recipient] = accounts.map(a => a.address);
@@ -327,7 +326,7 @@ describe('full_prover', () => {
               data.forRollup,
             ),
             ClientIvcProof.random(),
-            provenTx.contractClassLogs,
+            provenTx.contractClassLogFields,
             provenTx.publicFunctionCalldata,
           ),
         );

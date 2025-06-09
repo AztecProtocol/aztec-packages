@@ -1,17 +1,23 @@
 use crate::{
     abis::{
         accumulated_data::{
-            avm_accumulated_data::AvmAccumulatedData, PrivateAccumulatedData,
-            PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
+            avm_accumulated_data::{AvmAccumulatedData, AvmAccumulatedDataArrayLengths},
+            private_to_avm_accumulated_data::{
+                PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths,
+            },
+            PrivateAccumulatedData,
+            PrivateAccumulatedDataBuilder,
+            PrivateToPublicAccumulatedData,
             PrivateToRollupAccumulatedData,
         },
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        avm_circuit_public_inputs::AvmProofData,
+        avm_circuit_public_inputs::{AvmCircuitPublicInputs, AvmProofData},
         call_context::CallContext,
         combined_constant_data::CombinedConstantData,
         constant_rollup_data::ConstantRollupData,
         function_data::FunctionData,
         gas::Gas,
+        gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{
@@ -29,11 +35,11 @@ use crate::{
         private_kernel_data::PrivateKernelData,
         private_log::{PrivateLog, PrivateLogData},
         protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
-        public_call_request::PublicCallRequest,
+        public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
         public_log::PublicLog,
         read_request::{ReadRequest, ScopedReadRequest},
-        side_effect::{Counted, OrderedValue, scoped::Scoped},
+        side_effect::{Counted, Ordered, scoped::Scoped},
         tree_snapshots::TreeSnapshots,
         tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
@@ -51,9 +57,10 @@ use crate::{
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, PRIVATE_CALL_REQUEST_LENGTH,
         PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
-        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_SIZE_IN_FIELDS, UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_SIZE_IN_FIELDS, SIDE_EFFECT_MASKING_ADDRESS,
+        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -61,16 +68,17 @@ use crate::{
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     },
     hash::{
-        compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
-        compute_unique_siloed_note_hash, silo_note_hash,
+        compute_l2_to_l1_hash, compute_siloed_note_hash, compute_siloed_nullifier,
+        compute_siloed_private_log_field, compute_unique_siloed_note_hash,
     },
     merkle_tree::{membership::MembershipWitness, MerkleTree},
-    messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
+    messaging::l2_to_l1_message::L2ToL1Message,
     partial_state_reference::PartialStateReference,
     point::Point,
     proof::{
         recursive_proof::NestedRecursiveProof,
         verification_key::{ClientIVCVerificationKey, HonkVerificationKey, VerificationKey},
+        vk_data::VkData,
     },
     public_keys::PublicKeys,
     shared_mutable::{
@@ -118,8 +126,7 @@ pub struct FixtureBuilder {
     pub fee_payer: AztecAddress,
     pub public_teardown_call_request: PublicCallRequest,
     pub transaction_fee: Field,
-    pub start_gas_left: Gas,
-    pub end_gas_left: Gas,
+    pub effective_gas_fees: GasFees,
 
     // Constant data.
     pub historical_header: BlockHeader,
@@ -129,7 +136,7 @@ pub struct FixtureBuilder {
     // Accumulated data.
     pub note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     pub nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
-    pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
+    pub l2_to_l1_msgs: BoundedVec<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX>,
     pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
     pub public_logs: BoundedVec<PublicLog, MAX_PUBLIC_LOGS_PER_TX>,
     pub contract_class_logs_hashes: BoundedVec<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
@@ -137,7 +144,10 @@ pub struct FixtureBuilder {
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
     pub gas_used: Gas,
+    pub start_gas_used: Gas,
+    pub end_gas_used: Gas,
     pub revert_code: u8,
+    pub reverted: bool,
 
     // Validation requests.
     pub max_block_number: MaxBlockNumber,
@@ -359,6 +369,7 @@ impl FixtureBuilder {
             args_hash: self.args_hash,
             tx_context: self.tx_context,
             function_data: self.function_data,
+            salt: 54321,
         }
     }
 
@@ -410,9 +421,10 @@ impl FixtureBuilder {
             private_call_requests: subarray(self.private_call_requests.storage()),
             public_call_requests: subarray(self.public_call_requests.storage()),
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage().map(|r: ScopedL2ToL1Message| {
-                r.message
-            })),
+            l2_to_l1_msgs: subarray(self
+                .l2_to_l1_msgs
+                .storage()
+                .map(|r: Scoped<Counted<L2ToL1Message>>| r.inner)),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
             private_logs: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
@@ -546,23 +558,28 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_private_to_public_accumulated_data(self) -> PrivateToPublicAccumulatedData {
+    pub fn to_private_to_public_accumulated_data(
+        self,
+        revertible: bool,
+    ) -> PrivateToPublicAccumulatedData {
         PrivateToPublicAccumulatedData {
-            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.value()),
-            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.value()),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
-                m.expose_to_public()
-            }),
-            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
-                l.expose_to_public()
-            }),
+            note_hashes: self
+                .get_split_ordered_side_effects(self.note_hashes, revertible)
+                .map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self
+                .get_split_ordered_side_effects(self.nullifiers, revertible)
+                .map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self
+                .get_split_ordered_side_effects(self.l2_to_l1_msgs, revertible)
+                .map(|m: Scoped<Counted<L2ToL1Message>>| m.expose_to_public()),
+            private_logs: self
+                .get_split_ordered_side_effects(self.private_logs, revertible)
+                .map(|l: Scoped<PrivateLogData>| l.expose_to_public()),
             contract_class_logs_hashes: self
-                .contract_class_logs_hashes
-                .storage()
+                .get_split_ordered_side_effects(self.contract_class_logs_hashes, revertible)
                 .map(|l: Scoped<Counted<LogHash>>| l.expose_to_public()),
             public_call_requests: self
-                .public_call_requests
-                .storage()
+                .get_split_ordered_side_effects(self.public_call_requests, revertible)
                 .map(|cr: Counted<PublicCallRequest>| cr.inner),
         }
     }
@@ -571,7 +588,7 @@ impl FixtureBuilder {
         PrivateToRollupAccumulatedData {
             note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: Scoped<Counted<L2ToL1Message>>| {
                 m.expose_to_public()
             }),
             private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
@@ -618,34 +635,26 @@ impl FixtureBuilder {
         let public_inputs = self.to_private_kernel_circuit_public_inputs();
         PrivateKernelData {
             public_inputs,
-            vk: self.client_ivc_vk,
-            vk_index: self.vk_index,
-            vk_path: self.vk_path,
+            vk_data: VkData {
+                vk: self.client_ivc_vk,
+                leaf_index: self.vk_index,
+                sibling_path: self.vk_path,
+            },
         }
     }
 
     pub fn to_private_to_public_kernel_circuit_public_inputs(
         self,
-        revertible: bool,
     ) -> PrivateToPublicKernelCircuitPublicInputs {
-        // TODO: Split the data using self.min_revertible_side_effect_counter.
-        let accumulated_data = self.to_private_to_public_accumulated_data();
-        let non_revertible_accumulated_data = if revertible {
-            PrivateToPublicAccumulatedData::empty()
-        } else {
-            accumulated_data
-        };
-        let revertible_accumulated_data = if revertible {
-            accumulated_data
-        } else {
-            PrivateToPublicAccumulatedData::empty()
-        };
-
         PrivateToPublicKernelCircuitPublicInputs {
             constants: self.to_tx_constant_data(),
             rollup_validation_requests: self.to_rollup_validation_requests(),
-            non_revertible_accumulated_data,
-            revertible_accumulated_data,
+            non_revertible_accumulated_data: self.to_private_to_public_accumulated_data(
+                false, /* revertible */
+            ),
+            revertible_accumulated_data: self.to_private_to_public_accumulated_data(
+                true, /* revertible */
+            ),
             public_teardown_call_request: self.public_teardown_call_request,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
@@ -680,7 +689,7 @@ impl FixtureBuilder {
 
     pub fn to_public_tube_data(self) -> PublicTubeData {
         let mut result: PublicTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
+        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs();
         result
     }
 
@@ -688,21 +697,83 @@ impl FixtureBuilder {
         AvmAccumulatedData {
             note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: Scoped<Counted<L2ToL1Message>>| {
+                m.expose_to_public()
+            }),
             public_logs: self.public_logs.storage(),
             public_data_writes: self.public_data_writes.storage(),
         }
     }
 
-    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
+    pub fn to_private_to_avm_accumulated_data(
+        self,
+        revertible: bool,
+    ) -> PrivateToAvmAccumulatedData {
+        PrivateToAvmAccumulatedData {
+            note_hashes: self
+                .get_split_ordered_side_effects(self.note_hashes, revertible)
+                .map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self
+                .get_split_ordered_side_effects(self.nullifiers, revertible)
+                .map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self
+                .get_split_ordered_side_effects(self.l2_to_l1_msgs, revertible)
+                .map(|m: Scoped<Counted<L2ToL1Message>>| m.expose_to_public()),
+        }
+    }
+
+    pub fn to_avm_circuit_public_inputs(self) -> AvmCircuitPublicInputs {
+        let public_setup_call_requests =
+            self.get_split_side_effects(self.public_call_requests, false /* revertible */);
+        let public_app_logic_call_requests =
+            self.get_split_side_effects(self.public_call_requests, true /* revertible */);
+        let public_teardown_call_request = self.public_teardown_call_request;
+        let public_call_request_array_lengths = PublicCallRequestArrayLengths::new(
+            public_setup_call_requests,
+            public_app_logic_call_requests,
+            public_teardown_call_request,
+        );
+
+        let previous_non_revertible_accumulated_data =
+            self.to_private_to_avm_accumulated_data(false /* revertible */);
+        let previous_non_revertible_accumulated_data_array_lengths =
+            PrivateToAvmAccumulatedDataArrayLengths::new(previous_non_revertible_accumulated_data);
+
+        let previous_revertible_accumulated_data =
+            self.to_private_to_avm_accumulated_data(true /* revertible */);
+        let previous_revertible_accumulated_data_array_lengths =
+            PrivateToAvmAccumulatedDataArrayLengths::new(previous_revertible_accumulated_data);
+
+        let accumulated_data = self.to_avm_accumulated_data();
+        let accumulated_data_array_lengths = AvmAccumulatedDataArrayLengths::new(accumulated_data);
+
+        AvmCircuitPublicInputs {
+            global_variables: self.global_variables,
+            start_tree_snapshots: self.start_snapshots,
+            start_gas_used: self.start_gas_used,
+            gas_settings: self.tx_context.gas_settings,
+            effective_gas_fees: self.effective_gas_fees,
+            fee_payer: self.fee_payer,
+            public_call_request_array_lengths,
+            public_setup_call_requests,
+            public_app_logic_call_requests,
+            public_teardown_call_request,
+            previous_non_revertible_accumulated_data_array_lengths,
+            previous_revertible_accumulated_data_array_lengths,
+            previous_non_revertible_accumulated_data,
+            previous_revertible_accumulated_data,
+            end_tree_snapshots: self.end_snapshots,
+            end_gas_used: self.end_gas_used,
+            accumulated_data_array_lengths,
+            accumulated_data,
+            transaction_fee: self.transaction_fee,
+            reverted: self.reverted,
+        }
+    }
+
+    pub fn to_avm_proof_data(self) -> AvmProofData {
         let mut result: AvmProofData = std::mem::zeroed();
-
-        result.public_inputs.reverted = reverted;
-        result.public_inputs.global_variables = self.global_variables;
-        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
-        result.public_inputs.start_tree_snapshots = self.start_snapshots;
-        result.public_inputs.end_tree_snapshots = self.end_snapshots;
-
+        result.public_inputs = self.to_avm_circuit_public_inputs();
         result
     }
 
@@ -713,16 +784,14 @@ impl FixtureBuilder {
     }
 
     pub fn add_siloed_note_hash(&mut self, value: Field) {
-        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
-        let siloed_value = silo_note_hash(note_hash_to_silo);
+        let siloed_value = compute_siloed_note_hash(self.contract_address, value);
         self.note_hashes.push(NoteHash { value: siloed_value, counter: self.next_counter() }.scope(
             AztecAddress::zero(),
         ));
     }
 
     pub fn add_siloed_unique_note_hash(&mut self, value: Field) {
-        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
-        let siloed_value = silo_note_hash(note_hash_to_silo);
+        let siloed_value = compute_siloed_note_hash(self.contract_address, value);
         let current_index = self.note_hashes.len();
         let unique_siloed_value = compute_unique_siloed_note_hash(
             siloed_value,
@@ -771,6 +840,20 @@ impl FixtureBuilder {
                 let value = self.mock_note_hash_value(index_offset + i);
                 self.add_new_note_hash(value);
                 self.append_private_logs_for_note(1, self.counter - 1);
+            }
+        }
+    }
+
+    pub fn append_padded_note_hashes(&mut self, num_note_hashes: u32) {
+        let index_offset = self.note_hashes.len();
+        for i in 0..self.note_hashes.max_len() {
+            if i < num_note_hashes {
+                let value = self.mock_note_hash_value(index_offset + i);
+                // Silo and clear the contract address here because the padded note hashes are siloed when added in the
+                // reset circuit. We can only see the siloed version of it in the public inputs.
+                let siloed_value = compute_siloed_note_hash(SIDE_EFFECT_MASKING_ADDRESS, value);
+                self.note_hashes.push(NoteHash { value: siloed_value, counter: MAX_U32_VALUE }
+                    .scope(AztecAddress::zero()));
             }
         }
     }
@@ -830,15 +913,28 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
-        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content, counter: self.next_counter() }
-            .scope(self.contract_address));
+    pub fn append_padded_nullifiers(&mut self, num_nullifiers: u32) {
+        let index_offset = self.nullifiers.len();
+        for i in 0..self.nullifiers.max_len() {
+            if i < num_nullifiers {
+                let value = self.mock_nullifier_value(index_offset + i);
+                // Silo and clear the contract address here because the padded nullifiers are siloed when added in the
+                // reset circuit. We can only see the siloed version of it in the public inputs.
+                let siloed_value = compute_siloed_nullifier(SIDE_EFFECT_MASKING_ADDRESS, value);
+                self.nullifiers.push(Nullifier {
+                    value: siloed_value,
+                    counter: MAX_U32_VALUE,
+                    note_hash: 0,
+                }
+                    .scope(AztecAddress::zero()));
+            }
+        }
     }
 
-    pub fn add_exposed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
-        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content, counter: 0 }.scope(
-            self.contract_address,
-        ));
+    pub fn add_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
+        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content }
+            .count(self.next_counter())
+            .scope(self.contract_address));
     }
 
     pub fn add_siloed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
@@ -858,16 +954,6 @@ impl FixtureBuilder {
             if i < num {
                 let (content, recipient) = self.mock_l2_to_l1_msg(index_offset + i);
                 self.add_l2_to_l1_message(content, recipient);
-            }
-        }
-    }
-
-    pub fn append_exposed_l2_to_l1_msgs(&mut self, num: u32) {
-        let index_offset = self.l2_to_l1_msgs.len();
-        for i in 0..self.l2_to_l1_msgs.max_len() {
-            if i < num {
-                let (content, recipient) = self.mock_l2_to_l1_msg(index_offset + i);
-                self.add_exposed_l2_to_l1_message(content, recipient);
             }
         }
     }
@@ -922,8 +1008,7 @@ impl FixtureBuilder {
         pk_m: Point,
         sk_app: Field,
         sk_app_generator: Field,
-    ) -> u32 {
-        let new_request_index = self.scoped_key_validation_requests_and_generators.len();
+    ) {
         let request = KeyValidationRequest { pk_m, sk_app };
         let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
         let scoped_key_validation_request_and_generator =
@@ -931,8 +1016,6 @@ impl FixtureBuilder {
         self.scoped_key_validation_requests_and_generators.push(
             scoped_key_validation_request_and_generator,
         );
-
-        new_request_index
     }
 
     pub fn append_key_validation_requests(&mut self, num_requests: u32) {
@@ -1019,6 +1102,28 @@ impl FixtureBuilder {
             let mut fields = self.mock_private_log_fields_with_length(index_offset + i, length);
             fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
             self.add_siloed_private_log(fields, length, note_hash_counter);
+        }
+    }
+
+    pub fn append_siloed_private_logs(&mut self, num_logs: u32) {
+        self.append_siloed_private_logs_for_note(num_logs, 0 /* note_hash_counter */);
+    }
+
+    pub fn append_padded_private_logs(&mut self, num_logs: u32) {
+        let index_offset = self.private_logs.len();
+        for i in 0..self.private_logs.max_len() {
+            if i < num_logs {
+                let mut fields = self.mock_private_log_fields(index_offset + i);
+                // Silo and clear the contract address here because the padded private logs are siloed when added in the
+                // reset circuit. We can only see the siloed version of it in the public inputs.
+                fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
+                self.private_logs.push(PrivateLogData {
+                    log: PrivateLog { fields, length: fields.len() },
+                    note_hash_counter: 0,
+                    counter: MAX_U32_VALUE,
+                }
+                    .scope(AztecAddress::zero()));
+            }
         }
     }
 
@@ -1130,6 +1235,45 @@ impl FixtureBuilder {
 
     pub fn set_max_block_number(&mut self, max_block_number: u32) {
         self.max_block_number = MaxBlockNumber::new(max_block_number);
+    }
+
+    fn get_split_side_effects<T, let N: u32>(
+        self,
+        array: BoundedVec<Counted<T>, N>,
+        revertible: bool,
+    ) -> [T; N] {
+        let mut requests = BoundedVec::new();
+        for i in 0..array.max_len() {
+            if i < array.len() {
+                let request = array.get(i);
+                if revertible == (request.counter >= self.min_revertible_side_effect_counter) {
+                    requests.push(request);
+                }
+            }
+        }
+        requests.storage().map(|r| r.inner)
+    }
+
+    fn get_split_ordered_side_effects<T, let N: u32>(
+        self,
+        array: BoundedVec<T, N>,
+        revertible: bool,
+    ) -> [T; N]
+    where
+        T: Ordered,
+    {
+        let mut requests = BoundedVec::new();
+        for i in 0..array.max_len() {
+            if i < array.len() {
+                let request = array.get(i);
+                let is_request_revertible = (self.min_revertible_side_effect_counter != 0)
+                    & (request.counter() >= self.min_revertible_side_effect_counter);
+                if is_request_revertible == revertible {
+                    requests.push(request);
+                }
+            }
+        }
+        requests.storage()
     }
 
     fn mock_note_hash_read_value(self, index: u32) -> Field {
@@ -1282,6 +1426,7 @@ impl Empty for FixtureBuilder {
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
             public_teardown_call_request: PublicCallRequest::empty(),
+            effective_gas_fees: GasFees::empty(),
             historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),
@@ -1327,13 +1472,14 @@ impl Empty for FixtureBuilder {
             start_snapshots: TreeSnapshots::empty(),
             end_snapshots: TreeSnapshots::empty(),
             revert_code: 0,
+            reverted: false,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,
             counter: 0,
             start_state: PartialStateReference::empty(),
             gas_used: Gas::empty(),
-            start_gas_left: Gas::empty(),
-            end_gas_left: Gas::empty(),
+            start_gas_used: Gas::empty(),
+            end_gas_used: Gas::empty(),
             transaction_fee: 0,
             value_offset: 0,
         }

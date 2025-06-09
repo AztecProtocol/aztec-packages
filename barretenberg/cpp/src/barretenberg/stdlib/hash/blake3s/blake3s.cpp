@@ -246,6 +246,8 @@ using namespace blake3_internal;
 
 template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder>& input)
 {
+    ASSERT(input.size() <= 1024, "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
+
     if constexpr (HasPlookup<Builder>) {
         return blake3s_plookup::blake3s<Builder>(input);
     }
@@ -259,7 +261,6 @@ template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder
     return result;
 }
 
-template byte_array<bb::StandardCircuitBuilder> blake3s(const byte_array<bb::StandardCircuitBuilder>& input);
 template byte_array<bb::UltraCircuitBuilder> blake3s(const byte_array<bb::UltraCircuitBuilder>& input);
 template byte_array<bb::MegaCircuitBuilder> blake3s(const byte_array<bb::MegaCircuitBuilder>& input);
 } // namespace bb::stdlib

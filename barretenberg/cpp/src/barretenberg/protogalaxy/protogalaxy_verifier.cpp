@@ -6,7 +6,7 @@
 
 #include "protogalaxy_verifier.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 

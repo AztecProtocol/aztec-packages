@@ -98,6 +98,6 @@ export function makeGlobalVariables(
     new Fr(seed + 4),
     EthAddress.fromField(new Fr(seed + 5)),
     AztecAddress.fromField(new Fr(seed + 6)),
-    new GasFees(new Fr(seed + 7), new Fr(seed + 8)),
+    new GasFees(seed + 7, seed + 8),
   );
 }

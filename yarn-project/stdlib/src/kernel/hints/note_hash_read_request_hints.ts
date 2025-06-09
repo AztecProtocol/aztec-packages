@@ -42,7 +42,10 @@ export class NoteHashReadRequestHintsBuilder<PENDING extends number, SETTLED ext
   public numPendingReadHints = 0;
   public numSettledReadHints = 0;
 
-  constructor(public readonly maxPending: PENDING, public readonly maxSettled: SETTLED) {
+  constructor(
+    public readonly maxPending: PENDING,
+    public readonly maxSettled: SETTLED,
+  ) {
     this.hints = new ReadRequestResetHints(
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ReadRequestStatus.nada),
       makeTuple(maxPending, () => PendingReadHint.nada(MAX_NOTE_HASH_READ_REQUESTS_PER_TX)),

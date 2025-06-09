@@ -2,6 +2,7 @@ import { EcdsaRAccountContractArtifact, getEcdsaRAccount } from '@aztec/accounts
 import { SchnorrAccountContractArtifact, getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
+  AccountWalletWithSecretKey,
   AztecAddress,
   type AztecNode,
   FeeJuicePaymentMethod,
@@ -47,6 +48,7 @@ import {
   FeeJuicePortalTestingHarnessFactory,
   type GasBridgingTestHarness,
 } from '../../shared/gas_portal_test_harness.js';
+import { ProxyLogger } from './benchmark.js';
 import { type ClientFlowsConfig, FULL_FLOWS_CONFIG, KEY_FLOWS_CONFIG } from './config.js';
 
 const { E2E_DATA_PATH: dataPath, BENCHMARK_CONFIG } = process.env;
@@ -91,6 +93,8 @@ export class ClientFlowsBenchmark {
   // PXE used by the benchmarking user. It can be set up with client-side proving enabled
   public userPXE!: PXE;
 
+  public realProofs = ['true', '1'].includes(process.env.REAL_PROOFS ?? '');
+
   public paymentMethods: Record<BenchmarkingFeePaymentMethod, { forWallet: FeePaymentMethodGetter; circuits: number }> =
     {
       // eslint-disable-next-line camelcase
@@ -121,6 +125,8 @@ export class ClientFlowsBenchmark {
 
   public config: ClientFlowsConfig;
 
+  private proxyLogger: ProxyLogger;
+
   constructor(testName?: string, setupOptions: Partial<SetupOptions & DeployL1ContractsArgs> = {}) {
     this.logger = createLogger(`bench:client_flows${testName ? `:${testName}` : ''}`);
     this.snapshotManager = createSnapshotManager(
@@ -130,6 +136,8 @@ export class ClientFlowsBenchmark {
       { ...setupOptions },
     );
     this.config = BENCHMARK_CONFIG === 'key_flows' ? KEY_FLOWS_CONFIG : FULL_FLOWS_CONFIG;
+    ProxyLogger.create();
+    this.proxyLogger = ProxyLogger.getInstance();
   }
 
   async setup() {
@@ -143,7 +151,7 @@ export class ClientFlowsBenchmark {
   }
 
   async teardown() {
-    this.chainMonitor.stop();
+    await this.chainMonitor.stop();
     await this.snapshotManager.teardown();
   }
 
@@ -163,7 +171,7 @@ export class ClientFlowsBenchmark {
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 
-  async createBenchmarkingAccountManager(type: 'ecdsar1' | 'schnorr') {
+  async createBenchmarkingAccountManager(pxe: PXE, type: 'ecdsar1' | 'schnorr') {
     const benchysSecretKey = Fr.random();
     const salt = Fr.random();
 
@@ -171,10 +179,10 @@ export class ClientFlowsBenchmark {
     let benchysAccountManager;
     if (type === 'schnorr') {
       benchysPrivateSigningKey = deriveSigningKey(benchysSecretKey);
-      benchysAccountManager = await getSchnorrAccount(this.userPXE, benchysSecretKey, benchysPrivateSigningKey, salt);
+      benchysAccountManager = await getSchnorrAccount(pxe, benchysSecretKey, benchysPrivateSigningKey, salt);
     } else if (type === 'ecdsar1') {
       benchysPrivateSigningKey = randomBytes(32);
-      benchysAccountManager = await getEcdsaRAccount(this.userPXE, benchysSecretKey, benchysPrivateSigningKey, salt);
+      benchysAccountManager = await getEcdsaRAccount(pxe, benchysSecretKey, benchysPrivateSigningKey, salt);
     } else {
       throw new Error(`Unknown account type: ${type}`);
     }
@@ -212,11 +220,15 @@ export class ClientFlowsBenchmark {
         const l1Contracts = await aztecNode.getL1ContractAddresses();
         const userPXEConfigWithContracts = {
           ...userPXEConfig,
-          proverEnabled: ['true', '1'].includes(process.env.REAL_PROOFS ?? ''),
+          proverEnabled: this.realProofs,
           l1Contracts,
         } as PXEServiceConfig;
 
-        this.userPXE = await createPXEService(this.aztecNode, userPXEConfigWithContracts, 'pxe-user');
+        this.userPXE = await createPXEService(this.aztecNode, userPXEConfigWithContracts, {
+          loggers: {
+            prover: this.proxyLogger.createLogger('pxe:bb:wasm:bundle:proxied'),
+          },
+        });
       },
     );
   }
@@ -337,7 +349,7 @@ export class ClientFlowsBenchmark {
   }
 
   public async createAndFundBenchmarkingWallet(accountType: AccountType) {
-    const benchysAccountManager = await this.createBenchmarkingAccountManager(accountType);
+    const benchysAccountManager = await this.createBenchmarkingAccountManager(this.pxe, accountType);
     const benchysWallet = await benchysAccountManager.getWallet();
     const benchysAddress = benchysAccountManager.getAddress();
     const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(
@@ -346,13 +358,19 @@ export class ClientFlowsBenchmark {
     );
     const paymentMethod = new FeeJuicePaymentMethodWithClaim(benchysWallet, claim);
     await benchysAccountManager.deploy({ fee: { paymentMethod } }).wait();
-    // Register benchy on admin's PXE so we can check its balances
-    await this.pxe.registerContract({
+    // Register benchy on the user's PXE, where we're going to be interacting from
+    await this.userPXE.registerContract({
       instance: benchysAccountManager.getInstance(),
       artifact: accountType === 'ecdsar1' ? EcdsaRAccountContractArtifact : SchnorrAccountContractArtifact,
     });
-    await this.pxe.registerAccount(benchysWallet.getSecretKey(), benchysWallet.getCompleteAddress().partialAddress);
-    return benchysWallet;
+    await this.userPXE.registerAccount(benchysWallet.getSecretKey(), benchysWallet.getCompleteAddress().partialAddress);
+    const entrypoint = await benchysAccountManager.getAccount();
+    return new AccountWalletWithSecretKey(
+      this.userPXE,
+      entrypoint,
+      benchysWallet.getSecretKey(),
+      benchysAccountManager.salt,
+    );
   }
 
   public async applyDeployAmmSnapshot() {

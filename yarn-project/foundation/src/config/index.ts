@@ -110,6 +110,18 @@ export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'par
  * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
  * @returns Object with parseEnv and default values for a numerical config value
  */
+export function floatConfigHelper(defaultVal: number): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+  return {
+    parseEnv: (val: string) => safeParseFloat(val, defaultVal),
+    defaultValue: defaultVal,
+  };
+}
+
+/**
+ * Generates parseEnv and default values for a numerical config value.
+ * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
+ * @returns Object with parseEnv and default values for a numerical config value
+ */
 export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string) => {
@@ -169,6 +181,18 @@ export function parseBooleanEnv(val: string | undefined): boolean {
 function safeParseNumber(value: string, defaultValue: number): number {
   const parsedValue = parseInt(value, 10);
   return Number.isSafeInteger(parsedValue) ? parsedValue : defaultValue;
+}
+
+/**
+ * Safely parses a floating point number from a string.
+ * If the value is not a number, the default value is returned.
+ * @param value - The string value to parse
+ * @param defaultValue - The default value to return
+ * @returns Either parsed value or default value
+ */
+function safeParseFloat(value: string, defaultValue: number): number {
+  const parsedValue = parseFloat(value);
+  return Number.isNaN(parsedValue) ? defaultValue : parsedValue;
 }
 
 /**

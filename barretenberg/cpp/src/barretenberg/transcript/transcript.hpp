@@ -16,6 +16,8 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include <concepts>
 
+#include <atomic>
+
 namespace bb {
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1226): univariates should also be logged
@@ -124,6 +126,24 @@ struct NativeTranscriptParams {
     }
 };
 
+// A template for detecting whether a type is native or in-circuit
+template <typename T>
+concept InCircuit = !(std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr>);
+
+template <typename T, typename = void> struct is_iterable : std::false_type {};
+
+// this gets used only when we can call std::begin() and std::end() on that type
+template <typename T>
+struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T&>())), decltype(std::end(std::declval<T&>()))>>
+    : std::true_type {};
+
+template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
+
+// A static counter for the number of transcripts created
+// This is used to generate unique labels for the transcript origin tags
+
+// ‘inline’ (since C++17) ensures a single shared definition with external linkage.
+inline std::atomic<size_t> unique_transcript_index{ 0 };
 /**
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
@@ -132,6 +152,19 @@ template <typename TranscriptParams> class BaseTranscript {
   public:
     using Fr = typename TranscriptParams::Fr;
     using Proof = typename TranscriptParams::Proof;
+
+    // Detects whether the transcript is in-circuit or not
+    static constexpr bool in_circuit = InCircuit<Fr>;
+
+    // The unique index of the transcript
+    size_t transcript_index = 0;
+
+    // The index of the current round of the transcript (used for the origin tag, round is only incremented if we switch
+    // from generating to receiving)
+    size_t round_index = 0;
+
+    // Indicates whether the transcript is receiving data from the prover
+    bool reception_phase = true;
 
     BaseTranscript() = default;
 
@@ -142,12 +175,17 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     explicit BaseTranscript(const Proof& proof_data)
         : proof_data(proof_data.begin(), proof_data.end())
-    {}
+    {
+        // If we are in circuit, we need to get a unique index for the transcript
+        if constexpr (in_circuit) {
+            transcript_index = unique_transcript_index.fetch_add(1);
+        }
+    }
 
     static constexpr size_t HASH_OUTPUT_SIZE = 32;
 
     std::ptrdiff_t proof_start = 0;
-    size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover or the verifier
+    size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover
     size_t num_frs_read = 0;    // the number of bb::frs read from proof_data by the verifier
     size_t round_number = 0;    // current round for manifest
 
@@ -164,7 +202,7 @@ template <typename TranscriptParams> class BaseTranscript {
     /**
      * @brief Compute next challenge c_next = H( Compress(c_prev || round_buffer) )
      * @details This function computes a new challenge for the current round using the previous challenge
-     * and the current round data, if they are exist. It clears the current_round_data if nonempty after
+     * and the current round data, if they exist. It clears the current_round_data if nonempty after
      * computing the challenge to minimize how much we compress. It also sets previous_challenge
      * to the current challenge buffer to set up next function call.
      * @return std::array<Fr, HASH_OUTPUT_SIZE>
@@ -225,8 +263,6 @@ template <typename TranscriptParams> class BaseTranscript {
         }
 
         current_round_data.insert(current_round_data.end(), element_frs.begin(), element_frs.end());
-
-        num_frs_written += element_frs.size();
     }
 
     /**
@@ -329,6 +365,17 @@ template <typename TranscriptParams> class BaseTranscript {
                 TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[0]);
         }
 
+        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
+        if constexpr (in_circuit) {
+            // We are in challenge generation mode
+            if (reception_phase) {
+                reception_phase = false;
+            }
+            // Assign origin tags to the challenges
+            for (size_t i = 0; i < num_challenges; i++) {
+                challenges[i].set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/false));
+            }
+        }
         // Prepare for next round.
         ++round_number;
 
@@ -368,7 +415,24 @@ template <typename TranscriptParams> class BaseTranscript {
     template <class T> void add_to_hash_buffer(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
-
+        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
+        if constexpr (in_circuit) {
+            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+            // then we need to increment the round index
+            if (!reception_phase) {
+                reception_phase = true;
+                round_index++;
+            }
+            // If the element is iterable, then we need to assign origin tags to all the elements
+            if constexpr (is_iterable_v<T>) {
+                for (const auto& subelement : element) {
+                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+                }
+            } else {
+                // If the element is not iterable, then we need to assign an origin tag to the element
+                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+            }
+        }
         // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
         // returns the size of T in frs. (E.g. this is true for std::array but not for std::vector).
@@ -406,6 +470,7 @@ template <typename TranscriptParams> class BaseTranscript {
         // convert element to field elements
         auto element_frs = TranscriptParams::convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
+        num_frs_written += element_frs.size();
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
@@ -413,6 +478,24 @@ template <typename TranscriptParams> class BaseTranscript {
         }
 #endif
         BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
+        if constexpr (in_circuit) {
+            // The prover is sending data to the verifier. If before this we were in the challenge generation phase,
+            // then we need to increment the round index
+            if (!reception_phase) {
+                reception_phase = true;
+                round_index++;
+            }
+            // If the element is iterable, then we need to assign origin tags to all the elements
+            if constexpr (is_iterable_v<T>) {
+                for (const auto& subelement : element) {
+                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+                }
+            } else {
+                // If the element is not iterable, then we need to assign an origin tag to the element
+                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+            }
+        }
     }
 
     /**
@@ -440,6 +523,25 @@ template <typename TranscriptParams> class BaseTranscript {
             info("received: ", label, ": ", element);
         }
 #endif
+
+        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
+        if constexpr (in_circuit) {
+            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+            // then we need to increment the round index
+            if (!reception_phase) {
+                reception_phase = true;
+                round_index++;
+            }
+            // If the element is iterable, then we need to assign origin tags to all the elements
+            if constexpr (is_iterable_v<T>) {
+                for (auto& subelement : element) {
+                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+                }
+            } else {
+                // If the element is not iterable, then we need to assign an origin tag to the element
+                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+            }
+        }
         return element;
     }
 

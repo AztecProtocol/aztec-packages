@@ -1,4 +1,4 @@
-use std::hash::poseidon;
+use poseidon::poseidon;
 
 // This circuit aggregates a single Honk proof from `assert_statement`.
 global ULTRA_VK_SIZE: u32 = 128;

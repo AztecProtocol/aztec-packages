@@ -400,7 +400,6 @@ TEST_F(ContentAddressedCacheTest, can_revert_cache)
     cache.checkpoint();
     add_to_cache(cache, 1000, 1000, 10000);
     EXPECT_NO_THROW(cache.revert());
-    // EXPECT_TRUE(cache_copy.is_equivalent_to(cache));
 }
 
 TEST_F(ContentAddressedCacheTest, can_commit_cache)
@@ -417,6 +416,47 @@ TEST_F(ContentAddressedCacheTest, can_commit_cache)
     EXPECT_TRUE(cache_copy_2.is_equivalent_to(cache));
     cache.commit();
     EXPECT_TRUE(cache_copy_2.is_equivalent_to(cache));
+}
+
+TEST_F(ContentAddressedCacheTest, can_commit_all)
+{
+    CacheType cache = create_cache(40);
+    cache.checkpoint();
+    add_to_cache(cache, 0, 1000, 10000);
+    cache.checkpoint();
+    add_to_cache(cache, 1000, 1000, 10000);
+    cache.checkpoint();
+    add_to_cache(cache, 2000, 1000, 10000);
+    CacheType final_cache = cache;
+
+    cache.commit_all();
+
+    // Should no longer be able to revert, no checkpoints left
+    // Should no longer be able to revert or commit
+    EXPECT_THROW(cache.commit(), std::runtime_error);
+    EXPECT_THROW(cache.revert(), std::runtime_error);
+
+    EXPECT_TRUE(final_cache.is_equivalent_to(cache));
+}
+
+TEST_F(ContentAddressedCacheTest, can_revert_all)
+{
+    CacheType cache = create_cache(40);
+    add_to_cache(cache, 0, 1000, 10000);
+    CacheType original_cache = cache;
+    cache.checkpoint();
+    add_to_cache(cache, 1000, 1000, 10000);
+    cache.checkpoint();
+    add_to_cache(cache, 2000, 1000, 10000);
+
+    // Revert all checkpoints
+    cache.revert_all();
+
+    // Should no longer be able to revert or commit
+    EXPECT_THROW(cache.commit(), std::runtime_error);
+    EXPECT_THROW(cache.revert(), std::runtime_error);
+
+    EXPECT_TRUE(original_cache.is_equivalent_to(cache));
 }
 
 TEST_F(ContentAddressedCacheTest, can_revert_through_multiple_levels)

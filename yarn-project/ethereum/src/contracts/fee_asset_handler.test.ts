@@ -45,6 +45,7 @@ describe('FeeAssetHandler', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot: Fr.random(),
+      realVerifier: false,
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     const deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
@@ -66,7 +67,7 @@ describe('FeeAssetHandler', () => {
     for (let i = 1; i <= 10; i++) {
       const txHash = await feeAssetHandler.mint(address.toString());
       expect(txHash.receipt.status).toBe('success');
-      logger.verbose(`Minted fee asset in ${txHash}`);
+      logger.verbose(`Minted fee asset in ${txHash.receipt.transactionHash}`);
       const balance = await feeAsset.read.balanceOf([address.toString()]);
       expect(balance).toBe((await feeAssetHandler.getMintAmount()) * BigInt(i));
     }

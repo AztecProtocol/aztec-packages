@@ -3,17 +3,18 @@ use crate::{
     messages::{
         discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
+        processing::enqueue_note_for_validation,
     },
-    oracle::message_discovery::{deliver_note, get_log_by_tag},
+    oracle::message_processing::get_log_by_tag,
     utils::array,
 };
 
-use dep::protocol_types::{
+use protocol_types::{
     address::AztecAddress,
-    constants::PUBLIC_LOG_SIZE_IN_FIELDS,
+    constants::{PRIVATE_LOG_CIPHERTEXT_LEN, PUBLIC_LOG_PLAINTEXT_LEN},
     debug_log::debug_log_format,
     hash::sha256_to_field,
-    traits::{Deserialize, Serialize, ToField},
+    traits::{Deserialize, Serialize},
 };
 
 global PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 2;
@@ -28,16 +29,11 @@ pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sh
     "AZTEC_NR::DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT".as_bytes(),
 );
 
-/// Public logs contain an extra field at the beginning with the address of the contract that emitted them, and partial
-/// notes emit their completion tag in the log, resulting in the first two fields in the public log not being part of
-/// the packed public content.
-// TODO(#10273): improve how contract log siloing is handled
-pub global NON_PACKED_CONTENT_FIELDS_IN_PUBLIC_LOG: u32 = 2;
-
-/// The maximum length of the packed representation of public fields in a partial note. This is limited by public log
-/// size and extra fields in the log (e.g. the tag).
-pub global MAX_PUBLIC_PARTIAL_NOTE_PACKED_CONTENT_LENGTH: u32 =
-    PUBLIC_LOG_SIZE_IN_FIELDS - NON_PACKED_CONTENT_FIELDS_IN_PUBLIC_LOG;
+/// A partial note completion log's maximum length is the minimum of the public log plaintext length and private log
+/// ciphertext length. While these logs can be transmitted through either the public or private log stream, we standardize
+/// their length to whichever format is shorter. This ensures consistent behavior regardless of the delivery mechanism.
+global MAX_PARTIAL_NOTE_COMPLETION_LOG_LEN: u32 =
+    std::cmp::min(PUBLIC_LOG_PLAINTEXT_LEN, PRIVATE_LOG_CIPHERTEXT_LEN);
 
 /// A partial note that was delivered but is still pending completion. Contains the information necessary to find the
 /// log that will complete it and lead to a note being discovered and delivered.
@@ -93,7 +89,10 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
     );
 
     pending_partial_notes.for_each(|i, pending_partial_note: DeliveredPendingPartialNote| {
-        let maybe_log = get_log_by_tag(pending_partial_note.note_completion_log_tag);
+        let maybe_log = get_log_by_tag::<MAX_PARTIAL_NOTE_COMPLETION_LOG_LEN>(
+            pending_partial_note.note_completion_log_tag,
+            contract_address,
+        );
         if maybe_log.is_none() {
             debug_log_format(
                 "Found no completion logs for partial note with tag {}",
@@ -110,23 +109,12 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
             );
             let log = maybe_log.unwrap();
 
-            // Public logs have an extra field at the beginning with the contract address, which we use to verify
-            // that we're getting the logs from the expected contract.
-            // TODO(#10273): improve how contract log siloing is handled
-            assert_eq(
-                log.log_content.get(0),
-                contract_address.to_field(),
-                "Got a public log emitted by a different contract",
-            );
-
             // Public fields are assumed to all be placed at the end of the packed representation, so we combine the
-            // private and public packed fields (i.e. the contents of the private message and public log sans the extra
-            // fields) to get the complete packed content.
-            let packed_public_note_content: BoundedVec<_, MAX_PUBLIC_PARTIAL_NOTE_PACKED_CONTENT_LENGTH> =
-                array::subbvec(log.log_content, NON_PACKED_CONTENT_FIELDS_IN_PUBLIC_LOG);
+            // private and public packed fields (i.e. the contents of the private message and public log plaintext to get
+            // the complete packed content.
             let complete_packed_note = array::append(
                 pending_partial_note.packed_private_note_content,
-                packed_public_note_content,
+                log.log_payload,
             );
 
             let discovered_notes = attempt_note_nonce_discovery(
@@ -145,20 +133,15 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
             );
 
             discovered_notes.for_each(|discovered_note| {
-                // TODO:(#10728): decide how to handle notes that fail delivery. This could be due to e.g. a
-                // temporary node connectivity issue - is simply throwing good enough here?
-                assert(
-                    deliver_note(
-                        contract_address,
-                        pending_partial_note.storage_slot,
-                        discovered_note.nonce,
-                        complete_packed_note,
-                        discovered_note.note_hash,
-                        discovered_note.inner_nullifier,
-                        log.tx_hash,
-                        pending_partial_note.recipient,
-                    ),
-                    "Failed to deliver note",
+                enqueue_note_for_validation(
+                    contract_address,
+                    pending_partial_note.storage_slot,
+                    discovered_note.note_nonce,
+                    complete_packed_note,
+                    discovered_note.note_hash,
+                    discovered_note.inner_nullifier,
+                    log.tx_hash,
+                    pending_partial_note.recipient,
                 );
             });
 

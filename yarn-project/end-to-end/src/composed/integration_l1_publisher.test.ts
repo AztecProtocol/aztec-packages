@@ -17,15 +17,15 @@ import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
-import { sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { SHA256Trunc, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { ForwarderAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
+import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { LightweightBlockBuilder } from '@aztec/prover-client/block-builder';
+import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
 import { SequencerPublisher } from '@aztec/sequencer-client';
 import type { L2Tips } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
@@ -119,7 +119,7 @@ describe('L1Publisher integration', () => {
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
-    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {}));
+    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger));
 
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
 
@@ -143,7 +143,7 @@ describe('L1Publisher integration', () => {
       getPublishedBlocks(from, limit, _proven) {
         return Promise.resolve(
           blocks.slice(from - 1, from - 1 + limit).map(block => ({
-            signatures: [],
+            attestations: [],
             block,
             // Use L2 block number and hash for faking the L1 info
             l1: {
@@ -231,8 +231,8 @@ describe('L1Publisher integration', () => {
     const ts = (await l1Client.getBlock()).timestamp;
     baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
 
-    // We jump to the next epoch such that the committee can be setup.
-    const timeToJump = await rollup.getEpochDuration();
+    // We jump two epochs such that the committee can be setup.
+    const timeToJump = (await rollup.getEpochDuration()) * 2n;
     await progressTimeBySlot(timeToJump);
   });
 
@@ -251,11 +251,10 @@ describe('L1Publisher integration', () => {
       seed,
     });
 
-  const sendToL2 = (content: Fr, recipient: AztecAddress): Promise<Fr> => {
-    return sendL1ToL2Message({ content, secretHash: Fr.ZERO, recipient }, { l1Client, l1ContractAddresses }).then(
-      ([messageHash, _]) => messageHash,
+  const sendToL2 = (content: Fr, recipient: AztecAddress): Promise<Fr> =>
+    sendL1ToL2Message({ content, secretHash: Fr.ZERO, recipient }, { l1Client, l1ContractAddresses }).then(
+      ({ msgHash }) => msgHash,
     );
-  };
 
   /**
    * Creates a json object that can be used to test the solidity contract.
@@ -275,43 +274,46 @@ describe('L1Publisher integration', () => {
     // Path relative to the package.json in the end-to-end folder
     const path = `../../l1-contracts/test/fixtures/${fileName}.json`;
 
+    const asHex = (value: Fr | Buffer | EthAddress | AztecAddress, size = 64) => {
+      const buffer = Buffer.isBuffer(value) ? value : value.toBuffer();
+      return `0x${buffer.toString('hex').padStart(size, '0')}`;
+    };
+
     const jsonObject = {
       populate: {
-        l1ToL2Content: l1ToL2Content.map(c => `0x${c.toBuffer().toString('hex').padStart(64, '0')}`),
-        recipient: `0x${recipientAddress.toBuffer().toString('hex').padStart(64, '0')}`,
+        l1ToL2Content: l1ToL2Content.map(asHex),
+        recipient: asHex(recipientAddress.toField()),
         sender: deployerAddress,
       },
       messages: {
-        l2ToL1Messages: block.body.txEffects
-          .flatMap(txEffect => txEffect.l2ToL1Msgs)
-          .map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
+        l2ToL1Messages: block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs).map(asHex),
       },
       block: {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
-        archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+        archive: asHex(block.archive.root),
         blobInputs: Blob.getEthBlobEvaluationInputs(blobs),
         blockNumber: block.number,
         body: `0x${block.body.toBuffer().toString('hex')}`,
-        decodedHeader: {
-          lastArchiveRoot: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+        header: {
+          lastArchiveRoot: asHex(block.header.lastArchive.root),
           contentCommitment: {
-            blobsHash: `0x${block.header.contentCommitment.blobsHash.toString('hex').padStart(64, '0')}`,
-            inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
-            outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
-            numTxs: Number(block.header.contentCommitment.numTxs),
+            blobsHash: asHex(block.header.contentCommitment.blobsHash),
+            inHash: asHex(block.header.contentCommitment.inHash),
+            outHash: asHex(block.header.contentCommitment.outHash),
+            numTxs: block.header.contentCommitment.numTxs.toNumber(),
           },
-          slotNumber: `0x${block.header.globalVariables.slotNumber.toBuffer().toString('hex').padStart(64, '0')}`,
-          timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
-          coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
-          feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
+          slotNumber: block.header.globalVariables.slotNumber.toNumber(),
+          timestamp: block.header.globalVariables.timestamp.toNumber(),
+          coinbase: asHex(block.header.globalVariables.coinbase, 40),
+          feeRecipient: asHex(block.header.globalVariables.feeRecipient),
           gasFees: {
-            feePerDaGas: block.header.globalVariables.gasFees.feePerDaGas.toNumber(),
-            feePerL2Gas: block.header.globalVariables.gasFees.feePerL2Gas.toNumber(),
+            feePerDaGas: Number(block.header.globalVariables.gasFees.feePerDaGas),
+            feePerL2Gas: Number(block.header.globalVariables.gasFees.feePerL2Gas),
           },
-          totalManaUsed: `0x${block.header.totalManaUsed.toBuffer().toString('hex').padStart(64, '0')}`,
+          totalManaUsed: block.header.totalManaUsed.toNumber(),
         },
-        header: `0x${block.header.toPropose().toBuffer().toString('hex')}`,
+        headerHash: asHex(block.header.toPropose().hash()),
         numTxs: block.body.txEffects.length,
       },
     };
@@ -323,16 +325,13 @@ describe('L1Publisher integration', () => {
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     await worldStateSynchronizer.syncImmediate();
     const tempFork = await worldStateSynchronizer.fork();
-    const tempBuilder = new LightweightBlockBuilder(tempFork);
-    await tempBuilder.startNewBlock(globalVariables, l1ToL2Messages);
-    await tempBuilder.addTxs(txs);
-    const block = await tempBuilder.setBlockCompleted();
+    const block = await buildBlockWithCleanDB(txs, globalVariables, l1ToL2Messages, tempFork);
     await tempFork.close();
     return block;
   };
 
   describe('block building', () => {
-    const buildL2ToL1MsgTreeRoot = async (l2ToL1MsgsArray: Fr[]) => {
+    const buildL2ToL1MsgTreeRoot = (l2ToL1MsgsArray: Fr[]) => {
       const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
       const tree = new StandardTree(
         openTmpStore(true),
@@ -342,7 +341,7 @@ describe('L1Publisher integration', () => {
         0n,
         Fr,
       );
-      await tree.appendLeaves(l2ToL1MsgsArray);
+      tree.appendLeaves(l2ToL1MsgsArray);
       return new Fr(tree.getRoot(true));
     };
 
@@ -385,7 +384,7 @@ describe('L1Publisher integration', () => {
           new Fr(timestamp),
           coinbase,
           feeRecipient,
-          new GasFees(Fr.ZERO, new Fr(await rollup.getManaBaseFeeAt(timestamp, true))),
+          new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
         );
 
         const block = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
@@ -444,9 +443,9 @@ describe('L1Publisher integration', () => {
           functionName: 'propose',
           args: [
             {
-              header: `0x${block.header.toPropose().toBuffer().toString('hex')}`,
+              header: block.header.toPropose().toViem(),
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
-              stateReference: `0x${block.header.state.toBuffer().toString('hex')}`,
+              stateReference: block.header.state.toViem(),
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },
@@ -463,7 +462,7 @@ describe('L1Publisher integration', () => {
         });
         expect(ethTx.input).toEqual(expectedData);
 
-        const expectedRoot = !numTxs ? Fr.ZERO : await buildL2ToL1MsgTreeRoot(l2ToL1MsgsArray);
+        const expectedRoot = !numTxs ? Fr.ZERO : buildL2ToL1MsgTreeRoot(l2ToL1MsgsArray);
         const [returnedRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
 
         // check that values are inserted into the outbox
@@ -522,7 +521,7 @@ describe('L1Publisher integration', () => {
         new Fr(timestamp),
         coinbase,
         feeRecipient,
-        new GasFees(Fr.ZERO, new Fr(await rollup.getManaBaseFeeAt(timestamp, true))),
+        new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
       );
       const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;

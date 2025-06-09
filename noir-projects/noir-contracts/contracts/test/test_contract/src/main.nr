@@ -11,9 +11,7 @@ pub contract Test {
     // Note: If you import a new kind of note you will most likely need to update the test_note_type_id test
     // as the note type ids of current notes might have changed.
 
-    use dep::aztec::messages::logs::{
-        event::encode_and_encrypt_event_unconstrained, note::encode_and_encrypt_note,
-    };
+    use dep::aztec::messages::logs::note::encode_and_encrypt_note;
     use dep::aztec::prelude::{
         AztecAddress, EthAddress, FunctionSelector, Map, NoteGetterOptions, NoteViewerOptions,
         PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, SharedMutable,
@@ -34,7 +32,7 @@ pub contract Test {
 
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
-        event::event_interface::EventInterface,
+        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         hash::{ArgsHasher, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,
         macros::{
@@ -62,7 +60,6 @@ pub contract Test {
     use address_note::address_note::AddressNote;
     use value_note::value_note::ValueNote;
 
-    #[derive(Serialize)]
     #[event]
     struct ExampleEvent {
         value0: Field,
@@ -331,7 +328,13 @@ pub contract Test {
             value4: fields[4],
         };
 
-        event.emit(encode_and_encrypt_event_unconstrained(&mut context, owner, sender));
+        emit_event_in_private_log(
+            event,
+            &mut context,
+            sender,
+            owner,
+            PrivateLogContent.NO_CONSTRAINTS,
+        );
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
@@ -464,8 +467,8 @@ pub contract Test {
         version: Field,
         block_number: Field,
         timestamp: u64,
-        fee_per_da_gas: Field,
-        fee_per_l2_gas: Field,
+        fee_per_da_gas: u128,
+        fee_per_l2_gas: u128,
     ) {
         assert(context.chain_id() == chain_id, "Invalid chain id");
         assert(context.version() == version, "Invalid version");

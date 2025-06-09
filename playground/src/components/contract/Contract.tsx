@@ -155,22 +155,18 @@ const deployedContractCss = css({
   },
 });
 
-const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
+const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_private_state', 'public_dispatch'];
 
 export function ContractComponent() {
   const [currentContract, setCurrentContract] = useState<Contract | null>(null);
-  const [currentContractClassId, setCurrentContractClassId] = useState<string | null>(null);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
-
   const [filters, setFilters] = useState({
     searchTerm: '',
     private: true,
     public: true,
     utility: true,
   });
-
   const [isLoadingArtifact, setIsLoadingArtifact] = useState(false);
-
   const [openCreateContractDialog, setOpenCreateContractDialog] = useState(false);
 
   const { sendTx } = useTransaction();
@@ -184,6 +180,7 @@ export function ContractComponent() {
     setCurrentContractArtifact,
     setCurrentContractAddress,
   } = useContext(AztecContext);
+
 
   useEffect(() => {
     const loadCurrentContract = async () => {
@@ -212,17 +209,6 @@ export function ContractComponent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentContractArtifact, currentContractAddress, wallet]);
-
-  useEffect(() => {
-    const updateContractClassId = async () => {
-      const contractClass = await getContractClassFromArtifact(currentContractArtifact);
-      setCurrentContractClassId(contractClass.id.toString());
-    };
-
-    if (currentContractArtifact) {
-      updateContractClassId();
-    }
-  }, [currentContractArtifact]);
 
   useEffect(() => {
     if (!currentContractAddress) {
@@ -319,7 +305,7 @@ export function ContractComponent() {
               </Box>
 
               <Typography variant="caption" css={contractClassIdCss}>
-                Contract Class ID: {currentContractClassId}
+                Contract Class ID: {currentContract?.instance?.currentContractClassId.toString()}
               </Typography>
 
               {!!ContractDescriptions[currentContractArtifact.name] && (

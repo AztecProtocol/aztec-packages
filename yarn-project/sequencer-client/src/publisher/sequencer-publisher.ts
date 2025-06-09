@@ -20,13 +20,13 @@ import {
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { type ProposedBlockHeader, TxHash } from '@aztec/stdlib/tx';
+import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -38,17 +38,17 @@ import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 /** Arguments to the process method of the rollup contract */
 type L1ProcessArgs = {
   /** The L2 block header. */
-  header: Buffer;
+  header: ProposedBlockHeader;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
   /** State reference after the L2 block is applied. */
-  stateReference: Buffer;
+  stateReference: StateReference;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** L2 block tx hashes */
   txHashes: TxHash[];
   /** Attestations */
-  attestations?: Signature[];
+  attestations?: CommitteeAttestation[];
 };
 
 export enum VoteType {
@@ -74,7 +74,7 @@ interface RequestWithExpiry {
 export class SequencerPublisher {
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
-  private epochCache: EpochCache;
+  public epochCache: EpochCache;
   private forwarderContract: ForwarderContract;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
@@ -263,13 +263,17 @@ export class SequencerPublisher {
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public canProposeAtNextEthBlock(tipArchive: Buffer) {
+  public canProposeAtNextEthBlock(tipArchive: Buffer, msgSender: EthAddress) {
+    // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
+
     return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive, this.getForwarderAddress().toString(), this.ethereumSlotDuration)
+      .canProposeAtNextEthBlock(tipArchive, msgSender.toString(), this.ethereumSlotDuration)
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
-          this.log.debug(err.message);
+          this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
+            error: err.message,
+          });
         } else {
           this.log.error(err.name, err);
         }
@@ -288,19 +292,29 @@ export class SequencerPublisher {
    */
   public async validateBlockForSubmission(
     header: ProposedBlockHeader,
-    attestationData: { digest: Buffer; signatures: Signature[] } = {
+    attestationData: { digest: Buffer; attestations: CommitteeAttestation[] } = {
       digest: Buffer.alloc(32),
-      signatures: [],
+      attestations: [],
     },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
-    const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
-    const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };
+    // If we have no attestations, we still need to provide the empty attestations
+    // so that the committee is recalculated correctly
+    const ignoreSignatures = attestationData.attestations.length === 0;
+    if (ignoreSignatures) {
+      const committee = await this.epochCache.getCommittee(header.slotNumber.toBigInt());
+      attestationData.attestations = committee.committee.map(committeeMember =>
+        CommitteeAttestation.fromAddress(committeeMember),
+      );
+    }
+
+    const formattedAttestations = attestationData.attestations.map(attest => attest.toViem());
+    const flags = { ignoreDA: true, ignoreSignatures };
 
     const args = [
-      toHex(header.toBuffer()),
-      formattedSignatures,
+      header.toViem(),
+      formattedAttestations,
       toHex(attestationData.digest),
       ts,
       toHex(header.contentCommitment.blobsHash),
@@ -330,14 +344,8 @@ export class SequencerPublisher {
       return false;
     }
     const round = await base.computeRound(slotNumber);
-    const [proposer, roundInfo] = await Promise.all([
-      this.rollupContract.getProposerAt(timestamp),
-      base.getRoundInfo(this.rollupContract.address, round),
-    ]);
+    const roundInfo = await base.getRoundInfo(this.rollupContract.address, round);
 
-    if (proposer.toLowerCase() !== this.getForwarderAddress().toString().toLowerCase()) {
-      return false;
-    }
     if (roundInfo.lastVote >= slotNumber) {
       return false;
     }
@@ -347,9 +355,15 @@ export class SequencerPublisher {
 
     const action = voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote';
 
+    const request = await base.createVoteRequestWithSignature(payload.toString(), this.l1TxUtils.client);
+    this.log.debug(`Created ${action} request with signature`, {
+      request,
+      signer: this.l1TxUtils.client.account?.address,
+    });
+
     this.addRequest({
       action,
-      request: base.createVoteRequest(payload.toString()),
+      request,
       lastValidL2Slot: slotNumber,
       onResult: (_request, result) => {
         if (!result || result.receipt.status !== 'success') {
@@ -376,6 +390,7 @@ export class SequencerPublisher {
       if (!slashPayload) {
         return undefined;
       }
+      this.log.info(`Slash payload: ${slashPayload}`);
       return { payload: slashPayload, base: this.slashingProposerContract };
     }
     throw new Error('Unreachable: Invalid vote type');
@@ -405,7 +420,7 @@ export class SequencerPublisher {
    */
   public async enqueueProposeL2Block(
     block: L2Block,
-    attestations?: Signature[],
+    attestations?: CommitteeAttestation[],
     txHashes?: TxHash[],
     opts: { txTimeoutAt?: Date } = {},
   ): Promise<boolean> {
@@ -416,9 +431,9 @@ export class SequencerPublisher {
 
     const blobs = await Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
-      header: proposedBlockHeader.toBuffer(),
+      header: proposedBlockHeader,
       archive: block.archive.root.toBuffer(),
-      stateReference: block.header.state.toBuffer(),
+      stateReference: block.header.state,
       body: block.body.toBuffer(),
       blobs,
       attestations,
@@ -431,7 +446,7 @@ export class SequencerPublisher {
     //        make time consistency checks break.
     const ts = await this.validateBlockForSubmission(proposedBlockHeader, {
       digest: digest.toBuffer(),
-      signatures: attestations ?? [],
+      attestations: attestations ?? [],
     });
 
     this.log.debug(`Submitting propose transaction`);
@@ -486,15 +501,13 @@ export class SequencerPublisher {
         throw new Error('Failed to validate blobs');
       });
 
-    const attestations = encodedData.attestations
-      ? encodedData.attestations.map(attest => attest.toViemSignature())
-      : [];
+    const attestations = encodedData.attestations ? encodedData.attestations.map(attest => attest.toViem()) : [];
     const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
     const args = [
       {
-        header: toHex(encodedData.header),
+        header: encodedData.header.toViem(),
         archive: toHex(encodedData.archive),
-        stateReference: toHex(encodedData.stateReference),
+        stateReference: encodedData.stateReference.toViem(),
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,

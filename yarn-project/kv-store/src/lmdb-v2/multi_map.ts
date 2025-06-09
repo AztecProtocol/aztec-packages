@@ -9,7 +9,10 @@ import { deserializeKey, maxKey, minKey, serializeKey } from './utils.js';
 export class LMDBMultiMap<K extends Key, V extends Value> implements AztecAsyncMultiMap<K, V> {
   private prefix: string;
   private encoder = new Encoder();
-  constructor(private store: AztecLMDBStoreV2, name: string) {
+  constructor(
+    private store: AztecLMDBStoreV2,
+    name: string,
+  ) {
     this.prefix = `multimap:${name}`;
   }
 
@@ -55,6 +58,10 @@ export class LMDBMultiMap<K extends Key, V extends Value> implements AztecAsyncM
 
   hasAsync(key: K): Promise<boolean> {
     return execInReadTx(this.store, async tx => (await tx.getIndex(serializeKey(this.prefix, key))).length > 0);
+  }
+
+  sizeAsync(): Promise<number> {
+    return execInReadTx(this.store, tx => tx.countEntriesIndex(minKey(this.prefix), maxKey(this.prefix), false));
   }
 
   /**

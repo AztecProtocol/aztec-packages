@@ -5,9 +5,8 @@
 // =====================
 
 #pragma once
-#include "barretenberg/plonk/proof_system/constants.hpp"
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
-#include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include <cstdint>
 #include <vector>
 
 namespace acir_format {
@@ -16,10 +15,7 @@ namespace acir_format {
 // ACIR
 // Keep this enum values in sync with their noir counterpart constants defined in
 // noir-protocol-circuits/crates/types/src/constants.nr
-enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK };
-
-using namespace bb::plonk;
-using Builder = bb::UltraCircuitBuilder;
+enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK };
 
 /**
  * @brief RecursionConstraint struct contains information required to recursively verify a proof!
@@ -69,33 +65,6 @@ struct RecursionConstraint {
 
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };
-
-bb::PairingPointAccumulatorIndices create_recursion_constraints(
-    Builder& builder,
-    const RecursionConstraint& input,
-    const bb::PairingPointAccumulatorIndices& input_points_accumulator,
-    const bb::PairingPointAccumulatorIndices& nested_points_accumulator,
-    bool has_valid_witness_assignments = false);
-
-std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey);
-std::vector<bb::fr> export_dummy_key_in_recursion_format(const PolynomialManifest& polynomial_manifest,
-                                                         bool contains_pairing_point_accumulator = 0);
-
-std::vector<bb::fr> export_transcript_in_recursion_format(const transcript::StandardTranscript& transcript);
-std::vector<bb::fr> export_dummy_transcript_in_recursion_format(const transcript::Manifest& manifest,
-                                                                const bool contains_pairing_point_accumulator);
-size_t recursion_proof_size_without_public_inputs();
-
-// In order to interact with a recursive aggregation state inside of a circuit, we need to represent its internal G1
-// elements as field elements. This happens in multiple locations when creating a recursion constraint. The struct and
-// method below export a g1 affine element as fields to use as part of the recursive circuit.
-struct G1AsFields {
-    bb::fr x_lo;
-    bb::fr x_hi;
-    bb::fr y_lo;
-    bb::fr y_hi;
-};
-G1AsFields export_g1_affine_element_as_fields(const bb::g1::affine_element& group_element);
 
 template <typename B> inline void read(B& buf, RecursionConstraint& constraint)
 {

@@ -112,7 +112,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
         blockHash: Buffer32.random().toString(),
         timestamp: BigInt(block.number),
       },
-      signatures: [],
+      attestations: [],
     }));
   }
 
@@ -218,6 +218,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   getL1Constants(): Promise<L1RollupConstants> {
+    throw new Error('Method not implemented.');
+  }
+
+  getL1Timestamp(): Promise<bigint> {
     throw new Error('Method not implemented.');
   }
 

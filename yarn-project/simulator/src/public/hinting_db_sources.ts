@@ -47,7 +47,10 @@ import type { PublicContractsDBInterface } from './db_interfaces.js';
  * A public contracts database that forwards requests and collects AVM hints.
  */
 export class HintingPublicContractsDB implements PublicContractsDBInterface {
-  constructor(private readonly db: PublicContractsDBInterface, private hints: AvmExecutionHints) {}
+  constructor(
+    private readonly db: PublicContractsDBInterface,
+    private hints: AvmExecutionHints,
+  ) {}
 
   public async getContractInstance(
     address: AztecAddress,
@@ -129,7 +132,10 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   }
 
   // Use create() to instantiate.
-  private constructor(private db: MerkleTreeWriteOperations, private hints: AvmExecutionHints) {}
+  private constructor(
+    private db: MerkleTreeWriteOperations,
+    private hints: AvmExecutionHints,
+  ) {}
 
   // Getters.
   public async getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>> {
@@ -312,6 +318,14 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     );
   }
 
+  public commitAllCheckpoints(): Promise<void> {
+    throw new Error('commitAllCheckpoints is not supported in HintingMerkleWriteOperations.');
+  }
+
+  public revertAllCheckpoints(): Promise<void> {
+    throw new Error('revertAllCheckpoints is not supported in HintingMerkleWriteOperations.');
+  }
+
   public async commitCheckpoint(): Promise<void> {
     const actionCounter = this.checkpointActionCounter++;
     const oldCheckpointId = this.getCurrentCheckpointId();
@@ -451,6 +465,13 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     values: MerkleTreeLeafType<ID>[],
   ): Promise<(bigint | undefined)[]> {
     return await this.db.findLeafIndices(treeId, values);
+  }
+
+  public async findSiblingPaths<ID extends MerkleTreeId, N extends number>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+  ): Promise<(SiblingPath<N> | undefined)[]> {
+    return await this.db.findSiblingPaths(treeId, values);
   }
 
   public async findLeafIndicesAfter<ID extends MerkleTreeId>(

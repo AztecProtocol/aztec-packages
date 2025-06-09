@@ -7,12 +7,11 @@ source $ci3/source_refname
 # We must enable job control to ensure our test runs in it's own process group.
 # Otherwise, when parallel sends a TERM to the group, it will also kill any child process of the test.
 # This can cause issues with proper cleanup (e.g. killing docker client processes as they run).
-# Slightly breaking the abstraction here, but if using strict scheduling we don't have the above problem,
-# but instead we want to avoid lots of "Terminated" messages.
-# [ "${STRICT_SCHEDULING:-0}" -eq 0 ] && set -m
 set -m
 
 cmd=$1
+is_merge_queue=0
+[[ "$REF_NAME" =~ ^gh-readonly-queue/ ]] && is_merge_queue=1
 
 # Extract the first token and export any variable assignments.
 hash_part="${cmd%% *}"
@@ -88,12 +87,12 @@ Env: REF_NAME=$REF_NAME CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL
 Date: $(date)
 System: ARCH=$(arch) CPUS=$(nproc) MEM=$(free -h | awk '/^Mem:/{print $2}') HOSTNAME=$(hostname)
 Resources: CPU_LIST=$CPU_LIST CPUS=$CPUS MEM=$MEM TIMEOUT=$TIMEOUT
-History: http://ci.aztec-labs.com/list/$test_hash
+History: http://ci.aztec-labs.com/list/history_$test_hash${TARGET_BRANCH:+_$TARGET_BRANCH}
 
 EOF
 
 function publish_log {
-  cat $tmp_file | redis_setexz $log_key ${1:-$CI_REDIS_EXPIRE}
+  cat $tmp_file 2>/dev/null | redis_setexz $log_key ${1:-$CI_REDIS_EXPIRE}
 }
 
 function live_publish_log {
@@ -106,12 +105,12 @@ function live_publish_log {
   publish_log
   echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
   while [ -f $tmp_file ]; do
-    sleep 5 &
-    sleep_pid=$!
-    wait $sleep_pid
     if [ $(( $(date +%s) - $(stat -c %Y "$tmp_file") )) -le 5 ]; then
       publish_log
     fi
+    sleep 5 &
+    sleep_pid=$!
+    wait $sleep_pid
   done
 }
 
@@ -169,31 +168,36 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
 fi
 
 function track_test {
-  local test_hash=$1
-  local line=$2
-
-  # We track tests in CI, and only on master or master merge queue.
-  if [[ "$CI" -eq 1 && ( "$REF_NAME" == "master" || "$REF_NAME" =~ ^gh-readonly-queue/master/ ) ]]; then
-    redis_cli LPUSH $test_hash "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
-    # Keeps only the last 1000 lines.
-    redis_cli RTRIM $test_hash -1000 -1 &>/dev/null
+  # We track tests in merge queues only.
+  if [ "$is_merge_queue" -eq 0 ]; then
+    return
   fi
+
+  local key=$1
+  local line=$(pr_link "$2")
+
+  redis_cli LPUSH $key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
+  # Keeps only the last 1000 lines.
+  redis_cli RTRIM $key -1000 -1 &>/dev/null
 }
 
 # Show PASSED and early out on success.
 function pass {
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
-  track_test $test_hash "$line"
   echo -e "$line"
+
+  track_test $test_hash "$line"
   exit
 }
 
 # Show FAILED and exit with error code.
 function fail {
-  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${1:-}"
-  track_test $test_hash "$line"
-  track_test "failed_tests" "$line"
+  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   echo -e "$line"
+
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+  track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+
   if [ "${DUMP_FAIL:-0}" -eq 1 ]; then
     cat $tmp_file
     echo -e "$line"
@@ -203,12 +207,14 @@ function fail {
 
 # Show FLAKED and send slack message to test owner(s). Exit with success.
 function flake {
-  local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
-  track_test $test_hash "$line"
-  track_test "failed_tests" "$line"
+  local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   echo -e "$line"
 
-  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [[ "$REF_NAME" != "master" && ! "$REF_NAME" =~ ^gh-readonly-queue/master/ ]]; then
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+  track_test "failed_tests_${TARGET_BRANCH:-}" "$line"
+
+  # Early out if no token or not in merge queue.
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [ "$is_merge_queue" -eq 0 ]; then
     return
   fi
 
@@ -220,7 +226,7 @@ function flake {
   read -r -d '' data <<EOF
   {
     "channel": "#aztec3-ci",
-    "text": "${slack_uids% }: Test flaked on *$REF_NAME*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
+    "text": "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
   }
 EOF
   curl -X POST https://slack.com/api/chat.postMessage \

@@ -16,8 +16,8 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
+#include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 namespace acir_format {
@@ -738,10 +738,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
 
                 // Add the recursion constraint to the appropriate container based on proof type
                 switch (c.proof_type) {
-                case PLONK:
-                    af.recursion_constraints.push_back(c);
-                    af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
-                    break;
+                case HONK_ZK:
                 case HONK:
                 case ROLLUP_HONK:
                 case ROOT_ROLLUP_HONK:

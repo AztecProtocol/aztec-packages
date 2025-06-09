@@ -64,7 +64,7 @@ type BaseTreeNames = 'NoteHashTree' | 'ContractTree' | 'NullifierTree' | 'Public
 export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 
 // Builds the hints for base rollup. Updating the contract, nullifier, and data trees in the process.
-export const buildBaseRollupHints = runInSpan(
+export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
   'BlockBuilderHelpers',
   'buildBaseRollupHints',
   async (
@@ -138,9 +138,9 @@ export const buildBaseRollupHints = runInSpan(
     const inputSpongeBlob = startSpongeBlob.clone();
     await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
-    const contractClassLogsPreimages = makeTuple(
+    const contractClassLogsFields = makeTuple(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
-      i => tx.txEffect.contractClassLogs[i]?.toUnsiloed().fields || ContractClassLogFields.empty(),
+      i => tx.txEffect.contractClassLogs[i]?.fields || ContractClassLogFields.empty(),
     );
 
     if (tx.avmProvingRequest) {
@@ -155,7 +155,7 @@ export const buildBaseRollupHints = runInSpan(
       return PublicBaseRollupHints.from({
         startSpongeBlob: inputSpongeBlob,
         archiveRootMembershipWitness,
-        contractClassLogsPreimages,
+        contractClassLogsFields,
         constants,
       });
     } else {
@@ -210,7 +210,7 @@ export const buildBaseRollupHints = runInSpan(
         stateDiffHints,
         feePayerFeeJuiceBalanceReadHint,
         archiveRootMembershipWitness,
-        contractClassLogsPreimages,
+        contractClassLogsFields,
         constants,
       });
     }
@@ -269,10 +269,10 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
       previousRollupData.length === 0
         ? Fr.ZERO.toBuffer()
         : previousRollupData.length === 1
-        ? previousRollupData[0].outHash.toBuffer()
-        : sha256Trunc(
-            Buffer.concat([previousRollupData[0].outHash.toBuffer(), previousRollupData[1].outHash.toBuffer()]),
-          );
+          ? previousRollupData[0].outHash.toBuffer()
+          : sha256Trunc(
+              Buffer.concat([previousRollupData[0].outHash.toBuffer(), previousRollupData[1].outHash.toBuffer()]),
+            );
     const contentCommitment = new ContentCommitment(
       new Fr(numTxs),
       blobsHash,
@@ -324,16 +324,21 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       numTxs === 0
         ? Fr.ZERO.toBuffer()
         : numTxs === 1
-        ? body.txEffects[0].txOutHash()
-        : computeUnbalancedMerkleRoot(
-            body.txEffects.map(tx => tx.txOutHash()),
-            TxEffect.empty().txOutHash(),
-          );
+          ? body.txEffects[0].txOutHash()
+          : computeUnbalancedMerkleRoot(
+              body.txEffects.map(tx => tx.txOutHash()),
+              TxEffect.empty().txOutHash(),
+            );
 
     l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    const hasher = (left: Buffer, right: Buffer) => Promise.resolve(sha256Trunc(Buffer.concat([left, right])));
+    const hasher = (left: Buffer, right: Buffer) =>
+      Promise.resolve(sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>);
     const parityHeight = Math.ceil(Math.log2(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
-    const parityCalculator = await MerkleTreeCalculator.create(parityHeight, Fr.ZERO.toBuffer(), hasher);
+    const parityCalculator = await MerkleTreeCalculator.create(
+      parityHeight,
+      Fr.ZERO.toBuffer() as Buffer<ArrayBuffer>,
+      hasher,
+    );
     const parityShaRoot = await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
     const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobs(body.toBlobFields()));
 

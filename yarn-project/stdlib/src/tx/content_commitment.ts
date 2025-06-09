@@ -1,15 +1,21 @@
 import { CONTENT_COMMITMENT_LENGTH } from '@aztec/constants';
+import type { ViemContentCommitment } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { bufferToHex } from '@aztec/foundation/string';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { z } from 'zod';
 
 export const NUM_BYTES_PER_SHA256 = 32;
 
 export class ContentCommitment {
-  constructor(public numTxs: Fr, public blobsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
+  constructor(
+    public numTxs: Fr,
+    public blobsHash: Buffer,
+    public inHash: Buffer,
+    public outHash: Buffer,
+  ) {
     // NB: we do not calculate blobHash in the circuit, but we still truncate it so it fits in a field
     if (blobsHash.length !== NUM_BYTES_PER_SHA256) {
       throw new Error(`blobsHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
@@ -74,6 +80,14 @@ export class ContentCommitment {
     return serialized;
   }
 
+  toViem(): ViemContentCommitment {
+    return {
+      numTxs: this.numTxs.toBigInt(),
+      blobsHash: `0x${this.blobsHash.toString('hex').padStart(64, '0')}`,
+      inHash: `0x${this.inHash.toString('hex').padStart(64, '0')}`,
+      outHash: `0x${this.outHash.toString('hex').padStart(64, '0')}`,
+    };
+  }
   static fromBuffer(buffer: Buffer | BufferReader): ContentCommitment {
     const reader = BufferReader.asReader(buffer);
 
@@ -82,6 +96,15 @@ export class ContentCommitment {
       reader.readBytes(NUM_BYTES_PER_SHA256),
       reader.readBytes(NUM_BYTES_PER_SHA256),
       reader.readBytes(NUM_BYTES_PER_SHA256),
+    );
+  }
+
+  static fromViem(contentCommitment: ViemContentCommitment) {
+    return new ContentCommitment(
+      new Fr(contentCommitment.numTxs),
+      hexToBuffer(contentCommitment.blobsHash),
+      hexToBuffer(contentCommitment.inHash),
+      hexToBuffer(contentCommitment.outHash),
     );
   }
 
