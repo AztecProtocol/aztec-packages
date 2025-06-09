@@ -216,7 +216,6 @@ export class Sequencer {
     this.metrics.stop();
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();
-    await this.slasherClient.stop();
     this.publisher.interrupt();
     this.setState(SequencerState.STOPPED, 0n, true /** force */);
     this.l1Metrics.stop();
