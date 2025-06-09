@@ -356,7 +356,6 @@ export class SequencerPublisher {
         header: toHex(block.header.toBuffer()),
         archive: toHex(block.archive.root.toBuffer()),
         stateReference: toHex(block.header.state.toBuffer()),
-        body: toHex(block.body.toBuffer()),
         txHashes: block.body.txEffects.map(txEffect => txEffect.txHash.toString()),
         oracleInput: {
           feeAssetPriceModifier: 0n,
@@ -563,7 +562,6 @@ export class SequencerPublisher {
         header: toHex(encodedData.header),
         archive: toHex(encodedData.archive),
         stateReference: toHex(encodedData.stateReference),
-        body: toHex(encodedData.body),
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
@@ -591,7 +589,6 @@ export class SequencerPublisher {
         readonly header: `0x${string}`;
         readonly archive: `0x${string}`;
         readonly stateReference: `0x${string}`;
-        readonly body: `0x${string}`;
         readonly txHashes: `0x${string}`[];
         readonly oracleInput: {
           readonly feeAssetPriceModifier: 0n;
