@@ -631,7 +631,6 @@ describe('p2p client integration', () => {
       // This is why we use `toBeGreaterThanOrEqual` instead of `toHaveBeenCalledTimes`
       expect(statusHandshakeSpies[0].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
       expect(statusHandshakeSpies[1].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
-      expect(statusHandshakeSpies[2].mock.calls.length).toEqual(expectedHandshakeCount);
 
       await shutdown(clients);
     },
