@@ -17,12 +17,16 @@ library QueueLib {
     self.last = 1;
   }
 
-  function enqueue(Queue storage self, address _attester) internal {
+  function enqueue(Queue storage self, address _attester) internal returns (uint256) {
     require(!self.inQueue[_attester], AlreadySeen(_attester));
 
-    self.attester[self.last] = _attester;
+    uint256 queueLocation = self.last;
+
+    self.attester[queueLocation] = _attester;
     self.inQueue[_attester] = true;
     self.last += 1;
+
+    return queueLocation;
   }
 
   function dequeue(Queue storage self) internal returns (address attester) {
@@ -41,5 +45,13 @@ library QueueLib {
 
   function isInQueue(Queue storage self, address _attester) internal view returns (bool) {
     return self.inQueue[_attester];
+  }
+
+  function getFirst(Queue storage self) internal view returns (uint256) {
+    return self.first;
+  }
+
+  function getLast(Queue storage self) internal view returns (uint256) {
+    return self.last;
   }
 }
