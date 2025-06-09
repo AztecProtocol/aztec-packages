@@ -37,12 +37,12 @@ bash -i <(curl -s https://install.aztec.network)
 Then install the version of the network running the testnet:
 
 ```bash
-aztec-up alpha-testnet
+aztec-up -v latest
 ```
 
 :::warning
 
-The testnet is version dependent. It is currently running version `alpha-testnet`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is most likely running the latest released version. Updates are backwards compatible so regularly check for updates when interacting with the testnet to reduce errors.
 
 :::
 

@@ -18,7 +18,7 @@ The Aztec full node is a critical infrastructure component that allows users to 
 Before following this guide, make sure you:
 
 - Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox)
-- You are using the correct version for the testnet by running `aztec-up alpha-testnet`
+- You are using the latest version for the testnet by running `aztec-up -v latest`
 - Are running a Linux or MacOS machine with access to a terminal
 
 Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
@@ -102,7 +102,7 @@ name: aztec-node
 services:
   node:
     network_mode: host # Optional, run with host networking
-    image: aztecprotocol/aztec:alpha-testnet
+    image: aztecprotocol/aztec:latest
     environment:
       ETHEREUM_HOSTS: "" # update with L1 execution client URL
       L1_CONSENSUS_HOST_URLS: "" # update with L1 consensus client URL

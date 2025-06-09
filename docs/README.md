@@ -24,7 +24,7 @@ The .md files in the `docs/` directory are the docs. See the [Docusaurus website
 
 Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not, it allows you to hot-fix previous versions.
 
-When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `alpha-testnet`, and the latest sandbox release e.g. `v0.86.0`. Updating the files in the `docs` folder will update the `Next` version, updating the files in `versioned_docs/version-alpha-testnet` folder will update the `alpha-testnet` version, and updating the files in the `versioned_docs/version-v0.86.0` folder will update the `versioned_docs/v0.86.0` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
+When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `alpha-testnet`, and the latest sandbox release e.g. `v0.86.0`. Updating the files in the `docs` folder will update the next version (which is not currently published, but will be when the next release is cut), updating the files in `versioned_docs/version-v0.87.8` folder will update the `0.87.8` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
 
 The way docs builds work is the following:
 
@@ -177,6 +177,11 @@ Alternatively, you can also use the `AztecPackagesVersion()` js function, which 
 import { AztecPackagesVersion } from "@site/src/components/Version";
 <>{AztecPackagesVersion()}</>
 ```
+
+### `#include_testnet_version`
+
+This macros will be replaced inline with the provided testnet version, which is `0.87.5` at the time of these writing. This value is sourced from the `TESTNET_TAG` environment variable when running `yarn build` (e.g. `TESTNET_TAG=0.87.5 yarn build`).
+This value may be different from the `#include_aztec_version` macro, since the testnet version is not always the same as the latest aztec packages version.
 
 ## Viewing (outdated) protocol specs
 
