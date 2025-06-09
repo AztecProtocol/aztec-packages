@@ -43,5 +43,5 @@ Ignore.
 
 - Stop aztec
 - Delete current snapshot: `rm -rf ~/.aztec/#include_testnet_version/data/archiver`
-- Update to latest version: `aztec-up -v #include_testnet_version`
+- Update to latest version: `aztec-up -v latest`
 - Start aztec

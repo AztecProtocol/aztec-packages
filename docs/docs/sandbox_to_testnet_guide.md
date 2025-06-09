@@ -25,7 +25,7 @@ The testnet is version dependent. It is currently running version `#include_test
 To connect a local PXE to testnet, install the testnet version of the sandbox.
 
 ```sh
-aztec-up -v #include_testnet_version
+aztec-up -v latest
 ```
 
 When you run `aztec-wallet` commands, make sure to include a `node-url` option. An example:

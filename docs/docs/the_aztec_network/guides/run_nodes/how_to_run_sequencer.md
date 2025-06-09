@@ -54,7 +54,7 @@ import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
 <General.InstallationInstructions />
 
-Now install the latest testnet version of aztec: `aztec-up -v #include_testnet_version`
+Now install the latest testnet version of aztec: `aztec-up -v latest`
 
 Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
 
@@ -247,7 +247,7 @@ name: aztec-node
 services:
   node:
     network_mode: host # Optional, run with host networking
-    image: aztecprotocol/aztec:#include_testnet_version
+    image: aztecprotocol/aztec:latest
     environment:
       ETHEREUM_HOSTS: ""
       L1_CONSENSUS_HOST_URLS: ""
