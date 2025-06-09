@@ -28,6 +28,7 @@ names:
   - jan: &jan "U03FGA0BWNR"
   - esau: &esau "U067FJ9A4Q1"
   - saleel: &saleel "U07KJ0AV20J"
+  - nico: &nico "U06D2QSLY10"
 
 tests:
   # barretenberg
@@ -49,6 +50,10 @@ tests:
       - *adam
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
     error_regex: "RuntimeError: Out of bounds memory access"
+    owners:
+      - *adam
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "call_indirect to a null table entry"
     owners:
       - *adam
 
@@ -275,6 +280,11 @@ tests:
     error_regex: "Error: Timed out \\d*ms waiting for expect\\(locator\\)"
     owners:
       - *saleel
+  - regex: "vanilla-all-browsers box boxes"
+    error_regex: "Expected pattern: /Candidate 4: 1 votes/"
+    owners:
+      - *nico
+      - *grego
 
   - regex: "tests/browser.spec.ts"
     error_regex: "Error: locator\\.click: Test timeout of"
