@@ -218,8 +218,7 @@ class AvmGoblinRecursiveVerifier {
         goblin.transcript = transcript;
 
         // Construct corresponding Goblin proof \pi_G (includes Merge, ECCVM, and Translator proofs)
-        auto merge_proof = goblin.prove_final_merge();
-        GoblinProof goblin_proof = goblin.prove(merge_proof);
+        GoblinProof goblin_proof = goblin.prove();
 
         // Recursively verify the goblin proof in the Ultra circuit
         auto mega_vk = std::make_shared<MegaVerificationKey>(mega_prover.proving_key->proving_key);

@@ -17,6 +17,17 @@ pub(crate) fn compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer: AztecAddr
     )
 }
 
+pub fn validate_max_fees_per_gas(max_fees_per_gas: GasFees, gas_fees: GasFees) {
+    assert(
+        max_fees_per_gas.fee_per_da_gas >= gas_fees.fee_per_da_gas,
+        "da gas is higher than the maximum specified by the tx",
+    );
+    assert(
+        max_fees_per_gas.fee_per_l2_gas >= gas_fees.fee_per_l2_gas,
+        "l2 gas is higher than the maximum specified by the tx",
+    );
+}
+
 // Computes the effective gas fees from the current gas fees and taking as much
 // priority gas fees as the max_fees_per_gas allows.
 pub fn compute_effective_gas_fees(gas_fees: GasFees, gas_settings: GasSettings) -> GasFees {
