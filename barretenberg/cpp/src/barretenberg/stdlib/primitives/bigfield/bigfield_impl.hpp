@@ -2205,10 +2205,10 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         remainders[0] = convert_constant_to_fixed_witness(remainders[0]);
     }
 
-    std::vector<field_t<Builder>> limb_0_accumulator{ remainders[0].binary_basis_limbs[0].element };
-    std::vector<field_t<Builder>> limb_2_accumulator{ remainders[0].binary_basis_limbs[2].element };
-    std::vector<field_t<Builder>> prime_limb_accumulator{ remainders[0].prime_basis_limb };
-    for (size_t i = 1; i < remainders.size(); ++i) {
+    std::vector<field_t<Builder>> limb_0_accumulator;
+    std::vector<field_t<Builder>> limb_2_accumulator;
+    std::vector<field_t<Builder>> prime_limb_accumulator;
+    for (size_t i = 0; i < remainders.size(); ++i) {
         limb_0_accumulator.emplace_back(remainders[i].binary_basis_limbs[0].element);
         limb_0_accumulator.emplace_back(remainders[i].binary_basis_limbs[1].element * shift_1);
         limb_2_accumulator.emplace_back(remainders[i].binary_basis_limbs[2].element);
@@ -2223,23 +2223,11 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         prime_limb_accumulator.emplace_back(-add.prime_basis_limb);
     }
 
-    const auto& t0 = remainders[0].binary_basis_limbs[1].element;
-    const auto& t1 = remainders[0].binary_basis_limbs[3].element;
-    bool needs_normalize = (t0.additive_constant != 0 || t0.multiplicative_constant != 1);
-    needs_normalize = needs_normalize || (t1.additive_constant != 0 || t1.multiplicative_constant != 1);
-
-    if (needs_normalize) {
-        limb_0_accumulator.emplace_back(remainders[0].binary_basis_limbs[1].element * shift_1);
-        limb_2_accumulator.emplace_back(remainders[0].binary_basis_limbs[3].element * shift_1);
-    }
-
     field_t<Builder> remainder_limbs[4]{
         field_t<Builder>::accumulate(limb_0_accumulator),
-        needs_normalize ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
-                        : remainders[0].binary_basis_limbs[1].element,
+        field_t<Builder>::from_witness_index(ctx, ctx->zero_idx),
         field_t<Builder>::accumulate(limb_2_accumulator),
-        needs_normalize ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
-                        : remainders[0].binary_basis_limbs[3].element,
+        field_t<Builder>::from_witness_index(ctx, ctx->zero_idx),
     };
     field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
@@ -2501,13 +2489,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         quotient = convert_constant_to_fixed_witness(quotient);
     }
 
-    bool no_remainders = remainders.size() == 0;
-    if (!no_remainders) {
-        limb_0_accumulator.emplace_back(remainders[0].binary_basis_limbs[0].element);
-        limb_2_accumulator.emplace_back(remainders[0].binary_basis_limbs[2].element);
-        prime_limb_accumulator.emplace_back(remainders[0].prime_basis_limb);
-    }
-    for (size_t i = 1; i < remainders.size(); ++i) {
+    for (size_t i = 0; i < remainders.size(); ++i) {
         limb_0_accumulator.emplace_back(remainders[i].binary_basis_limbs[0].element);
         limb_0_accumulator.emplace_back(remainders[i].binary_basis_limbs[1].element * shift_1);
         limb_2_accumulator.emplace_back(remainders[i].binary_basis_limbs[2].element);
@@ -2532,21 +2514,12 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         accumulated_hi =
             field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(accumulated_hi.get_value()));
     }
-    field_t<Builder> remainder1 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
-                                                : remainders[0].binary_basis_limbs[1].element;
-    if (remainder1.is_constant()) {
-        remainder1 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder1.get_value()));
-    }
-    field_t<Builder> remainder3 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
-                                                : remainders[0].binary_basis_limbs[3].element;
-    if (remainder3.is_constant()) {
-        remainder3 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder3.get_value()));
-    }
+
     field_t<Builder> remainder_limbs[4]{
         accumulated_lo,
-        remainder1,
+        field_t<Builder>::from_witness_index(ctx, ctx->zero_idx),
         accumulated_hi,
-        remainder3,
+        field_t<Builder>::from_witness_index(ctx, ctx->zero_idx),
     };
     field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
