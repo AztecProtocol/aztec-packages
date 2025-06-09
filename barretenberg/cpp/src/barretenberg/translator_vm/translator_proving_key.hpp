@@ -29,8 +29,9 @@ class TranslatorProvingKey {
     // Real mini and full circuit sizes i.e. the number of rows excluding those reserved for randomness (to achieve
     // hiding of polynomial commitments and evaluation). Bound to change, but it has to be even as translator works two
     // rows at a time
-    static constexpr size_t real_mini_circuit_size = mini_circuit_dyadic_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
-    static constexpr size_t real_circuit_size =
+    static constexpr size_t dyadic_mini_circuit_size_without_masking =
+        mini_circuit_dyadic_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
+    static constexpr size_t dyadic_circuit_size_without_masking =
         dyadic_circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
 
     std::shared_ptr<ProvingKey> proving_key;
@@ -98,7 +99,7 @@ class TranslatorProvingKey {
         for (size_t i = 0; i < 4; i++) {
             auto& ordered = proving_key->polynomials.get_ordered_range_constraints()[i];
             auto& interleaved = proving_key->polynomials.get_interleaved()[i];
-            for (size_t j = real_circuit_size; j < dyadic_circuit_size; j++) {
+            for (size_t j = dyadic_circuit_size_without_masking; j < dyadic_circuit_size; j++) {
                 ordered.at(j) = interleaved.at(j);
             }
         }
@@ -110,7 +111,7 @@ class TranslatorProvingKey {
     /**
      * @brief Create the array of steps inserted in each ordered range constraint to ensure they respect the
      * appropriate structure for applying the DeltaRangeConstraint relation
-     * @details The delta range relat;ion enforces values of a polynomial are within a certain range ([0, 2¹⁴ - 1] for
+     * @details The delta range relation enforces values of a polynomial are within a certain range ([0, 2¹⁴ - 1] for
      * translator). It achieves this efficiently  by sorting the polynomial and checking that the difference between two
      * adjacent values is no more than 3. In the event that the distribution of a polynomial is not uniform across the
      * range (e.g. p_1(x) = {0, 2^14 - 1, 2^14 - 1, 2^14 - 1}), to ensure the relation is still satisfied, we

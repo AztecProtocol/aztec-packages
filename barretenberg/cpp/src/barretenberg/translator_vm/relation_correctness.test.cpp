@@ -599,7 +599,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     TranslatorProvingKey key{};
     key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
-    const size_t real_circuit_size = full_circuit_size - full_masking_offset;
+    const size_t dyadic_circuit_size_without_masking = full_circuit_size - full_masking_offset;
 
     // Fill required relation parameters
     RelationParameters<FF> params{ .beta = FF::random_element(), .gamma = FF::random_element() };
@@ -623,9 +623,9 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
 
     // Fill in lagrange polynomials used in the permutation relation
     prover_polynomials.lagrange_first.at(0) = 1;
-    prover_polynomials.lagrange_real_last.at(real_circuit_size - 1) = 1;
+    prover_polynomials.lagrange_real_last.at(dyadic_circuit_size_without_masking - 1) = 1;
     prover_polynomials.lagrange_last.at(full_circuit_size - 1) = 1;
-    for (size_t i = real_circuit_size; i < full_circuit_size; i++) {
+    for (size_t i = dyadic_circuit_size_without_masking; i < full_circuit_size; i++) {
         prover_polynomials.lagrange_masking.at(i) = 1;
     }
 
@@ -637,13 +637,13 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     for (size_t i = 0; i < 4; i++) {
         auto& ordered = prover_polynomials.get_ordered_range_constraints()[i];
         auto& interleaved = prover_polynomials.get_interleaved()[i];
-        for (size_t j = real_circuit_size; j < full_circuit_size; j++) {
+        for (size_t j = dyadic_circuit_size_without_masking; j < full_circuit_size; j++) {
             ordered.at(j) = interleaved.at(j);
         }
     }
 
     // Populate the last ordered range constraint and the extra polynomial in the numerator with random values
-    for (size_t i = real_circuit_size; i < full_circuit_size; i++) {
+    for (size_t i = dyadic_circuit_size_without_masking; i < full_circuit_size; i++) {
         FF random_value = FF::random_element();
         prover_polynomials.ordered_extra_range_constraints_numerator.at(i) = random_value;
         prover_polynomials.ordered_range_constraints_4.at(i) = random_value;
@@ -671,13 +671,13 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
     const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
-    const size_t real_circuit_size = key.dyadic_circuit_size - full_masking_offset;
+    const size_t dyadic_circuit_size_without_masking = key.dyadic_circuit_size - full_masking_offset;
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first.at(0) = 0;
-    prover_polynomials.lagrange_real_last.at(real_circuit_size - 1) = 1;
+    prover_polynomials.lagrange_real_last.at(dyadic_circuit_size_without_masking - 1) = 1;
 
-    for (size_t i = real_circuit_size; i < key.dyadic_circuit_size; i++) {
+    for (size_t i = dyadic_circuit_size_without_masking; i < key.dyadic_circuit_size; i++) {
         prover_polynomials.lagrange_masking.at(i) = 1;
     }
 
@@ -702,7 +702,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     std::sort(vector_for_sorting.begin(), vector_for_sorting.end());
 
     // Add masking values
-    for (size_t i = real_circuit_size; i < key.dyadic_circuit_size; i++) {
+    for (size_t i = dyadic_circuit_size_without_masking; i < key.dyadic_circuit_size; i++) {
         vector_for_sorting.emplace_back(FF::random_element());
     }
 
