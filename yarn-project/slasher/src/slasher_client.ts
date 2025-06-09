@@ -8,6 +8,7 @@ import {
 } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
 
@@ -127,11 +128,18 @@ export class SlasherClient {
    * Allows consumers to stop the instance of the slasher client.
    * 'ready' will now return 'false' and the running promise that keeps the client synced is interrupted.
    */
-  public stop() {
+  public async stop() {
     this.log.debug('Stopping Slasher client...');
     for (const cb of this.unwatchCallbacks) {
       cb();
     }
+    // Viem calls eth_uninstallFilter under the hood when uninstalling event watchers, but these calls are not awaited,
+    // meaning that any error that happens during the uninstallation will not be caught. This causes errors during jest teardowns,
+    // where we stop anvil after all other processes are stopped, so sometimes the eth_uninstallFilter call fails because anvil
+    // is already stopped. We add a sleep here to give the uninstallation some time to complete, but the proper fix is for
+    // viem to await the eth_uninstallFilter calls, or to catch any errors that happen during the uninstallation.
+    // See https://github.com/wevm/viem/issues/3714.
+    await sleep(2000);
     this.log.info('Slasher client stopped.');
   }
 
