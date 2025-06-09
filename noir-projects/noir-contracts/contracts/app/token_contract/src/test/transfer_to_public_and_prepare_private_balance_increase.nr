@@ -39,11 +39,12 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
 
     // Check balances before the partial note is finalized
     utils::check_private_balance(
+        env,
         token_contract_address,
         liquidity_provider,
         mint_amount - deposit_amount,
     );
-    utils::check_public_balance(token_contract_address, amm_contract, deposit_amount);
+    utils::check_public_balance(env, token_contract_address, amm_contract, deposit_amount);
 
     // We need to advance the block by 1 for the partial note validity commitment to be committed to the nullifier
     // tree.
@@ -62,11 +63,13 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
 
     // Check balances after the partial note is finalized
     utils::check_private_balance(
+        env,
         token_contract_address,
         liquidity_provider,
         mint_amount - deposit_amount + change_amount,
     );
     utils::check_public_balance(
+        env,
         token_contract_address,
         amm_contract,
         deposit_amount - change_amount,
