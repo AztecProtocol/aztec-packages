@@ -92,8 +92,7 @@ void radix_sort_count_zero_entries(uint64_t* keys,
     for (size_t i = 0; i < num_buckets - 1; ++i) {
         bucket_counts[i + 1] += bucket_counts[i];
     }
-
-    if ((shift == 0) && keys == start_pointer) {
+    if ((shift == 0) && (keys == start_pointer)) {
         num_zero_entries = bucket_counts[0];
     }
     for (size_t i = 1; i < num_buckets + 1; ++i) {
@@ -138,9 +137,15 @@ size_t process_buckets_count_zero_entries(uint64_t* wnaf_entries,
     const uint32_t base = num_bits & 7;
     const uint32_t total_bits = (base == 0) ? num_bits : num_bits - base + 8;
     const uint32_t shift = total_bits - bits_per_round;
-
     size_t num_zero_entries = 0;
-    radix_sort_count_zero_entries(wnaf_entries, num_entries, shift, num_zero_entries, total_bits, wnaf_entries);
+    radix_sort_count_zero_entries(wnaf_entries, num_entries, shift, num_zero_entries, num_bits, wnaf_entries);
+
+    // inside radix_sort_count_zero_entries, if the least significant *byte* of `wnaf_entries[0] == 0`,
+    // then num_nonzero_entries = number of entries that share the same value as wnaf_entries[0].
+    // If wnaf_entries[0] != 0, we must manually set num_zero_entries = 0
+    if ((wnaf_entries[0] & 0xffffffff) != 0) {
+        num_zero_entries = 0;
+    }
     return num_zero_entries;
 }
 } // namespace bb::scalar_multiplication

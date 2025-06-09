@@ -181,7 +181,7 @@ template <typename Curve_> class IPA {
         std::span<Commitment> srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
 
-        if (poly_length * 2 > srs_elements.size()) {
+        if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
 
@@ -238,7 +238,7 @@ template <typename Curve_> class IPA {
             auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
             // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
-            L_i = scalar_multiplication::NewMSM<Curve>::msm({&G_vec_local[round_size], round_size}, {0, {&a_vec.at(0), /*size*/ round_size}});
+            L_i = scalar_multiplication::MSM<Curve>::msm({&G_vec_local[round_size], round_size}, {0, {&a_vec.at(0), /*size*/ round_size}});
 
             // L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
             //     {0, {&a_vec.at(0), /*size*/ round_size}}, {&G_vec_local[round_size], /*size*/ round_size}, ck->pippenger_runtime_state);
@@ -246,7 +246,7 @@ template <typename Curve_> class IPA {
 
             // Step 6.b
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
-            R_i = scalar_multiplication::NewMSM<Curve>::msm({&G_vec_local[0], /*size*/ round_size},{0, {&a_vec.at(round_size), /*size*/ round_size}});
+            R_i = scalar_multiplication::MSM<Curve>::msm({&G_vec_local[0], /*size*/ round_size},{0, {&a_vec.at(round_size), /*size*/ round_size}});
             // R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
             //     {0, {&a_vec.at(round_size), /*size*/ round_size}}, {&G_vec_local[0], /*size*/ round_size}, ck->pippenger_runtime_state);
             R_i += aux_generator * inner_prod_R;
@@ -390,7 +390,7 @@ template <typename Curve_> class IPA {
 
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
-        GroupElement LR_sums = scalar_multiplication::NewMSM<Curve>::msm({&msm_elements[0], /*size*/ pippenger_size}, {0, {&msm_scalars[0], /*size*/ pippenger_size}});
+        GroupElement LR_sums = scalar_multiplication::MSM<Curve>::msm({&msm_elements[0], /*size*/ pippenger_size}, {0, {&msm_scalars[0], /*size*/ pippenger_size}});
 
         GroupElement C_zero = C_prime + LR_sums;
 
@@ -426,7 +426,7 @@ template <typename Curve_> class IPA {
 
         // Step 8.
         // Compute G₀
-        Commitment G_zero = scalar_multiplication::NewMSM<Curve>::msm({&G_vec_local[0], /*size*/ poly_length}, s_poly);
+        Commitment G_zero = scalar_multiplication::MSM<Curve>::msm({&G_vec_local[0], /*size*/ poly_length}, s_poly);
 
         // Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
         //    s_poly, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state);

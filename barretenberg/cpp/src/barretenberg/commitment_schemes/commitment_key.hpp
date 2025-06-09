@@ -30,7 +30,6 @@
 #include <string_view>
 
 namespace bb {
-
 /**
  * @brief CommitmentKey object over a pairing group 𝔾₁.
  *
@@ -75,7 +74,6 @@ template <class Curve> class CommitmentKey {
         , srs(crs_factory->get_crs(get_num_needed_srs_points(num_points)))
         , dyadic_size(get_num_needed_srs_points(num_points))
     {}
-
     /**
      * @brief Uses the ProverSRS to create a commitment to p(X)
      *
@@ -116,7 +114,7 @@ template <class Curve> class CommitmentKey {
         std::span<G1> point_table = srs->get_monomial_points().subspan(actual_start_index);
         DEBUG_LOG_ALL(polynomial.span);
         Commitment point =
-            scalar_multiplication::NewMSM<Curve>::msm(point_table, { relative_start_index, polynomial.span });
+            scalar_multiplication::MSM<Curve>::msm(point_table, { relative_start_index, polynomial.span });
         DEBUG_LOG(point);
         return point;
     };
@@ -133,7 +131,7 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit_sparse(PolynomialSpan<const Fr> polynomial)
     {
-        PROFILE_THIS_NAME("commit_sparse");
+        PROFILE_THIS_NAME("commit");
         const size_t poly_size = polynomial.size();
         BB_ASSERT_LTE(polynomial.end_index(),
                       srs->get_monomial_size(),
@@ -186,7 +184,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::NewMSM<Curve>::msm(points, { 0, scalars });
+        return scalar_multiplication::MSM<Curve>::msm(points, { 0, scalars });
     }
 
     /**
@@ -207,7 +205,7 @@ template <class Curve> class CommitmentKey {
                                  const std::vector<std::pair<size_t, size_t>>& active_ranges,
                                  size_t final_active_wire_idx = 0)
     {
-        PROFILE_THIS_NAME("commit_structured");
+        PROFILE_THIS_NAME("commit");
         BB_ASSERT_LTE(polynomial.end_index(), srs->get_monomial_size(), "Polynomial size exceeds commitment key size.");
         BB_ASSERT_LTE(polynomial.end_index(), dyadic_size, "Polynomial size exceeds commitment key size.");
 
@@ -248,8 +246,8 @@ template <class Curve> class CommitmentKey {
             points.insert(points.end(), pts_start, pts_end);
         }
 
-        // Call pippenger
-        return scalar_multiplication::NewMSM<Curve>::msm(points, { 0, scalars });
+        // Call the version of pippenger which assumes all points are distinct
+        return scalar_multiplication::MSM<Curve>::msm(points, { 0, scalars });
     }
 
     /**
@@ -268,7 +266,7 @@ template <class Curve> class CommitmentKey {
                                                          const std::vector<std::pair<size_t, size_t>>& active_ranges,
                                                          size_t final_active_wire_idx = 0)
     {
-        PROFILE_THIS_NAME("commit_structured_with_nonzero_complement");
+        PROFILE_THIS_NAME("commit");
         BB_ASSERT_LTE(polynomial.end_index(), srs->get_monomial_size(), "Polynomial size exceeds commitment key size.");
 
         using BatchedAddition = BatchedAffineAddition<Curve>;
@@ -346,9 +344,8 @@ template <class Curve> class CommitmentKey {
     {
         switch (type) {
         case CommitType::Structured:
-            return commit_structured(poly, active_ranges, final_active_wire_idx);
         case CommitType::Sparse:
-            return commit_sparse(poly);
+            return commit(poly);
         case CommitType::StructuredNonZeroComplement:
             return commit_structured_with_nonzero_complement(poly, active_ranges, final_active_wire_idx);
         case CommitType::Default:

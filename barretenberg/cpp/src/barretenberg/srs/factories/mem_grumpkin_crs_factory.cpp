@@ -18,14 +18,14 @@ class MemGrumpkinCrs : public Crs<Grumpkin> {
     MemGrumpkinCrs& operator=(MemGrumpkinCrs&&) = delete;
 
     MemGrumpkinCrs(std::vector<Grumpkin::AffineElement> const& points)
-        : monomials_(bb::scalar_multiplication::point_table_size(points.size()))
+        : monomials_(points.size())
     {
         std::copy(points.begin(), points.end(), monomials_.begin());
     }
 
     ~MemGrumpkinCrs() override = default;
     std::span<Grumpkin::AffineElement> get_monomial_points() override { return monomials_; }
-    size_t get_monomial_size() const override { return monomials_.size() / 2; }
+    size_t get_monomial_size() const override { return monomials_.size(); }
     Grumpkin::AffineElement get_g1_identity() const override { return monomials_[0]; };
 
   private:

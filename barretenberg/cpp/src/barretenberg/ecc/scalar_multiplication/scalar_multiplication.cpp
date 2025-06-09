@@ -928,8 +928,8 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
                                   [[maybe_unused]] pippenger_runtime_state<Curve>& state,
                                   [[maybe_unused]] bool handle_edge_cases)
 {
-    auto r = scalar_multiplication::NewMSM<Curve>::msm(points, scalars_);
-    return r;
+    // auto r = scalar_multiplication::MSM<Curve>::msm(points, scalars_);
+    // return r;
     PROFILE_THIS();
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
@@ -998,7 +998,7 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
     [[maybe_unused]] pippenger_runtime_state<Curve>& state)
 {
 
-    auto r = scalar_multiplication::NewMSM<Curve>::msm(points, scalars);
+    auto r = scalar_multiplication::MSM<Curve>::msm(points, scalars);
     return r;
 
     // PROFILE_THIS();
@@ -1041,7 +1041,7 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
                                          std::span<const typename Curve::AffineElement> points,
                                          [[maybe_unused]] pippenger_runtime_state<Curve>& state)
 {
-    return scalar_multiplication::NewMSM<Curve>::msm(points, scalars);
+    return scalar_multiplication::MSM<Curve>::msm(points, scalars);
 
     // BB_ASSERT_LTE(scalars.start_index + scalars.size(),
     //               state.num_points / 2,
@@ -1055,17 +1055,17 @@ typename Curve::Element pippenger_without_endomorphism_basis_points(
     std::span<const typename Curve::AffineElement> points,
     [[maybe_unused]] pippenger_runtime_state<Curve>& state)
 {
-    return scalar_multiplication::NewMSM<Curve>::msm(points, scalars);
+    // return scalar_multiplication::MSM<Curve>::msm(points, scalars);
 
-    // // TODO(https://github.com/AztecProtocol/barretenberg/issues/1135): We don't need start_index more scalars here.
-    // std::vector<typename Curve::AffineElement> G_mod((scalars.start_index + scalars.size()) * 2);
-    // BB_ASSERT_LTE(scalars.start_index + scalars.size(), points.size());
-    // BB_ASSERT_LTE(scalars.start_index + scalars.size(),
-    //               state.num_points / 2,
-    //               "Pippenger runtime state is too small to support this many points");
-    // bb::scalar_multiplication::generate_pippenger_point_table<Curve>(
-    //     points.data(), &G_mod[0], scalars.start_index + scalars.size());
-    // return pippenger(scalars, G_mod, state, false);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1135): We don't need start_index more scalars here.
+    std::vector<typename Curve::AffineElement> G_mod((scalars.start_index + scalars.size()) * 2);
+    BB_ASSERT_LTE(scalars.start_index + scalars.size(), points.size());
+    BB_ASSERT_LTE(scalars.start_index + scalars.size(),
+                  state.num_points / 2,
+                  "Pippenger runtime state is too small to support this many points");
+    bb::scalar_multiplication::generate_pippenger_point_table<Curve>(
+        points.data(), &G_mod[0], scalars.start_index + scalars.size());
+    return pippenger(scalars, G_mod, state, true);
 }
 
 // Explicit instantiation
