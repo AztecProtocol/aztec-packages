@@ -30,7 +30,7 @@ export class EthCheatCodes {
 
   async rpcCall(method: string, params: any[]) {
     const paramsString = jsonStringify(params);
-    this.logger.info(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
+    this.logger.debug(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
     return (await this.publicClient.transport.request({
       method,
       params,

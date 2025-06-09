@@ -119,6 +119,9 @@ export interface L2BlockSource {
    */
   getL1Constants(): Promise<L1RollupConstants>;
 
+  /** Latest synced L1 timestamp. */
+  getL1Timestamp(): Promise<bigint>;
+
   /** Force a sync. */
   syncImmediate(): Promise<void>;
 }
