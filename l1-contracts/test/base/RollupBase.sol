@@ -132,7 +132,6 @@ contract RollupBase is DecoderBase {
     bytes memory _revertMsg
   ) private {
     DecoderBase.Full memory full = load(_name);
-    bytes memory header = full.block.header;
     bytes memory blobInputs = full.block.blobInputs;
 
     Slot slotNumber = Slot.wrap(_slotNumber);
@@ -141,27 +140,21 @@ contract RollupBase is DecoderBase {
     if (slotNumber != Slot.wrap(0)) {
       Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-      full.block.decodedHeader.timestamp = Timestamp.unwrap(ts);
-      full.block.decodedHeader.slotNumber = Slot.unwrap(slotNumber);
-
-      header = DecoderBase.updateHeaderTimestamp(header, ts);
-      header = DecoderBase.updateHeaderSlot(header, slotNumber);
+      full.block.header.timestamp = ts;
+      full.block.header.slotNumber = slotNumber;
     }
 
-    uint128 baseFee = SafeCast.toUint128(
-      rollup.getManaBaseFeeAt(Timestamp.wrap(full.block.decodedHeader.timestamp), true)
-    );
-    header = DecoderBase.updateHeaderBaseFee(header, baseFee);
-    header = DecoderBase.updateHeaderManaUsed(header, _manaUsed);
+    uint128 baseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(full.block.header.timestamp, true));
+    full.block.header.gasFees.feePerL2Gas = baseFee;
+    full.block.header.totalManaUsed = _manaUsed;
 
     blockFees[full.block.blockNumber] = _manaUsed * baseFee;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, full.block.decodedHeader.timestamp));
+    vm.warp(max(block.timestamp, Timestamp.unwrap(full.block.header.timestamp)));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
-    header =
-      DecoderBase.updateHeaderInboxRoot(header, rollup.getInbox().getRoot(full.block.blockNumber));
+    full.block.header.contentCommitment.inHash = rollup.getInbox().getRoot(full.block.blockNumber);
 
     {
       bytes32[] memory blobHashes = new bytes32[](1);
@@ -182,9 +175,9 @@ contract RollupBase is DecoderBase {
     }
 
     ProposeArgs memory args = ProposeArgs({
-      header: header,
+      header: full.block.header,
       archive: full.block.archive,
-      stateReference: new bytes(0),
+      stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
