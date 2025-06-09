@@ -41,7 +41,7 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, realProof);
 
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 0);
     stakingAssetHandler.dripQueue();
 
     // 2. Exit the validator
@@ -53,7 +53,7 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
 
     // 3. Reenter the validator
     vm.prank(_caller);
-    emit IStakingAssetHandler.AddedToQueue(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     stakingAssetHandler.reenterExitedValidator(_attester);
 
     vm.prank(_caller);

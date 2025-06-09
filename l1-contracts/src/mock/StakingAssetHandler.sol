@@ -32,7 +32,7 @@ import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
 
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
-  event AddedToQueue(address indexed _attester, address _proposer);
+  event AddedToQueue(address indexed _attester, address _proposer, uint256 _position);
   event ValidatorAdded(
     address indexed _rollup, address indexed _attester, address _proposer, address _withdrawer
   );
@@ -70,6 +70,8 @@ interface IStakingAssetHandler {
 
   // View
   function getQueueLength() external view returns (uint256);
+  function getFrontOfQueue() external view returns (uint256);
+  function getEndOfQueue() external view returns (uint256);
   function getRollup() external view returns (address);
 }
 
@@ -265,6 +267,14 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     return entryQueue.length();
   }
 
+  function getFrontOfQueue() external view override(IStakingAssetHandler) returns (uint256) {
+    return entryQueue.getFirst();
+  }
+
+  function getEndOfQueue() external view override(IStakingAssetHandler) returns (uint256) {
+    return entryQueue.getLast();
+  }
+
   /**
    * Validate an attester's zk passport proof
    *
@@ -301,8 +311,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    */
   function _addToQueue(address _attester) internal {
     // Add validator into the entry queue
-    entryQueue.enqueue(_attester);
-    emit AddedToQueue(_attester);
+    uint256 queueLocation = entryQueue.enqueue(_attester);
+    emit AddedToQueue(_attester, queueLocation);
   }
 
   /**
