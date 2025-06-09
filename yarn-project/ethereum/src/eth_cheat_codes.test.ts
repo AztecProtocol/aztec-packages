@@ -25,7 +25,7 @@ describe('EthCheatCodes', () => {
   let logger: Logger;
   let sender: Hex;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     if (ANVIL_RPC_URL) {
       rpcUrl = ANVIL_RPC_URL;
     } else {
@@ -44,7 +44,7 @@ describe('EthCheatCodes', () => {
     sender = account.address;
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await cheatCodes?.setIntervalMining(0); // Disable interval mining
     await anvil?.stop().catch(err => logger?.error(err));
   }, 5_000);
