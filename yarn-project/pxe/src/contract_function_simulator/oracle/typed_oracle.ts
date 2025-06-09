@@ -262,4 +262,8 @@ export abstract class TypedOracle {
   getSharedSecret(_address: AztecAddress, _ephPk: Point): Promise<Point> {
     return Promise.reject(new OracleMethodNotAvailableError('getSharedSecret'));
   }
+
+  emitOffchainMessage(_message: Fr[], _recipient: AztecAddress): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('emitOffchainMessage'));
+  }
 }

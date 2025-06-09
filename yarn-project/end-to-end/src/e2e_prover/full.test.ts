@@ -329,6 +329,7 @@ describe('full_prover', () => {
             provenTx.contractClassLogFields,
             provenTx.publicFunctionCalldata,
           ),
+          [],
         );
 
         const sentTx = invalidProvenTx.send();
