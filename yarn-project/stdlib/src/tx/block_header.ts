@@ -124,7 +124,7 @@ export class BlockHeader {
 
   static empty(fields: Partial<FieldsOf<BlockHeader>> = {}): BlockHeader {
     return BlockHeader.from({
-      lastArchive: AppendOnlyTreeSnapshot.empty(),
+      lastArchive: AppendOnlyTreeSnapshot.zero(),
       contentCommitment: ContentCommitment.empty(),
       state: StateReference.empty(),
       globalVariables: GlobalVariables.empty(),
@@ -136,7 +136,7 @@ export class BlockHeader {
 
   isEmpty(): boolean {
     return (
-      this.lastArchive.isEmpty() &&
+      this.lastArchive.isZero() &&
       this.contentCommitment.isEmpty() &&
       this.state.isEmpty() &&
       this.globalVariables.isEmpty() &&

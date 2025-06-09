@@ -4,9 +4,7 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "./base/DecoderBase.sol";
 
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -14,11 +12,8 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup} from "@aztec/core/Rollup.sol";
-import {TestConstants} from "./harnesses/TestConstants.sol";
 
 import {
-  IRollup,
   IRollupCore,
   BlockLog,
   SubmitEpochRootProofArgs,
@@ -28,18 +23,16 @@ import {
   PublicInputArgs
 } from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
-import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
-import {FeeLib, L1_GAS_PER_EPOCH_VERIFIED} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {L1_GAS_PER_EPOCH_VERIFIED} from "@aztec/core/libraries/rollup/FeeLib.sol";
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
@@ -123,6 +116,56 @@ contract RollupTest is RollupBase {
 
     assertEq(rollup.getPendingBlockNumber(), 1);
     assertEq(rollup.getProvenBlockNumber(), 1);
+  }
+
+  function testSetManaTargetIncreasing(uint256 _initialManaTarget, uint256 _newManaTarget)
+    public
+    setUpFor("mixed_block_1")
+  {
+    // we can increase the mana target
+    _initialManaTarget = bound(_initialManaTarget, 0, 1e36);
+    _newManaTarget = bound(_newManaTarget, _initialManaTarget, 1e36);
+
+    RollupBuilder builder =
+      new RollupBuilder(address(this)).setManaTarget(_initialManaTarget).deploy();
+
+    address governance = address(builder.getConfig().governance);
+    rollup = IInstance(address(builder.getConfig().rollup));
+
+    assertEq(rollup.getManaTarget(), _initialManaTarget);
+
+    vm.expectEmit(true, true, true, true);
+    emit IRollupCore.ManaTargetUpdated(_newManaTarget);
+    vm.prank(governance);
+    rollup.updateManaTarget(_newManaTarget);
+    assertEq(rollup.getManaTarget(), _newManaTarget);
+  }
+
+  function testSetManaTargetDecreasing(uint256 _initialManaTarget, uint256 _newManaTarget)
+    public
+    setUpFor("mixed_block_1")
+  {
+    // we cannot decrease the mana target
+    _initialManaTarget = bound(_initialManaTarget, 1, 1e36);
+    _newManaTarget = bound(_newManaTarget, 0, _initialManaTarget - 1);
+
+    RollupBuilder builder =
+      new RollupBuilder(address(this)).setManaTarget(_initialManaTarget).deploy();
+
+    address governance = address(builder.getConfig().governance);
+    rollup = IInstance(address(builder.getConfig().rollup));
+
+    assertEq(rollup.getManaTarget(), _initialManaTarget);
+
+    // Cannot decrease the mana target
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__InvalidManaTarget.selector, _initialManaTarget, _newManaTarget
+      )
+    );
+    vm.prank(governance);
+    rollup.updateManaTarget(_newManaTarget);
+    assertEq(rollup.getManaTarget(), _initialManaTarget);
   }
 
   function testPrune() public setUpFor("mixed_block_1") {
