@@ -19,6 +19,7 @@ export async function deployL1Contracts(
   acceleratedTestDeployments: boolean,
   json: boolean,
   initialValidators: EthAddress[],
+  realVerifier: boolean,
   log: LogFn,
   debugLogger: Logger,
 ) {
@@ -46,6 +47,7 @@ export async function deployL1Contracts(
     fundingNeeded,
     acceleratedTestDeployments,
     config,
+    realVerifier,
     debugLogger,
   );
 

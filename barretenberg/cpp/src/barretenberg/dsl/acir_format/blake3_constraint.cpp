@@ -27,7 +27,7 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
 
         // XXX: The implementation requires us to truncate the element to the nearest byte and not bit
         auto num_bytes = round_to_nearest_byte(num_bits);
-
+        ASSERT(num_bytes <= 1024, "barretenberg does not support blake3 inputs with more than 1024 bytes");
         field_ct element = to_field_ct(witness_index, builder);
         byte_array_ct element_bytes(element, num_bytes);
 
