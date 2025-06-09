@@ -5,6 +5,7 @@ use dep::types::{
     data::hash::compute_public_data_tree_index,
     storage::map::derive_storage_slot_in_map,
 };
+use std::cmp::min;
 
 pub(crate) fn compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
     let balances_slot_in_fee_juice_contract = 1;
@@ -24,11 +25,11 @@ pub fn compute_effective_gas_fees(gas_fees: GasFees, gas_settings: GasSettings) 
 
     // max_fees are guaranteed to be greater than or equal to gas_fees, which is checked in tube_data_validator.
     let priority_fees = GasFees::new(
-        dep::types::utils::field::min(
+        min(
             max_priority_fees.fee_per_da_gas,
             max_fees.fee_per_da_gas - gas_fees.fee_per_da_gas,
         ),
-        dep::types::utils::field::min(
+        min(
             max_priority_fees.fee_per_l2_gas,
             max_fees.fee_per_l2_gas - gas_fees.fee_per_l2_gas,
         ),
@@ -38,7 +39,6 @@ pub fn compute_effective_gas_fees(gas_fees: GasFees, gas_settings: GasSettings) 
         gas_fees.fee_per_da_gas + priority_fees.fee_per_da_gas,
         gas_fees.fee_per_l2_gas + priority_fees.fee_per_l2_gas,
     );
-    // TODO(14711): Range check effective_gas_fees and priority_fees or change GasFees to u128
 
     effective_gas_fees
 }

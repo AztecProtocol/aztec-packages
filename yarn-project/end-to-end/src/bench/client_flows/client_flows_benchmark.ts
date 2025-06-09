@@ -151,7 +151,7 @@ export class ClientFlowsBenchmark {
   }
 
   async teardown() {
-    this.chainMonitor.stop();
+    await this.chainMonitor.stop();
     await this.snapshotManager.teardown();
   }
 

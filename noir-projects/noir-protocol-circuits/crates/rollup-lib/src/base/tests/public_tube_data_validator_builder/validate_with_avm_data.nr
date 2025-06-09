@@ -288,7 +288,7 @@ fn public_tube_validate_with_avm_data_mismatch_non_revertible_l2_to_l1_msgs_fail
     let builder = PublicTubeDataValidatorBuilder::new_with_full_data();
 
     let mut avm_data = builder.avm_data.to_avm_circuit_public_inputs();
-    avm_data.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content += 1;
+    avm_data.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].inner.content += 1;
 
     builder.validate_with_tweaked_avm_data(avm_data);
 }
@@ -348,7 +348,7 @@ fn public_tube_validate_with_avm_data_mismatch_revertible_l2_to_l1_msgs_fails() 
     let builder = PublicTubeDataValidatorBuilder::new_with_full_data();
 
     let mut avm_data = builder.avm_data.to_avm_circuit_public_inputs();
-    avm_data.previous_revertible_accumulated_data.l2_to_l1_msgs[0].message.content += 1;
+    avm_data.previous_revertible_accumulated_data.l2_to_l1_msgs[0].inner.content += 1;
 
     builder.validate_with_tweaked_avm_data(avm_data);
 }

@@ -39,7 +39,7 @@ contract ProposeWithLockTest is GovernanceBase {
     vm.expectEmit(true, true, true, true, address(governance));
     emit IGovernance.Proposed(proposalId, _proposal);
 
-    assertTrue(governance.proposeWithLock(IPayload(_proposal), address(this)));
+    governance.proposeWithLock(IPayload(_proposal), address(this));
 
     DataStructures.Proposal memory proposal = governance.getProposal(proposalId);
     assertEq(proposal.config.executionDelay, config.executionDelay);

@@ -23,7 +23,6 @@ struct PrivateAppendTreeEvent {
 
 struct PrivateEmitL2L1MessageEvent {
     ScopedL2ToL1Message scoped_msg;
-    // TODO: Add Counter?
 };
 
 struct CollectGasFeeEvent {

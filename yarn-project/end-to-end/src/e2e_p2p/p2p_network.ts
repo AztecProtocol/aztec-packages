@@ -17,6 +17,7 @@ import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -80,6 +81,7 @@ export class P2PNetworkTest {
     // If set enable metrics collection
     private metricsPort?: number,
     startProverNode?: boolean,
+    mockZkPassportVerifier?: boolean,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
@@ -112,6 +114,7 @@ export class P2PNetworkTest {
         aztecProofSubmissionWindow:
           initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
         initialValidators: [],
+        mockZkPassportVerifier,
       },
     );
   }
@@ -123,6 +126,7 @@ export class P2PNetworkTest {
     metricsPort,
     initialConfig,
     startProverNode,
+    mockZkPassportVerifier,
   }: {
     testName: string;
     numberOfNodes: number;
@@ -130,6 +134,7 @@ export class P2PNetworkTest {
     metricsPort?: number;
     initialConfig?: Partial<AztecNodeConfig>;
     startProverNode?: boolean;
+    mockZkPassportVerifier?: boolean;
   }) {
     const port = basePort || (await getPort());
 
@@ -149,6 +154,7 @@ export class P2PNetworkTest {
       initialValidatorConfig,
       metricsPort,
       startProverNode,
+      mockZkPassportVerifier,
     );
   }
 
@@ -342,8 +348,8 @@ export class P2PNetworkTest {
   }
 
   async teardown() {
-    this.monitor.stop();
-    await this.bootstrapNode?.stop();
+    await this.monitor.stop();
+    await tryStop(this.bootstrapNode, this.logger);
     await this.snapshotManager.teardown();
   }
 }

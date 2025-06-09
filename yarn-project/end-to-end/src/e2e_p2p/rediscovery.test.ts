@@ -42,6 +42,7 @@ describe('e2e_p2p_rediscovery', () => {
   });
 
   afterEach(async () => {
+    t.logger.info('Stopping nodes and cleaning up data directories');
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
@@ -102,14 +103,24 @@ describe('e2e_p2p_rediscovery', () => {
     }
 
     // now ensure that all txs were successfully mined
-
     await Promise.all(
       contexts.flatMap((context, i) =>
         context.txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+          const txHash = await tx.getTxHash();
+          t.logger.info(`Waiting for tx ${i}-${j} ${txHash} to be mined`, { txHash });
+          return tx
+            .wait({ timeout: WAIT_FOR_TX_TIMEOUT })
+            .then(() => {
+              t.logger.info(`Tx ${i}-${j} mined successfully`, { txHash });
+            })
+            .catch(err => {
+              t.logger.error(`Tx ${i}-${j} failed to mine: ${err}`, { txHash });
+              throw err;
+            });
         }),
       ),
     );
+
+    t.logger.info('All transactions mined successfully');
   });
 });

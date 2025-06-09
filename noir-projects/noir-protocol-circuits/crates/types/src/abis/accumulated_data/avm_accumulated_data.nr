@@ -1,11 +1,11 @@
 use crate::{
-    abis::{public_data_write::PublicDataWrite, public_log::PublicLog},
+    abis::{public_data_write::PublicDataWrite, public_log::PublicLog, side_effect::scoped::Scoped},
     constants::{
         AVM_ACCUMULATED_DATA_LENGTH, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         NUM_AVM_ACCUMULATED_DATA_ARRAYS,
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     utils::{arrays::array_length, reader::Reader},
 };
@@ -16,7 +16,7 @@ pub struct AvmAccumulatedData {
     // The nullifiers from private combining with those made in the AVM execution.
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     // The L2 to L1 messages from private combining with those made in the AVM execution.
-    pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub l2_to_l1_msgs: [Scoped<L2ToL1Message>; MAX_L2_TO_L1_MSGS_PER_TX],
     // The public logs emitted from the AVM execution.
     pub public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX],
     // The public data writes made in the AVM execution.
@@ -28,7 +28,7 @@ impl Empty for AvmAccumulatedData {
         AvmAccumulatedData {
             note_hashes: [0; MAX_NOTE_HASHES_PER_TX],
             nullifiers: [0; MAX_NULLIFIERS_PER_TX],
-            l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
+            l2_to_l1_msgs: [Scoped::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             public_logs: [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
             public_data_writes: [
                 PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
@@ -75,8 +75,8 @@ impl Deserialize<AVM_ACCUMULATED_DATA_LENGTH> for AvmAccumulatedData {
             note_hashes: reader.read_array(),
             nullifiers: reader.read_array(),
             l2_to_l1_msgs: reader.read_struct_array(
-                ScopedL2ToL1Message::deserialize,
-                [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
+                Scoped::deserialize,
+                [Scoped::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             ),
             public_logs: reader.read_struct_array(
                 PublicLog::deserialize,
