@@ -284,8 +284,8 @@ fn set_gas_fees_in_cols(
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
     row_idx: u32,
 ) {
-    cols[0][row_idx] = gas_fees.fee_per_da_gas;
-    cols[1][row_idx] = gas_fees.fee_per_l2_gas;
+    cols[0][row_idx] = gas_fees.fee_per_da_gas as Field;
+    cols[1][row_idx] = gas_fees.fee_per_l2_gas as Field;
 }
 
 fn set_public_call_request_in_cols(

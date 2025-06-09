@@ -467,8 +467,8 @@ pub contract Test {
         version: Field,
         block_number: Field,
         timestamp: u64,
-        fee_per_da_gas: Field,
-        fee_per_l2_gas: Field,
+        fee_per_da_gas: u128,
+        fee_per_l2_gas: u128,
     ) {
         assert(context.chain_id() == chain_id, "Invalid chain id");
         assert(context.version() == version, "Invalid version");
