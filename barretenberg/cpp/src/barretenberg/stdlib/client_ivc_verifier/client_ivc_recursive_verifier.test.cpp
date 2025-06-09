@@ -107,6 +107,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
 
     info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder->num_gates);
+
     EXPECT_EQ(tube_builder->failed(), false) << tube_builder->err();
 
     // EXPECT_TRUE(CircuitChecker::check(*tube_builder));

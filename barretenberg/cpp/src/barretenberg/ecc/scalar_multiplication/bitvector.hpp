@@ -10,9 +10,7 @@
 /**
  * @brief Custom class to handle packed vectors of bits
  * @details The cpp std::vector<bool> does not gaurantee memory adjacency of values, and has no fast primitive for
- * clearing all bits in the vector. This is important for us as in every Pippenger round we need to clear the entire
- * vector
- *
+ * clearing all bits in the vector. This is to avoid needing to clear all Pippenger buckets every round
  */
 class BitVector {
   public:

@@ -239,15 +239,11 @@ template <typename Curve_> class IPA {
 
             L_i = scalar_multiplication::pippenger_unsafe<Curve>({0, {&a_vec.at(0), /*size*/ round_size}},{&G_vec_local[round_size], round_size});
 
-            // L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            //     {0, {&a_vec.at(0), /*size*/ round_size}}, {&G_vec_local[round_size], /*size*/ round_size}, ck->pippenger_runtime_state);
             L_i += aux_generator * inner_prod_L;
 
             // Step 6.b
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
             R_i = scalar_multiplication::pippenger_unsafe<Curve>({0, {&a_vec.at(round_size), /*size*/ round_size}},{&G_vec_local[0], /*size*/ round_size});
-            // R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            //     {0, {&a_vec.at(round_size), /*size*/ round_size}}, {&G_vec_local[0], /*size*/ round_size}, ck->pippenger_runtime_state);
             R_i += aux_generator * inner_prod_R;
 
             // Step 6.c
@@ -390,7 +386,6 @@ template <typename Curve_> class IPA {
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
         GroupElement LR_sums = scalar_multiplication::pippenger_unsafe<Curve>({0, {&msm_scalars[0], /*size*/ pippenger_size}},{&msm_elements[0], /*size*/ pippenger_size});
-
         GroupElement C_zero = C_prime + LR_sums;
 
         //  Step 6.
@@ -415,9 +410,6 @@ template <typename Curve_> class IPA {
         // Step 8.
         // Compute G₀
         Commitment G_zero = scalar_multiplication::pippenger_unsafe<Curve>(s_poly,{&srs_elements[0], /*size*/ poly_length});
-
-        // Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-        //    s_poly, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state);
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
         BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
 
