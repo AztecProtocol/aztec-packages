@@ -5,16 +5,15 @@ import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import { L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { makeAztecAddress } from '../tests/factories.js';
 import {
+  computeL2ToL1MessageHash,
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
   computeSecretHash,
   computeUniqueNoteHash,
   computeVarArgsHash,
-  siloL2ToL1Message,
   siloNoteHash,
   siloNullifier,
 } from './hash.js';
@@ -96,18 +95,16 @@ describe('hash', () => {
   });
 
   it('L2ToL1Message siloing matches Noir', () => {
-    const version = new Fr(4);
-    const chainId = new Fr(5);
-
-    const nonEmpty = new ScopedL2ToL1Message(
-      new L2ToL1Message(EthAddress.fromField(new Fr(1)), new Fr(2)),
-      AztecAddress.fromField(new Fr(3)),
-    );
-
-    const nonEmptyHash = new Fr(siloL2ToL1Message(nonEmpty, version, chainId));
+    const nonEmptyHash = computeL2ToL1MessageHash({
+      l2Sender: AztecAddress.fromField(new Fr(3)),
+      l1Recipient: EthAddress.fromField(new Fr(1)),
+      content: new Fr(2),
+      rollupVersion: new Fr(4),
+      chainId: new Fr(5),
+    });
 
     expect(nonEmptyHash.toString()).toMatchInlineSnapshot(
-      `"0x00c6155d69febb9d5039b374dd4f77bf57b7c881709aa524a18acaa0bd57476a"`,
+      `"0x0081edf209e087ad31b3fd24263698723d57190bd1d6e9fe056fc0c0a68ee661"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
