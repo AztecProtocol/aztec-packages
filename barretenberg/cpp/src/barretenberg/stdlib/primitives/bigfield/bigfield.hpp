@@ -588,7 +588,7 @@ template <typename Builder, typename T> class bigfield {
      *
      * @return true if the bigfield is constant, false otherwise.
      *
-     * TODO(https://github.com/AztecProtocol/aztec-packages/issues/14662): should we check if all limbs are constants?
+     * @details We use assertions to ensure that all limbs are consistent in their constant status.
      */
     bool is_constant() const
     {
