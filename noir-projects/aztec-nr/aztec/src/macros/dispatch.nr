@@ -10,9 +10,8 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
     let unit = get_type::<()>();
 
-    let mut seen_selectors: UHashMap<Field, bool, BuildHasherDefault<Poseidon2Hasher>> =
-        UHashMap::default();
-    let mut seen_selectors_ref = &mut seen_selectors;
+    let seen_selectors =
+        &mut UHashMap::<Field, bool, BuildHasherDefault<Poseidon2Hasher>>::default();
 
     let ifs = functions.map(|function: FunctionDefinition| {
         let parameters = function.parameters();
@@ -24,10 +23,10 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         // it's possible to have collisions. With the following assert, we ensure it doesn't happen within
         // the same contract.
         assert(
-            !seen_selectors_ref.contains_key(selector),
+            !seen_selectors.contains_key(selector),
             "Public function selector collision detected",
         );
-        seen_selectors_ref.insert(selector, true);
+        seen_selectors.insert(selector, true);
 
         let mut parameters_size = 0;
         for param in parameters {
