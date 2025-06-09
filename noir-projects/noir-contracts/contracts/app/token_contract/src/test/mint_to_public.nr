@@ -25,7 +25,7 @@ unconstrained fn mint_to_public_failures() {
     env.impersonate(recipient);
     let mint_to_public_call_interface =
         Token::at(token_contract_address).mint_to_public(owner, mint_amount);
-    env.assert_public_call_fails(mint_to_public_call_interface);
+    env.assert_public_call_fails(recipient, mint_to_public_call_interface);
 
     utils::check_public_balance(token_contract_address, owner, 0 as u128);
 
@@ -41,7 +41,7 @@ unconstrained fn mint_to_public_failures() {
 
     let mint_to_public_call_interface =
         Token::at(token_contract_address).mint_to_public(owner, amount_until_overflow);
-    env.assert_public_call_fails(mint_to_public_call_interface);
+    env.assert_public_call_fails(owner, mint_to_public_call_interface);
 
     utils::check_public_balance(token_contract_address, owner, 0 as u128);
     utils::check_total_supply(token_contract_address, mint_amount);
@@ -49,7 +49,7 @@ unconstrained fn mint_to_public_failures() {
     // Overflow total supply
     let mint_to_public_call_interface =
         Token::at(token_contract_address).mint_to_public(owner, mint_amount);
-    env.assert_public_call_fails(mint_to_public_call_interface);
+    env.assert_public_call_fails(owner, mint_to_public_call_interface);
 
     utils::check_public_balance(token_contract_address, owner, 0 as u128);
 }

@@ -20,8 +20,10 @@ unconstrained fn main() {
     authorized_is_unset_initially();
 
     let non_admin_cannot_set_unauthorized = || {
-        env.impersonate(other);
-        env.assert_public_call_fails(Auth::at(auth_contract_address).set_authorized(to_authorize));
+        env.assert_public_call_fails(
+            other,
+            Auth::at(auth_contract_address).set_authorized(to_authorize),
+        );
     };
     non_admin_cannot_set_unauthorized();
 
@@ -41,7 +43,10 @@ unconstrained fn main() {
         let authorized = Auth::at(auth_contract_address).get_authorized().view(&mut env.public());
         assert_eq(authorized, AztecAddress::zero());
 
-        env.assert_private_call_fails(Auth::at(auth_contract_address).do_private_authorized_thing());
+        env.assert_private_call_fails(
+            to_authorize,
+            Auth::at(auth_contract_address).do_private_authorized_thing(),
+        );
     };
     authorized_is_not_yet_effective();
 
@@ -100,8 +105,10 @@ unconstrained fn main() {
         env.impersonate(to_authorize);
         Auth::at(auth_contract_address).do_private_authorized_thing().call(&mut env.private());
 
-        env.impersonate(other);
-        env.assert_private_call_fails(Auth::at(auth_contract_address).do_private_authorized_thing());
+        env.assert_private_call_fails(
+            other,
+            Auth::at(auth_contract_address).do_private_authorized_thing(),
+        );
     };
     authorize_other();
 
@@ -122,7 +129,10 @@ unconstrained fn main() {
             Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
         assert_eq(authorized_in_private_again, other);
 
-        env.assert_private_call_fails(Auth::at(auth_contract_address).do_private_authorized_thing());
+        env.assert_private_call_fails(
+            to_authorize,
+            Auth::at(auth_contract_address).do_private_authorized_thing(),
+        );
 
         env.impersonate(other);
         Auth::at(auth_contract_address).do_private_authorized_thing().call(&mut env.private());

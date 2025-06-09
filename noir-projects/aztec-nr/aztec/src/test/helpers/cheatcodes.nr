@@ -72,14 +72,16 @@ pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {
 }
 
 pub unconstrained fn assert_public_call_fails(
+    from: AztecAddress,
     target_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field],
 ) {
-    oracle_assert_public_call_fails(target_address, function_selector, args)
+    oracle_assert_public_call_fails(from, target_address, function_selector, args)
 }
 
 pub unconstrained fn assert_private_call_fails(
+    from: AztecAddress,
     target_address: AztecAddress,
     function_selector: FunctionSelector,
     argsHash: Field,
@@ -87,6 +89,7 @@ pub unconstrained fn assert_private_call_fails(
     isStaticCall: bool,
 ) {
     oracle_assert_private_call_fails(
+        from,
         target_address,
         function_selector,
         argsHash,
@@ -196,6 +199,7 @@ unconstrained fn oracle_add_authwit(address: AztecAddress, message_hash: Field) 
 
 #[oracle(assertPublicCallFails)]
 unconstrained fn oracle_assert_public_call_fails(
+    from: AztecAddress,
     target_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field],
@@ -203,6 +207,7 @@ unconstrained fn oracle_assert_public_call_fails(
 
 #[oracle(assertPrivateCallFails)]
 unconstrained fn oracle_assert_private_call_fails(
+    from: AztecAddress,
     target_address: AztecAddress,
     function_selector: FunctionSelector,
     argsHash: Field,

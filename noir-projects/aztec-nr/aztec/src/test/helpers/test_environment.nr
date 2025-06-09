@@ -185,7 +185,11 @@ impl TestEnvironment {
         Deployer { path: "", name, secret }
     }
 
-    pub unconstrained fn assert_public_call_fails<C, let M: u32>(_self: Self, call_interface: C)
+    pub unconstrained fn assert_public_call_fails<C, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: C,
+    )
     where
         C: CallInterface<M>,
     {
@@ -194,17 +198,23 @@ impl TestEnvironment {
         let calldata =
             &[call_interface.get_selector().to_field()].append(call_interface.get_args());
         cheatcodes::assert_public_call_fails(
+            from,
             call_interface.get_contract_address(),
             fn_selector,
             calldata,
         );
     }
 
-    pub unconstrained fn assert_private_call_fails<C, let M: u32>(_self: Self, call_interface: C)
+    pub unconstrained fn assert_private_call_fails<C, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: C,
+    )
     where
         C: CallInterface<M>,
     {
         cheatcodes::assert_private_call_fails(
+            from,
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             hash_args(call_interface.get_args()),

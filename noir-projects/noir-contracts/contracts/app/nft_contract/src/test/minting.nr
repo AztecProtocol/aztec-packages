@@ -24,7 +24,7 @@ unconstrained fn mint_failures() {
     let token_id = 10000;
     env.impersonate(recipient);
     let mint_call_interface = NFT::at(nft_contract_address).mint(owner, token_id);
-    env.assert_public_call_fails(mint_call_interface);
+    env.assert_public_call_fails(recipient, mint_call_interface);
 
     assert(!utils::get_nft_exists(nft_contract_address, token_id), "NFT minted by non-minter");
 
@@ -34,9 +34,9 @@ unconstrained fn mint_failures() {
     assert(utils::get_nft_exists(nft_contract_address, token_id), "NFT not minted");
 
     // Second call should fail
-    env.assert_public_call_fails(mint_call_interface);
+    env.assert_public_call_fails(owner, mint_call_interface);
 
     // MINTING NFT WITH TOKEN ID 0
     let mint_call_interface = NFT::at(nft_contract_address).mint(owner, 0);
-    env.assert_public_call_fails(mint_call_interface);
+    env.assert_public_call_fails(owner, mint_call_interface);
 }

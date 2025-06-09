@@ -173,15 +173,20 @@ export class TXEService {
   }
 
   async assertPublicCallFails(
+    from: ForeignCallSingle,
     address: ForeignCallSingle,
     functionSelector: ForeignCallSingle,
     _length: ForeignCallSingle,
     args: ForeignCallArray,
   ) {
+    const currentContractAddress = await (this.typedOracle as TXE).getContractAddress();
+    await (this.typedOracle as TXE).setContractAddress(addressFromSingle(from));
+
     const parsedAddress = addressFromSingle(address);
     const parsedSelector = fromSingle(functionSelector);
     const extendedArgs = [parsedSelector, ...fromArray(args)];
     const result = await (this.typedOracle as TXE).avmOpcodeCall(parsedAddress, extendedArgs, false);
+    await (this.typedOracle as TXE).setContractAddress(currentContractAddress);
     if (result.revertCode.isOK()) {
       throw new ExpectedFailureError('Public call did not revert');
     }
@@ -190,12 +195,16 @@ export class TXEService {
   }
 
   async assertPrivateCallFails(
+    from: ForeignCallSingle,
     targetContractAddress: ForeignCallSingle,
     functionSelector: ForeignCallSingle,
     argsHash: ForeignCallSingle,
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
   ) {
+    const currentContractAddress = await (this.typedOracle as TXE).getContractAddress();
+    await (this.typedOracle as TXE).setContractAddress(addressFromSingle(from));
+
     try {
       await this.typedOracle.callPrivateFunction(
         addressFromSingle(targetContractAddress),
@@ -209,6 +218,8 @@ export class TXEService {
       if (e instanceof ExpectedFailureError) {
         throw e;
       }
+    } finally {
+      await (this.typedOracle as TXE).setContractAddress(currentContractAddress);
     }
     return toForeignCallResult([]);
   }

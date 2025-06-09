@@ -46,8 +46,8 @@ unconstrained fn access_control() {
     env.impersonate(owner);
 
     // Try to set ourselves as admin, fail miserably
-    env.assert_public_call_fails(NFT::at(nft_contract_address).set_admin(recipient));
+    env.assert_public_call_fails(owner, NFT::at(nft_contract_address).set_admin(recipient));
 
     // Try to revoke minter status to recipient, fail miserably
-    env.assert_public_call_fails(NFT::at(nft_contract_address).set_minter(recipient, false));
+    env.assert_public_call_fails(owner, NFT::at(nft_contract_address).set_minter(recipient, false));
 }
