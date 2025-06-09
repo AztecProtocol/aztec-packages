@@ -196,6 +196,12 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 proving_key.databus_propagation_data = circuit.databus_propagation_data;
             }
 
+            if constexpr (IsMegaFlavor<Flavor>) {
+                // Set the ecc op subtable size
+                proving_key.ecc_op_subtable_size = circuit.blocks.ecc_op.size();
+                info("PK: ecc op subtable size: ", proving_key.ecc_op_subtable_size);
+            }
+
             // Based on the flavor, we can check the locations of each backend-added public input object.
             if constexpr (HasIPAAccumulator<Flavor>) { // for Rollup flavors, we expect the public inputs to be:
                                                        // [user-public-inputs][pairing-point-object][ipa-claim]

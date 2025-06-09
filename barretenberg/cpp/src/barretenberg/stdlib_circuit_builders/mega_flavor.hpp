@@ -430,6 +430,8 @@ class MegaFlavor {
 
         // Data pertaining to transfer of databus return data via public inputs
         DatabusPropagationData databus_propagation_data;
+
+        FF ecc_op_subtable_size = 0; // size of the ecc op subtable
     };
 
     /**
@@ -456,6 +458,8 @@ class MegaFlavor {
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
         DatabusPropagationData databus_propagation_data;
 
+        FF ecc_op_subtable_size = 0; // size of the subtable for ecc op queue
+
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
@@ -474,6 +478,9 @@ class MegaFlavor {
 
             // Databus commitment propagation data
             this->databus_propagation_data = proving_key.databus_propagation_data;
+
+            this->ecc_op_subtable_size = proving_key.ecc_op_subtable_size;
+            info("VK: ecc op subtable size: ", this->ecc_op_subtable_size);
         }
 
         VerificationKey(ProvingKey& proving_key)
@@ -512,6 +519,7 @@ class MegaFlavor {
             serialize_to_field_buffer(
                 this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
+            serialize_to_field_buffer(this->ecc_op_subtable_size, elements);
 
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
@@ -531,6 +539,7 @@ class MegaFlavor {
                         const size_t pub_inputs_offset,
                         const PublicComponentKey& pairing_inputs_public_input_key,
                         const DatabusPropagationData& databus_propagation_data,
+                        const size_t ecc_op_subtable_size,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -568,6 +577,7 @@ class MegaFlavor {
             this->pub_inputs_offset = pub_inputs_offset;
             this->pairing_inputs_public_input_key = pairing_inputs_public_input_key;
             this->databus_propagation_data = databus_propagation_data;
+            this->ecc_op_subtable_size = ecc_op_subtable_size;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
@@ -605,6 +615,7 @@ class MegaFlavor {
                        pub_inputs_offset,
                        pairing_inputs_public_input_key,
                        databus_propagation_data,
+                       ecc_op_subtable_size,
                        q_m,
                        q_c,
                        q_l,
