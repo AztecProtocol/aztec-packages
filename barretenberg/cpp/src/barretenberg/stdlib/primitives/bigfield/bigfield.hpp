@@ -9,6 +9,7 @@
 #include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -589,7 +590,14 @@ template <typename Builder, typename T> class bigfield {
      *
      * TODO(https://github.com/AztecProtocol/aztec-packages/issues/14662): should we check if all limbs are constants?
      */
-    bool is_constant() const { return prime_basis_limb.is_constant(); }
+    bool is_constant() const
+    {
+        ASSERT(binary_basis_limbs[0].element.is_constant() == binary_basis_limbs[1].element.is_constant() &&
+               binary_basis_limbs[1].element.is_constant() == binary_basis_limbs[2].element.is_constant() &&
+               binary_basis_limbs[2].element.is_constant() == binary_basis_limbs[3].element.is_constant() &&
+               binary_basis_limbs[3].element.is_constant() == prime_basis_limb.is_constant());
+        return prime_basis_limb.is_constant();
+    }
 
     /**
      * @brief Inverting function with the assumption that the bigfield element we are calling invert on is not zero.
