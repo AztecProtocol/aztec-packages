@@ -37,6 +37,7 @@ class ECCVMFlavor;
 class TranslatorFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
+template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class UltraKeccakRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;

@@ -116,7 +116,8 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
         }
 
         /**
-         * @brief Serialize verification key to field elements.
+         * @brief Serialize verification key to field elements. Overrides the base class definition to include
+         * ipa_claim_public_input_key.
          *
          * @return std::vector<FF>
          */
@@ -137,11 +138,13 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
 
             FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
-            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
+            pairing_points_start_idx.convert_constant_to_fixed_witness(
+                builder); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1413): We can't use poseidon2
+                          // with constants.
             serialize_to_field_buffer(pairing_points_start_idx, elements);
 
             FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
-            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder);
+            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder); // We can't use poseidon2 with constants.
             serialize_to_field_buffer(ipa_claim_start_idx, elements);
 
             for (const Commitment& commitment : this->get_all()) {
@@ -151,8 +154,15 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             return elements;
         }
 
-        // Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
-        // submitting that, we want to submit the values directly to the transcript.
+        /**
+         * @brief Adds the verification key witnesses directly to the transcript. Overrides the base class
+         * implementation to include the ipa claim public input key.
+         * @details Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
+         * and submitting that, we want to submit the values directly to the transcript.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
         template <typename Transcript>
         void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
         {
@@ -161,10 +171,11 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->pub_inputs_offset);
             FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
             CircuitBuilder* builder = this->circuit_size.context;
-            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
+            pairing_points_start_idx.convert_constant_to_fixed_witness(
+                builder); // We can't use poseidon2 with constants.
             transcript->add_to_hash_buffer(domain_separator + "vkey_field", pairing_points_start_idx);
             FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
-            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder);
+            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder); // We can't use poseidon2 with constants.
             transcript->add_to_hash_buffer(domain_separator + "vkey_field", ipa_claim_start_idx);
             for (const Commitment& commitment : this->get_all()) {
                 transcript->add_to_hash_buffer(domain_separator + "vkey_field", commitment);

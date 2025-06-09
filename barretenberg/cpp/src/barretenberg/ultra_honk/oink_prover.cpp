@@ -80,11 +80,11 @@ template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
     if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         // super inefficient
-        info(
-            "Computing the verification key in the prover is super inefficient. Pass in a precomputed verification key "
-            "instead.");
+        info("WARNING: We are temporarily regressing prover speed by computing the verification key in the prover. "
+             "This will be fixed in a followup PR.");
         typename Flavor::VerificationKey vkey(proving_key->proving_key);
 
         std::vector<FF> vkey_fields = vkey.to_field_elements();
@@ -92,7 +92,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
             transcript->add_to_hash_buffer(domain_separator + "vkey_field", vkey_field);
         }
         auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
-        info("vkey_hash in prover: ", vkey_hash);
+        vinfo("vkey hash in Oink prover: ", vkey_hash);
     } else {
         const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
         const auto num_public_inputs = static_cast<uint32_t>(proving_key->proving_key.num_public_inputs);

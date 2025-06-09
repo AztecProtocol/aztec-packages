@@ -45,18 +45,20 @@ concept HasIPAAccumulator = IsAnyOf<T, UltraRollupFlavor, UltraRollupRecursiveFl
 template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                        UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                                       UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                       UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
                                        UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                        MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-                                        TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
-                                        TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
-                                        ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
-                                        AvmRecursiveFlavor_<UltraCircuitBuilder>,
-                                        AvmRecursiveFlavor_<MegaCircuitBuilder>,
-                                        avm2::AvmRecursiveFlavor_<UltraCircuitBuilder>,
-                                        avm2::AvmRecursiveFlavor_<MegaCircuitBuilder>>;
+                                       MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                       MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                       TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
+                                       TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
+                                       ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
+                                       AvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                       AvmRecursiveFlavor_<MegaCircuitBuilder>,
+                                       avm2::AvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                       avm2::AvmRecursiveFlavor_<MegaCircuitBuilder>>;
 
 // These concepts are relevant for Sumcheck, where the logic is different for BN254 and Grumpkin Flavors
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
@@ -81,6 +83,7 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                             MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                                             MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 #else
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1426): Rename this.
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
@@ -91,11 +94,13 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            MegaZKFlavor,
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                                                           UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                                           UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
                                                            UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+                                                           MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                                           MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 #endif
 
 template <typename Container, typename Element>

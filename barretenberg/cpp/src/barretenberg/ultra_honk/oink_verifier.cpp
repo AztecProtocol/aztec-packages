@@ -44,13 +44,15 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): We need to single out these flavors because the
+    // solidity contract hasn't been modified yet to fiat shamir the full vk hash. This will be fixed in a followup PR.
     if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         std::vector<FF> vkey_fields = verification_key->verification_key->to_field_elements();
         for (const FF& vkey_field : vkey_fields) {
             transcript->add_to_hash_buffer(domain_separator + "vkey_field", vkey_field);
         }
         auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
-        info("vkey_hash in verifier: ", vkey_hash);
+        vinfo("vkey hash in Oink verifier: ", vkey_hash);
     } else {
         const uint64_t circuit_size = verification_key->verification_key->circuit_size;
         const uint64_t public_input_size = verification_key->verification_key->num_public_inputs;

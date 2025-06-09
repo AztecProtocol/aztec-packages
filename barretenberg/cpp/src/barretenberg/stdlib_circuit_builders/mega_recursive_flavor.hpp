@@ -179,7 +179,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         }
 
         /**
-         * @brief Serialize verification key to field elements.
+         * @brief Serialize verification key to field elements. Overrides the base class definition to include
+         * databus_propagation_data.
          *
          * @return std::vector<FF>
          */
@@ -224,8 +225,15 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             return elements;
         }
 
-        // Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
-        // submitting that, we want to submit the values directly to the transcript.
+        /**
+         * @brief Adds the verification key witnesses directly to the transcript. Overrides the base class
+         * implementation to include the databus propagation data.
+         * @details Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
+         * and submitting that, we want to submit the values directly to the transcript.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
         template <typename Transcript>
         void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
         {

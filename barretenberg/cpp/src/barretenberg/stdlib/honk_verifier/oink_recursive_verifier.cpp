@@ -52,7 +52,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
 
     verification_key->verification_key->add_to_transcript(domain_separator, transcript);
     auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
-    info("vkey_hash in rec ver: ", vkey_hash);
+    vinfo("vkey hash in Oink recursive verifier: ", vkey_hash);
 
     size_t num_public_inputs =
         static_cast<size_t>(static_cast<uint32_t>(verification_key->verification_key->num_public_inputs.get_value()));

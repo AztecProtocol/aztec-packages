@@ -235,6 +235,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             }
         }
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1428): Renable these by adding add_to_transcript
+        // function to native verification key.
         // // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
         // // manifests produced by each agree.
         // auto recursive_folding_manifest = verifier.transcript->get_manifest();
@@ -313,6 +315,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         InnerFoldingVerifier native_folding_verifier({ decider_vk_1, decider_vk_2 });
         auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1428): Renable these by adding add_to_transcript
+        // function to native verification key.
         // // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
         // // manifests produced by each agree.
         // auto recursive_folding_manifest = verifier.transcript->get_manifest();

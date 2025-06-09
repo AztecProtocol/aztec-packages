@@ -158,6 +158,9 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
 
 /**
  * @brief Base Native verification key class.
+ * @details We want a separate native and stdlib verification key class because we don't have nice mappings from native
+ * to stdlib and back. Examples of mappings that don't exist are from uint64_t to field_t, .get_value() doesn't
+ * have a native equivalent, and Builder also doesn't have a native equivalent.
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
  */
@@ -207,6 +210,8 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
         return elements;
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1425): Add a test for checking that this hash matches
+    // transcript produced hash.
     fr hash()
     {
         fr challenge = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(to_field_elements());
@@ -275,6 +280,8 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         return elements;
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1425): Add a test for checking that this hash matches
+    // transcript produced hash.
     FF hash(Builder& builder)
     {
         // use existing field-splitting code in cycle_scalar
@@ -284,9 +291,14 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         scalar.lo.create_range_constraint(cycle_scalar::LO_BITS);
         return scalar.lo;
     }
-
-    // Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
-    // submitting that, we want to submit the values directly to the transcript.
+    /**
+     * @brief Adds the verification key witnesses directly to the transcript.
+     * @details Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
+     * submitting that, we want to submit the values directly to the transcript.
+     *
+     * @param domain_separator
+     * @param transcript
+     */
     template <typename Transcript>
     void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
     {
