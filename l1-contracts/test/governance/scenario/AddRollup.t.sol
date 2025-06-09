@@ -65,7 +65,8 @@ contract AddRollupTest is TestBase {
   address internal constant EMPEROR = address(uint160(bytes20("EMPEROR")));
 
   function setUp() external {
-    vm.warp(1000);
+    // We need to make a timejump that is far enough that we can go at least 2 epochs in the past
+    vm.warp(100000);
     RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10);
     builder.deploy();
 

@@ -102,7 +102,7 @@ export class GlobalVariables {
   }
 
   static getFields(fields: FieldsOf<GlobalVariables>) {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return [
       fields.chainId,
       fields.version,

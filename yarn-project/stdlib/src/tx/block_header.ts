@@ -46,7 +46,7 @@ export class BlockHeader {
   }
 
   static getFields(fields: FieldsOf<BlockHeader>) {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return [
       fields.lastArchive,
       fields.contentCommitment,

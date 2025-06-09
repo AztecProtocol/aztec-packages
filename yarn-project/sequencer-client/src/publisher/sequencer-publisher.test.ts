@@ -18,6 +18,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block, Signature } from '@aztec/stdlib/block';
+import type { ProposedBlockHeader } from '@aztec/stdlib/tx';
 
 import express, { json } from 'express';
 import type { Server } from 'http';
@@ -44,7 +45,7 @@ describe('SequencerPublisher', () => {
   let proposeTxReceipt: GetTransactionReceiptReturnType;
   let l2Block: L2Block;
 
-  let header: Buffer;
+  let header: ProposedBlockHeader;
   let archive: Buffer;
   let blockHash: Buffer;
 
@@ -62,7 +63,7 @@ describe('SequencerPublisher', () => {
 
     l2Block = await L2Block.random(42);
 
-    header = l2Block.header.toBuffer();
+    header = l2Block.header.toPropose();
     archive = l2Block.archive.root.toBuffer();
     blockHash = (await l2Block.header.hash()).toBuffer();
 
@@ -145,7 +146,7 @@ describe('SequencerPublisher', () => {
 
     l2Block = await L2Block.random(42, undefined, undefined, undefined, undefined, Number(currentL2Slot));
 
-    header = l2Block.header.toPropose().toBuffer();
+    header = l2Block.header.toPropose();
     archive = l2Block.archive.root.toBuffer();
     blockHash = (await l2Block.header.hash()).toBuffer();
   });
@@ -226,9 +227,9 @@ describe('SequencerPublisher', () => {
 
     const args = [
       {
-        header: toHex(header),
+        header: header.toViem(),
         archive: toHex(archive),
-        stateReference: toHex(l2Block.header.state.toBuffer()),
+        stateReference: l2Block.header.state.toViem(),
         blockHash: toHex(blockHash),
         oracleInput: {
           feeAssetPriceModifier: 0n,

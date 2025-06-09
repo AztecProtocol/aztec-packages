@@ -81,11 +81,10 @@ contract SlashingTest is TestBase {
 
     // Lets make a proposal to slash! For
     // We jump to perfectly land at the start of the next round
-    uint256 desiredSlot = Slot.unwrap(rollup.getCurrentSlot())
-      + Slot.unwrap(rollup.getCurrentSlot()) % slashingProposer.M();
+    uint256 desiredSlot = (slashingProposer.getCurrentRound() + 1) * slashingProposer.M();
 
     timeCheater.cheat__jumpToSlot(desiredSlot);
-    uint256 round = slashingProposer.computeRound(rollup.getCurrentSlot());
+    uint256 round = slashingProposer.getCurrentRound();
 
     uint96 slashAmount = 10e18;
     address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
