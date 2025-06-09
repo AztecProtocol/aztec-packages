@@ -1473,16 +1473,7 @@ TYPED_TEST(stdlib_field, test_larger_circuit)
 }
 TYPED_TEST(stdlib_field, test_is_zero)
 {
-    TestFixture::test_is_zero();
-}
-TYPED_TEST(stdlib_field, test_fix_witness)
-{
-    TestFixture::test_fix_witness();
-}
-
-TYPED_TEST(stdlib_field, test_conditional_negate)
-{
-    TestFixture::test_conditional_negate();
+    TestFixture::is_zero();
 }
 TYPED_TEST(stdlib_field, madd)
 {

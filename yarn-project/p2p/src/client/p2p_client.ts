@@ -303,7 +303,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug('Stopped block downloader');
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
-    this.log.info('P2P client stopped.');
+    this.log.info('P2P client stopped');
   }
 
   /** Triggers a sync to the archiver. Used for testing. */
@@ -442,7 +442,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /**
    * Returns transactions in the transaction pool by hash.
    * @param txHashes - Hashes of the transactions to look for.
-   * @returns The txs found, not necessarily on the same order as the hashes.
+   * @returns The txs found, in the same order as the requested hashes. If a tx is not found, it will be undefined.
    */
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return this.txPool.getTxsByHash(txHashes);
@@ -525,17 +525,20 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
-    await this.addTxs([tx]);
-    await this.p2pService.propagate(tx);
+    const addedCount = await this.addTxsToPool([tx]);
+    const txAddedSuccessfully = addedCount === 1;
+    if (txAddedSuccessfully) {
+      await this.p2pService.propagate(tx);
+    }
   }
 
   /**
    * Adds transactions to the pool. Does not send to peers or validate the txs.
    * @param txs - The transactions.
    **/
-  public async addTxs(txs: Tx[]): Promise<void> {
+  public async addTxsToPool(txs: Tx[]): Promise<number> {
     this.#assertIsReady();
-    await this.txPool.addTxs(txs);
+    return await this.txPool.addTxs(txs);
   }
 
   /**

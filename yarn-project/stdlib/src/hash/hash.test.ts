@@ -30,9 +30,9 @@ describe('hash', () => {
   });
 
   it('computes unique note hash', async () => {
-    const nonce = new Fr(123n);
+    const noteNonce = new Fr(123n);
     const noteHash = new Fr(456);
-    const res = await computeUniqueNoteHash(nonce, noteHash);
+    const res = await computeUniqueNoteHash(noteNonce, noteHash);
     expect(res).toMatchSnapshot();
   });
 
@@ -100,7 +100,7 @@ describe('hash', () => {
     const chainId = new Fr(5);
 
     const nonEmpty = new ScopedL2ToL1Message(
-      new L2ToL1Message(EthAddress.fromField(new Fr(1)), new Fr(2), 0),
+      new L2ToL1Message(EthAddress.fromField(new Fr(1)), new Fr(2)),
       AztecAddress.fromField(new Fr(3)),
     );
 

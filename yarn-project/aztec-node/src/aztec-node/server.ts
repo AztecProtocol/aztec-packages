@@ -1,5 +1,5 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   type ARCHIVE_HEIGHT,
@@ -229,10 +229,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       options.prefilledPublicData,
       telemetry,
     );
-    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+    const circuitVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
     }
+    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
 
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
 
@@ -257,11 +258,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const watchers: Watcher[] = [];
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    if (validatorsSentinel) {
+    if (validatorsSentinel && config.slashInactivityEnabled) {
       watchers.push(validatorsSentinel);
     }
-    const epochPruneWatcher = new EpochPruneWatcher(archiver, epochCache, config.slashPrunePenalty);
-    watchers.push(epochPruneWatcher);
+    if (config.slashPruneEnabled) {
+      const epochPruneWatcher = new EpochPruneWatcher(
+        archiver,
+        epochCache,
+        config.slashPrunePenalty,
+        config.slashPruneMaxPenalty,
+      );
+      watchers.push(epochPruneWatcher);
+    }
 
     const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
     await slasherClient.start();
@@ -557,15 +565,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * Method to stop the aztec node.
    */
   public async stop() {
-    this.log.info(`Stopping`);
+    this.log.info(`Stopping Aztec Node`);
     await this.txQueue.end();
-    // await this.validatorsSentinel?.stop(); <- The slasher client will stop this
-    await this.sequencer?.stop();
-    await this.p2pClient.stop();
-    await this.worldStateSynchronizer.stop();
+    await tryStop(this.validatorsSentinel);
+    await tryStop(this.proofVerifier);
+    await tryStop(this.sequencer);
+    await tryStop(this.p2pClient);
+    await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
-    await this.telemetry.stop();
-    this.log.info(`Stopped`);
+    await tryStop(this.telemetry);
+    this.log.info(`Stopped Aztec Node`);
   }
 
   /**

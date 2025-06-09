@@ -70,7 +70,7 @@ unconstrained fn public_transfer_failure_more_than_balance() {
     public_transfer_call_interface.call(&mut env.public());
 }
 
-#[test(should_fail_with = "invalid nonce")]
+#[test(should_fail_with = "invalid authwit nonce")]
 unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, mint_amount) =

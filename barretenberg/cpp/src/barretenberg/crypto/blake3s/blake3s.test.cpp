@@ -414,3 +414,9 @@ TEST(MiscBlake3s, TestVectors)
         static_assert(result_constexpr == v.output);
     });
 }
+
+TEST(MiscBlake3s, TooLargeInputTest)
+{
+    std::vector<uint8_t> input(1025, 0);
+    EXPECT_DEATH(blake3::blake3s(input), "Assertion failed");
+}

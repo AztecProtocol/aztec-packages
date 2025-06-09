@@ -12,9 +12,9 @@ export async function cancelTx(
   {
     txHash,
     gasSettings: prevTxGasSettings,
-    nonce,
+    txNonce,
     cancellable,
-  }: { txHash: TxHash; gasSettings: GasSettings; nonce: Fr; cancellable: boolean },
+  }: { txHash: TxHash; gasSettings: GasSettings; txNonce: Fr; cancellable: boolean },
   paymentMethod: FeePaymentMethod,
   increasedFees: GasFees,
   maxFeesPerGas: GasFees | undefined,
@@ -27,8 +27,8 @@ export async function cancelTx(
   }
 
   const maxPriorityFeesPerGas = new GasFees(
-    prevTxGasSettings.maxPriorityFeesPerGas.feePerDaGas.add(increasedFees.feePerDaGas),
-    prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas.add(increasedFees.feePerL2Gas),
+    prevTxGasSettings.maxPriorityFeesPerGas.feePerDaGas + increasedFees.feePerDaGas,
+    prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas + increasedFees.feePerL2Gas,
   );
 
   const fee: FeeOptions = {
@@ -41,7 +41,7 @@ export async function cancelTx(
   };
 
   const txRequest = await wallet.createTxExecutionRequest(ExecutionPayload.empty(), fee, {
-    nonce,
+    txNonce,
     cancellable: true,
   });
   const txSimulationResult = await wallet.simulateTx(txRequest, true);
