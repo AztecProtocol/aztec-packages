@@ -153,7 +153,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it deposits into the rollup
     // it emits a {ValidatorAdded} event
 
-    vm.assume(_attester != address(0) && _proposer != address(0));
+    vm.assume(_attester != address(0) && _proposer != address(0) && _caller != address(this) && _attester != address(this));
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
@@ -185,7 +185,9 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     givenPassportProofIsValid
   {
     // it reverts
-    vm.assume(_attester != address(0));
+
+    vm.assume(_attester != address(0) && _caller != address(this) && _attester != address(this));
+
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
@@ -214,7 +216,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it reverts
     proof.devMode = true;
 
-    vm.assume(_attester != address(0));
+    vm.assume(_attester != address(0) && _caller != address(this) && _attester != address(this));
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
@@ -232,6 +234,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it reverts
 
     vm.assume(_daysInFuture > 8);
+    vm.assume(_caller != address(this));
 
     address attester = address(uint160(42));
 
