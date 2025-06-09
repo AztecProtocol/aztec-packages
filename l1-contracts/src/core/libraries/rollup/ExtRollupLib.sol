@@ -87,7 +87,7 @@ library ExtRollupLib {
     returns (
       bytes32[] memory blobHashes,
       bytes32 blobsHashesCommitment,
-      bytes32 blobPublicInputsHash
+      bytes[] memory blobCommitments
     )
   {
     return BlobLib.validateBlobs(_blobsInput, _checkBlob);

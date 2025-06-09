@@ -223,7 +223,7 @@ describe('SequencerPublisher', () => {
 
     await publisher.sendRequests();
     expect(forwarder.forward).toHaveBeenCalledTimes(1);
-    const blobInput = Blob.getEthBlobEvaluationInputs(expectedBlobs);
+    const blobInput = Blob.getPrefixedEthBlobCommitments(expectedBlobs);
 
     const args = [
       {

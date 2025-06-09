@@ -57,9 +57,8 @@ library Errors {
   error Rollup__InvalidProof(); // 0xa5b2ba17
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
-  error Rollup__InvalidBlobHash(bytes32 blobHash); // 0xc4a168c6
+  error Rollup__InvalidBlobHash(bytes32 expected, bytes32 actual); // 0x13031e6a
   error Rollup__InvalidBlobProof(bytes32 blobHash); // 0x5ca17bef
-  error Rollup__InvalidBlobPublicInputsHash(bytes32 expected, bytes32 actual); // 0xfe6b4994
   error Rollup__NoEpochToProve(); // 0xcbaa3951
   error Rollup__NonSequentialProving(); // 0x1e5be132
   error Rollup__NothingToPrune(); // 0x850defd3
@@ -71,9 +70,10 @@ library Errors {
   error Rollup__NonZeroDaFee(); // 0xd9c75f52
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
   error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
-  error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end);
-  error Rollup__StartIsNotFirstBlockOfEpoch();
-  error Rollup__StartIsNotBuildingOnProven();
+  error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end); // 0xb64ec33e
+  error Rollup__StartIsNotFirstBlockOfEpoch(); // 0x4ef11e0d
+  error Rollup__StartIsNotBuildingOnProven(); // 0x4a59f42e
+  error Rollup__TooManyBlocksInEpoch(uint256 expected, uint256 actual); // 0x7d5b1408
   error Rollup__AlreadyClaimed(address prover, Epoch epoch);
   error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
