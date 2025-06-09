@@ -27,7 +27,12 @@ import {
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
 import { PrivateLog, PublicLog } from '@aztec/stdlib/logs';
-import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
+import {
+  CountedL2ToL1Message,
+  L2ToL1Message,
+  ScopedCountedL2ToL1Message,
+  ScopedL2ToL1Message,
+} from '@aztec/stdlib/messaging';
 import {
   AppendOnlyTreeSnapshot,
   type NullifierLeafPreimage,
@@ -79,7 +84,6 @@ import type {
   PublicDataWrite as PublicDataWriteNoir,
   PublicLog as PublicLogNoir,
   Scoped,
-  ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   StateReference as StateReferenceNoir,
   TxContext as TxContextNoir,
   VerificationKey as VerificationKeyNoir,
@@ -104,6 +108,24 @@ export function mapFieldToNoir(field: Fr): NoirField {
  */
 export function mapFieldFromNoir(field: NoirField): Fr {
   return Fr.fromHexString(field);
+}
+
+/**
+ * Maps a bigint to a noir field.
+ * @param bigInt - The bigint.
+ * @returns The noir field.
+ */
+export function mapBigIntToNoir(bigInt: bigint): NoirField {
+  return new Fr(bigInt).toString();
+}
+
+/**
+ * Maps a noir field to a bigint.
+ * @param field - The noir field.
+ * @returns The bigint.
+ */
+export function mapBigIntFromNoir(field: NoirField): bigint {
+  return Fr.fromHexString(field).toBigInt();
 }
 
 /** Maps a field to a noir wrapped field type (ie any type implemented as struct with an inner Field). */
@@ -246,13 +268,13 @@ export function mapGasSettingsToNoir(gasSettings: GasSettings): GasSettingsNoir 
 
 export function mapGasFeesToNoir(gasFees: GasFees): GasFeesNoir {
   return {
-    fee_per_da_gas: mapFieldToNoir(gasFees.feePerDaGas),
-    fee_per_l2_gas: mapFieldToNoir(gasFees.feePerL2Gas),
+    fee_per_da_gas: mapBigIntToNoir(gasFees.feePerDaGas),
+    fee_per_l2_gas: mapBigIntToNoir(gasFees.feePerL2Gas),
   };
 }
 
 export function mapGasFeesFromNoir(gasFees: GasFeesNoir): GasFees {
-  return new GasFees(mapFieldFromNoir(gasFees.fee_per_da_gas), mapFieldFromNoir(gasFees.fee_per_l2_gas));
+  return new GasFees(mapBigIntFromNoir(gasFees.fee_per_da_gas), mapBigIntFromNoir(gasFees.fee_per_l2_gas));
 }
 
 export function mapPrivateLogToNoir(log: PrivateLog): LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS> {
@@ -448,25 +470,54 @@ export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): M
  * @param message - The L2 to L1 message.
  * @returns The noir L2 to L1 message.
  */
-export function mapL2ToL1MessageToNoir(message: L2ToL1Message): L2ToL1MessageNoir {
+function mapL2ToL1MessageToNoir(message: L2ToL1Message): L2ToL1MessageNoir {
   return {
     recipient: mapEthAddressToNoir(message.recipient),
     content: mapFieldToNoir(message.content),
+  };
+}
+
+function mapL2ToL1MessageFromNoir(message: L2ToL1MessageNoir) {
+  return new L2ToL1Message(mapEthAddressFromNoir(message.recipient), mapFieldFromNoir(message.content));
+}
+
+export function mapCountedL2ToL1MessageToNoir(message: CountedL2ToL1Message): Counted<L2ToL1MessageNoir> {
+  return {
+    inner: mapL2ToL1MessageToNoir(message.message),
     counter: mapNumberToNoir(message.counter),
   };
 }
 
-export function mapL2ToL1MessageFromNoir(message: L2ToL1MessageNoir) {
-  return new L2ToL1Message(
-    mapEthAddressFromNoir(message.recipient),
-    mapFieldFromNoir(message.content),
-    mapNumberFromNoir(message.counter),
+function mapCountedL2ToL1MessageFromNoir(message: Counted<L2ToL1MessageNoir>) {
+  return new CountedL2ToL1Message(mapL2ToL1MessageFromNoir(message.inner), mapNumberFromNoir(message.counter));
+}
+
+export function mapScopedL2ToL1MessageToNoir(message: ScopedL2ToL1Message): Scoped<L2ToL1MessageNoir> {
+  return {
+    inner: mapL2ToL1MessageToNoir(message.message),
+    contract_address: mapAztecAddressToNoir(message.contractAddress),
+  };
+}
+
+export function mapScopedL2ToL1MessageFromNoir(message: Scoped<L2ToL1MessageNoir>) {
+  return new ScopedL2ToL1Message(
+    mapL2ToL1MessageFromNoir(message.inner),
+    mapAztecAddressFromNoir(message.contract_address),
   );
 }
 
-export function mapScopedL2ToL1MessageFromNoir(message: ScopedL2ToL1MessageNoir) {
-  return new ScopedL2ToL1Message(
-    mapL2ToL1MessageFromNoir(message.message),
+export function mapScopedCountedL2ToL1MessageToNoir(
+  message: ScopedCountedL2ToL1Message,
+): Scoped<Counted<L2ToL1MessageNoir>> {
+  return {
+    inner: mapCountedL2ToL1MessageToNoir(message.inner),
+    contract_address: mapAztecAddressToNoir(message.contractAddress),
+  };
+}
+
+export function mapScopedCountedL2ToL1MessageFromNoir(message: Scoped<Counted<L2ToL1MessageNoir>>) {
+  return new ScopedCountedL2ToL1Message(
+    mapCountedL2ToL1MessageFromNoir(message.inner),
     mapAztecAddressFromNoir(message.contract_address),
   );
 }
@@ -516,13 +567,6 @@ export function mapPublicCallRequestArrayLengthsToNoir(
     setup_calls: mapNumberToNoir(lengths.setupCalls),
     app_logic_calls: mapNumberToNoir(lengths.appLogicCalls),
     teardown_call: lengths.teardownCall,
-  };
-}
-
-export function mapScopedL2ToL1MessageToNoir(message: ScopedL2ToL1Message): ScopedL2ToL1MessageNoir {
-  return {
-    message: mapL2ToL1MessageToNoir(message.message),
-    contract_address: mapAztecAddressToNoir(message.contractAddress),
   };
 }
 

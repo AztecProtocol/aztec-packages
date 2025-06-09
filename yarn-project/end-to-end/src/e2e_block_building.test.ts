@@ -7,7 +7,6 @@ import {
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
-  type GlobalVariables,
   type Logger,
   type PXE,
   TxStatus,
@@ -20,15 +19,13 @@ import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import type { TestDateProvider } from '@aztec/foundation/timer';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import type { SequencerClient } from '@aztec/sequencer-client';
+import type { BlockBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { type PublicContractsDB, PublicProcessorFactory, TelemetryPublicTxSimulator } from '@aztec/simulator/server';
+import { type PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -47,7 +44,6 @@ describe('e2e_block_building', () => {
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
-  let dateProvider: TestDateProvider | undefined;
   let watcher: AnvilTestWatcher | undefined;
   let teardown: () => Promise<void>;
 
@@ -71,7 +67,6 @@ describe('e2e_block_building', () => {
         aztecNodeAdmin: maybeAztecNodeAdmin,
         wallets: [owner, minter],
         sequencer: sequencerClient,
-        dateProvider,
       } = await setup(2, {
         archiverPollingIntervalMS: 200,
         transactionPollingIntervalMS: 200,
@@ -110,8 +105,14 @@ describe('e2e_block_building', () => {
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
 
       // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
-      const archiver = (aztecNode as AztecNodeService).getContractDataSource();
-      sequencer.sequencer.publicProcessorFactory = new TestPublicProcessorFactory(archiver, dateProvider!);
+      const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
+      interceptTxProcessorSimulate(
+        aztecNode as AztecNodeService,
+        async (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => {
+          await sleep(TEST_PUBLIC_TX_SIMULATION_DELAY_MS);
+          return originalSimulate(tx);
+        },
+      );
 
       // We also cheat the sequencer's timetable so it allocates little time to processing.
       // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
@@ -608,6 +609,24 @@ describe('e2e_block_building', () => {
       expect(tx3.blockNumber).toBeGreaterThanOrEqual(newTx1Receipt.blockNumber! + 1);
     });
   });
+
+  const interceptTxProcessorSimulate = (
+    node: AztecNodeService,
+    stub: (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => Promise<PublicTxResult>,
+  ) => {
+    const blockBuilder: BlockBuilder = (node as any).sequencer.sequencer.blockBuilder;
+    const originalCreateDeps = blockBuilder.makeBlockBuilderDeps.bind(blockBuilder);
+    jest
+      .spyOn(blockBuilder, 'makeBlockBuilderDeps')
+      .mockImplementation(async (...args: Parameters<BlockBuilder['makeBlockBuilderDeps']>) => {
+        logger.warn('Creating mocked public tx simulator');
+        const deps = await originalCreateDeps(...args);
+        const simulator: PublicTxSimulator = (deps.processor as any).publicTxSimulator;
+        const originalSimulate = simulator.simulate.bind(simulator);
+        jest.spyOn(simulator, 'simulate').mockImplementation((tx: Tx) => stub(tx, originalSimulate));
+        return deps;
+      });
+  };
 });
 
 async function sendAndWait(calls: ContractFunctionInteraction[]) {
@@ -618,24 +637,4 @@ async function sendAndWait(calls: ContractFunctionInteraction[]) {
       // Only then we wait.
       .map(p => p.wait()),
   );
-}
-
-const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
-
-class TestPublicTxSimulator extends TelemetryPublicTxSimulator {
-  public override async simulate(tx: Tx) {
-    await sleep(TEST_PUBLIC_TX_SIMULATION_DELAY_MS);
-    return super.simulate(tx);
-  }
-}
-class TestPublicProcessorFactory extends PublicProcessorFactory {
-  protected override createPublicTxSimulator(
-    merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
-    globalVariables: GlobalVariables,
-    doMerkleOperations: boolean,
-    skipFeeEnforcement: boolean,
-  ) {
-    return new TestPublicTxSimulator(merkleTree, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement);
-  }
 }

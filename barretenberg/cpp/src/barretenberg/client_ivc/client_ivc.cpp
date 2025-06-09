@@ -23,6 +23,7 @@ ClientIVC::ClientIVC(TraceSettings trace_settings)
     size_t commitment_key_size =
         std::max(trace_settings.dyadic_size(), 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     info("BN254 commitment key size: ", commitment_key_size);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
     bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(commitment_key_size);
 }
 
@@ -195,6 +196,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
     if (proving_key->proving_key.circuit_size > bn254_commitment_key->dyadic_size) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
         bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(proving_key->proving_key.circuit_size);
         goblin.commitment_key = bn254_commitment_key;
     }
@@ -343,7 +345,6 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
     // Create a transcript to be shared by final merge prover, ECCVM, Translator, and Hiding Circuit provers.
     goblin.transcript = std::make_shared<Goblin::Transcript>();
-    goblin.transcript->enable_manifest();
     auto decider_pk = construct_hiding_circuit_key();
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(decider_pk, goblin.transcript);

@@ -24,6 +24,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 import {RollupBase, IInstance, IRollup} from "./base/RollupBase.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -62,8 +63,9 @@ contract MultiProofTest is RollupBase {
   modifier setUpFor(string memory _name) {
     {
       DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = full.block.decodedHeader.slotNumber;
-      uint256 initialTime = full.block.decodedHeader.timestamp - slotNumber * SLOT_DURATION;
+      uint256 slotNumber = Slot.unwrap(full.block.header.slotNumber);
+      uint256 initialTime =
+        Timestamp.unwrap(full.block.header.timestamp) - slotNumber * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
@@ -147,6 +149,7 @@ contract MultiProofTest is RollupBase {
       vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__RewardsNotClaimable.selector));
       rollup.claimProverRewards(alice, new Epoch[](1));
 
+      vm.prank(Ownable(address(rollup)).owner());
       rollup.setRewardsClaimable(true);
     }
 

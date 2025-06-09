@@ -22,8 +22,6 @@ import {
   RegisterNewRollupVersionPayloadAbi,
   RegisterNewRollupVersionPayloadBytecode,
   RegistryAbi,
-  TestERC20Abi as StakingAssetAbi,
-  TestERC20Abi,
 } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -182,6 +180,7 @@ describe('e2e_p2p_add_rollup', () => {
         manaTarget: t.ctx.aztecNodeConfig.manaTarget,
         provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
         feeJuicePortalInitialBalance: fundingNeeded,
+        realVerifier: false,
       },
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,
@@ -416,44 +415,6 @@ describe('e2e_p2p_add_rollup', () => {
     });
     t.logger.info(`Executed proposal ${govData.round}`);
 
-    const token = getContract({
-      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
-      abi: StakingAssetAbi,
-      client: t.ctx.deployL1ContractsValues.l1Client,
-    });
-
-    const stakeNeeded = 10000n * 10n ** 18n;
-    t.logger.info(`Minting tokens`);
-    await Promise.all([
-      await l1TxUtils.sendAndMonitorTransaction({
-        to: token.address,
-        data: encodeFunctionData({
-          abi: TestERC20Abi,
-          functionName: 'mint',
-          args: [emperor.address, stakeNeeded],
-        }),
-      }),
-      await l1TxUtils.sendAndMonitorTransaction({
-        to: token.address,
-        data: encodeFunctionData({
-          abi: TestERC20Abi,
-          functionName: 'approve',
-          args: [governance.address, stakeNeeded],
-        }),
-      }),
-    ]);
-
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: governance.address,
-      data: encodeFunctionData({
-        abi: GovernanceAbi,
-        functionName: 'deposit',
-        args: [emperor.address, stakeNeeded],
-      }),
-    });
-
-    t.logger.info(`Deposited tokens`);
-
     const proposal = await governance.read.getProposal([0n]);
 
     const timeToActive = proposal.creation + proposal.config.votingDelay;
@@ -463,15 +424,7 @@ describe('e2e_p2p_add_rollup', () => {
     await waitL1Block();
 
     t.logger.info(`Voting`);
-
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: governance.address,
-      data: encodeFunctionData({
-        abi: GovernanceAbi,
-        functionName: 'vote',
-        args: [0n, stakeNeeded, true],
-      }),
-    });
+    await rollup.vote(l1TxUtils, 0n);
     t.logger.info(`Voted`);
 
     const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;

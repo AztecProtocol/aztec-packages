@@ -2,6 +2,7 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -48,6 +49,7 @@ import { createLibp2p } from 'libp2p';
 import type { P2PConfig } from '../../config.js';
 import type { MemPools } from '../../mem_pools/interface.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
+import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
 import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
 import { type MessageValidator, createTxMessageValidators } from '../../msg_validators/tx_validator/factory.js';
 import { DoubleSpendTxValidator, TxProofValidator } from '../../msg_validators/tx_validator/index.js';
@@ -61,9 +63,15 @@ import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMap } from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
-import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
+import {
+  pingHandler,
+  reqRespBlockHandler,
+  reqRespStatusHandler,
+  reqRespTxHandler,
+} from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
-import type { P2PService, PeerDiscoveryService } from '../service.js';
+import type { P2PBlockReceivedCallback, P2PService, PeerDiscoveryService } from '../service.js';
+import { P2PInstrumentation } from './instrumentation.js';
 
 interface ValidationResult {
   name: string;
@@ -80,6 +88,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private jobQueue: SerialQueue = new SerialQueue();
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
+  private msgIdSeenValidators: Record<TopicType, MessageSeenValidator> = {} as Record<TopicType, MessageSeenValidator>;
 
   // Message validators
   private attestationValidator: AttestationValidator;
@@ -101,9 +110,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param block - The block received from the peer.
    * @returns The attestation for the block, if any.
    */
-  private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>;
+  private blockReceivedCallback: P2PBlockReceivedCallback;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
+
+  private instrumentation: P2PInstrumentation;
 
   constructor(
     private clientType: T,
@@ -119,6 +130,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     protected logger = createLogger('p2p:libp2p_service'),
   ) {
     super(telemetry, 'LibP2PService');
+
+    this.instrumentation = new P2PInstrumentation(telemetry, 'LibP2PService');
+
+    this.msgIdSeenValidators[TopicType.tx] = new MessageSeenValidator(config.seenMessageCacheSize);
+    this.msgIdSeenValidators[TopicType.block_proposal] = new MessageSeenValidator(config.seenMessageCacheSize);
+    this.msgIdSeenValidators[TopicType.block_attestation] = new MessageSeenValidator(config.seenMessageCacheSize);
 
     const versions = getVersions(config);
     this.protocolVersion = compressComponentVersions(versions);
@@ -142,6 +159,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       createLogger(`${logger.module}:peer_manager`),
       peerScoring,
       this.reqresp,
+      this.worldStateSynchronizer,
+      this.protocolVersion,
     );
 
     // Update gossipsub score params
@@ -343,10 +362,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const txHandler = reqRespTxHandler(this.mempools);
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
     const blockHandler = reqRespBlockHandler(this.archiver);
+    const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer);
 
     const requestResponseHandlers = {
       [ReqRespSubProtocol.PING]: pingHandler,
-      [ReqRespSubProtocol.STATUS]: statusHandler,
+      [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
       [ReqRespSubProtocol.TX]: txHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
       [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
@@ -446,8 +466,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
     protocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
+    pinnedPeerId: PeerId | undefined,
   ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
-    return this.reqresp.sendBatchRequest(protocol, requests);
+    return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId);
   }
 
   /**
@@ -458,9 +479,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return this.peerDiscoveryService.getEnr();
   }
 
-  public registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>) {
+  public registerBlockReceivedCallback(callback: P2PBlockReceivedCallback) {
     this.blockReceivedCallback = callback;
-    this.logger.verbose('Block received callback registered');
   }
 
   /**
@@ -494,6 +514,37 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return result.recipients.length;
   }
 
+  protected preValidateReceivedMessage(msg: Message, msgId: string, source: PeerId) {
+    let topicType: TopicType | undefined;
+
+    switch (msg.topic) {
+      case this.topicStrings[TopicType.tx]:
+        topicType = TopicType.tx;
+        break;
+      case this.topicStrings[TopicType.block_attestation]:
+        topicType = TopicType.block_attestation;
+        break;
+      case this.topicStrings[TopicType.block_proposal]:
+        topicType = TopicType.block_proposal;
+        break;
+      default:
+        this.logger.error(`Received message on unknown topic: ${msg.topic}`);
+        break;
+    }
+
+    const validator = topicType ? this.msgIdSeenValidators[topicType] : undefined;
+
+    if (!validator || !validator.addMessage(msgId)) {
+      this.instrumentation.incMessagePrevalidationStatus(false, topicType);
+      this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
+      return false;
+    }
+
+    this.instrumentation.incMessagePrevalidationStatus(true, topicType);
+
+    return true;
+  }
+
   /**
    * Handles a new gossip message that was received by the client.
    * @param topic - The message's topic.
@@ -508,6 +559,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       messageId: p2pMessage.id,
       messageLatency,
     });
+
+    if (!this.preValidateReceivedMessage(msg, msgId, source)) {
+      return;
+    }
+
     if (msg.topic === this.topicStrings[TopicType.tx]) {
       await this.handleGossipedTx(p2pMessage.payload, msgId, source);
     }
@@ -525,12 +581,18 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     validationFunc: () => Promise<{ result: boolean; obj: T }>,
     msgId: string,
     source: PeerId,
+    topicType: TopicType,
   ): Promise<{ result: boolean; obj: T | undefined }> {
     let resultAndObj: { result: boolean; obj: T | undefined } = { result: false, obj: undefined };
+    const timer = new Timer();
     try {
       resultAndObj = await validationFunc();
     } catch (err) {
       this.logger.error(`Error deserialising and validating message `, err);
+    }
+
+    if (resultAndObj.result) {
+      this.instrumentation.recordMessageValidation(topicType, timer);
     }
 
     this.node.services.pubsub.reportMessageValidationResult(
@@ -548,13 +610,16 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return { result, obj: tx };
     };
 
-    const { result, obj: tx } = await this.validateReceivedMessage<Tx>(validationFunc, msgId, source);
+    const { result, obj: tx } = await this.validateReceivedMessage<Tx>(validationFunc, msgId, source, TopicType.tx);
     if (!result || !tx) {
       return;
     }
     const txHash = await tx.getTxHash();
     const txHashString = txHash.toString();
-    this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
+    this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
+      source: source.toString(),
+      txHash: txHashString,
+    });
     await this.mempools.txPool.addTxs([tx]);
   }
 
@@ -579,17 +644,19 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       validationFunc,
       msgId,
       source,
+      TopicType.block_attestation,
     );
     if (!result || !attestation) {
       return;
     }
     this.logger.debug(
-      `Received attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()} from external peer.`,
+      `Received attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()} from external peer ${source.toString()}`,
       {
         p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
         slot: attestation.slotNumber.toNumber(),
         archive: attestation.archive.toString(),
         block: attestation.blockNumber.toNumber(),
+        source: source.toString(),
       },
     );
     await this.mempools.attestationPool!.addAttestations([attestation]);
@@ -606,11 +673,17 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return { result, obj: block };
     };
 
-    const { result, obj: block } = await this.validateReceivedMessage<BlockProposal>(validationFunc, msgId, source);
+    const { result, obj: block } = await this.validateReceivedMessage<BlockProposal>(
+      validationFunc,
+      msgId,
+      source,
+      TopicType.block_proposal,
+    );
     if (!result || !block) {
       return;
     }
-    await this.processValidBlockProposal(block);
+
+    await this.processValidBlockProposal(block, source);
   }
 
   // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -620,19 +693,28 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.P2P_ID]: await block.p2pMessageIdentifier().then(i => i.toString()),
   }))
-  private async processValidBlockProposal(block: BlockProposal) {
+  private async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
+    const slot = block.slotNumber.toBigInt();
+    const previousSlot = slot - 1n;
+    const epoch = slot / 32n;
     this.logger.verbose(
-      `Received block ${block.blockNumber.toNumber()} for slot ${block.slotNumber.toNumber()} from external peer.`,
+      `Received block ${block.blockNumber.toNumber()} for slot ${slot} epoch ${epoch} from external peer ${sender.toString()}.`,
       {
         p2pMessageIdentifier: await block.p2pMessageIdentifier(),
         slot: block.slotNumber.toNumber(),
         archive: block.archive.toString(),
         block: block.blockNumber.toNumber(),
+        source: sender.toString(),
       },
     );
+    const attestationsForPreviousSlot = await this.mempools.attestationPool?.getAttestationsForSlot(previousSlot);
+    if (attestationsForPreviousSlot !== undefined) {
+      this.logger.verbose(`Received ${attestationsForPreviousSlot.length} attestations for slot ${previousSlot}`);
+    }
+
     // Mark the txs in this proposal as non-evictable
     await this.mempools.txPool.markTxsAsNonEvictable(block.payload.txHashes);
-    const attestations = await this.blockReceivedCallback(block);
+    const attestations = await this.blockReceivedCallback(block, sender);
 
     // TODO: fix up this pattern - the abstraction is not nice
     // The attestation can be undefined if no handler is registered / the validator deems the block invalid

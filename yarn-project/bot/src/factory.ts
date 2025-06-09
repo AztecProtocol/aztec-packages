@@ -243,7 +243,7 @@ export class BotFactory {
         lpToken.methods.balance_of_private(wallet.getAddress()).simulate(),
       ]);
 
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
 
     // keep some tokens for swapping
     const amount0Max = MINT_BALANCE / 2;
@@ -257,13 +257,24 @@ export class BotFactory {
       `Minting ${MINT_BALANCE} tokens of each BotToken0 and BotToken1. Current private balances of ${wallet.getAddress()}: token0=${t0Bal}, token1=${t1Bal}, lp=${lpBal}`,
     );
 
+    // Add authwitnesses for the transfers in AMM::add_liquidity function
     const token0Authwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: token0.methods.transfer_to_public(wallet.getAddress(), amm.address, amount0Max, nonce),
+      action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
+        wallet.getAddress(),
+        amm.address,
+        amount0Max,
+        authwitNonce,
+      ),
     });
     const token1Authwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: token1.methods.transfer_to_public(wallet.getAddress(), amm.address, amount1Max, nonce),
+      action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
+        wallet.getAddress(),
+        amm.address,
+        amount1Max,
+        authwitNonce,
+      ),
     });
 
     const mintTx = new BatchCall(wallet, [
@@ -274,9 +285,11 @@ export class BotFactory {
     this.log.info(`Sent mint tx: ${await mintTx.getTxHash()}`);
     await mintTx.wait({ timeout: this.config.txMinedWaitSeconds });
 
-    const addLiquidityTx = amm.methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonce).send({
-      authWitnesses: [token0Authwit, token1Authwit],
-    });
+    const addLiquidityTx = amm.methods
+      .add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, authwitNonce)
+      .send({
+        authWitnesses: [token0Authwit, token1Authwit],
+      });
 
     this.log.info(`Sent tx to add liquidity to the AMM: ${await addLiquidityTx.getTxHash()}`);
     await addLiquidityTx.wait({ timeout: this.config.txMinedWaitSeconds });

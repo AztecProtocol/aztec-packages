@@ -13,6 +13,11 @@ import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
+struct DepositControl {
+  mapping(address caller => bool allowed) isAllowed;
+  bool allDepositsAllowed;
+}
+
 /**
  * @title Governance
  * @author Aztec Labs
@@ -32,6 +37,8 @@ contract Governance is IGovernance {
 
   address public governanceProposer;
 
+  DepositControl internal depositControl;
+
   mapping(uint256 proposalId => DataStructures.Proposal) internal proposals;
   mapping(uint256 proposalId => mapping(address user => DataStructures.Ballot)) public ballots;
   mapping(address => User) internal users;
@@ -42,7 +49,23 @@ contract Governance is IGovernance {
   uint256 public proposalCount;
   uint256 public withdrawalCount;
 
-  constructor(IERC20 _asset, address _governanceProposer) {
+  modifier onlySelf() {
+    require(
+      msg.sender == address(this), Errors.Governance__CallerNotSelf(msg.sender, address(this))
+    );
+    _;
+  }
+
+  modifier isDepositAllowed(address _caller) {
+    require(
+      depositControl.allDepositsAllowed || depositControl.isAllowed[_caller],
+      Errors.Governance__DepositNotAllowed()
+    );
+
+    _;
+  }
+
+  constructor(IERC20 _asset, address _governanceProposer, address _depositor) {
     ASSET = _asset;
     governanceProposer = _governanceProposer;
 
@@ -57,15 +80,31 @@ contract Governance is IGovernance {
       gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
       quorum: 0.1e18,
       voteDifferential: 0.04e18,
-      minimumVotes: 1000e18
+      minimumVotes: 400e18
     });
     configuration.assertValid();
+
+    // Unnecessary to set, but better clarity.
+    depositControl.allDepositsAllowed = false;
+    depositControl.isAllowed[_depositor] = true;
+    emit DepositorAdded(_depositor);
   }
 
-  function updateGovernanceProposer(address _governanceProposer) external override(IGovernance) {
-    require(
-      msg.sender == address(this), Errors.Governance__CallerNotSelf(msg.sender, address(this))
-    );
+  function addDepositor(address _depositor) external override(IGovernance) onlySelf {
+    depositControl.isAllowed[_depositor] = true;
+    emit DepositorAdded(_depositor);
+  }
+
+  function openFloodgates() external override(IGovernance) onlySelf {
+    depositControl.allDepositsAllowed = true;
+    emit FloodGatesOpened();
+  }
+
+  function updateGovernanceProposer(address _governanceProposer)
+    external
+    override(IGovernance)
+    onlySelf
+  {
     governanceProposer = _governanceProposer;
     emit GovernanceProposerUpdated(_governanceProposer);
   }
@@ -73,11 +112,8 @@ contract Governance is IGovernance {
   function updateConfiguration(DataStructures.Configuration memory _configuration)
     external
     override(IGovernance)
+    onlySelf
   {
-    require(
-      msg.sender == address(this), Errors.Governance__CallerNotSelf(msg.sender, address(this))
-    );
-
     // This following MUST revert if the configuration is invalid
     _configuration.assertValid();
 
@@ -86,7 +122,11 @@ contract Governance is IGovernance {
     emit ConfigurationUpdated(Timestamp.wrap(block.timestamp));
   }
 
-  function deposit(address _onBehalfOf, uint256 _amount) external override(IGovernance) {
+  function deposit(address _onBehalfOf, uint256 _amount)
+    external
+    override(IGovernance)
+    isDepositAllowed(_onBehalfOf)
+  {
     ASSET.safeTransferFrom(msg.sender, address(this), _amount);
     users[_onBehalfOf].add(_amount);
     total.add(_amount);
@@ -118,7 +158,7 @@ contract Governance is IGovernance {
     ASSET.safeTransfer(withdrawal.recipient, withdrawal.amount);
   }
 
-  function propose(IPayload _proposal) external override(IGovernance) returns (bool) {
+  function propose(IPayload _proposal) external override(IGovernance) returns (uint256) {
     require(
       msg.sender == governanceProposer,
       Errors.Governance__CallerNotGovernanceProposer(msg.sender, governanceProposer)
@@ -138,12 +178,12 @@ contract Governance is IGovernance {
    *
    * @param _proposal The proposal to propose
    * @param _to The address to send the lock to
-   * @return True if the proposal was proposed
+   * @return The id of the proposal
    */
   function proposeWithLock(IPayload _proposal, address _to)
     external
     override(IGovernance)
-    returns (bool)
+    returns (uint256)
   {
     uint256 availablePower = users[msg.sender].powerNow();
     uint256 amount = configuration.proposeConfig.lockAmount;
@@ -248,6 +288,14 @@ contract Governance is IGovernance {
     return total.powerAt(_ts);
   }
 
+  function isAllowedToDeposit(address _caller) external view override(IGovernance) returns (bool) {
+    return depositControl.isAllowed[_caller];
+  }
+
+  function isAllDepositsAllowed() external view override(IGovernance) returns (bool) {
+    return depositControl.allDepositsAllowed;
+  }
+
   function getConfiguration()
     external
     view
@@ -348,7 +396,7 @@ contract Governance is IGovernance {
     return withdrawalId;
   }
 
-  function _propose(IPayload _proposal, address _proposer) internal returns (bool) {
+  function _propose(IPayload _proposal, address _proposer) internal returns (uint256) {
     uint256 proposalId = proposalCount++;
 
     proposals[proposalId] = DataStructures.Proposal({
@@ -362,6 +410,6 @@ contract Governance is IGovernance {
 
     emit Proposed(proposalId, address(_proposal));
 
-    return true;
+    return proposalId;
   }
 }

@@ -190,7 +190,7 @@ public async runUtility(call: FunctionCall, authwits: AuthWitness[], scopes?: Az
     });
 
     const initialWitness = toACVMWitness(0, call.args);
-    const acirExecutionResult = await this.simulationProvider
+    const acirExecutionResult = await this.simulator
       .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle))
       .catch((err: Error) => {
         err.message = resolveAssertionMessageFromError(err, entryPointArtifact);

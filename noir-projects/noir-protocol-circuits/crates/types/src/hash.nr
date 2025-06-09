@@ -14,7 +14,7 @@ use crate::{
         GENERATOR_INDEX__UNIQUE_NOTE_HASH, TWO_POW_64,
     },
     merkle_tree::root::root_from_sibling_path,
-    messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
+    messaging::l2_to_l1_message::L2ToL1Message,
     poseidon2::Poseidon2Sponge,
     traits::{FromField, Hash, ToField},
     utils::{arrays::array_concat, field::{field_from_bytes, field_from_bytes_32_trunc}},
@@ -52,8 +52,8 @@ pub fn compute_note_hash_nonce(first_nullifier_in_tx: Field, note_index_in_tx: u
     )
 }
 
-pub fn compute_unique_note_hash(nonce: Field, siloed_note_hash: Field) -> Field {
-    let inputs = [nonce, siloed_note_hash];
+pub fn compute_unique_note_hash(note_nonce: Field, siloed_note_hash: Field) -> Field {
+    let inputs = [note_nonce, siloed_note_hash];
     poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
@@ -62,8 +62,8 @@ pub fn compute_nonce_and_unique_note_hash(
     first_nullifier: Field,
     note_index_in_tx: u32,
 ) -> Field {
-    let nonce = compute_note_hash_nonce(first_nullifier, note_index_in_tx);
-    compute_unique_note_hash(nonce, siloed_note_hash)
+    let note_nonce = compute_note_hash_nonce(first_nullifier, note_index_in_tx);
+    compute_unique_note_hash(note_nonce, siloed_note_hash)
 }
 
 pub fn compute_siloed_note_hash(app: AztecAddress, note_hash: Field) -> Field {
@@ -167,7 +167,7 @@ pub fn compute_l2_to_l1_hash(
 }
 
 pub fn silo_l2_to_l1_message(
-    msg: ScopedL2ToL1Message,
+    msg: Scoped<L2ToL1Message>,
     rollup_version_id: Field,
     chain_id: Field,
 ) -> Field {
@@ -176,8 +176,8 @@ pub fn silo_l2_to_l1_message(
     } else {
         compute_l2_to_l1_hash(
             msg.contract_address,
-            msg.message.recipient,
-            msg.message.content,
+            msg.inner.recipient,
+            msg.inner.content,
             rollup_version_id,
             chain_id,
         )
@@ -422,6 +422,27 @@ where
     sponge.squeeze()
 }
 
+// This function is  unconstrained because it is intended to be used in unconstrained context only as
+// in constrained contexts it would be too inefficient.
+pub unconstrained fn poseidon2_hash_with_separator_bounded_vec<let N: u32, T>(
+    inputs: BoundedVec<Field, N>,
+    separator: T,
+) -> Field
+where
+    T: ToField,
+{
+    let in_len = inputs.len() + 1;
+    let iv: Field = (in_len as Field) * TWO_POW_64;
+    let mut sponge = Poseidon2Sponge::new(iv);
+    sponge.absorb(separator.to_field());
+
+    for i in 0..inputs.len() {
+        sponge.absorb(inputs.get(i));
+    }
+
+    sponge.squeeze()
+}
+
 #[no_predicates]
 pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
     let mut fields = [0; (N + 30) / 31];
@@ -544,10 +565,9 @@ fn silo_l2_to_l1_message_matches_typescript() {
     let chainId = 5;
 
     let hash = silo_l2_to_l1_message(
-        ScopedL2ToL1Message {
-            message: L2ToL1Message { recipient: EthAddress::from_field(1), content: 2, counter: 0 },
-            contract_address: AztecAddress::from_field(3),
-        },
+        L2ToL1Message { recipient: EthAddress::from_field(1), content: 2 }.scope(
+            AztecAddress::from_field(3),
+        ),
         version,
         chainId,
     );
@@ -556,4 +576,19 @@ fn silo_l2_to_l1_message_matches_typescript() {
     let hash_from_typescript = 0x00c6155d69febb9d5039b374dd4f77bf57b7c881709aa524a18acaa0bd57476a;
 
     assert_eq(hash, hash_from_typescript);
+}
+
+#[test]
+unconstrained fn poseidon2_hash_with_separator_bounded_vec_matches_non_bounded_vec_version() {
+    let inputs = BoundedVec::<Field, 4>::from_array([1, 2, 3]);
+    let separator = 42;
+
+    // Hash using bounded vec version
+    let bounded_result = poseidon2_hash_with_separator_bounded_vec(inputs, separator);
+
+    // Hash using regular version
+    let regular_result = poseidon2_hash_with_separator([1, 2, 3], separator);
+
+    // Results should match
+    assert_eq(bounded_result, regular_result);
 }

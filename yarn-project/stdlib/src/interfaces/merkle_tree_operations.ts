@@ -236,6 +236,16 @@ export interface MerkleTreeCheckpointOperations {
    * Reverts the current checkpoint
    */
   revertCheckpoint(): Promise<void>;
+
+  /**
+   * Commits all checkpoints
+   */
+  commitAllCheckpoints(): Promise<void>;
+
+  /**
+   * Reverts all checkpoints
+   */
+  revertAllCheckpoints(): Promise<void>;
 }
 
 export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations, MerkleTreeCheckpointOperations {

@@ -41,6 +41,45 @@ export type EpochProofPublicInputArgs = {
   proverId: `0x${string}`;
 };
 
+export type ViemHeader = {
+  lastArchiveRoot: `0x${string}`;
+  contentCommitment: ViemContentCommitment;
+  slotNumber: bigint;
+  timestamp: bigint;
+  coinbase: `0x${string}`;
+  feeRecipient: `0x${string}`;
+  gasFees: ViemGasFees;
+  totalManaUsed: bigint;
+};
+
+export type ViemContentCommitment = {
+  numTxs: bigint;
+  blobsHash: `0x${string}`;
+  inHash: `0x${string}`;
+  outHash: `0x${string}`;
+};
+
+export type ViemGasFees = {
+  feePerDaGas: bigint;
+  feePerL2Gas: bigint;
+};
+
+export type ViemStateReference = {
+  l1ToL2MessageTree: ViemAppendOnlyTreeSnapshot;
+  partialStateReference: ViemPartialStateReference;
+};
+
+export type ViemPartialStateReference = {
+  noteHashTree: ViemAppendOnlyTreeSnapshot;
+  nullifierTree: ViemAppendOnlyTreeSnapshot;
+  publicDataTree: ViemAppendOnlyTreeSnapshot;
+};
+
+export type ViemAppendOnlyTreeSnapshot = {
+  root: `0x${string}`;
+  nextAvailableLeafIndex: number;
+};
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
@@ -74,6 +113,10 @@ export class RollupContract {
       address = address.toString();
     }
     this.rollup = getContract({ address, abi: RollupAbi, client });
+  }
+
+  getGSE() {
+    return this.rollup.read.getGSE();
   }
 
   public get address() {
@@ -325,7 +368,7 @@ export class RollupContract {
 
   public async validateHeader(
     args: readonly [
-      `0x${string}`,
+      ViemHeader,
       ViemCommitteeAttestation[],
       `0x${string}`,
       bigint,
@@ -467,6 +510,17 @@ export class RollupContract {
         abi: RollupAbi,
         functionName: 'setupEpoch',
         args: [],
+      }),
+    });
+  }
+
+  vote(l1TxUtils: L1TxUtils, proposalId: bigint) {
+    return l1TxUtils.sendAndMonitorTransaction({
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'vote',
+        args: [proposalId],
       }),
     });
   }

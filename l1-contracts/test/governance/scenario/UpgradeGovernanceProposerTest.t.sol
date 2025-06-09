@@ -21,6 +21,8 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {TestConstants} from "../../harnesses/TestConstants.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../../builder/RollupBuilder.sol";
+import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 
 /**
  * @title UpgradeGovernanceProposerTest
@@ -35,6 +37,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
   Governance internal governance;
   GovernanceProposer internal governanceProposer;
   Rollup internal rollup;
+  IGSE internal gse;
 
   DataStructures.Proposal internal proposal;
 
@@ -47,17 +50,17 @@ contract UpgradeGovernanceProposerTest is TestBase {
   address internal constant EMPEROR = address(uint160(bytes20("EMPEROR")));
 
   function setUp() external {
-    vm.warp(1000);
-    RollupBuilder builder = new RollupBuilder(address(this));
+    // We do a timejump to ensure that we don't underflow with time when looking up sample
+    vm.warp(100000);
+    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
     registry = builder.getConfig().registry;
     token = builder.getConfig().testERC20;
-
-    governanceProposer = new GovernanceProposer(registry, 7, 10);
-
-    governance = new Governance(token, address(governanceProposer));
+    governance = builder.getConfig().governance;
+    governanceProposer = GovernanceProposer(governance.governanceProposer());
+    gse = IGSE(address(rollup.getGSE()));
 
     CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](VALIDATOR_COUNT);
     for (uint256 i = 1; i <= VALIDATOR_COUNT; i++) {
@@ -77,7 +80,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
   }
 
   function test_UpgradeIntoNewVersion() external {
-    payload = IPayload(address(new NewGovernanceProposerPayload(registry)));
+    payload = IPayload(address(new NewGovernanceProposerPayload(registry, gse)));
     vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(1))));
 
     for (uint256 i = 0; i < 10; i++) {
@@ -89,7 +92,11 @@ contract UpgradeGovernanceProposerTest is TestBase {
 
     governanceProposer.executeProposal(0);
     proposal = governance.getProposal(0);
-    assertEq(address(proposal.payload), address(payload));
+
+    GSEPayload gsePayload = GSEPayload(address(proposal.payload));
+    address originalPayload = address(gsePayload.getOriginalPayload());
+
+    assertEq(originalPayload, address(payload));
 
     token.mint(EMPEROR, 10000 ether);
 

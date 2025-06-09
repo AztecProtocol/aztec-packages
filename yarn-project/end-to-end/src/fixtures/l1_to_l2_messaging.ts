@@ -1,10 +1,12 @@
 import { type ExtendedViemWalletClient, type L1ContractAddresses, RollupContract } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
+import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { InboxAbi } from '@aztec/l1-artifacts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { expect } from '@jest/globals';
 import { decodeEventLog, getContract } from 'viem';
+
+import { getLogger } from './utils.js';
 
 export async function sendL1ToL2Message(
   message: { recipient: AztecAddress; content: Fr; secretHash: Fr },
@@ -13,6 +15,7 @@ export async function sendL1ToL2Message(
     l1ContractAddresses: Pick<L1ContractAddresses, 'inboxAddress' | 'rollupAddress'>;
   },
 ) {
+  const logger = getLogger();
   const inbox = getContract({
     address: ctx.l1ContractAddresses.inboxAddress.toString(),
     abi: InboxAbi,
@@ -29,12 +32,23 @@ export async function sendL1ToL2Message(
     content.toString(),
     secretHash.toString(),
   ]);
+  logger.info(`L1 to L2 message sent in tx ${txHash}`);
 
   // We check that the message was correctly injected by checking the emitted event
   const txReceipt = await ctx.l1Client.waitForTransactionReceipt({ hash: txHash });
 
+  logger.info(`L1 to L2 message receipt retried for tx ${txReceipt.transactionHash}`);
+
+  if (txReceipt.transactionHash !== txHash) {
+    throw new Error(`Receipt transaction hash mismatch: ${txReceipt.transactionHash} !== ${txHash}`);
+  }
+
   // Exactly 1 event should be emitted in the transaction
-  expect(txReceipt.logs.length).toBe(1);
+  if (txReceipt.logs.length !== 1) {
+    throw new Error(
+      `Wrong number of logs found in ${txHash} transaction (got ${txReceipt.logs.length} expected 1)\n${tryJsonStringify(txReceipt.logs)}`,
+    );
+  }
 
   // We decode the event and get leaf out of it
   const messageSentLog = txReceipt.logs[0];

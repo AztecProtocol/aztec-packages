@@ -10,6 +10,10 @@ import {
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {GSE, AttesterConfig} from "@aztec/core/staking/GSE.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
+import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
+import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -27,6 +31,7 @@ enum Status {
 }
 
 struct Exit {
+  uint256 withdrawalId;
   uint256 amount;
   Timestamp exitableAt;
   address recipientOrWithdrawer;
@@ -53,6 +58,7 @@ library StakingLib {
   using SafeCast for uint256;
   using SafeERC20 for IERC20;
   using AddressSnapshotLib for SnapshottedAddressSet;
+  using ProposalLib for DataStructures.Proposal;
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
@@ -75,6 +81,43 @@ library StakingLib {
     emit IStakingCore.SlasherUpdated(oldSlasher, _slasher);
   }
 
+  function vote(uint256 _proposalId) internal {
+    StakingStorage storage store = getStorage();
+    Governance gov = store.gse.getGovernance();
+
+    // We will vote if:
+    // 1. We are the canonical instance as seen be my the governance proposer
+    // 2. We are the actor that was canonical when the proposal was made in the governance proposer
+    // 3. The proposer in the governance is the governance proposer.
+    // This means that if we only vote if canonical and on our own proposals (assuming that the governance
+    // proposer don't lie to us).
+
+    GovernanceProposer govProposer = GovernanceProposer(gov.governanceProposer());
+    require(address(this) == govProposer.getInstance(), Errors.Staking__NotCanonical(address(this)));
+    address proposalProposer = govProposer.getProposalProposer(_proposalId);
+    require(
+      address(this) == proposalProposer,
+      Errors.Staking__NotOurProposal(_proposalId, address(this), proposalProposer)
+    );
+    DataStructures.Proposal memory proposal = gov.getProposal(_proposalId);
+    require(
+      proposal.proposer == address(govProposer), Errors.Staking__IncorrectGovProposer(_proposalId)
+    );
+
+    Timestamp ts = proposal.pendingThroughMemory();
+
+    // Cast votes will all our power
+    uint256 vp = store.gse.getVotingPowerAt(address(this), ts);
+    store.gse.vote(_proposalId, vp, true);
+
+    // If we are the canonical at the time of the proposal we also cast those votes.
+    if (store.gse.getCanonicalAt(ts) == address(this)) {
+      address magic = store.gse.CANONICAL_MAGIC_ADDRESS();
+      vp = store.gse.getVotingPowerAt(magic, ts);
+      store.gse.voteWithCanonical(_proposalId, vp, true);
+    }
+  }
+
   function finaliseWithdraw(address _attester) internal {
     StakingStorage storage store = getStorage();
     // We load it into memory to cache it, as we will delete it before we use it.
@@ -87,6 +130,8 @@ library StakingLib {
     );
 
     delete store.exits[_attester];
+
+    store.gse.finaliseHelper(exit.withdrawalId);
     store.stakingAsset.transfer(exit.recipientOrWithdrawer, exit.amount);
 
     emit IStakingCore.WithdrawFinalised(_attester, exit.recipientOrWithdrawer, exit.amount);
@@ -114,11 +159,14 @@ library StakingLib {
       (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
       require(attesterExists, Errors.Staking__NoOneToSlash(_attester));
 
-      (uint256 amountWithdrawn, bool isRemoved) = store.gse.withdraw(_attester, _amount);
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
+        store.gse.withdraw(_attester, _amount);
 
-      if (isRemoved) {
-        uint256 toUser = amountWithdrawn - _amount;
+      uint256 toUser = amountWithdrawn - _amount;
+      if (isRemoved && toUser > 0) {
+        // Only if we remove the attester AND there is something left will we create an exit
         store.exits[_attester] = Exit({
+          withdrawalId: withdrawalId,
           amount: toUser,
           exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay,
           recipientOrWithdrawer: withdrawer,
@@ -137,10 +185,8 @@ library StakingLib {
       Errors.Staking__InvalidDeposit(_attester, _withdrawer)
     );
     StakingStorage storage store = getStorage();
-    require(!store.exits[_attester].exists, Errors.Staking__AlreadyRegistered(_attester));
-    require(
-      !store.gse.isRegistered(address(this), _attester), Errors.Staking__AlreadyActive(_attester)
-    );
+    // We don't allow deposits, if we are currently exiting.
+    require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
     uint256 amount = store.gse.MINIMUM_DEPOSIT();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
@@ -171,11 +217,13 @@ library StakingLib {
       require(attesterExists, Errors.Staking__NothingToExit(_attester));
       require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
 
-      uint256 amount = store.gse.balanceOf(address(this), _attester);
-      (uint256 actualAmount, bool removed) = store.gse.withdraw(_attester, amount);
+      uint256 amount = store.gse.effectiveBalanceOf(address(this), _attester);
+      (uint256 actualAmount, bool removed, uint256 withdrawalId) =
+        store.gse.withdraw(_attester, amount);
       require(removed, Errors.Staking__WithdrawFailed(_attester));
 
       store.exits[_attester] = Exit({
+        withdrawalId: withdrawalId,
         amount: actualAmount,
         exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay,
         recipientOrWithdrawer: _recipient,
@@ -221,7 +269,7 @@ library StakingLib {
   function getAttesterView(address _attester) internal view returns (AttesterView memory) {
     return AttesterView({
       status: getStatus(_attester),
-      effectiveBalance: getStorage().gse.balanceOf(address(this), _attester),
+      effectiveBalance: getStorage().gse.effectiveBalanceOf(address(this), _attester),
       exit: getExit(_attester),
       config: getConfig(_attester)
     });
@@ -229,7 +277,7 @@ library StakingLib {
 
   function getStatus(address _attester) internal view returns (Status) {
     Exit memory exit = getExit(_attester);
-    uint256 effectiveBalance = getStorage().gse.balanceOf(address(this), _attester);
+    uint256 effectiveBalance = getStorage().gse.effectiveBalanceOf(address(this), _attester);
 
     Status status;
     if (exit.exists) {

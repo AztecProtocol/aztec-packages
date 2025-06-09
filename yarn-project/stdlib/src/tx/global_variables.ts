@@ -102,7 +102,7 @@ export class GlobalVariables {
   }
 
   static getFields(fields: FieldsOf<GlobalVariables>) {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return [
       fields.chainId,
       fields.version,
@@ -169,8 +169,8 @@ export class GlobalVariables {
       timestamp: this.timestamp.toNumber(),
       coinbase: this.coinbase.toString(),
       feeRecipient: this.feeRecipient.toString(),
-      feePerDaGas: this.gasFees.feePerDaGas.toNumber(),
-      feePerL2Gas: this.gasFees.feePerL2Gas.toNumber(),
+      feePerDaGas: Number(this.gasFees.feePerDaGas),
+      feePerL2Gas: Number(this.gasFees.feePerL2Gas),
     };
   }
 

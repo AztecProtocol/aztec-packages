@@ -44,6 +44,7 @@ import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ether
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { tryRmDir } from '@aztec/foundation/fs';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -55,15 +56,16 @@ import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec
 import {
   type PXEService,
   type PXEServiceConfig,
-  createPXEServiceWithSimulationProvider,
+  createPXEServiceWithSimulator,
   getPXEServiceConfig,
 } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { MemoryCircuitRecorder, SimulationProviderRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
+import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
 import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -128,6 +130,7 @@ export const setupL1Contracts = async (
     salt: args.salt,
     initialValidators: args.initialValidators,
     ...getL1ContractsConfigEnvVars(),
+    realVerifier: false,
     ...args,
   });
 
@@ -171,27 +174,16 @@ export async function setupPXEService(
     pxeServiceConfig.dataDirectory = path.join(tmpdir(), randomBytes(8).toString('hex'));
   }
 
-  const simulationProvider = new WASMSimulator();
+  const simulator = new WASMSimulator();
   const recorder = process.env.CIRCUIT_RECORD_DIR
     ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
     : new MemoryCircuitRecorder();
-  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider, recorder);
-  const pxe = await createPXEServiceWithSimulationProvider(
-    aztecNode,
-    simulationProviderWithRecorder,
-    pxeServiceConfig,
-    { useLogSuffix },
-  );
+  const simulatorWithRecorder = new SimulatorRecorderWrapper(simulator, recorder);
+  const pxe = await createPXEServiceWithSimulator(aztecNode, simulatorWithRecorder, pxeServiceConfig, {
+    useLogSuffix,
+  });
 
-  const teardown = async () => {
-    if (!configuredDataDirectory) {
-      try {
-        await fs.rm(pxeServiceConfig.dataDirectory!, { recursive: true, force: true, maxRetries: 3 });
-      } catch (err) {
-        logger.warn(`Failed to delete tmp PXE data directory ${pxeServiceConfig.dataDirectory}: ${err}`);
-      }
-    }
-  };
+  const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(pxeServiceConfig.dataDirectory!);
 
   return {
     pxe,
@@ -568,39 +560,26 @@ export async function setup(
     const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
 
     const teardown = async () => {
-      await pxeTeardown();
+      try {
+        await pxeTeardown();
 
-      if (aztecNode instanceof AztecNodeService) {
-        await aztecNode?.stop();
-      }
+        await tryStop(aztecNode, logger);
+        await tryStop(proverNode, logger);
 
-      if (proverNode) {
-        await proverNode.stop();
-      }
-
-      if (acvmConfig?.cleanup) {
-        // remove the temp directory created for the acvm
-        logger.verbose(`Cleaning up ACVM state`);
-        await acvmConfig.cleanup();
-      }
-
-      if (bbConfig?.cleanup) {
-        // remove the temp directory created for the acvm
-        logger.verbose(`Cleaning up BB state`);
-        await bbConfig.cleanup();
-      }
-
-      await anvil?.stop().catch(err => getLogger().error(err));
-      await watcher.stop();
-      await blobSink?.stop();
-
-      if (directoryToCleanup) {
-        try {
-          logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
-          await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
-        } catch (err) {
-          logger.warn(`Failed to delete data directory at ${directoryToCleanup}: ${err}`);
+        if (acvmConfig?.cleanup) {
+          await acvmConfig.cleanup();
         }
+
+        if (bbConfig?.cleanup) {
+          await bbConfig.cleanup();
+        }
+
+        await tryStop(anvil, logger);
+        await tryStop(watcher, logger);
+        await tryStop(blobSink, logger);
+        await tryRmDir(directoryToCleanup, logger);
+      } catch (err) {
+        logger.error(`Error during e2e test teardown`, err);
       }
     };
 
