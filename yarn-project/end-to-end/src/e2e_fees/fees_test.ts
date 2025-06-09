@@ -131,7 +131,7 @@ export class FeesTest {
   }
 
   async teardown() {
-    this.chainMonitor.stop();
+    await this.chainMonitor.stop();
     await this.snapshotManager.teardown();
   }
 

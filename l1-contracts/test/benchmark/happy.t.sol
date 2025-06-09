@@ -14,6 +14,7 @@ import {
   CommitteeAttestation
 } from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
@@ -37,7 +38,7 @@ import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
-import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
   ProposeArgs,
   ProposePayload,
@@ -66,6 +67,7 @@ import {
 import {Forwarder} from "@aztec/periphery/Forwarder.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -204,31 +206,32 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     bytes32[] memory txHashes = new bytes32[](0);
 
-    bytes memory header = full.block.header;
+    ProposedHeader memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
     TestPoint memory point = points[slotNumber.unwrap() - 1];
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint256 manaBaseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+    uint128 manaBaseFee =
+      SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
     uint256 manaSpent = point.block_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
 
     // Updating the header with important information!
-    header = DecoderBase.updateHeaderArchive(header, archiveRoot);
-    header = DecoderBase.updateHeaderSlot(header, slotNumber);
-    header = DecoderBase.updateHeaderTimestamp(header, ts);
-    header = DecoderBase.updateHeaderCoinbase(header, proposer);
-    header = DecoderBase.updateHeaderFeeRecipient(header, address(0));
-    header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);
-    header = DecoderBase.updateHeaderManaUsed(header, manaSpent);
+    header.lastArchiveRoot = archiveRoot;
+    header.slotNumber = slotNumber;
+    header.timestamp = ts;
+    header.coinbase = proposer;
+    header.feeRecipient = bytes32(0);
+    header.gasFees.feePerL2Gas = manaBaseFee;
+    header.totalManaUsed = manaSpent;
 
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
       archive: archiveRoot,
-      stateReference: new bytes(0),
+      stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
       txHashes: txHashes
     });
@@ -240,7 +243,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       uint256 needed = validators.length * 2 / 3 + 1;
       attestations = new CommitteeAttestation[](validators.length);
 
-      bytes32 headerHash = HeaderLib.hash(proposeArgs.header);
+      bytes32 headerHash = ProposedHeaderLib.hash(proposeArgs.header);
 
       ProposePayload memory proposePayload = ProposePayload({
         archive: proposeArgs.archive,

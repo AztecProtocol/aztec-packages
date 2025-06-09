@@ -29,7 +29,6 @@ describe('client_prover', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    await t.deployVerifier();
 
     ({ provenAssets, accounts, logger } = t);
     [sender, recipient] = accounts.map(a => a.address);
