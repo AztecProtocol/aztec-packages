@@ -589,7 +589,7 @@ template <typename Builder, typename T> class bigfield {
      *
      * TODO(https://github.com/AztecProtocol/aztec-packages/issues/14662): should we check if all limbs are constants?
      */
-    bool is_constant() const { return prime_basis_limb.witness_index == IS_CONSTANT; }
+    bool is_constant() const { return prime_basis_limb.is_constant(); }
 
     /**
      * @brief Inverting function with the assumption that the bigfield element we are calling invert on is not zero.
