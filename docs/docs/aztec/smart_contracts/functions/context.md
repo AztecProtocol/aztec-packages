@@ -57,7 +57,7 @@ The call context contains information about the current call being made:
 
 > The graphic below illustrates how the message sender changes throughout the kernel circuit iterations.
 
-<Image img={require("@site/static/img/context/sender_context_change.png")} />
+<img src="https://github.com/AztecProtocol/aztec-packages/blob/master/docs/static/img/context/sender_context_change.png" />
 
 2. Storage contract address
 
