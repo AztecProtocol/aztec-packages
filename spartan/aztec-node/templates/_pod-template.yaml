@@ -17,8 +17,8 @@ spec:
   {{- end }}
 
   {{- if .Values.podTolerations }}
-  tollerations:
-    {{- toYaml .Values.podATolerations | nindent 4 }}
+  tolerations:
+    {{- toYaml .Values.podTolerations | nindent 4 }}
   {{- end }}
 
   initContainers:

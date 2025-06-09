@@ -84,9 +84,8 @@ agent:
   statefulSet:
     enabled: false
 
-  configMapEnabled: true
-
   node:
+    configMapEnabled: true
     startCmd:
       - --prover-agent
 
