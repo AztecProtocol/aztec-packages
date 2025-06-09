@@ -22,7 +22,7 @@ describe('buildBlobHints', () => {
     expect(blobsHashStr).toMatchInlineSnapshot(`"0x001cedbd7ea5309ef9d1d159209835409bf41b6b1802597a52fa70cc82e934d9"`);
 
     expect(blobs.length).toBe(1);
-    expect(blobs[0].evaluationY).toEqual(Buffer.alloc(32));
+    expect(blobs[0].evaluate().y).toEqual(Buffer.alloc(32));
     const zStr = blobs[0].challengeZ.toString();
     expect(zStr).toMatchInlineSnapshot(`"0x0ac4f3ee53aedc4865073ae7fb664e7401d10eadbe3bbcc266c35059f14826bb"`);
 
@@ -74,7 +74,7 @@ describe('buildBlobHints', () => {
     expect(blobsHashStr).toMatchInlineSnapshot(`"0x00a965619c8668b834755678b32d023b9c5e8588ce449f44f7fa9335455b5cc5"`);
 
     expect(blobs.length).toBe(1);
-    expect(blobs[0].evaluationY.toString('hex')).toMatchInlineSnapshot(
+    expect(blobs[0].evaluate().y.toString('hex')).toMatchInlineSnapshot(
       `"25fb571bd6a15d4e3a8f6fe199b714c51e1e03ef40366e2e77e5c5733ab9e57d"`,
     );
     const zStr = blobs[0].challengeZ.toString();

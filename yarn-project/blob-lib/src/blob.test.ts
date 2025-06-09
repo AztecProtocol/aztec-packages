@@ -92,15 +92,11 @@ describe('blob', () => {
     expect(z).toEqual(ourBlob.challengeZ);
 
     const res = computeKzgProof(dataWithZeros, ourBlob.challengeZ.toBuffer());
-    expect(res[0]).toEqual(ourBlob.proof);
-    expect(res[1]).toEqual(ourBlob.evaluationY);
+    const { y, proof } = ourBlob.evaluate();
+    expect(res[0]).toEqual(proof);
+    expect(res[1]).toEqual(y);
 
-    const isValid = verifyKzgProof(
-      ourBlob.commitment,
-      ourBlob.challengeZ.toBuffer(),
-      ourBlob.evaluationY,
-      ourBlob.proof,
-    );
+    const isValid = verifyKzgProof(ourBlob.commitment, ourBlob.challengeZ.toBuffer(), y, proof);
     expect(isValid).toBe(true);
   });
 
@@ -124,15 +120,11 @@ describe('blob', () => {
     expect(z).toEqual(ourBlob.challengeZ);
 
     const res = computeKzgProof(ourBlob.data, ourBlob.challengeZ.toBuffer());
-    expect(res[0]).toEqual(ourBlob.proof);
-    expect(res[1]).toEqual(ourBlob.evaluationY);
+    const { y, proof } = ourBlob.evaluate();
+    expect(res[0]).toEqual(proof);
+    expect(res[1]).toEqual(y);
 
-    const isValid = verifyKzgProof(
-      ourBlob.commitment,
-      ourBlob.challengeZ.toBuffer(),
-      ourBlob.evaluationY,
-      ourBlob.proof,
-    );
+    const isValid = verifyKzgProof(ourBlob.commitment, ourBlob.challengeZ.toBuffer(), y, proof);
     expect(isValid).toBe(true);
   });
 
