@@ -2244,7 +2244,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     };
     field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
-    bb::non_native_field_witnesses<bb::fr> witnesses{
+    bb::non_native_multiplication_witnesses<bb::fr> witnesses{
         {
             left.binary_basis_limbs[0].element.get_normalized_witness_index(),
             left.binary_basis_limbs[1].element.get_normalized_witness_index(),
@@ -2576,7 +2576,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     };
     field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
-    bb::non_native_field_witnesses<bb::fr> witnesses{
+    bb::non_native_multiplication_witnesses<bb::fr> witnesses{
         {
             left[0].binary_basis_limbs[0].element.get_normalized_witness_index(),
             left[0].binary_basis_limbs[1].element.get_normalized_witness_index(),

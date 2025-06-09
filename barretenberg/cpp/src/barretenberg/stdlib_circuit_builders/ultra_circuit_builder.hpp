@@ -21,7 +21,7 @@
 
 namespace bb {
 
-template <typename FF> struct non_native_field_witnesses {
+template <typename FF> struct non_native_multiplication_witnesses {
     // first 4 array elements = limbs
     std::array<uint32_t, 4> a;
     std::array<uint32_t, 4> b;
@@ -823,7 +823,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                                    const size_t hi_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     std::array<uint32_t, 2> decompose_non_native_field_double_width_limb(
         const uint32_t limb_idx, const size_t num_limb_bits = (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
-    std::array<uint32_t, 2> evaluate_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
+    std::array<uint32_t, 2> evaluate_non_native_field_multiplication(
+        const non_native_multiplication_witnesses<FF>& input);
     std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(
         const non_native_partial_multiplication_witnesses<FF>& input);
     using scaled_witness = std::pair<uint32_t, FF>;

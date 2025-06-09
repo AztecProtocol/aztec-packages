@@ -1681,7 +1681,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_nati
  **/
 template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_multiplication(
-    const non_native_field_witnesses<FF>& input)
+    const non_native_multiplication_witnesses<FF>& input)
 {
 
     std::array<fr, 4> a{
