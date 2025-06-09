@@ -107,7 +107,6 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
 
     info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder->num_gates);
-    std::cout << "A" << std::endl;
     EXPECT_EQ(tube_builder->failed(), false) << tube_builder->err();
 
     // EXPECT_TRUE(CircuitChecker::check(*tube_builder));
@@ -117,16 +116,12 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     UltraProver_<NativeFlavor> tube_prover{ proving_key };
     // Prove the CIVCRecursiveVerifier circuit
     auto native_tube_proof = tube_prover.construct_proof();
-    std::cout << "B" << std::endl;
 
     // Natively verify the tube proof
     auto native_vk_with_ipa = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
-    std::cout << "BA" << std::endl;
     auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-    std::cout << "BA" << std::endl;
     UltraVerifier_<NativeFlavor> native_verifier(native_vk_with_ipa, ipa_verification_key);
     EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->proving_key.ipa_proof));
-    std::cout << "C" << std::endl;
 
     // Construct a base rollup circuit that recursively verifies the tube proof and forwards the IPA proof.
     Builder base_builder;
@@ -141,12 +136,10 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     base_builder.ipa_proof = tube_prover.proving_key->proving_key.ipa_proof;
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();
     EXPECT_TRUE(CircuitChecker::check(base_builder));
-    std::cout << "D" << std::endl;
 
     // Natively verify the IPA proof for the base rollup circuit
     auto base_proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(base_builder);
     auto ipa_transcript = std::make_shared<NativeTranscript>(base_proving_key->proving_key.ipa_proof);
-    std::cout << "E" << std::endl;
     IPA<curve::Grumpkin>::reduce_verify(
         ipa_verification_key, output.ipa_claim.get_native_opening_claim(), ipa_transcript);
 }

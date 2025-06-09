@@ -17,7 +17,7 @@
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
-#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication_new.hpp"
+#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -82,110 +82,17 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
+        // Note: this fn used to expand polynomials to the dyadic size,
+        // due to a quirk in how our pippenger algo used to function.
+        // The pippenger algo has been refactored and this is no longer an issue
         PROFILE_THIS_NAME("commit");
-        // We must have a power-of-2 SRS points *after* subtracting by start_index.
-        size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
-        BB_ASSERT_LTE(dyadic_poly_size, dyadic_size, "Polynomial size exceeds commitment key size.");
-        // Because pippenger prefers a power-of-2 size, we must choose a starting index for the points so that we don't
-        // exceed the dyadic_circuit_size. The actual start index of the points will be the smallest it can be so that
-        // the window of points is a power of 2 and still contains the scalars. The best we can do is pick a start index
-        // that ends at the end of the polynomial, which would be polynomial.end_index() - dyadic_poly_size. However,
-        // our polynomial might defined too close to 0, so we set the start_index to 0 in that case.
-        size_t actual_start_index =
-            polynomial.end_index() > dyadic_poly_size ? polynomial.end_index() - dyadic_poly_size : 0;
-        // The relative start index is the offset of the scalars from the start of the points window, i.e.
-        // [actual_start_index, actual_start_index + dyadic_poly_size), so we subtract actual_start_index from the start
-        // index.
-        size_t relative_start_index = polynomial.start_index - actual_start_index;
-        const size_t consumed_srs = actual_start_index + dyadic_poly_size;
-        auto srs = srs::get_crs_factory<Curve>()->get_crs(consumed_srs);
-        // We only need the
-        if (consumed_srs > srs->get_monomial_size()) {
-            throw_or_abort(format("Attempting to commit to a polynomial that needs ",
-                                  consumed_srs,
-                                  " points with an SRS of size ",
-                                  srs->get_monomial_size()));
-        }
-
-        // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
-        // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
-        // with our polynomial span.
-
-        std::span<G1> point_table = srs->get_monomial_points().subspan(actual_start_index);
+        std::span<const G1> point_table = srs->get_monomial_points();
         DEBUG_LOG_ALL(polynomial.span);
-        Commitment point =
-            scalar_multiplication::MSM<Curve>::msm(point_table, { relative_start_index, polynomial.span });
+        G1 r = scalar_multiplication::pippenger_unsafe<Curve>(polynomial, point_table);
+        Commitment point(r);
         DEBUG_LOG(point);
         return point;
     };
-
-    /**
-     * @brief Efficiently commit to a sparse polynomial
-     * @details Iterate through the {point, scalar} pairs that define the inputs to the commitment MSM, maintain (copy)
-     * only those for which the scalar is nonzero, then perform the MSM on the reduced inputs.
-     * @warning Method makes a copy of all {point, scalar} pairs that comprise the reduced input. Will not be efficient
-     * in terms of memory or computation for polynomials beyond a certain sparseness threshold.
-     *
-     * @param polynomial
-     * @return Commitment
-     */
-    Commitment commit_sparse(PolynomialSpan<const Fr> polynomial)
-    {
-        PROFILE_THIS_NAME("commit");
-        const size_t poly_size = polynomial.size();
-        BB_ASSERT_LTE(polynomial.end_index(),
-                      srs->get_monomial_size(),
-                      "Attempting to commit to a polynomial that needs more points than the SRS size.");
-
-        // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
-        // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
-        // with our polynomial span.
-        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index);
-
-        // Define structures needed to multithread the extraction of non-zero inputs
-        const size_t num_threads = calculate_num_threads(poly_size);
-        const size_t block_size = (poly_size + num_threads - 1) / num_threads; // round up
-        std::vector<std::vector<Fr>> thread_scalars(num_threads);
-        std::vector<std::vector<G1>> thread_points(num_threads);
-
-        // Loop over all polynomial coefficients and keep {point, scalar} pairs for which scalar != 0
-        parallel_for(num_threads, [&](size_t thread_idx) {
-            const size_t start = thread_idx * block_size;
-            const size_t end = std::min(poly_size, (thread_idx + 1) * block_size);
-
-            for (size_t idx = start; idx < end; ++idx) {
-
-                const Fr& scalar = polynomial.span[idx];
-
-                if (!scalar.is_zero()) {
-                    thread_scalars[thread_idx].emplace_back(scalar);
-                    // Save both the raw srs point and the precomputed endomorphism point from the point table
-                    BB_ASSERT_LT(idx + 1, point_table.size());
-                    const G1& point = point_table[idx];
-                    thread_points[thread_idx].emplace_back(point);
-                }
-            }
-        });
-
-        // Compute total number of non-trivial input pairs
-        size_t num_nonzero_scalars = 0;
-        for (auto& scalars : thread_scalars) {
-            num_nonzero_scalars += scalars.size();
-        }
-
-        // Reconstruct the full input to the pippenger from the individual threads
-        std::vector<Fr> scalars;
-        std::vector<G1> points;
-        scalars.reserve(num_nonzero_scalars);
-        points.reserve(num_nonzero_scalars); //  2x accounts for endomorphism points
-        for (size_t idx = 0; idx < num_threads; ++idx) {
-            scalars.insert(scalars.end(), thread_scalars[idx].begin(), thread_scalars[idx].end());
-            points.insert(points.end(), thread_points[idx].begin(), thread_points[idx].end());
-        }
-
-        // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::MSM<Curve>::msm(points, { 0, scalars });
-    }
 
     /**
      * @brief Efficiently commit to a polynomial whose nonzero elements are arranged in discrete blocks
@@ -247,7 +154,8 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::MSM<Curve>::msm(points, { 0, scalars });
+        G1 r = scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points);
+        return Commitment(r);
     }
 
     /**

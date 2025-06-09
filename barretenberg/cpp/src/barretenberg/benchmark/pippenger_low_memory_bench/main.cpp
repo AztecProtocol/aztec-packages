@@ -1,7 +1,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
-#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication_new.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 
 #include "barretenberg/srs/global_crs.hpp"
@@ -58,7 +57,6 @@ const auto init = []() {
             scalars[j].emplace_back(accumulator);
         }
     }
-    std::cout << "init?" << std::endl;
     return 1;
 };
 // constexpr double add_to_mixed_add_complexity = 1.36;
@@ -77,7 +75,7 @@ int pippenger()
     std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 
     std::vector<g1::affine_element> result =
-        scalar_multiplication::MSM<curve::BN254, false, 1>::batch_multi_scalar_mul(batch_points, batch_scalars);
+        scalar_multiplication::MSM<curve::BN254>::batch_multi_scalar_mul(batch_points, batch_scalars);
     std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
     std::chrono::microseconds diff = std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_start);
     std::cout << "run time: " << diff.count() << "us" << std::endl;

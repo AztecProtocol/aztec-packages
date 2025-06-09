@@ -143,8 +143,10 @@ size_t process_buckets_count_zero_entries(uint64_t* wnaf_entries,
     // inside radix_sort_count_zero_entries, if the least significant *byte* of `wnaf_entries[0] == 0`,
     // then num_nonzero_entries = number of entries that share the same value as wnaf_entries[0].
     // If wnaf_entries[0] != 0, we must manually set num_zero_entries = 0
-    if ((wnaf_entries[0] & 0xffffffff) != 0) {
-        num_zero_entries = 0;
+    if (num_entries > 0) {
+        if ((wnaf_entries[0] & 0xffffffff) != 0) {
+            num_zero_entries = 0;
+        }
     }
     return num_zero_entries;
 }
