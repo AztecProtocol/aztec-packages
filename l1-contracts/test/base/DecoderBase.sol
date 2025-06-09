@@ -78,7 +78,8 @@ contract DecoderBase is TestBase {
 
   struct AlphabeticalData {
     bytes32 archive;
-    bytes blobInputs;
+    bytes batchedBlobInputs;
+    bytes blobCommitments;
     uint256 blockNumber;
     bytes body;
     AlphabeticalHeader header;
@@ -104,7 +105,8 @@ contract DecoderBase is TestBase {
     Full memory result = Full({
       block: Data({
         archive: full.block.archive,
-        blobInputs: full.block.blobInputs,
+        blobCommitments: full.block.blobCommitments,
+        batchedBlobInputs: full.block.batchedBlobInputs,
         blockNumber: full.block.blockNumber,
         body: full.block.body,
         header: ProposedHeader({

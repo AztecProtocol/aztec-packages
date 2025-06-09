@@ -334,8 +334,7 @@ pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENG
     + 8 /* timestamp */
     + 20 /* coinbase */
     + 16 /* gas_fees.fee_per_da_gas */
-    + 16 /* gas_fees.fee_per_l2_gas */
-;
+    + 16 /* gas_fees.fee_per_l2_gas */;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 4
     + MAX_BLOCK_NUMBER_LENGTH
