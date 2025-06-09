@@ -10,16 +10,8 @@
 
 using namespace bb;
 
-// using Curve = curve::BN254;
-// using Element = Curve::Element;
-// using ScalarField = Curve::ScalarField;
-// using AffineElement = Curve::AffineElement;
-
-// using ScalarSpan = std::span<ScalarField>;
-
 namespace {
 auto& engine = numeric::get_debug_randomness();
-// auto& random_engine = numeric::get_randomness();
 } // namespace
 
 template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
@@ -318,7 +310,7 @@ TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
         }
 
         std::vector<uint32_t> indices;
-        scalar_multiplication::transform_scalar_and_get_nonzero_scalar_indices<ScalarField>(scalars, indices);
+        scalar_multiplication::MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(scalars, indices);
 
         Element previous_round_output;
         previous_round_output.self_set_infinity();
@@ -399,7 +391,7 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulSparse)
     SCALAR_MULTIPLICATION_TYPE_ALIASES
     using AffineElement = typename Curve::AffineElement;
 
-    const size_t num_msms = 10; // static_cast<size_t>(engine.get_random_uint8());
+    const size_t num_msms = 10;
     std::vector<AffineElement> expected(num_msms);
 
     std::vector<std::vector<ScalarField>> batch_scalars(num_msms);
@@ -408,9 +400,7 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulSparse)
     std::vector<std::span<ScalarField>> batch_scalars_spans;
 
     for (size_t k = 0; k < num_msms; ++k) {
-        const size_t num_points = 33; // static_cast<size_t>(engine.get_random_uint16()) % 1000;
-        // size_t zero_offset = 13;
-        // size_t num_nonzero = 10;
+        const size_t num_points = 33;
         auto& scalars = batch_scalars[k];
 
         scalars.resize(num_points);
@@ -419,13 +409,13 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulSparse)
 
         std::span<AffineElement> batch_points(&TestFixture::generators[fixture_offset], num_points);
         for (size_t i = 0; i < 13; ++i) {
-            scalars[i] = 0; // fr::random_element(&engine);
+            scalars[i] = 0;
         }
         for (size_t i = 13; i < 23; ++i) {
             scalars[i] = TestFixture::scalars[fixture_offset + i + 13];
         }
         for (size_t i = 23; i < num_points; ++i) {
-            scalars[i] = 0; // fr::random_element(&engine);
+            scalars[i] = 0;
         }
         batch_points_span.push_back(batch_points);
         batch_scalars_spans.push_back(batch_scalars[k]);
@@ -444,10 +434,8 @@ TYPED_TEST(ScalarMultiplicationTest, MSM)
     SCALAR_MULTIPLICATION_TYPE_ALIASES
     using AffineElement = typename Curve::AffineElement;
 
-    const size_t start_index = 0;
+    const size_t start_index = 1234;
     const size_t num_points = TestFixture::num_points - start_index;
-
-    // span is size 101123 but entries from 0 to 1023 are all zero
 
     PolynomialSpan<ScalarField> scalar_span =
         PolynomialSpan<ScalarField>(start_index, std::span<ScalarField>(&TestFixture::scalars[0], num_points));
@@ -490,143 +478,3 @@ TYPED_TEST(ScalarMultiplicationTest, MSMEmptyPolynomial)
 
     EXPECT_EQ(result, Curve::Group::affine_point_at_infinity);
 }
-
-// std::filesystem::path get_crs_path_base()
-// {
-//     char* crs_path = std::getenv("CRS_PATH");
-//     if (crs_path != nullptr) {
-//         return std::filesystem::path(crs_path);
-//     }
-//     // Detect home directory for default CRS path
-//     char* home = std::getenv("HOME");
-//     std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
-//     return base / .bb
-// }
-
-// TEST(ScalarMultiplication, Write)
-// {
-//     size_t num_points = 1000;
-//     std::vector<fr> scalars(num_points);
-//     std::vector<AffineElement> points(num_points);
-
-//     std::filesystem::path bb_crs_path = get_bb_crs_path();
-//     for (size_t i = 0; i < num_points; ++i) {
-//         const g1::affine_element point = g1::one * fr::random_element(&engine);
-//         points[i] = (point);
-//         scalars[i] = fr::random_element(&engine);
-//     }
-
-//     write_file(bb_crs_path / "testpoints.dat", to_buffer(points));
-//     write_file(bb_crs_path / "testscalars.dat", to_buffer(scalars));
-
-//     auto point_data = read_file(bb_crs_path / "testpoints.dat", num_points * sizeof(g1::affine_element));
-//     auto read_points = std::vector<g1::affine_element>(num_points);
-//     for (size_t i = 0; i < num_points; ++i) {
-//         read_points[i] = from_buffer<g1::affine_element>(point_data, i * sizeof(g1::affine_element));
-//     }
-//     auto scalar_data = read_file(bb_crs_path / "testscalars.dat", num_points * sizeof(fr));
-//     auto read_scalars = std::vector<fr>(num_points);
-//     for (size_t i = 0; i < num_points; ++i) {
-//         read_scalars[i] = from_buffer<fr>(scalar_data, i * sizeof(fr));
-//     }
-
-//     for (size_t i = 0; i < num_points; ++i) {
-//         EXPECT_EQ(points[i], read_points[i]);
-//         EXPECT_EQ(scalars[i], read_scalars[i]);
-//     }
-// }
-
-// TEST(ScalarMultiplication, Repro)
-// {
-//     size_t poly_size = 4194303;
-//     size_t table_size = 4194305;
-//     // size_t poly_offset = 1;
-
-//     std::filesystem::path bb_crs_path = get_bb_crs_path();
-
-//     auto point_data = read_file(bb_crs_path / "testpoints.dat", table_size * sizeof(g1::affine_element));
-//     auto points = std::vector<g1::affine_element>(table_size);
-//     for (size_t i = 0; i < table_size; ++i) {
-//         points[i] = from_buffer<g1::affine_element>(point_data, i * sizeof(g1::affine_element));
-//     }
-//     auto scalar_data = read_file(bb_crs_path / "testscalars.dat", poly_size * sizeof(fr));
-//     auto scalars = std::vector<fr>(poly_size);
-//     for (size_t i = 0; i < poly_size; ++i) {
-//         scalars[i] = from_buffer<fr>(scalar_data, i * sizeof(fr));
-//     }
-//     scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state(
-//         numeric::round_up_power_2(table_size + 1));
-
-//     size_t start_index = 1;
-//     PolynomialSpan<fr> polynomial(start_index, std::span<fr>(scalars));
-
-//     std::span<const g1::affine_element> point_table(points);
-
-//     std::span<const g1::affine_element> mod_points(point_table.begin() + 0, point_table.end());
-//     PolynomialSpan<fr> mod_scalars(start_index, std::span<fr>(scalars.begin() + 0, scalars.end()));
-
-//     g1::affine_element result = scalar_multiplication::MSM<Curve>::msm(mod_points, { start_index,
-//     mod_scalars.span
-//     });
-
-//     // Call the version of pippenger which assumes all points are distinct
-//     g1::affine_element expected = scalar_multiplication::pippenger_without_endomorphism_basis_points(
-//         { start_index, mod_scalars.span }, mod_points, pippenger_runtime_state);
-
-//     //           expected  : { 0x136f18dc6fe02473d89dc4b29ab17be75f2594d768addaa6f33757250af3e7fb,
-//     //           0x2e624821ad5a7618034644d35f9829f603fe9ba3ad08d0f69d8acf40ee24f58a }
-//     //   result: { 0x124b7994d9beaba3826b62915f87bf2a71630a2cf7d4a19cb46f1ca31ec189de,
-//     //   0x124e296946c4f53ce224dcaadf07f0539a49b94c34433973a31169d1003fd609 }
-//     EXPECT_EQ(result, expected);
-// }
-
-/*
-   const size_t num_points = 1;
-    std::vector<fr> scalars(num_points);
-    std::vector<AffineElement> input_points(num_points);
-
-    for (size_t i = 0; i < num_points; ++i) {
-        const g1::affine_element point = g1::one * fr::random_element(&engine);
-        input_points[i] = (point);
-        scalars[i] = fr::random_element(&engine);
-    }
-
-    const size_t num_rounds = (254 + 11) / 12;
-    fr foo = scalars[0].from_montgomery_form();
-    std::vector<Element> test(num_rounds);
-    for (size_t i = 0; i < num_rounds; ++i) {
-        uint64_t slice = scalar_multiplication::MSM<Curve, true, 1>::get_scalar_slice(foo, i, 12);
-        test[i] = input_points[0] * slice;
-        std::cout << "slice value = " << slice << std::endl;
-        std::cout << "EXPECTED ROUND OUTPUT[" << i << "] = " << AffineElement(test[i]) << std::endl;
-    }
-
-    Element acc;
-    acc.self_set_infinity();
-    for (size_t i = 0; i < num_rounds; ++i) {
-        const size_t num_doublings = (i == num_rounds - 1) ? 254 % 12 : 12;
-        for (size_t j = 0; j < num_doublings; ++j) {
-            acc.self_dbl();
-        }
-        acc += test[i];
-    }
-    AffineElement expected2(acc);
-    AffineElement result = scalar_multiplication::MSM<Curve, true, 1>::pippenger_low_memory(scalars, input_points);
-
-    Element expected;
-    expected.self_set_infinity();
-    for (size_t i = 0; i < num_points; ++i) {
-        expected += (input_points[i] * scalars[i]);
-    }
-    std::cout << "RECOVERED COMP: " << expected2 << " : " << AffineElement(expected) << std::endl;
-    EXPECT_EQ(expected2, AffineElement(expected));
-    //      for (size_t i = 0; i < num_rounds; ++i) {
-    //     round_schedule[i] = get_scalar_slice(scalars[i], round_index, bits_per_slice);
-    //     std::cout << "slice = " << round_schedule[i] << std::endl;
-    //     round_schedule[i] += (static_cast<uint64_t>(i) << 32);
-    // }
-
-    EXPECT_EQ(result, AffineElement(expected));
-}
-
-*/

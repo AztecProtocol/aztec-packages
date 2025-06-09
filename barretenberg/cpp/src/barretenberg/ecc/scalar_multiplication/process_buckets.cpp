@@ -30,6 +30,7 @@ void radix_sort_count_zero_entries(uint64_t* keys,
     std::array<uint32_t, num_buckets + 1> offsets;
     std::array<uint32_t, num_buckets + 1> offsets_copy;
     offsets[0] = 0;
+
     for (size_t i = 0; i < num_buckets - 1; ++i) {
         bucket_counts[i + 1] += bucket_counts[i];
     }

@@ -2,102 +2,15 @@
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 
-#include "./runtime_states.hpp"
-#include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-#include <memory>
-#include <ostream>
 
 #include "./process_buckets.hpp"
-#include "./runtime_states.hpp"
 #include "./scalar_multiplication.hpp"
 
 #include "./bitvector.hpp"
-#include "barretenberg/common/mem.hpp"
-#include "barretenberg/common/op_count.hpp"
-#include "barretenberg/common/thread.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/ecc/groups/wnaf.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
 namespace bb::scalar_multiplication {
-
-template <typename FF>
-void transform_scalar_and_get_nonzero_scalar_indices(std::span<FF> scalars, std::vector<uint32_t>& consolidated_indices)
-{
-    const size_t num_cpus = get_num_cpus();
-
-    const size_t scalars_per_thread = (scalars.size() + num_cpus - 1) / num_cpus;
-    std::vector<std::vector<uint32_t>> thread_indices(num_cpus);
-    parallel_for(num_cpus, [&](size_t thread_idx) {
-        //  for (size_t thread_idx = 0; thread_idx < num_cpus; ++thread_idx) {
-        bool empty_thread = (thread_idx * scalars_per_thread >= scalars.size());
-        bool last_thread = ((thread_idx + 1) * scalars_per_thread) >= scalars.size();
-        const size_t start = thread_idx * scalars_per_thread;
-        const size_t end = last_thread ? scalars.size() : (thread_idx + 1) * scalars_per_thread;
-        if (!empty_thread) {
-            ASSERT(end > start);
-            std::vector<uint32_t>& thread_scalar_indices = thread_indices[thread_idx];
-            thread_scalar_indices.reserve(end - start);
-            for (size_t i = start; i < end; ++i) {
-                BB_ASSERT_LT(i, scalars.size());
-                auto& scalar = scalars[i];
-                bool is_zero = scalar.is_zero();
-                scalar.self_from_montgomery_form();
-
-                // bool is_zero =
-                //     (scalar.data[0] == 0) && (scalar.data[1] == 0) && (scalar.data[2] == 0) && (scalar.data[3] == 0);
-                if (!is_zero) {
-                    thread_scalar_indices.push_back(static_cast<uint32_t>(i));
-                }
-            }
-        }
-    });
-    //  }
-
-    size_t num_entries = 0;
-    for (size_t i = 0; i < num_cpus; ++i) {
-        BB_ASSERT_LT(i, thread_indices.size());
-        num_entries += thread_indices[i].size();
-    }
-    consolidated_indices.resize(num_entries);
-
-    parallel_for(num_cpus, [&](size_t thread_idx) {
-        //   for (size_t thread_idx = 0; thread_idx < num_cpus; ++thread_idx) {
-        size_t offset = 0;
-        for (size_t i = 0; i < thread_idx; ++i) {
-            BB_ASSERT_LT(i, thread_indices.size());
-            offset += thread_indices[i].size();
-        }
-        for (size_t i = offset; i < offset + thread_indices[thread_idx].size(); ++i) {
-            BB_ASSERT_LT(i, scalars.size());
-            consolidated_indices[i] = thread_indices[thread_idx][i - offset];
-        }
-        //   std::copy(thread_indices[thread_idx].begin(), thread_indices[thread_idx].end(),
-        //   &consolidated_indices[offset]);
-    });
-}
-
-/**
- * @brief MSMWorkUnit describes an MSM that may be part of a larger MSM
- * @details For a multi-MSM where each MSM has a variable size, we want to split the MSMs up
- *          such that every available thread has an equal amount of MSM work to perform.
- *          The actual MSM algorithm used is single-threaded. This is beneficial because we get better scaling.
- *
- */
-struct MSMWorkUnitB {
-    size_t batch_msm_index = 0;
-    size_t start_index = 0;
-    size_t size = 0;
-};
-using ThreadWorkUnits = std::vector<MSMWorkUnitB>;
 
 template <typename Curve> class MSM {
   public:
@@ -109,10 +22,19 @@ template <typename Curve> class MSM {
     using G1 = AffineElement;
     static constexpr size_t NUM_BITS_IN_FIELD = ScalarField::modulus.get_msb() + 1;
 
-    static std::vector<ThreadWorkUnits> get_work_units(std::vector<std::span<ScalarField>>& scalars,
-                                                       std::vector<std::vector<uint32_t>>& msm_scalar_indices);
-    static uint32_t get_scalar_slice(const ScalarField& scalar, size_t round, size_t normal_slice_size);
-    static constexpr size_t get_log_num_buckets(const size_t num_points);
+    /**
+     * @brief MSMWorkUnit describes an MSM that may be part of a larger MSM
+     * @details For a multi-MSM where each MSM has a variable size, we want to split the MSMs up
+     *          such that every available thread has an equal amount of MSM work to perform.
+     *          The actual MSM algorithm used is single-threaded. This is beneficial because we get better scaling.
+     *
+     */
+    struct MSMWorkUnit {
+        size_t batch_msm_index = 0;
+        size_t start_index = 0;
+        size_t size = 0;
+    };
+    using ThreadWorkUnits = std::vector<MSMWorkUnit>;
 
     struct MSMData {
         std::span<const ScalarField> scalars;
@@ -141,7 +63,7 @@ template <typename Curve> class MSM {
         {}
     };
     struct AffineAdditionData {
-        static constexpr size_t BATCH_SIZE = 10000;
+        static constexpr size_t BATCH_SIZE = 2048;
         std::vector<AffineElement> points_to_add;
         std::vector<BaseField> scalar_scratch_space;
         std::vector<uint64_t> addition_result_bucket_destinations;
@@ -152,7 +74,13 @@ template <typename Curve> class MSM {
             , addition_result_bucket_destinations((BATCH_SIZE / 2) + 1)
         {}
     };
+    static void transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
+                                                                std::vector<uint32_t>& consolidated_indices);
 
+    static std::vector<ThreadWorkUnits> get_work_units(std::vector<std::span<ScalarField>>& scalars,
+                                                       std::vector<std::vector<uint32_t>>& msm_scalar_indices);
+    static uint32_t get_scalar_slice(const ScalarField& scalar, size_t round, size_t normal_slice_size);
+    static constexpr size_t get_optimal_log_num_buckets(const size_t num_points);
     static bool use_affine_trick(const size_t num_points, const size_t num_buckets);
 
     static AffineElement small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data);
@@ -170,12 +98,20 @@ template <typename Curve> class MSM {
                                             Element previous_round_output,
                                             const size_t bits_per_slice);
 
-    static void consume_point_batch(std::span<const uint64_t> point_schedule,
-                                    std::span<const AffineElement> points,
-                                    AffineAdditionData& affine_data,
-                                    BucketAccumulators& bucket_data,
-                                    size_t num_input_points_processed,
-                                    size_t num_queued_affine_points);
+    static void consume_point_schedule(std::span<const uint64_t> point_schedule,
+                                       std::span<const AffineElement> points,
+                                       AffineAdditionData& affine_data,
+                                       BucketAccumulators& bucket_data,
+                                       size_t num_input_points_processed,
+                                       size_t num_queued_affine_points);
+
+    static std::vector<AffineElement> batch_multi_scalar_mul(std::vector<std::span<const AffineElement>>& points,
+                                                             std::vector<std::span<ScalarField>>& scalars,
+                                                             bool handle_edge_cases = true);
+    static AffineElement msm(std::span<const AffineElement> points,
+                             PolynomialSpan<const ScalarField> _scalars,
+                             bool handle_edge_cases = true);
+
     template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators)
     {
         auto& buckets = bucket_accumulators.buckets;
@@ -217,10 +153,6 @@ template <typename Curve> class MSM {
         }
         return sum - offset_generator;
     }
-
-    static std::vector<AffineElement> batch_multi_scalar_mul(std::vector<std::span<const AffineElement>>& points,
-                                                             std::vector<std::span<ScalarField>>& scalars);
-    static AffineElement msm(std::span<const AffineElement> points, PolynomialSpan<const ScalarField> _scalars);
 };
 
 template <typename Curve>

@@ -12,7 +12,6 @@
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
