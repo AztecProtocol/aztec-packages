@@ -327,7 +327,9 @@ export class Sequencer {
       return;
     }
 
-    this.log.debug(`Can propose block ${newBlockNumber} at slot ${slot}`);
+    this.log.debug(
+      `${proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} ` : ''}Can propose block ${newBlockNumber} at slot ${slot}`,
+    );
 
     const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
       new Fr(newBlockNumber),
@@ -497,7 +499,7 @@ export class Sequencer {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     proposalHeader: ProposedBlockHeader,
     newGlobalVariables: GlobalVariables,
-    proposerAddress: EthAddress,
+    proposerAddress: EthAddress | undefined,
   ): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
@@ -576,7 +578,7 @@ export class Sequencer {
   protected async collectAttestations(
     block: L2Block,
     txs: Tx[],
-    proposerAddress: EthAddress,
+    proposerAddress: EthAddress | undefined,
   ): Promise<CommitteeAttestation[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
