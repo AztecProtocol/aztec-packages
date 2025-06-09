@@ -248,6 +248,10 @@ tests:
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
+  - regex: "ethereum/src/eth_cheat_codes.test.ts"
+    error_regex: "Nonce too high"
+    owners:
+      - *palla
 
   # kind tests
   - regex: "spartan/bootstrap.sh"
