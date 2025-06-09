@@ -337,12 +337,6 @@ export class EthCheatCodes {
     newBlocks: (Hex | { to: EthAddress | Hex; input?: Hex; from?: EthAddress | Hex; value?: number | bigint })[][] = [],
   ): Promise<void> {
     this.logger.verbose(`Preparing L1 reorg with depth ${depth}`);
-    for (const tx of newBlocks.flat()) {
-      const isBlobTx = typeof tx === 'string' ? parseTransaction(tx).type === 'eip4844' : 'blobVersionedHashes' in tx;
-      if (isBlobTx) {
-        throw new Error(`Anvil does not support blob transactions in anvil_reorg`);
-      }
-    }
     try {
       await this.rpcCall('anvil_reorg', [
         depth,
