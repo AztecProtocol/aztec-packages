@@ -8,17 +8,19 @@ spec:
   serviceAccountName: {{ include "chart.serviceAccountName" . }}
   {{- end }}
 
+  {{- if .Values.hostNetwork }}
   dnsPolicy: ClusterFirstWithHostNet
-  hostNetwork: {{ .Values.hostNetwork }}
+  hostNetwork: true
+  {{- end }}
 
   {{- if .Values.podAffinity }}
   affinity:
-    {{- toYaml .Values.podAffinity | nindent 4 }}
+    {{- toYaml .Values.affinity | nindent 4 }}
   {{- end }}
 
-  {{- if .Values.podTolerations }}
+  {{- if .Values.tolerations }}
   tolerations:
-    {{- toYaml .Values.podTolerations | nindent 4 }}
+    {{- toYaml .Values.tolerations | nindent 4 }}
   {{- end }}
 
   initContainers:
@@ -104,18 +106,26 @@ spec:
       volumeMounts:
         - name: shared
           mountPath: /shared
+        {{- if .Values.node.configMap.scriptsEnabled }}
+        - name: scripts
+          mountPath: /scripts/
+        {{- end }}
+        {{- if .Values.node.secret.filesEnabled }}
+        - name: secrets
+          mountPath: /secrets/
+        {{- end }}
         {{- if .Values.persistence.enabled }}
         - name: data
           mountPath: {{ .Values.node.storage.dataDirectory }}
         {{- end }}
       envFrom:
-        {{- if .Values.node.configMapEnabled }}
+        {{- if .Values.node.configMap.envEnabled }}
         - configMapRef:
-            name: {{ include "chart.fullname" . }}
+            name: {{ include "chart.fullname" . }}-env
         {{- end }}
-        {{- if .Values.node.secretEnabled }}
+        {{- if .Values.node.secret.envEnabled }}
         - secretRef:
-            name: {{ include "chart.fullname" . }}
+            name: {{ include "chart.fullname" . }}-env
         {{- end }}
       env:
         - name: POD_IP
@@ -222,6 +232,16 @@ spec:
   volumes:
     - name: shared
       emptyDir: {}
+    {{- if .Values.node.configMap.scriptsEnabled }}
+    - name: scripts
+      configMap:
+        name: {{ include "chart.fullname" . }}-scripts
+    {{- end }}
+    {{- if .Values.node.secret.filesEnabled }}
+    - name: config
+      secret:
+        secretName: name: {{ include "chart.fullname" . }}-files
+    {{- end }}
     {{- if .Values.persistence.enabled }}
     {{- if .Values.persistence.existingClaim }}
     - name: data

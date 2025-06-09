@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-node
+  name: {{ .Release.Name }}-node-env
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 data:
@@ -10,7 +10,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-agent
+  name: {{ .Release.Name }}-agent-env
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 data:

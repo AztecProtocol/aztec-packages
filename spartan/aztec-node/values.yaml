@@ -60,8 +60,8 @@ statefulSet:
   #         requests:
   #           storage: 10Gi
 
-podAffinity: null
-podTolerations: []
+affinity: null
+tolerations: []
 
 # -- Aztec node configuration
 node:
@@ -76,8 +76,17 @@ node:
 
   env: {}
 
-  configMapEnabled: false
-  secretEnabled: false
+  envFrom:
+    configMapEnabled: false
+    secretEnabled: false
+
+  configMap:
+    envEnabled: false
+    scriptsEnabled: false
+
+  secret:
+    envEnabled: false
+    filesEnabled: false
 
   # the address that will receive block or proof rewards
   coinbase:

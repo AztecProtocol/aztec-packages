@@ -22,7 +22,7 @@ node:
   replicaCount: 1
 
   node:
-    preStartCmd: |
+    preStartScript: |
       if [ -n "$MNEMONIC" ]; then
         KEY_INDEX=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF}')
         KEY_INDEX_START=${KEY_INDEX_START:-0}
@@ -36,8 +36,11 @@ node:
       - --archiver
 
     hostNetwork: true
-    configMapEnabled: true
-    secretEnabled: true
+
+    configMap:
+      envEnabled: true
+    secret:
+      envEnabled: true
 
   service:
     p2p:
