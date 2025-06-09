@@ -151,7 +151,7 @@ describe('sequencer', () => {
       version,
       new Fr(newBlockNumber),
       new Fr(newSlotNumber),
-      Fr.ZERO,
+      /*timestamp=*/ 0n,
       coinbase,
       feeRecipient,
       gasFees,

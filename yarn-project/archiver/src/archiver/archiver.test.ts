@@ -67,7 +67,7 @@ describe('Archiver', () => {
   const getNumPrivateLogsForBlock = (blockNumber: number) =>
     Array(txsPerBlock)
       .fill(0)
-      .map((_, i) => getNumPrivateLogsForTx(i, blockNumber))
+      .map((_, i) => getNumPrivateLogsForTx(blockNumber, i))
       .reduce((accum, num) => accum + num, 0);
 
   const mockL1BlockNumbers = (...nums: bigint[]) => {
@@ -158,7 +158,7 @@ describe('Archiver', () => {
 
     blocks = await Promise.all(blockNumbers.map(x => L2Block.random(x, txsPerBlock, x + 1, 2)));
     blocks.forEach((block, i) => {
-      block.header.globalVariables.timestamp = new Fr(now + Number(ETHEREUM_SLOT_DURATION) * (i + 1));
+      block.header.globalVariables.timestamp = BigInt(now + Number(ETHEREUM_SLOT_DURATION) * (i + 1));
       block.body.txEffects.forEach((txEffect, i) => {
         txEffect.privateLogs = times(getNumPrivateLogsForTx(block.number, i), () => PrivateLog.random());
       });

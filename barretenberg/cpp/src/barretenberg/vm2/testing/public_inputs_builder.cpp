@@ -121,7 +121,7 @@ PublicInputsBuilder& PublicInputsBuilder::rand_global_variables()
                                       .version = FF::random_element(&engine),
                                       .blockNumber = FF::random_element(&engine),
                                       .slotNumber = FF::random_element(&engine),
-                                      .timestamp = FF::random_element(&engine),
+                                      .timestamp = static_cast<uint64_t>(std::rand()),
                                       .coinbase = EthAddress::random_element(&engine),
                                       .feeRecipient = AztecAddress::random_element(&engine),
                                       .gasFees = {
