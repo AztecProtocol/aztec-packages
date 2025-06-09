@@ -689,7 +689,8 @@ export class ReqResp {
         errorStatus = e.status;
       }
 
-      if (stream.status === 'open') {
+      const canWriteToStream = !(stream.writeStatus === 'closing' || stream.writeStatus === 'closed');
+      if (canWriteToStream) {
         const sendErrorChunk = this.sendErrorChunk(errorStatus);
         // Return and yield the response chunk
         await pipe(
@@ -703,11 +704,7 @@ export class ReqResp {
         this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
       }
     } finally {
-      //NOTE: All other status codes indicate closed stream.
-      //Either graceful close (closed/closing) or forced close (aborted/reset)
-      if (stream.status === 'open') {
-        await stream.close();
-      }
+      await stream.close();
     }
   }
 

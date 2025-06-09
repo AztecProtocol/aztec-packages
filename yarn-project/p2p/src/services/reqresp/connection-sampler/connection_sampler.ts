@@ -238,7 +238,7 @@ export class ConnectionSampler {
   async close(streamId: string): Promise<void> {
     try {
       const streamAndPeerId = this.streams.get(streamId);
-      if (!streamAndPeerId) {
+      if (!streamAndPeerId || !streamAndPeerId.stream) {
         this.logger.debug(`Stream ${streamId} not found`);
         return;
       }
@@ -255,11 +255,7 @@ export class ConnectionSampler {
         activeConnectionsCount: updatedActiveConnectionsCount,
       });
 
-      //NOTE: All other status codes indicate closed stream.
-      //Either graceful close (closed/closing) or forced close (aborted/reset)
-      if (stream.status === 'open') {
-        await stream?.close();
-      }
+      await stream!.close();
     } catch (error) {
       this.logger.error(`Failed to close connection to peer with stream id ${streamId}`, error);
     } finally {
