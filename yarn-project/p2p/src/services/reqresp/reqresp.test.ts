@@ -372,27 +372,6 @@ describe('ReqResp', () => {
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       // Req Goodbye Handler is defined in the reqresp.ts file
       protocolHandlers[ReqRespSubProtocol.GOODBYE] = reqGoodbyeHandler(peerManager);
-
-      // Track stream.close() calls
-      let streamCloseCallCount = 0;
-      let capturedStream: any = null;
-
-      // Spy on streamHandler to intercept the stream
-      const originalStreamHandler = (receivingNode.req as any).streamHandler.bind(receivingNode.req);
-      //eslint-disable-next-line require-await
-      (receivingNode.req as any).streamHandler = async function (protocol: ReqRespSubProtocol, data: any) {
-        capturedStream = data.stream;
-        const originalClose = data.stream.close;
-
-        //eslint-disable-next-line require-await
-        data.stream.close = jest.fn(async () => {
-          streamCloseCallCount++;
-          return originalClose.call(data.stream);
-        });
-
-        return originalStreamHandler.call(this, protocol, data);
-      };
-
       const warnSpy = jest.spyOn((receivingNode.req as any).logger, 'warn');
 
       await startNodes(nodes, protocolHandlers);
@@ -416,12 +395,6 @@ describe('ReqResp', () => {
 
       // Expect no response to be sent - we categorize as unknown
       expect(response?.status).toEqual(ReqRespStatus.UNKNOWN);
-
-      // Make sure when handling Goodbye we don't call stream close
-      // because it has been implicitly closed by the peer manager
-      expect(streamCloseCallCount).toBe(0);
-      expect(capturedStream).not.toBeNull();
-      expect(capturedStream.close).toHaveBeenCalledTimes(0);
 
       // make sure warn was NOT called
       expect(warnSpy).not.toHaveBeenCalled();

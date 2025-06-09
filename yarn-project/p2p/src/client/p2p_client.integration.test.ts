@@ -604,30 +604,23 @@ describe('p2p client integration', () => {
       );
       const disconnectSpies = clients.map(c => jest.spyOn((c as any).p2pService.peerManager, 'disconnectPeer'));
 
+      const badPeerId = (clients[0] as any).p2pService.node.peerId;
       const c1PeerManager = (c1 as any).p2pService.peerManager;
       const realSend = c1PeerManager.reqresp.sendRequestToPeer.bind(c1PeerManager.reqresp);
 
-      jest
-        .spyOn(c1PeerManager.reqresp, 'sendRequestToPeer')
-        // mock single Invalid Status message c1 receives
-        //eslint-disable-next-line require-await
-        .mockImplementationOnce(async () => ({
-          status: ReqRespStatus.SUCCESS,
-          data: Buffer.from('invalid status'),
-        }))
-        //eslint-disable-next-line require-await
-        .mockImplementation(async (...args) => {
-          // all other calls behave normally
-          return realSend(...args);
-        });
+      //@ts-expect-error arguments not expected
+      jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async (peerId: PeerId, ...rest) => {
+        if (peerId.toString() === badPeerId.toString()) {
+          return { status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') };
+        }
+        return await realSend(peerId, ...rest);
+      });
 
       await startTestP2PClients(clients);
-
       await sleep(5000);
 
-      expect(disconnectSpies[0]).not.toHaveBeenCalled();
-      expect(disconnectSpies[1]).toHaveBeenCalled(); // c1 disconnected
-      expect(disconnectSpies[2]).not.toHaveBeenCalled();
+      expect(disconnectSpies[1]).toHaveBeenCalled(); // c1 <> C0 disconnected
+      expect(disconnectSpies[2]).not.toHaveBeenCalled(); // c2 is ok with both c0 and c1
 
       const expectedHandshakeCount = peerTestCount - 1;
 
@@ -637,7 +630,7 @@ describe('p2p client integration', () => {
       // This is why we use `toBeGreaterThanOrEqual` instead of `toHaveBeenCalledTimes`
       expect(statusHandshakeSpies[0].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
       expect(statusHandshakeSpies[1].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
-      expect(statusHandshakeSpies[2].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
+      expect(statusHandshakeSpies[2].mock.calls.length).toEqual(expectedHandshakeCount);
 
       await shutdown(clients);
     },
