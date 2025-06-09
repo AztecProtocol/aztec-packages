@@ -76,7 +76,6 @@ function generate_toml {
 }
 
 function regenerate_recursive_inputs {
-  echo "regenerate_recursive_inputs"
   local program=$1
   # Compile the assert_statement test as it's used for the recursive tests.
   COMPILE=2 ./scripts/run_test.sh assert_statement
