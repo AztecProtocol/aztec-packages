@@ -592,10 +592,10 @@ template <typename Builder, typename T> class bigfield {
      */
     bool is_constant() const
     {
-        ASSERT(binary_basis_limbs[0].is_constant() == binary_basis_limbs[1].is_constant() &&
-               binary_basis_limbs[1].is_constant() == binary_basis_limbs[2].is_constant() &&
-               binary_basis_limbs[2].is_constant() == binary_basis_limbs[3].is_constant() &&
-               binary_basis_limbs[3].is_constant() == prime_basis_limb.is_constant());
+        ASSERT(binary_basis_limbs[0].element.is_constant() == binary_basis_limbs[1].element.is_constant() &&
+               binary_basis_limbs[1].element.is_constant() == binary_basis_limbs[2].element.is_constant() &&
+               binary_basis_limbs[2].element.is_constant() == binary_basis_limbs[3].element.is_constant() &&
+               binary_basis_limbs[3].element.is_constant() == prime_basis_limb.is_constant());
         return prime_basis_limb.is_constant();
     }
 
