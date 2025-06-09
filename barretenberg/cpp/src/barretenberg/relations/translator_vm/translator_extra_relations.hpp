@@ -14,7 +14,7 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
     using FF = FF_;
 
     // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH = 6; // degree(op(op - 3)(op - 4)(op - 8)) = 5
+    static constexpr size_t RELATION_LENGTH = 6; // degree((lagrange_masking - 1)⋅op ⋅(op - 3)⋅(op - 4)⋅(op - 8)) = 5
     static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS{
         6 // opcode constraint relation
     };
