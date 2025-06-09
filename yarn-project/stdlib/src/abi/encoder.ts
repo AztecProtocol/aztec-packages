@@ -149,13 +149,15 @@ class ArgumentEncoder {
   }
 
   /**
-   * Encodes an array of type T as a BoundedVec (T refers to the type of the items in the BoundedVec).
-   * @dev We special case BoundedVec instead of treating it as a general struct since it is quite common and encoding
-   * it manually is a pain. For this reason we've decided to expect a simple array of type T on the input.
-   * @param abiType - The abi type of the argument.
-   * @param arg - The value to encode represented as an array of items of type T.
+   * Encodes an array as a BoundedVec struct.
+   * @dev BoundedVec is handled as a special case rather than a generic struct for two reasons:
+   * 1. It is a commonly used type
+   * 2. Manual encoding it is cumbersome
+   * Therefore, the input is simplified to accept a plain array of type T.
+   * @param abiType - The ABI type definition.
+   * @param arg - An array of items to encode.
    *
-   * Note that BoundedVec is defined as follows in Noir:
+   * The BoundedVec struct is defined in Noir as:
    *
    * ```noir
    * pub struct BoundedVec<T, let MaxLen: u32> {
@@ -163,8 +165,10 @@ class ArgumentEncoder {
    *   len: u32,
    * }
    * ```
-   * Since we need to follow Noir's intrinsic serialization, we encode the storage array first and then the length
-   * field.
+   *
+   * The encoding follows Noir's serialization format:
+   * 1. The storage array is encoded first
+   * 2. The length field is encoded second
    */
   #encodeBoundedVec(abiType: AbiType, arg: any) {
     // First we encode the storage array
@@ -175,23 +179,21 @@ class ArgumentEncoder {
 
       const storageArrayItemType = storageField.type.type;
 
-      // Now we encode each item in the arguments array
+      // Now we encode each item in the input array
       for (let i = 0; i < arg.length; i++) {
         this.encodeArgument(storageArrayItemType, arg[i], `storage[${i}]`);
       }
 
-      // Then we pad the storage array.
+      // Then we pad the storage array with zeros such that the BoundedVec max length is correct.
       const numItemsToPad = maxLength - arg.length;
       if (numItemsToPad > 0) {
         const numFieldsToPad = numItemsToPad * ArgumentEncoder.typeSize(storageArrayItemType);
-
-        for (let i = 0; i < numFieldsToPad; i++) {
-          this.flattened.push(new Fr(0n));
-        }
+        const paddingFields = new Array(numFieldsToPad).fill(Fr.ZERO);
+        this.flattened.push(...paddingFields);
       }
     }
 
-    // Then we encode the length field
+    // At last we encode the length field
     {
       const lenField = (abiType as unknown as any).fields.find((f: any) => f.name === 'len')!;
       this.encodeArgument(lenField.type, arg.length, 'len');
