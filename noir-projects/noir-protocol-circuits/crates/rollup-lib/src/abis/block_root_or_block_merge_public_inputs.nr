@@ -11,7 +11,7 @@ use dep::types::{
     traits::{Deserialize, Empty, Serialize, ToField},
     utils::reader::Reader,
 };
-use blob::blob_public_inputs::BlockBlobPublicInputs;
+use blob::blob_batching_public_inputs::BlockBlobPublicInputs;
 
 pub struct FeeRecipient {
     pub recipient: EthAddress,
@@ -52,7 +52,7 @@ pub struct BlockRootOrBlockMergePublicInputs {
     pub out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
     pub proposed_block_header_hashes: [Field; AZTEC_MAX_EPOCH_DURATION], // Hashes of proposed block headers for the block range
     pub fees: [FeeRecipient; AZTEC_MAX_EPOCH_DURATION], // Concatenation of all coinbase and fees for the block range
-    pub blob_public_inputs: [BlockBlobPublicInputs; AZTEC_MAX_EPOCH_DURATION], // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
+    pub blob_public_inputs: BlockBlobPublicInputs, // Blob accumulators at the start and end of this block range
 }
 
 impl BlockRootOrBlockMergePublicInputs {
@@ -72,7 +72,7 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             out_hash: 0,
             proposed_block_header_hashes: [0; AZTEC_MAX_EPOCH_DURATION],
             fees: [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION],
-            blob_public_inputs: [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
+            blob_public_inputs: BlockBlobPublicInputs::empty(),
         }
     }
 }
@@ -106,9 +106,7 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
         for i in 0..AZTEC_MAX_EPOCH_DURATION {
             fields.extend_from_array(self.fees[i].serialize());
         }
-        for i in 0..AZTEC_MAX_EPOCH_DURATION {
-            fields.extend_from_array(self.blob_public_inputs[i].serialize());
-        }
+        fields.extend_from_array(self.blob_public_inputs.serialize());
         assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
 
         fields.storage()
@@ -132,10 +130,7 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
                 FeeRecipient::deserialize,
                 [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION],
             ),
-            blob_public_inputs: reader.read_struct_array(
-                BlockBlobPublicInputs::deserialize,
-                [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
-            ),
+            blob_public_inputs: reader.read_struct(BlockBlobPublicInputs::deserialize),
         };
 
         reader.finish();
