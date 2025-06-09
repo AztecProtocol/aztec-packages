@@ -2498,7 +2498,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         }
 
         if (i > 0) {
-            bb::non_native_field_witnesses<bb::fr> mul_witnesses = {
+            bb::non_native_partial_multiplication_witnesses<bb::fr> mul_witnesses = {
                 {
                     left[i].binary_basis_limbs[0].element.get_normalized_witness_index(),
                     left[i].binary_basis_limbs[1].element.get_normalized_witness_index(),
