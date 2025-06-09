@@ -7,6 +7,7 @@ on:
 
 jobs:
   merge-to-next:
+    if: false # Disabled
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
