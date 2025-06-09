@@ -201,7 +201,7 @@ template <typename Builder> class field_t {
     {
         field_t result(*this);
         result.additive_constant.self_neg();
-        if (this->witness_index != IS_CONSTANT) {
+        if (!is_constant()) {
             result.multiplicative_constant.self_neg();
         }
         return result;
@@ -341,8 +341,7 @@ template <typename Builder> class field_t {
     /**
      * @brief Get the witness index of the current field element.
      *
-     * @warning Are you sure you don't want to use
-     * get_normalized_witness_index?
+     * @warning Are you sure you don't want to use get_normalized_witness_index?
      *
      * @return uint32_t
      */

@@ -42,7 +42,7 @@ template <typename Builder>
 field_t<Builder>::field_t(const bool_t<Builder>& other)
     : context(other.context)
 {
-    if (other.witness_index == IS_CONSTANT) {
+    if (other.is_constant()) {
         additive_constant = (other.witness_bool ^ other.witness_inverted) ? bb::fr::one() : bb::fr::zero();
         multiplicative_constant = bb::fr::one();
         witness_index = IS_CONSTANT;
@@ -116,23 +116,23 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be added without context
-    ASSERT(ctx || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
+    ASSERT(ctx || (is_constant() && other.is_constant()));
 
-    if (witness_index == other.witness_index && !this->is_constant()) {
+    if (witness_index == other.witness_index && !is_constant()) {
         // If summands represent the same circuit variable, i.e. their witness indices coincide, we just need to update
         // the scaling factors of this variable.
         result.additive_constant = additive_constant + other.additive_constant;
         result.multiplicative_constant = multiplicative_constant + other.multiplicative_constant;
         result.witness_index = witness_index;
-    } else if (this->is_constant() && other.is_constant()) {
+    } else if (is_constant() && other.is_constant()) {
         // both inputs are constant - don't add a gate
         result.additive_constant = additive_constant + other.additive_constant;
-    } else if (!this->is_constant() && other.is_constant()) {
+    } else if (!is_constant() && other.is_constant()) {
         // one input is constant - don't add a gate, but update scaling factors
         result.additive_constant = additive_constant + other.additive_constant;
         result.multiplicative_constant = multiplicative_constant;
         result.witness_index = witness_index;
-    } else if (this->is_constant() && !other.is_constant()) {
+    } else if (is_constant() && !other.is_constant()) {
         result.additive_constant = additive_constant + other.additive_constant;
         result.multiplicative_constant = other.multiplicative_constant;
         result.witness_index = other.witness_index;
@@ -166,7 +166,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator-(const f
 {
     field_t<Builder> rhs(other);
     rhs.additive_constant.self_neg();
-    if (rhs.witness_index != IS_CONSTANT) {
+    if (!rhs.is_constant()) {
         rhs.multiplicative_constant.self_neg();
     }
     return operator+(rhs);
